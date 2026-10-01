@@ -42,8 +42,8 @@ function AuthStory({ title, description, quote }: { title: string; description: 
 export function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [email, setEmail] = useState("user@demo.com");
-  const [password, setPassword] = useState("demo123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -67,7 +67,7 @@ export function LoginPage() {
         navigate("/user/dashboard");
       }
     } else {
-      setError("Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại thông tin hoặc bấm chọn tài khoản mẫu bên dưới.");
+      setError("Email hoặc mật khẩu không đúng.");
     }
   };
 
@@ -76,16 +76,6 @@ export function LoginPage() {
       e.preventDefault();
     }
     await performLogin(email, password);
-  };
-
-  const handleQuickDemo = async (role: "user" | "admin") => {
-    const creds =
-      role === "admin"
-        ? { email: "admin@demo.com", pass: "admin123" }
-        : { email: "user@demo.com", pass: "demo123" };
-    setEmail(creds.email);
-    setPassword(creds.pass);
-    await performLogin(creds.email, creds.pass);
   };
 
   return (
@@ -102,84 +92,6 @@ export function LoginPage() {
             <span>CHÀO MỪNG TRỞ LẠI</span>
             <h1>Đăng nhập An Hưu</h1>
             <p>Nhập email và mật khẩu để truy cập không gian tài chính của bạn.</p>
-          </div>
-
-          {/* Quick Demo Accounts Selection Box */}
-          <div
-            style={{
-              marginBottom: "20px",
-              padding: "14px",
-              borderRadius: "12px",
-              background: "#F6F1E8",
-              border: "1px solid rgba(21, 58, 82, 0.15)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "11px",
-                fontWeight: 700,
-                color: "#153A52",
-                letterSpacing: "0.5px",
-                marginBottom: "10px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span>CHỌN TÀI KHOẢN MẪU ĐỂ VÀO NHANH:</span>
-              <Badge tone="soft">Demo Sẵn Sàng</Badge>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo("user")}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(21, 58, 82, 0.2)",
-                  background: "#ffffff",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "#153A52" }}>
-                  👤 User: Nguyễn Minh An
-                </div>
-                <div style={{ fontSize: "11px", color: "#556B7A", marginTop: "2px" }}>
-                  user@demo.com
-                </div>
-                <div style={{ fontSize: "10px", color: "#6F9B7C", fontWeight: 600, marginTop: "2px" }}>
-                  Pass: demo123 (Vào User)
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickDemo("admin")}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(21, 58, 82, 0.2)",
-                  background: "#ffffff",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "#153A52" }}>
-                  🛡️ Admin: Lê Lan Anh
-                </div>
-                <div style={{ fontSize: "11px", color: "#556B7A", marginTop: "2px" }}>
-                  admin@demo.com
-                </div>
-                <div style={{ fontSize: "10px", color: "#6F9B7C", fontWeight: 600, marginTop: "2px" }}>
-                  Pass: admin123 (Vào Admin)
-                </div>
-              </button>
-            </div>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>
@@ -258,7 +170,7 @@ export function LoginPage() {
               type="button"
               className="social-button"
               onClick={async () => {
-                await handleQuickDemo("user");
+                await performLogin("user@demo.com", "demo123");
               }}
             >
               <GoogleIcon />
