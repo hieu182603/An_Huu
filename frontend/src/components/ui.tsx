@@ -1,4 +1,6 @@
 import ResponsiveDialog from "./ResponsiveDialog";
+import logoHorizontal from "../assets/logo.png";
+import logoVertical from "../assets/logo-vertical.png";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -224,7 +226,7 @@ export function Avatar({ initials, name, detail, onLogout }: { initials: string;
   );
 }
 
-export function Input({ label, helper, error, suffix, placeholder, defaultValue, value, onChange, type = "text", autoComplete, inputMode, disabled }: { label: string; helper?: string; error?: string; suffix?: string; placeholder?: string; defaultValue?: string; value?: string; onChange?: (value: string) => void; type?: "text" | "email" | "password" | "number"; autoComplete?: string; inputMode?: "numeric" | "decimal" | "text"; disabled?: boolean }) {
+export function Input({ label, helper, error, suffix, placeholder, defaultValue, value, onChange, type = "text", autoComplete, inputMode, disabled }: { label: string; helper?: string; error?: string; suffix?: string; placeholder?: string; defaultValue?: string; value?: string; onChange?: (value: string) => void; type?: "text" | "email" | "password" | "number" | "datetime-local"; autoComplete?: string; inputMode?: "numeric" | "decimal" | "text"; disabled?: boolean }) {
   const id = useId();
   const messageId = `${id}-message`;
   return <label className={`form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`} htmlFor={id}><span className="field-label">{label}</span><span className="input-wrap"><input id={id} type={type} disabled={disabled} autoComplete={autoComplete} inputMode={inputMode} placeholder={placeholder} defaultValue={value === undefined ? defaultValue : undefined} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} aria-invalid={Boolean(error)} aria-describedby={helper || error ? messageId : undefined} />{suffix && <span className="input-suffix">{suffix}</span>}</span>{(helper || error) && <small id={messageId}>{error || helper}</small>}</label>;
@@ -274,6 +276,7 @@ export function Breadcrumb({ items }: { items: string[] }) {
 }
 
 export function Pagination({ current, total }: { current: number; total: number }) {
+  if (total <= 1) return <p className="pagination-summary" aria-label="Phân trang">Trang 1/1</p>;
   const pages = Array.from({ length: Math.min(total, 5) }, (_, index) => index + 1);
   return <nav className="pagination" aria-label="Pagination"><IconButton icon="chevron-left" label="Trang trước" />{pages.map((page) => <button className={page === current ? "is-active" : ""} aria-current={page === current ? "page" : undefined} key={page} type="button">{page}</button>)}<IconButton icon="chevron-right" label="Trang sau" /></nav>;
 }
@@ -345,7 +348,7 @@ export function BrandLogo({
 }) {
   const [hasError, setHasError] = useState(false);
   const isVertical = variant === "vertical";
-  const src = compact || isVertical ? "/logo-vertical.png" : "/logo-horizontal.png";
+  const src = compact || isVertical ? logoVertical : logoHorizontal;
 
   const defaultHeight = compact ? "36px" : isVertical ? "72px" : "38px";
   const renderedHeight = height ? (typeof height === "number" ? `${height}px` : height) : defaultHeight;

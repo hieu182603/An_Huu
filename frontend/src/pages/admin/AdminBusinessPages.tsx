@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -16,6 +17,7 @@ import {
   Avatar,
   type IconName,
 } from "../../components/ui";
+import { downloadCsv } from "../../utils/downloads";
 
 // ==========================================
 // AD04 — CONSULTATION MANAGEMENT
@@ -34,6 +36,7 @@ export type ConsultationRequest = {
   details: string;
   date: string;
   preferredTime: string;
+  appointmentAt?: string;
   status: "Mới" | "Đang xử lý" | "Đã xếp lịch" | "Đã hoàn thành" | "Đã hủy";
   assignedAdmin: string;
   notes: string;
@@ -87,6 +90,7 @@ const initialConsultations: ConsultationRequest[] = [
     details: "Đã có đủ bất động sản cho thuê và tiền gửi ngân hàng, cần tối ưu quy tắc rút vốn 4% tránh lạm phát làm bào mòn gốc.",
     date: "16/08/2025, 11:00",
     preferredTime: "Tối thứ Năm (19:30 - 20:30)",
+    appointmentAt: "2026-10-05T19:30",
     status: "Đã xếp lịch",
     assignedAdmin: "Phạm Minh Tú",
     notes: "Lịch hẹn Zoom online ngày 22/08 lúc 19:30. Đã gửi đường link và xác nhận qua SMS.",
@@ -145,13 +149,15 @@ const initialConsultations: ConsultationRequest[] = [
 ];
 
 export function AdminConsultationsPage() {
-  const [requests, setRequests] = useState<ConsultationRequest[]>(initialConsultations);
+  const [requests, setRequests] = useState<ConsultationRequest[]>(() => { try { return JSON.parse(localStorage.getItem("anhuu_demo_consultations") || "null") || initialConsultations; } catch { return initialConsultations; } });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Tất cả trạng thái");
   const [selectedRequest, setSelectedRequest] = useState<ConsultationRequest | null>(null);
   const [editingNotes, setEditingNotes] = useState("");
   const [editingStatus, setEditingStatus] = useState<ConsultationRequest["status"]>("Mới");
   const [editingAdmin, setEditingAdmin] = useState("");
+  const [editingAppointment, setEditingAppointment] = useState("");
+  const [drawerError, setDrawerError] = useState("");
   const [savedToast, setSavedToast] = useState(false);
 
   // Statistics
@@ -181,20 +187,26 @@ export function AdminConsultationsPage() {
     setEditingNotes(req.notes);
     setEditingStatus(req.status);
     setEditingAdmin(req.assignedAdmin);
+    setEditingAppointment(req.appointmentAt || "");
+    setDrawerError("");
     setSavedToast(false);
   };
 
   const handleSaveDrawer = () => {
     if (!selectedRequest) return;
-    setRequests((prev) =>
-      prev.map((r) =>
+    if (editingStatus === "Đã xếp lịch" && (!editingAppointment || Number.isNaN(new Date(editingAppointment).getTime()))) {
+      setDrawerError("Vui lòng chọn ngày và giờ hẹn hợp lệ trước khi chuyển sang trạng thái Đã xếp lịch.");
+      return;
+    }
+    const nextRequests = requests.map((r) =>
         r.id === selectedRequest.id
-          ? { ...r, notes: editingNotes, status: editingStatus, assignedAdmin: editingAdmin }
+          ? { ...r, notes: editingNotes, status: editingStatus, assignedAdmin: editingAdmin, appointmentAt: editingAppointment || undefined }
           : r
-      )
-    );
+      );
+    setRequests(nextRequests);
+    localStorage.setItem("anhuu_demo_consultations", JSON.stringify(nextRequests));
     setSelectedRequest((prev) =>
-      prev ? { ...prev, notes: editingNotes, status: editingStatus, assignedAdmin: editingAdmin } : null
+      prev ? { ...prev, notes: editingNotes, status: editingStatus, assignedAdmin: editingAdmin, appointmentAt: editingAppointment || undefined } : null
     );
     setSavedToast(true);
     setTimeout(() => setSavedToast(false), 3000);
@@ -296,8 +308,11 @@ export function AdminConsultationsPage() {
             />
           </div>
           <div className="admin-export-group">
-            <Button variant="secondary" icon="download">
-              Xuất danh sách (Excel)
+            <Button variant="secondary" icon="download" onClick={() => downloadCsv("an-huu-yeu-cau-tu-van.csv", [
+              ["Mã", "Khách hàng", "Email", "Chủ đề", "Trạng thái", "Ngày hẹn"],
+              ...filtered.map((item) => [item.id, item.userName, item.userEmail, item.topic, item.status, item.date]),
+            ])}>
+              Xuất danh sách (CSV)
             </Button>
           </div>
         </header>
@@ -453,6 +468,13 @@ export function AdminConsultationsPage() {
                 onChange={(val) => setEditingStatus(val as ConsultationRequest["status"])}
               />
 
+              <Input
+                label="Ngày và giờ hẹn"
+                type="datetime-local"
+                value={editingAppointment}
+                onChange={(value) => { setEditingAppointment(value); setDrawerError(""); }}
+              />
+
               <Select
                 label="Chuyên viên phụ trách"
                 options={[
@@ -473,6 +495,8 @@ export function AdminConsultationsPage() {
                 value={editingNotes}
                 onChange={setEditingNotes}
               />
+
+              {drawerError && <Alert tone="danger" title="Chưa thể lưu lịch hẹn">{drawerError}</Alert>}
 
               {savedToast && (
                 <div style={{ padding: "var(--space-3)", background: "rgba(145, 181, 161, 0.2)", border: "1px solid var(--color-secondary-500)", borderRadius: "var(--radius-sm)", color: "var(--color-primary-700)", fontSize: "13px", display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
@@ -504,6 +528,7 @@ export type ContentItem = {
   id: string;
   title: string;
   summary: string;
+  content?: string;
   type: "Bài viết kiến thức" | "Video hướng dẫn" | "Câu hỏi thường gặp" | "Thuật ngữ tài chính";
   category: "Kế hoạch hưu trí" | "Bảo hiểm xã hội" | "Đầu tư tích lũy" | "Chi tiêu & Ngân sách";
   author: string;
@@ -604,7 +629,7 @@ const initialContents: ContentItem[] = [
 ];
 
 export function AdminContentPage() {
-  const [contents, setContents] = useState<ContentItem[]>(initialContents);
+  const [contents, setContents] = useState<ContentItem[]>(() => { try { return JSON.parse(localStorage.getItem("anhuu_demo_contents") || "null") || initialContents; } catch { return initialContents; } });
   const [activeTab, setActiveTab] = useState("Tất cả");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Tất cả danh mục");
@@ -615,10 +640,12 @@ export function AdminContentPage() {
   // Form states for editor
   const [formTitle, setFormTitle] = useState("");
   const [formSummary, setFormSummary] = useState("");
+  const [formContent, setFormContent] = useState("");
   const [formType, setFormType] = useState<ContentItem["type"]>("Bài viết kiến thức");
   const [formCategory, setFormCategory] = useState<ContentItem["category"]>("Kế hoạch hưu trí");
   const [formReadTime, setFormReadTime] = useState("5 phút đọc");
-  const [formStatus, setFormStatus] = useState<ContentItem["status"]>("Đã xuất bản");
+  const [formStatus, setFormStatus] = useState<ContentItem["status"]>("Bản nháp");
+  const [editorError, setEditorError] = useState("");
 
   // Summary counts
   const stats = useMemo(() => {
@@ -651,6 +678,7 @@ export function AdminContentPage() {
       setIsCreating(false);
       setFormTitle(item.title);
       setFormSummary(item.summary);
+      setFormContent(item.content || item.summary);
       setFormType(item.type);
       setFormCategory(item.category);
       setFormReadTime(item.readTime);
@@ -666,39 +694,45 @@ export function AdminContentPage() {
         author: "Lê Lan Anh",
         readTime: "5 phút đọc",
         views: 0,
-        status: "Đã xuất bản",
+        status: "Bản nháp",
         updated: "Hôm nay",
       });
       setFormTitle("");
       setFormSummary("");
+      setFormContent("");
       setFormType("Bài viết kiến thức");
       setFormCategory("Kế hoạch hưu trí");
       setFormReadTime("5 phút đọc");
-      setFormStatus("Đã xuất bản");
+      setFormStatus("Bản nháp");
+      setEditorError("");
     }
   };
 
   const handleSaveEditor = () => {
     if (!editorModal) return;
+    if (!formTitle.trim()) { setEditorError("Vui lòng nhập tiêu đề trước khi lưu."); return; }
+    if (formStatus === "Đã xuất bản" && (!formSummary.trim() || !formContent.trim())) { setEditorError("Nội dung xuất bản cần có tóm tắt và nội dung đầy đủ."); return; }
+    let nextContents: ContentItem[];
     if (isCreating) {
       const newItem: ContentItem = {
         ...editorModal,
-        title: formTitle || "Nội dung mới chưa đặt tên",
+        title: formTitle.trim(),
         summary: formSummary,
+        content: formContent,
         type: formType,
         category: formCategory,
         readTime: formReadTime,
         status: formStatus,
       };
-      setContents([newItem, ...contents]);
+      nextContents = [newItem, ...contents];
     } else {
-      setContents((prev) =>
-        prev.map((c) =>
+      nextContents = contents.map((c) =>
           c.id === editorModal.id
             ? {
                 ...c,
                 title: formTitle,
                 summary: formSummary,
+                content: formContent,
                 type: formType,
                 category: formCategory,
                 readTime: formReadTime,
@@ -706,9 +740,10 @@ export function AdminContentPage() {
                 updated: "Vừa cập nhật",
               }
             : c
-        )
-      );
+        );
     }
+    setContents(nextContents);
+    localStorage.setItem("anhuu_demo_contents", JSON.stringify(nextContents));
     setEditorModal(null);
   };
 
@@ -1001,6 +1036,16 @@ export function AdminContentPage() {
               onChange={setFormSummary}
             />
 
+            <Textarea
+              label={formType === "Video hướng dẫn" ? "Kịch bản hoặc đường dẫn video" : "Nội dung đầy đủ"}
+              placeholder="Nhập nội dung chính sẽ hiển thị cho người đọc..."
+              rows={7}
+              value={formContent}
+              onChange={(value) => { setFormContent(value); setEditorError(""); }}
+            />
+
+            {editorError && <p role="alert" style={{ color: "var(--color-danger)", margin: 0 }}>{editorError}</p>}
+
             <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
               <Button variant="secondary" onClick={() => setEditorModal(null)}>
                 Hủy
@@ -1158,7 +1203,14 @@ const initialProducts: FinancialProduct[] = [
 
 export function AdminPartnersPage() {
   const [activeTab, setActiveTab] = useState("Sản phẩm tài chính");
-  const [products, setProducts] = useState<FinancialProduct[]>(initialProducts);
+  const [products, setProducts] = useState<FinancialProduct[]>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("anhuu_demo_financial_products") || "null");
+      return Array.isArray(stored) ? stored : initialProducts;
+    } catch {
+      return initialProducts;
+    }
+  });
   const [partners, setPartners] = useState<PartnerOrg[]>(initialPartners);
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState("Tất cả mức rủi ro");
@@ -1197,9 +1249,11 @@ export function AdminPartnersPage() {
   }, [partners, search]);
 
   const handleToggleProductVisibility = (id: string) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isVisible: !p.isVisible } : p))
-    );
+    setProducts((prev) => {
+      const next = prev.map((p) => (p.id === id ? { ...p, isVisible: !p.isVisible } : p));
+      localStorage.setItem("anhuu_demo_financial_products", JSON.stringify(next));
+      return next;
+    });
   };
 
   const getRiskTone = (tier: FinancialProduct["riskTier"]) => {

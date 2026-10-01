@@ -9,6 +9,8 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import type { FinancialProfile } from "../../context/FinancialProfileContext";
+import { inputFromProfile, projectBalanceAtAge } from "../../domain/retirementCalculator";
 
 export type ChartPeriod = "5y" | "10y" | "retire" | "lifetime";
 
@@ -21,17 +23,14 @@ interface DataPoint {
   gap: number;
 }
 
-const generateData = (period: ChartPeriod): DataPoint[] => {
-  const currentAge = 32;
-  const currentYear = 2025;
-  const startWealth = 850_000_000; // 850 triệu
-  const monthlySavings = 14_200_000;
-  const annualSavings = monthlySavings * 12;
-
-  let totalYears = 28; // default to retire age 60
+const generateData = (period: ChartPeriod, profile: FinancialProfile): DataPoint[] => {
+  const currentAge = profile.personal.age;
+  const currentYear = new Date().getFullYear();
+  let totalYears = Math.max(1, profile.goal.targetRetireAge - currentAge);
   if (period === "5y") totalYears = 5;
   else if (period === "10y") totalYears = 10;
-  else if (period === "lifetime") totalYears = 53; // to age 85
+  else if (period === "lifetime") totalYears = Math.max(1, profile.goal.lifeExpectancy - currentAge);
+  totalYears = Math.min(totalYears, profile.goal.lifeExpectancy - currentAge);
 
   const pointsCount = period === "5y" ? 6 : period === "10y" ? 11 : 15;
   const step = totalYears / (pointsCount - 1);
@@ -43,39 +42,9 @@ const generateData = (period: ChartPeriod): DataPoint[] => {
     const year = Math.round(currentYear + elapsedYears);
     const age = Math.round(currentAge + elapsedYears);
 
-    // Projected with 7.5% return rate during accumulation
-    let projected: number;
-    let target: number;
-
-    if (age <= 60) {
-      // Accumulation phase
-      const r = 0.075;
-      projected =
-        startWealth * Math.pow(1 + r, elapsedYears) +
-        (annualSavings * (Math.pow(1 + r, elapsedYears) - 1)) / r;
-      // Target reaches 8.5 tỷ at age 60
-      const targetSlope = (8_500_000_000 - startWealth) / 28;
-      target = startWealth + targetSlope * elapsedYears * 1.08;
-    } else {
-      // Decumulation phase (after 60)
-      const postYears = age - 60;
-      const peakProjected = 6_120_000_000;
-      const peakTarget = 8_500_000_000;
-      const annualSpending = 420_000_000; // 35 tr/tháng
-      const postR = 0.06;
-
-      projected = Math.max(
-        0,
-        peakProjected * Math.pow(1 + postR, postYears) -
-          (annualSpending * (Math.pow(1 + postR, postYears) - 1)) / postR
-      );
-
-      target = Math.max(
-        0,
-        peakTarget * Math.pow(1 + postR, postYears) -
-          (annualSpending * (Math.pow(1 + postR, postYears) - 1)) / postR
-      );
-    }
+    const input = inputFromProfile(profile);
+    const projected = projectBalanceAtAge(input, age, false);
+    const target = projectBalanceAtAge(input, age, true);
 
     const gap = target - projected;
 
@@ -184,8 +153,8 @@ const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
   );
 };
 
-export function ProjectionWealthChart({ period }: { period: ChartPeriod }) {
-  const chartData = useMemo(() => generateData(period), [period]);
+export function ProjectionWealthChart({ period, profile }: { period: ChartPeriod; profile: FinancialProfile }) {
+  const chartData = useMemo(() => generateData(period, profile), [period, profile]);
 
   return (
     <div style={{ width: "100%", height: 320, position: "relative" }}>
@@ -233,11 +202,11 @@ export function ProjectionWealthChart({ period }: { period: ChartPeriod }) {
           {/* Reference line for Age 60 milestone if in view */}
           {period !== "5y" && period !== "10y" && (
             <ReferenceLine
-              x={chartData.find((d) => d.age === 60)?.label}
+              x={chartData.find((d) => d.age === profile.goal.targetRetireAge)?.label}
               stroke="#D9A85E"
               strokeDasharray="4 4"
               label={{
-                value: "Nghỉ hưu (60t)",
+                value: `Nghỉ hưu (${profile.goal.targetRetireAge}t)`,
                 position: "top",
                 fill: "#B88738",
                 fontSize: 11,

@@ -14,7 +14,7 @@ export type AuthUser = {
 type AuthContextType = {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<AuthUser | null>;
+  login: (email: string, password: string, remember?: boolean) => Promise<AuthUser | null>;
   logout: () => void;
 };
 
@@ -57,14 +57,14 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
   });
 
-  const login = useCallback(async (email: string, password: string): Promise<AuthUser | null> => {
+  const login = useCallback(async (email: string, password: string, remember = false): Promise<AuthUser | null> => {
     const cleanEmail = (email || "").trim().toLowerCase();
     const cleanPassword = (password || "").trim();
 
@@ -72,13 +72,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (cleanEmail === DEMO_ACCOUNTS.user.email.toLowerCase() && cleanPassword === DEMO_ACCOUNTS.user.password) {
       const u = demoUsers["user@demo.com"];
       setUser(u);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(u)); } catch {}
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(STORAGE_KEY);
+        (remember ? localStorage : sessionStorage).setItem(STORAGE_KEY, JSON.stringify(u));
+      } catch {}
       return u;
     }
     if (cleanEmail === DEMO_ACCOUNTS.admin.email.toLowerCase() && cleanPassword === DEMO_ACCOUNTS.admin.password) {
       const u = demoUsers["admin@demo.com"];
       setUser(u);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(u)); } catch {}
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(STORAGE_KEY);
+        (remember ? localStorage : sessionStorage).setItem(STORAGE_KEY, JSON.stringify(u));
+      } catch {}
       return u;
     }
     return null;
@@ -87,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setUser(null);
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
   }, []);
 
   return (

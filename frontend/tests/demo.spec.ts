@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { installRouteAuth } from "./helpers";
+
+test.beforeEach(async ({ page }) => installRouteAuth(page));
 
 test("admin routes navigate correctly and load appropriate screens", async ({ page }) => {
   const errors: string[] = [];

@@ -23,6 +23,40 @@ import {
 } from "./components/ui";
 import { useAuth } from "./context/AuthContext";
 
+const ADMIN_SETTINGS_KEY = "anhuu_demo_admin_settings";
+const ADMIN_AUDIT_KEY = "anhuu_demo_admin_audit";
+type AdminSettings = {
+  systemName: string; language: string; timezone: string; supportEmail: string; maintenance: boolean;
+  integrations: boolean[]; digest: string; notificationEmail: string; emailEnabled: boolean; inApp: boolean; critical: boolean;
+  profileRetention: string; auditRetention: string; analytics: boolean; exportApproval: boolean;
+};
+const defaultAdminSettings: AdminSettings = {
+  systemName: "An Hưu", language: "Tiếng Việt", timezone: "GMT+7 · Việt Nam", supportEmail: "hotro@anhuu.vn", maintenance: false,
+  integrations: [false, false, false], digest: "Hàng ngày", notificationEmail: "operations@anhuu.vn", emailEnabled: false, inApp: true, critical: true,
+  profileRetention: "5 năm", auditRetention: "3 năm", analytics: true, exportApproval: true,
+};
+type AuditEntry = { actor: string; action: string; target: string; time: string; result: string; category: string; before?: string; after?: string };
+
+function loadAdminSettings(): AdminSettings {
+  try { return { ...defaultAdminSettings, ...JSON.parse(localStorage.getItem(ADMIN_SETTINGS_KEY) || "{}") }; } catch { return defaultAdminSettings; }
+}
+function recordAudit(entry: Omit<AuditEntry, "time">) {
+  try {
+    const previous = JSON.parse(localStorage.getItem(ADMIN_AUDIT_KEY) || "[]") as AuditEntry[];
+    localStorage.setItem(ADMIN_AUDIT_KEY, JSON.stringify([{ ...entry, time: new Date().toLocaleString("vi-VN") }, ...previous].slice(0, 100)));
+  } catch {}
+}
+function persistAdminSettings(settings: AdminSettings, target: string) {
+  const before = loadAdminSettings();
+  localStorage.setItem(ADMIN_SETTINGS_KEY, JSON.stringify(settings));
+  recordAudit({ actor: "Lê Lan Anh", action: "Cập nhật cấu hình", target, result: "Thành công", category: "Cấu hình", before: JSON.stringify(before), after: JSON.stringify(settings) });
+}
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);
+}
+
 type TicketStatus = "Mới" | "Đang xử lý" | "Đang chờ" | "Đã giải quyết" | "Đã đóng";
 
 type Ticket = {
@@ -139,8 +173,8 @@ export function SupportPage() {
       return next;
     });
   };
-  const [tickets, setTickets] = useState(initialTickets);
-  const [templates, setTemplates] = useState(initialTemplates);
+  const [tickets, setTickets] = useState<Ticket[]>(() => { try { return JSON.parse(localStorage.getItem("anhuu_demo_support_tickets") || "null") || initialTickets; } catch { return initialTickets; } });
+  const [templates, setTemplates] = useState<Template[]>(() => { try { return JSON.parse(localStorage.getItem("anhuu_demo_support_templates") || "null") || initialTemplates; } catch { return initialTemplates; } });
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("Tất cả trạng thái");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -167,7 +201,9 @@ export function SupportPage() {
   };
   const saveTicket = () => {
     if (!selectedTicket) return;
-    setTickets(tickets.map((ticket) => ticket.id === selectedTicket.id ? { ...ticket, status: draftStatus, assigned: draftAssigned, messages: reply.trim() ? [...ticket.messages, { from: "Lê Lan Anh", content: reply.trim(), time: "Vừa xong", admin: true }] : ticket.messages } : ticket));
+    const nextTickets = tickets.map((ticket) => ticket.id === selectedTicket.id ? { ...ticket, status: draftStatus, assigned: draftAssigned, messages: reply.trim() ? [...ticket.messages, { from: "Lê Lan Anh", content: reply.trim(), time: "Vừa xong", admin: true }] : ticket.messages } : ticket);
+    setTickets(nextTickets);
+    localStorage.setItem("anhuu_demo_support_tickets", JSON.stringify(nextTickets));
     setSelectedTicket(null);
   };
   const openTemplate = (template: Template) => {
@@ -175,7 +211,9 @@ export function SupportPage() {
   };
   const saveTemplate = () => {
     if (!editingTemplate) return;
-    setTemplates(templates.map((template) => template.id === editingTemplate.id ? { ...template, subject: templateSubject, body: templateBody, updated: "18/08/2025" } : template));
+    const nextTemplates = templates.map((template) => template.id === editingTemplate.id ? { ...template, subject: templateSubject, body: templateBody, updated: new Date().toLocaleDateString("vi-VN") } : template);
+    setTemplates(nextTemplates);
+    localStorage.setItem("anhuu_demo_support_templates", JSON.stringify(nextTemplates));
     setEditingTemplate(null);
   };
   const chooseTemplate = (name: string) => {
@@ -183,7 +221,7 @@ export function SupportPage() {
     setNotificationBody(templates.find((template) => template.name === name)?.body ?? "");
   };
   const sendNotification = () => {
-    setSentMessage(`Đã gửi thông báo “${selectedTemplate}” đến ${audience.toLowerCase()} qua ${sendChannel.toLowerCase()}.`);
+    setSentMessage(`Chưa gửi thông báo “${selectedTemplate}”. Dịch vụ ${sendChannel.toLowerCase()} chưa được cấu hình trong bản demo.`);
     setSendOpen(false);
   };
 
@@ -258,13 +296,19 @@ function TemplateList({ templates, onEdit, onSend }: { templates: Template[]; on
   return <div className="template-grid">{templates.map((template) => <Card className="notification-template-card" key={template.id}><header><span className="template-icon"><Icon name="bell" /></span><Badge tone={template.status === "Đang dùng" ? "success" : "neutral"}>{template.status}</Badge></header><small>{template.channel}</small><h2>{template.name}</h2><p>{template.purpose}</p><div className="template-preview"><strong>{template.subject}</strong><span>{template.body}</span></div><footer><Button variant="ghost" size="small" onClick={() => onEdit(template)}>Chỉnh sửa</Button><Button variant="secondary" size="small" onClick={() => onSend(template)}>Dùng mẫu</Button></footer></Card>)}</div>;
 }
 
-function ReportLineChart({ variant = "growth" }: { variant?: "growth" | "engagement" }) {
-  return <div className="report-line-chart" role="img" aria-label={variant === "growth" ? "Người dùng tăng từ 9.840 lên 12.482 trong sáu tháng" : "Tỷ lệ người dùng hoạt động tăng từ 42 lên 58 phần trăm"}><svg viewBox="0 0 640 230"><path className="report-grid-lines" d="M0 25H640M0 85H640M0 145H640M0 205H640" /><path className={variant === "growth" ? "report-area-primary" : "report-area-secondary"} d={variant === "growth" ? "M0 184 C80 174 130 155 205 150 S340 120 425 105 S540 70 640 48 V205H0Z" : "M0 170 C90 182 140 154 220 158 S350 121 430 130 S550 92 640 82 V205H0Z"} /><path className={variant === "growth" ? "report-line-primary" : "report-line-secondary"} d={variant === "growth" ? "M0 184 C80 174 130 155 205 150 S340 120 425 105 S540 70 640 48" : "M0 170 C90 182 140 154 220 158 S350 121 430 130 S550 92 640 82"} /></svg><div><span>Tháng 3</span><span>Tháng 4</span><span>Tháng 5</span><span>Tháng 6</span><span>Tháng 7</span><span>Tháng 8</span></div></div>;
+function reportLabels(period: string) {
+  if (period.startsWith("30")) return ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4"];
+  if (period.startsWith("3")) return ["Tháng 1", "Tháng 2", "Tháng 3"];
+  if (period.startsWith("12")) return ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
+  return ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6"];
+}
+function ReportLineChart({ variant = "growth", period }: { variant?: "growth" | "engagement"; period: string }) {
+  return <div className="report-line-chart" role="img" aria-label={`Biểu đồ ${variant === "growth" ? "tăng trưởng" : "tương tác"} cho ${period}`}><svg viewBox="0 0 640 230"><path className="report-grid-lines" d="M0 25H640M0 85H640M0 145H640M0 205H640" /><path className={variant === "growth" ? "report-area-primary" : "report-area-secondary"} d={variant === "growth" ? "M0 184 C80 174 130 155 205 150 S340 120 425 105 S540 70 640 48 V205H0Z" : "M0 170 C90 182 140 154 220 158 S350 121 430 130 S550 92 640 82 V205H0Z"} /><path className={variant === "growth" ? "report-line-primary" : "report-line-secondary"} d={variant === "growth" ? "M0 184 C80 174 130 155 205 150 S340 120 425 105 S540 70 640 48" : "M0 170 C90 182 140 154 220 158 S350 121 430 130 S550 92 640 82"} /></svg><div>{reportLabels(period).map(label => <span key={label}>{label}</span>)}</div></div>;
 }
 
-function ReportBars({ kind }: { kind: "profile" | "plan" | "ai" | "consultation" }) {
-  const labels = kind === "consultation" ? ["Mới", "Xử lý", "Đặt lịch", "Hoàn tất"] : ["Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8"];
-  return <div className={`report-bars report-bars-${kind}`} role="img" aria-label={`Biểu đồ ${kind} trong bốn kỳ gần nhất`}>{["bar-a", "bar-b", "bar-c", "bar-d"].map((bar, index) => <div key={bar}><span className={bar} /><small>{labels[index]}</small></div>)}</div>;
+function ReportBars({ kind, period }: { kind: "profile" | "plan" | "ai" | "consultation"; period: string }) {
+  const labels = kind === "consultation" ? ["Mới", "Xử lý", "Đặt lịch", "Hoàn tất"] : reportLabels(period).slice(-4);
+  return <div className={`report-bars report-bars-${kind}`} role="img" aria-label={`Biểu đồ ${kind} cho ${period}`}>{labels.map((label, index) => <div key={`${label}-${index}`}><span className={`bar-${String.fromCharCode(97 + index)}`} /><small>{label}</small></div>)}</div>;
 }
 
 function ReportCard({ title, subtitle, value, trend, children, summary }: { title: string; subtitle: string; value: string; trend: string; children: React.ReactNode; summary: string }) {
@@ -273,25 +317,33 @@ function ReportCard({ title, subtitle, value, trend, children, summary }: { titl
 
 export function ReportsPage() {
   const [period, setPeriod] = useState("6 tháng gần nhất");
+  const periodData: Record<string, { users: string; profiles: string; plans: string; active: string; ai: string; consultations: string; points: number[] }> = {
+    "30 ngày gần nhất": { users: "624", profiles: "438", plans: "361", active: "61%", ai: "392", consultations: "28", points: [18, 24, 21, 31] },
+    "3 tháng gần nhất": { users: "1.482", profiles: "1.046", plans: "846", active: "60%", ai: "876", consultations: "67", points: [32, 45, 41] },
+    "6 tháng gần nhất": { users: "2.642", profiles: "1.894", plans: "1.521", active: "58%", ai: "1.842", consultations: "146", points: [30, 38, 44, 51, 58, 64] },
+    "12 tháng gần nhất": { users: "5.108", profiles: "3.621", plans: "2.940", active: "56%", ai: "3.506", consultations: "283", points: [22, 25, 29, 34, 38, 41, 45, 48, 52, 56, 61, 66] },
+  };
+  const data = periodData[period];
+  const exportReport = () => downloadCsv("bao-cao-an-huu.csv", [["Khoảng thời gian", period], ["Chỉ số", "Giá trị"], ["Người dùng", data.users], ["Hồ sơ hoàn tất", data.profiles], ["Kế hoạch", data.plans], ["Người dùng hoạt động", data.active], ["Lượt AI", data.ai], ["Yêu cầu tư vấn", data.consultations]]);
   return (
     <div className="admin-page reports-page">
-      <AdminHeader title="Báo cáo hệ thống" description="Theo dõi tăng trưởng, mức độ hoàn thiện và hoạt động trên toàn bộ hành trình người dùng."><Button icon="download">Xuất báo cáo</Button></AdminHeader>
+      <AdminHeader title="Báo cáo hệ thống" description="Theo dõi tăng trưởng, mức độ hoàn thiện và hoạt động trên toàn bộ hành trình người dùng."><Button icon="download" onClick={exportReport}>Xuất CSV</Button></AdminHeader>
       <Card className="report-filter-bar"><div><Icon name="info" /><span><strong>Dữ liệu tổng hợp</strong><small>Cập nhật lần cuối 18/08/2025, 10:30</small></span></div><Select label="Khoảng thời gian" options={["30 ngày gần nhất", "3 tháng gần nhất", "6 tháng gần nhất", "12 tháng gần nhất"]} value={period} onChange={setPeriod} /></Card>
       <section className="report-summary-grid">{[
-        ["Tổng người dùng", "12.482", "+12,4%", "users"],
-        ["Hồ sơ hoàn tất", "8.946", "71,7%", "circle-check"],
-        ["Kế hoạch đã tạo", "7.215", "+184", "target"],
-        ["Người dùng hoạt động", "58%", "+6,2%", "chart"],
-        ["Lượt dùng AI", "1.842", "+18,2%", "sparkles"],
-        ["Yêu cầu tư vấn", "146", "84 hoàn tất", "message"],
+        ["Người dùng mới", data.users, period, "users"],
+        ["Hồ sơ hoàn tất", data.profiles, period, "circle-check"],
+        ["Kế hoạch đã tạo", data.plans, period, "target"],
+        ["Người dùng hoạt động", data.active, period, "chart"],
+        ["Lượt dùng AI", data.ai, period, "sparkles"],
+        ["Yêu cầu tư vấn", data.consultations, period, "message"],
       ].map(([label, value, trend, icon]) => <Card className="report-summary-card" key={label}><span><Icon name={icon as IconName} /></span><div><small>{label}</small><strong>{value}</strong><b>{trend}</b></div></Card>)}</section>
       <section className="reports-grid">
-        <ReportCard title="Tăng trưởng người dùng" subtitle={period} value="+2.642" trend="+12,4%" summary="Tăng trưởng ổn định, trung bình 440 người dùng mới mỗi tháng."><ReportLineChart /></ReportCard>
-        <ReportCard title="Hoàn thiện hồ sơ" subtitle="Tỷ lệ hồ sơ đủ dữ liệu" value="71,7%" trend="+4,8%" summary="Dữ liệu BHXH và khoản nợ là hai phần thường còn thiếu."><ReportBars kind="profile" /></ReportCard>
-        <ReportCard title="Kế hoạch nghỉ hưu" subtitle="Số kế hoạch được tạo mới" value="7.215" trend="+184 tháng này" summary="80,6% người dùng có hồ sơ hoàn tất đã tạo ít nhất một kế hoạch."><ReportBars kind="plan" /></ReportCard>
-        <ReportCard title="Mức độ tương tác" subtitle="Người dùng hoạt động hàng tháng" value="58%" trend="+6,2%" summary="Theo dõi kế hoạch và mô phỏng là hai hoạt động quay lại phổ biến nhất."><ReportLineChart variant="engagement" /></ReportCard>
-        <ReportCard title="Sử dụng AI" subtitle="Lượt hội thoại theo tháng" value="1.842" trend="+18,2%" summary="86% phản hồi được đánh giá hữu ích; 2,4% cần đội ngũ xem lại."><ReportBars kind="ai" /></ReportCard>
-        <ReportCard title="Yêu cầu tư vấn" subtitle="Phân bổ theo trạng thái" value="146" trend="84 hoàn tất" summary="Thời gian phản hồi đầu tiên trung bình là 42 phút."><ReportBars kind="consultation" /></ReportCard>
+        <ReportCard title="Tăng trưởng người dùng" subtitle={period} value={data.users} trend={`${data.points.length} mốc dữ liệu`} summary={`Biểu đồ và số liệu đang phản ánh ${period.toLowerCase()}.`}><ReportLineChart period={period} /></ReportCard>
+        <ReportCard title="Hoàn thiện hồ sơ" subtitle={period} value={data.profiles} trend="Hồ sơ đủ dữ liệu" summary="Dữ liệu BHXH và khoản nợ là hai phần thường còn thiếu."><ReportBars kind="profile" period={period} /></ReportCard>
+        <ReportCard title="Kế hoạch nghỉ hưu" subtitle={period} value={data.plans} trend="Kế hoạch mới" summary="Số liệu dùng cùng phạm vi thời gian đã chọn."><ReportBars kind="plan" period={period} /></ReportCard>
+        <ReportCard title="Mức độ tương tác" subtitle={period} value={data.active} trend="Tỷ lệ hoạt động" summary="Theo dõi kế hoạch và mô phỏng là hai hoạt động quay lại phổ biến nhất."><ReportLineChart variant="engagement" period={period} /></ReportCard>
+        <ReportCard title="Sử dụng AI" subtitle={period} value={data.ai} trend="Lượt hội thoại" summary="Đây là dữ liệu minh họa, chưa nối dịch vụ AI thật."><ReportBars kind="ai" period={period} /></ReportCard>
+        <ReportCard title="Yêu cầu tư vấn" subtitle={period} value={data.consultations} trend="Theo trạng thái" summary="Dữ liệu demo chưa kết nối hệ thống gửi thông báo."><ReportBars kind="consultation" period={period} /></ReportCard>
       </section>
     </div>
   );
@@ -301,42 +353,45 @@ function SettingNav() {
   return <nav className="settings-section-nav" aria-label="Nhóm cấu hình">{settingsNavigation.map(({ label, icon, path }) => <NavLink className={({ isActive }) => isActive ? "is-active" : ""} key={path} to={path}><Icon name={icon} /><span>{label}</span><Icon name="chevron-right" size="small" /></NavLink>)}</nav>;
 }
 
-function SettingsCard({ title, description, saved, onSave, children }: { title: string; description: string; saved: boolean; onSave: () => void; children: React.ReactNode }) {
-  return <Card className="system-setting-card"><header><div><h2>{title}</h2><p>{description}</p></div>{saved && <Badge tone="success">Đã lưu</Badge>}</header><div className="system-setting-body">{children}</div><footer><span><Icon name="info" size="small" /> Thay đổi được ghi vào nhật ký kiểm toán.</span><Button onClick={onSave}>Lưu thay đổi</Button></footer></Card>;
+function SettingsCard({ title, description, saved, onSave, children }: { title: string; description: string; saved: boolean | null; onSave: () => void; children: React.ReactNode }) {
+  return <Card className="system-setting-card"><header><div><h2>{title}</h2><p>{description}</p></div>{saved === true && <Badge tone="success">Đã lưu</Badge>}{saved === false && <Badge tone="warning">Có thay đổi chưa lưu</Badge>}</header><div className="system-setting-body">{children}</div><footer><span><Icon name="info" size="small" /> Thay đổi được ghi vào nhật ký kiểm toán.</span><Button onClick={onSave}>Lưu thay đổi</Button></footer></Card>;
 }
 
 export function GeneralSettings() {
-  const [saved, setSaved] = useState(false);
-  const [maintenance, setMaintenance] = useState(false);
-  return <SettingsCard title="Cài đặt chung" description="Thông tin hiển thị và hành vi chung của hệ thống." saved={saved} onSave={() => setSaved(true)}><div className="settings-form-grid"><Input label="Tên hệ thống" defaultValue="An Hưu" /><Select label="Ngôn ngữ mặc định" options={["Tiếng Việt", "English"]} value="Tiếng Việt" /><Select label="Múi giờ" options={["GMT+7 · Việt Nam", "GMT+8", "GMT+9"]} value="GMT+7 · Việt Nam" /><Input label="Email hỗ trợ" defaultValue="hotro@anhuu.vn" type="email" /></div><div className="setting-toggle-row"><div><strong>Chế độ bảo trì</strong><small>Hiển thị thông báo và tạm dừng thao tác ghi dữ liệu.</small></div><Switch checked={maintenance} label={maintenance ? "Đang bật" : "Đang tắt"} onChange={(value) => { setMaintenance(value); setSaved(false); }} /></div>{maintenance && <Alert tone="warning" title="Chế độ bảo trì đang bật">Người dùng sẽ không thể cập nhật hồ sơ hoặc kế hoạch cho đến khi tắt chế độ này.</Alert>}</SettingsCard>;
+  const [saved, setSaved] = useState<boolean | null>(null);
+  const [settings, setSettings] = useState(loadAdminSettings);
+  const change = (updates: Partial<AdminSettings>) => { setSettings((value) => ({ ...value, ...updates })); setSaved(false); };
+  return <SettingsCard title="Cài đặt chung" description="Thông tin hiển thị và hành vi chung của hệ thống." saved={saved} onSave={() => { persistAdminSettings(settings, "Cài đặt chung"); setSaved(true); }}><div className="settings-form-grid"><Input label="Tên hệ thống" value={settings.systemName} onChange={(value) => change({ systemName: value })} /><Select label="Ngôn ngữ mặc định" options={["Tiếng Việt", "English"]} value={settings.language} onChange={(value) => change({ language: value })} /><Select label="Múi giờ" options={["GMT+7 · Việt Nam", "GMT+8", "GMT+9"]} value={settings.timezone} onChange={(value) => change({ timezone: value })} /><Input label="Email hỗ trợ" value={settings.supportEmail} onChange={(value) => change({ supportEmail: value })} type="email" /></div><div className="setting-toggle-row"><div><strong>Chế độ bảo trì</strong><small>Trong bản demo, tùy chọn chỉ được lưu và chưa điều khiển máy chủ.</small></div><Switch checked={settings.maintenance} label={settings.maintenance ? "Đang bật" : "Đang tắt"} onChange={(value) => change({ maintenance: value })} /></div>{settings.maintenance && <Alert tone="warning" title="Đã chọn chế độ bảo trì">Cần backend triển khai mới có thể thực sự chặn thao tác ghi.</Alert>}</SettingsCard>;
 }
 
 export function IntegrationSettings() {
-  const [saved, setSaved] = useState(false);
-  const [integrations, setIntegrations] = useState([true, true, false]);
-  const items = [["Dịch vụ email", "Gửi email giao dịch và báo cáo", "Đã kết nối"], ["Kho lưu trữ báo cáo", "Lưu trữ an toàn các tệp PDF", "Đã kết nối"], ["Đồng bộ dữ liệu đối tác", "Cập nhật thông tin sản phẩm theo lịch", "Chưa kết nối"]];
-  return <SettingsCard title="Tích hợp" description="Kết nối các dịch vụ vận hành được An Hưu sử dụng." saved={saved} onSave={() => setSaved(true)}><div className="integration-list">{items.map(([name, detail, status], index) => <div key={name}><span className="integration-icon"><Icon name={index === 0 ? "message" : index === 1 ? "file-text" : "briefcase"} /></span><div><strong>{name}</strong><small>{detail}</small></div><Badge tone={integrations[index] ? "success" : "neutral"}>{status}</Badge><Switch checked={integrations[index]} label={integrations[index] ? "Đang bật" : "Đang tắt"} onChange={(value) => { setIntegrations(integrations.map((item, itemIndex) => itemIndex === index ? value : item)); setSaved(false); }} /></div>)}</div></SettingsCard>;
+  const [saved, setSaved] = useState<boolean | null>(null);
+  const [settings, setSettings] = useState(loadAdminSettings);
+  const items = [["Dịch vụ email", "Gửi email giao dịch và báo cáo"], ["Kho lưu trữ báo cáo", "Lưu trữ các tệp xuất"], ["Đồng bộ dữ liệu đối tác", "Cập nhật sản phẩm theo lịch"]];
+  return <SettingsCard title="Tích hợp" description="Tùy chọn tính năng demo; chưa có thông tin xác thực dịch vụ ngoài." saved={saved} onSave={() => { persistAdminSettings(settings, "Tích hợp"); setSaved(true); }}><Alert tone="info" title="Chưa kết nối dịch vụ">Bật tùy chọn không đồng nghĩa đã kết nối. Cần cấu hình máy chủ và thông tin xác thực riêng.</Alert><div className="integration-list">{items.map(([name, detail], index) => <div key={name}><span className="integration-icon"><Icon name={index === 0 ? "message" : index === 1 ? "file-text" : "briefcase"} /></span><div><strong>{name}</strong><small>{detail}</small></div><Badge tone="neutral">Chưa kết nối</Badge><Switch checked={settings.integrations[index]} label={settings.integrations[index] ? "Đã bật tùy chọn" : "Đang tắt"} onChange={(value) => { setSettings((current) => ({ ...current, integrations: current.integrations.map((item, itemIndex) => itemIndex === index ? value : item) })); setSaved(false); }} /></div>)}</div></SettingsCard>;
 }
 
 export function NotificationSettings() {
-  const [saved, setSaved] = useState(false);
-  const [email, setEmail] = useState(true);
-  const [inApp, setInApp] = useState(true);
-  const [critical, setCritical] = useState(true);
-  return <SettingsCard title="Thông báo hệ thống" description="Cấu hình kênh mặc định và cảnh báo vận hành." saved={saved} onSave={() => setSaved(true)}><div className="settings-form-grid"><Input label="Email nhận cảnh báo" defaultValue="operations@anhuu.vn" type="email" /><Select label="Tần suất tổng hợp" options={["Hàng ngày", "Hàng tuần", "Không gửi tổng hợp"]} value="Hàng ngày" /></div><div className="setting-toggle-list"><div><span><strong>Email giao dịch</strong><small>Gửi xác nhận cho các hành động quan trọng.</small></span><Switch checked={email} label={email ? "Đang bật" : "Đang tắt"} onChange={(value) => { setEmail(value); setSaved(false); }} /></div><div><span><strong>Thông báo trong ứng dụng</strong><small>Hiển thị cập nhật trực tiếp trong An Hưu.</small></span><Switch checked={inApp} label={inApp ? "Đang bật" : "Đang tắt"} onChange={(value) => { setInApp(value); setSaved(false); }} /></div><div><span><strong>Cảnh báo vận hành quan trọng</strong><small>Luôn thông báo khi có sự cố ảnh hưởng dữ liệu.</small></span><Switch checked={critical} label={critical ? "Đang bật" : "Đang tắt"} onChange={(value) => { setCritical(value); setSaved(false); }} /></div></div></SettingsCard>;
+  const [saved, setSaved] = useState<boolean | null>(null);
+  const [settings, setSettings] = useState(loadAdminSettings);
+  const change = (updates: Partial<AdminSettings>) => { setSettings((value) => ({ ...value, ...updates })); setSaved(false); };
+  return <SettingsCard title="Thông báo hệ thống" description="Cấu hình kênh mặc định và cảnh báo vận hành." saved={saved} onSave={() => { persistAdminSettings(settings, "Thông báo"); setSaved(true); }}><Alert tone="info" title="Giới hạn bản demo">Cài đặt được lưu cục bộ; email sẽ không được gửi khi chưa cấu hình dịch vụ máy chủ.</Alert><div className="settings-form-grid"><Input label="Email nhận cảnh báo" value={settings.notificationEmail} onChange={(value) => change({ notificationEmail: value })} type="email" /><Select label="Tần suất tổng hợp" options={["Hàng ngày", "Hàng tuần", "Không gửi tổng hợp"]} value={settings.digest} onChange={(value) => change({ digest: value })} /></div><div className="setting-toggle-list"><div><span><strong>Email giao dịch</strong><small>Chỉ có hiệu lực sau khi kết nối dịch vụ email.</small></span><Switch checked={settings.emailEnabled} label={settings.emailEnabled ? "Đã bật tùy chọn" : "Đang tắt"} onChange={(value) => change({ emailEnabled: value })} /></div><div><span><strong>Thông báo trong ứng dụng</strong><small>Hiển thị cập nhật trực tiếp trong An Hưu.</small></span><Switch checked={settings.inApp} label={settings.inApp ? "Đang bật" : "Đang tắt"} onChange={(value) => change({ inApp: value })} /></div><div><span><strong>Cảnh báo vận hành quan trọng</strong><small>Thông báo khi có sự cố ảnh hưởng dữ liệu.</small></span><Switch checked={settings.critical} label={settings.critical ? "Đang bật" : "Đang tắt"} onChange={(value) => change({ critical: value })} /></div></div></SettingsCard>;
 }
 
 export function PrivacySettings() {
-  const [saved, setSaved] = useState(false);
-  const [analytics, setAnalytics] = useState(true);
-  const [exportApproval, setExportApproval] = useState(true);
-  return <SettingsCard title="Quyền riêng tư" description="Quản lý thời gian lưu trữ và cách dữ liệu được sử dụng." saved={saved} onSave={() => setSaved(true)}><Alert tone="warning" title="Cấu hình có ảnh hưởng đến dữ liệu người dùng">Chỉ thay đổi sau khi đã kiểm tra chính sách và nghĩa vụ lưu trữ hiện hành.</Alert><div className="settings-form-grid"><Select label="Thời gian lưu hồ sơ đã đóng" options={["3 năm", "5 năm", "7 năm", "10 năm"]} value="5 năm" /><Select label="Thời gian lưu audit log" options={["1 năm", "3 năm", "5 năm"]} value="3 năm" /></div><div className="setting-toggle-list"><div><span><strong>Phân tích dữ liệu ẩn danh</strong><small>Dùng dữ liệu đã loại bỏ định danh để cải thiện sản phẩm.</small></span><Switch checked={analytics} label={analytics ? "Đang bật" : "Đang tắt"} onChange={(value) => { setAnalytics(value); setSaved(false); }} /></div><div><span><strong>Phê duyệt trước khi xuất dữ liệu</strong><small>Yêu cầu quản trị viên thứ hai xác nhận yêu cầu xuất dữ liệu.</small></span><Switch checked={exportApproval} label={exportApproval ? "Bắt buộc" : "Không bắt buộc"} onChange={(value) => { setExportApproval(value); setSaved(false); }} /></div></div></SettingsCard>;
+  const [saved, setSaved] = useState<boolean | null>(null);
+  const [settings, setSettings] = useState(loadAdminSettings);
+  const change = (updates: Partial<AdminSettings>) => { setSettings((value) => ({ ...value, ...updates })); setSaved(false); };
+  return <SettingsCard title="Quyền riêng tư" description="Quản lý thời gian lưu trữ và cách dữ liệu được sử dụng." saved={saved} onSave={() => { persistAdminSettings(settings, "Quyền riêng tư"); setSaved(true); }}><Alert tone="warning" title="Cấu hình demo">Các lựa chọn được lưu cục bộ và chưa thực thi xóa dữ liệu trên máy chủ.</Alert><div className="settings-form-grid"><Select label="Thời gian lưu hồ sơ đã đóng" options={["3 năm", "5 năm", "7 năm", "10 năm"]} value={settings.profileRetention} onChange={(value) => change({ profileRetention: value })} /><Select label="Thời gian lưu audit log" options={["1 năm", "3 năm", "5 năm"]} value={settings.auditRetention} onChange={(value) => change({ auditRetention: value })} /></div><div className="setting-toggle-list"><div><span><strong>Phân tích dữ liệu ẩn danh</strong><small>Dùng dữ liệu đã loại bỏ định danh để cải thiện sản phẩm.</small></span><Switch checked={settings.analytics} label={settings.analytics ? "Đang bật" : "Đang tắt"} onChange={(value) => change({ analytics: value })} /></div><div><span><strong>Phê duyệt trước khi xuất dữ liệu</strong><small>Yêu cầu quản trị viên thứ hai xác nhận yêu cầu xuất dữ liệu.</small></span><Switch checked={settings.exportApproval} label={settings.exportApproval ? "Bắt buộc" : "Không bắt buộc"} onChange={(value) => change({ exportApproval: value })} /></div></div></SettingsCard>;
 }
 
 export function AuditLog() {
   const [filter, setFilter] = useState("Tất cả hoạt động");
-  const rows = [["Lê Lan Anh", "Gửi thông báo hệ thống", "Tất cả người dùng", "18/08/2025, 10:42", "Thành công"], ["Nguyễn Thu Hương", "Cập nhật giả định tài chính", "Lợi suất kỳ vọng", "18/08/2025, 09:15", "Thành công"], ["Phạm Minh Tú", "Thay đổi trạng thái tích hợp", "Đồng bộ dữ liệu đối tác", "17/08/2025, 16:30", "Thành công"], ["Lê Lan Anh", "Xuất báo cáo", "Báo cáo người dùng tháng 8", "17/08/2025, 14:05", "Thành công"], ["Hệ thống", "Đăng nhập thất bại", "Tài khoản quản trị", "17/08/2025, 08:20", "Cần kiểm tra"]];
-  return <Card className="audit-log-card"><header><div><h2>Nhật ký kiểm toán</h2><p>Lịch sử các hành động quản trị quan trọng.</p></div><div><Select label="Loại hoạt động" options={["Tất cả hoạt động", "Cấu hình", "Dữ liệu", "Bảo mật", "Thông báo"]} value={filter} onChange={setFilter} /><Button variant="secondary" icon="download">Xuất nhật ký</Button></div></header><div className="audit-table-scroll"><table className="audit-table"><thead><tr><th>Người thực hiện</th><th>Hành động</th><th>Đối tượng</th><th>Thời gian</th><th>Kết quả</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row[0]}-${row[3]}`}><td><strong>{row[0]}</strong></td><td>{row[1]}</td><td>{row[2]}</td><td>{row[3]}</td><td><Badge tone={row[4] === "Thành công" ? "success" : "warning"}>{row[4]}</Badge></td></tr>)}</tbody></table></div></Card>;
+  const stored = (() => { try { return JSON.parse(localStorage.getItem(ADMIN_AUDIT_KEY) || "[]") as AuditEntry[]; } catch { return []; } })();
+  const seed: AuditEntry[] = [{ actor: "Hệ thống", action: "Đăng nhập thất bại", target: "Tài khoản quản trị", time: "17/08/2025, 08:20", result: "Cần kiểm tra", category: "Bảo mật" }];
+  const rows = [...stored, ...seed].filter((row) => filter === "Tất cả hoạt động" || row.category === filter);
+  const exportLog = () => downloadCsv("nhat-ky-an-huu.csv", [["Người thực hiện", "Hành động", "Đối tượng", "Thời gian", "Giá trị trước", "Giá trị sau", "Kết quả"], ...rows.map((row) => [row.actor, row.action, row.target, row.time, row.before || "", row.after || "", row.result])]);
+  return <Card className="audit-log-card"><header><div><h2>Nhật ký kiểm toán</h2><p>Lịch sử các hành động quản trị đã lưu trong bản demo.</p></div><div><Select label="Loại hoạt động" options={["Tất cả hoạt động", "Cấu hình", "Dữ liệu", "Bảo mật", "Thông báo"]} value={filter} onChange={setFilter} /><Button variant="secondary" icon="download" onClick={exportLog}>Xuất CSV</Button></div></header><div className="audit-table-scroll"><table className="audit-table"><thead><tr><th>Người thực hiện</th><th>Hành động</th><th>Đối tượng</th><th>Thời gian</th><th>Kết quả</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.actor}-${row.time}-${row.target}`}><td><strong>{row.actor}</strong></td><td>{row.action}</td><td>{row.target}</td><td>{row.time}</td><td><Badge tone={row.result === "Thành công" ? "success" : "warning"}>{row.result}</Badge></td></tr>)}</tbody></table></div></Card>;
 }
 
 export function SettingsPage() {
@@ -348,13 +403,27 @@ function AdminTopbar({ onMenu }: { onMenu: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const current = adminNavigation.find(({ path }) => pathname === path || pathname.startsWith(`${path}/`));
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFeedback, setSearchFeedback] = useState("");
 
   const handleLogout = () => {
     logout();
     navigate("/");
   };
 
-  return <header className="admin-topbar"><div className="admin-mobile-brand"><IconButton icon="grid" label="Mở menu quản trị" onClick={onMenu} /><Brand /></div><SearchField label="Tìm kiếm toàn hệ thống" placeholder="Tìm ticket, báo cáo hoặc cấu hình..." hideLabel /><div className="admin-topbar-context"><span>{current?.label ?? "Quản trị"}</span><small>Dữ liệu minh họa · Bản demo</small></div><div className="admin-topbar-actions"><Link className="icon-button" to="/" aria-label="Chọn khu vực demo" title="Chọn khu vực demo"><Icon name="home" /></Link><Tooltip content="3 ticket cần chú ý"><Link className="icon-button" to="/admin/support" aria-label="Công việc cần chú ý"><Icon name="alert" /></Link></Tooltip><Tooltip content="Mẫu thông báo"><Link className="icon-button" to="/admin/support?tab=templates" aria-label="Thông báo"><Icon name="bell" /></Link></Tooltip><Avatar initials={user?.initials || "LA"} name={user?.name || "Lê Lan Anh"} detail={user?.detail || "Quản trị viên"} onLogout={handleLogout} /></div></header>;
+  const submitSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const query = searchQuery.trim().toLocaleLowerCase("vi");
+    const match = [...adminNavigation, ...settingsNavigation].find((item) => item.label.toLocaleLowerCase("vi").includes(query));
+    if (!query || !match) {
+      setSearchFeedback(query ? "Không tìm thấy trang quản trị phù hợp." : "Hãy nhập nội dung cần tìm.");
+      return;
+    }
+    setSearchFeedback("");
+    navigate(match.path);
+  };
+
+  return <header className="admin-topbar"><div className="admin-mobile-brand"><IconButton icon="grid" label="Mở menu quản trị" onClick={onMenu} /><Brand /></div><form className="topbar-search-form" role="search" onSubmit={submitSearch}><SearchField label="Tìm kiếm toàn hệ thống" placeholder="Tìm người dùng, báo cáo hoặc cấu hình..." value={searchQuery} onChange={setSearchQuery} hideLabel /><button className="sr-only" type="submit">Tìm kiếm</button>{searchFeedback && <span className="topbar-search-feedback" role="status">{searchFeedback}</span>}</form><div className="admin-topbar-context"><span>{current?.label ?? "Quản trị"}</span><small>Dữ liệu minh họa · Bản demo</small></div><div className="admin-topbar-actions"><Link className="icon-button" to="/" aria-label="Chọn khu vực demo" title="Chọn khu vực demo"><Icon name="home" /></Link><Tooltip content="3 ticket cần chú ý"><Link className="icon-button" to="/admin/support" aria-label="Công việc cần chú ý"><Icon name="alert" /></Link></Tooltip><Tooltip content="Mẫu thông báo"><Link className="icon-button" to="/admin/support?tab=templates" aria-label="Thông báo"><Icon name="bell" /></Link></Tooltip><Avatar initials={user?.initials || "LA"} name={user?.name || "Lê Lan Anh"} detail={user?.detail || "Quản trị viên"} onLogout={handleLogout} /></div></header>;
 }
 
 export default function AdminLayout() {

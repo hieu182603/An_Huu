@@ -9,9 +9,12 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import type { FinancialProfile } from "../../context/FinancialProfileContext";
+import { calculateRetirement, inputFromProfile } from "../../domain/retirementCalculator";
 
 interface FundGrowthChartProps {
   view: "milestone" | "annual";
+  profile: FinancialProfile;
 }
 
 const formatVND = (value: number) => {
@@ -98,47 +101,30 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function FundGrowthChart({ view }: FundGrowthChartProps) {
+export function FundGrowthChart({ view, profile }: FundGrowthChartProps) {
   const chartData = useMemo(() => {
-    const currentYear = 2025;
-    const currentAge = 32;
-
-    if (view === "milestone") {
-      const milestones = [
-        { age: 32, current: 850_000_000, target: 850_000_000 },
-        { age: 40, current: 1_820_000_000, target: 2_450_000_000 },
-        { age: 50, current: 3_680_000_000, target: 5_200_000_000 },
-        { age: 60, current: 6_120_000_000, target: 8_500_000_000 },
-        { age: 70, current: 4_350_000_000, target: 6_200_000_000 },
-      ];
-
-      return milestones.map((m) => ({
-        age: m.age,
-        year: currentYear + (m.age - currentAge),
-        label: `${m.age}t (${currentYear + (m.age - currentAge)})`,
-        current: m.current,
-        target: m.target,
-      }));
-    } else {
-      // Annual view: 2025 to 2053 (age 32 to 60)
-      const data = [];
-      for (let age = 32; age <= 60; age += 2) {
-        const elapsed = age - 32;
-        const year = currentYear + elapsed;
-        const current = Math.round(850_000_000 + 170_000_000 * elapsed * Math.pow(1.055, elapsed));
-        const target = Math.round(850_000_000 + 220_000_000 * elapsed * Math.pow(1.058, elapsed));
-
-        data.push({
-          age,
-          year,
-          label: `${year}`,
-          current,
-          target,
-        });
-      }
-      return data;
-    }
-  }, [view]);
+    const currentYear = new Date().getFullYear();
+    const input = inputFromProfile(profile);
+    const final = calculateRetirement(input);
+    const years = final.yearsToRetirement;
+    const desiredPoints = view === "annual" ? Math.min(years + 1, 30) : Math.min(8, years + 1);
+    return Array.from({ length: desiredPoints }, (_, index) => {
+      const elapsed = desiredPoints === 1 ? 0 : Math.round(index * years / (desiredPoints - 1));
+      const age = profile.personal.age + elapsed;
+      const partial = elapsed === 0
+        ? final.investableAssetsToday
+        : calculateRetirement({ ...input, retirementAge: age }).projectedFund;
+      const progress = years === 0 ? 1 : elapsed / years;
+      const target = final.investableAssetsToday + (final.targetFund - final.investableAssetsToday) * Math.pow(progress, 1.35);
+      return {
+        age,
+        year: currentYear + elapsed,
+        label: view === "annual" ? `${currentYear + elapsed}` : `${age}t (${currentYear + elapsed})`,
+        current: index === desiredPoints - 1 ? final.projectedFund : Math.round(partial),
+        target: index === desiredPoints - 1 ? final.targetFund : Math.round(target),
+      };
+    });
+  }, [view, profile]);
 
   return (
     <div style={{ width: "100%", height: 320, position: "relative" }}>
@@ -184,11 +170,11 @@ export function FundGrowthChart({ view }: FundGrowthChartProps) {
           <Tooltip content={<CustomTooltip />} />
 
           <ReferenceLine
-            x={chartData.find((d) => d.age === 60)?.label}
+            x={chartData.at(-1)?.label}
             stroke="#D9A85E"
             strokeDasharray="4 4"
             label={{
-              value: "Nghỉ hưu (60t)",
+              value: `Nghỉ hưu (${profile.goal.targetRetireAge}t)`,
               position: "top",
               fill: "#B88738",
               fontSize: 11,

@@ -140,6 +140,7 @@ export function AdminAIManagementPage() {
   const [editingRule, setEditingRule] = useState<PromptRule | null>(null);
   const [tempPrompt, setTempPrompt] = useState("");
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [serviceNotice, setServiceNotice] = useState("");
 
   // Filter sources
   const filteredSources = useMemo(() => {
@@ -177,15 +178,8 @@ export function AdminAIManagementPage() {
   };
 
   const handleSyncSource = (id: string) => {
-    setSyncingId(id);
-    setTimeout(() => {
-      setSources((prev) =>
-        prev.map((s) =>
-          s.id === id ? { ...s, status: "Đã đồng bộ", updated: "Hôm nay" } : s
-        )
-      );
-      setSyncingId(null);
-    }, 1200);
+    setSyncingId(null);
+    setServiceNotice(`Chưa thể đồng bộ nguồn ${id}: bản demo chưa được cấu hình dịch vụ lập chỉ mục phía máy chủ.`);
   };
 
   return (
@@ -207,12 +201,12 @@ export function AdminAIManagementPage() {
             </span>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                <Badge tone="success">Mô hình vận hành ổn định</Badge>
+                <Badge tone="neutral">Chế độ dữ liệu minh họa</Badge>
                 <span style={{ color: "var(--color-soft)", fontSize: "12px" }}>Độ trễ trung bình: 0.82s</span>
               </div>
               <h2>Trợ lý Tư vấn Tài chính & Hưu trí Thông minh</h2>
               <p>
-                Trợ lý An Hưu tích hợp cơ sở tri thức chính thức từ Luật BHXH 2024, các chuẩn mực CFA
+                Giao diện minh họa danh mục nguồn tri thức. Chưa có dịch vụ AI hoặc chỉ mục tìm kiếm được kết nối
                 về quản lý tài sản và dữ liệu thống kê dân số Việt Nam. Mọi lập luận đều có dẫn chiếu
                 minh bạch, không phỏng đoán, không cam kết sai lệch.
               </p>
@@ -245,7 +239,7 @@ export function AdminAIManagementPage() {
 
           <footer>
             <Icon name="circle-check" size="small" />
-            <span>Lần đồng bộ tri thức gần nhất: Hôm nay, 14:30 · 1.675 đoạn văn bản đã lập chỉ mục vector</span>
+            <span>Dữ liệu nguồn đang là mẫu giao diện; chưa có lần đồng bộ máy chủ được xác nhận.</span>
           </footer>
         </Card>
 
@@ -286,10 +280,10 @@ export function AdminAIManagementPage() {
 
           <div className="ai-usage-footer">
             <span>
-              Độ chính xác nghiệp vụ: <strong>99.1%</strong>
+              Trạng thái dịch vụ: <strong>Chưa kết nối</strong>
             </span>
             <span>
-              Đánh giá hữu ích: <strong>96.8%</strong>
+              Kiểm định nghiệp vụ: <strong>Chưa thực hiện</strong>
             </span>
           </div>
         </Card>
@@ -299,10 +293,10 @@ export function AdminAIManagementPage() {
       <Card className="ai-source-card">
         <div className="ai-section-header">
           <div>
-            <h2>Cơ sở tri thức & Tài liệu pháp lý đã lập chỉ mục (Vector Index)</h2>
-            <p>Văn bản luật, thông tư và báo cáo chính thống được sử dụng để cung cấp câu trả lời có căn cứ.</p>
+            <h2>Danh mục nguồn tri thức dự kiến</h2>
+            <p>Dữ liệu mẫu để thiết kế quy trình; chưa được tải lên hoặc lập chỉ mục trên máy chủ.</p>
           </div>
-          <Button variant="secondary" icon="plus">
+          <Button variant="secondary" icon="plus" onClick={() => setServiceNotice("Tải tài liệu cần dịch vụ lưu trữ và lập chỉ mục phía máy chủ; bản demo chưa được cấu hình.")}>
             Tải lên tài liệu mới
           </Button>
         </div>
@@ -419,6 +413,8 @@ export function AdminAIManagementPage() {
           ))}
         </div>
       </Card>
+
+      {serviceNotice && <Alert tone="warning" title="Chức năng chưa được cấu hình">{serviceNotice}</Alert>}
 
       {/* Prompt Rules & Guardrails Card */}
       <Card className="ai-rules-card">
@@ -636,8 +632,8 @@ const initialHistory: ChangeHistoryItem[] = [
 ];
 
 export function AdminFinancialConfigPage() {
-  const [assumptions, setAssumptions] = useState<FinancialAssumption[]>(initialAssumptions);
-  const [history, setHistory] = useState<ChangeHistoryItem[]>(initialHistory);
+  const [assumptions, setAssumptions] = useState<FinancialAssumption[]>(() => { try { return JSON.parse(localStorage.getItem("anhuu_demo_financial_assumptions") || "null") || initialAssumptions; } catch { return initialAssumptions; } });
+  const [history, setHistory] = useState<ChangeHistoryItem[]>(() => { try { return JSON.parse(localStorage.getItem("anhuu_demo_financial_history") || "null") || initialHistory; } catch { return initialHistory; } });
   const [editingParam, setEditingParam] = useState<FinancialAssumption | null>(null);
 
   // Form states for confirmation modal
@@ -645,22 +641,27 @@ export function AdminFinancialConfigPage() {
   const [reasonInput, setReasonInput] = useState("");
   const [confirmedCheck, setConfirmedCheck] = useState(false);
   const [savingToast, setSavingToast] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
   const handleOpenEdit = (param: FinancialAssumption) => {
     setEditingParam(param);
     setNewValueInput(param.currentValue.toString());
     setReasonInput("");
     setConfirmedCheck(false);
+    setValidationError("");
   };
 
   const handleConfirmChange = () => {
     if (!editingParam || !confirmedCheck || !reasonInput.trim()) return;
     const numericVal = parseFloat(newValueInput);
-    if (isNaN(numericVal)) return;
+    if (!Number.isFinite(numericVal)) { setValidationError("Giá trị phải là một số hữu hạn."); return; }
+    const isAge = editingParam.code.startsWith("LIFE_EXPECTANCY");
+    const minimum = isAge ? 60 : 0;
+    const maximum = isAge ? 110 : editingParam.code === "MACRO_INFLATION_RATE" ? 20 : 30;
+    if (numericVal < minimum || numericVal > maximum) { setValidationError(`Giá trị phải nằm trong khoảng ${minimum} đến ${maximum}${editingParam.unit}.`); return; }
 
     // Update assumption
-    setAssumptions((prev) =>
-      prev.map((a) =>
+    const nextAssumptions = assumptions.map((a) =>
         a.id === editingParam.id
           ? {
               ...a,
@@ -669,8 +670,8 @@ export function AdminFinancialConfigPage() {
               updatedBy: "Lê Lan Anh",
             }
           : a
-      )
-    );
+      );
+    setAssumptions(nextAssumptions);
 
     // Add to history
     const newHistoryItem: ChangeHistoryItem = {
@@ -682,7 +683,24 @@ export function AdminFinancialConfigPage() {
       date: "Vừa xong",
       reason: reasonInput,
     };
-    setHistory([newHistoryItem, ...history]);
+    const nextHistory = [newHistoryItem, ...history];
+    setHistory(nextHistory);
+    localStorage.setItem("anhuu_demo_financial_assumptions", JSON.stringify(nextAssumptions));
+    localStorage.setItem("anhuu_demo_financial_history", JSON.stringify(nextHistory));
+    try {
+      const auditKey = "anhuu_demo_admin_audit";
+      const previous = JSON.parse(localStorage.getItem(auditKey) || "[]");
+      localStorage.setItem(auditKey, JSON.stringify([{
+        actor: "Lê Lan Anh",
+        action: "Cập nhật tham số tài chính",
+        target: editingParam.code,
+        time: new Date().toLocaleString("vi-VN"),
+        before: `${editingParam.currentValue}${editingParam.unit}`,
+        after: `${numericVal}${editingParam.unit}`,
+        result: "Thành công",
+        category: "Cấu hình",
+      }, ...previous].slice(0, 100)));
+    } catch {}
 
     setEditingParam(null);
     setSavingToast(true);
@@ -704,13 +722,12 @@ export function AdminFinancialConfigPage() {
         tone="warning"
         title="Khu vực cấu hình nhạy cảm — Ảnh hưởng toàn bộ người dùng"
       >
-        Mọi thay đổi tại đây sẽ kích hoạt tính toán lại nền cho hơn <strong>14.250 kế hoạch hưu trí</strong>{" "}
-        đang hoạt động. Thao tác yêu cầu có lý do nghiệp vụ rõ ràng và được lưu vết vĩnh viễn trong Audit Log.
+        Bản demo chỉ lưu tham số trong trình duyệt và không tự tính lại kế hoạch người dùng hiện có. Hệ thống thật cần backend, quy trình phê duyệt và nhật ký máy chủ.
       </Alert>
 
       {savingToast && (
         <div style={{ padding: "var(--space-3) var(--space-4)", background: "rgba(145, 181, 161, 0.25)", border: "1px solid var(--color-secondary-500)", borderRadius: "var(--radius-sm)", color: "var(--color-primary-700)", fontSize: "13px", display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-          <Icon name="check" /> Đã cập nhật tham số thành công và kích hoạt tính toán lại nền cho các kế hoạch bị ảnh hưởng.
+          <Icon name="check" /> Đã lưu tham số vào bộ nhớ demo. Chưa có tác vụ tính lại trên máy chủ.
         </div>
       )}
 
@@ -721,16 +738,15 @@ export function AdminFinancialConfigPage() {
             <Icon name="target" size="large" />
           </span>
           <div>
-            <Badge tone="success">Phiên bản công thức chính thức</Badge>
-            <h2>Mô hình tính toán Hưu trí v2.4</h2>
+            <Badge tone="neutral">Mô hình demo</Badge>
+            <h2>Mô hình tính toán Hưu trí tham khảo</h2>
             <p>
-              Căn cứ theo Luật BHXH số 41/2024/QH15 và Chuẩn mực Hoạch định Tài chính Việt Nam.
-              Phê duyệt bởi: <strong>Hội đồng Nghiên cứu Actuarial An Hưu</strong>.
+              Công thức dùng cho trình diễn sản phẩm và chưa được kiểm định chuyên môn hoặc xác nhận là phép tính quyền lợi BHXH chính thức.
             </p>
           </div>
           <div>
-            <Button variant="secondary" icon="download">
-              Xuất tài liệu thuật toán (PDF)
+            <Button variant="secondary" icon="download" onClick={() => window.print()}>
+              In mô tả hoặc lưu PDF
             </Button>
           </div>
         </Card>
@@ -942,12 +958,14 @@ export function AdminFinancialConfigPage() {
 
             <div className="change-requirements">
               <span className="is-complete">
-                <Icon name="check" /> Hệ thống sẽ tính lại ngầm dữ liệu cho người dùng
+                <Icon name="info" /> Không tự tính lại kế hoạch người dùng trong bản demo
               </span>
               <span className="is-complete">
-                <Icon name="check" /> Hành động sẽ được ghi nhận vào Nhật ký kiểm toán bảo mật
+                <Icon name="check" /> Thay đổi được lưu trong lịch sử cục bộ của trình duyệt
               </span>
             </div>
+
+            {validationError && <Alert tone="danger" title="Giá trị không hợp lệ">{validationError}</Alert>}
 
             <label className="confirmation-check">
               <input

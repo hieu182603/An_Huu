@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { Badge, BrandLogo, Drawer, Icon } from "../components/ui";
+import heroLifestyle from "../assets/hero-lifestyle.jpg";
+import peacefulRetirement from "../assets/peaceful-retirement.jpg";
+import advisorPlanning from "../assets/advisor-planning.jpg";
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -100,7 +103,7 @@ export default function LandingPage() {
               An tâm hôm nay, <span>an yên</span> ngày mai.
             </h1>
             <p>
-              Tính chính xác số tiền cần chuẩn bị và lộ trình tích lũy từng tháng để thảnh thơi tận hưởng cuộc sống tự do tài chính.
+              Ước tính số tiền cần chuẩn bị và lộ trình tích lũy từng tháng để chủ động hơn cho cuộc sống sau nghỉ hưu.
             </p>
 
             <div className="hero-actions">
@@ -114,7 +117,7 @@ export default function LandingPage() {
 
             <div className="hero-assurance">
               <span><Icon name="circle-check" size="small" /> Không yêu cầu thẻ ngân hàng</span>
-              <span><Icon name="circle-check" size="small" /> Chuẩn mã hóa ngân hàng AES-256</span>
+              <span><Icon name="circle-check" size="small" /> Bản demo lưu dữ liệu trên thiết bị</span>
               <span><Icon name="circle-check" size="small" /> Hoàn thành trong 3 phút</span>
             </div>
           </div>
@@ -122,7 +125,7 @@ export default function LandingPage() {
           <div className="hero-visual">
             <div className="hero-media-wrap">
               <img
-                src="/images/hero-lifestyle.jpg"
+                src={heroLifestyle}
                 alt="Cặp vợ chồng hiện đại Việt Nam thư thái bên tách cà phê buổi sáng và theo dõi kế hoạch tài chính"
                 className="hero-media-img"
                 loading="eager"
@@ -194,7 +197,7 @@ export default function LandingPage() {
                 </div>
                 <Badge tone="soft">TÍNH TOÁN KHOA HỌC</Badge>
               </div>
-              <h3>Biết chính xác số tiền cần có</h3>
+              <h3>Ước tính số tiền cần có</h3>
               <p>
                 Công thức độc quyền tích hợp tuổi thọ bình quân, mức sống mong muốn và tỷ lệ trượt giá tại Việt Nam. Không phỏng đoán, không mơ hồ.
               </p>
@@ -304,7 +307,7 @@ export default function LandingPage() {
             <div className="process-step-card">
               <span className="step-num">03</span>
               <h3>Nhận lộ trình hành động</h3>
-              <p>Tính chính xác khoảng thiếu hụt và số tiền cần tích lũy mỗi tháng.</p>
+              <p>Ước tính khoảng thiếu hụt và số tiền cần tích lũy mỗi tháng.</p>
             </div>
             <div className="process-step-card">
               <span className="step-num">04</span>
@@ -320,7 +323,7 @@ export default function LandingPage() {
         <div className="site-container human-benefit">
           <div className="human-photo">
             <img
-              src="/images/peaceful-retirement.jpg"
+              src={peacefulRetirement}
               alt="Cặp vợ chồng người Việt lớn tuổi nắm tay nhau thảnh thơi dạo bước giữa đồi chè Đà Lạt trong ánh nắng sớm"
               loading="lazy"
             />
@@ -478,13 +481,13 @@ export default function LandingPage() {
               <div className="ai-conversation-card">
                 <div className="ai-card-expert-badge">
                   <img
-                    src="/images/advisor-planning.jpg"
+                    src={advisorPlanning}
                     alt="Chuyên gia tài chính An Hưu"
                     className="ai-expert-thumb"
                   />
                   <div>
                     <strong>Cố vấn chuyên môn & Trí tuệ AI</strong>
-                    <span>Kiểm định bởi chuyên gia tài chính chứng chỉ CFP</span>
+                    <span>Ví dụ minh họa, cần kiểm định chuyên môn trước khi dùng thật</span>
                   </div>
                 </div>
 
@@ -587,7 +590,7 @@ export default function LandingPage() {
             <div className="marketing-section-title">
               <span>HÀNH TRANG THÔNG TIN</span>
               <h2>Kiến thức chuyên sâu & Độc lập bảo mật</h2>
-              <p>Các bài viết kiểm chứng bởi chuyên gia tài chính và cam kết an toàn dữ liệu chuẩn ngân hàng.</p>
+              <p>Nội dung trong bản demo dùng để minh họa trải nghiệm và cần được biên tập, kiểm chứng trước khi phát hành thật.</p>
             </div>
             <Link to="/register" className="button button-secondary button-medium">
               Xem tất cả bài viết <Icon name="arrow-right" />
@@ -657,8 +660,8 @@ export default function LandingPage() {
             <div className="security-item">
               <span className="security-icon"><Icon name="circle-check" /></span>
               <div>
-                <strong>Chuẩn mực CFP</strong>
-                <p>Phương pháp luận từ chuyên gia hoạch định</p>
+                <strong>Mô hình tham khảo</strong>
+                <p>Giả định được trình bày rõ để người dùng xem xét</p>
               </div>
             </div>
             <div className="security-item">

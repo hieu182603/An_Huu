@@ -22,17 +22,7 @@ function AuthStory({
     <aside className="auth-story-panel" aria-label="Giới thiệu An Hưu">
       <div className="auth-story-top">
         <Link to="/" className="auth-story-brand-link" aria-label="Về trang chủ An Hưu">
-          <div className="auth-minimal-brand">
-            <span className="auth-minimal-brand-symbol">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M12 21C12 16 8 12 3 12" stroke="#2dd4bf" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M12 21C12 14.5 16 10.5 21 10.5" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round"/>
-                <path d="M12 21V7" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"/>
-                <circle cx="12" cy="4.5" r="2.5" fill="#5eead4"/>
-              </svg>
-            </span>
-            <span className="auth-minimal-brand-text">An Hưu</span>
-          </div>
+          <BrandLogo inverted />
         </Link>
         <span className="auth-story-badge">
           <Icon name="sparkles" size="small" />
@@ -124,7 +114,7 @@ export function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -138,7 +128,7 @@ export function LoginPage() {
     }
     setLoading(true);
     setError("");
-    const loggedUser = await login(cleanEmail, cleanPassword);
+    const loggedUser = await login(cleanEmail, cleanPassword, remember);
     setLoading(false);
     if (loggedUser) {
       if (loggedUser.role === "admin") {
@@ -267,9 +257,7 @@ export function LoginPage() {
             <button
               type="button"
               className="auth-btn-google"
-              onClick={async () => {
-                await performLogin("user@demo.com", "demo123");
-              }}
+              onClick={() => setError("Đăng nhập Google chưa được cấu hình trong bản demo. Hãy dùng tài khoản demo được cung cấp.")}
             >
               <GoogleIcon />
               <span>Đăng nhập nhanh với Google</span>
@@ -294,7 +282,7 @@ export function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [agree, setAgree] = useState(true);
+  const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -319,12 +307,7 @@ export function RegisterPage() {
       setError("Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.");
       return;
     }
-    setLoading(true);
-    setError("");
-    setTimeout(() => {
-      setLoading(false);
-      navigate("/verify");
-    }, 600);
+    setError("Dịch vụ đăng ký và gửi OTP chưa được cấu hình. Bản demo không tạo hoặc lưu tài khoản mới.");
   };
 
   const passwordStrength =
@@ -484,13 +467,7 @@ export function RegisterPage() {
             <button
               type="button"
               className="auth-btn-google"
-              onClick={() => {
-                setLoading(true);
-                setTimeout(() => {
-                  setLoading(false);
-                  navigate("/verify");
-                }, 500);
-              }}
+              onClick={() => setError("Đăng ký Google chưa được cấu hình trong bản demo.")}
             >
               <GoogleIcon />
               <span>Đăng ký bằng tài khoản Google</span>
@@ -512,15 +489,16 @@ export function ForgotPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!email) return;
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setSent(true);
-    }, 600);
+    const cleanEmail = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setError("Vui lòng nhập một địa chỉ email hợp lệ.");
+      return;
+    }
+    setError("Dịch vụ gửi email đặt lại mật khẩu chưa được cấu hình trong bản demo.");
   };
 
   return (
@@ -528,7 +506,7 @@ export function ForgotPage() {
       <AuthStory
         title="Khôi phục quyền truy cập tài khoản"
         description="Đừng lo lắng, chúng tôi sẽ hỗ trợ bạn lấy lại mật khẩu an toàn thông qua email xác thực đã đăng ký."
-        quote="Mọi dữ liệu tài chính của bạn vẫn được mã hóa và lưu trữ an toàn."
+        quote="Bản demo chưa kết nối dịch vụ tài khoản hoặc gửi email."
       />
 
       <main className="auth-form-panel" id="main-content">
@@ -547,9 +525,11 @@ export function ForgotPage() {
                   type="email"
                   placeholder="tenban@email.com"
                   value={email}
-                  onChange={setEmail}
+                  onChange={(value) => { setEmail(value); setError(""); }}
                   autoComplete="email"
                 />
+
+                {error && <div className="auth-error-banner" role="alert"><Icon name="alert" size="small" /><span>{error}</span></div>}
 
                 <Button
                   type="submit"
@@ -589,7 +569,7 @@ export function ForgotPage() {
 
 export function ResetPage() {
   const navigate = useNavigate();
-  const [code, setCode] = useState("849201");
+  const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [success, setSuccess] = useState(false);
@@ -600,6 +580,10 @@ export function ResetPage() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (!/^\d{6}$/.test(code.trim())) {
+      setError("Mã xác thực phải gồm đúng 6 chữ số.");
+      return;
+    }
     if (!newPassword || newPassword.length < 8) {
       setError("Mật khẩu mới phải có ít nhất 8 ký tự.");
       return;
@@ -608,12 +592,7 @@ export function ResetPage() {
       setError("Mật khẩu xác nhận không khớp.");
       return;
     }
-    setLoading(true);
-    setError("");
-    setTimeout(() => {
-      setLoading(false);
-      setSuccess(true);
-    }, 600);
+    setError("Dịch vụ đặt lại mật khẩu chưa được cấu hình trong bản demo.");
   };
 
   return (
@@ -752,34 +731,29 @@ export function ResetPage() {
 
 export function VerifyPage() {
   const navigate = useNavigate();
-  const [code, setCode] = useState("682490");
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendNotice, setResendNotice] = useState("");
 
   const handleVerify = (e: FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      // Navigate to Onboarding (Phase 3)
-      navigate("/onboarding");
-    }, 600);
+    if (!/^\d{6}$/.test(code.trim())) {
+      setResendNotice("Mã OTP phải gồm đúng 6 chữ số.");
+      return;
+    }
+    setResendNotice("Dịch vụ xác minh OTP chưa được cấu hình trong bản demo.");
   };
 
   const handleResend = () => {
-    setResending(true);
-    setTimeout(() => {
-      setResending(false);
-      setResendNotice("Mã xác thực mới đã được gửi tới email của bạn.");
-    }, 800);
+    setResendNotice("Dịch vụ gửi OTP chưa được cấu hình trong bản demo.");
   };
 
   return (
     <div className="auth-page">
       <AuthStory
         title="Xác thực danh tính tài khoản"
-        description="Để đảm bảo chỉ duy nhất bạn có quyền xem và chỉnh sửa dữ liệu tài chính, chúng tôi đã gửi mã xác thực 6 chữ số tới email của bạn."
+        description="Nhập mã 6 chữ số khi dịch vụ xác thực email đã được cấu hình. Bản demo hiện chưa gửi OTP."
         quote="Bảo mật hai lớp giúp bảo vệ hành trình hưu trí dài hạn của bạn trước mọi rủi ro số."
       />
 
@@ -821,7 +795,7 @@ export function VerifyPage() {
             </div>
 
             {resendNotice && (
-              <p style={{ color: "var(--color-success)", fontSize: "12px", margin: 0 }}>
+              <p role="alert" style={{ color: "var(--color-danger)", fontSize: "12px", margin: 0 }}>
                 {resendNotice}
               </p>
             )}

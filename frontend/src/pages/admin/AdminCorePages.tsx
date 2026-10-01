@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   Avatar,
+  Alert,
   Badge,
   Breadcrumb,
   Button,
@@ -16,6 +17,7 @@ import {
   Tabs,
   type IconName,
 } from "../../components/ui";
+import { downloadCsv } from "../../utils/downloads";
 
 // Mock User database for Admin
 export type AdminUserData = {
@@ -436,8 +438,11 @@ export function AdminUsersPage() {
           <h1>Danh sách người dùng An Hưu</h1>
           <p>Xem danh sách tài khoản, tiến độ hoàn tất hồ sơ và tình trạng kế hoạch hưu trí.</p>
         </div>
-        <Button variant="secondary" icon="download" onClick={() => alert("Đang xuất danh sách ra file Excel...")}>
-          Xuất dữ liệu Excel
+        <Button variant="secondary" icon="download" onClick={() => downloadCsv("an-huu-nguoi-dung.csv", [
+          ["Mã", "Họ tên", "Email", "Trạng thái", "Hoàn tất hồ sơ (%)", "Tiến độ kế hoạch"],
+          ...filteredUsers.map((item) => [item.id, item.name, item.email, item.status, item.profileCompletion, item.planStatus]),
+        ])}>
+          Xuất dữ liệu CSV
         </Button>
       </div>
 
@@ -611,7 +616,25 @@ export function AdminUserDetailPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("Tổng quan");
 
-  const user = mockUsers.find((u) => u.id === userId) || mockUsers[0];
+  const user = mockUsers.find((u) => u.id === userId);
+
+  if (!user) {
+    return <div className="admin-page"><Breadcrumb items={["Quản trị", "Người dùng", "Không tìm thấy"]} /><Card className="empty-state"><Icon name="alert" size="large" /><h1>Không tìm thấy người dùng</h1><p>Mã <strong>{userId}</strong> không tồn tại trong dữ liệu demo.</p><Button onClick={() => navigate("/admin/users")}>Quay lại danh sách</Button></Card></div>;
+  }
+
+  const readiness = user.planStatus === "On track" ? Math.min(95, user.profileCompletion) : user.planStatus === "Needs attention" ? Math.min(65, user.profileCompletion) : user.planStatus === "Behind plan" ? Math.min(45, user.profileCompletion) : 0;
+  const monthlySavings = Math.round(Number(user.salary.replace(/\D/g, "")) * 0.3 / 100000) * 100000;
+  const tabCopy: Record<string, { title: string; body: string }> = {
+    "Hồ sơ tài chính": { title: `Hồ sơ tài chính của ${user.name}`, body: `Thu nhập ${user.salary}; tổng tài sản ước tính ${user.assets}. Hồ sơ hoàn thành ${user.profileCompletion}% và dữ liệu thuộc riêng tài khoản ${user.id}.` },
+    "Mục tiêu & Kế hoạch": { title: `Mục tiêu nghỉ hưu tuổi ${user.targetAge}`, body: `Mục tiêu quỹ ${user.targetFund}; mức sẵn sàng ${readiness}%; tích lũy minh họa ${monthlySavings.toLocaleString("vi-VN")} đ/tháng.` },
+    "Lịch sử hoạt động": { title: "Lịch sử hoạt động", body: `Hoạt động gần nhất của ${user.name}: ${user.lastActive}. Dữ liệu demo chưa kết nối nhật ký hoạt động từ máy chủ.` },
+    "Hỗ trợ": { title: "Hỗ trợ người dùng", body: user.notes },
+  };
+
+  if (activeTab !== "Tổng quan") {
+    const copy = tabCopy[activeTab];
+    return <div className="admin-page user-detail-page"><Breadcrumb items={["Quản trị", "Người dùng", user.name]} /><div className="user-detail-header"><button type="button" className="detail-back" onClick={() => navigate("/admin/users")}><Icon name="arrow-left" /></button><Avatar initials={user.initials} /><div><h1>{user.name}</h1><p>{user.email} · {user.id}</p></div><Badge tone={user.status === "Đang hoạt động" ? "success" : "warning"}>{user.status}</Badge></div><div className="detail-tabs"><Tabs items={["Tổng quan", "Hồ sơ tài chính", "Mục tiêu & Kế hoạch", "Lịch sử hoạt động", "Hỗ trợ"]} active={activeTab} onChange={setActiveTab} /></div><Card className="detail-summary-card"><header><div><h2>{copy.title}</h2><p>{copy.body}</p></div></header><Alert tone="info" title="Dữ liệu demo">Màn hình này hiển thị đúng bản ghi {user.id}; dữ liệu máy chủ và thao tác hỗ trợ bên ngoài chưa được cấu hình.</Alert></Card></div>;
+  }
 
   return (
     <div className="admin-page user-detail-page">
@@ -645,8 +668,8 @@ export function AdminUserDetailPage() {
           {user.status}
         </Badge>
 
-        <Button variant="secondary" size="small" onClick={() => alert("Đang chuẩn bị xuất báo cáo cá nhân...")}>
-          <Icon name="download" /> Xuất hồ sơ PDF
+        <Button variant="secondary" size="small" onClick={() => window.print()}>
+          <Icon name="download" /> In hoặc lưu PDF
         </Button>
       </div>
 
@@ -707,10 +730,10 @@ export function AdminUserDetailPage() {
             <div className="detail-plan-progress">
               <div>
                 <span>Mức độ sẵn sàng</span>
-                <strong>72%</strong>
+                <strong>{readiness}%</strong>
               </div>
-              <div className="progress-track" role="progressbar" aria-valuenow={72} aria-valuemin={0} aria-valuemax={100}>
-                <span style={{ "--progress": "72%" } as React.CSSProperties} />
+              <div className="progress-track" role="progressbar" aria-valuenow={readiness} aria-valuemin={0} aria-valuemax={100}>
+                <span style={{ "--progress": `${readiness}%` } as React.CSSProperties} />
               </div>
             </div>
 
@@ -721,7 +744,7 @@ export function AdminUserDetailPage() {
               </span>
               <span>
                 <small>Tích lũy/tháng:</small>
-                <strong>14.200.000 đ</strong>
+                <strong>{monthlySavings.toLocaleString("vi-VN")} đ</strong>
               </span>
               <span>
                 <small>Thời gian còn lại:</small>
@@ -808,9 +831,9 @@ export function AdminUserDetailPage() {
 
             <Button
               variant="secondary"
-              onClick={() => alert(`Đã gửi email hỗ trợ trực tiếp tới ${user.email}`)}
+              onClick={() => navigate(`/admin/support?user=${encodeURIComponent(user.id)}`)}
             >
-              <Icon name="message" size="small" /> Gửi email cho người dùng
+              <Icon name="message" size="small" /> Mở yêu cầu hỗ trợ
             </Button>
           </Card>
 
@@ -823,7 +846,7 @@ export function AdminUserDetailPage() {
               <Button
                 variant="ghost"
                 size="small"
-                onClick={() => alert("Đang mở hộp thoại chỉnh sửa ghi chú...")}
+                onClick={() => navigate(`/admin/support?user=${encodeURIComponent(user.id)}`)}
               >
                 Chỉnh sửa ghi chú
               </Button>

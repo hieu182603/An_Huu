@@ -1,31 +1,105 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Alert, Badge, Button, Card, Icon, IconButton, Input, Select, Switch } from "../components/ui";
+import { useFinancialProfile, DEMO_STORAGE_DISCLAIMER } from "../context/FinancialProfileContext";
+import { calculateRetirement, inputFromProfile, projectBalanceAtAge } from "../domain/retirementCalculator";
+import { downloadCsv, downloadJson } from "../utils/downloads";
 
 type AccountTab = "profile" | "security" | "notifications" | "reports" | "privacy";
 
 export default function AccountPage() {
   const [activeTab, setActiveTab] = useState<AccountTab>("profile");
-  const [savedNotice, setSavedNotice] = useState(false);
 
-  // Profile form states
-  const [name, setName] = useState("Nguyễn Minh An");
-  const [email, setEmail] = useState("minhan@example.com");
-  const [phone, setPhone] = useState("0912 345 678");
-  const [city, setCity] = useState("TP. Hồ Chí Minh");
-  const [salary, setSalary] = useState("35.000.000");
+  const {
+    profile,
+    saveStatus,
+    saveError,
+    lastSavedAt,
+    updateProfile,
+    updateProfileLocal,
+    updatePersonalInfo,
+    resetToSampleData,
+  } = useFinancialProfile();
 
-  // Security states
+  // State local cho mật khẩu (không lưu vào localStorage theo yêu cầu).
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordFeedback, setPasswordFeedback] = useState<{ tone: "success" | "danger"; message: string } | null>(null);
+
+  // Switches cho tab notifications — đồng bộ với profile khi người dùng bật/tắt
   const [twoFactor, setTwoFactor] = useState(true);
-
-  // Notification states
   const [emailDigest, setEmailDigest] = useState(true);
   const [goalAlerts, setGoalAlerts] = useState(true);
   const [partnerUpdates, setPartnerUpdates] = useState(false);
 
-  const handleSave = () => {
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 3000);
+  // Theo dõi trạng thái lưu để hiển thị thông báo.
+  useEffect(() => {
+    if (saveStatus === "saved" && activeTab === "profile") {
+      setSavedNotice(true);
+      const t = setTimeout(() => setSavedNotice(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [saveStatus, activeTab]);
+  const [savedNotice, setSavedNotice] = useState(false);
+  const [dirtyNotice, setDirtyNotice] = useState(false);
+  const [privacyFeedback, setPrivacyFeedback] = useState<string | null>(null);
+
+  const exportProjectionCsv = () => {
+    const input = inputFromProfile(profile);
+    const rows: Array<Array<string | number>> = [["Tuổi", "Năm", "Số dư dự phóng (VND)"]];
+    for (let age = input.currentAge; age <= input.lifeExpectancy; age += 1) {
+      rows.push([age, new Date().getFullYear() + age - input.currentAge, projectBalanceAtAge(input, age)]);
+    }
+    downloadCsv("an-huu-du-phong-dong-tien.csv", rows);
+  };
+
+  // Báo "có thay đổi chưa lưu" khi người dùng chỉnh sửa nhưng chưa bấm lưu.
+  useEffect(() => {
+    if (saveStatus === "dirty") {
+      setDirtyNotice(true);
+      setSavedNotice(false);
+    } else {
+      setDirtyNotice(false);
+    }
+  }, [saveStatus]);
+
+  // Lưu thay đổi hồ sơ (profile, name, email, phone, city, primaryIncome).
+  const handleSave = async () => {
+    await updateProfile({
+      personal: profile.personal,
+      income: profile.income,
+      socialSecurity: profile.socialSecurity,
+    });
+  };
+
+  // Đổi mật khẩu: kiểm tra dữ liệu thật, không báo thành công nếu thiếu/không hợp lệ.
+  const handleChangePassword = async () => {
+    setPasswordFeedback(null);
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordFeedback({ tone: "danger", message: "Vui lòng nhập đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận." });
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordFeedback({ tone: "danger", message: "Mật khẩu mới phải có ít nhất 8 ký tự." });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordFeedback({ tone: "danger", message: "Mật khẩu mới và xác nhận không trùng khớp." });
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setPasswordFeedback({ tone: "danger", message: "Mật khẩu mới phải khác mật khẩu hiện tại." });
+      return;
+    }
+    // Trong demo: chỉ ghi nhận ý định, không lưu mật khẩu vào localStorage.
+    setPasswordFeedback({
+      tone: "success",
+      message: "Yêu cầu đổi mật khẩu đã được ghi nhận. Tính năng đổi mật khẩu thực sẽ được kích hoạt khi dịch vụ xác thực sẵn sàng.",
+    });
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
   };
 
   return (
@@ -104,7 +178,19 @@ export default function AccountPage() {
         <div className="account-content">
           {savedNotice && (
             <Alert tone="success" title="Cập nhật thành công">
-              Các thông tin thay đổi đã được đồng bộ vào hệ thống tính toán hưu trí của bạn.
+              Hồ sơ của bạn đã được lưu vào bộ nhớ cục bộ{lastSavedAt ? ` lúc ${lastSavedAt}` : ""}.
+            </Alert>
+          )}
+
+          {dirtyNotice && (
+            <Alert tone="info" title="Có thay đổi chưa được lưu">
+              Bạn đã chỉnh sửa nhưng chưa bấm "Lưu thay đổi hồ sơ".
+            </Alert>
+          )}
+
+          {saveError && (
+            <Alert tone="danger" title="Lỗi lưu hồ sơ">
+              {saveError}
             </Alert>
           )}
 
@@ -122,40 +208,41 @@ export default function AccountPage() {
               <div className="account-form-grid">
                 <Input
                   label="Họ và tên"
-                  value={name}
-                  onChange={setName}
+                  value={profile.personal.name}
+                  onChange={(v) => updateProfileLocal({ personal: { ...profile.personal, name: v } })}
                 />
 
                 <Input
                   label="Email tài khoản"
-                  value={email}
-                  onChange={setEmail}
+                  value={profile.personal.email}
+                  onChange={(v) => updateProfileLocal({ personal: { ...profile.personal, email: v } })}
                   type="email"
                 />
 
                 <Input
                   label="Số điện thoại"
-                  value={phone}
-                  onChange={setPhone}
+                  value={profile.personal.phone}
+                  onChange={(v) => updateProfileLocal({ personal: { ...profile.personal, phone: v } })}
                 />
 
                 <Select
                   label="Nơi sinh sống dự kiến khi hưu"
                   options={["TP. Hồ Chí Minh", "Hà Nội", "Đà Nẵng", "Khu vực khác"]}
-                  value={city}
-                  onChange={setCity}
+                  value={profile.personal.city}
+                  onChange={(v) => updateProfileLocal({ personal: { ...profile.personal, city: v } })}
                 />
 
                 <Input
                   label="Thu nhập chính sau thuế hàng tháng"
-                  value={salary}
-                  onChange={setSalary}
+                  value={profile.income.primaryIncome.toLocaleString("vi-VN")}
+                  onChange={(v) => updateProfileLocal({ income: { ...profile.income, primaryIncome: Number(v.replace(/\D/g, "")) || 0 } })}
                   suffix="VNĐ"
                 />
 
                 <Input
                   label="Số năm tham gia BHXH hiện tại"
-                  defaultValue="9 năm"
+                  value={String(profile.socialSecurity.socialInsuranceYears)}
+                  onChange={(v) => updateProfileLocal({ socialSecurity: { ...profile.socialSecurity, socialInsuranceYears: Number(v) || 0 } })}
                   suffix="năm"
                   helper="Cập nhật lại khi hoàn thành thêm các năm đóng bảo hiểm mới."
                 />
@@ -166,8 +253,21 @@ export default function AccountPage() {
                   <Icon name="info" size="small" />
                   Mọi thay đổi thu nhập sẽ cập nhật lại dòng tiền thặng dư tự động.
                 </span>
-                <Button variant="primary" onClick={handleSave}>
+                <Button variant="primary" onClick={handleSave} loading={saveStatus === "saving"}>
                   Lưu thay đổi hồ sơ <Icon name="check" size="small" />
+                </Button>
+              </div>
+
+              <div className="account-reset-row">
+                <small>
+                  <Icon name="info" size="small" /> {DEMO_STORAGE_DISCLAIMER}
+                </small>
+                <Button variant="ghost" size="small" onClick={() => {
+                  if (confirm("Khôi phục lại bộ dữ liệu mẫu ban đầu? Hồ sơ bạn đang chỉnh sẽ bị thay thế.")) {
+                    resetToSampleData();
+                  }
+                }}>
+                  Khôi phục dữ liệu mẫu
                 </Button>
               </div>
             </Card>
@@ -192,35 +292,50 @@ export default function AccountPage() {
                 <Switch
                   checked={twoFactor}
                   label={twoFactor ? "Đang bật" : "Đang tắt"}
-                  onChange={(val) => { setTwoFactor(val); handleSave(); }}
+                  onChange={setTwoFactor}
                 />
               </div>
+
+              {passwordFeedback && (
+                <Alert tone={passwordFeedback.tone} title={passwordFeedback.tone === "success" ? "Đã ghi nhận" : "Không thể đổi mật khẩu"}>
+                  {passwordFeedback.message}
+                </Alert>
+              )}
 
               <div className="account-form-grid" style={{ paddingTop: "24px" }}>
                 <Input
                   label="Mật khẩu hiện tại"
                   type="password"
                   placeholder="Nhập mật khẩu hiện tại"
+                  value={currentPassword}
+                  onChange={setCurrentPassword}
+                  autoComplete="current-password"
                 />
                 <div />
                 <Input
                   label="Mật khẩu mới (tối thiểu 8 ký tự)"
                   type="password"
                   placeholder="Tạo mật khẩu mới"
+                  value={newPassword}
+                  onChange={setNewPassword}
+                  autoComplete="new-password"
                 />
                 <Input
                   label="Xác nhận mật khẩu mới"
                   type="password"
                   placeholder="Nhập lại mật khẩu mới"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  autoComplete="new-password"
                 />
               </div>
 
               <div className="account-save-row">
                 <span>
-                  <Icon name="circle-check" size="small" />
-                  Lần đổi mật khẩu gần nhất: 12/06/2025.
+                  <Icon name="info" size="small" />
+                  Mật khẩu chỉ được ghi nhận ý định; không lưu vào bộ nhớ trình duyệt.
                 </span>
-                <Button variant="primary" onClick={handleSave}>
+                <Button variant="primary" onClick={handleChangePassword}>
                   Đổi mật khẩu <Icon name="check" size="small" />
                 </Button>
               </div>
@@ -235,6 +350,7 @@ export default function AccountPage() {
                   <h2>Tùy chọn nhận thông báo</h2>
                   <p>Chọn các bản tin và cảnh báo tài chính bạn muốn nhận từ An Hưu.</p>
                 </div>
+                <Badge tone="soft">LƯU CỤC BỘ</Badge>
               </header>
 
               <div className="account-setting-row preference-row">
@@ -245,7 +361,7 @@ export default function AccountPage() {
                 <Switch
                   checked={emailDigest}
                   label={emailDigest ? "Bật" : "Tắt"}
-                  onChange={(val) => { setEmailDigest(val); handleSave(); }}
+                  onChange={setEmailDigest}
                 />
               </div>
 
@@ -257,7 +373,7 @@ export default function AccountPage() {
                 <Switch
                   checked={goalAlerts}
                   label={goalAlerts ? "Bật" : "Tắt"}
-                  onChange={(val) => { setGoalAlerts(val); handleSave(); }}
+                  onChange={setGoalAlerts}
                 />
               </div>
 
@@ -269,8 +385,15 @@ export default function AccountPage() {
                 <Switch
                   checked={partnerUpdates}
                   label={partnerUpdates ? "Bật" : "Tắt"}
-                  onChange={(val) => { setPartnerUpdates(val); handleSave(); }}
+                  onChange={setPartnerUpdates}
                 />
+              </div>
+
+              <div className="account-save-row">
+                <span>
+                  <Icon name="info" size="small" />
+                  Cài đặt thông báo trong bản demo chỉ lưu trên thiết bị hiện tại. Tính năng gửi email cần dịch vụ backend.
+                </span>
               </div>
             </Card>
           )}
@@ -282,15 +405,15 @@ export default function AccountPage() {
                 <div>
                   <span className="report-icon"><Icon name="file-text" size="large" /></span>
                   <div>
-                    <h2>Báo cáo Kế hoạch Hưu trí Toàn diện (PDF)</h2>
-                    <p>Bản báo cáo chi tiết 12 trang bao gồm phân tích quỹ, biểu đồ dự phóng, bảng dòng tiền và khuyến nghị chuyên gia.</p>
+                    <h2>Báo cáo Kế hoạch Hưu trí</h2>
+                    <p>Mở hộp thoại in của trình duyệt để in báo cáo hiện tại hoặc chọn “Lưu dưới dạng PDF”.</p>
                   </div>
                 </div>
                 <Button
                   variant="primary"
-                  onClick={() => alert("Đang xuất bản PDF chuẩn in ấn cho tài khoản của bạn...")}
+                  onClick={() => window.print()}
                 >
-                  <Icon name="download" /> Tải về bản PDF (v2.4)
+                  <Icon name="download" /> In hoặc lưu PDF
                 </Button>
               </Card>
 
@@ -300,15 +423,15 @@ export default function AccountPage() {
                     <Icon name="chart" size="large" />
                   </span>
                   <div>
-                    <h2>Bảng dự phóng Dòng tiền Hưu trí Excel / CSV</h2>
-                    <p>File số liệu thô từng năm từ tuổi 32 đến tuổi 82, dùng cho người muốn tự phân tích sâu trên máy tính.</p>
+                    <h2>Bảng dự phóng Dòng tiền Hưu trí (CSV)</h2>
+                    <p>File số liệu từng năm theo tuổi hiện tại và tuổi thọ trong hồ sơ, có thể mở bằng Excel hoặc ứng dụng bảng tính.</p>
                   </div>
                 </div>
                 <Button
                   variant="secondary"
-                  onClick={() => alert("Đang tải tệp Excel dữ liệu kế hoạch...")}
+                  onClick={exportProjectionCsv}
                 >
-                  <Icon name="download" /> Xuất tệp Excel (.xlsx)
+                  <Icon name="download" /> Xuất tệp CSV
                 </Button>
               </Card>
             </div>
@@ -328,7 +451,7 @@ export default function AccountPage() {
               <div className="privacy-notice">
                 <Icon name="info" />
                 <p>
-                  An Hưu hoạt động theo nguyên tắc Zero-Knowledge Encryption cho dữ liệu nhạy cảm. Chúng tôi không bao giờ bán thông tin cho các bên môi giới bảo hiểm hay bất động sản bên ngoài.
+                  Bản demo lưu hồ sơ trong trình duyệt trên thiết bị này. Chưa có máy chủ tài khoản, mã hóa đầu cuối hoặc quy trình xóa dữ liệu từ xa.
                 </p>
               </div>
 
@@ -337,7 +460,7 @@ export default function AccountPage() {
                   <strong>Tải về toàn bộ dữ liệu cá nhân (Data Export)</strong>
                   <small>Xuất toàn bộ lịch sử khai báo, kịch bản mô phỏng và nhật ký trò chuyện AI dưới định dạng JSON.</small>
                 </div>
-                <Button variant="secondary" size="small" onClick={() => alert("Đang chuẩn bị gói dữ liệu cá nhân...")}>
+                <Button variant="secondary" size="small" onClick={() => downloadJson("an-huu-du-lieu-ca-nhan.json", { exportedAt: new Date().toISOString(), profile, calculation: calculateRetirement(inputFromProfile(profile)) })}>
                   <Icon name="download" size="small" /> Tải về dữ liệu
                 </Button>
               </div>
@@ -347,10 +470,11 @@ export default function AccountPage() {
                   <strong style={{ color: "var(--color-danger)" }}>Xóa vĩnh viễn tài khoản & Toàn bộ dữ liệu</strong>
                   <small>Hành động này sẽ xóa sạch tài khoản, hồ sơ và kế hoạch hưu trí. Không thể khôi phục sau khi xóa.</small>
                 </div>
-                <Button variant="danger" size="small" onClick={() => confirm("Bạn có chắc chắn muốn yêu cầu xóa tài khoản?") && alert("Yêu cầu đã được ghi nhận.")}>
+                <Button variant="danger" size="small" onClick={() => setPrivacyFeedback("Chưa thể xóa tài khoản vì bản demo chưa có dịch vụ tài khoản phía máy chủ. Bạn có thể dùng chức năng đặt lại dữ liệu mẫu trong phần hồ sơ.")}>
                   Xóa tài khoản vĩnh viễn
                 </Button>
               </div>
+              {privacyFeedback && <Alert tone="warning" title="Chức năng chưa được cấu hình">{privacyFeedback}</Alert>}
             </Card>
           )}
         </div>

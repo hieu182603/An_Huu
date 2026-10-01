@@ -1,12 +1,66 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Badge, Button, Card, Icon, IconButton } from "../components/ui";
 import { ProjectionWealthChart, AssetDonutChart } from "../components/charts";
+import { useFinancialProfile } from "../context/FinancialProfileContext";
+
+const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " đ";
+const REFERENCE_YEAR = new Date().getFullYear();
 
 export default function UserDashboard() {
   const navigate = useNavigate();
   const [chartPeriod, setChartPeriod] = useState<"5y" | "10y" | "retire" | "lifetime">("retire");
   const [showAlert, setShowAlert] = useState(true);
+
+  const { profile, saveStatus, lastSavedAt, saveError } = useFinancialProfile();
+
+  // Tính toán các chỉ số phái sinh từ hồ sơ dùng chung.
+  const derived = useMemo(() => {
+    const totalAssets =
+      profile.assets.cashSavings +
+      profile.assets.realEstateValue +
+      profile.assets.liquidAssets +
+      profile.assets.stockFundValue;
+    const totalDebt = profile.debt.hasDebt
+      ? profile.debt.mortgageDebt + profile.debt.consumerDebt
+      : 0;
+    const netWorth = totalAssets - totalDebt;
+    const monthlyIncome = profile.income.primaryIncome + profile.income.secondaryIncome;
+    const monthlyExpense = profile.expenses.essentialExpense + profile.expenses.lifestyleExpense;
+    const monthlyDebtService = profile.debt.hasDebt ? profile.debt.monthlyDebtService : 0;
+    const monthlySurplus = Math.max(0, monthlyIncome - monthlyExpense - monthlyDebtService);
+    const targetAge = profile.goal.targetRetireAge;
+    const yearsLeft = Math.max(0, targetAge - profile.personal.age);
+    const targetRetireYear = REFERENCE_YEAR + yearsLeft;
+    const progressPercent =
+      profile.plan.targetFund > 0
+        ? Math.min(100, Math.round((profile.plan.projectedFund / profile.plan.targetFund) * 100))
+        : 0;
+    const gap = profile.plan.targetFund - profile.plan.projectedFund;
+
+    // Phân bổ phần trăm từng nhóm tài sản (an toàn, không chia cho 0).
+    const safeTotal = totalAssets > 0 ? totalAssets : 1;
+    const pctCash = Math.round((profile.assets.cashSavings / safeTotal) * 100);
+    const pctRealEstate = Math.round((profile.assets.realEstateValue / safeTotal) * 100);
+    const pctStock = Math.round((profile.assets.stockFundValue / safeTotal) * 100);
+    const pctLiquid = Math.max(0, 100 - pctCash - pctRealEstate - pctStock);
+    return {
+      totalAssets,
+      netWorth,
+      monthlySurplus,
+      yearsLeft,
+      targetRetireYear,
+      progressPercent,
+      gap,
+      targetAge,
+      pctCash,
+      pctRealEstate,
+      pctStock,
+      pctLiquid,
+    };
+  }, [profile]);
+
+  const greetingName = profile.personal.name || "bạn";
 
   return (
     <>
@@ -14,12 +68,42 @@ export default function UserDashboard() {
       <div className="dashboard-page-header">
         <div>
           <span>BẢN ĐỒ TÀI CHÍNH CÁ NHÂN</span>
-          <h1>Chào buổi sáng, Minh An</h1>
+          <h1>Chào buổi sáng, {greetingName}</h1>
           <p>Hôm nay là thời điểm lý tưởng để kiểm tra lại lộ trình tích lũy và sức khỏe tài chính dài hạn.</p>
         </div>
         <Link to="/user/goal" className="button button-primary button-medium">
           <Icon name="target" /> Điều chỉnh mục tiêu
         </Link>
+      </div>
+
+      {/* Trạng thái lưu hồ sơ */}
+      <div className={`dashboard-save-indicator is-${saveStatus}`} role="status" aria-live="polite">
+        {saveStatus === "saving" ? (
+          <>
+            <span className="save-spinner" aria-hidden="true" />
+            <span>Đang đồng bộ hồ sơ…</span>
+          </>
+        ) : saveStatus === "saved" ? (
+          <>
+            <Icon name="circle-check" size="small" />
+            <span>Đã đồng bộ{lastSavedAt ? ` lúc ${lastSavedAt}` : ""}</span>
+          </>
+        ) : saveStatus === "error" ? (
+          <>
+            <Icon name="alert" size="small" />
+            <span>{saveError || "Không thể lưu hồ sơ"}</span>
+          </>
+        ) : saveStatus === "dirty" ? (
+          <>
+            <Icon name="info" size="small" />
+            <span>Có thay đổi chưa được lưu</span>
+          </>
+        ) : (
+          <>
+            <Icon name="circle-check" size="small" />
+            <span>Hồ sơ được lưu cục bộ</span>
+          </>
+        )}
       </div>
 
       {/* Full-width Hero Card */}
@@ -28,23 +112,28 @@ export default function UserDashboard() {
           <div className="card-heading-row">
             <Badge tone="soft">TIẾN ĐỘ HƯU TRÍ TỔNG THỂ</Badge>
           </div>
-          <h2 style={{ color: "#ffffff" }}>Bạn đã chuẩn bị được 72% cho mục tiêu nghỉ hưu ở tuổi 60</h2>
+          <h2 style={{ color: "#ffffff" }}>
+            Bạn đã chuẩn bị được {derived.progressPercent}% cho mục tiêu nghỉ hưu ở tuổi {derived.targetAge}
+          </h2>
           <p>
-            Với mức tích lũy hiện tại <strong>14.200.000 đ/tháng</strong> cùng các khoản tài sản và BHXH dự phóng, bạn đang đi rất sát lộ trình để đạt cuộc sống an nhàn độc lập.
+            Với mức tích lũy hiện tại <strong>{formatVND(profile.plan.monthlySavings)}/tháng</strong> cùng
+            các khoản tài sản và BHXH dự phóng, bạn đang đi rất sát lộ trình để đạt cuộc sống an nhàn độc lập.
           </p>
 
           <div className="hero-financial-metrics">
             <div>
               <span>Mục tiêu quỹ hưu</span>
-              <strong>8.500.000.000 đ</strong>
+              <strong>{formatVND(profile.plan.targetFund)}</strong>
             </div>
             <div>
               <span>Dự kiến đạt được</span>
-              <strong>6.120.000.000 đ</strong>
+              <strong>{formatVND(profile.plan.projectedFund)}</strong>
             </div>
             <div>
               <span>Khoảng cần bổ sung</span>
-              <strong style={{ color: "var(--color-warning-fill)" }}>2.380.000.000 đ</strong>
+              <strong style={{ color: "var(--color-warning-fill)" }}>
+                {formatVND(Math.max(0, derived.gap))}
+              </strong>
             </div>
           </div>
 
@@ -73,17 +162,17 @@ export default function UserDashboard() {
                 cy="80"
                 r="72"
                 className="ring-value"
-                style={{ strokeDashoffset: `${452.4 * (1 - 0.72)}`, stroke: "url(#ringGrad)" }}
+                style={{ strokeDashoffset: `${452.4 * (1 - derived.progressPercent / 100)}`, stroke: "url(#ringGrad)" }}
               />
             </svg>
             <div>
-              <strong>72%</strong>
-              <span>MỤC TIÊU TUỔI 60</span>
+              <strong>{derived.progressPercent}%</strong>
+              <span>MỤC TIÊU TUỔI {derived.targetAge}</span>
             </div>
           </div>
           <div className="ring-caption">
             <Icon name="circle-check" size="small" />
-            <span>Dự kiến về đích vào năm 2053</span>
+            <span>Dự kiến về đích vào năm {derived.targetRetireYear}</span>
           </div>
         </div>
       </div>
@@ -97,14 +186,20 @@ export default function UserDashboard() {
             <span className="card-icon"><Icon name="target" /></span>
           </div>
           <div className="readiness-score">
-            <strong>78</strong>
+            <strong>{profile.plan.readinessScore}</strong>
             <span>/ 100 điểm</span>
           </div>
-          <p>Mức chuẩn bị đạt hạng Khá vững vàng. Dòng tiền thặng dư hàng tháng đủ bù đắp trượt giá lạm phát.</p>
+          <p>
+            {profile.plan.readinessScore >= 75
+              ? "Mức chuẩn bị đạt hạng Khá vững vàng. Dòng tiền thặng dư hàng tháng đủ bù đắp trượt giá lạm phát."
+              : profile.plan.readinessScore >= 55
+              ? "Mức chuẩn bị ở nhóm trung bình khá. Cần duy trì đều đặn tích lũy để cải thiện điểm số."
+              : "Kế hoạch đang cần điều chỉnh. Hãy thử mô phỏng các kịch bản để tìm hướng cải thiện."}
+          </p>
           <div className="score-scale">
-            <span className="is-filled" />
-            <span className="is-filled" />
-            <span className="is-filled is-current" />
+            <span className={profile.plan.readinessScore >= 25 ? "is-filled" : ""} />
+            <span className={profile.plan.readinessScore >= 50 ? "is-filled" : ""} />
+            <span className={profile.plan.readinessScore >= 75 ? "is-filled is-current" : ""} />
             <span />
           </div>
           <div className="score-labels">
@@ -121,8 +216,16 @@ export default function UserDashboard() {
           </div>
           <div>
             <Badge tone="honey">HÀNH ĐỘNG KHUYẾN NGHỊ</Badge>
-            <h3>Tăng 1.5 triệu vào Quỹ đầu tư</h3>
-            <p>Chỉ cần tăng thêm 1.500.000 đ/tháng vào danh mục quỹ cổ phiếu định kỳ, bạn sẽ lấp kín 100% khoảng thiếu hụt.</p>
+            <h3>
+              {derived.gap > 0
+                ? `Tăng thêm khoảng ${formatVND(Math.round(derived.gap / Math.max(1, derived.yearsLeft * 12)))}/tháng để bù thiếu hụt`
+                : "Bạn đang vượt mục tiêu — cân nhắc tối ưu hóa danh mục"}
+            </h3>
+            <p>
+              {derived.gap > 0
+                ? "Bám sát kế hoạch tích lũy hàng tháng sẽ giúp bạn rút ngắn khoảng cách tới mục tiêu an nhàn."
+                : "Kế hoạch hiện tại đã đáp ứng mục tiêu. Hãy thử mô phỏng để xem xét tối ưu hoá hoặc nghỉ sớm hơn."}
+            </p>
           </div>
           <Button variant="secondary" size="small" onClick={() => navigate("/user/simulation")}>
             Thử mô phỏng điều chỉnh này <Icon name="arrow-right" />
@@ -137,20 +240,20 @@ export default function UserDashboard() {
             <span>Tài sản ròng hiện có</span>
             <span className="metric-icon"><Icon name="wallet" /></span>
           </div>
-          <strong>2.870.000.000 đ</strong>
-          <small className="is-positive">
-            <Icon name="arrow-right" size="small" /> +4.8% so với quý trước
+          <strong>{formatVND(derived.netWorth)}</strong>
+          <small>
+            <Icon name="info" size="small" /> Bao gồm tiết kiệm, BĐS, đầu tư và trừ nợ
           </small>
         </Card>
 
         <Card className="dashboard-metric-card">
           <div>
-            <span>Tích lũy tháng này</span>
+            <span>Tích lũy đề xuất mỗi tháng</span>
             <span className="metric-icon"><Icon name="chart" /></span>
           </div>
-          <strong>14.200.000 đ</strong>
+          <strong>{formatVND(profile.plan.monthlySavings)}</strong>
           <small className="is-positive">
-            <Icon name="circle-check" size="small" /> Đạt 100% chỉ tiêu tháng
+            <Icon name="circle-check" size="small" /> Dựa trên dòng tiền thặng dư hiện tại
           </small>
         </Card>
 
@@ -159,9 +262,9 @@ export default function UserDashboard() {
             <span>Thời gian tích lũy còn lại</span>
             <span className="metric-icon"><Icon name="compass" /></span>
           </div>
-          <strong>28 năm</strong>
+          <strong>{derived.yearsLeft} năm</strong>
           <small>
-            <Icon name="info" size="small" /> Tuổi 32 → Nghỉ hưu tuổi 60
+            <Icon name="info" size="small" /> Tuổi {profile.personal.age} → Nghỉ hưu tuổi {derived.targetAge}
           </small>
         </Card>
       </div>
@@ -197,16 +300,18 @@ export default function UserDashboard() {
           </div>
 
           <div className="projection-chart-area" tabIndex={0} role="region" aria-label="Biểu đồ dự phóng tài sản">
-            <ProjectionWealthChart period={chartPeriod} />
+            <ProjectionWealthChart period={chartPeriod} profile={profile} />
           </div>
 
           <div className="chart-summary">
             <div className="chart-legend-items">
-              <span><i className="legend-target" /> Mục tiêu tối thiểu (8.5 tỷ)</span>
-              <span><i className="legend-current" /> Dự phóng với mức tiết kiệm hiện tại (6.12 tỷ)</span>
+              <span><i className="legend-target" /> Mục tiêu ({formatVND(profile.plan.targetFund)})</span>
+              <span><i className="legend-current" /> Dự phóng ({formatVND(profile.plan.projectedFund)})</span>
             </div>
             <p>
-              <Icon name="info" size="small" /> Khoảng thiếu hụt 2.38 tỷ tương đương cần bổ sung thêm 1.48 tr/tháng.
+              <Icon name="info" size="small" /> {derived.gap > 0
+                ? `Khoảng thiếu hụt ${formatVND(derived.gap)} tương đương cần bổ sung thêm ~${formatVND(Math.round(derived.gap / Math.max(1, derived.yearsLeft * 12)))}/tháng.`
+                : `Bạn đang vượt mục tiêu ${formatVND(Math.abs(derived.gap))}. Có thể cân nhắc tối ưu hóa danh mục.`}
             </p>
           </div>
         </Card>
@@ -216,9 +321,9 @@ export default function UserDashboard() {
           <div className="dashboard-card-heading">
             <div>
               <h2>Cơ cấu tài sản hiện tại</h2>
-              <p>Tổng giá trị ước tính: 3.720.000.000 đ</p>
+              <p>Tổng giá trị ước tính: {formatVND(derived.totalAssets)}</p>
             </div>
-            <Badge tone="soft">CẬP NHẬT Q3</Badge>
+            <Badge tone="soft">CẬP NHẬT HÔM NAY</Badge>
           </div>
 
           <AssetDonutChart />
@@ -228,57 +333,63 @@ export default function UserDashboard() {
               <span className="snapshot-icon"><Icon name="wallet" /></span>
               <span>
                 <small>Tiền gửi tiết kiệm ngân hàng</small>
-                <strong>450.000.000 đ</strong>
+                <strong>{formatVND(profile.assets.cashSavings)}</strong>
                 <span style={{ display: "block", height: "4px", width: "100%", maxWidth: "160px", background: "#f1f5f9", borderRadius: "999px", marginTop: "4px", overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: "12%", background: "var(--color-primary-700)", borderRadius: "999px" }} />
+                  <span style={{ display: "block", height: "100%", width: `${derived.pctCash}%`, background: "var(--color-primary-700)", borderRadius: "999px" }} />
                 </span>
               </span>
-              <Badge tone="neutral">12%</Badge>
+              <Badge tone="neutral">{derived.pctCash}%</Badge>
             </div>
 
             <div>
               <span className="snapshot-icon"><Icon name="home" /></span>
               <span>
                 <small>Bất động sản nhà ở</small>
-                <strong>2.400.000.000 đ</strong>
+                <strong>{formatVND(profile.assets.realEstateValue)}</strong>
                 <span style={{ display: "block", height: "4px", width: "100%", maxWidth: "160px", background: "#f1f5f9", borderRadius: "999px", marginTop: "4px", overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: "65%", background: "var(--color-secondary-500)", borderRadius: "999px" }} />
+                  <span style={{ display: "block", height: "100%", width: `${derived.pctRealEstate}%`, background: "var(--color-secondary-500)", borderRadius: "999px" }} />
                 </span>
               </span>
-              <Badge tone="neutral">65%</Badge>
+              <Badge tone="neutral">{derived.pctRealEstate}%</Badge>
             </div>
 
             <div>
               <span className="snapshot-icon"><Icon name="chart" /></span>
               <span>
                 <small>Cổ phiếu & Quỹ đầu tư mở</small>
-                <strong>570.000.000 đ</strong>
+                <strong>{formatVND(profile.assets.stockFundValue)}</strong>
                 <span style={{ display: "block", height: "4px", width: "100%", maxWidth: "160px", background: "#f1f5f9", borderRadius: "999px", marginTop: "4px", overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: "15%", background: "var(--color-accent-500)", borderRadius: "999px" }} />
+                  <span style={{ display: "block", height: "100%", width: `${derived.pctStock}%`, background: "var(--color-accent-500)", borderRadius: "999px" }} />
                 </span>
               </span>
-              <Badge tone="success">15%</Badge>
+              <Badge tone="success">{derived.pctStock}%</Badge>
             </div>
 
             <div>
               <span className="snapshot-icon"><Icon name="sparkles" /></span>
               <span>
                 <small>Tài sản thanh khoản khác</small>
-                <strong>300.000.000 đ</strong>
+                <strong>{formatVND(profile.assets.liquidAssets)}</strong>
                 <span style={{ display: "block", height: "4px", width: "100%", maxWidth: "160px", background: "#f1f5f9", borderRadius: "999px", marginTop: "4px", overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: "8%", background: "var(--color-info)", borderRadius: "999px" }} />
+                  <span style={{ display: "block", height: "100%", width: `${derived.pctLiquid}%`, background: "var(--color-info)", borderRadius: "999px" }} />
                 </span>
               </span>
-              <Badge tone="neutral">8%</Badge>
+              <Badge tone="neutral">{derived.pctLiquid}%</Badge>
             </div>
           </div>
 
           <div className="cashflow-summary">
             <span>Dòng tiền thặng dư có thể tích lũy:</span>
             <strong>
-              18.500.000 đ <small>/ tháng</small>
+              {formatVND(derived.monthlySurplus)} <small>/ tháng</small>
             </strong>
-            <p>Thu nhập 43 triệu - Chi tiêu 25 triệu = Thặng dư 18 triệu</p>
+            <p>
+              Thu nhập {formatVND(profile.income.primaryIncome + profile.income.secondaryIncome)} -
+              Chi tiêu {formatVND(profile.expenses.essentialExpense + profile.expenses.lifestyleExpense)}
+              {profile.debt.hasDebt && profile.debt.monthlyDebtService > 0
+                ? ` - Trả nợ ${formatVND(profile.debt.monthlyDebtService)}`
+                : ""} = Thặng dư {formatVND(derived.monthlySurplus)}
+            </p>
           </div>
         </Card>
       </div>
@@ -334,8 +445,8 @@ export default function UserDashboard() {
             <div>
               <span><Icon name="circle-check" /></span>
               <div>
-                <strong>Tích lũy định kỳ tháng 9</strong>
-                <small>Đã ghi nhận 14.200.000 đ vào quỹ</small>
+                <strong>Tích lũy định kỳ hàng tháng</strong>
+                <small>Đề xuất {formatVND(profile.plan.monthlySavings)}/tháng từ dòng tiền thặng dư</small>
               </div>
               <Icon name="chevron-right" size="small" />
             </div>
@@ -343,8 +454,8 @@ export default function UserDashboard() {
             <div>
               <span><Icon name="target" /></span>
               <div>
-                <strong>Điều chỉnh mục tiêu tuổi hưu</strong>
-                <small>Chuyển mục tiêu từ 62 tuổi sang 60 tuổi</small>
+                <strong>Mục tiêu hiện tại</strong>
+                <small>Nghỉ hưu tuổi {derived.targetAge} · Chi tiêu {formatVND(profile.goal.monthlyExpenseInRetirement)}/tháng</small>
               </div>
               <Icon name="chevron-right" size="small" />
             </div>
@@ -352,8 +463,8 @@ export default function UserDashboard() {
             <div>
               <span><Icon name="sparkles" /></span>
               <div>
-                <strong>Hỏi đáp cùng Trợ lý AI</strong>
-                <small>Giải thích về công thức lương hưu BHXH mới</small>
+                <strong>Lần đồng bộ hồ sơ gần nhất</strong>
+                <small>{lastSavedAt ? `Lúc ${lastSavedAt}` : "Chưa có thay đổi nào được lưu"}</small>
               </div>
               <Icon name="chevron-right" size="small" />
             </div>
@@ -364,11 +475,22 @@ export default function UserDashboard() {
       {/* Dashboard Data Note */}
       <div className="dashboard-data-note">
         <Icon name="info" />
-        <span>Dữ liệu tính toán được cập nhật tự động theo chuẩn kinh tế tài chính Việt Nam. Lần đồng bộ gần nhất: Hôm qua, 18:30.</span>
-        <button type="button" onClick={() => alert("Dữ liệu tài khoản đã được đồng bộ mới nhất.")}>
-          Làm mới dữ liệu ngay
+        <span>
+          Dữ liệu hồ sơ của bạn được lưu cục bộ trong trình duyệt. Lần đồng bộ gần nhất: {lastSavedAt || "chưa có"}.
+        </span>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          aria-label="Tải lại dữ liệu từ bộ nhớ cục bộ"
+        >
+          Tải lại dữ liệu
         </button>
       </div>
+
+      <p className="dashboard-demo-note">
+        <Icon name="info" size="small" />
+        <span>Bộ số liệu dùng chung giữa Dashboard, Mục tiêu, Kế hoạch và Mô phỏng — đồng bộ tự động khi bạn lưu.</span>
+      </p>
     </>
   );
 }

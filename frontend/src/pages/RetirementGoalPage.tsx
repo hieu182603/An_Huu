@@ -1,36 +1,83 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Badge, Button, Card, Icon, IconButton, Input, Tooltip } from "../components/ui";
+import { Alert, Badge, Button, Card, Icon, IconButton, Input, Tooltip } from "../components/ui";
+import { useFinancialProfile, DEMO_STORAGE_DISCLAIMER } from "../context/FinancialProfileContext";
+import { calculateRetirement, inputFromProfile, validateRetirementInput } from "../domain/retirementCalculator";
+
+const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " đ";
+const parsePercent = (v: string, fallback: number): number => {
+  const n = parseFloat(String(v).replace("%", "").trim());
+  return Number.isFinite(n) ? n : fallback;
+};
 
 export default function RetirementGoalPage() {
   const navigate = useNavigate();
+  const { profile, updateProfile, saveStatus, lastSavedAt, saveError } = useFinancialProfile();
 
-  // Goal states
-  const [currentAge, setCurrentAge] = useState(32);
-  const [targetAge, setTargetAge] = useState(60);
-  const [lifestyle, setLifestyle] = useState<"standard" | "comfortable" | "affluent">("comfortable");
-  const [monthlyExpenseInRetirement, setMonthlyExpenseInRetirement] = useState(22000000);
-  const [inflationRate, setInflationRate] = useState("4.0%");
-  const [investmentReturn, setInvestmentReturn] = useState("7.8%");
-  const [lifeExpectancy, setLifeExpectancy] = useState(82);
+  // Goal states initialized from shared profile
+  const [currentAge, setCurrentAge] = useState(profile.personal.age || 32);
+  const [targetAge, setTargetAge] = useState(profile.goal.targetRetireAge || 60);
+  const [lifestyle, setLifestyle] = useState<"standard" | "comfortable" | "affluent">(profile.goal.lifestyle || "comfortable");
+  const [monthlyExpenseInRetirement, setMonthlyExpenseInRetirement] = useState(profile.goal.monthlyExpenseInRetirement || 22000000);
+  const [inflationRate, setInflationRate] = useState(`${profile.goal.inflationRate ?? 4.0}%`);
+  const [investmentReturn, setInvestmentReturn] = useState(`${profile.goal.investmentReturn ?? 7.8}%`);
+  const [lifeExpectancy, setLifeExpectancy] = useState(profile.goal.lifeExpectancy || 82);
+  const [saveNotice, setSaveNotice] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
   const yearsLeft = Math.max(0, targetAge - currentAge);
   const retirementDuration = Math.max(0, lifeExpectancy - targetAge);
+  const inflationNum = parsePercent(inflationRate, profile.goal.inflationRate);
+  const returnNum = parsePercent(investmentReturn, profile.goal.investmentReturn);
 
-  // Computed fund target (simplified actuarial calculation for UI)
-  const lifestyleFactor = lifestyle === "standard" ? 0.8 : lifestyle === "comfortable" ? 1.0 : 1.35;
-  const estimatedTargetFund = Math.round(monthlyExpenseInRetirement * 12 * retirementDuration * lifestyleFactor * 1.5);
-  const estimatedMonthlySave = Math.max(1, Math.round((estimatedTargetFund * 0.45) / (yearsLeft * 12)));
+  const previewInput = {
+    ...inputFromProfile(profile),
+    currentAge,
+    retirementAge: targetAge,
+    lifeExpectancy,
+    monthlyExpenseToday: monthlyExpenseInRetirement,
+    annualInflationRate: inflationNum,
+    annualReturnRate: returnNum,
+  };
+  const preview = calculateRetirement(previewInput);
+  const estimatedTargetFund = preview.targetFund;
+  const estimatedMonthlySave = profile.plan.monthlySavings;
 
-  const formatVND = (num: number) => {
-    return new Intl.NumberFormat("vi-VN").format(num) + " đ";
+  const handleSaveGoal = async () => {
+    const errors = validateRetirementInput(previewInput);
+    if (errors.length) {
+      setValidationError(errors[0]);
+      return false;
+    }
+    setValidationError("");
+    const ok = await updateProfile({
+      personal: { ...profile.personal, age: currentAge },
+      goal: {
+        ...profile.goal,
+        targetRetireAge: targetAge,
+        lifeExpectancy,
+        lifestyle,
+        monthlyExpenseInRetirement,
+        inflationRate: inflationNum,
+        investmentReturn: returnNum,
+      },
+    });
+    if (ok) {
+      setSaveNotice(true);
+      setTimeout(() => setSaveNotice(false), 3000);
+    }
+    return ok;
+  };
+
+  const handleProceedToPlan = async () => {
+    if (await handleSaveGoal()) navigate("/user/plan");
   };
 
   return (
     <>
       <div className="retirement-page-header">
         <div>
-          <Badge tone="soft">MỤC TIÊU HƯU TRÍ (U05)</Badge>
+          <Badge tone="soft">MỤC TIÊU HƯU TRÍ</Badge>
           <h1>Xác định mục tiêu & kỳ vọng nghỉ hưu</h1>
           <p>
             Chọn thời điểm và phong cách sống bạn mong muốn khi về già. Hệ thống sẽ tự động lượng hóa số tiền mục tiêu cần tích lũy.
@@ -178,7 +225,7 @@ export default function RetirementGoalPage() {
               <span className="form-section-index">03</span>
               <div>
                 <h2>Giả định kinh tế & Tuổi thọ</h2>
-                <p>Các chỉ số vĩ mô được thiết lập chuẩn theo khuyến nghị chuyên gia tài chính.</p>
+                <p>Các chỉ số là giả định của mô hình demo và có thể được điều chỉnh trước khi lưu.</p>
               </div>
             </header>
 
@@ -293,16 +340,35 @@ export default function RetirementGoalPage() {
             <div className="goal-estimate">
               <span>Mức tích lũy khuyến nghị:</span>
               <strong>{formatVND(estimatedMonthlySave)} / tháng</strong>
-              <small>Dựa trên lợi suất kỳ vọng {investmentReturn} và tài sản hiện có.</small>
+              <small>
+                Tính theo lạm phát {inflationNum}%, lợi suất {returnNum}% và tài sản hiện có.
+                {returnNum === 0 && " (Lưu ý: lợi suất 0% làm tăng mức tích lũy cần thiết.)"}
+              </small>
             </div>
 
+            {validationError && <Alert tone="danger" title="Thông tin chưa hợp lệ">{validationError}</Alert>}
+
+            <Button
+              variant="secondary"
+              size="medium"
+              onClick={handleSaveGoal}
+              className="goal-save-btn"
+              loading={saveStatus === "saving"}
+            >
+              <Icon name="check" size="small" /> Lưu mục tiêu
+            </Button>
             <Button
               variant="primary"
               size="large"
-              onClick={() => navigate("/user/plan")}
+              onClick={handleProceedToPlan}
             >
               Xem kế hoạch hành động chi tiết <Icon name="arrow-right" />
             </Button>
+
+            <p className="goal-demo-note">
+              <Icon name="info" size="small" />
+              <span>{DEMO_STORAGE_DISCLAIMER}</span>
+            </p>
           </Card>
         </aside>
       </div>
