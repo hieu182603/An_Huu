@@ -5,6 +5,17 @@ import { ProjectionWealthChart, AssetDonutChart } from "../components/charts";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 
 const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " đ";
+const formatCompactVND = (num: number) => {
+  if (num >= 1_000_000_000) {
+    const val = (num / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "").replace(".", ",");
+    return `${val} tỷ đ`;
+  }
+  if (num >= 1_000_000) {
+    const val = (num / 1_000_000).toFixed(1).replace(/\.?0+$/, "").replace(".", ",");
+    return `${val} triệu đ`;
+  }
+  return formatVND(num);
+};
 const REFERENCE_YEAR = new Date().getFullYear();
 
 export default function UserDashboard() {
@@ -109,31 +120,58 @@ export default function UserDashboard() {
       {/* Full-width Hero Card */}
       <div className="retirement-hero retirement-hero-full">
         <div className="retirement-hero-copy">
-          <div className="card-heading-row">
-            <Badge tone="soft">TIẾN ĐỘ HƯU TRÍ TỔNG THỂ</Badge>
+          <div className="hero-top-badge-row">
+            <Badge tone="soft">TIẾN ĐỘ HƯU TRÍ</Badge>
+            <span className="hero-status-pill">
+              <span className="status-dot" />
+              {derived.progressPercent >= 100 ? "Vững vàng mục tiêu" : "Đang tích lũy"}
+            </span>
           </div>
-          <h2 style={{ color: "#ffffff" }}>
-            Bạn đã chuẩn bị được {derived.progressPercent}% cho mục tiêu nghỉ hưu ở tuổi {derived.targetAge}
+
+          <h2 className="hero-headline">
+            {derived.progressPercent >= 100
+              ? `Lộ trình hưu trí tuổi ${derived.targetAge} đạt kết quả xuất sắc`
+              : `Kế hoạch hưu trí mục tiêu tuổi ${derived.targetAge}`}
           </h2>
-          <p>
-            Với mức tích lũy hiện tại <strong>{formatVND(profile.plan.monthlySavings)}/tháng</strong> cùng
-            các khoản tài sản và BHXH dự phóng, bạn đang đi rất sát lộ trình để đạt cuộc sống an nhàn độc lập.
+
+          <p className="hero-brief-summary">
+            Tích lũy <strong>{formatCompactVND(profile.plan.monthlySavings)}/tháng</strong> · Dự kiến hoàn thành vào năm <strong>{derived.targetRetireYear}</strong> ({derived.yearsLeft} năm nữa)
           </p>
 
           <div className="hero-financial-metrics">
-            <div>
-              <span>Mục tiêu quỹ hưu</span>
-              <strong>{formatVND(profile.plan.targetFund)}</strong>
-            </div>
-            <div>
-              <span>Dự kiến đạt được</span>
-              <strong>{formatVND(profile.plan.projectedFund)}</strong>
-            </div>
-            <div>
-              <span>Khoảng cần bổ sung</span>
-              <strong style={{ color: "var(--color-warning-fill)" }}>
-                {formatVND(Math.max(0, derived.gap))}
+            <div className="hero-metric-item">
+              <span className="hero-metric-label">Mục tiêu quỹ hưu</span>
+              <strong className="hero-metric-value" title={formatVND(profile.plan.targetFund)}>
+                {formatCompactVND(profile.plan.targetFund)}
               </strong>
+              <small className="hero-metric-sub">Ước tính tuổi {derived.targetAge}</small>
+            </div>
+
+            <div className="hero-metric-item">
+              <span className="hero-metric-label">Dự kiến đạt được</span>
+              <strong className="hero-metric-value is-highlight" title={formatVND(profile.plan.projectedFund)}>
+                {formatCompactVND(profile.plan.projectedFund)}
+              </strong>
+              <small className="hero-metric-sub is-positive">
+                +{formatCompactVND(Math.max(0, profile.plan.projectedFund - profile.plan.targetFund))} thặng dư
+              </small>
+            </div>
+
+            <div className="hero-metric-item">
+              <span className="hero-metric-label">Khoảng cần bổ sung</span>
+              {derived.gap <= 0 ? (
+                <>
+                  <strong className="hero-metric-value is-success">0 đ</strong>
+                  <small className="hero-metric-sub is-positive">✓ Đã đủ 100%</small>
+                </>
+              ) : (
+                <>
+                  <strong className="hero-metric-value is-warning" title={formatVND(derived.gap)}>
+                    {formatCompactVND(derived.gap)}
+                  </strong>
+                  <small className="hero-metric-sub is-warning">Cần tích lũy thêm</small>
+                </>
+              )}
             </div>
           </div>
 
@@ -165,14 +203,14 @@ export default function UserDashboard() {
                 style={{ strokeDashoffset: `${452.4 * (1 - derived.progressPercent / 100)}`, stroke: "url(#ringGrad)" }}
               />
             </svg>
-            <div>
+            <div className="ring-inner-stat">
               <strong>{derived.progressPercent}%</strong>
               <span>MỤC TIÊU TUỔI {derived.targetAge}</span>
             </div>
           </div>
           <div className="ring-caption">
             <Icon name="circle-check" size="small" />
-            <span>Dự kiến về đích vào năm {derived.targetRetireYear}</span>
+            <span>Dự kiến về đích năm {derived.targetRetireYear}</span>
           </div>
         </div>
       </div>
