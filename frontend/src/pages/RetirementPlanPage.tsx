@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Badge, Button, Card, Icon } from "../components/ui";
+import { FundGrowthChart } from "../components/charts";
 
 export default function RetirementPlanPage() {
   const navigate = useNavigate();
@@ -136,55 +137,8 @@ export default function RetirementPlanPage() {
           </div>
         </header>
 
-        <p className="horizontal-scroll-hint">Vuốt ngang để xem đầy đủ số liệu.</p><div className="fund-chart" tabIndex={0} role="region" aria-label="Biểu đồ tăng trưởng quỹ">
-          <div className="fund-chart-axis">
-            <span>9.0 tỷ</span>
-            <span>6.7 tỷ</span>
-            <span>4.5 tỷ</span>
-            <span>2.2 tỷ</span>
-            <span>0 đ</span>
-          </div>
-
-          <svg viewBox="0 0 680 300" preserveAspectRatio="none">
-            <line x1="0" y1="40" x2="680" y2="40" className="fund-grid" />
-            <line x1="0" y1="105" x2="680" y2="105" className="fund-grid" />
-            <line x1="0" y1="170" x2="680" y2="170" className="fund-grid" />
-            <line x1="0" y1="235" x2="680" y2="235" className="fund-grid" />
-
-            {/* Target Area Fill */}
-            <path
-              d="M 30 260 C 200 240, 380 160, 650 40 L 650 260 Z"
-              className="fund-area"
-            />
-
-            {/* Target line */}
-            <path
-              d="M 30 260 C 200 240, 380 160, 650 40"
-              className="fund-target-line"
-            />
-
-            {/* Current projection line */}
-            <path
-              d="M 30 260 C 200 248, 400 195, 650 102"
-              className="fund-current-line"
-            />
-
-            {/* Gap line */}
-            <line x1="650" y1="40" x2="650" y2="102" className="fund-gap-line" />
-
-            <circle cx="30" cy="260" r="5" className="fund-now-point" />
-            <circle cx="650" cy="40" r="6" className="fund-target-point" />
-            <circle cx="650" cy="102" r="5" className="fund-current-point" />
-          </svg>
-
-          <div className="fund-chart-labels">
-            <span>32 tuổi (Hiện tại)</span>
-            <span>40 tuổi</span>
-            <span>50 tuổi</span>
-            <span>60 tuổi (Nghỉ hưu)</span>
-            <span>70 tuổi</span>
-            <span>82 tuổi (Hết chu kỳ)</span>
-          </div>
+        <div className="fund-chart" tabIndex={0} role="region" aria-label="Biểu đồ tăng trưởng quỹ">
+          <FundGrowthChart view={chartView} />
         </div>
 
         <footer>

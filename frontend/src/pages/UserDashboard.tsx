@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Badge, Button, Card, Icon, IconButton } from "../components/ui";
+import { ProjectionWealthChart, AssetDonutChart } from "../components/charts";
 
 export default function UserDashboard() {
   const navigate = useNavigate();
@@ -197,79 +198,8 @@ export default function UserDashboard() {
             </div>
           </div>
 
-          <p className="horizontal-scroll-hint">Vuốt ngang để xem đầy đủ số liệu.</p><div className="projection-chart-area" tabIndex={0} role="region" aria-label="Biểu đồ dự phóng tài sản">
-            <div className="dashboard-chart-axis">
-              <span>9 tỷ</span>
-              <span>6.7 tỷ</span>
-              <span>4.5 tỷ</span>
-              <span>2.2 tỷ</span>
-              <span>0 đ</span>
-            </div>
-
-            <svg viewBox="0 0 650 300" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="targetGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#4d8b7e" stopOpacity="0.18" />
-                  <stop offset="100%" stopColor="#4d8b7e" stopOpacity="0.0" />
-                </linearGradient>
-                <linearGradient id="projectedGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#153a52" stopOpacity="0.16" />
-                  <stop offset="100%" stopColor="#153a52" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="50" x2="650" y2="50" className="dashboard-grid-lines" />
-              <line x1="0" y1="110" x2="650" y2="110" className="dashboard-grid-lines" />
-              <line x1="0" y1="170" x2="650" y2="170" className="dashboard-grid-lines" />
-              <line x1="0" y1="230" x2="650" y2="230" className="dashboard-grid-lines" />
-
-              {/* Target Curve Fill */}
-              <path
-                d="M 30 260 C 180 240, 360 170, 620 40 L 620 260 Z"
-                fill="url(#targetGradient)"
-              />
-
-              {/* Target Curve */}
-              <path
-                d="M 30 260 C 180 240, 360 170, 620 40"
-                className="target-projection-line"
-              />
-
-              {/* Current Projected Curve Fill */}
-              <path
-                d="M 30 260 C 180 245, 380 190, 620 95 L 620 260 Z"
-                fill="url(#projectedGradient)"
-              />
-
-              {/* Current Projected Curve */}
-              <path
-                d="M 30 260 C 180 245, 380 190, 620 95"
-                className="current-projection-line"
-              />
-
-              {/* Gap dotted line */}
-              <line x1="620" y1="40" x2="620" y2="95" className="projection-gap" />
-
-              <circle cx="30" cy="260" r="5" className="current-point" />
-              <circle cx="620" cy="40" r="6" className="target-point" />
-              <circle cx="620" cy="95" r="5" className="projected-point" />
-            </svg>
-
-            <div className="chart-end-label goal-label">
-              <span>Mục tiêu:</span>
-              <strong>8.50 tỷ đ</strong>
-            </div>
-
-            <div className="chart-end-label projected-label">
-              <span>Dự phóng:</span>
-              <strong>6.12 tỷ đ</strong>
-            </div>
-
-            <div className="dashboard-chart-labels">
-              <span>Năm 2025 (32 tuổi)</span>
-              <span>Năm 2035 (42 tuổi)</span>
-              <span>Năm 2045 (52 tuổi)</span>
-              <span>Năm 2053 (Nghỉ hưu 60 tuổi)</span>
-            </div>
+          <div className="projection-chart-area" tabIndex={0} role="region" aria-label="Biểu đồ dự phóng tài sản">
+            <ProjectionWealthChart period={chartPeriod} />
           </div>
 
           <div className="chart-summary">
@@ -292,6 +222,8 @@ export default function UserDashboard() {
             </div>
             <Badge tone="soft">CẬP NHẬT Q3</Badge>
           </div>
+
+          <AssetDonutChart />
 
           <div className="snapshot-list">
             <div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Badge, Button, Card, Icon, IconButton, Input } from "../components/ui";
+import { SimulationComparisonChart } from "../components/charts";
 
 export default function SimulationTrackingPage() {
   const navigate = useNavigate();
@@ -259,54 +260,14 @@ export default function SimulationTrackingPage() {
                 </div>
               </header>
 
-              <p className="horizontal-scroll-hint">Vuốt ngang để xem đầy đủ số liệu.</p><div className="simulation-chart" tabIndex={0} role="region" aria-label="Biểu đồ mô phỏng">
-                <div className="simulation-chart-axis">
-                  <span>9.0 tỷ</span>
-                  <span>6.7 tỷ</span>
-                  <span>4.5 tỷ</span>
-                  <span>2.2 tỷ</span>
-                  <span>0 đ</span>
-                </div>
-
-                <svg viewBox="0 0 680 300" preserveAspectRatio="none">
-                  <line x1="0" y1="40" x2="680" y2="40" className="simulation-grid" />
-                  <line x1="0" y1="105" x2="680" y2="105" className="simulation-grid" />
-                  <line x1="0" y1="170" x2="680" y2="170" className="simulation-grid" />
-                  <line x1="0" y1="235" x2="680" y2="235" className="simulation-grid" />
-
-                  {/* Target line */}
-                  <line x1="0" y1="65" x2="680" y2="65" className="simulation-target" />
-
-                  {/* Current plan curve */}
-                  <path
-                    d="M 30 260 C 200 248, 400 195, 650 120"
-                    className="current-plan-line"
-                  />
-
-                  {/* Simulated plan curve */}
-                  <path
-                    d={simProjectedFund >= simFundTarget
-                      ? "M 30 260 C 180 230, 360 140, 620 45"
-                      : "M 30 260 C 190 238, 380 165, 630 85"}
-                    className="simulated-plan-line"
-                  />
-
-                  <circle
-                    cx={simProjectedFund >= simFundTarget ? 620 : 630}
-                    cy={simProjectedFund >= simFundTarget ? 45 : 85}
-                    r="6"
-                    className="simulated-end-point"
-                  />
-                </svg>
-
-                <div className="simulation-chart-labels">
-                  <span>32 tuổi (Nay)</span>
-                  <span>40 tuổi</span>
-                  <span>50 tuổi</span>
-                  <span>{simRetireAge} tuổi (Hưu mô phỏng)</span>
-                  <span>60 tuổi</span>
-                  <span>75 tuổi</span>
-                </div>
+              <div className="simulation-chart" tabIndex={0} role="region" aria-label="Biểu đồ mô phỏng">
+                <SimulationComparisonChart
+                  currentAge={32}
+                  simRetireAge={simRetireAge}
+                  baseProjectedFund={baseProjectedFund}
+                  simProjectedFund={simProjectedFund}
+                  simFundTarget={simFundTarget}
+                />
               </div>
 
               <footer>
