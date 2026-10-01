@@ -29,7 +29,7 @@ export default function UserDashboard() {
               <Badge tone="soft">TIẾN ĐỘ HƯU TRÍ TỔNG THỂ</Badge>
               <IconButton icon="maximize" label="Xem toàn màn hình" onClick={() => navigate("/user/plan")} />
             </div>
-            <h2>Bạn đã chuẩn bị được 72% cho mục tiêu nghỉ hưu ở tuổi 60</h2>
+            <h2 style={{ color: "#ffffff" }}>Bạn đã chuẩn bị được 72% cho mục tiêu nghỉ hưu ở tuổi 60</h2>
             <p>
               Với mức tích lũy hiện tại <strong>14.200.000 đ/tháng</strong> cùng các khoản tài sản và BHXH dự phóng, bạn đang đi rất sát lộ trình để đạt cuộc sống an nhàn độc lập.
             </p>

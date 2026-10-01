@@ -3,38 +3,104 @@ import { Link, useNavigate } from "react-router";
 import { Badge, BrandLogo, Button, Checkbox, GoogleIcon, Icon, Input } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 
-function AuthStory({ title, description, quote }: { title: string; description: string; quote: string }) {
+function AuthStory({
+  title,
+  description,
+  quote,
+  bgImage = "/images/auth-story.jpg",
+  badge = "ĐỒNG HÀNH DÀI HẠN",
+  features = [
+    "Dữ liệu mã hóa chuẩn ngân hàng AES-256",
+    "Mô hình giả định kinh tế vĩ mô Việt Nam",
+    "Độc lập 100% · Không áp lực bán chéo sản phẩm",
+  ],
+}: {
+  title: string;
+  description: string;
+  quote: string;
+  bgImage?: string;
+  badge?: string;
+  features?: string[];
+}) {
   return (
-    <aside className="auth-story-panel" aria-label="Giới thiệu An Hưu">
-      <Link to="/" className="site-brand is-light" aria-label="Trang chủ An Hưu">
-        <BrandLogo inverted />
-      </Link>
+    <aside
+      className="auth-story-panel"
+      aria-label="Giới thiệu An Hưu"
+      style={{
+        backgroundImage: `linear-gradient(180deg, rgba(21, 58, 82, 0.78) 0%, rgba(14, 38, 54, 0.94) 100%), url(${bgImage})`,
+      }}
+    >
+      <div className="auth-story-top">
+        <Link to="/" className="auth-story-brand-link" aria-label="Về trang chủ An Hưu">
+          <BrandLogo inverted />
+        </Link>
+        <span className="auth-story-badge">
+          <Icon name="sparkles" size="small" />
+          {badge}
+        </span>
+      </div>
 
       <div className="auth-story-content">
-        <Badge tone="soft">ĐỒNG HÀNH DÀI HẠN</Badge>
         <h2>{title}</h2>
         <p>{description}</p>
 
-        <div className="auth-mini-plan">
-          <div>
-            <span>Tiến độ mô phỏng mẫu</span>
-            <strong>Tuổi 60 · 8.5 tỷ đ</strong>
+        {/* Elevated Glass Metric Board */}
+        <div className="auth-glass-card">
+          <div className="auth-card-top">
+            <div>
+              <span className="auth-card-metric-label">Kế hoạch mẫu ước tính</span>
+              <strong className="auth-card-metric-val">8.500.000.000 đ</strong>
+            </div>
+            <Badge tone="success">Tuổi 60 · An yên</Badge>
           </div>
-          <div className="progress-track" role="progressbar" aria-valuenow={65} aria-valuemin={0} aria-valuemax={100}>
-            <span style={{ "--progress": "65%" } as React.CSSProperties} />
+
+          <div className="auth-progress-track" role="progressbar" aria-valuenow={65} aria-valuemin={0} aria-valuemax={100}>
+            <div className="auth-progress-fill" style={{ width: "65%" }} />
           </div>
-          <div className="mini-milestones">
-            <span className="is-complete">30t</span>
-            <span className="is-complete">40t</span>
-            <span className="is-complete">50t</span>
-            <span>60t</span>
+
+          <div className="auth-milestones-row">
+            <div className="auth-milestone is-done">
+              <span className="milestone-dot" />
+              <span className="milestone-age">30t</span>
+              <span className="milestone-desc">Bắt đầu</span>
+            </div>
+            <div className="auth-milestone is-done">
+              <span className="milestone-dot" />
+              <span className="milestone-age">40t</span>
+              <span className="milestone-desc">Tích lũy</span>
+            </div>
+            <div className="auth-milestone is-done">
+              <span className="milestone-dot" />
+              <span className="milestone-age">50t</span>
+              <span className="milestone-desc">Tăng tốc</span>
+            </div>
+            <div className="auth-milestone is-target">
+              <span className="milestone-dot" />
+              <span className="milestone-age">60t</span>
+              <span className="milestone-desc">An yên</span>
+            </div>
+          </div>
+
+          <div className="auth-story-chips">
+            {features.map((feat, idx) => (
+              <span key={idx} className="auth-chip">
+                <Icon name="circle-check" size="small" />
+                {feat}
+              </span>
+            ))}
           </div>
         </div>
       </div>
 
-      <blockquote>
-        "{quote}"
-      </blockquote>
+      <div className="auth-story-bottom">
+        <blockquote className="auth-story-quote">
+          "{quote}"
+        </blockquote>
+        <div className="auth-story-footer-meta">
+          <span>© 2026 An Hưu — Nền tảng hưu trí độc lập</span>
+          <span>Bảo mật chuẩn AES-256</span>
+        </div>
+      </div>
     </aside>
   );
 }
@@ -67,7 +133,7 @@ export function LoginPage() {
         navigate("/user/dashboard");
       }
     } else {
-      setError("Email hoặc mật khẩu không đúng.");
+      setError("Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.");
     }
   };
 
@@ -82,105 +148,129 @@ export function LoginPage() {
     <div className="auth-page">
       <AuthStory
         title="Quản lý kế hoạch hưu trí của riêng bạn"
-        description="Đăng nhập để theo dõi tiến độ tích lũy, cập nhật tài sản và trò chuyện cùng Trợ lý AI bất cứ lúc nào."
+        description="Đăng nhập để theo dõi tiến độ tích lũy, điều chỉnh các kịch bản tài chính và nhận tư vấn chuyên sâu từ Trợ lý AI bất cứ lúc nào."
         quote="Sự an tâm về tài chính trong tương lai bắt đầu từ những quyết định sáng suốt và kiên định hôm nay."
+        bgImage="/images/auth-story.jpg"
+        badge="ĐỒNG HÀNH DÀI HẠN"
+        features={[
+          "Mô phỏng tự động theo thời gian thực",
+          "Kiểm định bởi chuyên gia tài chính CFP",
+          "Bảo mật tài khoản mã hóa 2 lớp"
+        ]}
       />
 
       <main className="auth-form-panel" id="main-content">
         <div className="auth-form-wrap">
           <div className="auth-heading">
-            <span>CHÀO MỪNG TRỞ LẠI</span>
+            <span className="auth-badge-tag">
+              <Icon name="sparkles" size="small" /> CHÀO MỪNG TRỞ LẠI
+            </span>
             <h1>Đăng nhập An Hưu</h1>
-            <p>Nhập email và mật khẩu để truy cập không gian tài chính của bạn.</p>
+            <p>Nhập email và mật khẩu để truy cập không gian tài chính cá nhân của bạn.</p>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>
-            <Input
-              label="Địa chỉ Email"
-              type="email"
-              placeholder="tenban@email.com"
-              value={email}
-              onChange={(val) => { setEmail(val); setError(""); }}
-              autoComplete="email"
-            />
+            <div className="auth-input-group">
+              <div className="auth-field-item">
+                <label className="auth-field-label" htmlFor="login-email">
+                  <span>Địa chỉ Email</span>
+                </label>
+                <div className="auth-input-wrapper">
+                  <input
+                    id="login-email"
+                    type="email"
+                    className="auth-input"
+                    placeholder="tenban@email.com"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+              </div>
 
-            <div>
-              <label className="form-field" htmlFor="login-password">
-                <span className="field-label">Mật khẩu</span>
-                <span className="input-wrap">
+              <div className="auth-field-item">
+                <label className="auth-field-label" htmlFor="login-password">
+                  <span>Mật khẩu</span>
+                  <Link to="/forgot-password" className="auth-forgot-link">
+                    Quên mật khẩu?
+                  </Link>
+                </label>
+                <div className="auth-input-wrapper">
                   <input
                     id="login-password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Nhập mật khẩu"
+                    className="auth-input has-eye"
+                    placeholder="Nhập mật khẩu của bạn"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError(""); }}
                     autoComplete="current-password"
+                    required
                   />
                   <button
                     type="button"
+                    className="auth-eye-btn"
                     onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: "absolute",
-                      right: "12px",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: "var(--color-text-muted)",
-                      padding: "0",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
                     aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                   >
                     <Icon name={showPassword ? "eye-off" : "eye"} size="small" />
                   </button>
-                </span>
-              </label>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px" }}>
-                <Checkbox
-                  checked={remember}
-                  label="Ghi nhớ đăng nhập"
-                  onChange={setRemember}
-                />
-                <Link to="/forgot-password" className="auth-text-action">
-                  Quên mật khẩu?
-                </Link>
+                </div>
               </div>
             </div>
 
+            <div className="auth-options-row">
+              <Checkbox
+                checked={remember}
+                label="Ghi nhớ đăng nhập trên thiết bị này"
+                onChange={setRemember}
+              />
+            </div>
+
             {error && (
-              <p style={{ color: "var(--color-danger)", fontSize: "12px", margin: 0 }}>
-                {error}
-              </p>
+              <div className="auth-error-banner" role="alert">
+                <Icon name="alert" size="small" />
+                <span>{error}</span>
+              </div>
             )}
 
-            <Button
+            <button
               type="submit"
-              variant="primary"
-              size="large"
-              loading={loading}
-              onClick={handleSubmit}
+              className="auth-btn-primary"
+              disabled={loading}
             >
-              Đăng nhập vào tài khoản
-            </Button>
+              {loading ? (
+                <>
+                  <span className="spinner" aria-hidden="true" />
+                  <span>Đang xác thực...</span>
+                </>
+              ) : (
+                <>
+                  <span>Đăng nhập vào tài khoản</span>
+                  <Icon name="arrow-right" size="small" />
+                </>
+              )}
+            </button>
 
-            <div className="auth-divider">hoặc tiếp tục với</div>
+            <div className="auth-divider">
+              <span>hoặc tiếp tục với</span>
+            </div>
 
             <button
               type="button"
-              className="social-button"
+              className="auth-btn-google"
               onClick={async () => {
                 await performLogin("user@demo.com", "demo123");
               }}
             >
               <GoogleIcon />
-              <span>Đăng nhập với Google</span>
+              <span>Đăng nhập nhanh với Google</span>
             </button>
 
-            <div className="auth-switch-prompt">
-              <span>Chưa có tài khoản?</span>{" "}
+            <div style={{ textAlign: "center", marginTop: "16px" }}>
+              <span style={{ color: "#7B8F9D", fontSize: "13px" }}>Chưa có tài khoản? </span>
               <Link to="/register" className="auth-switch-link">
-                Đăng ký ngay
+                Đăng ký ngay <Icon name="arrow-right" size="small" />
               </Link>
             </div>
           </form>
@@ -201,14 +291,24 @@ export function RegisterPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!email || !password || !fullName) {
-      setError("Vui lòng điền các thông tin bắt buộc.");
+  const handleSubmit = (e?: FormEvent) => {
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
+    }
+    const cleanName = fullName.trim();
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanName || !cleanEmail || !cleanPassword) {
+      setError("Vui lòng điền đầy đủ họ tên, email và mật khẩu.");
+      return;
+    }
+    if (cleanPassword.length < 8) {
+      setError("Mật khẩu phải có độ dài tối thiểu 8 ký tự.");
       return;
     }
     if (!agree) {
-      setError("Vui lòng đồng ý với điều khoản sử dụng.");
+      setError("Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.");
       return;
     }
     setLoading(true);
@@ -219,108 +319,169 @@ export function RegisterPage() {
     }, 600);
   };
 
+  const passwordStrength =
+    password.length === 0 ? 0 : password.length >= 8 && /[0-9]/.test(password) && /[a-zA-Z]/.test(password) ? 3 : password.length >= 6 ? 2 : 1;
+
   return (
     <div className="auth-page">
       <AuthStory
-        title="Bắt đầu hành trình chuẩn bị cho tương lai"
-        description="Tạo tài khoản miễn phí trong 1 phút để lưu trữ hồ sơ tài chính, mô phỏng mục tiêu và nhận kế hoạch cá nhân hóa."
+        title="Khởi đầu hành trình chuẩn bị cho tương lai"
+        description="Tạo tài khoản miễn phí trong 1 phút để thiết lập hồ sơ tài chính, mô phỏng số tiền hưu trí và nhận kế hoạch hành động cá nhân hóa."
         quote="Biết mình cần bao nhiêu tiền cho tuổi già là bước đầu tiên để không bao giờ phải lo lắng về nó nữa."
+        bgImage="/images/auth-register-story.jpg"
+        badge="TỰ CHỦ TƯƠNG LAI"
+        features={[
+          "Mô phỏng 3 rổ tài sản: An toàn - Tích lũy - Tăng trưởng",
+          "Miễn phí trọn đời công cụ tính toán hưu trí",
+          "Đồng hành cùng Trợ lý AI giải đáp 24/7"
+        ]}
       />
 
       <main className="auth-form-panel" id="main-content">
         <div className="auth-form-wrap">
           <div className="auth-heading">
-            <span>TẠO HỒ SƠ MIỄN PHÍ</span>
-            <h1>Đăng ký tài khoản</h1>
-            <p>Khởi đầu kế hoạch tài chính độc lập và vững chắc cho tuổi hưu.</p>
+            <span className="auth-badge-tag">
+              <Icon name="sparkles" size="small" /> TẠO HỒ SƠ MIỄN PHÍ
+            </span>
+            <h1>Đăng ký tài khoản An Hưu</h1>
+            <p>Khởi đầu kế hoạch tài chính độc lập, vững chắc cho tuổi hưu an nhàn.</p>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>
-            <Input
-              label="Họ và tên"
-              placeholder="Nguyễn Minh An"
-              value={fullName}
-              onChange={setFullName}
-              autoComplete="name"
-            />
+            <div className="auth-input-group">
+              <div className="auth-field-item">
+                <label className="auth-field-label" htmlFor="register-name">
+                  <span>Họ và tên</span>
+                </label>
+                <div className="auth-input-wrapper">
+                  <input
+                    id="register-name"
+                    type="text"
+                    className="auth-input"
+                    placeholder="Ví dụ: Nguyễn Minh An"
+                    value={fullName}
+                    onChange={(e) => { setFullName(e.target.value); setError(""); }}
+                    autoComplete="name"
+                    required
+                  />
+                </div>
+              </div>
 
-            <Input
-              label="Địa chỉ Email"
-              type="email"
-              placeholder="minhan@example.com"
-              value={email}
-              onChange={(val) => { setEmail(val); setError(""); }}
-              autoComplete="email"
-            />
+              <div className="name-fields">
+                <div className="auth-field-item">
+                  <label className="auth-field-label" htmlFor="register-email">
+                    <span>Địa chỉ Email</span>
+                  </label>
+                  <div className="auth-input-wrapper">
+                    <input
+                      id="register-email"
+                      type="email"
+                      className="auth-input"
+                      placeholder="tenban@email.com"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                      autoComplete="email"
+                      required
+                    />
+                  </div>
+                </div>
 
-            <Input
-              label="Số điện thoại (tùy chọn)"
-              type="text"
-              placeholder="0912 345 678"
-              value={phone}
-              onChange={setPhone}
-              inputMode="numeric"
-            />
+                <div className="auth-field-item">
+                  <label className="auth-field-label" htmlFor="register-phone">
+                    <span>Số điện thoại <small style={{ color: "#7B8F9D", fontWeight: 400 }}>(tùy chọn)</small></span>
+                  </label>
+                  <div className="auth-input-wrapper">
+                    <input
+                      id="register-phone"
+                      type="tel"
+                      className="auth-input"
+                      placeholder="0912 345 678"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      inputMode="numeric"
+                    />
+                  </div>
+                </div>
+              </div>
 
-            <label className="form-field" htmlFor="register-password">
-              <span className="field-label">Mật khẩu (tối thiểu 8 ký tự)</span>
-              <span className="input-wrap">
-                <input
-                  id="register-password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Tạo mật khẩu an toàn"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: "absolute",
-                    right: "12px",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--color-text-muted)",
-                    padding: "0",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                >
-                  <Icon name={showPassword ? "eye-off" : "eye"} size="small" />
-                </button>
-              </span>
-            </label>
+              <div className="auth-field-item">
+                <label className="auth-field-label" htmlFor="register-password">
+                  <span>Mật khẩu</span>
+                  <span style={{ fontSize: "11px", color: passwordStrength === 3 ? "#34A853" : passwordStrength === 2 ? "#D9A85E" : "#7B8F9D" }}>
+                    {passwordStrength === 3 ? "Mạnh" : passwordStrength === 2 ? "Trung bình" : passwordStrength === 1 ? "Yếu (tối thiểu 8 ký tự)" : ""}
+                  </span>
+                </label>
+                <div className="auth-input-wrapper">
+                  <input
+                    id="register-password"
+                    type={showPassword ? "text" : "password"}
+                    className="auth-input has-eye"
+                    placeholder="Tạo mật khẩu an toàn (tối thiểu 8 ký tự)"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                    autoComplete="new-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="auth-eye-btn"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  >
+                    <Icon name={showPassword ? "eye-off" : "eye"} size="small" />
+                  </button>
+                </div>
 
-            <Checkbox
-              checked={agree}
-              label="Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của An Hưu"
-              onChange={setAgree}
-            />
+                {password && (
+                  <div className="auth-strength-meter">
+                    <div className={`strength-bar ${passwordStrength >= 1 ? "is-filled" : ""}`} />
+                    <div className={`strength-bar ${passwordStrength >= 2 ? "is-filled" : ""}`} />
+                    <div className={`strength-bar ${passwordStrength >= 3 ? "is-filled" : ""}`} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="auth-options-row">
+              <Checkbox
+                checked={agree}
+                label="Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của An Hưu"
+                onChange={setAgree}
+              />
+            </div>
 
             {error && (
-              <p style={{ color: "var(--color-danger)", fontSize: "12px", margin: 0 }}>
-                {error}
-              </p>
+              <div className="auth-error-banner" role="alert">
+                <Icon name="alert" size="small" />
+                <span>{error}</span>
+              </div>
             )}
 
-            <Button
+            <button
               type="submit"
-              variant="primary"
-              size="large"
-              loading={loading}
-              onClick={handleSubmit}
+              className="auth-btn-primary"
+              disabled={loading}
             >
-              Tạo tài khoản & Nhận mã OTP <Icon name="arrow-right" />
-            </Button>
+              {loading ? (
+                <>
+                  <span className="spinner" aria-hidden="true" />
+                  <span>Đang khởi tạo hồ sơ...</span>
+                </>
+              ) : (
+                <>
+                  <span>Tạo tài khoản & Nhận mã OTP</span>
+                  <Icon name="arrow-right" size="small" />
+                </>
+              )}
+            </button>
 
-            <div className="auth-divider">hoặc đăng ký nhanh bằng</div>
+            <div className="auth-divider">
+              <span>hoặc đăng ký nhanh bằng</span>
+            </div>
 
             <button
               type="button"
-              className="social-button"
+              className="auth-btn-google"
               onClick={() => {
                 setLoading(true);
                 setTimeout(() => {
@@ -332,14 +493,12 @@ export function RegisterPage() {
               <GoogleIcon />
               <span>Đăng ký bằng tài khoản Google</span>
             </button>
-
-            <div className="auth-switch-prompt">
-              <span>Đã có tài khoản?</span>{" "}
-              <Link to="/login" className="auth-switch-link">
-                Đăng nhập ngay
-              </Link>
-            </div>
           </form>
+
+          <footer className="auth-panel-footer">
+            <Icon name="circle-check" size="small" />
+            <span>Miễn phí 100% · Không yêu cầu thẻ tín dụng hay ràng buộc tài chính</span>
+          </footer>
         </div>
       </main>
     </div>
