@@ -14,7 +14,7 @@ export type AuthUser = {
 type AuthContextType = {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<AuthUser | null>;
   logout: () => void;
 };
 
@@ -50,26 +50,43 @@ const demoUsers: Record<string, AuthUser> = {
   },
 };
 
+const STORAGE_KEY = "an_huu_auth_user";
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    // Kiểm tra tài khoản demo
-    if (email === DEMO_ACCOUNTS.user.email && password === DEMO_ACCOUNTS.user.password) {
-      setUser(demoUsers["user@demo.com"]);
-      return true;
+  const login = useCallback(async (email: string, password: string): Promise<AuthUser | null> => {
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const cleanPassword = (password || "").trim();
+
+    // Kiểm tra tài khoản demo (hỗ trợ cả viết hoa thường, dấu cách thừa)
+    if (cleanEmail === DEMO_ACCOUNTS.user.email.toLowerCase() && cleanPassword === DEMO_ACCOUNTS.user.password) {
+      const u = demoUsers["user@demo.com"];
+      setUser(u);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(u)); } catch {}
+      return u;
     }
-    if (email === DEMO_ACCOUNTS.admin.email && password === DEMO_ACCOUNTS.admin.password) {
-      setUser(demoUsers["admin@demo.com"]);
-      return true;
+    if (cleanEmail === DEMO_ACCOUNTS.admin.email.toLowerCase() && cleanPassword === DEMO_ACCOUNTS.admin.password) {
+      const u = demoUsers["admin@demo.com"];
+      setUser(u);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(u)); } catch {}
+      return u;
     }
-    return false;
+    return null;
   }, []);
 
   const logout = useCallback(() => {
     setUser(null);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
   }, []);
 
   return (

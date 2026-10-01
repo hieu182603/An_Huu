@@ -54,6 +54,9 @@ export default function ExplorePage() {
             src="https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80"
             alt="Cặp vợ chồng đi dạo bên bờ biển hoàng hôn thanh bình"
             loading="lazy"
+            onError={(e) => {
+              e.currentTarget.src = "/images/peaceful-retirement.jpg";
+            }}
           />
           <span className="featured-photo-credit">Ảnh tư liệu độc quyền An Hưu</span>
         </div>

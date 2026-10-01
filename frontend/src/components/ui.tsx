@@ -139,8 +139,38 @@ export function GoogleIcon({ className = "" }: { className?: string }) {
   );
 }
 
-export function Button({ children, variant = "primary", size = "medium", icon, loading, disabled, onClick }: { children: ReactNode; variant?: "primary" | "secondary" | "soft" | "ghost" | "danger"; size?: "small" | "medium" | "large"; icon?: IconName; loading?: boolean; disabled?: boolean; onClick?: () => void }) {
-  return <button className={`button button-${variant} button-${size}`} disabled={disabled || loading} onClick={onClick} type="button">{loading ? <span className="spinner" aria-hidden="true" /> : icon ? <Icon name={icon} size="small" /> : null}<span>{children}</span></button>;
+export function Button({
+  children,
+  variant = "primary",
+  size = "medium",
+  icon,
+  loading,
+  disabled,
+  onClick,
+  type = "button",
+  className = "",
+}: {
+  children: ReactNode;
+  variant?: "primary" | "secondary" | "soft" | "ghost" | "danger";
+  size?: "small" | "medium" | "large";
+  icon?: IconName;
+  loading?: boolean;
+  disabled?: boolean;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  type?: "button" | "submit" | "reset";
+  className?: string;
+}) {
+  return (
+    <button
+      className={`button button-${variant} button-${size} ${className}`.trim()}
+      disabled={disabled || loading}
+      onClick={onClick}
+      type={type}
+    >
+      {loading ? <span className="spinner" aria-hidden="true" /> : icon ? <Icon name={icon} size="small" /> : null}
+      <span>{children}</span>
+    </button>
+  );
 }
 
 export function IconButton({ icon, label, onClick, badge = false, disabled = false }: { icon: IconName; label: string; onClick?: () => void; badge?: boolean; disabled?: boolean }) {
@@ -313,6 +343,7 @@ export function BrandLogo({
   height?: number | string;
   className?: string;
 }) {
+  const [hasError, setHasError] = useState(false);
   const isVertical = variant === "vertical";
   const src = compact || isVertical ? "/logo-vertical.png" : "/logo-horizontal.png";
 
@@ -333,20 +364,64 @@ export function BrandLogo({
         transition: "all var(--duration-fast) ease",
       }}
     >
-      <img
-        src={src}
-        alt="An Hưu · Lập kế hoạch hôm nay, Cho an yên ngày mai"
-        className="brand-logo-img"
-        style={{
-          height: renderedHeight,
-          width: compact ? renderedHeight : isVertical ? renderedHeight : "auto",
-          maxWidth: compact ? renderedHeight : isVertical ? renderedHeight : "165px",
-          aspectRatio: compact ? "1/1" : isVertical ? "1/1" : "3/1",
-          objectFit: compact ? "cover" : "contain",
-          objectPosition: compact ? "center 8%" : "center center",
-          display: "block",
-        }}
-      />
+      {!hasError ? (
+        <img
+          src={src}
+          alt="An Hưu · Lập kế hoạch hôm nay, Cho an yên ngày mai"
+          className="brand-logo-img"
+          onError={() => setHasError(true)}
+          style={{
+            height: renderedHeight,
+            width: compact ? renderedHeight : isVertical ? renderedHeight : "auto",
+            maxWidth: compact ? renderedHeight : isVertical ? renderedHeight : "165px",
+            aspectRatio: compact ? "1/1" : isVertical ? "1/1" : "3/1",
+            objectFit: compact ? "cover" : "contain",
+            objectPosition: compact ? "center 8%" : "center center",
+            display: "block",
+          }}
+        />
+      ) : (
+        <span
+          className="brand-logo-fallback"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            height: renderedHeight,
+            fontWeight: 700,
+            color: inverted ? "#153A52" : "var(--color-primary-700, #153A52)",
+            letterSpacing: "0.5px",
+            fontSize: compact ? "14px" : "18px",
+            fontFamily: "var(--font-heading, serif)",
+          }}
+        >
+          <span
+            style={{
+              width: compact ? "28px" : "32px",
+              height: compact ? "28px" : "32px",
+              borderRadius: "8px",
+              background: "#153A52",
+              color: "#F6F1E8",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "12px",
+              fontWeight: 800,
+              flexShrink: 0,
+            }}
+          >
+            AH
+          </span>
+          {!compact && (
+            <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.1, textAlign: "left" }}>
+              <span style={{ fontSize: "15px", fontWeight: 800, letterSpacing: "0.5px" }}>AN HƯU</span>
+              <span style={{ fontSize: "9px", fontWeight: 500, color: "var(--color-text-muted, #556B7A)" }}>
+                Hưu trí an tâm
+              </span>
+            </span>
+          )}
+        </span>
+      )}
     </span>
   );
 }

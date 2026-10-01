@@ -49,21 +49,43 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
+  const performLogin = async (loginEmail: string, loginPass: string) => {
+    const cleanEmail = (loginEmail || "").trim();
+    const cleanPassword = (loginPass || "").trim();
+    if (!cleanEmail || !cleanPassword) {
       setError("Vui lòng điền đầy đủ email và mật khẩu.");
       return;
     }
     setLoading(true);
     setError("");
-    const success = await login(email, password);
+    const loggedUser = await login(cleanEmail, cleanPassword);
     setLoading(false);
-    if (success) {
-      navigate("/user/dashboard");
+    if (loggedUser) {
+      if (loggedUser.role === "admin") {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/user/dashboard");
+      }
     } else {
-      setError("Email hoặc mật khẩu không đúng.");
+      setError("Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại thông tin hoặc bấm chọn tài khoản mẫu bên dưới.");
     }
+  };
+
+  const handleSubmit = async (e?: FormEvent) => {
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
+    }
+    await performLogin(email, password);
+  };
+
+  const handleQuickDemo = async (role: "user" | "admin") => {
+    const creds =
+      role === "admin"
+        ? { email: "admin@demo.com", pass: "admin123" }
+        : { email: "user@demo.com", pass: "demo123" };
+    setEmail(creds.email);
+    setPassword(creds.pass);
+    await performLogin(creds.email, creds.pass);
   };
 
   return (
@@ -80,6 +102,84 @@ export function LoginPage() {
             <span>CHÀO MỪNG TRỞ LẠI</span>
             <h1>Đăng nhập An Hưu</h1>
             <p>Nhập email và mật khẩu để truy cập không gian tài chính của bạn.</p>
+          </div>
+
+          {/* Quick Demo Accounts Selection Box */}
+          <div
+            style={{
+              marginBottom: "20px",
+              padding: "14px",
+              borderRadius: "12px",
+              background: "#F6F1E8",
+              border: "1px solid rgba(21, 58, 82, 0.15)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#153A52",
+                letterSpacing: "0.5px",
+                marginBottom: "10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <span>CHỌN TÀI KHOẢN MẪU ĐỂ VÀO NHANH:</span>
+              <Badge tone="soft">Demo Sẵn Sàng</Badge>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              <button
+                type="button"
+                onClick={() => handleQuickDemo("user")}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(21, 58, 82, 0.2)",
+                  background: "#ffffff",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#153A52" }}>
+                  👤 User: Nguyễn Minh An
+                </div>
+                <div style={{ fontSize: "11px", color: "#556B7A", marginTop: "2px" }}>
+                  user@demo.com
+                </div>
+                <div style={{ fontSize: "10px", color: "#6F9B7C", fontWeight: 600, marginTop: "2px" }}>
+                  Pass: demo123 (Vào User)
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickDemo("admin")}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(21, 58, 82, 0.2)",
+                  background: "#ffffff",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#153A52" }}>
+                  🛡️ Admin: Lê Lan Anh
+                </div>
+                <div style={{ fontSize: "11px", color: "#556B7A", marginTop: "2px" }}>
+                  admin@demo.com
+                </div>
+                <div style={{ fontSize: "10px", color: "#6F9B7C", fontWeight: 600, marginTop: "2px" }}>
+                  Pass: admin123 (Vào Admin)
+                </div>
+              </button>
+            </div>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>
@@ -142,7 +242,13 @@ export function LoginPage() {
               </p>
             )}
 
-            <Button variant="primary" size="large" loading={loading} onClick={() => {}}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="large"
+              loading={loading}
+              onClick={handleSubmit}
+            >
               Đăng nhập vào tài khoản
             </Button>
 
@@ -152,15 +258,7 @@ export function LoginPage() {
               type="button"
               className="social-button"
               onClick={async () => {
-                setLoading(true);
-                setError("");
-                const success = await login("user@demo.com", "demo123");
-                setLoading(false);
-                if (success) {
-                  navigate("/user/dashboard");
-                } else {
-                  setError("Đăng nhập Google thất bại.");
-                }
+                await handleQuickDemo("user");
               }}
             >
               <GoogleIcon />
@@ -296,7 +394,13 @@ export function RegisterPage() {
               </p>
             )}
 
-            <Button variant="primary" size="large" loading={loading} onClick={() => {}}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="large"
+              loading={loading}
+              onClick={handleSubmit}
+            >
               Tạo tài khoản & Nhận mã OTP <Icon name="arrow-right" />
             </Button>
 
@@ -374,7 +478,13 @@ export function ForgotPage() {
                   autoComplete="email"
                 />
 
-                <Button variant="primary" size="large" loading={loading} onClick={() => {}}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="large"
+                  loading={loading}
+                  onClick={handleSubmit}
+                >
                   Gửi mã xác nhận qua Email
                 </Button>
 
@@ -539,7 +649,13 @@ export function ResetPage() {
                   </p>
                 )}
 
-                <Button variant="primary" size="large" loading={loading} onClick={() => {}}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="large"
+                  loading={loading}
+                  onClick={handleSubmit}
+                >
                   Cập nhật mật khẩu & Đăng nhập
                 </Button>
               </form>
@@ -637,7 +753,13 @@ export function VerifyPage() {
               </p>
             )}
 
-            <Button variant="primary" size="large" loading={loading} onClick={() => {}}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="large"
+              loading={loading}
+              onClick={handleVerify}
+            >
               Xác nhận & Bắt đầu lập kế hoạch <Icon name="arrow-right" />
             </Button>
 
