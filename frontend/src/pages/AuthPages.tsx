@@ -4,102 +4,116 @@ import { Badge, BrandLogo, Button, Checkbox, GoogleIcon, Icon, Input } from "../
 import { useAuth } from "../context/AuthContext";
 
 function AuthStory({
-  title,
-  description,
-  quote,
-  bgImage = "/images/auth-story.jpg",
-  badge = "ĐỒNG HÀNH DÀI HẠN",
-  features = [
-    "Dữ liệu mã hóa chuẩn ngân hàng AES-256",
-    "Mô hình giả định kinh tế vĩ mô Việt Nam",
-    "Độc lập 100% · Không áp lực bán chéo sản phẩm",
-  ],
+  title = "An tâm tài chính, thảnh thơi tuổi vàng.",
+  highlight = "8,5 TỶ ĐỒNG",
+  sub = "Mục tiêu tuổi 60",
+  badge = "Tự chủ tương lai",
 }: {
-  title: string;
-  description: string;
-  quote: string;
+  title?: string;
+  description?: string;
+  quote?: string;
   bgImage?: string;
   badge?: string;
   features?: string[];
+  highlight?: string;
+  sub?: string;
 }) {
   return (
-    <aside
-      className="auth-story-panel"
-      aria-label="Giới thiệu An Hưu"
-      style={{
-        backgroundImage: `linear-gradient(180deg, rgba(21, 58, 82, 0.78) 0%, rgba(14, 38, 54, 0.94) 100%), url(${bgImage})`,
-      }}
-    >
+    <aside className="auth-story-panel" aria-label="Giới thiệu An Hưu">
       <div className="auth-story-top">
         <Link to="/" className="auth-story-brand-link" aria-label="Về trang chủ An Hưu">
-          <BrandLogo inverted />
+          <div className="auth-minimal-brand">
+            <span className="auth-minimal-brand-symbol">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M12 21C12 16 8 12 3 12" stroke="#2dd4bf" strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M12 21C12 14.5 16 10.5 21 10.5" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M12 21V7" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"/>
+                <circle cx="12" cy="4.5" r="2.5" fill="#5eead4"/>
+              </svg>
+            </span>
+            <span className="auth-minimal-brand-text">An Hưu</span>
+          </div>
         </Link>
         <span className="auth-story-badge">
           <Icon name="sparkles" size="small" />
-          {badge}
+          <span>{badge}</span>
         </span>
       </div>
 
-      <div className="auth-story-content">
-        <h2>{title}</h2>
-        <p>{description}</p>
+      <div className="auth-story-center">
+        <h2 className="auth-minimal-headline">{title}</h2>
 
-        {/* Elevated Glass Metric Board */}
-        <div className="auth-glass-card">
-          <div className="auth-card-top">
-            <div>
-              <span className="auth-card-metric-label">Kế hoạch mẫu ước tính</span>
-              <strong className="auth-card-metric-val">8.500.000.000 đ</strong>
-            </div>
-            <Badge tone="success">Tuổi 60 · An yên</Badge>
+        {/* Minimalist Floating Wealth Widget */}
+        <div className="auth-minimal-card">
+          <div className="auth-minimal-card-header">
+            <strong className="auth-minimal-val">{highlight}</strong>
+            <span className="auth-minimal-sub">{sub}</span>
           </div>
 
-          <div className="auth-progress-track" role="progressbar" aria-valuenow={65} aria-valuemin={0} aria-valuemax={100}>
-            <div className="auth-progress-fill" style={{ width: "65%" }} />
-          </div>
+          <div className="auth-curve-container">
+            <svg viewBox="0 0 320 110" className="auth-growth-svg" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="growthGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="65%" stopColor="#2dd4bf" />
+                  <stop offset="100%" stopColor="#5eead4" />
+                </linearGradient>
+                <linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.22" />
+                  <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0.0" />
+                </linearGradient>
+                <filter id="curveGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3.5" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <path
+                d="M 10 95 C 90 92, 160 84, 230 48 C 270 28, 292 16, 308 10 L 308 105 L 10 105 Z"
+                fill="url(#areaGrad)"
+              />
+              <path
+                d="M 10 95 C 90 92, 160 84, 230 48 C 270 28, 292 16, 308 10"
+                fill="none"
+                stroke="url(#growthGrad)"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                filter="url(#curveGlow)"
+              />
+              <circle cx="308" cy="10" r="5" fill="#5eead4" filter="url(#curveGlow)" />
+              <circle cx="308" cy="10" r="9" fill="none" stroke="#2dd4bf" strokeWidth="1.5" opacity="0.6" />
+            </svg>
 
-          <div className="auth-milestones-row">
-            <div className="auth-milestone is-done">
-              <span className="milestone-dot" />
-              <span className="milestone-age">30t</span>
-              <span className="milestone-desc">Bắt đầu</span>
-            </div>
-            <div className="auth-milestone is-done">
-              <span className="milestone-dot" />
-              <span className="milestone-age">40t</span>
-              <span className="milestone-desc">Tích lũy</span>
-            </div>
-            <div className="auth-milestone is-done">
-              <span className="milestone-dot" />
-              <span className="milestone-age">50t</span>
-              <span className="milestone-desc">Tăng tốc</span>
-            </div>
-            <div className="auth-milestone is-target">
-              <span className="milestone-dot" />
-              <span className="milestone-age">60t</span>
-              <span className="milestone-desc">An yên</span>
+            <div className="auth-curve-labels">
+              <span>30t</span>
+              <span>40t</span>
+              <span>50t</span>
+              <span>60t (An yên)</span>
             </div>
           </div>
+        </div>
 
-          <div className="auth-story-chips">
-            {features.map((feat, idx) => (
-              <span key={idx} className="auth-chip">
-                <Icon name="circle-check" size="small" />
-                {feat}
-              </span>
-            ))}
-          </div>
+        {/* 3 Clean Minimalist Badges */}
+        <div className="auth-minimal-badges">
+          <span className="auth-minimal-pill">
+            <Icon name="check" size="small" />
+            <span>Độc lập 100%</span>
+          </span>
+          <span className="auth-minimal-pill">
+            <Icon name="check" size="small" />
+            <span>Miễn phí trọn đời</span>
+          </span>
+          <span className="auth-minimal-pill">
+            <Icon name="check" size="small" />
+            <span>Bảo mật AES-256</span>
+          </span>
         </div>
       </div>
 
       <div className="auth-story-bottom">
-        <blockquote className="auth-story-quote">
-          "{quote}"
-        </blockquote>
-        <div className="auth-story-footer-meta">
-          <span>© 2026 An Hưu — Nền tảng hưu trí độc lập</span>
-          <span>Bảo mật chuẩn AES-256</span>
-        </div>
+        <span className="auth-minimal-footer">© 2026 An Hưu — Nền tảng hưu trí độc lập</span>
       </div>
     </aside>
   );
@@ -147,16 +161,10 @@ export function LoginPage() {
   return (
     <div className="auth-page">
       <AuthStory
-        title="Quản lý kế hoạch hưu trí của riêng bạn"
-        description="Đăng nhập để theo dõi tiến độ tích lũy, điều chỉnh các kịch bản tài chính và nhận tư vấn chuyên sâu từ Trợ lý AI bất cứ lúc nào."
-        quote="Sự an tâm về tài chính trong tương lai bắt đầu từ những quyết định sáng suốt và kiên định hôm nay."
-        bgImage="/images/auth-story.jpg"
-        badge="ĐỒNG HÀNH DÀI HẠN"
-        features={[
-          "Mô phỏng tự động theo thời gian thực",
-          "Kiểm định bởi chuyên gia tài chính CFP",
-          "Bảo mật tài khoản mã hóa 2 lớp"
-        ]}
+        title="Tự chủ tài chính, an nhiên mỗi ngày."
+        highlight="8,5 TỶ ĐỒNG"
+        sub="Mục tiêu tích lũy tuổi 60"
+        badge="Đồng hành dài hạn"
       />
 
       <main className="auth-form-panel" id="main-content">
@@ -325,16 +333,10 @@ export function RegisterPage() {
   return (
     <div className="auth-page">
       <AuthStory
-        title="Khởi đầu hành trình chuẩn bị cho tương lai"
-        description="Tạo tài khoản miễn phí trong 1 phút để thiết lập hồ sơ tài chính, mô phỏng số tiền hưu trí và nhận kế hoạch hành động cá nhân hóa."
-        quote="Biết mình cần bao nhiêu tiền cho tuổi già là bước đầu tiên để không bao giờ phải lo lắng về nó nữa."
-        bgImage="/images/auth-register-story.jpg"
-        badge="TỰ CHỦ TƯƠNG LAI"
-        features={[
-          "Mô phỏng 3 rổ tài sản: An toàn - Tích lũy - Tăng trưởng",
-          "Miễn phí trọn đời công cụ tính toán hưu trí",
-          "Đồng hành cùng Trợ lý AI giải đáp 24/7"
-        ]}
+        title="An tâm tài chính, thảnh thơi tuổi vàng."
+        highlight="8,5 TỶ ĐỒNG"
+        sub="Mô phỏng tích lũy tuổi 60"
+        badge="Tự chủ tương lai"
       />
 
       <main className="auth-form-panel" id="main-content">
