@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Badge, BrandLogo, Button, Card, Checkbox, Icon, IconButton, Input, Select } from "../components/ui";
+import {
+  useFinancialProfile,
+  DEFAULT_SAMPLE_PROFILE,
+  DEMO_STORAGE_DISCLAIMER,
+  type OnboardingDraftData,
+} from "../context/FinancialProfileContext";
 
 type StepId =
   | "welcome"
@@ -23,45 +29,81 @@ const steps = [
   { id: "summary" as StepId, number: 7, title: "Tổng kết", detail: "Bức tranh tài sản ròng" },
 ];
 
+// Lấy giá trị mặc định ban đầu từ bộ dữ liệu mẫu để Onboarding luôn đồng bộ với Profile.
+const INITIAL_FORM_DATA = {
+  age: DEFAULT_SAMPLE_PROFILE.personal.age,
+  gender: DEFAULT_SAMPLE_PROFILE.personal.gender,
+  maritalStatus: DEFAULT_SAMPLE_PROFILE.personal.maritalStatus,
+  dependents: DEFAULT_SAMPLE_PROFILE.personal.dependents,
+  city: DEFAULT_SAMPLE_PROFILE.personal.city,
+  primaryIncome: DEFAULT_SAMPLE_PROFILE.income.primaryIncome,
+  secondaryIncome: DEFAULT_SAMPLE_PROFILE.income.secondaryIncome,
+  essentialExpense: DEFAULT_SAMPLE_PROFILE.expenses.essentialExpense,
+  lifestyleExpense: DEFAULT_SAMPLE_PROFILE.expenses.lifestyleExpense,
+  cashSavings: DEFAULT_SAMPLE_PROFILE.assets.cashSavings,
+  realEstateValue: DEFAULT_SAMPLE_PROFILE.assets.realEstateValue,
+  liquidAssets: DEFAULT_SAMPLE_PROFILE.assets.liquidAssets,
+  hasDebt: DEFAULT_SAMPLE_PROFILE.debt.hasDebt,
+  mortgageDebt: DEFAULT_SAMPLE_PROFILE.debt.mortgageDebt,
+  consumerDebt: DEFAULT_SAMPLE_PROFILE.debt.consumerDebt,
+  monthlyDebtService: DEFAULT_SAMPLE_PROFILE.debt.monthlyDebtService,
+  stockFundValue: DEFAULT_SAMPLE_PROFILE.assets.stockFundValue,
+  socialInsuranceYears: DEFAULT_SAMPLE_PROFILE.socialSecurity.socialInsuranceYears,
+  socialInsuranceSalary: DEFAULT_SAMPLE_PROFILE.socialSecurity.socialInsuranceSalary,
+} as const;
+
 export default function OnboardingPage() {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState<StepId>("welcome");
+  const {
+    onboardingDraft,
+    draftSaveStatus,
+    lastDraftSavedAt,
+    saveOnboardingDraft,
+    completeOnboarding,
+  } = useFinancialProfile();
+  const [currentStep, setCurrentStep] = useState<StepId>(() => {
+    if (onboardingDraft?.step && onboardingDraft.step !== "welcome") {
+      return onboardingDraft.step as StepId;
+    }
+    return "welcome";
+  });
   const [isCompleted, setIsCompleted] = useState(false);
   const [showSaveToast, setShowSaveToast] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Form states
-  const [formData, setFormData] = useState({
-    // Step 1: Personal
-    age: 32,
-    gender: "Nam",
-    maritalStatus: "Đã kết hôn",
-    dependents: 1,
-    city: "TP. Hồ Chí Minh",
+  // Khôi phục form từ bản nháp đã lưu trong localStorage (nếu có),
+  // ngược lại dùng giá trị mặc định từ dữ liệu mẫu.
+  const initialFromDraft = useMemo(() => {
+    const d = onboardingDraft;
+    return {
+      ...INITIAL_FORM_DATA,
+      age: d.age ?? INITIAL_FORM_DATA.age,
+      gender: d.gender ?? INITIAL_FORM_DATA.gender,
+      maritalStatus: d.maritalStatus ?? INITIAL_FORM_DATA.maritalStatus,
+      dependents: d.dependents ?? INITIAL_FORM_DATA.dependents,
+      city: d.city ?? INITIAL_FORM_DATA.city,
+      primaryIncome: d.primaryIncome ?? INITIAL_FORM_DATA.primaryIncome,
+      secondaryIncome: d.secondaryIncome ?? INITIAL_FORM_DATA.secondaryIncome,
+      essentialExpense: d.essentialExpense ?? INITIAL_FORM_DATA.essentialExpense,
+      lifestyleExpense: d.lifestyleExpense ?? INITIAL_FORM_DATA.lifestyleExpense,
+      cashSavings: d.cashSavings ?? INITIAL_FORM_DATA.cashSavings,
+      realEstateValue: d.realEstateValue ?? INITIAL_FORM_DATA.realEstateValue,
+      liquidAssets: d.liquidAssets ?? INITIAL_FORM_DATA.liquidAssets,
+      hasDebt: d.hasDebt ?? INITIAL_FORM_DATA.hasDebt,
+      mortgageDebt: d.mortgageDebt ?? INITIAL_FORM_DATA.mortgageDebt,
+      consumerDebt: d.consumerDebt ?? INITIAL_FORM_DATA.consumerDebt,
+      monthlyDebtService: d.monthlyDebtService ?? INITIAL_FORM_DATA.monthlyDebtService,
+      stockFundValue: d.stockFundValue ?? INITIAL_FORM_DATA.stockFundValue,
+      socialInsuranceYears: d.socialInsuranceYears ?? INITIAL_FORM_DATA.socialInsuranceYears,
+      socialInsuranceSalary: d.socialInsuranceSalary ?? INITIAL_FORM_DATA.socialInsuranceSalary,
+    };
+  }, [onboardingDraft]);
 
-    // Step 2: Income
-    primaryIncome: 35000000,
-    secondaryIncome: 8000000,
+  // Form states — khởi tạo từ bản nháp đã lưu
+  const [formData, setFormData] = useState(initialFromDraft);
 
-    // Step 3: Expenses
-    essentialExpense: 18000000,
-    lifestyleExpense: 7000000,
-
-    // Step 4: Assets
-    cashSavings: 450000000,
-    realEstateValue: 2400000000,
-    liquidAssets: 220000000,
-
-    // Step 5: Debt
-    hasDebt: true,
-    mortgageDebt: 850000000,
-    consumerDebt: 0,
-    monthlyDebtService: 9500000,
-
-    // Step 6: Invest & Social Security
-    stockFundValue: 350000000,
-    socialInsuranceYears: 9,
-    socialInsuranceSalary: 18000000,
-  });
+  // Bản nháp được đọc đồng bộ khi component khởi tạo. Không đồng bộ ngược lại
+  // sau mỗi lần lưu, vì thao tác đó sẽ kéo người dùng về bước vừa hoàn tất.
 
   const totalMonthlyIncome = formData.primaryIncome + formData.secondaryIncome;
   const totalMonthlyExpense = formData.essentialExpense + formData.lifestyleExpense;
@@ -78,12 +120,27 @@ export default function OnboardingPage() {
     return new Intl.NumberFormat("vi-VN").format(num) + " đ";
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // Lưu nháp vào context mỗi khi chuyển bước — đảm bảo dữ liệu luôn được đồng bộ.
+    await saveOnboardingDraft({
+      step: currentStep,
+      ...formData,
+    });
     if (currentStepIndex < steps.length - 1) {
       setCurrentStep(steps[currentStepIndex + 1].id);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      setIsCompleted(true);
+      // Bước cuối: hoàn tất Onboarding, chuyển nháp vào hồ sơ chính thức.
+      const completed = await completeOnboarding({
+        ...formData,
+        step: currentStep,
+        updatedAt: new Date().toISOString(),
+      } as OnboardingDraftData);
+      if (completed) {
+        setIsCompleted(true);
+      } else {
+        setSaveError("Không thể hoàn tất hồ sơ. Vui lòng thử lại.");
+      }
     }
   };
 
@@ -94,9 +151,18 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleSaveDraft = () => {
-    setShowSaveToast(true);
-    setTimeout(() => setShowSaveToast(false), 3000);
+  const handleSaveDraft = async () => {
+    setSaveError(null);
+    const ok = await saveOnboardingDraft({
+      step: currentStep,
+      ...formData,
+    });
+    if (ok) {
+      setShowSaveToast(true);
+      setTimeout(() => setShowSaveToast(false), 3000);
+    } else {
+      setSaveError("Không thể lưu nháp. Vui lòng thử lại.");
+    }
   };
 
   if (isCompleted) {
@@ -139,15 +205,41 @@ export default function OnboardingPage() {
           <BrandLogo />
         </Link>
 
-        <div className="save-status">
-          <Icon name="circle-check" size="small" />
-          <span>Tự động lưu bản nháp theo thời gian thực</span>
+        <div
+          className={`save-status save-status-${draftSaveStatus}`}
+          role="status"
+          aria-live="polite"
+        >
+          {draftSaveStatus === "saving" ? (
+            <>
+              <span className="save-spinner" aria-hidden="true" />
+              <span>Đang lưu bản nháp…</span>
+            </>
+          ) : draftSaveStatus === "saved" ? (
+            <>
+              <Icon name="circle-check" size="small" />
+              <span>Đã lưu bản nháp{lastDraftSavedAt ? ` lúc ${lastDraftSavedAt}` : ""}</span>
+            </>
+          ) : draftSaveStatus === "error" ? (
+            <>
+              <Icon name="alert" size="small" />
+              <span>Lỗi lưu bản nháp. Hãy thử lại.</span>
+            </>
+          ) : (
+            <>
+              <Icon name="circle-check" size="small" />
+              <span>Bản nháp được lưu cục bộ trong trình duyệt của bạn</span>
+            </>
+          )}
         </div>
 
         <IconButton
           icon="x"
           label="Lưu và thoát về trang chủ"
-          onClick={() => navigate("/")}
+          onClick={() => {
+            saveOnboardingDraft({ step: currentStep, ...formData });
+            navigate("/");
+          }}
         />
       </header>
 
@@ -679,7 +771,7 @@ export default function OnboardingPage() {
                   <Icon name="arrow-left" size="small" /> Quay lại
                 </Button>
               )}
-              <Button variant="ghost" onClick={handleSaveDraft}>
+              <Button variant="ghost" onClick={handleSaveDraft} loading={draftSaveStatus === "saving"}>
                 Lưu nháp
               </Button>
             </div>
@@ -692,6 +784,18 @@ export default function OnboardingPage() {
               )}
             </Button>
           </div>
+
+          {saveError && (
+            <div className="save-error-banner" role="alert">
+              <Icon name="alert" />
+              <span>{saveError}</span>
+            </div>
+          )}
+
+          <p className="onboarding-demo-note">
+            <Icon name="info" size="small" />
+            <span>{DEMO_STORAGE_DISCLAIMER}</span>
+          </p>
         </main>
       </div>
 
@@ -700,8 +804,8 @@ export default function OnboardingPage() {
         <div className="save-toast" role="status">
           <Icon name="circle-check" />
           <div>
-            <strong>Đã lưu bản nháp</strong>
-            <span>Dữ liệu của bạn được đồng bộ an toàn.</span>
+            <strong>Đã lưu bản nháp cục bộ</strong>
+            <span>Bản nháp lưu trong bộ nhớ trình duyệt, sẽ được khôi phục khi bạn tải lại.</span>
           </div>
           <IconButton icon="x" label="Đóng thông báo" onClick={() => setShowSaveToast(false)} />
         </div>

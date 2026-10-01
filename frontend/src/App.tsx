@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router";
 import AdminLayout, {
   AuditLog, GeneralSettings, IntegrationSettings, NotificationSettings,
@@ -19,7 +19,15 @@ import AccountPage from "./pages/AccountPage";
 import { AdminDashboardPage, AdminUsersPage, AdminUserDetailPage } from "./pages/admin/AdminCorePages";
 import { AdminConsultationsPage, AdminContentPage, AdminPartnersPage } from "./pages/admin/AdminBusinessPages";
 import { AdminAIManagementPage, AdminFinancialConfigPage } from "./pages/admin/AdminAIConfigPages";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { useAuth, type UserRole } from "./context/AuthContext";
+
+function RequireRole({ role, children }: { role: UserRole; children: ReactNode }) {
+  const { user } = useAuth();
+  const location = useLocation();
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (user.role !== role) return <Navigate to={user.role === "admin" ? "/admin/dashboard" : "/user/dashboard"} replace />;
+  return children;
+}
 
 function RouteEffects() {
   const { pathname, search } = useLocation();
@@ -101,10 +109,10 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPage />} />
       <Route path="/reset-password" element={<ResetPage />} />
       <Route path="/verify" element={<VerifyPage />} />
-      <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/onboarding" element={<RequireRole role="user"><OnboardingPage /></RequireRole>} />
       
       {/* User Area Routes */}
-      <Route path="/user" element={<UserLayout />}>
+      <Route path="/user" element={<RequireRole role="user"><UserLayout /></RequireRole>}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<UserDashboard />} />
         <Route path="goal" element={<RetirementGoalPage />} />
@@ -114,7 +122,7 @@ export default function App() {
         <Route path="explore" element={<ExplorePage />} />
         <Route path="account" element={<AccountPage />} />
       </Route>
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route path="/admin" element={<RequireRole role="admin"><AdminLayout /></RequireRole>}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
         <Route path="users" element={<AdminUsersPage />} />

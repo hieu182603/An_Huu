@@ -5,7 +5,7 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets(?:/|$)|images(?:/|$)|.*\\.[^/]+$).*)",
       "destination": "/index.html"
     }
   ],
@@ -20,20 +20,11 @@
       ]
     },
     {
-      "source": "/images/(.*)",
+      "source": "/((?!assets/).*\\.(?:png|jpg|jpeg|svg|ico|webp|avif|gif))",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=86400, stale-while-revalidate=604800"
-        }
-      ]
-    },
-    {
-      "source": "/(.*\\.(?:png|jpg|jpeg|svg|ico|webp))",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400"
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     }

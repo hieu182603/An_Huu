@@ -1,11 +1,36 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Badge, Button, Card, Icon } from "../components/ui";
 import { FundGrowthChart } from "../components/charts";
+import { useFinancialProfile, DEMO_STORAGE_DISCLAIMER } from "../context/FinancialProfileContext";
+import { calculateRetirement, inputFromProfile } from "../domain/retirementCalculator";
+
+const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " đ";
+const REFERENCE_YEAR = new Date().getFullYear();
 
 export default function RetirementPlanPage() {
   const navigate = useNavigate();
   const [chartView, setChartView] = useState<"annual" | "milestone">("milestone");
+  const { profile } = useFinancialProfile();
+
+  // Tất cả con số dùng cùng bộ tính với Dashboard, Mục tiêu và Mô phỏng.
+  const derived = useMemo(() => {
+    const result = calculateRetirement(inputFromProfile(profile));
+    return {
+      yearsLeft: result.yearsToRetirement,
+      retirementDuration: result.retirementYears,
+      targetFund: result.targetFund,
+      projectedFund: result.projectedFund,
+      gap: result.gap,
+      progressPercent: result.readinessScore,
+      readinessScore: result.readinessScore,
+      targetRetireYear: REFERENCE_YEAR + result.yearsToRetirement,
+      targetAge: profile.goal.targetRetireAge,
+      futureMonthlyWithdraw: result.futureMonthlyExpense,
+      estimatedMonthlyPension: result.estimatedMonthlyPension,
+      requiredMonthlyWithdrawal: result.requiredMonthlyWithdrawal,
+    };
+  }, [profile]);
 
   return (
     <>
@@ -30,11 +55,11 @@ export default function RetirementPlanPage() {
       {/* Primary Result Hero */}
       <div className="plan-result-hero">
         <div className="plan-result-copy">
-          <Badge tone="soft">KẾT QUẢ ĐẦU RA CỐT LÕI (U06)</Badge>
-          <span className="result-kicker">TỔNG QUỸ HƯU TRÍ CẦN CHUẨN BỊ ĐẾN TUỔI 60</span>
-          <strong className="result-total">8.500.000.000 đ</strong>
+          <Badge tone="soft">KẾT QUẢ ĐẦU RA CỐT LÕI</Badge>
+          <span className="result-kicker">TỔNG QUỸ HƯU TRÍ CẦN CHUẨN BỊ ĐẾN TUỔI {derived.targetAge}</span>
+          <strong className="result-total">{formatVND(derived.targetFund)}</strong>
           <p>
-            Đảm bảo bạn có dòng tiền <strong>22.000.000 đ/tháng</strong> (đã điều chỉnh trượt giá lạm phát) để an tâm sống độc lập suốt 22 năm hưu trí từ 60 đến 82 tuổi.
+            Đảm bảo bạn có dòng tiền <strong>{formatVND(derived.futureMonthlyWithdraw)}/tháng</strong> (đã điều chỉnh trượt giá lạm phát) để an tâm sống độc lập suốt {derived.retirementDuration} năm hưu trí từ {derived.targetAge} đến {profile.goal.lifeExpectancy} tuổi.
           </p>
 
           <div className="plan-hero-actions">
@@ -56,18 +81,26 @@ export default function RetirementPlanPage() {
                 cy="90"
                 r="76"
                 className="ring-value"
-                style={{ strokeDashoffset: `${477.5 * (1 - 0.72)}` }}
+                style={{ strokeDashoffset: `${477.5 * (1 - derived.progressPercent / 100)}` }}
               />
             </svg>
             <div>
-              <strong>72%</strong>
+              <strong>{derived.progressPercent}%</strong>
               <span>MỨC ĐỘ SẴN SÀNG</span>
             </div>
           </div>
           <div className="plan-progress-copy">
             <span>
-              <strong>Tiến độ đạt 72%</strong>
-              <small>Còn thiếu 28% (~2.38 tỷ đ) để chạm đích an toàn</small>
+              <strong>
+                {derived.gap > 0
+                  ? `Còn thiếu ${formatVND(derived.gap)} để chạm đích an toàn`
+                  : `Vượt mục tiêu ${formatVND(Math.abs(derived.gap))} — kế hoạch rất vững vàng`}
+              </strong>
+              <small>
+                {derived.gap > 0
+                  ? `Cần bổ sung trong ${derived.yearsLeft} năm tới thông qua tích lũy tăng thêm`
+                  : `Bạn có thể cân nhắc giảm đóng góp hoặc nghỉ sớm hơn`}
+              </small>
             </span>
           </div>
         </div>
@@ -80,8 +113,8 @@ export default function RetirementPlanPage() {
             <span>Số tiền dự kiến có</span>
             <Icon name="wallet" />
           </div>
-          <strong>6.120.000.000 đ</strong>
-          <small>Từ tài sản hiện có, lãi kép tích lũy và lương hưu BHXH</small>
+          <strong>{formatVND(derived.projectedFund)}</strong>
+          <small>Từ tài sản tài chính thanh khoản và đóng góp; không tính nhà ở là tiền chi tiêu</small>
         </Card>
 
         <Card className="plan-metric-card tone-warning">
@@ -89,8 +122,14 @@ export default function RetirementPlanPage() {
             <span>Khoảng thiếu hụt</span>
             <Icon name="alert" />
           </div>
-          <strong style={{ color: "var(--color-danger)" }}>2.380.000.000 đ</strong>
-          <small>Cần bù đắp trong 28 năm tới thông qua tích lũy tăng thêm</small>
+          <strong style={{ color: derived.gap > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
+            {derived.gap > 0 ? formatVND(derived.gap) : "Đã đạt mục tiêu"}
+          </strong>
+          <small>
+            {derived.gap > 0
+              ? `Cần bù đắp trong ${derived.yearsLeft} năm tới thông qua tích lũy tăng thêm`
+              : "Bạn đang tích lũy vượt mục tiêu — có thể tối ưu hoặc nghỉ sớm"}
+          </small>
         </Card>
 
         <Card className="plan-metric-card">
@@ -98,8 +137,8 @@ export default function RetirementPlanPage() {
             <span>Số tiền cần tích lũy/tháng</span>
             <Icon name="target" />
           </div>
-          <strong>14.200.000 đ</strong>
-          <small>Đều đặn mỗi tháng với lợi suất kỳ vọng bình quân 7.8%/năm</small>
+          <strong>{formatVND(profile.plan.monthlySavings)}</strong>
+          <small>Đều đặn mỗi tháng với lợi suất kỳ vọng {profile.goal.investmentReturn}%/năm</small>
         </Card>
 
         <Card className="plan-metric-card">
@@ -107,8 +146,8 @@ export default function RetirementPlanPage() {
             <span>Thời gian còn lại</span>
             <Icon name="compass" />
           </div>
-          <strong>28 năm</strong>
-          <small>Thời điểm chạm mốc tuổi 60: Năm 2053</small>
+          <strong>{derived.yearsLeft} năm</strong>
+          <small>Thời điểm chạm mốc tuổi {derived.targetAge}: Năm {derived.targetRetireYear}</small>
         </Card>
       </div>
 
@@ -138,16 +177,16 @@ export default function RetirementPlanPage() {
         </header>
 
         <div className="fund-chart" tabIndex={0} role="region" aria-label="Biểu đồ tăng trưởng quỹ">
-          <FundGrowthChart view={chartView} />
+          <FundGrowthChart view={chartView} profile={profile} />
         </div>
 
         <footer>
           <div>
-            <span><i className="fund-legend-target" /> Mục tiêu kỳ vọng: 8.50 tỷ đ</span>
-            <span><i className="fund-legend-current" /> Dự phóng tích lũy hiện thời: 6.12 tỷ đ</span>
+            <span><i className="fund-legend-target" /> Mục tiêu kỳ vọng: {formatVND(derived.targetFund)}</span>
+            <span><i className="fund-legend-current" /> Dự phóng tích lũy hiện thời: {formatVND(derived.projectedFund)}</span>
           </div>
           <p>
-            <Icon name="info" size="small" /> Sau tuổi 60, quỹ chuyển từ giai đoạn tích lũy sang giai đoạn rút tiền hàng tháng.
+            <Icon name="info" size="small" /> Sau tuổi {derived.targetAge}, quỹ chuyển từ giai đoạn tích lũy sang giai đoạn rút tiền hàng tháng trong {derived.retirementDuration} năm.
           </p>
         </footer>
       </Card>
@@ -163,17 +202,30 @@ export default function RetirementPlanPage() {
           <div className="meaning-copy">
             <Badge tone="soft">GIẢI THÍCH TỪ CHUYÊN GIA AI</Badge>
             <h2>Điều này có ý nghĩa gì đối với bạn?</h2>
-            <p>
-              Khoảng thiếu hụt <strong>2.38 tỷ đồng</strong> không phải là lý do để lo lắng, mà là chiếc kim chỉ nam rõ ràng cho hành động ngay lúc này.
-            </p>
-            <p>
-              Với <strong>28 năm</strong> tích lũy phía trước, nhờ vào sức mạnh của lãi kép, bạn chỉ cần tiết kiệm thêm khoảng <strong>1.480.000 đ mỗi tháng</strong> hoặc cải thiện tỷ suất sinh lời của danh mục đầu tư thêm 0.8%/năm là hoàn toàn lấp đầy khoảng thiếu này!
-            </p>
+            {derived.gap > 0 ? (
+              <>
+                <p>
+                  Khoảng thiếu hụt <strong>{formatVND(derived.gap)}</strong> không phải lý do để lo lắng, mà là chiếc kim chỉ nam rõ ràng cho hành động ngay lúc này.
+                </p>
+                <p>
+                  Với <strong>{derived.yearsLeft} năm</strong> tích lũy phía trước, nhờ sức mạnh của lãi kép, bạn cần tiết kiệm thêm khoảng <strong>{formatVND(Math.round(derived.gap / Math.max(1, derived.yearsLeft * 12)))} mỗi tháng</strong> hoặc cải thiện tỷ suất sinh lời của danh mục để lấp đầy khoảng thiếu này.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  Kế hoạch hiện tại <strong>vượt mục tiêu {formatVND(Math.abs(derived.gap))}</strong>. Đây là vùng đệm an toàn giúp bạn linh hoạt điều chỉnh mục tiêu.
+                </p>
+                <p>
+                  Bạn có thể cân nhắc tăng mức chi tiêu khi nghỉ hưu, nghỉ sớm hơn vài năm, hoặc phân bổ thêm cho các mục tiêu tài chính khác.
+                </p>
+              </>
+            )}
 
             <div className="meaning-assumptions">
               <Icon name="info" size="small" />
               <span>
-                Tính toán dựa trên giả định lạm phát dài hạn 4.0%/năm và mức sinh lời danh mục trung hòa 7.8%/năm.
+                Tính toán dựa trên giả định lạm phát dài hạn {profile.goal.inflationRate}%/năm và mức sinh lời danh mục {profile.goal.investmentReturn}%/năm.
               </span>
             </div>
           </div>
@@ -203,9 +255,9 @@ export default function RetirementPlanPage() {
               <span><Icon name="file-text" /></span>
               <div>
                 <strong>Lương hưu Bảo hiểm Xã hội (BHXH)</strong>
-                <small>Dự kiến 35 năm đóng, tỷ lệ hưởng 75%</small>
+                <small>Dự kiến {Math.min(35, profile.socialSecurity.socialInsuranceYears + derived.yearsLeft)} năm đóng, hệ số ước tính</small>
               </div>
-              <b>2.975.000.000 đ (35%)</b>
+              <b>{formatVND(Math.round(profile.socialSecurity.socialInsuranceSalary * 12 * 0.75 * Math.min(35, profile.socialSecurity.socialInsuranceYears + derived.yearsLeft)))}</b>
             </div>
 
             <div>
@@ -214,16 +266,16 @@ export default function RetirementPlanPage() {
                 <strong>Danh mục đầu tư & Tích lũy tự nguyện</strong>
                 <small>Quỹ mở, chứng chỉ tiền gửi & cổ tức</small>
               </div>
-              <b>3.145.000.000 đ (37%)</b>
+              <b>{formatVND(profile.assets.stockFundValue + profile.assets.liquidAssets)}</b>
             </div>
 
             <div>
               <span><Icon name="home" /></span>
               <div>
-                <strong>Tài sản bất động sản & Quỹ dự phòng</strong>
-                <small>Nhà ở cho thuê hoặc giá trị thanh khoản</small>
+                <strong>Tài sản bất động sản (giá trị ước tính)</strong>
+                <small>BĐS nhà ở — chưa tính là quỹ chi tiêu hưu trí</small>
               </div>
-              <b>2.380.000.000 đ (28%)</b>
+              <b>{formatVND(profile.assets.realEstateValue)}</b>
             </div>
           </div>
         </Card>
@@ -233,13 +285,13 @@ export default function RetirementPlanPage() {
       <div className="plan-disclaimer">
         <Icon name="info" />
         <span>
-          Bản kế hoạch tài chính được lập độc lập theo các nguyên lý tài chính cá nhân chuẩn mực. Các số liệu có thể được điều chỉnh lại bất cứ lúc nào.
+          {DEMO_STORAGE_DISCLAIMER} Bản kế hoạch dưới đây dùng chung công thức với trang Mục tiêu & Mô phỏng, có thể điều chỉnh khi bạn cập nhật hồ sơ.
         </span>
         <button
           type="button"
-          onClick={() => alert("Đang chuẩn bị tải về bản báo cáo kế hoạch hưu trí hoàn chỉnh dạng PDF...")}
+          onClick={() => window.print()}
         >
-          <Icon name="download" size="small" /> Tải báo cáo PDF chi tiết
+          <Icon name="download" size="small" /> In hoặc lưu báo cáo PDF
         </button>
       </div>
     </>

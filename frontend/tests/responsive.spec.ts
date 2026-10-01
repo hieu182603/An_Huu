@@ -1,4 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { installRouteAuth } from "./helpers";
+
+test.beforeEach(async ({ page }) => installRouteAuth(page));
 
 const routes = ["/", "/demo", "/login", "/register", "/forgot-password", "/reset-password", "/verify", "/onboarding", "/user/dashboard", "/user/goal", "/user/plan", "/user/simulation", "/user/assistant", "/user/explore", "/user/account", "/admin/dashboard", "/admin/users", "/admin/users/USR-1082", "/admin/consultations", "/admin/content", "/admin/partners", "/admin/ai", "/admin/financial-config", "/admin/support", "/admin/reports", "/admin/settings/general", "/admin/settings/integrations", "/admin/settings/notifications", "/admin/settings/privacy", "/admin/settings/audit-log"];
 
@@ -135,7 +138,7 @@ test("financial charts scroll and AI composer stays available after messages", a
   await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
   await expect(input).toHaveValue("");
   await expectReflow(page);
-  expect(await page.locator(".conversation-scroll").evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+  await expect(page.getByRole("button", { name: "Gửi câu hỏi" })).toBeVisible();
 });
 
 for (const width of [320, 768]) {

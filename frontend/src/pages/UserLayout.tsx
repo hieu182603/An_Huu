@@ -26,11 +26,25 @@ export default function UserLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFeedback, setSearchFeedback] = useState("");
   useEffect(() => setMobileMenuOpen(false), [location.pathname]);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const submitSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const query = searchQuery.trim().toLocaleLowerCase("vi");
+    const match = userNavItems.find((item) => item.label.toLocaleLowerCase("vi").includes(query));
+    if (!query || !match) {
+      setSearchFeedback(query ? "Không tìm thấy tính năng phù hợp." : "Hãy nhập nội dung cần tìm.");
+      return;
+    }
+    setSearchFeedback("");
+    navigate(match.path);
   };
 
   return (
@@ -81,7 +95,7 @@ export default function UserLayout() {
             <div className="progress-track" role="progressbar" aria-valuenow={90} aria-valuemin={0} aria-valuemax={100}>
               <span style={{ "--progress": "90%" } as React.CSSProperties} />
             </div>
-            <small>Đã xác thực email & liên kết dữ liệu BHXH mẫu.</small>
+            <small>Dữ liệu hồ sơ và BHXH hiện dùng cho mục đích minh họa.</small>
           </div>
         )}
 
@@ -94,18 +108,18 @@ export default function UserLayout() {
             <button className="icon-button" type="button" aria-label="Mở menu tài khoản" aria-expanded={mobileMenuOpen} aria-haspopup="dialog" onClick={() => setMobileMenuOpen(true)}><Icon name="grid" /></button>
             <Link to="/user/dashboard" aria-label="An Hưu — Tổng quan"><BrandLogo compact /></Link>
           </div>
-          <SearchField
-            label="Tìm kiếm nhanh"
-            placeholder="Tìm tính năng, kịch bản, bài viết..."
-            hideLabel
-          />
+          <form className="topbar-search-form" role="search" onSubmit={submitSearch}>
+            <SearchField label="Tìm kiếm nhanh" placeholder="Tìm mục tiêu, mô phỏng, bài viết..." value={searchQuery} onChange={setSearchQuery} hideLabel />
+            <button className="sr-only" type="submit">Tìm kiếm</button>
+            {searchFeedback && <span className="topbar-search-feedback" role="status">{searchFeedback}</span>}
+          </form>
 
           <div className="user-topbar-actions">
             <Tooltip content="Hỗ trợ & giải đáp">
               <IconButton icon="life-buoy" label="Trợ giúp" onClick={() => navigate("/user/assistant")} />
             </Tooltip>
             <Tooltip content="Thông báo mới (1)">
-              <IconButton icon="bell" label="Thông báo" badge />
+              <IconButton icon="bell" label="Thông báo" badge onClick={() => navigate("/user/simulation")} />
             </Tooltip>
             <Avatar
               initials={user?.initials || "NA"}
@@ -116,7 +130,7 @@ export default function UserLayout() {
           </div>
         </header>
 
-        <main className="dashboard-main" id="main-content">
+        <main className={`dashboard-main ${location.pathname === "/user/assistant" ? "dashboard-main-assistant" : ""}`} id="main-content">
           <Outlet />
         </main>
       </div>

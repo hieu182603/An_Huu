@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/validate-assets.mjs && vite build",
+    "test:assets": "node --experimental-strip-types --test scripts/validate-assets.test.mjs scripts/deployment-config.test.mjs scripts/retirement-calculator.test.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test:demo": "pnpm build && playwright test"

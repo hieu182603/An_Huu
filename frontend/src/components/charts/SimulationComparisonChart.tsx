@@ -9,12 +9,11 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import { projectBalanceAtAge, type RetirementCalculationInput } from "../../domain/retirementCalculator";
 
 interface SimulationComparisonChartProps {
-  currentAge?: number;
-  simRetireAge: number;
-  baseProjectedFund: number;
-  simProjectedFund: number;
+  baseInput: RetirementCalculationInput;
+  scenarioInput: RetirementCalculationInput;
   simFundTarget: number;
 }
 
@@ -106,53 +105,34 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export function SimulationComparisonChart({
-  currentAge = 32,
-  simRetireAge,
-  baseProjectedFund,
-  simProjectedFund,
+  baseInput,
+  scenarioInput,
   simFundTarget,
 }: SimulationComparisonChartProps) {
-  const currentYear = 2025;
-  const maxAge = 75;
+  const currentAge = baseInput.currentAge;
+  const simRetireAge = scenarioInput.retirementAge;
+  const currentYear = new Date().getFullYear();
 
   const chartData = useMemo(() => {
-    const points: any[] = [];
-    const ages = [32, 36, 40, 45, 50, 55, simRetireAge, 65, 75].filter(
-      (v, i, a) => a.indexOf(v) === i
-    ).sort((a, b) => a - b);
+    const endAge = Math.max(baseInput.lifeExpectancy, scenarioInput.lifeExpectancy);
+    const span = Math.max(1, endAge - currentAge);
+    const ages = Array.from({ length: 9 }, (_, index) =>
+      Math.round(currentAge + (span * index) / 8),
+    ).concat(baseInput.retirementAge, simRetireAge, endAge)
+      .filter((age, index, values) => age >= currentAge && values.indexOf(age) === index)
+      .sort((a, b) => a - b);
 
-    const startAmount = 850_000_000;
-
-    ages.forEach((age) => {
+    return ages.map((age) => {
       const year = currentYear + (age - currentAge);
-      const progress = (age - currentAge) / (60 - currentAge);
-      const simProgress = (age - currentAge) / (simRetireAge - currentAge);
-
-      let baseVal = 0;
-      if (age <= 60) {
-        baseVal = startAmount + (baseProjectedFund - startAmount) * Math.pow(Math.max(0, progress), 1.6);
-      } else {
-        baseVal = Math.max(0, baseProjectedFund - (age - 60) * 280_000_000);
-      }
-
-      let simVal = 0;
-      if (age <= simRetireAge) {
-        simVal = startAmount + (simProjectedFund - startAmount) * Math.pow(Math.max(0, simProgress), 1.5);
-      } else {
-        simVal = Math.max(0, simProjectedFund - (age - simRetireAge) * 320_000_000);
-      }
-
-      points.push({
+      return {
         age,
         year,
         label: `${age}t (${year})`,
-        base: Math.round(baseVal),
-        simulated: Math.round(simVal),
-      });
+        base: projectBalanceAtAge(baseInput, Math.min(age, baseInput.lifeExpectancy)),
+        simulated: projectBalanceAtAge(scenarioInput, Math.min(age, scenarioInput.lifeExpectancy)),
+      };
     });
-
-    return points;
-  }, [currentAge, simRetireAge, baseProjectedFund, simProjectedFund]);
+  }, [baseInput, scenarioInput, currentAge, simRetireAge, currentYear]);
 
   return (
     <div style={{ width: "100%", height: 320, position: "relative" }}>
@@ -163,8 +143,8 @@ export function SimulationComparisonChart({
         >
           <defs>
             <linearGradient id="simulatedGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#6F9B7C" stopOpacity={0.35} />
-              <stop offset="95%" stopColor="#6F9B7C" stopOpacity={0.0} />
+              <stop offset="5%" stopColor="var(--chart-secondary)" stopOpacity={0.35} />
+              <stop offset="95%" stopColor="var(--chart-secondary)" stopOpacity={0.0} />
             </linearGradient>
             <linearGradient id="baseGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#64748B" stopOpacity={0.2} />
@@ -200,7 +180,7 @@ export function SimulationComparisonChart({
           {/* Reference Line for Target */}
           <ReferenceLine
             y={simFundTarget}
-            stroke="#D9A85E"
+            stroke="var(--color-accent-500, #D9A85E)"
             strokeDasharray="4 4"
             label={{
               value: `Mục tiêu (${formatVND(simFundTarget)})`,
@@ -214,7 +194,7 @@ export function SimulationComparisonChart({
           {/* Reference Line for Simulated Retirement Age */}
           <ReferenceLine
             x={`${simRetireAge}t (${currentYear + (simRetireAge - currentAge)})`}
-            stroke="#6F9B7C"
+            stroke="var(--chart-secondary)"
             strokeDasharray="3 3"
             label={{
               value: `Hưu (${simRetireAge}t)`,
@@ -229,7 +209,7 @@ export function SimulationComparisonChart({
             type="monotone"
             dataKey="base"
             name="Kế hoạch gốc"
-            stroke="#64748B"
+            stroke="var(--color-text-muted)"
             strokeWidth={2}
             strokeDasharray="4 4"
             fillOpacity={1}
@@ -240,7 +220,7 @@ export function SimulationComparisonChart({
             type="monotone"
             dataKey="simulated"
             name="Mô phỏng mới"
-            stroke="#6F9B7C"
+            stroke="var(--chart-secondary)"
             strokeWidth={3}
             fillOpacity={1}
             fill="url(#simulatedGrad)"

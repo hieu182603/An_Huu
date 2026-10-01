@@ -33,6 +33,9 @@ Thumbs.db
 frontend/.tmp-*
 responsive-audit/
 frontend/responsive-audit/
+artifacts/
+frontend/artifacts/
+BAO_CAO_KIEM_TRA_WEBSITE.md
 compact_landing_full.png
 frontend/compact_landing_full.png
 
