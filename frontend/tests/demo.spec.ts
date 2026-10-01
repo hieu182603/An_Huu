@@ -82,7 +82,7 @@ for (const width of [1440, 1024, 768, 390]) {
           overflowElements: overflowElements.slice(0, 5),
         };
       });
-      expect(result.primaryColor).toBe("#153a52");
+      expect(result.primaryColor).toBe("#10385b");
       expect(result.overflow, `${path} has horizontal overflow at ${width}px. Offending: ${JSON.stringify(result.overflowElements)}`).toBe(false);
     }
   });

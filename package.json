@@ -2,9 +2,6 @@
   "name": "an-huu-project",
   "private": true,
   "version": "1.0.0",
-  "workspaces": [
-    "frontend"
-  ],
   "scripts": {
     "build": "npm --prefix frontend run build",
     "dev": "npm --prefix frontend run dev",
