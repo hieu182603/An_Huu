@@ -22,114 +22,112 @@ export default function UserDashboard() {
         </Link>
       </div>
 
-      {/* Priority Section: Hero Card + Readiness / Next Action */}
-      <div className="dashboard-priority-grid">
-        <div className="retirement-hero">
-          <div className="retirement-hero-copy">
-            <div className="card-heading-row">
-              <Badge tone="soft">TIẾN ĐỘ HƯU TRÍ TỔNG THỂ</Badge>
-              <IconButton icon="maximize" label="Xem toàn màn hình" onClick={() => navigate("/user/plan")} />
-            </div>
-            <h2 style={{ color: "#ffffff" }}>Bạn đã chuẩn bị được 72% cho mục tiêu nghỉ hưu ở tuổi 60</h2>
-            <p>
-              Với mức tích lũy hiện tại <strong>14.200.000 đ/tháng</strong> cùng các khoản tài sản và BHXH dự phóng, bạn đang đi rất sát lộ trình để đạt cuộc sống an nhàn độc lập.
-            </p>
-
-            <div className="hero-financial-metrics">
-              <div>
-                <span>Mục tiêu quỹ hưu</span>
-                <strong>8.500.000.000 đ</strong>
-              </div>
-              <div>
-                <span>Dự kiến đạt được</span>
-                <strong>6.120.000.000 đ</strong>
-              </div>
-              <div>
-                <span>Khoảng cần bổ sung</span>
-                <strong style={{ color: "var(--color-warning-fill)" }}>2.380.000.000 đ</strong>
-              </div>
-            </div>
-
-            <div className="hero-card-actions">
-              <Link to="/user/plan" className="button button-primary button-medium">
-                Xem chi tiết kế hoạch <Icon name="arrow-right" />
-              </Link>
-              <Link to="/user/simulation" className="button button-ghost button-medium">
-                Thử kịch bản khác
-              </Link>
-            </div>
+      {/* Full-width Hero Card */}
+      <div className="retirement-hero retirement-hero-full">
+        <div className="retirement-hero-copy">
+          <div className="card-heading-row">
+            <Badge tone="soft">TIẾN ĐỘ HƯU TRÍ TỔNG THỂ</Badge>
           </div>
+          <h2 style={{ color: "#ffffff" }}>Bạn đã chuẩn bị được 72% cho mục tiêu nghỉ hưu ở tuổi 60</h2>
+          <p>
+            Với mức tích lũy hiện tại <strong>14.200.000 đ/tháng</strong> cùng các khoản tài sản và BHXH dự phóng, bạn đang đi rất sát lộ trình để đạt cuộc sống an nhàn độc lập.
+          </p>
 
-          <div className="progress-ring-wrap">
-            <div className="progress-ring">
-              <svg viewBox="0 0 160 160">
-                <defs>
-                  <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#4d8b7e" />
-                    <stop offset="100%" stopColor="#6fe1c8" />
-                  </linearGradient>
-                </defs>
-                <circle cx="80" cy="80" r="72" className="ring-track" />
-                <circle
-                  cx="80"
-                  cy="80"
-                  r="72"
-                  className="ring-value"
-                  style={{ strokeDashoffset: `${452.4 * (1 - 0.72)}`, stroke: "url(#ringGrad)" }}
-                />
-              </svg>
-              <div>
-                <strong>72%</strong>
-                <span>MỤC TIÊU TUỔI 60</span>
-              </div>
-            </div>
-            <div className="ring-caption">
-              <Icon name="circle-check" size="small" />
-              <span>Dự kiến về đích vào năm 2053</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="priority-side">
-          {/* Readiness Score Card */}
-          <Card className="readiness-card">
-            <div className="compact-card-heading">
-              <span>CHỈ SỐ SẴN SÀNG</span>
-              <span className="card-icon"><Icon name="target" /></span>
-            </div>
-            <div className="readiness-score">
-              <strong>78</strong>
-              <span>/ 100 điểm</span>
-            </div>
-            <p>Mức chuẩn bị đạt hạng Khá vững vàng. Dòng tiền thặng dư hàng tháng đủ bù đắp trượt giá lạm phát.</p>
-            <div className="score-scale">
-              <span className="is-filled" />
-              <span className="is-filled" />
-              <span className="is-filled is-current" />
-              <span />
-            </div>
-            <div className="score-labels">
-              <span>Cần cố gắng</span>
-              <span>Khá tốt</span>
-              <span>Lý tưởng</span>
-            </div>
-          </Card>
-
-          {/* Next Action Card */}
-          <Card className="next-action-card">
-            <div className="next-action-icon">
-              <Icon name="sparkles" />
+          <div className="hero-financial-metrics">
+            <div>
+              <span>Mục tiêu quỹ hưu</span>
+              <strong>8.500.000.000 đ</strong>
             </div>
             <div>
-              <Badge tone="honey">HÀNH ĐỘNG KHUYẾN NGHỊ</Badge>
-              <h3>Tăng 1.5 triệu vào Quỹ đầu tư</h3>
-              <p>Chỉ cần tăng thêm 1.500.000 đ/tháng vào danh mục quỹ cổ phiếu định kỳ, bạn sẽ lấp kín 100% khoảng thiếu hụt.</p>
+              <span>Dự kiến đạt được</span>
+              <strong>6.120.000.000 đ</strong>
             </div>
-            <Button variant="secondary" size="small" onClick={() => navigate("/user/simulation")}>
-              Thử mô phỏng điều chỉnh này <Icon name="arrow-right" />
-            </Button>
-          </Card>
+            <div>
+              <span>Khoảng cần bổ sung</span>
+              <strong style={{ color: "var(--color-warning-fill)" }}>2.380.000.000 đ</strong>
+            </div>
+          </div>
+
+          <div className="hero-card-actions">
+            <Link to="/user/plan" className="button button-primary button-medium">
+              Xem chi tiết kế hoạch <Icon name="arrow-right" />
+            </Link>
+            <Link to="/user/simulation" className="button button-ghost button-medium">
+              Thử kịch bản khác
+            </Link>
+          </div>
         </div>
+
+        <div className="progress-ring-wrap">
+          <div className="progress-ring">
+            <svg viewBox="0 0 160 160">
+              <defs>
+                <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#4d8b7e" />
+                  <stop offset="100%" stopColor="#6fe1c8" />
+                </linearGradient>
+              </defs>
+              <circle cx="80" cy="80" r="72" className="ring-track" />
+              <circle
+                cx="80"
+                cy="80"
+                r="72"
+                className="ring-value"
+                style={{ strokeDashoffset: `${452.4 * (1 - 0.72)}`, stroke: "url(#ringGrad)" }}
+              />
+            </svg>
+            <div>
+              <strong>72%</strong>
+              <span>MỤC TIÊU TUỔI 60</span>
+            </div>
+          </div>
+          <div className="ring-caption">
+            <Icon name="circle-check" size="small" />
+            <span>Dự kiến về đích vào năm 2053</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Priority Cards Row */}
+      <div className="dashboard-subpriority-grid">
+        {/* Readiness Score Card */}
+        <Card className="readiness-card">
+          <div className="compact-card-heading">
+            <span>CHỈ SỐ SẴN SÀNG</span>
+            <span className="card-icon"><Icon name="target" /></span>
+          </div>
+          <div className="readiness-score">
+            <strong>78</strong>
+            <span>/ 100 điểm</span>
+          </div>
+          <p>Mức chuẩn bị đạt hạng Khá vững vàng. Dòng tiền thặng dư hàng tháng đủ bù đắp trượt giá lạm phát.</p>
+          <div className="score-scale">
+            <span className="is-filled" />
+            <span className="is-filled" />
+            <span className="is-filled is-current" />
+            <span />
+          </div>
+          <div className="score-labels">
+            <span>Cần cố gắng</span>
+            <span>Khá tốt</span>
+            <span>Lý tưởng</span>
+          </div>
+        </Card>
+
+        {/* Next Action Card */}
+        <Card className="next-action-card">
+          <div className="next-action-icon">
+            <Icon name="sparkles" />
+          </div>
+          <div>
+            <Badge tone="honey">HÀNH ĐỘNG KHUYẾN NGHỊ</Badge>
+            <h3>Tăng 1.5 triệu vào Quỹ đầu tư</h3>
+            <p>Chỉ cần tăng thêm 1.500.000 đ/tháng vào danh mục quỹ cổ phiếu định kỳ, bạn sẽ lấp kín 100% khoảng thiếu hụt.</p>
+          </div>
+          <Button variant="secondary" size="small" onClick={() => navigate("/user/simulation")}>
+            Thử mô phỏng điều chỉnh này <Icon name="arrow-right" />
+          </Button>
+        </Card>
       </div>
 
       {/* Metric Strip */}

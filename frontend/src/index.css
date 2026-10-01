@@ -930,6 +930,9 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .dashboard-page-header p { margin: 0; color: var(--color-text-muted); font-size: 14px; }
 .dashboard-priority-grid { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(280px, 1fr); gap: var(--space-5); }
 .retirement-hero { position: relative; display: grid; min-height: 420px; grid-template-columns: minmax(0, 1.25fr) minmax(250px, .75fr); gap: var(--space-8); overflow: hidden; padding: var(--space-8); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--radius-lg); color: var(--color-white); background: linear-gradient(138deg, #153a52 0%, #0d2332 100%); box-shadow: 0 16px 40px -10px rgba(15, 37, 56, 0.35); }
+.retirement-hero-full { width: 100%; min-height: 380px; grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.75fr); margin-bottom: var(--space-5); }
+.retirement-hero-full .hero-financial-metrics { max-width: 640px; }
+.dashboard-subpriority-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-5); }
 .retirement-hero::before { content: ""; position: absolute; top: -140px; right: -80px; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle, rgba(77, 139, 126, 0.25) 0%, transparent 70%); pointer-events: none; }
 .retirement-hero-copy { position: relative; z-index: 1; display: flex; flex-direction: column; }
 .card-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
