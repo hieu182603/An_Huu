@@ -190,9 +190,6 @@ export function LoginPage() {
               <div className="auth-field-item">
                 <label className="auth-field-label" htmlFor="login-password">
                   <span>Mật khẩu</span>
-                  <Link to="/forgot-password" className="auth-forgot-link">
-                    Quên mật khẩu?
-                  </Link>
                 </label>
                 <div className="auth-input-wrapper">
                   <input
@@ -220,9 +217,12 @@ export function LoginPage() {
             <div className="auth-options-row">
               <Checkbox
                 checked={remember}
-                label="Ghi nhớ đăng nhập trên thiết bị này"
+                label="Ghi nhớ đăng nhập"
                 onChange={setRemember}
               />
+              <Link to="/forgot-password" className="auth-forgot-link">
+                Quên mật khẩu?
+              </Link>
             </div>
 
             {error && (
