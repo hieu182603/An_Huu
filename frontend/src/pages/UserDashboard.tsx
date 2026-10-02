@@ -1,18 +1,19 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { motion } from "motion/react";
 import { Badge, Button, Card, Icon, IconButton } from "../components/ui";
 import { ProjectionWealthChart, AssetDonutChart } from "../components/charts";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 
-const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " đ";
+const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " VND";
 const formatCompactVND = (num: number) => {
   if (num >= 1_000_000_000) {
     const val = (num / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "").replace(".", ",");
-    return `${val} tỷ đ`;
+    return `${val} tỷ VND`;
   }
   if (num >= 1_000_000) {
     const val = (num / 1_000_000).toFixed(1).replace(/\.?0+$/, "").replace(".", ",");
-    return `${val} triệu đ`;
+    return `${val} triệu VND`;
   }
   return formatVND(num);
 };
@@ -76,7 +77,12 @@ export default function UserDashboard() {
   return (
     <>
       {/* Page Header */}
-      <div className="dashboard-page-header">
+      <motion.div
+        className="dashboard-page-header"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+      >
         <div>
           <span>BẢN ĐỒ TÀI CHÍNH CÁ NHÂN</span>
           <h1>Chào buổi sáng, {greetingName}</h1>
@@ -85,7 +91,7 @@ export default function UserDashboard() {
         <Link to="/user/goal" className="button button-primary button-medium">
           <Icon name="target" /> Điều chỉnh mục tiêu
         </Link>
-      </div>
+      </motion.div>
 
       {/* Trạng thái lưu hồ sơ */}
       <div className={`dashboard-save-indicator is-${saveStatus}`} role="status" aria-live="polite">
@@ -118,7 +124,12 @@ export default function UserDashboard() {
       </div>
 
       {/* Full-width Hero Card */}
-      <div className="retirement-hero retirement-hero-full">
+      <motion.div
+        className="retirement-hero retirement-hero-full"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.05, ease: "easeOut" }}
+      >
         <div className="retirement-hero-copy">
           <div className="hero-top-badge-row">
             <Badge tone="soft">TIẾN ĐỘ HƯU TRÍ</Badge>
@@ -161,7 +172,7 @@ export default function UserDashboard() {
               <span className="hero-metric-label">Khoảng cần bổ sung</span>
               {derived.gap <= 0 ? (
                 <>
-                  <strong className="hero-metric-value is-success">0 đ</strong>
+                  <strong className="hero-metric-value is-success">0 VND</strong>
                   <small className="hero-metric-sub is-positive">✓ Đã đủ 100%</small>
                 </>
               ) : (
@@ -190,8 +201,8 @@ export default function UserDashboard() {
             <svg viewBox="0 0 160 160">
               <defs>
                 <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#4d8b7e" />
-                  <stop offset="100%" stopColor="#6fe1c8" />
+                  <stop offset="0%" stopColor="#00f5b4" />
+                  <stop offset="100%" stopColor="#2dd4bf" />
                 </linearGradient>
               </defs>
               <circle cx="80" cy="80" r="72" className="ring-track" />
@@ -209,14 +220,19 @@ export default function UserDashboard() {
             </div>
           </div>
           <div className="ring-caption">
-            <Icon name="circle-check" size="small" />
-            <span>Dự kiến về đích năm {derived.targetRetireYear}</span>
+            <span className="ring-caption-badge-icon"><Icon name="circle-check" size="small" /></span>
+            <span>Dự kiến về hưu năm {derived.targetRetireYear}</span>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Priority Cards Row */}
-      <div className="dashboard-subpriority-grid">
+      <motion.div
+        className="dashboard-subpriority-grid"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
+      >
         {/* Readiness Score Card */}
         <Card className="readiness-card">
           <div className="compact-card-heading">
@@ -269,10 +285,15 @@ export default function UserDashboard() {
             Thử mô phỏng điều chỉnh này <Icon name="arrow-right" />
           </Button>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Metric Strip */}
-      <div className="metric-strip">
+      <motion.div
+        className="metric-strip"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.15, ease: "easeOut" }}
+      >
         <Card className="dashboard-metric-card">
           <div>
             <span>Tài sản ròng hiện có</span>
@@ -305,10 +326,15 @@ export default function UserDashboard() {
             <Icon name="info" size="small" /> Tuổi {profile.personal.age} → Nghỉ hưu tuổi {derived.targetAge}
           </small>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Analysis Grid: Projection Chart + Financial Snapshot */}
-      <div className="dashboard-analysis-grid">
+      <motion.div
+        className="dashboard-analysis-grid"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.2, ease: "easeOut" }}
+      >
         <Card className="projection-chart-card">
           <div className="dashboard-card-heading">
             <div>
@@ -430,10 +456,15 @@ export default function UserDashboard() {
             </p>
           </div>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Insight Grid: AI Card + Alert + Recent Activity */}
-      <div className={`dashboard-insight-grid ${!showAlert ? "without-alert" : ""}`}>
+      <motion.div
+        className={`dashboard-insight-grid ${!showAlert ? "without-alert" : ""}`}
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.25, ease: "easeOut" }}
+      >
         {/* AI Insight Card */}
         <div className="dashboard-ai-card">
           <div className="ai-card-topline">
@@ -508,27 +539,7 @@ export default function UserDashboard() {
             </div>
           </div>
         </Card>
-      </div>
-
-      {/* Dashboard Data Note */}
-      <div className="dashboard-data-note">
-        <Icon name="info" />
-        <span>
-          Dữ liệu hồ sơ của bạn được lưu cục bộ trong trình duyệt. Lần đồng bộ gần nhất: {lastSavedAt || "chưa có"}.
-        </span>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          aria-label="Tải lại dữ liệu từ bộ nhớ cục bộ"
-        >
-          Tải lại dữ liệu
-        </button>
-      </div>
-
-      <p className="dashboard-demo-note">
-        <Icon name="info" size="small" />
-        <span>Bộ số liệu dùng chung giữa Dashboard, Mục tiêu, Kế hoạch và Mô phỏng — đồng bộ tự động khi bạn lưu.</span>
-      </p>
+      </motion.div>
     </>
   );
 }

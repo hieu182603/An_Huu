@@ -5,22 +5,29 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/validate-assets.mjs && vite build",
+    "build": "node scripts/validate-assets.mjs && vite build && node scripts/prerender-marketing.mjs",
     "test:assets": "node --experimental-strip-types --test scripts/validate-assets.test.mjs scripts/deployment-config.test.mjs scripts/retirement-calculator.test.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test:marketing": "npm run build && node --test scripts/marketing-seo.test.mjs && playwright test --config playwright.marketing.config.ts",
     "test:demo": "pnpm build && playwright test"
   },
   "dependencies": {
+    "@fontsource/be-vietnam-pro": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
     "@fortawesome/fontawesome-svg-core": "^7.3.1",
     "@fortawesome/free-regular-svg-icons": "^7.3.1",
     "@fortawesome/free-solid-svg-icons": "^7.3.1",
     "@fortawesome/react-fontawesome": "^3.5.0",
+    "@gsap/react": "^2.1.2",
+    "gsap": "^3.15.0",
     "lucide-react": "^1.49.0",
+    "motion": "^13.5.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router": "^7.18.4",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
@@ -28,6 +35,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^4.3.4",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",

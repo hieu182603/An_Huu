@@ -33,10 +33,10 @@ export default function ExplorePage() {
       {/* Header */}
       <div className="phase-page-header phase-eight-header">
         <div>
-          <span className="section-eyebrow">HỆ SINH THÁI TRI THỨC & GIẢI PHÁP</span>
-          <h1>Khám phá kiến thức & giải pháp hưu trí</h1>
+          <span className="section-eyebrow">HỆ SINH THÁI ĐỐI TÁC & GIẢI PHÁP</span>
+          <h1>Đối tác & Giải pháp hưu trí</h1>
           <p>
-            Khám phá nội dung minh họa về kế hoạch hưu trí và các nhóm giải pháp tích lũy tại Việt Nam.
+            Khám phá các sản phẩm tài chính từ mạng lưới đối tác liên kết (quỹ đầu tư, bảo hiểm y tế, ngân hàng) và cẩm nang tích lũy hưu trí.
           </p>
         </div>
 

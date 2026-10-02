@@ -2,10 +2,30 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Alert, Badge, Button, Card, Icon, IconButton, useNotification } from "../components/ui";
 import { SimulationComparisonChart } from "../components/charts";
-import { useFinancialProfile, DEMO_STORAGE_DISCLAIMER } from "../context/FinancialProfileContext";
+import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { calculateRetirement, inputFromProfile } from "../domain/retirementCalculator";
 
-const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " đ";
+const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " VND";
+
+export function formatVNDText(amount: number): string {
+  if (amount <= 0) return "0 VND";
+  if (amount >= 1_000_000_000) {
+    const ty = amount / 1_000_000_000;
+    const formatted = ty % 1 === 0 ? ty.toString() : ty.toFixed(2).replace(/\.?0+$/, "").replace(".", ",");
+    return `${formatted} tỷ VND`;
+  }
+  if (amount >= 1_000_000) {
+    const trieu = amount / 1_000_000;
+    const formatted = trieu % 1 === 0 ? trieu.toString() : trieu.toFixed(2).replace(/\.?0+$/, "").replace(".", ",");
+    return `${formatted} triệu VND`;
+  }
+  if (amount >= 1_000) {
+    const nghin = amount / 1_000;
+    const formatted = nghin % 1 === 0 ? nghin.toString() : nghin.toFixed(0);
+    return `${formatted} nghìn VND`;
+  }
+  return `${new Intl.NumberFormat("vi-VN").format(amount)} VND`;
+}
 
 export default function SimulationTrackingPage() {
   const navigate = useNavigate();
@@ -20,6 +40,8 @@ export default function SimulationTrackingPage() {
   const [simMonthlySave, setSimMonthlySave] = useState(profile.plan.monthlySavings);
   const [simExpense, setSimExpense] = useState(profile.goal.monthlyExpenseInRetirement);
   const [simReturn, setSimReturn] = useState(profile.goal.investmentReturn);
+
+  const targetRetireYear = new Date().getFullYear() + Math.max(0, profile.goal.targetRetireAge - profile.personal.age);
 
   // Tài sản ròng dùng cho cả kịch bản gốc và mô phỏng.
   const netWorth = useMemo(() => {
@@ -135,11 +157,6 @@ export default function SimulationTrackingPage() {
         </div>
       </div>
 
-      <p className="page-demo-note">
-        <Icon name="info" size="small" />
-        <span>{DEMO_STORAGE_DISCLAIMER} Cùng một bộ tính được dùng cho Mục tiêu, Kế hoạch và Mô phỏng.</span>
-      </p>
-
       {activeTab === "simulation" ? (
         <div className="simulation-layout">
           {/* Left: Simulation Controls */}
@@ -153,87 +170,187 @@ export default function SimulationTrackingPage() {
             </header>
 
             <div className="simulation-fields">
-              <div className="simulation-stepper">
-                <span>1. Tuổi nghỉ hưu mong muốn</span>
-                <div>
+              {/* 1. Tuổi nghỉ hưu mong muốn */}
+              <div className="simulation-stepper-card">
+                <div className="stepper-header">
+                  <span className="stepper-title">1. Tuổi nghỉ hưu mong muốn</span>
+                </div>
+                <div className="stepper-control-box">
                   <IconButton
                     icon="chevron-left"
-                    label="Giảm tuổi"
+                    label="Giảm 1 tuổi"
                     onClick={() => setSimRetireAge(Math.max(profile.personal.age + 1, simRetireAge - 1))}
                   />
-                  <strong>
-                    {simRetireAge}{" "}
-                    <small>
-                      {simRetireAge > profile.goal.targetRetireAge
-                        ? `(nghỉ muộn ${simRetireAge - profile.goal.targetRetireAge} năm)`
-                        : simRetireAge < profile.goal.targetRetireAge
-                        ? `(nghỉ sớm ${profile.goal.targetRetireAge - simRetireAge} năm)`
-                        : "(đúng hạn)"}
-                    </small>
-                  </strong>
+                  <div className="stepper-center-cluster">
+                    <div className="stepper-main-number-row">
+                      <input
+                        type="number"
+                        min={profile.personal.age + 1}
+                        max={75}
+                        value={simRetireAge}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          if (!isNaN(val)) setSimRetireAge(Math.min(75, Math.max(profile.personal.age + 1, val)));
+                        }}
+                        className="stepper-input-number is-age"
+                        aria-label="Tuổi nghỉ hưu mong muốn"
+                        title="Bấm để nhập số tuổi trực tiếp"
+                      />
+                      <span className="stepper-unit-label">tuổi</span>
+                    </div>
+                    <div className="stepper-subtext-badge-row">
+                      {simRetireAge === profile.goal.targetRetireAge ? (
+                        <span className="stepper-subtext-badge is-matched">✓ Đúng hạn kế hoạch</span>
+                      ) : simRetireAge < profile.goal.targetRetireAge ? (
+                        <span className="stepper-subtext-badge is-early">
+                          ★ Nghỉ sớm {profile.goal.targetRetireAge - simRetireAge} năm
+                        </span>
+                      ) : (
+                        <span className="stepper-subtext-badge is-late">
+                          ⚠ Nghỉ muộn {simRetireAge - profile.goal.targetRetireAge} năm
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   <IconButton
                     icon="chevron-right"
-                    label="Tăng tuổi"
+                    label="Tăng 1 tuổi"
                     onClick={() => setSimRetireAge(Math.min(75, simRetireAge + 1))}
                   />
                 </div>
-                <p>Kế hoạch gốc: {profile.goal.targetRetireAge} tuổi</p>
+                <p className="stepper-baseline-info">Kế hoạch gốc: {profile.goal.targetRetireAge} tuổi</p>
               </div>
 
-              <div className="simulation-stepper">
-                <span>2. Mức tích lũy mỗi tháng</span>
-                <div>
+              {/* 2. Mức tích lũy mỗi tháng */}
+              <div className="simulation-stepper-card">
+                <div className="stepper-header">
+                  <span className="stepper-title">2. Mức tích lũy mỗi tháng</span>
+                </div>
+                <div className="stepper-control-box">
                   <IconButton
                     icon="chevron-left"
-                    label="Giảm 1 triệu"
+                    label="Giảm 1 triệu VND"
                     onClick={() => setSimMonthlySave(Math.max(0, simMonthlySave - 1000000))}
                   />
-                  <strong>{formatVND(simMonthlySave)}</strong>
+                  <div className="stepper-center-cluster">
+                    <div className="stepper-main-number-row">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={new Intl.NumberFormat("vi-VN").format(simMonthlySave)}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "");
+                          setSimMonthlySave(digits ? parseInt(digits, 10) : 0);
+                        }}
+                        className="stepper-input-number is-currency"
+                        aria-label="Mức tích lũy mỗi tháng"
+                        title="Bấm để nhập số tiền trực tiếp"
+                      />
+                      <span className="stepper-unit-label">VND</span>
+                    </div>
+                    <div className="stepper-subtext-badge-row">
+                      <span className="stepper-human-readable-subtext">
+                        = {formatVNDText(simMonthlySave)} / tháng
+                      </span>
+                    </div>
+                  </div>
                   <IconButton
                     icon="chevron-right"
-                    label="Tăng 1 triệu"
+                    label="Tăng 1 triệu VND"
                     onClick={() => setSimMonthlySave(simMonthlySave + 1000000)}
                   />
                 </div>
-                <p>Kế hoạch gốc: {formatVND(profile.plan.monthlySavings)}/tháng</p>
+                <p className="stepper-baseline-info">
+                  Kế hoạch gốc: {formatVND(profile.plan.monthlySavings)}/tháng ({formatVNDText(profile.plan.monthlySavings)}/tháng)
+                </p>
               </div>
 
-              <div className="simulation-stepper">
-                <span>3. Chi tiêu khi nghỉ hưu</span>
-                <div>
+              {/* 3. Chi tiêu khi nghỉ hưu */}
+              <div className="simulation-stepper-card">
+                <div className="stepper-header">
+                  <span className="stepper-title">3. Chi tiêu khi nghỉ hưu</span>
+                </div>
+                <div className="stepper-control-box">
                   <IconButton
                     icon="chevron-left"
-                    label="Giảm chi tiêu"
+                    label="Giảm 1 triệu VND"
                     onClick={() => setSimExpense(Math.max(0, simExpense - 1000000))}
                   />
-                  <strong>{formatVND(simExpense)}</strong>
+                  <div className="stepper-center-cluster">
+                    <div className="stepper-main-number-row">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={new Intl.NumberFormat("vi-VN").format(simExpense)}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "");
+                          setSimExpense(digits ? parseInt(digits, 10) : 0);
+                        }}
+                        className="stepper-input-number is-currency"
+                        aria-label="Chi tiêu khi nghỉ hưu"
+                        title="Bấm để nhập số tiền trực tiếp"
+                      />
+                      <span className="stepper-unit-label">VND</span>
+                    </div>
+                    <div className="stepper-subtext-badge-row">
+                      <span className="stepper-human-readable-subtext">
+                        = {formatVNDText(simExpense)} / tháng
+                      </span>
+                    </div>
+                  </div>
                   <IconButton
                     icon="chevron-right"
-                    label="Tăng chi tiêu"
+                    label="Tăng 1 triệu VND"
                     onClick={() => setSimExpense(simExpense + 1000000)}
                   />
                 </div>
-                <p>Kế hoạch gốc: {formatVND(profile.goal.monthlyExpenseInRetirement)}/tháng</p>
+                <p className="stepper-baseline-info">
+                  Kế hoạch gốc: {formatVND(profile.goal.monthlyExpenseInRetirement)}/tháng ({formatVNDText(profile.goal.monthlyExpenseInRetirement)}/tháng)
+                </p>
               </div>
 
-              <div className="simulation-stepper">
-                <span>4. Lợi suất đầu tư kỳ vọng</span>
-                <div>
+              {/* 4. Lợi suất đầu tư kỳ vọng */}
+              <div className="simulation-stepper-card">
+                <div className="stepper-header">
+                  <span className="stepper-title">4. Lợi suất đầu tư kỳ vọng</span>
+                </div>
+                <div className="stepper-control-box">
                   <IconButton
                     icon="chevron-left"
-                    label="Giảm lợi suất"
+                    label="Giảm 0.2%"
                     onClick={() => setSimReturn(Math.max(0, Math.round((simReturn - 0.2) * 10) / 10))}
                   />
-                  <strong>
-                    {simReturn}% <small>/ năm</small>
-                  </strong>
+                  <div className="stepper-center-cluster">
+                    <div className="stepper-main-number-row">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="25"
+                        value={simReturn}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val)) setSimReturn(Math.round(val * 10) / 10);
+                        }}
+                        className="stepper-input-number is-percent"
+                        aria-label="Lợi suất đầu tư kỳ vọng"
+                        title="Bấm để nhập tỷ lệ phần trăm trực tiếp"
+                      />
+                      <span className="stepper-unit-label">% / năm</span>
+                    </div>
+                    <div className="stepper-subtext-badge-row">
+                      <span className="stepper-percent-subtext">
+                        Tăng trưởng tài sản kỳ vọng hàng năm
+                      </span>
+                    </div>
+                  </div>
                   <IconButton
                     icon="chevron-right"
-                    label="Tăng lợi suất"
-                    onClick={() => setSimReturn(Math.min(20, Math.round((simReturn + 0.2) * 10) / 10))}
+                    label="Tăng 0.2%"
+                    onClick={() => setSimReturn(Math.min(25, Math.round((simReturn + 0.2) * 10) / 10))}
                   />
                 </div>
-                <p>Kế hoạch gốc: {profile.goal.investmentReturn}%/năm</p>
+                <p className="stepper-baseline-info">Kế hoạch gốc: {profile.goal.investmentReturn}% / năm</p>
               </div>
             </div>
 
@@ -413,6 +530,12 @@ export default function SimulationTrackingPage() {
             <div className="tracking-progress-visual">
               <div className="tracking-ring">
                 <svg viewBox="0 0 160 160">
+                  <defs>
+                    <linearGradient id="simNeonRingGrad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#00f5b4" />
+                      <stop offset="100%" stopColor="#2dd4bf" />
+                    </linearGradient>
+                  </defs>
                   <circle cx="80" cy="80" r="72" className="ring-track" />
                   <circle
                     cx="80"
@@ -421,6 +544,7 @@ export default function SimulationTrackingPage() {
                     className="tracking-ring-value"
                     style={{
                       strokeDashoffset: `${452.4 * (1 - Math.min(100, (profile.plan.projectedFund / Math.max(1, profile.plan.targetFund)) * 100) / 100)}`,
+                      stroke: "url(#simNeonRingGrad)",
                     }}
                   />
                 </svg>
@@ -429,17 +553,12 @@ export default function SimulationTrackingPage() {
                   <span>MỤC TIÊU</span>
                 </div>
               </div>
-              <div>
-                <Icon name="circle-check" />
+              <div className="ring-caption">
+                <span className="ring-caption-badge-icon"><Icon name="circle-check" size="small" /></span>
                 <span>
-                  <strong>
-                    {profile.plan.projectedFund >= profile.plan.targetFund ? "Trạng thái: Vượt mục tiêu" : "Trạng thái: Đang bám sát"}
-                  </strong>
-                  <small>
-                    {profile.plan.projectedFund >= profile.plan.targetFund
-                      ? "Kế hoạch đã đáp ứng mục tiêu"
-                      : "Tiếp tục duy trì tích lũy đều đặn"}
-                  </small>
+                  {profile.plan.projectedFund >= profile.plan.targetFund
+                    ? `Dự kiến về hưu năm ${targetRetireYear}`
+                    : "Tiếp tục duy trì tích lũy đều đặn"}
                 </span>
               </div>
             </div>

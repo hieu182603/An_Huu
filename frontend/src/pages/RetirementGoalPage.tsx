@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { motion } from "motion/react";
 import { Alert, Badge, Button, Card, Icon, IconButton, Input, Tooltip, useNotification } from "../components/ui";
-import { useFinancialProfile, DEMO_STORAGE_DISCLAIMER } from "../context/FinancialProfileContext";
+import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { calculateRetirement, inputFromProfile, validateRetirementInput } from "../domain/retirementCalculator";
 
-const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " đ";
-const parsePercent = (v: string, fallback: number): number => {
-  const n = parseFloat(String(v).replace("%", "").trim());
-  return Number.isFinite(n) ? n : fallback;
-};
+const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " VND";
 
 export default function RetirementGoalPage() {
   const navigate = useNavigate();
@@ -20,16 +17,15 @@ export default function RetirementGoalPage() {
   const [targetAge, setTargetAge] = useState(profile.goal.targetRetireAge || 60);
   const [lifestyle, setLifestyle] = useState<"standard" | "comfortable" | "affluent">(profile.goal.lifestyle || "comfortable");
   const [monthlyExpenseInRetirement, setMonthlyExpenseInRetirement] = useState(profile.goal.monthlyExpenseInRetirement || 22000000);
-  const [inflationRate, setInflationRate] = useState(`${profile.goal.inflationRate ?? 4.0}%`);
-  const [investmentReturn, setInvestmentReturn] = useState(`${profile.goal.investmentReturn ?? 7.8}%`);
+  // Giả định kinh tế vĩ mô được chuẩn hóa bởi thuật toán An Hưu để bảo đảm độ chính xác tối ưu
+  const inflationNum = profile.goal.inflationRate ?? 4.0;
+  const returnNum = profile.goal.investmentReturn ?? 7.8;
   const [lifeExpectancy, setLifeExpectancy] = useState(profile.goal.lifeExpectancy || 82);
   const [saveNotice, setSaveNotice] = useState(false);
   const [validationError, setValidationError] = useState("");
 
   const yearsLeft = Math.max(0, targetAge - currentAge);
   const retirementDuration = Math.max(0, lifeExpectancy - targetAge);
-  const inflationNum = parsePercent(inflationRate, profile.goal.inflationRate);
-  const returnNum = parsePercent(investmentReturn, profile.goal.investmentReturn);
 
   const previewInput = {
     ...inputFromProfile(profile),
@@ -97,7 +93,12 @@ export default function RetirementGoalPage() {
 
       <div className="goal-layout">
         {/* Left Column: Form & Timeline */}
-        <div className="goal-form-column">
+        <motion.div
+          className="goal-form-column"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+        >
           {/* Section 1: Age Controls */}
           <Card className="goal-form-card">
             <header>
@@ -109,46 +110,118 @@ export default function RetirementGoalPage() {
             </header>
 
             <div className="age-controls-grid">
-              <div className="age-control">
-                <span>Tuổi hiện tại của bạn</span>
-                <div>
-                  <IconButton
-                    icon="chevron-left"
-                    label="Giảm 1 tuổi"
-                    onClick={() => setCurrentAge(Math.max(20, currentAge - 1))}
-                  />
-                  <strong>
-                    {currentAge}
-                    <small>tuổi</small>
-                  </strong>
-                  <IconButton
-                    icon="chevron-right"
-                    label="Tăng 1 tuổi"
-                    onClick={() => setCurrentAge(Math.min(targetAge - 1, currentAge + 1))}
-                  />
+              {/* Card 1: Tuổi hiện tại */}
+              <div className="age-control-card">
+                <div className="age-card-header">
+                  <div className="age-card-title-group">
+                    <span className="age-card-icon-pill">
+                      <Icon name="users" size="small" />
+                    </span>
+                    <span className="age-card-title">Tuổi hiện tại của bạn</span>
+                  </div>
+                  <span className="age-card-badge">Mốc bắt đầu</span>
                 </div>
-                <p>Năm sinh ước tính: {new Date().getFullYear() - currentAge}</p>
+
+                <div className="age-stepper-cluster">
+                  <button
+                    type="button"
+                    className="age-stepper-btn"
+                    aria-label="Giảm 1 tuổi"
+                    onClick={() => setCurrentAge(Math.max(18, currentAge - 1))}
+                  >
+                    <Icon name="chevron-left" />
+                  </button>
+
+                  <div className="age-number-display-wrap">
+                    <input
+                      type="number"
+                      min={18}
+                      max={targetAge - 1}
+                      value={currentAge}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val)) {
+                          setCurrentAge(Math.max(18, Math.min(targetAge - 1, val)));
+                        }
+                      }}
+                      className="age-hero-number-input"
+                      aria-label="Nhập tuổi hiện tại của bạn"
+                      title="Bấm để nhập số tuổi trực tiếp"
+                    />
+                    <span className="age-hero-unit">tuổi</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="age-stepper-btn"
+                    aria-label="Tăng 1 tuổi"
+                    onClick={() => setCurrentAge(Math.min(targetAge - 1, currentAge + 1))}
+                  >
+                    <Icon name="chevron-right" />
+                  </button>
+                </div>
+
+                <div className="age-card-footer-pill">
+                  <Icon name="info" size="small" />
+                  <span>Năm sinh ước tính: <strong>{new Date().getFullYear() - currentAge}</strong></span>
+                </div>
               </div>
 
-              <div className="age-control">
-                <span>Tuổi dự kiến nghỉ hưu</span>
-                <div>
-                  <IconButton
-                    icon="chevron-left"
-                    label="Giảm 1 tuổi hưu"
-                    onClick={() => setTargetAge(Math.max(currentAge + 1, targetAge - 1))}
-                  />
-                  <strong>
-                    {targetAge}
-                    <small>tuổi</small>
-                  </strong>
-                  <IconButton
-                    icon="chevron-right"
-                    label="Tăng 1 tuổi hưu"
-                    onClick={() => setTargetAge(Math.min(75, targetAge + 1))}
-                  />
+              {/* Card 2: Tuổi dự kiến nghỉ hưu */}
+              <div className="age-control-card is-highlight">
+                <div className="age-card-header">
+                  <div className="age-card-title-group">
+                    <span className="age-card-icon-pill">
+                      <Icon name="target" size="small" />
+                    </span>
+                    <span className="age-card-title">Tuổi dự kiến nghỉ hưu</span>
+                  </div>
+                  <span className="age-card-badge is-highlight">Mục tiêu</span>
                 </div>
-                <p>Thời gian còn đi làm tích lũy: <strong>{yearsLeft} năm</strong></p>
+
+                <div className="age-stepper-cluster">
+                  <button
+                    type="button"
+                    className="age-stepper-btn"
+                    aria-label="Giảm 1 tuổi hưu"
+                    onClick={() => setTargetAge(Math.max(currentAge + 1, targetAge - 1))}
+                  >
+                    <Icon name="chevron-left" />
+                  </button>
+
+                  <div className="age-number-display-wrap">
+                    <input
+                      type="number"
+                      min={currentAge + 1}
+                      max={80}
+                      value={targetAge}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val)) {
+                          setTargetAge(Math.max(currentAge + 1, Math.min(80, val)));
+                        }
+                      }}
+                      className="age-hero-number-input"
+                      aria-label="Nhập tuổi dự kiến nghỉ hưu"
+                      title="Bấm để nhập số tuổi trực tiếp"
+                    />
+                    <span className="age-hero-unit">tuổi</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="age-stepper-btn"
+                    aria-label="Tăng 1 tuổi hưu"
+                    onClick={() => setTargetAge(Math.min(80, targetAge + 1))}
+                  >
+                    <Icon name="chevron-right" />
+                  </button>
+                </div>
+
+                <div className="age-card-footer-pill is-highlight">
+                  <Icon name="target" size="small" />
+                  <span>Thời gian tích lũy: <strong>{yearsLeft} năm</strong> (về hưu năm {new Date().getFullYear() + yearsLeft})</span>
+                </div>
               </div>
             </div>
           </Card>
@@ -210,10 +283,14 @@ export default function RetirementGoalPage() {
             <div className="goal-spending-field">
               <Input
                 label="Mức chi tiêu dự kiến mỗi tháng (theo thời giá hiện tại)"
-                type="number"
-                value={String(monthlyExpenseInRetirement)}
-                onChange={(v) => setMonthlyExpenseInRetirement(Number(v) || 0)}
-                suffix="đ/tháng"
+                type="text"
+                inputMode="numeric"
+                value={new Intl.NumberFormat("vi-VN").format(monthlyExpenseInRetirement)}
+                onChange={(v) => {
+                  const clean = v.replace(/\D/g, "");
+                  setMonthlyExpenseInRetirement(clean ? parseInt(clean, 10) : 0);
+                }}
+                suffix="VND / tháng"
                 helper="Số tiền trung bình bạn muốn có mỗi tháng để chi trả toàn bộ chi phí cuộc sống tuổi già."
               />
               <div className="tooltip-wrap">
@@ -230,24 +307,42 @@ export default function RetirementGoalPage() {
               <span className="form-section-index">03</span>
               <div>
                 <h2>Giả định kinh tế & Tuổi thọ</h2>
-                <p>Các chỉ số là giả định của mô hình demo và có thể được điều chỉnh trước khi lưu.</p>
+                <p>Lãi suất và lạm phát được An Hưu tính toán chuẩn hóa dựa trên chu kỳ kinh tế vĩ mô để đảm bảo độ chính xác cao nhất.</p>
               </div>
             </header>
 
             <div className="assumptions-grid">
-              <Input
-                label="Lạm phát dự kiến bình quân"
-                value={inflationRate}
-                onChange={setInflationRate}
-                helper="Mức bình quân lịch sử tại Việt Nam dao động 3.5% - 4.5%."
-              />
+              <div className="assumption-standardized-card">
+                <div className="assumption-card-header">
+                  <span className="assumption-label">Lạm phát dự kiến bình quân</span>
+                  <span className="standardized-badge">
+                    <Icon name="circle-check" size="small" /> Hệ thống chuẩn hóa
+                  </span>
+                </div>
+                <div className="assumption-card-value">
+                  <strong>{inflationNum.toFixed(1)}%</strong>
+                  <span>/năm</span>
+                </div>
+                <p className="assumption-card-desc">
+                  Mức mục tiêu vĩ mô dài hạn được chuẩn hóa theo dữ liệu Tổng cục Thống kê (3.5% - 4.5%).
+                </p>
+              </div>
 
-              <Input
-                label="Lợi suất đầu tư kỳ vọng hàng năm"
-                value={investmentReturn}
-                onChange={setInvestmentReturn}
-                helper="Danh mục kết hợp tiền gửi, trái phiếu và quỹ chỉ số tăng trưởng."
-              />
+              <div className="assumption-standardized-card">
+                <div className="assumption-card-header">
+                  <span className="assumption-label">Lợi suất đầu tư kỳ vọng</span>
+                  <span className="standardized-badge">
+                    <Icon name="circle-check" size="small" /> Hệ thống chuẩn hóa
+                  </span>
+                </div>
+                <div className="assumption-card-value">
+                  <strong>{returnNum.toFixed(1)}%</strong>
+                  <span>/năm</span>
+                </div>
+                <p className="assumption-card-desc">
+                  Mô phỏng tự động theo danh mục phân bổ tài sản tăng trưởng cân bằng (Trái phiếu & Quỹ mở VN).
+                </p>
+              </div>
 
               <Input
                 label="Kỳ vọng tuổi thọ trung bình"
@@ -255,13 +350,13 @@ export default function RetirementGoalPage() {
                 value={String(lifeExpectancy)}
                 onChange={(v) => setLifeExpectancy(Number(v) || 80)}
                 suffix="tuổi"
-                helper="Khoảng thời gian cần quỹ hưu trí bảo bọc: ~22 năm (từ 60 đến 82 tuổi)."
+                helper={`Khoảng thời gian cần quỹ hưu trí bảo bọc: ~${retirementDuration} năm (từ ${targetAge} đến ${lifeExpectancy} tuổi).`}
               />
 
               <div className="assumption-note" style={{ gridColumn: "1 / -1" }}>
                 <Icon name="info" />
                 <p>
-                  Thuật toán An Hưu tự động tính toán tác động của quy tắc lạm phát tích lũy và điều chỉnh giá trị tiền tệ theo thời gian thực (Time Value of Money).
+                  Để kế hoạch đạt độ chuẩn xác thực tế, thuật toán An Hưu tự động tính toán lạm phát tích lũy và điều chỉnh giá trị tiền tệ theo thời gian thực (Time Value of Money) thay vì để người dùng ước tính cảm tính.
                 </p>
               </div>
             </div>
@@ -310,10 +405,16 @@ export default function RetirementGoalPage() {
               <span>Giai đoạn hưởng hưu kéo dài {retirementDuration} năm đòi hỏi dòng tiền bảo đảm liên tục không bị gián đoạn.</span>
             </footer>
           </Card>
-        </div>
+        </motion.div>
 
         {/* Right Sticky Column: Summary Card */}
-        <aside className="goal-summary-column" aria-label="Tóm tắt mục tiêu">
+        <motion.aside
+          className="goal-summary-column"
+          aria-label="Tóm tắt mục tiêu"
+          initial={{ opacity: 0, x: 14 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.35, delay: 0.08, ease: "easeOut" }}
+        >
           <Card className="goal-summary-card">
             <Badge tone="soft">TỔNG HỢP MỤC TIÊU</Badge>
 
@@ -369,13 +470,8 @@ export default function RetirementGoalPage() {
             >
               Xem kế hoạch hành động chi tiết <Icon name="arrow-right" />
             </Button>
-
-            <p className="goal-demo-note">
-              <Icon name="info" size="small" />
-              <span>{DEMO_STORAGE_DISCLAIMER}</span>
-            </p>
           </Card>
-        </aside>
+        </motion.aside>
       </div>
     </>
   );

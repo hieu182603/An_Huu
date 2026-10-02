@@ -10,10 +10,10 @@ test('landing photos and logos decode from fingerprinted build assets', async ({
   });
   await page.goto('/');
   const images = page.locator('img');
-  await expect(images).toHaveCount(5);
+  await expect(images).toHaveCount(7);
   for (const img of await images.all()) {
     await img.scrollIntoViewIfNeeded();
-    await expect(img).toHaveAttribute('src', /^\/assets\/.+-[\w-]+\.(jpg|png)$/);
+    await expect(img).toHaveAttribute('src', /^\/assets\/.+-[\w-]+\.(jpg|png|webp)$/);
     await expect.poll(() => img.evaluate((element: HTMLImageElement) =>
       element.complete && element.naturalWidth > 0,
     )).toBe(true);

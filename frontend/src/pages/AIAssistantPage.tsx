@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { motion } from "motion/react";
 import { Icon } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { calculateRetirement, inputFromProfile } from "../domain/retirementCalculator";
@@ -179,7 +180,13 @@ export default function AIAssistantPage() {
         <div className="codex-chat-container">
           <div className="conversation-scroll" ref={scrollRef}>
             {messages.map((msg) => (
-              <div key={msg.id} className={`codex-turn ${msg.sender}`}>
+              <motion.div
+                key={msg.id}
+                className={`codex-turn ${msg.sender}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+              >
                 {/* Tool execution logs */}
                 {msg.tools && msg.tools.map((t, idx) => (
                   <div key={idx} className="codex-tool-log">
@@ -299,7 +306,7 @@ export default function AIAssistantPage() {
                     </div>
                   </div>
                 )}
-              </div>
+              </motion.div>
             ))}
 
             {isTyping && (

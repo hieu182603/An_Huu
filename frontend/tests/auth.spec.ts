@@ -32,9 +32,9 @@ test("email và mã xác thực không hợp lệ không được báo thành c�
   await page.goto("/forgot-password");
   await page.getByLabel("Email đã đăng ký").fill("abc");
   await page.getByRole("button", { name: /Gửi mã xác nhận/ }).click();
-  await expect(page.getByRole("alert")).toContainText(/email hợp lệ/i);
+  await expect(page.locator('.auth-error-banner[role="alert"]')).toContainText(/email hợp lệ/i);
 
   await page.goto("/verify");
   await page.getByRole("button", { name: /Xác nhận & Bắt đầu/ }).click();
-  await expect(page.getByRole("alert")).toContainText(/6 chữ số/i);
+  await expect(page.getByRole('main').getByRole('alert')).toContainText(/6 chữ số/i);
 });

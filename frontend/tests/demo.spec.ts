@@ -43,7 +43,7 @@ test("user routes load successfully and display headings", async ({ page }) => {
     ["/user/plan", "Kế hoạch hưu trí"],
     ["/user/simulation", "Mô phỏng kịch bản"],
     ["/user/assistant", "Trợ lý tài chính"],
-    ["/user/explore", "Khám phá kiến thức"],
+    ["/user/explore", "Đối tác & Giải pháp hưu trí"],
     ["/user/account", "Hồ sơ tài chính"],
   ];
 

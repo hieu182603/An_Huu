@@ -71,7 +71,7 @@ test("tablet landing navigation and landscape admin menu remain usable", async (
   await page.goto("/");
   await page.getByRole("button", { name: "Mở menu", exact: true }).click();
   await page.getByRole("dialog").getByRole("link", { name: "Mô phỏng", exact: true }).click();
-  await expect(page).toHaveURL(/#mo-phong$/);
+  await expect(page).toHaveURL(/\/mo-phong$/);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 360 });
   await page.goto("/admin/dashboard");

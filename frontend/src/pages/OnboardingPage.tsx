@@ -4,7 +4,6 @@ import { Badge, BrandLogo, Button, Card, Checkbox, Icon, IconButton, Input, Sele
 import {
   useFinancialProfile,
   DEFAULT_SAMPLE_PROFILE,
-  DEMO_STORAGE_DISCLAIMER,
   type OnboardingDraftData,
 } from "../context/FinancialProfileContext";
 
@@ -798,11 +797,6 @@ export default function OnboardingPage() {
               <span>{saveError}</span>
             </div>
           )}
-
-          <p className="onboarding-demo-note">
-            <Icon name="info" size="small" />
-            <span>{DEMO_STORAGE_DISCLAIMER}</span>
-          </p>
         </main>
       </div>
 
@@ -811,8 +805,8 @@ export default function OnboardingPage() {
         <div className="save-toast" role="status">
           <Icon name="circle-check" />
           <div>
-            <strong>Đã lưu bản nháp cục bộ</strong>
-            <span>Bản nháp lưu trong bộ nhớ trình duyệt, sẽ được khôi phục khi bạn tải lại.</span>
+            <strong>Đã lưu bản nháp</strong>
+            <span>Bản nháp của bạn đã được lưu tự động, có thể tiếp tục bất cứ lúc nào.</span>
           </div>
           <IconButton icon="x" label="Đóng thông báo" onClick={() => setShowSaveToast(false)} />
         </div>
