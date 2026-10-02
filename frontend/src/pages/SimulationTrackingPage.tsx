@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Alert, Badge, Button, Card, Icon, IconButton } from "../components/ui";
+import { Alert, Badge, Button, Card, Icon, IconButton, useNotification } from "../components/ui";
 import { SimulationComparisonChart } from "../components/charts";
 import { useFinancialProfile, DEMO_STORAGE_DISCLAIMER } from "../context/FinancialProfileContext";
 import { calculateRetirement, inputFromProfile } from "../domain/retirementCalculator";
@@ -9,6 +9,7 @@ const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + 
 
 export default function SimulationTrackingPage() {
   const navigate = useNavigate();
+  const { notify } = useNotification();
   const [activeTab, setActiveTab] = useState<"simulation" | "tracking">("simulation");
   const { profile, applySimulationScenario } = useFinancialProfile();
   const [applyNotice, setApplyNotice] = useState<{ tone: "success" | "danger"; message: string } | null>(null);
@@ -74,6 +75,7 @@ export default function SimulationTrackingPage() {
     setSimMonthlySave(profile.plan.monthlySavings);
     setSimExpense(profile.goal.monthlyExpenseInRetirement);
     setSimReturn(profile.goal.investmentReturn);
+    notify.info("Đặt lại thông số", "Đã khôi phục các chỉ số mô phỏng về giá trị kế hoạch hiện tại.");
   };
 
   // Áp dụng kịch bản: ghi vào hồ sơ, sau đó chuyển sang Kế hoạch.
@@ -95,9 +97,12 @@ export default function SimulationTrackingPage() {
         tone: "success",
         message: "Kịch bản đã được áp dụng làm kế hoạch chính thức. Đang chuyển sang trang Kế hoạch…",
       });
+      notify.success("Áp dụng kịch bản thành công", "Kịch bản mô phỏng mới đã được chuyển đổi thành kế hoạch hưu trí chính thức.");
       setTimeout(() => navigate("/user/plan"), 1200);
     } else {
-      setApplyNotice({ tone: "danger", message: "Không thể lưu kịch bản. Vui lòng thử lại." });
+      const err = "Không thể lưu kịch bản. Vui lòng thử lại.";
+      setApplyNotice({ tone: "danger", message: err });
+      notify.error("Lỗi lưu trữ", err);
     }
   };
 

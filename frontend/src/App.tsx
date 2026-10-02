@@ -34,7 +34,7 @@ function RouteEffects() {
   useEffect(() => {
     const heading = document.querySelector("h1");
     const section = document.querySelector(".settings-content h2");
-    document.title = `${section?.textContent ?? heading?.textContent ?? "Demo"} | An Hưu`;
+    document.title = `${section?.textContent ?? heading?.textContent ?? "Nền tảng hưu trí"} | An Hưu`;
   }, [pathname, search]);
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -45,56 +45,17 @@ function RouteEffects() {
   return null;
 }
 
-function DemoHome() {
-  return (
-    <main className="demo-page" id="main-content">
-      <header className="demo-heading">
-        <Badge tone="soft">AN HƯU · DEMO</Badge>
-        <h1>An tâm chuẩn bị cho tương lai</h1>
-        <p>Chọn khu vực để khám phá nền tảng lập kế hoạch nghỉ hưu.</p>
-      </header>
-      <div className="demo-area-grid">
-        <Card className="demo-area-card">
-          <Icon name="settings" size="large" />
-          <h2>Quản trị viên (Admin)</h2>
-          <p>Bảng điều khiển vận hành, quản lý người dùng, tư vấn, nội dung, đối tác, AI & cấu hình tài chính.</p>
-          <Badge tone="success">10 màn hình hoàn thiện</Badge>
-          <Link className="button button-primary button-medium" to="/admin/dashboard">Mở bảng điều khiển Admin <Icon name="arrow-right" /></Link>
-        </Card>
-        <Card className="demo-area-card">
-          <Icon name="users" size="large" />
-          <h2>Khách hàng (User)</h2>
-          <p>Hồ sơ tài chính, mục tiêu, kế hoạch chi tiết, mô phỏng và trợ lý AI.</p>
-          <Badge tone="success">10 màn hình hoàn thiện</Badge>
-          <Link className="button button-primary button-medium" to="/user/dashboard">Mở ứng dụng User <Icon name="arrow-right" /></Link>
-        </Card>
-      </div>
-      <p className="demo-note">Bản trình diễn sử dụng dữ liệu minh họa. Các thao tác chưa kết nối dịch vụ thực tế.</p>
-    </main>
-  );
-}
-
-function UserUnavailable() {
-  return (
-    <main className="demo-page" id="main-content">
-      <Card className="demo-area-card">
-        <Badge tone="success">Khu vực khách hàng</Badge>
-        <h1>Giao diện User đã sẵn sàng</h1>
-        <p>Toàn bộ 10 màn hình khu vực khách hàng đã được hoàn thiện và tích hợp đầy đủ.</p>
-        <Link className="button button-primary button-medium" to="/user/dashboard">Mở Dashboard User</Link>
-        <Link className="demo-home-link" to="/">Quay lại trang chủ</Link>
-      </Card>
-    </main>
-  );
-}
-
 function NotFound({ admin = false }: { admin?: boolean }) {
-  const content = <Card className="demo-area-card">
-    <Badge tone="neutral">404</Badge>
-    <h1>Không tìm thấy trang</h1>
-    <p>Đường dẫn này không có trong bản demo hiện tại.</p>
-    <Link className="button button-primary button-medium" to={admin ? "/admin" : "/"}>{admin ? "Về khu vực Admin" : "Chọn khu vực demo"}</Link>
-  </Card>;
+  const content = (
+    <Card className="demo-area-card">
+      <Badge tone="neutral">404</Badge>
+      <h1>Không tìm thấy trang</h1>
+      <p>Đường dẫn này không tồn tại trên hệ thống.</p>
+      <Link className="button button-primary button-medium" to={admin ? "/admin" : "/"}>
+        {admin ? "Về khu vực Admin" : "Quay lại trang chủ"}
+      </Link>
+    </Card>
+  );
   return admin ? content : <main className="demo-page" id="main-content">{content}</main>;
 }
 
@@ -103,7 +64,6 @@ export default function App() {
     <a className="skip-link" href="#main-content">Đến nội dung chính</a>
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/demo" element={<DemoHome />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPage />} />

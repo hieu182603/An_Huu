@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Alert, Badge, Button, Card, Icon, IconButton, Input, Tooltip } from "../components/ui";
+import { Alert, Badge, Button, Card, Icon, IconButton, Input, Tooltip, useNotification } from "../components/ui";
 import { useFinancialProfile, DEMO_STORAGE_DISCLAIMER } from "../context/FinancialProfileContext";
 import { calculateRetirement, inputFromProfile, validateRetirementInput } from "../domain/retirementCalculator";
 
@@ -12,6 +12,7 @@ const parsePercent = (v: string, fallback: number): number => {
 
 export default function RetirementGoalPage() {
   const navigate = useNavigate();
+  const { notify } = useNotification();
   const { profile, updateProfile, saveStatus, lastSavedAt, saveError } = useFinancialProfile();
 
   // Goal states initialized from shared profile
@@ -47,6 +48,7 @@ export default function RetirementGoalPage() {
     const errors = validateRetirementInput(previewInput);
     if (errors.length) {
       setValidationError(errors[0]);
+      notify.error("Thông tin chưa hợp lệ", errors[0]);
       return false;
     }
     setValidationError("");
@@ -64,7 +66,10 @@ export default function RetirementGoalPage() {
     });
     if (ok) {
       setSaveNotice(true);
+      notify.success("Lưu mục tiêu thành công", "Các tham số tuổi hưu và quỹ tích lũy mục tiêu đã được cập nhật.");
       setTimeout(() => setSaveNotice(false), 3000);
+    } else {
+      notify.error("Lỗi cập nhật", "Không thể lưu mục tiêu hưu trí. Vui lòng thử lại.");
     }
     return ok;
   };

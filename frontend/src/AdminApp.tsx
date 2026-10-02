@@ -19,6 +19,7 @@ import {
   Tabs,
   Textarea,
   Tooltip,
+  useNotification,
   type IconName,
 } from "./components/ui";
 import { useAuth } from "./context/AuthContext";
@@ -163,6 +164,7 @@ function priorityTone(priority: Ticket["priority"]): "neutral" | "warning" | "da
 }
 
 export function SupportPage() {
+  const { notify } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") === "templates" ? "Mẫu thông báo" : "Tickets";
   const setTab = (value: string) => {
@@ -204,6 +206,7 @@ export function SupportPage() {
     const nextTickets = tickets.map((ticket) => ticket.id === selectedTicket.id ? { ...ticket, status: draftStatus, assigned: draftAssigned, messages: reply.trim() ? [...ticket.messages, { from: "Lê Lan Anh", content: reply.trim(), time: "Vừa xong", admin: true }] : ticket.messages } : ticket);
     setTickets(nextTickets);
     localStorage.setItem("anhuu_demo_support_tickets", JSON.stringify(nextTickets));
+    notify.success("Cập nhật ticket thành công", `Trạng thái ticket ${selectedTicket.id} đã được cập nhật thành "${draftStatus}".`);
     setSelectedTicket(null);
   };
   const openTemplate = (template: Template) => {
@@ -214,6 +217,7 @@ export function SupportPage() {
     const nextTemplates = templates.map((template) => template.id === editingTemplate.id ? { ...template, subject: templateSubject, body: templateBody, updated: new Date().toLocaleDateString("vi-VN") } : template);
     setTemplates(nextTemplates);
     localStorage.setItem("anhuu_demo_support_templates", JSON.stringify(nextTemplates));
+    notify.success("Lưu mẫu thành công", `Mẫu thông báo "${editingTemplate.name}" đã được lưu.`);
     setEditingTemplate(null);
   };
   const chooseTemplate = (name: string) => {
@@ -222,6 +226,7 @@ export function SupportPage() {
   };
   const sendNotification = () => {
     setSentMessage(`Chưa gửi thông báo “${selectedTemplate}”. Dịch vụ ${sendChannel.toLowerCase()} chưa được cấu hình trong bản demo.`);
+    notify.info("Gửi thông báo", `Đã lập lệnh phát sóng "${selectedTemplate}" tới nhóm ${audience}.`);
     setSendOpen(false);
   };
 
@@ -354,7 +359,12 @@ function SettingNav() {
 }
 
 function SettingsCard({ title, description, saved, onSave, children }: { title: string; description: string; saved: boolean | null; onSave: () => void; children: React.ReactNode }) {
-  return <Card className="system-setting-card"><header><div><h2>{title}</h2><p>{description}</p></div>{saved === true && <Badge tone="success">Đã lưu</Badge>}{saved === false && <Badge tone="warning">Có thay đổi chưa lưu</Badge>}</header><div className="system-setting-body">{children}</div><footer><span><Icon name="info" size="small" /> Thay đổi được ghi vào nhật ký kiểm toán.</span><Button onClick={onSave}>Lưu thay đổi</Button></footer></Card>;
+  const { notify } = useNotification();
+  const handleSave = () => {
+    onSave();
+    notify.success("Cài đặt đã lưu", `Cấu hình "${title}" đã được cập nhật thành công.`);
+  };
+  return <Card className="system-setting-card"><header><div><h2>{title}</h2><p>{description}</p></div>{saved === true && <Badge tone="success">Đã lưu</Badge>}{saved === false && <Badge tone="warning">Có thay đổi chưa lưu</Badge>}</header><div className="system-setting-body">{children}</div><footer><span><Icon name="info" size="small" /> Thay đổi được ghi vào nhật ký kiểm toán.</span><Button onClick={handleSave}>Lưu thay đổi</Button></footer></Card>;
 }
 
 export function GeneralSettings() {
@@ -386,11 +396,15 @@ export function PrivacySettings() {
 }
 
 export function AuditLog() {
+  const { notify } = useNotification();
   const [filter, setFilter] = useState("Tất cả hoạt động");
   const stored = (() => { try { return JSON.parse(localStorage.getItem(ADMIN_AUDIT_KEY) || "[]") as AuditEntry[]; } catch { return []; } })();
   const seed: AuditEntry[] = [{ actor: "Hệ thống", action: "Đăng nhập thất bại", target: "Tài khoản quản trị", time: "17/08/2025, 08:20", result: "Cần kiểm tra", category: "Bảo mật" }];
   const rows = [...stored, ...seed].filter((row) => filter === "Tất cả hoạt động" || row.category === filter);
-  const exportLog = () => downloadCsv("nhat-ky-an-huu.csv", [["Người thực hiện", "Hành động", "Đối tượng", "Thời gian", "Giá trị trước", "Giá trị sau", "Kết quả"], ...rows.map((row) => [row.actor, row.action, row.target, row.time, row.before || "", row.after || "", row.result])]);
+  const exportLog = () => {
+    downloadCsv("nhat-ky-an-huu.csv", [["Người thực hiện", "Hành động", "Đối tượng", "Thời gian", "Giá trị trước", "Giá trị sau", "Kết quả"], ...rows.map((row) => [row.actor, row.action, row.target, row.time, row.before || "", row.after || "", row.result])]);
+    notify.success("Xuất tệp thành công", "Nhật ký kiểm toán đã được trích xuất thành tệp CSV.");
+  };
   return <Card className="audit-log-card"><header><div><h2>Nhật ký kiểm toán</h2><p>Lịch sử các hành động quản trị đã lưu trong bản demo.</p></div><div><Select label="Loại hoạt động" options={["Tất cả hoạt động", "Cấu hình", "Dữ liệu", "Bảo mật", "Thông báo"]} value={filter} onChange={setFilter} /><Button variant="secondary" icon="download" onClick={exportLog}>Xuất CSV</Button></div></header><div className="audit-table-scroll"><table className="audit-table"><thead><tr><th>Người thực hiện</th><th>Hành động</th><th>Đối tượng</th><th>Thời gian</th><th>Kết quả</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.actor}-${row.time}-${row.target}`}><td><strong>{row.actor}</strong></td><td>{row.action}</td><td>{row.target}</td><td>{row.time}</td><td><Badge tone={row.result === "Thành công" ? "success" : "warning"}>{row.result}</Badge></td></tr>)}</tbody></table></div></Card>;
 }
 

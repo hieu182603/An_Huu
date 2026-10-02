@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { FinancialProfileProvider } from './context/FinancialProfileContext'
+import { NotificationProvider } from './components/Notification'
 import './index.css'
 import './responsive.css'
 
@@ -12,7 +13,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <FinancialProfileProvider>
-          <App />
+          <NotificationProvider>
+            <App />
+          </NotificationProvider>
         </FinancialProfileProvider>
       </AuthProvider>
     </BrowserRouter>

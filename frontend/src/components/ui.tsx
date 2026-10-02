@@ -1,4 +1,11 @@
 import ResponsiveDialog from "./ResponsiveDialog";
+import {
+  NotificationCard,
+  NotificationProvider,
+  useNotification,
+  NotificationShowcase,
+  type NotificationTone,
+} from "./Notification";
 import logoHorizontal from "../assets/logo.png";
 import logoVertical from "../assets/logo-vertical.png";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -294,10 +301,41 @@ export function Drawer(props: { open: boolean; title: string; onClose: () => voi
   return <ResponsiveDialog {...props} drawer />;
 }
 
-export function Alert({ tone, title, children }: { tone: "success" | "info" | "warning" | "danger"; title: string; children: ReactNode }) {
-  const icon: IconName = tone === "success" ? "circle-check" : tone === "info" ? "info" : "alert";
-  return <div className={`alert alert-${tone}`} role={tone === "danger" ? "alert" : "status"}><Icon name={icon} /><div><strong>{title}</strong><p>{children}</p></div></div>;
+export {
+  NotificationCard,
+  NotificationProvider,
+  useNotification,
+  NotificationShowcase,
+  type NotificationTone,
+};
+
+export function Alert({
+  tone,
+  title,
+  children,
+  onClose,
+  action,
+  className,
+}: {
+  tone: "success" | "info" | "warning" | "danger" | "error";
+  title: string;
+  children?: ReactNode;
+  onClose?: () => void;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <NotificationCard
+      tone={tone}
+      title={title}
+      description={children}
+      onClose={onClose}
+      action={action}
+      className={className}
+    />
+  );
 }
+
 
 export function EmptyState() {
   return <div className="empty-state"><span><Icon name="file-text" size="large" /></span><h3>Chưa có dữ liệu</h3><p>Dữ liệu mới sẽ xuất hiện tại đây sau khi được thêm.</p><Button icon="plus">Thêm dữ liệu</Button></div>;

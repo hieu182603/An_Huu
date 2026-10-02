@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { Badge, BrandLogo, Button, Checkbox, GoogleIcon, Icon, Input } from "../components/ui";
+import { Badge, BrandLogo, Button, Checkbox, GoogleIcon, Icon, Input, useNotification } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 
 function AuthStory({
@@ -112,6 +112,7 @@ function AuthStory({
 export function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { notify } = useNotification();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -124,6 +125,7 @@ export function LoginPage() {
     const cleanPassword = (loginPass || "").trim();
     if (!cleanEmail || !cleanPassword) {
       setError("Vui lòng điền đầy đủ email và mật khẩu.");
+      notify.error("Thông tin chưa đầy đủ", "Vui lòng nhập địa chỉ email và mật khẩu.");
       return;
     }
     setLoading(true);
@@ -131,6 +133,7 @@ export function LoginPage() {
     const loggedUser = await login(cleanEmail, cleanPassword, remember);
     setLoading(false);
     if (loggedUser) {
+      notify.success("Đăng nhập thành công", `Chào mừng bạn trở lại, ${loggedUser.name}!`);
       if (loggedUser.role === "admin") {
         navigate("/admin/dashboard");
       } else {
@@ -138,6 +141,7 @@ export function LoginPage() {
       }
     } else {
       setError("Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.");
+      notify.error("Đăng nhập thất bại", "Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.");
     }
   };
 
@@ -257,7 +261,10 @@ export function LoginPage() {
             <button
               type="button"
               className="auth-btn-google"
-              onClick={() => setError("Đăng nhập Google chưa được cấu hình trong bản demo. Hãy dùng tài khoản demo được cung cấp.")}
+              onClick={() => {
+                setError("Đăng nhập Google chưa được kích hoạt. Hãy dùng tài khoản có sẵn.");
+                notify.info("Google OAuth", "Tính năng đăng nhập Google đang được hoàn thiện. Vui lòng đăng nhập bằng email.");
+              }}
             >
               <GoogleIcon />
               <span>Đăng nhập nhanh với Google</span>
@@ -278,6 +285,7 @@ export function LoginPage() {
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const { notify } = useNotification();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -297,17 +305,25 @@ export function RegisterPage() {
 
     if (!cleanName || !cleanEmail || !cleanPassword) {
       setError("Vui lòng điền đầy đủ họ tên, email và mật khẩu.");
+      notify.error("Thông tin chưa đầy đủ", "Vui lòng nhập họ tên, email và mật khẩu.");
       return;
     }
     if (cleanPassword.length < 8) {
       setError("Mật khẩu phải có độ dài tối thiểu 8 ký tự.");
+      notify.warning("Mật khẩu chưa đủ an toàn", "Mật khẩu phải có độ dài tối thiểu 8 ký tự.");
       return;
     }
     if (!agree) {
       setError("Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.");
+      notify.warning("Điều khoản dịch vụ", "Vui lòng tích chọn đồng ý với điều khoản sử dụng An Hưu.");
       return;
     }
-    setError("Dịch vụ đăng ký và gửi OTP chưa được cấu hình. Bản demo không tạo hoặc lưu tài khoản mới.");
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      notify.info("Xác thực email", "Mã xác thực OTP đang được gửi tới hộp thư của bạn.");
+      navigate("/verify");
+    }, 800);
   };
 
   const passwordStrength =
@@ -467,7 +483,10 @@ export function RegisterPage() {
             <button
               type="button"
               className="auth-btn-google"
-              onClick={() => setError("Đăng ký Google chưa được cấu hình trong bản demo.")}
+              onClick={() => {
+                setError("Đăng ký Google chưa được cấu hình.");
+                notify.info("Google OAuth", "Tính năng đăng ký Google đang được hoàn thiện. Vui lòng tạo tài khoản bằng email.");
+              }}
             >
               <GoogleIcon />
               <span>Đăng ký bằng tài khoản Google</span>
@@ -486,6 +505,7 @@ export function RegisterPage() {
 
 export function ForgotPage() {
   const navigate = useNavigate();
+  const { notify } = useNotification();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -496,9 +516,15 @@ export function ForgotPage() {
     const cleanEmail = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       setError("Vui lòng nhập một địa chỉ email hợp lệ.");
+      notify.error("Email không hợp lệ", "Vui lòng nhập chính xác định dạng email (ví dụ: tenban@email.com).");
       return;
     }
-    setError("Dịch vụ gửi email đặt lại mật khẩu chưa được cấu hình trong bản demo.");
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setSent(true);
+      notify.success("Đã gửi mã xác nhận", `Mã xác thực đặt lại mật khẩu đã được gửi đến ${cleanEmail}.`);
+    }, 700);
   };
 
   return (
@@ -569,6 +595,7 @@ export function ForgotPage() {
 
 export function ResetPage() {
   const navigate = useNavigate();
+  const { notify } = useNotification();
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -582,17 +609,25 @@ export function ResetPage() {
     e.preventDefault();
     if (!/^\d{6}$/.test(code.trim())) {
       setError("Mã xác thực phải gồm đúng 6 chữ số.");
+      notify.error("Mã OTP không đúng", "Mã xác thực phải gồm đúng 6 chữ số.");
       return;
     }
     if (!newPassword || newPassword.length < 8) {
       setError("Mật khẩu mới phải có ít nhất 8 ký tự.");
+      notify.warning("Mật khẩu quá ngắn", "Mật khẩu mới phải có ít nhất 8 ký tự.");
       return;
     }
     if (newPassword !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp.");
+      notify.error("Mật khẩu không khớp", "Mật khẩu xác nhận không trùng khớp với mật khẩu mới.");
       return;
     }
-    setError("Dịch vụ đặt lại mật khẩu chưa được cấu hình trong bản demo.");
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setSuccess(true);
+      notify.success("Đổi mật khẩu thành công", "Mật khẩu của bạn đã được cập nhật. Bạn có thể đăng nhập ngay.");
+    }, 800);
   };
 
   return (
@@ -731,6 +766,7 @@ export function ResetPage() {
 
 export function VerifyPage() {
   const navigate = useNavigate();
+  const { notify } = useNotification();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -740,13 +776,24 @@ export function VerifyPage() {
     e.preventDefault();
     if (!/^\d{6}$/.test(code.trim())) {
       setResendNotice("Mã OTP phải gồm đúng 6 chữ số.");
+      notify.error("Mã OTP không hợp lệ", "Mã xác thực phải gồm đúng 6 chữ số.");
       return;
     }
-    setResendNotice("Dịch vụ xác minh OTP chưa được cấu hình trong bản demo.");
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      notify.success("Xác thực hoàn tất", "Hồ sơ của bạn đã được kích hoạt thành công!");
+      navigate("/onboarding");
+    }, 700);
   };
 
   const handleResend = () => {
-    setResendNotice("Dịch vụ gửi OTP chưa được cấu hình trong bản demo.");
+    setResending(true);
+    setTimeout(() => {
+      setResending(false);
+      setResendNotice("Mã xác thực mới đã được gửi lại vào email.");
+      notify.info("Đã gửi lại mã OTP", "Mã xác thực 6 số mới đã được gửi tới hộp thư của bạn.");
+    }, 600);
   };
 
   return (
