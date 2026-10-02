@@ -12,6 +12,7 @@ import {
   Select,
   Switch,
   Textarea,
+  useNotification,
   type IconName,
 } from "../../components/ui";
 
@@ -632,6 +633,7 @@ const initialHistory: ChangeHistoryItem[] = [
 ];
 
 export function AdminFinancialConfigPage() {
+  const { notify } = useNotification();
   const [assumptions, setAssumptions] = useState<FinancialAssumption[]>(() => { try { return JSON.parse(localStorage.getItem("anhuu_demo_financial_assumptions") || "null") || initialAssumptions; } catch { return initialAssumptions; } });
   const [history, setHistory] = useState<ChangeHistoryItem[]>(() => { try { return JSON.parse(localStorage.getItem("anhuu_demo_financial_history") || "null") || initialHistory; } catch { return initialHistory; } });
   const [editingParam, setEditingParam] = useState<FinancialAssumption | null>(null);
@@ -654,11 +656,21 @@ export function AdminFinancialConfigPage() {
   const handleConfirmChange = () => {
     if (!editingParam || !confirmedCheck || !reasonInput.trim()) return;
     const numericVal = parseFloat(newValueInput);
-    if (!Number.isFinite(numericVal)) { setValidationError("Giá trị phải là một số hữu hạn."); return; }
+    if (!Number.isFinite(numericVal)) {
+      const err = "Giá trị phải là một số hữu hạn.";
+      setValidationError(err);
+      notify.error("Lỗi định dạng", err);
+      return;
+    }
     const isAge = editingParam.code.startsWith("LIFE_EXPECTANCY");
     const minimum = isAge ? 60 : 0;
     const maximum = isAge ? 110 : editingParam.code === "MACRO_INFLATION_RATE" ? 20 : 30;
-    if (numericVal < minimum || numericVal > maximum) { setValidationError(`Giá trị phải nằm trong khoảng ${minimum} đến ${maximum}${editingParam.unit}.`); return; }
+    if (numericVal < minimum || numericVal > maximum) {
+      const err = `Giá trị phải nằm trong khoảng ${minimum} đến ${maximum}${editingParam.unit}.`;
+      setValidationError(err);
+      notify.warning("Giá trị ngoài khoảng cho phép", err);
+      return;
+    }
 
     // Update assumption
     const nextAssumptions = assumptions.map((a) =>
@@ -704,6 +716,7 @@ export function AdminFinancialConfigPage() {
 
     setEditingParam(null);
     setSavingToast(true);
+    notify.success("Cập nhật tham số thành công", `Tham số ${editingParam.name} đã được điều chỉnh thành ${numericVal}${editingParam.unit}.`);
     setTimeout(() => setSavingToast(false), 3000);
   };
 

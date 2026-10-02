@@ -699,7 +699,8 @@ Có thể gồm:
 - Current Net Worth
 - Target Retirement Fund
 - Current Retirement Fund
-- Monthly Saving Target
+- Monthly Saving Target vs Actual Cashflow (Tiết kiệm mục tiêu vs Dòng tiền thực tế)
+- Quick Action: Ghi nhận thu chi tháng này
 - Retirement Goal Progress
 - Projection Chart
 - Current Financial Snapshot
@@ -750,7 +751,7 @@ Cho phép user xác định:
 - Target retirement age
 - Desired monthly lifestyle
 - Expected retirement spending
-- Other assumptions cần thiết
+- **Tham số vĩ mô (Lạm phát & Lợi suất kỳ vọng):** *Hệ thống tự động tính toán và hiển thị chuẩn mực (System-calculated Card), tuyệt đối KHÔNG để người dùng tự nhập.*
 
 UI phải làm cho các con số dễ hiểu.
 
@@ -807,14 +808,15 @@ Thiết kế:
 
 `U07 — Mô phỏng & Theo dõi`
 
-## Simulation
+## Simulation (Mô phỏng kịch bản)
 
-Cho phép thay đổi:
+Tập trung vào các đòn bẩy do người dùng chủ động kiểm soát:
 
-- Retirement age
-- Monthly savings
-- Expected expenses
-- Investment return assumption nếu phù hợp
+- Retirement age (Tuổi nghỉ hưu)
+- Monthly additional savings (Mức tích lũy tăng thêm hàng tháng)
+- Expected expenses in retirement (Mức chi tiêu khi nghỉ hưu)
+
+*(Lưu ý: Không cho người dùng tự do nhập lạm phát và lãi suất kỳ vọng để kết quả mô phỏng luôn chuẩn xác theo mô hình tài chính).*
 
 Khi thay đổi phải trực quan thấy tác động.
 
@@ -838,21 +840,29 @@ Không sử dụng quá nhiều slider.
 
 Đối với số tiền cần độ chính xác cao, ưu tiên number input.
 
-## Tracking
+## Tracking & Nhập Thu - Chi Thực Tế Hàng Tháng
 
-Hiển thị:
+Bao gồm 2 khối giao diện chính:
 
-- Actual savings
-- Target savings
-- Monthly progress
-- Goal progress
-- Historical progress
+### 1. Form / Modal Nhập Thu - Chi Hàng Tháng (Monthly Cashflow Entry)
+- Cho phép người dùng ghi nhận thu nhập thực tế trong tháng:
+  - Thu nhập chính, thu nhập phụ, thưởng, kinh doanh...
+- Cho phép người dùng ghi nhận chi tiêu thực tế trong tháng:
+  - Chi tiêu thiết yếu (tiền nhà, ăn uống, tiện ích...).
+  - Chi tiêu nâng cao / lối sống (mua sắm, giải trí, du lịch...).
+- Tự động tính toán: `Tiết kiệm thực tế (Dòng tiền ròng) = Tổng Thu nhập - Tổng Chi tiêu`.
+- Đối chiếu ngay lập tức với `Mức tích lũy mục tiêu hàng tháng`:
+  - `On track` (Xanh): Tiết kiệm thực tế ≥ Tiết kiệm mục tiêu.
+  - `Needs attention` (Vàng/Cam nhạt): Tiết kiệm thực tế đạt 80% – 99% mục tiêu.
+  - `Behind plan` (Đỏ dịu): Tiết kiệm thực tế < 80% mục tiêu hoặc bị thâm hụt (chi tiêu > thu nhập).
+- Nút lưu bản ghi tháng kèm ghi chú ngắn.
 
-Có state:
-
-- On track
-- Needs attention
-- Behind plan
+### 2. Bảng Điều Khiển & Biểu Đồ Tiến Độ (Cashflow & Savings Trend)
+- Hiển thị:
+  - Actual savings vs Target savings
+  - Monthly cashflow breakdown chart (Cột ghép Thu nhập vs Chi tiêu vs Tích lũy qua từng tháng)
+  - Cumulative savings progress vs Retirement target line
+  - Historical progress table (Bảng lịch sử thu chi từng tháng)
 
 Tone không được gây hoảng sợ.
 

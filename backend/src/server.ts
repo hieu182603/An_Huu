@@ -1,0 +1,54 @@
+import "dotenv/config";
+import http from "node:http";
+import { loadEnv } from "./config/env";
+import { log } from "./common/logger";
+
+async function start() {
+  // Validate before importing integrations or connecting to the database.
+  const config = loadEnv();
+  const [{ createApp }, { prisma }, { initSocket }] = await Promise.all([
+    import("./app"), import("./config/prisma"), import("./config/socket"),
+  ]);
+  const { createServices } = await import("./modules/services");
+  const services = createServices(prisma, config);
+  const app = createApp({ config, services });
+  const server = http.createServer(app);
+  const io = initSocket(server, config, claims => services.auth.validateSession(claims));
+  let stopping = false;
+  async function shutdown() {
+    if (stopping) return;
+    stopping = true;
+    app.locals.draining = true;
+    log("info", "server.stopping");
+    const deadline = setTimeout(() => process.exit(1), 10000);
+    deadline.unref();
+    try {
+      await new Promise<void>(resolve => io.close(() => resolve()));
+      await prisma.$disconnect();
+      clearTimeout(deadline);
+      process.exit(0);
+    } catch {
+      log("error", "server.stop_failed");
+      process.exit(1);
+    }
+  }
+  process.once("SIGTERM", shutdown);
+  process.once("SIGINT", shutdown);
+  try {
+    await prisma.$connect();
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(config.PORT, "0.0.0.0", resolve);
+    });
+    log("info", "server.started");
+  } catch (error) {
+    await new Promise<void>(resolve => io.close(() => resolve()));
+    await prisma.$disconnect();
+    throw error;
+  }
+}
+void start().catch(() => {
+  // Invalid environment values and connection strings must never reach logs.
+  log("error", "server.start_failed", { code: "STARTUP_FAILED" });
+  process.exit(1);
+});

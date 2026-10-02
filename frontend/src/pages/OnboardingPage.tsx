@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Badge, BrandLogo, Button, Card, Checkbox, Icon, IconButton, Input, Select } from "../components/ui";
+import { Badge, BrandLogo, Button, Card, Checkbox, Icon, IconButton, Input, Select, useNotification } from "../components/ui";
 import {
   useFinancialProfile,
   DEFAULT_SAMPLE_PROFILE,
@@ -54,6 +54,7 @@ const INITIAL_FORM_DATA = {
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const { notify } = useNotification();
   const {
     onboardingDraft,
     draftSaveStatus,
@@ -138,8 +139,11 @@ export default function OnboardingPage() {
       } as OnboardingDraftData);
       if (completed) {
         setIsCompleted(true);
+        notify.success("Khởi tạo hồ sơ thành công", "Bức tranh tài chính của bạn đã được thiết lập hoàn tất!");
       } else {
-        setSaveError("Không thể hoàn tất hồ sơ. Vui lòng thử lại.");
+        const err = "Không thể hoàn tất hồ sơ. Vui lòng thử lại.";
+        setSaveError(err);
+        notify.error("Lỗi hoàn tất", err);
       }
     }
   };
@@ -159,9 +163,12 @@ export default function OnboardingPage() {
     });
     if (ok) {
       setShowSaveToast(true);
+      notify.info("Đã lưu bản nháp", `Tiến độ khảo sát đã được lưu an toàn${lastDraftSavedAt ? ` lúc ${lastDraftSavedAt}` : ""}.`);
       setTimeout(() => setShowSaveToast(false), 3000);
     } else {
-      setSaveError("Không thể lưu nháp. Vui lòng thử lại.");
+      const err = "Không thể lưu nháp. Vui lòng thử lại.";
+      setSaveError(err);
+      notify.error("Lỗi lưu nháp", err);
     }
   };
 

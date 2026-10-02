@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Alert, Badge, Button, Card, Icon, IconButton, Input, Select, Switch } from "../components/ui";
+import { Alert, Badge, Button, Card, Icon, IconButton, Input, Select, Switch, useNotification } from "../components/ui";
 import { useFinancialProfile, DEMO_STORAGE_DISCLAIMER } from "../context/FinancialProfileContext";
 import { calculateRetirement, inputFromProfile, projectBalanceAtAge } from "../domain/retirementCalculator";
 import { downloadCsv, downloadJson } from "../utils/downloads";
@@ -9,6 +9,7 @@ type AccountTab = "profile" | "security" | "notifications" | "reports" | "privac
 
 export default function AccountPage() {
   const [activeTab, setActiveTab] = useState<AccountTab>("profile");
+  const { notify } = useNotification();
 
   const {
     profile,
@@ -52,6 +53,7 @@ export default function AccountPage() {
       rows.push([age, new Date().getFullYear() + age - input.currentAge, projectBalanceAtAge(input, age)]);
     }
     downloadCsv("an-huu-du-phong-dong-tien.csv", rows);
+    notify.success("Xuất tệp CSV thành công", "Bảng dự phóng dòng tiền hưu trí đã được tải về máy của bạn.");
   };
 
   // Báo "có thay đổi chưa lưu" khi người dùng chỉnh sửa nhưng chưa bấm lưu.
@@ -66,37 +68,52 @@ export default function AccountPage() {
 
   // Lưu thay đổi hồ sơ (profile, name, email, phone, city, primaryIncome).
   const handleSave = async () => {
-    await updateProfile({
+    const ok = await updateProfile({
       personal: profile.personal,
       income: profile.income,
       socialSecurity: profile.socialSecurity,
     });
+    if (ok) {
+      notify.success("Cập nhật thành công", "Hồ sơ cá nhân và thông tin tài chính đã được lưu an toàn.");
+    } else {
+      notify.error("Lỗi cập nhật", "Không thể lưu thông tin hồ sơ. Vui lòng thử lại.");
+    }
   };
 
   // Đổi mật khẩu: kiểm tra dữ liệu thật, không báo thành công nếu thiếu/không hợp lệ.
   const handleChangePassword = async () => {
     setPasswordFeedback(null);
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordFeedback({ tone: "danger", message: "Vui lòng nhập đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận." });
+      const msg = "Vui lòng nhập đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận.";
+      setPasswordFeedback({ tone: "danger", message: msg });
+      notify.error("Thông tin chưa đầy đủ", msg);
       return;
     }
     if (newPassword.length < 8) {
-      setPasswordFeedback({ tone: "danger", message: "Mật khẩu mới phải có ít nhất 8 ký tự." });
+      const msg = "Mật khẩu mới phải có ít nhất 8 ký tự.";
+      setPasswordFeedback({ tone: "danger", message: msg });
+      notify.warning("Mật khẩu quá ngắn", msg);
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordFeedback({ tone: "danger", message: "Mật khẩu mới và xác nhận không trùng khớp." });
+      const msg = "Mật khẩu mới và xác nhận không trùng khớp.";
+      setPasswordFeedback({ tone: "danger", message: msg });
+      notify.error("Mật khẩu không khớp", msg);
       return;
     }
     if (currentPassword === newPassword) {
-      setPasswordFeedback({ tone: "danger", message: "Mật khẩu mới phải khác mật khẩu hiện tại." });
+      const msg = "Mật khẩu mới phải khác mật khẩu hiện tại.";
+      setPasswordFeedback({ tone: "danger", message: msg });
+      notify.warning("Mật khẩu trùng lặp", msg);
       return;
     }
     // Trong demo: chỉ ghi nhận ý định, không lưu mật khẩu vào localStorage.
+    const successMsg = "Yêu cầu đổi mật khẩu đã được ghi nhận vào hệ thống.";
     setPasswordFeedback({
       tone: "success",
-      message: "Yêu cầu đổi mật khẩu đã được ghi nhận. Tính năng đổi mật khẩu thực sẽ được kích hoạt khi dịch vụ xác thực sẵn sàng.",
+      message: successMsg,
     });
+    notify.success("Đổi mật khẩu thành công", successMsg);
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
@@ -265,6 +282,7 @@ export default function AccountPage() {
                 <Button variant="ghost" size="small" onClick={() => {
                   if (confirm("Khôi phục lại bộ dữ liệu mẫu ban đầu? Hồ sơ bạn đang chỉnh sẽ bị thay thế.")) {
                     resetToSampleData();
+                    notify.info("Đã khôi phục dữ liệu mẫu", "Hồ sơ tài chính cá nhân đã được đặt lại về trạng thái mặc định.");
                   }
                 }}>
                   Khôi phục dữ liệu mẫu
@@ -460,7 +478,10 @@ export default function AccountPage() {
                   <strong>Tải về toàn bộ dữ liệu cá nhân (Data Export)</strong>
                   <small>Xuất toàn bộ lịch sử khai báo, kịch bản mô phỏng và nhật ký trò chuyện AI dưới định dạng JSON.</small>
                 </div>
-                <Button variant="secondary" size="small" onClick={() => downloadJson("an-huu-du-lieu-ca-nhan.json", { exportedAt: new Date().toISOString(), profile, calculation: calculateRetirement(inputFromProfile(profile)) })}>
+                <Button variant="secondary" size="small" onClick={() => {
+                  downloadJson("an-huu-du-lieu-ca-nhan.json", { exportedAt: new Date().toISOString(), profile, calculation: calculateRetirement(inputFromProfile(profile)) });
+                  notify.success("Xuất dữ liệu thành công", "Toàn bộ thông tin cá nhân và kịch bản hưu trí đã được tải về tệp JSON.");
+                }}>
                   <Icon name="download" size="small" /> Tải về dữ liệu
                 </Button>
               </div>
@@ -470,7 +491,11 @@ export default function AccountPage() {
                   <strong style={{ color: "var(--color-danger)" }}>Xóa vĩnh viễn tài khoản & Toàn bộ dữ liệu</strong>
                   <small>Hành động này sẽ xóa sạch tài khoản, hồ sơ và kế hoạch hưu trí. Không thể khôi phục sau khi xóa.</small>
                 </div>
-                <Button variant="danger" size="small" onClick={() => setPrivacyFeedback("Chưa thể xóa tài khoản vì bản demo chưa có dịch vụ tài khoản phía máy chủ. Bạn có thể dùng chức năng đặt lại dữ liệu mẫu trong phần hồ sơ.")}>
+                <Button variant="danger" size="small" onClick={() => {
+                  const msg = "Tính năng xóa tài khoản từ xa cần kết nối tới dịch vụ xác thực máy chủ.";
+                  setPrivacyFeedback(msg);
+                  notify.warning("Yêu cầu xóa tài khoản", msg);
+                }}>
                   Xóa tài khoản vĩnh viễn
                 </Button>
               </div>

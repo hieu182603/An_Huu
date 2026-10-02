@@ -139,6 +139,9 @@ Cho phép xác định:
 - mức chi tiêu dự kiến,
 - nhu cầu tài chính dài hạn.
 
+> **Quy chuẩn tính toán giả định vĩ mô:**  
+> Người dùng **KHÔNG** tự nhập tỷ lệ lạm phát và lãi suất kỳ vọng (lợi suất đầu tư). Hai thông số này do hệ thống An Hưu tự động tính toán và áp dụng chuẩn hóa (dựa trên cấu hình kinh tế vĩ mô chuẩn và mô hình danh mục đầu tư theo độ tuổi/khẩu vị rủi ro) nhằm đảm bảo tính chính xác khoa học, tránh sai lệch do phỏng đoán cảm tính.
+
 Mục tiêu:
 
 > Xác định rõ người dùng muốn nghỉ hưu khi nào và cần duy trì mức sống như thế nào.
@@ -171,10 +174,11 @@ Cho phép thử các tình huống dạng:
 Ví dụ:
 
 - Nếu nghỉ hưu muộn hơn?
-- Nếu tiết kiệm nhiều hơn?
-- Nếu chi tiêu ít hơn?
+- Nếu tích lũy thêm mỗi tháng?
+- Nếu chi tiêu ít hơn khi về già?
 - Nếu thay đổi mức sống mong muốn?
-- Nếu thay đổi giả định tài chính?
+
+*(Lưu ý: Không mở cho người dùng tự điều chỉnh tùy tiện lạm phát hay lãi suất kỳ vọng; việc mô phỏng tập trung vào các hành động thực tế người dùng kiểm soát được).*
 
 Mục tiêu:
 
@@ -182,21 +186,25 @@ Mục tiêu:
 
 ---
 
-### 05 — Theo dõi tiến độ
+### 05 — Theo dõi tiến độ & Thu chi hàng tháng
 
-Theo dõi:
+Hệ thống hỗ trợ:
 
-- tiết kiệm thực tế,
-- tiết kiệm mục tiêu,
-- tiến độ kế hoạch,
-- lịch sử tiến độ,
-- trạng thái hiện tại.
+- **Nhập thu - chi thực tế hàng tháng (Monthly Cashflow Entry):**
+  - Ghi nhận thu nhập thực tế trong tháng (lương, thưởng, thu nhập phụ...).
+  - Ghi nhận chi tiêu thực tế trong tháng (chi tiêu thiết yếu, chi tiêu nâng cao).
+  - Tự động tính **Tiết kiệm thực tế (Dòng tiền ròng = Thu nhập - Chi tiêu)**.
+- **Đối chiếu tiến độ:**
+  - So sánh trực quan giữa **Tiết kiệm thực tế** và **Tiết kiệm mục tiêu hàng tháng**.
+  - Theo dõi tiến độ tích lũy thực tế qua các mốc thời gian.
+  - Lịch sử thu - chi và xu hướng tích lũy theo từng tháng.
+- **Trạng thái kế hoạch:**
 
 Các trạng thái có thể gồm:
 
-- On track
-- Needs attention
-- Behind plan
+- On track (Đạt hoặc vượt mức tích lũy mục tiêu)
+- Needs attention (Thiếu hụt nhẹ, cần chú ý chi tiêu)
+- Behind plan (Thiếu hụt đáng kể hoặc thâm hụt dòng tiền)
 
 Tone của hệ thống không được gây hoảng sợ.
 
@@ -376,7 +384,7 @@ Dashboard cần trả lời nhanh:
 - Target retirement age
 - Desired monthly lifestyle
 - Expected retirement spending
-- Các giả định liên quan
+- **Giả định lạm phát & Lãi suất kỳ vọng:** *Do hệ thống tự động xác định và hiển thị dưới dạng thẻ thông tin chuẩn hóa (System-calculated Benchmark Card) kèm ghi chú giải thích căn cứ tính toán. Người dùng KHÔNG tự nhập các thông số này để bảo toàn tính chuẩn xác.*
 
 ### Purpose
 
@@ -417,14 +425,14 @@ Các CTA phù hợp:
 
 ## U07 — Mô phỏng & Theo dõi
 
-### Simulation
+### Simulation (Mô phỏng kịch bản)
 
-Cho phép thay đổi:
+Tập trung vào các đòn bẩy do người dùng chủ động quyết định:
 
 - tuổi nghỉ hưu,
-- tích lũy hàng tháng,
-- chi tiêu,
-- giả định liên quan.
+- mức tích lũy thêm mỗi tháng,
+- mức chi tiêu kỳ vọng khi nghỉ hưu.
+*(Không cho phép người dùng tự điều chỉnh lạm phát và lãi suất kỳ vọng; hệ thống giữ nguyên tham số chuẩn hóa để kết quả so sánh khách quan và chính xác).*
 
 Hiển thị comparison:
 
@@ -434,15 +442,25 @@ vs
 Simulation
 ```
 
-### Tracking
+### Tracking & Ghi nhận Thu - Chi thực tế (Monthly Cashflow & Tracking)
 
-Theo dõi:
+Bao gồm 2 khối chức năng chính:
 
-- Actual savings
-- Target savings
-- Monthly progress
-- Goal progress
-- Historical progress
+1. **Ghi nhận Thu - Chi hàng tháng (Monthly Cashflow Entry):**
+   - Form / Modal ghi nhận dòng tiền tháng hiện tại:
+     - **Thu nhập thực tế:** Lương chính, thu nhập phụ, thưởng, kinh doanh...
+     - **Chi tiêu thực tế:** Chi phí thiết yếu (nhà ở, ăn uống, hóa đơn...) & Chi tiêu nâng cao (giải trí, mua sắm...).
+     - **Tự động tính:** `Tiết kiệm thực tế (Net Cashflow) = Tổng Thu nhập - Tổng Chi tiêu`.
+   - **Đối chiếu tức thì:** So sánh `Tiết kiệm thực tế` với `Mức tích lũy mục tiêu hàng tháng` từ Kế hoạch hưu trí.
+   - Gắn nhãn trạng thái tháng:
+     - `On track`: Tiết kiệm thực tế ≥ Tiết kiệm mục tiêu.
+     - `Needs attention`: Tiết kiệm thực tế đạt 80% – 99% mục tiêu.
+     - `Behind plan`: Tiết kiệm thực tế < 80% mục tiêu hoặc bị thâm hụt (chi tiêu > thu nhập).
+
+2. **Bảng & Biểu đồ Theo dõi tiến độ tích lũy:**
+   - **Cashflow Bar Chart:** Thu nhập vs Chi tiêu vs Tích lũy qua từng tháng.
+   - **Cumulative Savings vs Target Line:** Đường tích lũy dồn thực tế so với đường mục tiêu của kế hoạch.
+   - **Lịch sử ghi nhận:** Danh sách các tháng đã ghi nhận thu chi và mức chênh lệch.
 
 ---
 
