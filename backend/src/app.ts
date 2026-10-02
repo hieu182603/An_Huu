@@ -1,80 +1,43 @@
-import express, { type Express } from "express";
+import express, { type Express, type Router } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { errorHandler } from "./middlewares/errorHandler";
-import {
-  generalLimiter,
-  authLimiter,
-  aiLimiter,
-  uploadLimiter,
-  consultationLimiter,
-} from "./middlewares/rateLimiter";
-
-export function createApp(): Express {
+import { generalLimiter } from "./middlewares/rateLimiter";
+import { loadEnv, type AppConfig } from "./config/env";
+import { corsOptions } from "./config/cors";
+import { asyncHandler, notFound, requestContext, sendData } from "./common/http";
+import { createReadinessCheck } from "./common/health";
+import { AppError } from "./common/errors";
+import { createApiRouter, type Services } from "./modules/router";
+import { createServices } from "./modules/services";
+import { prisma } from "./config/prisma";
+export type AppOptions = { config?: AppConfig; databaseProbe?: () => Promise<unknown>; apiRouter?: Router; services?: Services };
+export function createApp(options: AppOptions = {}): Express {
+  const config = options.config ?? loadEnv();
   const app = express();
-
-  // Bật trust proxy khi chạy trên Azure App Service / Nginx / Cloudflare
-  // để rate limiter nhận diện đúng IP thật của client từ header `x-forwarded-for`
-  app.set("trust proxy", 1);
-
-  // Security Headers
-  app.use(helmet());
-
-  // CORS config
-  const allowedOrigins = [
-    process.env.CLIENT_URL || "http://localhost:5173",
-    "http://localhost:3000",
-  ];
-
-  app.use(
-    cors({
-      origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
-          callback(null, true);
-        } else {
-          callback(new Error("CORS Policy Violation: Origin not allowed"));
-        }
-      },
-      credentials: true,
-    })
-  );
-
-  // Áp dụng Rate Limiting chung cho toàn bộ API
-  app.use("/api", generalLimiter);
-
-  // Body Parsing
+  app.disable("x-powered-by");
+  app.set("trust proxy", config.TRUST_PROXY_HOPS === 0 ? false : config.TRUST_PROXY_HOPS);
+  app.locals.draining = false;
+  app.use(requestContext, helmet(), cors(corsOptions(config)));
   app.use(express.json({ limit: "2mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "2mb" }));
-
-  // Health Check Endpoint (dùng cho Azure Web App Health Probe và Load Balancer)
-  app.get("/health", (_req, res) => {
-    res.status(200).json({
-      status: "healthy",
-      service: "An Huu Financial Planning Backend API",
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-    });
+  app.use(express.urlencoded({ extended: false, limit: "2mb" }));
+  const probe = options.databaseProbe ?? (async () => {
+    const { prisma } = await import("./config/prisma");
+    await prisma.$queryRaw`SELECT 1`;
   });
-
-  app.get("/api/health", (_req, res) => {
-    res.status(200).json({
-      status: "ok",
-      version: "1.0.0",
-      realtime: "Socket.IO enabled",
-      environment: process.env.NODE_ENV || "development",
-    });
-  });
-
-  // Export rate limiters cho các router gắn riêng:
-  // app.use("/api/auth", authLimiter, authRoutes);
-  // app.use("/api/ai", aiLimiter, aiRoutes);
-  // app.use("/api/upload", uploadLimiter, uploadRoutes);
-  // app.use("/api/consultations", consultationLimiter, consultationRoutes);
-
-  // Error handling
-  app.use(errorHandler);
-
+  const readiness = createReadinessCheck(probe, config.HEALTH_TIMEOUT_MS);
+  app.get("/health/live", (_req, res) => sendData(res, { status: "alive" }));
+  app.get("/health/ready", asyncHandler(async (_req, res) => {
+    if (app.locals.draining) throw new AppError(503, "NOT_READY", "Dịch vụ chưa sẵn sàng.");
+    await readiness();
+    sendData(res, { status: "ready" });
+  }));
+  // Legacy endpoints are liveness only.
+  app.get("/health", (_req, res) => res.json({ status: "healthy", service: "An Huu Financial Planning Backend API", timestamp: new Date().toISOString(), uptime: process.uptime() }));
+  app.get("/api/health", (_req, res) => res.json({ status: "ok", version: "1.0.0", realtime: "Socket.IO enabled", environment: config.NODE_ENV }));
+  app.use("/api", generalLimiter);
+  app.use("/api/v1", options.apiRouter ?? createApiRouter(options.services ?? createServices(prisma, config), config));
+  app.use(notFound, errorHandler);
   return app;
 }
-
-export { authLimiter, aiLimiter, uploadLimiter, consultationLimiter };
+export { authLimiter, aiLimiter, uploadLimiter, consultationLimiter } from "./middlewares/rateLimiter";

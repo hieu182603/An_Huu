@@ -60,12 +60,19 @@ model User {
   avatarUrl    String?
   role         Role       @default(USER)
   status       UserStatus @default(PENDING_VERIFICATION)
+  securityVersion Int    @default(0)
+  revision        Int    @default(0)
+  emailVerifiedAt DateTime?
+  lastActiveAt    DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   tokens         VerificationToken[]
   refreshTokens  RefreshToken[]
   profile        FinancialProfile?
+  onboardingDraft OnboardingDraft?
+  goal            RetirementGoal?
+  plans           RetirementPlan[]
   simulations    SimulationScenario[]
   trackings      MonthlyTracking[]
   consultations  Consultation[]       @relation("UserConsultations")
@@ -77,24 +84,34 @@ model User {
 
 model RefreshToken {
   id        String   @id @default(uuid())
-  token     String   @unique
+  tokenHash String   @unique @map("token")
+  familyId  String   @default(uuid())
+  securityVersion Int @default(0)
+  persistent Boolean @default(false)
+  usedAt    DateTime?
+  revokedAt DateTime?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
 
+  @@index([userId, revokedAt])
+  @@index([familyId])
   @@map("refresh_tokens")
 }
 
 model VerificationToken {
   id        String    @id @default(uuid())
-  token     String    @unique
+  tokenHash String    @unique @map("token")
+  attempts  Int       @default(0)
+  consumedAt DateTime?
   type      TokenType
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime  @default(now())
 
+  @@index([userId, type, createdAt])
   @@map("verification_tokens")
 }
 
@@ -114,11 +131,135 @@ model FinancialProfile {
   // Lưu chi tiết các nhánh: personal, income, expenses, assets, debt, socialSecurity, goal
   // Dùng JSONB của PostgreSQL cho tốc độ cao và linh hoạt
   profileData    Json     @db.JsonB
+  schemaVersion  Int      @default(1)
+  revision       Int      @default(1)
+  completedAt    DateTime?
+  asOfDate       DateTime @default(now())
   
   updatedAt      DateTime @updatedAt
   createdAt      DateTime @default(now())
 
   @@map("financial_profiles")
+}
+
+model OnboardingDraft {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  step      String
+  data      Json     @db.JsonB
+  revision  Int      @default(1)
+  updatedAt DateTime @updatedAt
+  @@map("onboarding_drafts")
+}
+
+model RetirementGoal {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetRetirementAge Int
+  lifestyle          String
+  monthlyExpense     Decimal  @db.Decimal(18, 2)
+  monthlyContribution Decimal @db.Decimal(18, 2)
+  revision           Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  @@map("retirement_goals")
+}
+
+model FinancialModelVersion {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  status       String   @default("DRAFT")
+  description  String
+  source       Json     @db.JsonB
+  createdAt    DateTime @default(now())
+  planVersions PlanVersion[]
+  @@map("financial_model_versions")
+}
+
+model AssumptionSetVersion {
+  id           String   @id @default(uuid())
+  version      Int      @unique
+  status       String   @default("DRAFT")
+  values       Json     @db.JsonB
+  policy       Json     @db.JsonB
+  source       Json     @db.JsonB
+  reason       String
+  createdBy    String
+  effectiveAt  DateTime?
+  createdAt    DateTime @default(now())
+  planVersions PlanVersion[]
+  @@map("assumption_set_versions")
+}
+
+model RetirementPlan {
+  id              String @id @default(uuid())
+  userId          String
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentVersionId String? @unique
+  currentVersion  PlanVersion? @relation("CurrentPlanVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  stale           Boolean @default(false)
+  versions        PlanVersion[] @relation("PlanVersions")
+  createdAt       DateTime @default(now())
+  @@index([userId, createdAt])
+  @@map("retirement_plans")
+}
+
+model PlanVersion {
+  id                String @id @default(uuid())
+  planId            String
+  plan              RetirementPlan @relation("PlanVersions", fields: [planId], references: [id], onDelete: Cascade)
+  currentFor        RetirementPlan? @relation("CurrentPlanVersion")
+  version           Int
+  profileRevision   Int
+  goalRevision      Int
+  modelVersionId    String
+  model             FinancialModelVersion @relation(fields: [modelVersionId], references: [id])
+  assumptionVersionId String
+  assumptions       AssumptionSetVersion @relation(fields: [assumptionVersionId], references: [id])
+  inputSnapshot     Json @db.JsonB
+  result            Json @db.JsonB
+  chartSeries       Json @db.JsonB
+  asOfDate          DateTime
+  createdAt         DateTime @default(now())
+  @@unique([planId, version])
+  @@map("plan_versions")
+}
+
+model OutboxEvent {
+  id          String   @id @default(uuid())
+  type        String
+  entityId    String
+  payload     Json     @db.JsonB
+  status      String   @default("PENDING")
+  attempts    Int      @default(0)
+  availableAt DateTime @default(now())
+  leaseId     String?
+  lockedUntil DateTime?
+  lastErrorCode String?
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+  @@index([status, availableAt])
+  @@map("outbox_events")
+}
+
+model ProcessedEvent {
+  eventId     String @id
+  processedAt DateTime @default(now())
+  @@map("processed_events")
+}
+
+model IdempotencyRecord {
+  id        String @id @default(uuid())
+  userId    String
+  scope     String
+  key       String
+  requestHash String
+  response  Json @db.JsonB
+  createdAt DateTime @default(now())
+  @@unique([userId, scope, key])
+  @@map("idempotency_records")
 }
 
 model SimulationScenario {
@@ -251,4 +392,5 @@ model AuditLog {
   performer     User?    @relation("UserAuditLogs", fields: [performerId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
+  @@index([targetType, targetId, createdAt])
 }
