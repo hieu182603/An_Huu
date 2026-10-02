@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_VERIFICATION
+  SUSPENDED
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum ConsultationStatus {
+  NEW
+  PROCESSING
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum PartnerType {
+  OPEN_FUND
+  BANK
+  INSURANCE
+  SECURITIES
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  initials     String?
+  phone        String?
+  city         String?
+  avatarUrl    String?
+  role         Role       @default(USER)
+  status       UserStatus @default(PENDING_VERIFICATION)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  tokens         VerificationToken[]
+  refreshTokens  RefreshToken[]
+  profile        FinancialProfile?
+  simulations    SimulationScenario[]
+  trackings      MonthlyTracking[]
+  consultations  Consultation[]       @relation("UserConsultations")
+  assignedTasks  Consultation[]       @relation("AdminAssignedConsultations")
+  auditLogs      AuditLog[]           @relation("UserAuditLogs")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model VerificationToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  type      TokenType
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  @@map("verification_tokens")
+}
+
+model FinancialProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Các chỉ số tài chính tính toán chính
+  readinessScore Int      @default(0) // 0 - 100
+  targetFund     Decimal  @default(0) @db.Decimal(18, 2)
+  projectedFund  Decimal  @default(0) @db.Decimal(18, 2)
+  fundingGap     Decimal  @default(0) @db.Decimal(18, 2)
+  monthlySavings Decimal  @default(0) @db.Decimal(18, 2)
+  netWorth       Decimal  @default(0) @db.Decimal(18, 2)
+
+  // Lưu chi tiết các nhánh: personal, income, expenses, assets, debt, socialSecurity, goal
+  // Dùng JSONB của PostgreSQL cho tốc độ cao và linh hoạt
+  profileData    Json     @db.JsonB
+  
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+
+  @@map("financial_profiles")
+}
+
+model SimulationScenario {
+  id                  String   @id @default(uuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                String   @default("Kịch bản mới")
+  isBaseline          Boolean  @default(false)
+  targetRetireAge     Int
+  monthlyContribution Decimal  @db.Decimal(18, 2)
+  annualReturnRate    Decimal  @db.Decimal(5, 2)
+  annualInflationRate Decimal  @db.Decimal(5, 2)
+  
+  // Kết quả tính toán của kịch bản
+  resultSummary       Json     @db.JsonB
+  createdAt           DateTime @default(now())
+
+  @@map("simulation_scenarios")
+}
+
+model MonthlyTracking {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  period       String   // Format: YYYY-MM
+  targetAmount Decimal  @db.Decimal(18, 2)
+  actualAmount Decimal  @db.Decimal(18, 2)
+  status       String   @default("ON_TRACK") // ON_TRACK, NEEDS_ATTENTION, BEHIND
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, period])
+  @@map("monthly_trackings")
+}
+
+model Consultation {
+  id              String             @id @default(uuid())
+  userId          String
+  user            User               @relation("UserConsultations", fields: [userId], references: [id], onDelete: Cascade)
+  userName        String
+  userEmail       String
+  userPhone       String
+  userAge         Int?
+  userFund        String?
+  topic           String
+  details         String             @db.Text
+  preferredTime   String?
+  appointmentAt   DateTime?
+  status          ConsultationStatus @default(NEW)
+  assignedAdminId String?
+  assignedAdmin   User?              @relation("AdminAssignedConsultations", fields: [assignedAdminId], references: [id])
+  notes           String?            @db.Text
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@map("consultations")
+}
+
+model Article {
+  id          String        @id @default(uuid())
+  title       String
+  slug        String        @unique
+  excerpt     String        @db.Text
+  content     String        @db.Text
+  category    String
+  authorName  String
+  thumbnail   String?       // Cloudinary URL
+  status      ArticleStatus @default(DRAFT)
+  viewCount   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("articles")
+}
+
+model Partner {
+  id           String           @id @default(uuid())
+  name         String
+  type         PartnerType
+  logoUrl      String?          // Cloudinary URL
+  contactEmail String?
+  website      String?
+  isHighlight  Boolean          @default(false)
+  products     PartnerProduct[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("partners")
+}
+
+model PartnerProduct {
+  id             String    @id @default(uuid())
+  partnerId      String
+  partner        Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  name           String
+  category       String
+  expectedReturn String
+  riskLevel      RiskLevel @default(MEDIUM)
+  description    String?   @db.Text
+  createdAt      DateTime  @default(now())
+
+  @@map("partner_products")
+}
+
+model FinancialAssumption {
+  id               String   @id @default(uuid())
+  code             String   @unique
+  name             String
+  category         String
+  currentValue     Decimal  @db.Decimal(10, 2)
+  unit             String
+  recommendedRange String?
+  description      String?  @db.Text
+  updatedBy        String
+  updatedAt        DateTime @updatedAt
+
+  @@map("financial_assumptions")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  action        String
+  targetType    String
+  targetId      String?
+  performerId   String?
+  performerName String
+  details       Json?    @db.JsonB
+  createdAt     DateTime @default(now())
+
+  performer     User?    @relation("UserAuditLogs", fields: [performerId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}

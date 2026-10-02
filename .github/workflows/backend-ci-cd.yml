@@ -1,0 +1,103 @@
+name: Backend CI / CD — Azure Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci-cd.yml"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "backend/**"
+
+jobs:
+  # ========================================================
+  # 1. KIỂM TRA LỖI, TYPECHECK & UNIT TESTS
+  # ========================================================
+  validate-and-test:
+    name: Backend Test & Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: an_huu_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: "backend/package.json"
+
+      - name: Install Dependencies
+        run: npm --prefix backend install
+
+      - name: Validate Prisma Schema
+        run: npx --prefix backend prisma validate
+
+      - name: Generate Prisma Client
+        run: npx --prefix backend prisma generate
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/an_huu_test_db?schema=public"
+
+      - name: Run Unit Tests (Vitest)
+        run: npm --prefix backend run test
+
+      - name: TypeScript Typecheck & Build
+        run: |
+          npm --prefix backend run typecheck
+          npm --prefix backend run build
+
+  # ========================================================
+  # 2. DEPLOY TỰ ĐỘNG LÊN AZURE APP SERVICE (CHỈ NHÁNH MAIN)
+  # ========================================================
+  deploy-to-azure:
+    name: Deploy to Azure App Service
+    needs: validate-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install & Build Production Artifact
+        run: |
+          cd backend
+          npm install
+          npx prisma generate
+          npm run build
+          # Thu dọn devDependencies để gói artifact nhẹ nhất
+          npm prune --production
+
+      - name: Deploy Artifact to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: "an-huu-api" # Tên Web App của bạn trên Azure Portal
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: "backend"
