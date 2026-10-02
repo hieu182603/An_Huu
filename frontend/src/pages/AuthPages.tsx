@@ -491,12 +491,13 @@ export function RegisterPage() {
               <GoogleIcon />
               <span>Đăng ký bằng tài khoản Google</span>
             </button>
+            <div style={{ textAlign: "center", marginTop: "16px" }}>
+              <span style={{ color: "#7B8F9D", fontSize: "13px" }}>Đã có tài khoản? </span>
+              <Link to="/login" className="auth-switch-link">
+                Đăng nhập ngay <Icon name="arrow-right" size="small" />
+              </Link>
+            </div>
           </form>
-
-          <footer className="auth-panel-footer">
-            <Icon name="circle-check" size="small" />
-            <span>Miễn phí 100% · Không yêu cầu thẻ tín dụng hay ràng buộc tài chính</span>
-          </footer>
         </div>
       </main>
     </div>

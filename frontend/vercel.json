@@ -5,8 +5,68 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/((?!assets(?:/|$)|images(?:/|$)|.*\\.[^/]+$).*)",
+      "source": "/",
       "destination": "/index.html"
+    },
+    {
+      "source": "/cach-hoat-dong",
+      "destination": "/cach-hoat-dong/index.html"
+    },
+    {
+      "source": "/cach-hoat-dong/",
+      "destination": "/cach-hoat-dong/index.html"
+    },
+    {
+      "source": "/mo-phong",
+      "destination": "/mo-phong/index.html"
+    },
+    {
+      "source": "/mo-phong/",
+      "destination": "/mo-phong/index.html"
+    },
+    {
+      "source": "/tro-ly-ai",
+      "destination": "/tro-ly-ai/index.html"
+    },
+    {
+      "source": "/tro-ly-ai/",
+      "destination": "/tro-ly-ai/index.html"
+    },
+    {
+      "source": "/kien-thuc",
+      "destination": "/kien-thuc/index.html"
+    },
+    {
+      "source": "/kien-thuc/",
+      "destination": "/kien-thuc/index.html"
+    },
+    {
+      "source": "/kien-thuc/bat-dau-ke-hoach-huu-tri",
+      "destination": "/kien-thuc/bat-dau-ke-hoach-huu-tri/index.html"
+    },
+    {
+      "source": "/kien-thuc/bat-dau-ke-hoach-huu-tri/",
+      "destination": "/kien-thuc/bat-dau-ke-hoach-huu-tri/index.html"
+    },
+    {
+      "source": "/kien-thuc/hieu-ve-lam-phat",
+      "destination": "/kien-thuc/hieu-ve-lam-phat/index.html"
+    },
+    {
+      "source": "/kien-thuc/hieu-ve-lam-phat/",
+      "destination": "/kien-thuc/hieu-ve-lam-phat/index.html"
+    },
+    {
+      "source": "/kien-thuc/hieu-ve-tich-luy",
+      "destination": "/kien-thuc/hieu-ve-tich-luy/index.html"
+    },
+    {
+      "source": "/kien-thuc/hieu-ve-tich-luy/",
+      "destination": "/kien-thuc/hieu-ve-tich-luy/index.html"
+    },
+    {
+      "source": "/((?!assets(?:/|$)|images(?:/|$)|.*\\.[^/]+$).*)",
+      "destination": "/app-shell.html"
     }
   ],
   "headers": [

@@ -15,7 +15,7 @@ test('both Vercel root directory choices use the same routing and cache rules', 
 for (const [index, config] of configs.entries()) {
   test(`config ${index}: page URLs retain SPA fallback; missing assets cannot return index.html`, () => {
     const rewritesToHtml = (url) => config.rewrites.some((rule) =>
-      rule.destination === '/index.html' && matches(rule.source, new URL(url, 'https://example.test').pathname),
+      rule.destination.endsWith('.html') && matches(rule.source, new URL(url, 'https://example.test').pathname),
     );
     for (const url of ['/', '/login', '/user/explore', '/admin/settings/general', '/admin/users/user.123/profile']) {
       assert.equal(rewritesToHtml(url), true, url);
@@ -23,6 +23,16 @@ for (const [index, config] of configs.entries()) {
     for (const url of ['/images/missing.jpg', '/images/missing', '/assets/missing.js', '/assets/hero-abc.jpg', '/logo.png', '/missing.JPG?v=2', '/favicon.ico', '/robots.txt']) {
       assert.equal(rewritesToHtml(url), false, url);
     }
+  });
+
+  test(`config ${index}: public routes serve their own prerendered content`, () => {
+    for (const url of ['/cach-hoat-dong', '/mo-phong', '/tro-ly-ai', '/kien-thuc', '/kien-thuc/hieu-ve-lam-phat']) {
+      const first = config.rewrites.find(rule => matches(rule.source, url));
+      assert.equal(first.destination, `${url}/index.html`);
+      assert.equal(config.rewrites.find(rule => matches(rule.source, `${url}/`)).destination, `${url}/index.html`);
+    }
+    assert.equal(config.rewrites.find(rule => matches(rule.source, '/login')).destination, '/app-shell.html');
+    assert.equal(config.rewrites.find(rule => matches(rule.source, '/kien-thuc/not-a-real-article')).destination, '/app-shell.html');
   });
 
   test(`config ${index}: only fingerprinted assets get immutable caching`, () => {

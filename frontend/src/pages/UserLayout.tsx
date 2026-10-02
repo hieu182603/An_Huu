@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { motion, AnimatePresence } from "motion/react";
 import { Avatar, Badge, BrandLogo, Drawer, Icon, IconButton, SearchField, Tooltip, type IconName } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 
@@ -16,7 +17,7 @@ export const userNavItems: UserNavItem[] = [
   { path: "/user/plan", label: "Kế hoạch chi tiết", icon: "compass" },
   { path: "/user/simulation", label: "Mô phỏng & Theo dõi", icon: "chart" },
   { path: "/user/assistant", label: "Trợ lý AI", icon: "sparkles", badge: "AI" },
-  { path: "/user/explore", label: "Kiến thức & Giải pháp", icon: "briefcase" },
+  { path: "/user/explore", label: "Đối tác & Giải pháp", icon: "briefcase" },
   { path: "/user/account", label: "Hồ sơ tài chính", icon: "settings" },
 ];
 
@@ -131,7 +132,18 @@ export default function UserLayout() {
         </header>
 
         <main className={`dashboard-main ${location.pathname === "/user/assistant" ? "dashboard-main-assistant" : ""}`} id="main-content">
-          <Outlet />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              style={{ width: "100%", height: "100%" }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 

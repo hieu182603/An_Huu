@@ -10,7 +10,8 @@
 
 Cả cấu hình ở gốc dự án và trong `frontend` dùng cùng quy tắc:
 
-- Chỉ đường dẫn trang được chuyển về `index.html` để React Router xử lý.
+- Trang chủ, bốn trang giới thiệu và ba bài viết được xuất HTML riêng khi build; các URL này được ánh xạ đến đúng tệp HTML để đọc được ngay cả khi không chạy JavaScript.
+- Các đường dẫn tài khoản, quản trị và đường dẫn chưa xác định dùng `app-shell.html` để React Router xử lý. Tệp này có `noindex`, không chứa nội dung trang chủ.
 - `/assets`, `/images` và đường dẫn kết thúc bằng phần mở rộng tệp không dùng quy tắc này. Tệp thiếu được Vercel xử lý như tài nguyên không tồn tại.
 - `/assets/*` dùng cache lâu dài cho tệp có mã nội dung.
 - Ảnh URL cố định dùng `max-age=0, must-revalidate`; không có hai quy tắc cache chồng lên ảnh trong `/assets`.

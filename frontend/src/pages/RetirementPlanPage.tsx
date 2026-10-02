@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { motion } from "motion/react";
 import { Badge, Button, Card, Icon } from "../components/ui";
 import { FundGrowthChart } from "../components/charts";
-import { useFinancialProfile, DEMO_STORAGE_DISCLAIMER } from "../context/FinancialProfileContext";
+import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { calculateRetirement, inputFromProfile } from "../domain/retirementCalculator";
 
-const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " đ";
+const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " VND";
 const REFERENCE_YEAR = new Date().getFullYear();
 
 export default function RetirementPlanPage() {
@@ -53,7 +54,12 @@ export default function RetirementPlanPage() {
       </div>
 
       {/* Primary Result Hero */}
-      <div className="plan-result-hero">
+      <motion.div
+        className="plan-result-hero"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+      >
         <div className="plan-result-copy">
           <Badge tone="soft">KẾT QUẢ ĐẦU RA CỐT LÕI</Badge>
           <span className="result-kicker">TỔNG QUỸ HƯU TRÍ CẦN CHUẨN BỊ ĐẾN TUỔI {derived.targetAge}</span>
@@ -104,10 +110,15 @@ export default function RetirementPlanPage() {
             </span>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* 4 Plan Key Metrics */}
-      <div className="plan-metrics">
+      <motion.div
+        className="plan-metrics"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.08, ease: "easeOut" }}
+      >
         <Card className="plan-metric-card">
           <div>
             <span>Số tiền dự kiến có</span>
@@ -149,50 +160,61 @@ export default function RetirementPlanPage() {
           <strong>{derived.yearsLeft} năm</strong>
           <small>Thời điểm chạm mốc tuổi {derived.targetAge}: Năm {derived.targetRetireYear}</small>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Projected Fund Growth Card */}
-      <Card className="fund-growth-card">
-        <header>
-          <div>
-            <h2>Lộ trình tăng trưởng tài sản dự phóng theo thời gian</h2>
-            <p>Mô phỏng sức mạnh lãi suất kép và dòng tiền tích lũy tích tụ qua các thập kỷ.</p>
-          </div>
-          <div className="chart-period">
-            <button
-              type="button"
-              className={chartView === "milestone" ? "is-active" : ""}
-              onClick={() => setChartView("milestone")}
-            >
-              Theo mốc tuổi
-            </button>
-            <button
-              type="button"
-              className={chartView === "annual" ? "is-active" : ""}
-              onClick={() => setChartView("annual")}
-            >
-              Từng năm chi tiết
-            </button>
-          </div>
-        </header>
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.14, ease: "easeOut" }}
+      >
+        <Card className="fund-growth-card">
+          <header>
+            <div>
+              <h2>Lộ trình tăng trưởng tài sản dự phóng theo thời gian</h2>
+              <p>Mô phỏng sức mạnh lãi suất kép và dòng tiền tích lũy tích tụ qua các thập kỷ.</p>
+            </div>
+            <div className="chart-period">
+              <button
+                type="button"
+                className={chartView === "milestone" ? "is-active" : ""}
+                onClick={() => setChartView("milestone")}
+              >
+                Theo mốc tuổi
+              </button>
+              <button
+                type="button"
+                className={chartView === "annual" ? "is-active" : ""}
+                onClick={() => setChartView("annual")}
+              >
+                Từng năm chi tiết
+              </button>
+            </div>
+          </header>
 
-        <div className="fund-chart" tabIndex={0} role="region" aria-label="Biểu đồ tăng trưởng quỹ">
-          <FundGrowthChart view={chartView} profile={profile} />
-        </div>
-
-        <footer>
-          <div>
-            <span><i className="fund-legend-target" /> Mục tiêu kỳ vọng: {formatVND(derived.targetFund)}</span>
-            <span><i className="fund-legend-current" /> Dự phóng tích lũy hiện thời: {formatVND(derived.projectedFund)}</span>
+          <div className="fund-chart" tabIndex={0} role="region" aria-label="Biểu đồ tăng trưởng quỹ">
+            <FundGrowthChart view={chartView} profile={profile} />
           </div>
-          <p>
-            <Icon name="info" size="small" /> Sau tuổi {derived.targetAge}, quỹ chuyển từ giai đoạn tích lũy sang giai đoạn rút tiền hàng tháng trong {derived.retirementDuration} năm.
-          </p>
-        </footer>
-      </Card>
+
+          <footer>
+            <div>
+              <span><i className="fund-legend-target" /> Mục tiêu kỳ vọng: {formatVND(derived.targetFund)}</span>
+              <span><i className="fund-legend-current" /> Dự phóng tích lũy hiện thời: {formatVND(derived.projectedFund)}</span>
+            </div>
+            <p>
+              <Icon name="info" size="small" /> Sau tuổi {derived.targetAge}, quỹ chuyển từ giai đoạn tích lũy sang giai đoạn rút tiền hàng tháng trong {derived.retirementDuration} năm.
+            </p>
+          </footer>
+        </Card>
+      </motion.div>
 
       {/* Details Grid: "What It Means" AI explanation + Breakdown */}
-      <div className="plan-details-grid">
+      <motion.div
+        className="plan-details-grid"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.2, ease: "easeOut" }}
+      >
         {/* "What it means" Card */}
         <Card className="what-it-means-card">
           <span className="meaning-icon">
@@ -279,13 +301,13 @@ export default function RetirementPlanPage() {
             </div>
           </div>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Plan Disclaimer & Export Action */}
       <div className="plan-disclaimer">
         <Icon name="info" />
         <span>
-          {DEMO_STORAGE_DISCLAIMER} Bản kế hoạch dưới đây dùng chung công thức với trang Mục tiêu & Mô phỏng, có thể điều chỉnh khi bạn cập nhật hồ sơ.
+          Bản kế hoạch dùng chung bộ công thức với trang Mục tiêu & Mô phỏng, luôn tự động cập nhật khi bạn điều chỉnh hồ sơ.
         </span>
         <button
           type="button"

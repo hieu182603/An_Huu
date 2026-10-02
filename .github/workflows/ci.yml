@@ -29,13 +29,18 @@ jobs:
       - name: Install Frontend Dependencies
         run: npm --prefix frontend ci
 
+      - name: Run Asset & Calculator Tests
+        run: npm --prefix frontend run test:assets
+
       - name: TypeScript Typecheck
         run: npm --prefix frontend run typecheck
 
       - name: Build Production Bundle
         run: npm --prefix frontend run build
 
-      - name: Verify Build Output
+      - name: Verify Build Output & SEO Prerenders
         run: |
           test -f frontend/dist/index.html || { echo "Build output missing frontend/dist/index.html"; exit 1; }
+          node --test frontend/scripts/marketing-seo.test.mjs
           echo "Build artifact verified successfully!"
+

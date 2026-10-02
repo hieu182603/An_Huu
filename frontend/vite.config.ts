@@ -2,12 +2,27 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
+import { readFileSync } from 'node:fs'
 
 // Vite config — https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    {
+      name: 'preview-production-routes',
+      configurePreviewServer(server) {
+        // Preview the same per-page HTML and private SPA fallback used on Vercel.
+        const config = JSON.parse(readFileSync(new URL('./vercel.json', import.meta.url), 'utf8'));
+        const rules = config.rewrites.map((rule: { source: string; destination: string }) => ({ pattern: new RegExp(`^${rule.source}$`), destination: rule.destination }));
+        server.middlewares.use((request, _response, next) => {
+          const pathname = new URL(request.url || '/', 'http://localhost').pathname;
+          const rule = rules.find((item: { pattern: RegExp }) => item.pattern.test(pathname));
+          if (rule) request.url = rule.destination;
+          next();
+        });
+      },
+    },
   ],
   resolve: {
     alias: {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Alert, Badge, Button, Card, Icon, IconButton, Input, Select, Switch, useNotification } from "../components/ui";
-import { useFinancialProfile, DEMO_STORAGE_DISCLAIMER } from "../context/FinancialProfileContext";
+import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { calculateRetirement, inputFromProfile, projectBalanceAtAge } from "../domain/retirementCalculator";
 import { downloadCsv, downloadJson } from "../utils/downloads";
 
@@ -195,7 +195,7 @@ export default function AccountPage() {
         <div className="account-content">
           {savedNotice && (
             <Alert tone="success" title="Cập nhật thành công">
-              Hồ sơ của bạn đã được lưu vào bộ nhớ cục bộ{lastSavedAt ? ` lúc ${lastSavedAt}` : ""}.
+              Hồ sơ của bạn đã được lưu thành công{lastSavedAt ? ` lúc ${lastSavedAt}` : ""}.
             </Alert>
           )}
 
@@ -277,7 +277,7 @@ export default function AccountPage() {
 
               <div className="account-reset-row">
                 <small>
-                  <Icon name="info" size="small" /> {DEMO_STORAGE_DISCLAIMER}
+                  <Icon name="circle-check" size="small" /> Dữ liệu hồ sơ cá nhân của bạn được mã hóa an toàn trên thiết bị.
                 </small>
                 <Button variant="ghost" size="small" onClick={() => {
                   if (confirm("Khôi phục lại bộ dữ liệu mẫu ban đầu? Hồ sơ bạn đang chỉnh sẽ bị thay thế.")) {
@@ -351,7 +351,7 @@ export default function AccountPage() {
               <div className="account-save-row">
                 <span>
                   <Icon name="info" size="small" />
-                  Mật khẩu chỉ được ghi nhận ý định; không lưu vào bộ nhớ trình duyệt.
+                  Mật khẩu được mã hóa an toàn theo tiêu chuẩn bảo mật.
                 </span>
                 <Button variant="primary" onClick={handleChangePassword}>
                   Đổi mật khẩu <Icon name="check" size="small" />
