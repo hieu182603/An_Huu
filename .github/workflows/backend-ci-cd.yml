@@ -11,7 +11,7 @@ on:
       run_database_checks:
         description: Run migrations/integration on an isolated PostgreSQL service
         type: boolean
-        default: false
+        default: true
 permissions:
   contents: read
 jobs:
@@ -33,7 +33,7 @@ jobs:
       - run: npm exec -- prisma validate
       - run: npm run prisma:generate
       - run: npm run verify
-      - run: npm audit --audit-level=high
+      - run: npm audit --audit-level=high --omit=dev
       - run: npm prune --omit=dev
       - uses: actions/upload-artifact@v4
         with:
@@ -46,7 +46,7 @@ jobs:
             backend/package-lock.json
             backend/prisma
   database-integration:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_database_checks
+    if: github.event_name != 'workflow_dispatch' || inputs.run_database_checks
     needs: validate-and-test
     runs-on: ubuntu-latest
     defaults:
@@ -57,7 +57,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/anhuu_ci_test
     services:
       postgres:
-        image: postgres:16-alpine
+        image: pgvector/pgvector@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgrespassword
@@ -80,7 +80,7 @@ jobs:
       - run: npm run db:test:prepare
       - run: npm run test:integration
   deploy-to-azure:
-    needs: validate-and-test
+    needs: [validate-and-test, database-integration]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.BACKEND_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: production

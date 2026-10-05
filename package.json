@@ -3,13 +3,15 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev": "npm --prefix frontend run dev",
+    "dev": "node scripts/dev.cjs",
+    "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "npm --prefix backend run dev",
     "build": "npm --prefix frontend run build && npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
     "build:backend": "npm --prefix backend run build",
     "test:backend": "npm --prefix backend run test",
     "preview": "npm --prefix frontend run preview",
-    "typecheck": "npm --prefix frontend run typecheck && npm --prefix backend run typecheck"
+    "typecheck": "npm --prefix frontend run typecheck && npm --prefix backend run typecheck",
+    "ci:local": "node scripts/ci-local.cjs"
   }
 }
