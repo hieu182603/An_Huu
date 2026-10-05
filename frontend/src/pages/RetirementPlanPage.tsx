@@ -1,57 +1,325 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Badge, Button, Card, Icon } from "../components/ui";
-import { FundGrowthChart } from "../components/charts";
+import { Alert, Badge, Button, Card, Icon, useNotification } from "../components/ui";
+import { MonthlyRetirementChart } from "../components/charts";
+import { MonthlyCashflowTable } from "../components/retirement/MonthlyCashflowTable";
+import { PlanVersionDrawer } from "../components/retirement/PlanVersionDrawer";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
-import { calculateRetirement, inputFromProfile } from "../domain/retirementCalculator";
-
-const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " VND";
-const REFERENCE_YEAR = new Date().getFullYear();
+import { useRetirementPlan } from "../context/RetirementPlanContext";
+import {
+  formatVNDCurrency,
+  formatPercentNumber,
+  translateIssueCode,
+  translateWarningCode,
+  type RetirementPreviewInput,
+} from "../services/retirement";
+import {
+  fetchUserPortfolioPolicies,
+  fetchUserPortfolioPolicyDetail,
+  type PortfolioPolicyDetail,
+} from "../services/portfolios";
+import { useI18n } from "../i18n";
 
 export default function RetirementPlanPage() {
+  const { t, language } = useI18n();
   const navigate = useNavigate();
-  const [chartView, setChartView] = useState<"annual" | "milestone">("milestone");
-  const { profile } = useFinancialProfile();
+  const { notify } = useNotification();
+  const { profile, v2Profile, profileRevision } = useFinancialProfile();
+  const {
+    activePlan,
+    planVersions,
+    currentVersion,
+    previewData,
+    previewStatus,
+    previewIssues,
+    previewWarnings,
+    previewError,
+    lastInputHash,
+    runPreview,
+    savePlanVersion,
+    applyVersion,
+    replayVersion,
+  } = useRetirementPlan();
 
-  // Tất cả con số dùng cùng bộ tính với Dashboard, Mục tiêu và Mô phỏng.
-  const derived = useMemo(() => {
-    const result = calculateRetirement(inputFromProfile(profile));
-    return {
-      yearsLeft: result.yearsToRetirement,
-      retirementDuration: result.retirementYears,
-      targetFund: result.targetFund,
-      projectedFund: result.projectedFund,
-      gap: result.gap,
-      progressPercent: result.readinessScore,
-      readinessScore: result.readinessScore,
-      targetRetireYear: REFERENCE_YEAR + result.yearsToRetirement,
-      targetAge: profile.goal.targetRetireAge,
-      futureMonthlyWithdraw: result.futureMonthlyExpense,
-      estimatedMonthlyPension: result.estimatedMonthlyPension,
-      requiredMonthlyWithdrawal: result.requiredMonthlyWithdrawal,
+  const [policyDetail, setPolicyDetail] = useState<PortfolioPolicyDetail | null>(null);
+  const [loadingPolicy, setLoadingPolicy] = useState(true);
+  const [scenario, setScenario] = useState<"BASE" | "ADVERSE" | "FAVORABLE">("BASE");
+  const [isVersionDrawerOpen, setIsVersionDrawerOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const [showApplyConfirm, setShowApplyConfirm] = useState(false);
+
+  // Load published policy
+  useEffect(() => {
+    let active = true;
+    setLoadingPolicy(true);
+    fetchUserPortfolioPolicies(1, 1)
+      .then(async (res) => {
+        if (!active) return;
+        if (res.status === "AVAILABLE" && res.items.length > 0) {
+          const detail = await fetchUserPortfolioPolicyDetail(res.items[0].id);
+          if (active) setPolicyDetail(detail);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoadingPolicy(false);
+      });
+    return () => {
+      active = false;
     };
-  }, [profile]);
+  }, []);
+
+  // Compute endMonth from profile (life expectancy)
+  const defaultEndMonth = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const birthMonthStr = v2Profile?.personal.birthMonth?.status === "KNOWN" ? v2Profile.personal.birthMonth.value : null;
+    const birthYear = birthMonthStr
+      ? parseInt(birthMonthStr.slice(0, 4), 10)
+      : (profile.personal.age > 0 ? currentYear - profile.personal.age : null);
+    const lifeExpectancy = profile.goal.lifeExpectancy;
+    if (!birthYear || !lifeExpectancy || lifeExpectancy <= 0) return null;
+    const endYear = birthYear + lifeExpectancy;
+    return `${endYear}-12`;
+  }, [v2Profile, profile]);
+
+  // Construct standard input payload for T06 preview using confirmed profile inputs
+  const previewPayload = useMemo<RetirementPreviewInput | null>(() => {
+    if (!policyDetail || !defaultEndMonth) return null;
+
+    // Use answers from active plan version if already completed; do not auto-select choices[0]
+    const baselineAnswers = currentVersion?.preview.selection.answers;
+    const answers = baselineAnswers && baselineAnswers.length > 0 ? baselineAnswers : [];
+
+    const monthlyExpenseToday =
+      profile.goal.monthlyExpenseInRetirement > 0
+        ? String(profile.goal.monthlyExpenseInRetirement)
+        : (profile.expenses.essentialExpense + profile.expenses.lifestyleExpense > 0
+            ? String(profile.expenses.essentialExpense + profile.expenses.lifestyleExpense)
+            : "");
+
+    const monthlyContribution =
+      profile.plan.monthlySavings > 0 ? String(profile.plan.monthlySavings) : "";
+
+    // Require essential confirmed numbers before generating preview payload
+    if (!monthlyExpenseToday || !monthlyContribution) return null;
+
+    const retirementMonth =
+      v2Profile?.personal.desiredRetirementMonth?.status === "KNOWN"
+        ? v2Profile.personal.desiredRetirementMonth.value
+        : undefined;
+
+    const revision = profileRevision > 0 ? profileRevision : 1;
+
+    // Map confirmed housing from profile assets
+    const housing = v2Profile?.assets.status === "KNOWN"
+      ? v2Profile.assets.entries
+          .filter((a) => a.housingPlan?.status === "CONFIRMED")
+          .map((a) => ({
+            assetId: a.id,
+            amountScope: (a.ownershipShare.status === "KNOWN" && a.ownershipShare.value === "1" ? "WHOLE_ASSET" : "OWNERS_SHARE") as "WHOLE_ASSET" | "OWNERS_SHARE",
+          }))
+      : [];
+
+    // Map pension/retirement income IDs
+    const retirementIncomeIds = v2Profile?.income.status === "KNOWN"
+      ? v2Profile.income.entries.filter((i) => i.source === "PENSION").map((i) => i.id)
+      : [];
+
+    return {
+      expectedProfileRevision: revision,
+      policyVersionId: policyDetail.id,
+      answers,
+      liquidityNeedMonths: 6,
+      endMonth: defaultEndMonth,
+      monthlyExpenseToday,
+      monthlyContribution,
+      monthlyReserve: "0",
+      terminalBalance: "0",
+      retirementIncomeIds,
+      retirementAdditionalExpenseIds: [],
+      debtStress: [],
+      housing,
+      scenario,
+      whatIf: retirementMonth ? { retirementMonth } : undefined,
+    };
+  }, [policyDetail, profile, v2Profile, profileRevision, defaultEndMonth, scenario, currentVersion]);
+
+  // Trigger calculation when payload is ready
+  useEffect(() => {
+    if (previewPayload) {
+      runPreview(previewPayload);
+    }
+  }, [previewPayload]);
+
+  const handleSaveVersion = async () => {
+    if (!previewData || !lastInputHash || !previewPayload) {
+      notify.error(
+        language === "en" ? "Cannot Save" : "Chưa thể lưu",
+        language === "en" ? "Need to complete forecast preview before saving version." : "Cần hoàn tất xem trước trước khi lưu phiên bản."
+      );
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const saved = await savePlanVersion(previewPayload, lastInputHash);
+      if (saved) {
+        notify.success(
+          language === "en" ? "New Version Saved" : "Đã lưu phiên bản mới",
+          language === "en" ? `Version v${saved.version} was saved successfully to history.` : `Phiên bản v${saved.version} đã được lưu thành công vào lịch sử.`
+        );
+      }
+    } catch (e) {
+      notify.error(
+        language === "en" ? "Save Version Error" : "Lỗi lưu phiên bản",
+        e instanceof Error ? e.message : (language === "en" ? "Could not save version." : "Không thể lưu phiên bản.")
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleApplyCurrent = async () => {
+    const revision = profileRevision > 0 ? profileRevision : 1;
+
+    if (!activePlan || !activePlan.currentVersionId) {
+      // If saving first time, save then apply with fresh plan metadata
+      if (previewData && lastInputHash && previewPayload) {
+        setIsApplying(true);
+        try {
+          const saved = await savePlanVersion(previewPayload, lastInputHash);
+          if (saved) {
+            const applied = await applyVersion(saved.id, revision, saved.planId, saved.planRevision);
+            if (applied === false) {
+              notify.error(
+                language === "en" ? "Apply Plan Error" : "Lỗi áp dụng kế hoạch",
+                language === "en" ? "Server rejected plan application." : "Máy chủ từ chối áp dụng phiên bản kế hoạch."
+              );
+              return;
+            }
+            notify.success(
+              language === "en" ? "Plan Applied" : "Đã áp dụng kế hoạch",
+              language === "en" ? `Version v${saved.version} has become your official plan.` : `Phiên bản v${saved.version} đã trở thành kế hoạch chính thức.`
+            );
+            setShowApplyConfirm(false);
+          }
+        } catch (e) {
+          notify.error(
+            language === "en" ? "Apply Plan Error" : "Lỗi áp dụng kế hoạch",
+            e instanceof Error ? e.message : (language === "en" ? "Could not apply plan." : "Không thể áp dụng kế hoạch.")
+          );
+        } finally {
+          setIsApplying(false);
+        }
+      }
+      return;
+    }
+
+    setIsApplying(true);
+    try {
+      const applied = await applyVersion(activePlan.currentVersionId, revision, activePlan.id, activePlan.revision);
+      if (applied === false) {
+        notify.error(
+          language === "en" ? "Apply Plan Error" : "Lỗi áp dụng kế hoạch",
+          language === "en" ? "Could not apply plan." : "Không thể áp dụng kế hoạch."
+        );
+        return;
+      }
+      notify.success(
+        language === "en" ? "Plan Applied" : "Đã áp dụng kế hoạch",
+        language === "en" ? "Official plan applied successfully." : "Kế hoạch đã được áp dụng thành công."
+      );
+      setShowApplyConfirm(false);
+    } catch (e) {
+      notify.error(
+        language === "en" ? "Apply Plan Error" : "Lỗi áp dụng kế hoạch",
+        e instanceof Error ? e.message : (language === "en" ? "Could not apply plan." : "Không thể áp dụng kế hoạch.")
+      );
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  const calculation = previewData?.calculation || currentVersion?.preview.calculation;
+  const summary = calculation?.summary;
+
+  const isAppliedPlan = Boolean(activePlan?.currentVersionId && previewData && currentVersion?.snapshotHash === previewData.references?.profileHash);
 
   return (
     <>
       <div className="retirement-page-header">
-        <div>
-          <div className="plan-update-state">
-            <Icon name="circle-check" />
-            <span>Kế hoạch được cập nhật tự động theo mục tiêu mới nhất</span>
+        <div className="retirement-header-main">
+          <div className="header-status-badge is-synced">
+            <Icon name="chart" size="small" />
+            <span>
+              {activePlan?.current
+                ? (language === "en" ? `Official Plan v${activePlan.current.version} (Active)` : `Kế hoạch chính thức v${activePlan.current.version} (Đang áp dụng)`)
+                : (language === "en" ? "Forecast Preview (Unapplied)" : "Bản dự phóng xem trước (Chưa áp dụng chính thức)")}
+            </span>
           </div>
-          <h1>Kế hoạch hưu trí chi tiết</h1>
-          <p>
-            Đây là bản kế hoạch tài chính toàn diện giúp bạn biết rõ số tiền cần có, tiến độ hiện tại và hành động cụ thể mỗi tháng.
-          </p>
+          <h1>{t("plan.page_title")}</h1>
+          <p>{t("plan.page_subtitle")}</p>
         </div>
 
-        <div className="retirement-view-switcher">
-          <Link to="/user/goal"><button type="button">Mục tiêu</button></Link>
-          <button type="button" className="is-active">Kế hoạch</button>
+        <div className="header-quick-stats">
+          <div className="header-quick-stat-item">
+            <span className="stat-label">{language === "en" ? "Retirement Date" : "Thời điểm nghỉ hưu"}</span>
+            <span className="stat-value">
+              {summary?.retirementMonth ||
+                (v2Profile?.personal.desiredRetirementMonth?.status === "KNOWN"
+                  ? v2Profile.personal.desiredRetirementMonth.value
+                  : (language === "en" ? "Undetermined" : "Chưa xác định"))}
+            </span>
+          </div>
+          <div className="header-quick-stat-item">
+            <span className="stat-label">{language === "en" ? "Funding Status" : "Tình trạng quỹ"}</span>
+            <span className={`stat-value ${summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "is-warning" : "is-safe"}`}>
+              {summary && parseFloat(summary.retirementFundingShortfall) > 0
+                ? (language === "en" ? "Additional Capital Needed" : "Cần bổ sung vốn")
+                : (language === "en" ? "Target Securely Met" : "Đạt mục tiêu vững vàng")}
+            </span>
+          </div>
         </div>
       </div>
+
+      {/* Warnings & Issues notification banners */}
+      {previewStatus === "incomplete" && previewIssues.length > 0 && (
+        <div style={{ marginBottom: "20px" }}>
+          <Alert tone="warning" title={language === "en" ? "Incomplete Financial Data" : "Dữ liệu chưa hoàn tất"}>
+            <ul style={{ margin: "6px 0 0", paddingLeft: "20px", fontSize: "13px" }}>
+              {previewIssues.map((iss, idx) => (
+                <li key={idx}>{translateIssueCode(iss.code)}</li>
+              ))}
+            </ul>
+            <div style={{ marginTop: "10px" }}>
+              <Link to="/user/account" className="button button-secondary button-small">
+                {language === "en" ? "Complete Financial Profile" : "Bổ sung hồ sơ tài chính"} <Icon name="arrow-right" size="small" />
+              </Link>
+            </div>
+          </Alert>
+        </div>
+      )}
+
+      {previewWarnings.length > 0 && (
+        <div style={{ marginBottom: "20px" }}>
+          {previewWarnings.map((warn, idx) => (
+            <Alert key={idx} tone="info" title={language === "en" ? "Business Notice" : "Lưu ý nghiệp vụ"}>
+              {translateWarningCode(warn.code)}
+            </Alert>
+          ))}
+        </div>
+      )}
+
+      {activePlan?.stale && (
+        <div style={{ marginBottom: "20px" }}>
+          <Alert tone="warning" title={language === "en" ? "Profile or assumptions updated" : "Hồ sơ hoặc giả định đã có cập nhật mới"}>
+            {language === "en"
+              ? "Your financial profile or portfolio policy recently changed. We recommend re-running projection and saving a new version."
+              : "Hồ sơ tài chính của bạn hoặc chính sách danh mục vừa có cập nhật mới. Bạn nên chạy lại dự phóng và lưu phiên bản mới."}
+          </Alert>
+        </div>
+      )}
 
       {/* Primary Result Hero */}
       <motion.div
@@ -61,53 +329,150 @@ export default function RetirementPlanPage() {
         transition={{ duration: 0.35, ease: "easeOut" }}
       >
         <div className="plan-result-copy">
-          <Badge tone="soft">KẾT QUẢ ĐẦU RA CỐT LÕI</Badge>
-          <span className="result-kicker">TỔNG QUỸ HƯU TRÍ CẦN CHUẨN BỊ ĐẾN TUỔI {derived.targetAge}</span>
-          <strong className="result-total">{formatVND(derived.targetFund)}</strong>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginBottom: "8px" }}>
+            <Badge tone="soft">{language === "en" ? "MONTHLY PROJECTION" : "DỰ PHÓNG THEO THÁNG"}</Badge>
+            <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
+              {language === "en"
+                ? `Scenario: ${scenario === "BASE" ? "Baseline" : scenario === "ADVERSE" ? "Adverse" : "Favorable"}`
+                : `Kịch bản: ${scenario === "BASE" ? "Cơ sở" : scenario === "ADVERSE" ? "Bất lợi" : "Thuận lợi"}`}
+            </span>
+          </div>
+
+          <span className="result-kicker">
+            {language === "en"
+              ? `TOTAL RETIREMENT FUND NEEDED AT RETIREMENT MONTH (${summary?.retirementMonth || "..."})`
+              : `TỔNG QUỸ HƯU TRÍ CẦN CÓ TẠI THÁNG NGHỈ HƯU (${summary?.retirementMonth || "..."})`}
+          </span>
+          <strong className="result-total">
+            {summary?.atRetirement?.requiredFund ? formatVNDCurrency(summary.atRetirement.requiredFund) : (language === "en" ? "Calculating..." : "Đang tính toán...")}
+          </strong>
+
           <p>
-            Đảm bảo bạn có dòng tiền <strong>{formatVND(derived.futureMonthlyWithdraw)}/tháng</strong> (đã điều chỉnh trượt giá lạm phát) để an tâm sống độc lập suốt {derived.retirementDuration} năm hưu trí từ {derived.targetAge} đến {profile.goal.lifeExpectancy} tuổi.
+            {language === "en" ? (
+              <>
+                Ensures you have living cash flow <strong>{summary ? formatVNDCurrency(summary.futureMonthlyExpense) : "..."} / month</strong> (inflation adjusted) across {summary?.retirementMonths || 0} retirement months until end of {summary?.endMonth || "..."}.
+              </>
+            ) : (
+              <>
+                Đảm bảo bạn có dòng tiền sinh hoạt <strong>{summary ? formatVNDCurrency(summary.futureMonthlyExpense) : "..."} / tháng</strong> (đã điều chỉnh trượt giá lạm phát) suốt {summary?.retirementMonths || 0} tháng hưu trí đến hết tháng {summary?.endMonth || "..."}.
+              </>
+            )}
           </p>
 
-          <div className="plan-hero-actions">
-            <Link to="/user/goal" className="button button-primary button-medium">
-              <Icon name="target" /> Điều chỉnh mục tiêu
-            </Link>
-            <Link to="/user/simulation" className="button button-ghost button-medium">
-              <Icon name="chart" /> Thử kịch bản bù đắp thiếu hụt
-            </Link>
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "16px" }}>
+            <div style={{ padding: "8px 12px", background: "rgba(255,255,255,0.06)", borderRadius: "6px", fontSize: "12px" }}>
+              <span style={{ color: "var(--color-text-muted)", display: "block" }}>{language === "en" ? "Initial fund capital (liquid):" : "Vốn quỹ ban đầu (thanh khoản):"}</span>
+              <strong>{summary ? formatVNDCurrency(summary.initialRetirementCapital) : "0 ₫"}</strong>
+            </div>
+            <div style={{ padding: "8px 12px", background: "rgba(255,255,255,0.06)", borderRadius: "6px", fontSize: "12px" }}>
+              <span style={{ color: "var(--color-text-muted)", display: "block" }}>{language === "en" ? "Overall net worth:" : "Tài sản ròng tổng thể (net worth):"}</span>
+              <strong>{calculation ? formatVNDCurrency(calculation.netWorth) : "0 ₫"}</strong>
+            </div>
+            <div style={{ padding: "8px 12px", background: "rgba(255,255,255,0.06)", borderRadius: "6px", fontSize: "12px" }}>
+              <span style={{ color: "var(--color-text-muted)", display: "block" }}>{language === "en" ? "Projected accumulated fund (A):" : "Quỹ dự kiến tích lũy (A):"}</span>
+              <strong style={{ color: "var(--color-mist-300)" }}>{summary ? formatVNDCurrency(summary.atRetirement.projectedFund) : "0 ₫"}</strong>
+            </div>
+          </div>
+
+          <div className="plan-hero-actions" style={{ marginTop: "20px" }}>
+            <Button
+              variant="secondary"
+              size="medium"
+              disabled={isSaving || previewStatus !== "ready"}
+              onClick={handleSaveVersion}
+            >
+              <Icon name="check" /> {isSaving ? (language === "en" ? "Saving..." : "Đang lưu…") : (language === "en" ? "Save this version" : "Lưu phiên bản này")}
+            </Button>
+
+            <Button
+              variant="primary"
+              size="medium"
+              disabled={isApplying || previewStatus !== "ready"}
+              onClick={() => setShowApplyConfirm(true)}
+            >
+              <Icon name="target" /> {language === "en" ? "Apply to official plan" : "Áp dụng vào kế hoạch chính thức"}
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="medium"
+              onClick={() => setIsVersionDrawerOpen(true)}
+            >
+              <Icon name="file-text" /> {language === "en" ? `View history (${planVersions.length} versions)` : `Xem lịch sử (${planVersions.length} bản)`}
+            </Button>
           </div>
         </div>
 
-        <div className="plan-progress-panel">
+        <div className={`plan-progress-panel ${summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "is-warning" : "is-safe"}`}>
+          <div className="ring-ambient-glow" />
+
+          {/* Readiness Score Progress Ring */}
           <div className="plan-progress-ring">
-            <svg viewBox="0 0 180 180">
-              <circle cx="90" cy="90" r="76" className="ring-track" />
+            <svg viewBox="0 0 220 220" className="progress-ring-svg">
+              <circle cx="110" cy="110" r="86" className="ring-base-track" />
               <circle
-                cx="90"
-                cy="90"
-                r="76"
-                className="ring-value"
-                style={{ strokeDashoffset: `${477.5 * (1 - derived.progressPercent / 100)}` }}
+                cx="110"
+                cy="110"
+                r="86"
+                className="ring-main-arc"
+                stroke={summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "var(--color-accent-400)" : "var(--color-secondary-500)"}
+                strokeDasharray="540.35 540.35"
+                style={{
+                  strokeDashoffset: `${
+                    540.35 *
+                    (1 -
+                      Math.min(
+                        100,
+                        Math.max(
+                          0,
+                          summary && summary.atRetirement.coveragePercent
+                            ? parseFloat(summary.atRetirement.coveragePercent)
+                            : 0
+                        )
+                      ) /
+                        100)
+                  }`,
+                }}
               />
             </svg>
-            <div>
-              <strong>{derived.progressPercent}%</strong>
-              <span>MỨC ĐỘ SẴN SÀNG</span>
+
+            <div className="ring-center-content">
+              <div className="ring-number-row">
+                <span className="ring-number">
+                  {summary && summary.atRetirement.coveragePercent
+                    ? Math.round(parseFloat(summary.atRetirement.coveragePercent))
+                    : "0"}
+                </span>
+                <span className="ring-unit">%</span>
+              </div>
+              <div className="ring-status-pill">
+                <Icon name={summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "alert" : "sparkles"} size="small" />
+                <span>{language === "en" ? "COVERAGE RATE" : "MỨC ĐỘ BAO PHỦ"}</span>
+              </div>
             </div>
           </div>
-          <div className="plan-progress-copy">
-            <span>
-              <strong>
-                {derived.gap > 0
-                  ? `Còn thiếu ${formatVND(derived.gap)} để chạm đích an toàn`
-                  : `Vượt mục tiêu ${formatVND(Math.abs(derived.gap))} — kế hoạch rất vững vàng`}
+
+          <div className="plan-status-card">
+            <div className="status-card-header">
+              <span className="status-badge-indicator">
+                <span className="status-pulse-dot" />
+                {summary && parseFloat(summary.retirementFundingShortfall) > 0
+                  ? (language === "en" ? "Funding Shortfall" : "Còn thiếu hụt")
+                  : (language === "en" ? "Goal Exceeded" : "Vượt mục tiêu")}
+              </span>
+              <strong className="status-card-amount">
+                {summary && parseFloat(summary.retirementFundingShortfall) > 0
+                  ? `-${formatVNDCurrency(summary.retirementFundingShortfall)}`
+                  : `+${formatVNDCurrency(summary?.excessAtRetirement || "0")}`}
               </strong>
-              <small>
-                {derived.gap > 0
-                  ? `Cần bổ sung trong ${derived.yearsLeft} năm tới thông qua tích lũy tăng thêm`
-                  : `Bạn có thể cân nhắc giảm đóng góp hoặc nghỉ sớm hơn`}
-              </small>
-            </span>
+            </div>
+            <p className="status-card-desc">
+              {summary && parseFloat(summary.retirementFundingShortfall) > 0
+                ? summary.firstShortfallMonth
+                  ? (language === "en" ? `First cash shortfall month: ${summary.firstShortfallMonth}. Additional contribution required.` : `Tháng đầu tiên thiếu hụt dòng tiền: ${summary.firstShortfallMonth}. Cần bổ sung đóng góp.`)
+                  : (language === "en" ? "Increase contributions or adjust retirement spending." : "Cần tăng cường đóng góp hoặc điều chỉnh mức chi tiêu.")
+                : (language === "en" ? "Plan is resilient. You have a comfortable financial cushion." : "Kế hoạch rất vững vàng. Bạn có vùng đệm an toàn tài chính thoải mái.")}
+            </p>
           </div>
         </div>
       </motion.div>
@@ -121,201 +486,183 @@ export default function RetirementPlanPage() {
       >
         <Card className="plan-metric-card">
           <div>
-            <span>Số tiền dự kiến có</span>
+            <span>{language === "en" ? "Projected Accumulated Fund" : "Quỹ dự kiến tích lũy"}</span>
             <Icon name="wallet" />
           </div>
-          <strong>{formatVND(derived.projectedFund)}</strong>
-          <small>Từ tài sản tài chính thanh khoản và đóng góp; không tính nhà ở là tiền chi tiêu</small>
+          <strong>{summary ? formatVNDCurrency(summary.atRetirement.projectedFund) : "0 ₫"}</strong>
+          <small>{language === "en" ? "Includes initial liquid capital and invested future contributions" : "Gồm vốn ban đầu thanh khoản và các khoản đóng góp tương lai đã sinh lời"}</small>
         </Card>
 
         <Card className="plan-metric-card tone-warning">
           <div>
-            <span>Khoảng thiếu hụt</span>
+            <span>{language === "en" ? "Capital Funding Gap" : "Khoảng thiếu hụt vốn"}</span>
             <Icon name="alert" />
           </div>
-          <strong style={{ color: derived.gap > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
-            {derived.gap > 0 ? formatVND(derived.gap) : "Đã đạt mục tiêu"}
+          <strong style={{ color: summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
+            {summary && parseFloat(summary.retirementFundingShortfall) > 0
+              ? formatVNDCurrency(summary.retirementFundingShortfall)
+              : (language === "en" ? "Fully Met" : "Đã đạt trọn vẹn")}
           </strong>
           <small>
-            {derived.gap > 0
-              ? `Cần bù đắp trong ${derived.yearsLeft} năm tới thông qua tích lũy tăng thêm`
-              : "Bạn đang tích lũy vượt mục tiêu — có thể tối ưu hoặc nghỉ sớm"}
+            {summary && parseFloat(summary.retirementFundingShortfall) > 0
+              ? (language === "en" ? `Need extra ${formatVNDCurrency(summary.additionalMonthlyContribution || "0")} per month` : `Cần bổ sung tăng đều ${formatVNDCurrency(summary.additionalMonthlyContribution || "0")} mỗi tháng`)
+              : (language === "en" ? "Steadily accumulating above target threshold" : "Bạn đang tích lũy vững vàng vượt mốc mục tiêu")}
           </small>
         </Card>
 
         <Card className="plan-metric-card">
           <div>
-            <span>Số tiền cần tích lũy/tháng</span>
+            <span>{language === "en" ? "Required Contribution / Month" : "Mức góp cần thiết / tháng"}</span>
             <Icon name="target" />
           </div>
-          <strong>{formatVND(profile.plan.monthlySavings)}</strong>
-          <small>Đều đặn mỗi tháng với lợi suất kỳ vọng {profile.goal.investmentReturn}%/năm</small>
+          <strong>
+            {summary?.requiredConstantMonthlyContribution
+              ? formatVNDCurrency(summary.requiredConstantMonthlyContribution)
+              : (language === "en" ? "No addition needed" : "Không cần thêm")}
+          </strong>
+          <small>
+            {language === "en"
+              ? "Overall steady contribution required to guarantee full coverage without shortfall"
+              : "Mức đóng góp đều đặn tổng thể cần có để đảm bảo an toàn tuyệt đối không thiếu hụt"}
+          </small>
         </Card>
 
         <Card className="plan-metric-card">
           <div>
-            <span>Thời gian còn lại</span>
+            <span>{language === "en" ? "Accumulation Duration" : "Thời gian tích lũy"}</span>
             <Icon name="compass" />
           </div>
-          <strong>{derived.yearsLeft} năm</strong>
-          <small>Thời điểm chạm mốc tuổi {derived.targetAge}: Năm {derived.targetRetireYear}</small>
+          <strong>{summary?.accumulationMonths || 0} {language === "en" ? "months" : "tháng"}</strong>
+          <small>{language === "en" ? "Until retirement start month:" : "Đến tháng bắt đầu nghỉ hưu:"} {summary?.retirementMonth || "..."}</small>
         </Card>
       </motion.div>
 
-      {/* Projected Fund Growth Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.14, ease: "easeOut" }}
-      >
-        <Card className="fund-growth-card">
-          <header>
-            <div>
-              <h2>Lộ trình tăng trưởng tài sản dự phóng theo thời gian</h2>
-              <p>Mô phỏng sức mạnh lãi suất kép và dòng tiền tích lũy tích tụ qua các thập kỷ.</p>
-            </div>
-            <div className="chart-period">
-              <button
-                type="button"
-                className={chartView === "milestone" ? "is-active" : ""}
-                onClick={() => setChartView("milestone")}
-              >
-                Theo mốc tuổi
-              </button>
-              <button
-                type="button"
-                className={chartView === "annual" ? "is-active" : ""}
-                onClick={() => setChartView("annual")}
-              >
-                Từng năm chi tiết
-              </button>
-            </div>
-          </header>
-
-          <div className="fund-chart" tabIndex={0} role="region" aria-label="Biểu đồ tăng trưởng quỹ">
-            <FundGrowthChart view={chartView} profile={profile} />
-          </div>
-
-          <footer>
-            <div>
-              <span><i className="fund-legend-target" /> Mục tiêu kỳ vọng: {formatVND(derived.targetFund)}</span>
-              <span><i className="fund-legend-current" /> Dự phóng tích lũy hiện thời: {formatVND(derived.projectedFund)}</span>
-            </div>
-            <p>
-              <Icon name="info" size="small" /> Sau tuổi {derived.targetAge}, quỹ chuyển từ giai đoạn tích lũy sang giai đoạn rút tiền hàng tháng trong {derived.retirementDuration} năm.
-            </p>
-          </footer>
+      {/* Monthly Retirement Cashflow Chart */}
+      {calculation && summary && (
+        <Card style={{ marginTop: "24px", padding: "24px", borderRadius: "12px" }}>
+          <MonthlyRetirementChart rows={calculation.rows} summary={summary} />
         </Card>
-      </motion.div>
+      )}
 
-      {/* Details Grid: "What It Means" AI explanation + Breakdown */}
-      <motion.div
-        className="plan-details-grid"
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.2, ease: "easeOut" }}
-      >
-        {/* "What it means" Card */}
-        <Card className="what-it-means-card">
-          <span className="meaning-icon">
-            <Icon name="sparkles" size="large" />
-          </span>
-
-          <div className="meaning-copy">
-            <Badge tone="soft">GIẢI THÍCH TỪ CHUYÊN GIA AI</Badge>
-            <h2>Điều này có ý nghĩa gì đối với bạn?</h2>
-            {derived.gap > 0 ? (
-              <>
-                <p>
-                  Khoảng thiếu hụt <strong>{formatVND(derived.gap)}</strong> không phải lý do để lo lắng, mà là chiếc kim chỉ nam rõ ràng cho hành động ngay lúc này.
-                </p>
-                <p>
-                  Với <strong>{derived.yearsLeft} năm</strong> tích lũy phía trước, nhờ sức mạnh của lãi kép, bạn cần tiết kiệm thêm khoảng <strong>{formatVND(Math.round(derived.gap / Math.max(1, derived.yearsLeft * 12)))} mỗi tháng</strong> hoặc cải thiện tỷ suất sinh lời của danh mục để lấp đầy khoảng thiếu này.
-                </p>
-              </>
-            ) : (
-              <>
-                <p>
-                  Kế hoạch hiện tại <strong>vượt mục tiêu {formatVND(Math.abs(derived.gap))}</strong>. Đây là vùng đệm an toàn giúp bạn linh hoạt điều chỉnh mục tiêu.
-                </p>
-                <p>
-                  Bạn có thể cân nhắc tăng mức chi tiêu khi nghỉ hưu, nghỉ sớm hơn vài năm, hoặc phân bổ thêm cho các mục tiêu tài chính khác.
-                </p>
-              </>
-            )}
-
-            <div className="meaning-assumptions">
-              <Icon name="info" size="small" />
-              <span>
-                Tính toán dựa trên giả định lạm phát dài hạn {profile.goal.inflationRate}%/năm và mức sinh lời danh mục {profile.goal.investmentReturn}%/năm.
-              </span>
-            </div>
-          </div>
-
-          <div className="meaning-actions">
-            <Link to="/user/simulation" className="button button-primary button-medium">
-              Thử nghiệm kịch bản bù đắp <Icon name="arrow-right" />
-            </Link>
-            <Link to="/user/assistant" className="button button-ghost button-medium">
-              Hỏi đáp chi tiết cùng AI
-            </Link>
-          </div>
+      {/* Monthly Cashflow Table & CSV Export */}
+      {calculation && summary && (
+        <Card style={{ marginTop: "24px", padding: "24px", borderRadius: "12px" }}>
+          <MonthlyCashflowTable
+            rows={calculation.rows}
+            summary={summary}
+            previewData={previewData}
+            isApplied={isAppliedPlan}
+            planId={activePlan?.id}
+            versionId={activePlan?.currentVersionId ?? currentVersion?.id}
+          />
         </Card>
+      )}
 
-        {/* Plan Breakdown Card */}
-        <Card className="plan-breakdown-card">
-          <header>
-            <div>
-              <h2>Cơ cấu nguồn tài sản hưu trí</h2>
-              <p>Phân bổ 3 trụ cột vững chắc hình thành nên quỹ</p>
-            </div>
-            <Badge tone="soft">3 TRỤ CỘT</Badge>
-          </header>
+      {/* Plan Version Drawer */}
+      <PlanVersionDrawer
+        isOpen={isVersionDrawerOpen}
+        onClose={() => setIsVersionDrawerOpen(false)}
+        plan={activePlan}
+        versions={planVersions}
+        onApplyVersion={async (vId) => {
+          setIsApplying(true);
+          try {
+            const revision = profileRevision > 0 ? profileRevision : 1;
+            const applied = await applyVersion(vId, revision, activePlan?.id, activePlan?.revision);
+            if (applied === false) {
+              notify.error(
+                language === "en" ? "Apply Error" : "Lỗi áp dụng phiên bản",
+                language === "en" ? "Server rejected plan application." : "Máy chủ từ chối áp dụng phiên bản này."
+              );
+              return;
+            }
+            notify.success(
+              language === "en" ? "Version Applied" : "Áp dụng phiên bản thành công",
+              language === "en" ? "Version has become your official plan." : "Phiên bản đã được chuyển thành kế hoạch chính thức."
+            );
+            setIsVersionDrawerOpen(false);
+          } catch (e) {
+            notify.error(
+              language === "en" ? "Apply Error" : "Lỗi áp dụng phiên bản",
+              e instanceof Error ? e.message : (language === "en" ? "Could not apply version." : "Không thể áp dụng.")
+            );
+          } finally {
+            setIsApplying(false);
+          }
+        }}
+        onReplayVersion={(vId) => replayVersion(vId)}
+        isApplying={isApplying}
+      />
 
-          <div className="breakdown-list">
-            <div>
-              <span><Icon name="file-text" /></span>
-              <div>
-                <strong>Lương hưu Bảo hiểm Xã hội (BHXH)</strong>
-                <small>Dự kiến {Math.min(35, profile.socialSecurity.socialInsuranceYears + derived.yearsLeft)} năm đóng, hệ số ước tính</small>
-              </div>
-              <b>{formatVND(Math.round(profile.socialSecurity.socialInsuranceSalary * 12 * 0.75 * Math.min(35, profile.socialSecurity.socialInsuranceYears + derived.yearsLeft)))}</b>
-            </div>
-
-            <div>
-              <span><Icon name="chart" /></span>
-              <div>
-                <strong>Danh mục đầu tư & Tích lũy tự nguyện</strong>
-                <small>Quỹ mở, chứng chỉ tiền gửi & cổ tức</small>
-              </div>
-              <b>{formatVND(profile.assets.stockFundValue + profile.assets.liquidAssets)}</b>
-            </div>
-
-            <div>
-              <span><Icon name="home" /></span>
-              <div>
-                <strong>Tài sản bất động sản (giá trị ước tính)</strong>
-                <small>BĐS nhà ở — chưa tính là quỹ chi tiêu hưu trí</small>
-              </div>
-              <b>{formatVND(profile.assets.realEstateValue)}</b>
-            </div>
-          </div>
-        </Card>
-      </motion.div>
-
-      {/* Plan Disclaimer & Export Action */}
-      <div className="plan-disclaimer">
-        <Icon name="info" />
-        <span>
-          Bản kế hoạch dùng chung bộ công thức với trang Mục tiêu & Mô phỏng, luôn tự động cập nhật khi bạn điều chỉnh hồ sơ.
-        </span>
-        <button
-          type="button"
-          onClick={() => window.print()}
+      {/* Apply Confirmation Modal */}
+      {showApplyConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.75)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
         >
-          <Icon name="download" size="small" /> In hoặc lưu báo cáo PDF
-        </button>
-      </div>
+          <div
+            style={{
+              background: "var(--color-surface)",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "480px",
+              width: "100%",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+              border: "1px solid var(--color-border-subtle)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 12px", fontSize: "18px", color: "var(--color-text-main)" }}>
+              {language === "en" ? "Confirm Retirement Plan Application" : "Xác nhận áp dụng kế hoạch hưu trí"}
+            </h3>
+            <p style={{ margin: "0 0 16px", fontSize: "14px", color: "var(--color-text-muted)", lineHeight: 1.6 }}>
+              {language === "en"
+                ? "This version will become your account's official plan. All tracking and dashboard metrics will benchmark against this plan."
+                : "Kế hoạch này sẽ trở thành kế hoạch chính thức của tài khoản bạn. Mọi bảng theo dõi tiến độ và tóm tắt trên Dashboard sẽ đối chiếu theo phiên bản này."}
+            </p>
+
+            <div style={{ background: "var(--color-surface-subtle)", padding: "12px", borderRadius: "8px", fontSize: "13px", marginBottom: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                <span style={{ color: "var(--color-text-muted)" }}>{language === "en" ? "Retirement Month:" : "Tháng nghỉ hưu:"}</span>
+                <strong>{summary?.retirementMonth}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                <span style={{ color: "var(--color-text-muted)" }}>{language === "en" ? "Required Fund at Retirement (K):" : "Quỹ cần tại tuổi hưu (K):"}</span>
+                <strong>{summary?.atRetirement?.requiredFund ? formatVNDCurrency(summary.atRetirement.requiredFund) : "-"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--color-text-muted)" }}>{language === "en" ? "Goal Coverage Rate:" : "Độ bao phủ mục tiêu:"}</span>
+                <strong style={{ color: "var(--color-success)" }}>{summary?.atRetirement?.coveragePercent ? formatPercentNumber(summary.atRetirement.coveragePercent) : "-"}</strong>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+              <Button
+                variant="ghost"
+                onClick={() => setShowApplyConfirm(false)}
+                disabled={isApplying}
+              >
+                {language === "en" ? "Cancel" : "Hủy bỏ"}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleApplyCurrent}
+                loading={isApplying}
+              >
+                {language === "en" ? "Confirm Apply" : "Xác nhận áp dụng"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

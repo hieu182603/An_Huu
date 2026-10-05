@@ -1,9 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
-import { installRouteAuth } from "./helpers";
+import { installRouteAuth, installFinancialProfileRoutes } from "./helpers";
 
-test.beforeEach(async ({ page }) => installRouteAuth(page));
+test.beforeEach(async ({ page }) => {
+  await installRouteAuth(page);
+  await installFinancialProfileRoutes(page);
+});
 
-const routes = ["/", "/demo", "/login", "/register", "/forgot-password", "/reset-password", "/verify", "/onboarding", "/user/dashboard", "/user/goal", "/user/plan", "/user/simulation", "/user/assistant", "/user/explore", "/user/account", "/admin/dashboard", "/admin/users", "/admin/users/USR-1082", "/admin/consultations", "/admin/content", "/admin/partners", "/admin/ai", "/admin/financial-config", "/admin/support", "/admin/reports", "/admin/settings/general", "/admin/settings/integrations", "/admin/settings/notifications", "/admin/settings/privacy", "/admin/settings/audit-log"];
+const routes = ["/", "/demo", "/login", "/register", "/forgot-password", "/reset-password", "/verify", "/onboarding", "/user/dashboard", "/user/goal", "/user/plan", "/user/simulation", "/user/assistant", "/user/explore", "/user/account", "/admin/dashboard", "/admin/users", "/admin/users/USR-1082", "/admin/content", "/admin/partners", "/admin/ai", "/admin/financial-config", "/admin/support", "/admin/reports", "/admin/settings/general", "/admin/settings/integrations", "/admin/settings/notifications", "/admin/settings/privacy", "/admin/settings/audit-log"];
 
 async function expectReflow(page: Page) {
   const issues = await page.evaluate(() => {
@@ -47,7 +50,7 @@ test("mobile navigation exposes every user module and traps focus", async ({ pag
   await trigger.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('a[href^="/user/"]')).toHaveCount(7);
+  await expect(dialog.locator('a[href^="/user/"]')).toHaveCount(8);
   await expectReflow(page);
   await page.keyboard.press("Shift+Tab");
   await expect(dialog.getByRole("link", { name: "Hồ sơ tài chính" })).toBeFocused();
@@ -154,7 +157,7 @@ for (const width of [320, 768]) {
       }
     }
     if (width === 320) {
-      for (const [route, label] of [["/admin/consultations", "Xử lý yêu cầu"], ["/admin/partners", "Xem chi tiết minh bạch"], ["/admin/financial-config", "Điều chỉnh tham số"]]) {
+      for (const [route, label] of [["/admin/partners", "Xem chi tiết minh bạch"], ["/admin/financial-config", "Điều chỉnh tham số"]]) {
         await page.goto(route);
         await page.getByRole("button", { name: label, exact: true }).first().click();
         await expect(page.getByRole("dialog")).toBeVisible();

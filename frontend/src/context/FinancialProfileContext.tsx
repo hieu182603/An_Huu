@@ -1,4 +1,21 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
+import { authenticatedRequest } from "../services/api";
+import {
+  financialData,
+  profileFromData,
+  profileFromDraft,
+  draftFromProfile,
+  serverStep,
+  clientStep,
+  isProfileV2,
+  profileFromV2,
+  createDefaultProfileV2,
+  type ProfileRecord,
+  type DraftRecord,
+  type ProfileV2,
+  type FinancialData,
+} from "../services/financialProfile";
+import { useAuth } from "./AuthContext";
 import { calculateRetirement, inputFromProfile } from "../domain/retirementCalculator";
 
 // Trạng thái lưu dữ liệu cho UI: idle = chưa có thay đổi; dirty = có thay đổi chưa lưu;
@@ -97,502 +114,333 @@ export interface OnboardingDraftData {
   updatedAt: string;
 }
 
-// Dữ liệu mẫu khởi tạo tách biệt (Default Sample Data)
-export const DEFAULT_SAMPLE_PROFILE: FinancialProfile = {
-  personal: {
-    name: "Nguyễn Minh An",
-    email: "minhan@example.com",
-    phone: "0912 345 678",
-    city: "TP. Hồ Chí Minh",
-    age: 32,
-    gender: "Nam",
-    maritalStatus: "Đã kết hôn",
-    dependents: 1,
-  },
-  income: {
-    primaryIncome: 35000000,
-    secondaryIncome: 8000000,
-  },
-  expenses: {
-    essentialExpense: 18000000,
-    lifestyleExpense: 7000000,
-  },
-  assets: {
-    cashSavings: 450000000,
-    realEstateValue: 2400000000,
-    liquidAssets: 220000000,
-    stockFundValue: 350000000,
-  },
-  debt: {
-    hasDebt: true,
-    mortgageDebt: 850000000,
-    consumerDebt: 0,
-    monthlyDebtService: 9500000,
-  },
-  socialSecurity: {
-    socialInsuranceYears: 9,
-    socialInsuranceSalary: 18000000,
-  },
-  goal: {
-    targetRetireAge: 60,
-    lifeExpectancy: 82,
-    lifestyle: "comfortable",
-    monthlyExpenseInRetirement: 22000000,
-    inflationRate: 4.0,
-    investmentReturn: 7.8,
-  },
-  plan: {
-    targetFund: 8500000000,
-    projectedFund: 6120000000,
-    monthlySavings: 14200000,
-    readinessScore: 72,
-    lastUpdated: "Tháng 09/2026",
-  },
+// Empty input values; no account, income or asset examples are injected.
+export const EMPTY_PROFILE: FinancialProfile = {
+  personal: { name: "", email: "", phone: "", city: "", age: 0, gender: "", maritalStatus: "", dependents: 0 },
+  income: { primaryIncome: 0, secondaryIncome: 0 }, expenses: { essentialExpense: 0, lifestyleExpense: 0 },
+  assets: { cashSavings: 0, realEstateValue: 0, liquidAssets: 0, stockFundValue: 0 },
+  debt: { hasDebt: false, mortgageDebt: 0, consumerDebt: 0, monthlyDebtService: 0 },
+  socialSecurity: { socialInsuranceYears: 0, socialInsuranceSalary: 0 },
+  goal: { targetRetireAge: 60, lifeExpectancy: 85, lifestyle: "standard", monthlyExpenseInRetirement: 0, inflationRate: 0, investmentReturn: 0 },
+  plan: { targetFund: 0, projectedFund: 0, monthlySavings: 0, readinessScore: 0, lastUpdated: "" },
 };
-
-export const DEFAULT_ONBOARDING_DRAFT: OnboardingDraftData = {
-  step: "welcome",
-  age: 32,
-  gender: "Nam",
-  maritalStatus: "Đã kết hôn",
-  dependents: 1,
-  city: "TP. Hồ Chí Minh",
-  primaryIncome: 35000000,
-  secondaryIncome: 8000000,
-  essentialExpense: 18000000,
-  lifestyleExpense: 7000000,
-  cashSavings: 450000000,
-  realEstateValue: 2400000000,
-  liquidAssets: 220000000,
-  hasDebt: true,
-  mortgageDebt: 850000000,
-  consumerDebt: 0,
-  monthlyDebtService: 9500000,
-  stockFundValue: 350000000,
-  socialInsuranceYears: 9,
-  socialInsuranceSalary: 18000000,
-  updatedAt: new Date().toISOString(),
-};
-
-// Storage Keys
-export const STORAGE_KEY_PROFILE = "anhuu_demo_financial_profile";
-export const STORAGE_KEY_ONBOARDING_DRAFT = "anhuu_demo_onboarding_draft";
-
-export const DEMO_STORAGE_DISCLAIMER =
-  "Dữ liệu được lưu trữ trong bộ nhớ trình duyệt cục bộ (Local Demo Storage) phục vụ mục đích thử nghiệm giao diện. Đây chưa phải là hệ thống lưu trữ đám mây mã hóa phân tán trong môi trường sản phẩm thực tế.";
-
-function withCalculatedPlan(profile: FinancialProfile, lastUpdated = profile.plan.lastUpdated): FinancialProfile {
+export const DEFAULT_ONBOARDING_DRAFT = draftFromProfile(EMPTY_PROFILE);
+function withCalculatedPlan(profile: FinancialProfile): FinancialProfile {
   const result = calculateRetirement(inputFromProfile(profile));
+  return { ...profile, plan: { ...profile.plan, targetFund: result.targetFund, projectedFund: result.projectedFund, readinessScore: result.readinessScore } };
+}
+function loadedProfile(base: FinancialProfile, record: ProfileRecord): { profile: FinancialProfile; v2: ProfileV2 | null } {
+  if (record.schemaVersion === 2 || isProfileV2(record.data)) {
+    const v2 = record.data as ProfileV2;
+    const p = profileFromV2(base, v2);
+    const summary = record.summary?.values || record.summary;
+    const surplusStr = summary?.availableMonthlySurplus ?? summary?.monthlyNetCashflow;
+    const monthlySavings = surplusStr !== undefined && surplusStr !== null
+      ? parseFloat(surplusStr)
+      : (p.income.primaryIncome + p.income.secondaryIncome - p.expenses.essentialExpense - p.expenses.lifestyleExpense - p.debt.monthlyDebtService);
+    return {
+      profile: withCalculatedPlan({
+        ...p,
+        goal: { ...p.goal, monthlyExpenseInRetirement: p.expenses.essentialExpense + p.expenses.lifestyleExpense },
+        plan: {
+          ...p.plan,
+          monthlySavings,
+          lastUpdated: record.asOfDate ? new Date(record.asOfDate).toLocaleString("vi-VN") : "Vừa cập nhật",
+        },
+      }),
+      v2,
+    };
+  }
+
+  const p = profileFromData(base, record.data as FinancialData);
+  const monthlySavings = p.income.primaryIncome + p.income.secondaryIncome - p.expenses.essentialExpense - p.expenses.lifestyleExpense - p.debt.monthlyDebtService;
   return {
-    ...profile,
-    plan: {
-      ...profile.plan,
-      targetFund: result.targetFund,
-      projectedFund: result.projectedFund,
-      readinessScore: result.readinessScore,
-      lastUpdated,
-    },
+    profile: withCalculatedPlan({
+      ...p,
+      goal: { ...p.goal, monthlyExpenseInRetirement: p.expenses.essentialExpense + p.expenses.lifestyleExpense },
+      plan: {
+        ...p.plan,
+        monthlySavings,
+        lastUpdated: record.asOfDate ? new Date(record.asOfDate).toLocaleString("vi-VN") : "Vừa cập nhật",
+      },
+    }),
+    v2: null,
   };
 }
 
-interface FinancialProfileContextType {
-  profile: FinancialProfile;
-  saveStatus: SaveStatus;
-  saveError: string | null;
-  lastSavedAt: string | null;
-  onboardingDraft: OnboardingDraftData;
-  draftSaveStatus: SaveStatus;
-  lastDraftSavedAt: string | null;
-  hasUnsavedChanges: boolean;
-  // Snapshot toàn bộ hồ sơ để xuất/nhập hoặc kiểm thử
-  exportSnapshot: () => FinancialProfile;
-  importSnapshot: (snapshot: FinancialProfile) => Promise<boolean>;
-
-  // Hành động lưu và đồng bộ
-  updateProfile: (updates: Partial<FinancialProfile>) => Promise<boolean>;
-  updateProfileLocal: (updates: Partial<FinancialProfile>) => void;
-  updatePersonalInfo: (personal: Partial<PersonalProfile>) => Promise<boolean>;
-  updateGoalInfo: (goal: Partial<RetirementGoalProfile>) => Promise<boolean>;
-  saveOnboardingDraft: (draft: Partial<OnboardingDraftData>) => Promise<boolean>;
-  completeOnboarding: (data: OnboardingDraftData) => Promise<boolean>;
-  applySimulationScenario: (scenario: {
-    retireAge: number;
-    monthlySave: number;
-    expense: number;
-    returnRate: number;
-    targetFund: number;
-    projectedFund: number;
-    score: number;
-  }) => Promise<boolean>;
-  resetToSampleData: () => void;
-  clearUnsavedChanges: () => void;
-}
-
-const FinancialProfileContext = createContext<FinancialProfileContextType | null>(null);
-
-function profileWithCurrentAdminDefaults(): FinancialProfile {
-  try {
-    const assumptions = JSON.parse(localStorage.getItem("anhuu_demo_financial_assumptions") || "[]") as Array<{ code: string; currentValue: number }>;
-    const value = (code: string, fallback: number) => {
-      const found = assumptions.find((item) => item.code === code)?.currentValue;
-      return Number.isFinite(found) ? Number(found) : fallback;
-    };
-    const lifeCode = DEFAULT_SAMPLE_PROFILE.personal.gender === "Nữ" ? "LIFE_EXPECTANCY_FEMALE" : "LIFE_EXPECTANCY_MALE";
-    return {
-      ...DEFAULT_SAMPLE_PROFILE,
-      goal: {
-        ...DEFAULT_SAMPLE_PROFILE.goal,
-        inflationRate: value("MACRO_INFLATION_RATE", DEFAULT_SAMPLE_PROFILE.goal.inflationRate),
-        investmentReturn: value("BALANCED_PORTFOLIO_RETURN", DEFAULT_SAMPLE_PROFILE.goal.investmentReturn),
-        lifeExpectancy: value(lifeCode, DEFAULT_SAMPLE_PROFILE.goal.lifeExpectancy),
-      },
-    };
-  } catch {
-    return DEFAULT_SAMPLE_PROFILE;
+export function calculateProfileCompleteness(v2: ProfileV2 | null, p?: FinancialProfile): number {
+  if (v2) {
+    const checks = [
+      v2.personal.birthMonth.status === "KNOWN",
+      v2.personal.desiredRetirementMonth.status === "KNOWN",
+      Boolean(v2.personal.gender && v2.personal.gender !== "UNDISCLOSED"),
+      v2.personal.pensionStartMonth.status !== "UNKNOWN",
+      v2.income.status !== "UNKNOWN",
+      v2.expenses.status !== "UNKNOWN",
+      v2.assets.status !== "UNKNOWN",
+      v2.debts.status !== "UNKNOWN",
+      Boolean(v2.pension && v2.pension.status !== "UNKNOWN"),
+    ];
+    const completed = checks.filter(Boolean).length;
+    return Math.round((completed / checks.length) * 100);
   }
+  if (p) {
+    const checks = [
+      p.personal.age > 0,
+      Boolean(p.personal.name),
+      p.income.primaryIncome > 0 || p.income.secondaryIncome > 0,
+      p.expenses.essentialExpense > 0 || p.expenses.lifestyleExpense > 0,
+      p.goal.targetRetireAge > 0,
+      p.goal.monthlyExpenseInRetirement > 0,
+    ];
+    const completed = checks.filter(Boolean).length;
+    return Math.round((completed / checks.length) * 100);
+  }
+  return 0;
 }
 
-export function FinancialProfileProvider({ children }: { children: ReactNode }) {
-  // 1. Khởi tạo Profile từ localStorage hoặc dữ liệu mẫu
-  const [profile, setProfile] = useState<FinancialProfile>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY_PROFILE);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return withCalculatedPlan({
-          ...DEFAULT_SAMPLE_PROFILE,
-          ...parsed,
-          personal: { ...DEFAULT_SAMPLE_PROFILE.personal, ...(parsed.personal || {}) },
-          income: { ...DEFAULT_SAMPLE_PROFILE.income, ...(parsed.income || {}) },
-          expenses: { ...DEFAULT_SAMPLE_PROFILE.expenses, ...(parsed.expenses || {}) },
-          assets: { ...DEFAULT_SAMPLE_PROFILE.assets, ...(parsed.assets || {}) },
-          debt: { ...DEFAULT_SAMPLE_PROFILE.debt, ...(parsed.debt || {}) },
-          socialSecurity: { ...DEFAULT_SAMPLE_PROFILE.socialSecurity, ...(parsed.socialSecurity || {}) },
-          goal: { ...DEFAULT_SAMPLE_PROFILE.goal, ...(parsed.goal || {}) },
-          plan: { ...DEFAULT_SAMPLE_PROFILE.plan, ...(parsed.plan || {}) },
-        });
-      }
-    } catch (e) {
-      console.warn("Không thể đọc profile từ localStorage:", e);
-    }
-    return withCalculatedPlan(profileWithCurrentAdminDefaults());
-  });
+const failure = (e: unknown) => e instanceof Error ? e.message : "Không thể kết nối máy chủ. Vui lòng thử lại.";
+const FinancialProfileContext = createContext<ReturnType<typeof useProfileState> | null>(null);
 
-  // 2. Khởi tạo Onboarding Draft từ localStorage
-  const [onboardingDraft, setOnboardingDraft] = useState<OnboardingDraftData>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY_ONBOARDING_DRAFT);
-      if (stored) {
-        return { ...DEFAULT_ONBOARDING_DRAFT, ...JSON.parse(stored) };
-      }
-    } catch (e) {
-      console.warn("Không thể đọc onboarding draft từ localStorage:", e);
-    }
-    return DEFAULT_ONBOARDING_DRAFT;
-  });
-
+function useProfileState() {
+  const { user } = useAuth();
+  const base: FinancialProfile = { ...EMPTY_PROFILE, personal: { ...EMPTY_PROFILE.personal, name: user?.name || "", email: user?.email || "", phone: user?.phone || "", city: user?.city || "" } };
+  const [profile, setProfile] = useState(base);
+  const [v2Profile, setV2Profile] = useState<ProfileV2 | null>(null);
+  const [schemaVersion, setSchemaVersion] = useState<number>(1);
+  const [onboardingDraft, setOnboardingDraft] = useState(() => draftFromProfile(base));
+  const [loading, setLoading] = useState(user?.role === "user");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [hasProfile, setHasProfile] = useState(false);
+  const [reload, setReload] = useState(0);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [draftSaveStatus, setDraftSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-
-  const [draftSaveStatus, setDraftSaveStatus] = useState<SaveStatus>("idle");
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const recordRef = useRef<ProfileRecord | null>(null);
+  const draftRef = useRef<DraftRecord | null>(null);
+  const busy = useRef(false);
+  const pendingCompletion = useRef<{ key: string; body: { expectedDraftRevision: number; expectedProfileRevision: number }; profile: FinancialProfile } | null>(null);
+  const reloadProfile = useCallback(() => setReload(v => v + 1), []);
 
-  // Cờ theo dõi thay đổi chưa lưu cho mỗi thực thể (dùng ref để tránh re-render).
-  const profileDirtyRef = useRef(false);
-
-  // Lắng nghe storage events từ tab khác để đồng bộ (chỉ đọc).
   useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY_PROFILE && event.newValue) {
-        try {
-          const parsed = JSON.parse(event.newValue) as FinancialProfile;
-          setProfile(parsed);
-          profileDirtyRef.current = false;
-          setHasUnsavedChanges(false);
-          setSaveStatus("saved");
-        } catch {}
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+    if (user?.role !== "user") return;
+    let active = true;
+    setLoading(true); setLoadError(null);
+    Promise.all([authenticatedRequest<ProfileRecord | null>("/me/financial-profile"), authenticatedRequest<DraftRecord | null>("/me/onboarding-draft")])
+      .then(([record, draft]) => {
+        if (!active) return;
+        recordRef.current = record; draftRef.current = draft;
+        const { profile: next, v2 } = record ? loadedProfile(base, record) : { profile: base, v2: null };
+        setProfile(next);
+        setV2Profile(v2);
+        setSchemaVersion(record?.schemaVersion ?? (v2 ? 2 : 1));
+        setHasProfile(!!record);
+        setOnboardingDraft(draftFromProfile(draft ? profileFromData(base, draft.data) : next, draft ? clientStep(draft.step) : "welcome", draft?.updatedAt));
+        setLastSavedAt(record?.asOfDate ? new Date(record.asOfDate).toLocaleString("vi-VN") : null);
+        setLastDraftSavedAt(draft ? new Date(draft.updatedAt).toLocaleString("vi-VN") : null);
+        setHasUnsavedChanges(false); setSaveStatus("idle"); setSaveError(null);
+      }).catch(e => { if (active) setLoadError(failure(e)); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [user?.id, user?.role, reload]);
 
-  // Helper lưu Profile bền vững
-  const persistProfile = useCallback(async (newProfile: FinancialProfile): Promise<boolean> => {
-    setSaveStatus("saving");
-    setSaveError(null);
+  useEffect(() => {
+    setProfile(p => ({ ...p, personal: { ...p.personal, name: user?.name || "", email: user?.email || "", phone: user?.phone || "" } }));
+  }, [user?.name, user?.email, user?.phone]);
+
+  const unsupported = async () => {
+    setSaveStatus("error");
+    setSaveError("Lưu mục tiêu và kịch bản hưu trí chưa được hỗ trợ. Bạn vẫn có thể thay đổi tham số để xem mô phỏng.");
+    return false;
+  };
+
+  const persistProfile = async (next: FinancialProfile): Promise<boolean> => {
+    if (busy.current || loading || loadError) return false;
+    if (!recordRef.current) { setSaveError("Hãy hoàn tất khai báo hồ sơ trước khi cập nhật."); setSaveStatus("error"); return false; }
+    busy.current = true; setSaveStatus("saving"); setSaveError(null);
     try {
-      // Mô phỏng độ trễ lưu trữ nhẹ (150ms) để hiển thị phản hồi UI chân thực
-      await new Promise((r) => setTimeout(r, 150));
-      localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(newProfile));
-      setProfile(newProfile);
-      profileDirtyRef.current = false;
-      setHasUnsavedChanges(false);
-      setSaveStatus("saved");
-      setLastSavedAt(new Date().toLocaleTimeString("vi-VN"));
-      setTimeout(() => {
-        setSaveStatus((prev) => (prev === "saved" ? "idle" : prev));
-      }, 3000);
+      const isV2Server = recordRef.current.schemaVersion === 2 || isProfileV2(recordRef.current.data);
+      const changes = isV2Server
+        ? createDefaultProfileV2(next)
+        : financialData(next, recordRef.current.data as FinancialData);
+      const record = await authenticatedRequest<ProfileRecord>("/me/financial-profile", { expectedRevision: recordRef.current.revision, changes }, "PATCH");
+      recordRef.current = record;
+      const { profile: nextProfile, v2 } = loadedProfile(base, record);
+      setProfile(nextProfile);
+      setV2Profile(v2);
+      setSchemaVersion(record.schemaVersion ?? (v2 ? 2 : 1));
+      setHasUnsavedChanges(false); setSaveStatus("saved"); setLastSavedAt(new Date().toLocaleString("vi-VN"));
       return true;
-    } catch (err) {
-      setSaveStatus("error");
-      setSaveError("Lỗi lưu trữ dữ liệu vào trình duyệt.");
-      return false;
-    }
-  }, []);
+    } catch (e) { setSaveStatus("error"); setSaveError(failure(e)); return false; }
+    finally { busy.current = false; }
+  };
 
-  // Cập nhật cục bộ (chưa lưu) - đánh dấu dirty để UI hiển thị "có thay đổi chưa lưu"
-  const updateProfileLocal = useCallback((updates: Partial<FinancialProfile>) => {
-    setProfile((prev) => ({
-      ...prev,
-      ...updates,
-    }));
-    profileDirtyRef.current = true;
-    setHasUnsavedChanges(true);
-    setSaveStatus("dirty");
-  }, []);
-
-  const clearUnsavedChanges = useCallback(() => {
-    profileDirtyRef.current = false;
-    setHasUnsavedChanges(false);
-    setSaveStatus("idle");
-  }, []);
-
-  const exportSnapshot = useCallback((): FinancialProfile => profile, [profile]);
-
-  const importSnapshot = useCallback(async (snapshot: FinancialProfile): Promise<boolean> => {
-    return persistProfile(withCalculatedPlan(snapshot, "Vừa nhập dữ liệu"));
-  }, [persistProfile]);
-
-  // Cập nhật Profile tổng quát
-  const updateProfile = useCallback(
-    async (updates: Partial<FinancialProfile>): Promise<boolean> => {
-      const merged: FinancialProfile = {
-        ...profile,
-        ...updates,
-      };
-      return persistProfile(withCalculatedPlan(merged, "Vừa cập nhật hồ sơ"));
-    },
-    [profile, persistProfile]
-  );
-
-  // Cập nhật thông tin cá nhân (Account / Onboarding)
-  const updatePersonalInfo = useCallback(
-    async (personalUpdates: Partial<PersonalProfile>): Promise<boolean> => {
-      const updatedPersonal: PersonalProfile = {
-        ...profile.personal,
-        ...personalUpdates,
-      };
-      const merged: FinancialProfile = {
-        ...profile,
-        personal: updatedPersonal,
-      };
-      return persistProfile(withCalculatedPlan(merged, "Vừa cập nhật thông tin cá nhân"));
-    },
-    [profile, persistProfile]
-  );
-
-  // Cập nhật thông tin mục tiêu (Goal)
-  const updateGoalInfo = useCallback(
-    async (goalUpdates: Partial<RetirementGoalProfile>): Promise<boolean> => {
-      const updatedGoal: RetirementGoalProfile = {
-        ...profile.goal,
-        ...goalUpdates,
-      };
-      const merged: FinancialProfile = {
-        ...profile,
-        goal: updatedGoal,
-      };
-      return persistProfile(withCalculatedPlan(merged, "Vừa cập nhật mục tiêu"));
-    },
-    [profile, persistProfile]
-  );
-
-  // Lưu nháp Onboarding
-  const saveOnboardingDraft = useCallback(
-    async (draftUpdates: Partial<OnboardingDraftData>): Promise<boolean> => {
-      setDraftSaveStatus("saving");
-      try {
-        await new Promise((r) => setTimeout(r, 120));
-        const updatedDraft: OnboardingDraftData = {
-          ...onboardingDraft,
-          ...draftUpdates,
-          updatedAt: new Date().toISOString(),
-        };
-        localStorage.setItem(STORAGE_KEY_ONBOARDING_DRAFT, JSON.stringify(updatedDraft));
-        setOnboardingDraft(updatedDraft);
-        setDraftSaveStatus("saved");
-        setLastDraftSavedAt(new Date().toLocaleTimeString("vi-VN"));
-        setTimeout(() => {
-          setDraftSaveStatus((prev) => (prev === "saved" ? "idle" : prev));
-        }, 3000);
-        return true;
-      } catch (e) {
-        setDraftSaveStatus("error");
-        return false;
-      }
-    },
-    [onboardingDraft]
-  );
-
-  // Hoàn tất Onboarding -> chuyển dữ liệu nháp vào Profile chính thức
-  const completeOnboarding = useCallback(
-    async (data: OnboardingDraftData): Promise<boolean> => {
-      const newPersonal: PersonalProfile = {
-        ...profile.personal,
-        age: data.age,
-        gender: data.gender,
-        maritalStatus: data.maritalStatus,
-        dependents: data.dependents,
-        city: data.city,
-      };
-
-      const newIncome: IncomeProfile = {
-        primaryIncome: data.primaryIncome,
-        secondaryIncome: data.secondaryIncome,
-      };
-
-      const newExpenses: ExpenseProfile = {
-        essentialExpense: data.essentialExpense,
-        lifestyleExpense: data.lifestyleExpense,
-      };
-
-      const newAssets: AssetProfile = {
-        cashSavings: data.cashSavings,
-        realEstateValue: data.realEstateValue,
-        liquidAssets: data.liquidAssets,
-        stockFundValue: data.stockFundValue,
-      };
-
-      const newDebt: DebtProfile = {
-        hasDebt: data.hasDebt,
-        mortgageDebt: data.mortgageDebt,
-        consumerDebt: data.consumerDebt,
-        monthlyDebtService: data.monthlyDebtService,
-      };
-
-      const newSocialSecurity: SocialSecurityProfile = {
-        socialInsuranceYears: data.socialInsuranceYears,
-        socialInsuranceSalary: data.socialInsuranceSalary,
-      };
-
-      // Tính toán lại mức tích lũy khuyến nghị từ thu nhập - chi phí
-      const monthlySurplus = Math.max(
-        0,
-        data.primaryIncome + data.secondaryIncome - data.essentialExpense - data.lifestyleExpense - (data.hasDebt ? data.monthlyDebtService : 0)
-      );
-
-      const newPlan: OfficialPlanProfile = {
-        ...profile.plan,
-        monthlySavings: monthlySurplus > 0 ? monthlySurplus : profile.plan.monthlySavings,
-        lastUpdated: "Vừa cập nhật sau khảo sát",
-      };
-
-      const completedProfile: FinancialProfile = {
-        ...profile,
-        personal: newPersonal,
-        income: newIncome,
-        expenses: newExpenses,
-        assets: newAssets,
-        debt: newDebt,
-        socialSecurity: newSocialSecurity,
-        plan: newPlan,
-      };
-
-      // Xóa nháp cũ sau khi đã lưu chính thức
-      try {
-        localStorage.removeItem(STORAGE_KEY_ONBOARDING_DRAFT);
-      } catch {}
-
-      return persistProfile(withCalculatedPlan(completedProfile, "Vừa cập nhật sau khảo sát"));
-    },
-    [profile, persistProfile]
-  );
-
-  // Áp dụng kịch bản mô phỏng sang Kế hoạch chính thức
-  const applySimulationScenario = useCallback(
-    async (scenario: {
-      retireAge: number;
-      monthlySave: number;
-      expense: number;
-      returnRate: number;
-      targetFund: number;
-      projectedFund: number;
-      score: number;
-    }): Promise<boolean> => {
-      const updatedGoal: RetirementGoalProfile = {
-        ...profile.goal,
-        targetRetireAge: scenario.retireAge,
-        monthlyExpenseInRetirement: scenario.expense,
-        investmentReturn: scenario.returnRate,
-      };
-
-      const updatedPlan: OfficialPlanProfile = {
-        targetFund: scenario.targetFund,
-        projectedFund: scenario.projectedFund,
-        monthlySavings: scenario.monthlySave,
-        readinessScore: scenario.score,
-        lastUpdated: `Áp dụng từ kịch bản tuổi ${scenario.retireAge}`,
-      };
-
-      const merged: FinancialProfile = {
-        ...profile,
-        goal: updatedGoal,
-        plan: updatedPlan,
-      };
-
-      return persistProfile(withCalculatedPlan(merged, `Áp dụng từ kịch bản tuổi ${scenario.retireAge}`));
-    },
-    [profile, persistProfile]
-  );
-
-  // Khôi phục dữ liệu mẫu ban đầu
-  const resetToSampleData = useCallback(() => {
+  const updateProfileV2 = async (changes: Partial<ProfileV2>): Promise<boolean> => {
+    if (busy.current || loading || loadError) return false;
+    if (!recordRef.current) { setSaveError("Hãy hoàn tất khai báo hồ sơ trước khi cập nhật."); setSaveStatus("error"); return false; }
+    busy.current = true; setSaveStatus("saving"); setSaveError(null);
     try {
-      localStorage.removeItem(STORAGE_KEY_PROFILE);
-      localStorage.removeItem(STORAGE_KEY_ONBOARDING_DRAFT);
-    } catch {}
-    setProfile(withCalculatedPlan(profileWithCurrentAdminDefaults()));
-    setOnboardingDraft(DEFAULT_ONBOARDING_DRAFT);
-    setSaveStatus("idle");
-    setSaveError(null);
-  }, []);
+      const payload = {
+        expectedRevision: recordRef.current.revision,
+        changes: {
+          schemaVersion: 2,
+          ...changes,
+        },
+      };
+      const record = await authenticatedRequest<ProfileRecord>("/me/financial-profile", payload, "PATCH");
+      recordRef.current = record;
+      const { profile: nextProfile, v2 } = loadedProfile(base, record);
+      setProfile(nextProfile);
+      setV2Profile(v2);
+      setSchemaVersion(record.schemaVersion ?? 2);
+      setHasUnsavedChanges(false); setSaveStatus("saved"); setLastSavedAt(new Date().toLocaleString("vi-VN"));
+      return true;
+    } catch (e) { setSaveStatus("error"); setSaveError(failure(e)); return false; }
+    finally { busy.current = false; }
+  };
 
-  return (
-    <FinancialProfileContext.Provider
-      value={{
-        profile,
-        saveStatus,
-        saveError,
-        lastSavedAt,
-        onboardingDraft,
-        draftSaveStatus,
-        lastDraftSavedAt,
-        hasUnsavedChanges,
-        exportSnapshot,
-        importSnapshot,
-        updateProfile,
-        updateProfileLocal,
-        updatePersonalInfo,
-        updateGoalInfo,
-        saveOnboardingDraft,
-        completeOnboarding,
-        applySimulationScenario,
-        resetToSampleData,
-        clearUnsavedChanges,
-      }}
-    >
-      {children}
-    </FinancialProfileContext.Provider>
-  );
+  const upgradeToV2 = async (): Promise<boolean> => {
+    const defaultV2 = createDefaultProfileV2(profile);
+    return updateProfileV2(defaultV2);
+  };
+
+  const updateProfile = async (updates: Partial<FinancialProfile>) => {
+    // These fields have no server contract yet; never report a local-only save as persisted.
+    if (updates.goal || updates.plan) return unsupported();
+    return persistProfile({ ...profile, ...updates });
+  };
+  const writeDraft = async (draft: OnboardingDraftData) => {
+    const source = profileFromDraft(base, draft);
+    const data: DraftRecord["data"] = financialData(source);
+    if (!draft.age) delete data.personal!.age;
+    if (!draft.gender) delete data.personal!.gender;
+    if (!draft.maritalStatus) delete data.personal!.maritalStatus;
+    const result = await authenticatedRequest<DraftRecord>("/me/onboarding-draft", { expectedRevision: draftRef.current?.revision || 0, step: serverStep(draft.step), data }, "PUT");
+    if (result) {
+      draftRef.current = result;
+      if (result.data) {
+        setOnboardingDraft(draftFromProfile(profileFromData(base, result.data), clientStep(result.step), result.updatedAt));
+      }
+      if (result.updatedAt) {
+        setLastDraftSavedAt(new Date(result.updatedAt).toLocaleString("vi-VN"));
+      }
+    }
+    return source;
+  };
+  const saveOnboardingDraft = async (updates: Partial<OnboardingDraftData>) => {
+    if (busy.current || loading || loadError) return false;
+    if (pendingCompletion.current) { setSaveError("Yêu cầu hoàn tất trước chưa rõ kết quả. Nhấn Hoàn tất lần nữa để nhận lại kết quả."); return false; }
+    busy.current = true; setDraftSaveStatus("saving"); setSaveError(null);
+    try { await writeDraft({ ...onboardingDraft, ...updates }); setDraftSaveStatus("saved"); return true; }
+    catch (e) { setDraftSaveStatus("error"); setSaveError(failure(e)); return false; }
+    finally { busy.current = false; }
+  };
+  const completeOnboarding = async (data: OnboardingDraftData) => {
+    if (busy.current || loading || loadError) return false;
+    busy.current = true; setDraftSaveStatus("saving"); setSaveError(null);
+    try {
+      if (!pendingCompletion.current) {
+        const next = await writeDraft(data);
+        pendingCompletion.current = { key: crypto.randomUUID(), body: { expectedDraftRevision: draftRef.current!.revision, expectedProfileRevision: recordRef.current?.revision || 0 }, profile: next };
+      }
+      const pending = pendingCompletion.current;
+      const response = await authenticatedRequest<{ revision: number }>("/me/onboarding/complete", pending.body, "POST", { "Idempotency-Key": pending.key });
+      const record: ProfileRecord = { revision: response.revision, schemaVersion: 1, data: financialData(pending.profile), asOfDate: new Date().toISOString() };
+      recordRef.current = record; draftRef.current = null; pendingCompletion.current = null;
+      const { profile: nextProfile, v2 } = loadedProfile(base, record);
+      setProfile(nextProfile);
+      setV2Profile(v2);
+      setSchemaVersion(record.schemaVersion ?? (v2 ? 2 : 1));
+      setHasProfile(true);
+      setHasUnsavedChanges(false);
+      setDraftSaveStatus("saved");
+      setSaveStatus("saved");
+      setOnboardingDraft(draftFromProfile(pending.profile)); setLastSavedAt(new Date().toLocaleString("vi-VN"));
+      return true;
+    } catch (e) {
+      // Network errors may follow a successful commit: retain the same idempotency key.
+      if (e instanceof Error && "status" in e && Number(e.status) >= 400 && Number(e.status) < 500) pendingCompletion.current = null;
+      setDraftSaveStatus("error"); setSaveError(failure(e)); return false;
+    } finally { busy.current = false; }
+  };
+  const completenessPercentage = useMemo(() => calculateProfileCompleteness(v2Profile, profile), [v2Profile, profile]);
+  return {
+    profile,
+    v2Profile,
+    schemaVersion,
+    completenessPercentage,
+    profileRevision: recordRef.current?.revision ?? 0,
+    onboardingDraft,
+    loading,
+    loadError,
+    hasProfile,
+    reloadProfile,
+    saveStatus,
+    saveError,
+    lastSavedAt,
+    draftSaveStatus,
+    lastDraftSavedAt,
+    hasUnsavedChanges,
+    updateProfile,
+    updateProfileV2,
+    upgradeToV2,
+    saveOnboardingDraft,
+    completeOnboarding,
+    exportSnapshot: () => profile,
+    importSnapshot: (snapshot: FinancialProfile) => persistProfile(snapshot),
+    updatePersonalInfo: (personal: Partial<PersonalProfile>) => persistProfile({ ...profile, personal: { ...profile.personal, ...personal } }),
+    updateGoalInfo: (goal: Partial<RetirementGoalProfile>) => {
+      setProfile(p => withCalculatedPlan({ ...p, goal: { ...p.goal, ...goal } }));
+      setHasUnsavedChanges(true);
+      setSaveStatus("dirty");
+      return true;
+    },
+    applySimulationScenario: async (scenario: { retireAge: number; monthlySave: number; expense: number; returnRate: number; targetFund: number; projectedFund: number; score: number }) => {
+      setProfile(p => ({
+        ...p,
+        goal: {
+          ...p.goal,
+          targetRetireAge: scenario.retireAge,
+          monthlyExpenseInRetirement: scenario.expense,
+          investmentReturn: scenario.returnRate,
+        },
+        plan: {
+          ...p.plan,
+          monthlySavings: scenario.monthlySave,
+          targetFund: scenario.targetFund,
+          projectedFund: scenario.projectedFund,
+          readinessScore: scenario.score,
+        },
+      }));
+      setHasUnsavedChanges(true);
+      setSaveStatus("dirty");
+      return true;
+    },
+    updateProfileLocal: (updates: Partial<FinancialProfile>) => {
+      setProfile(p => withCalculatedPlan({ ...p, ...updates }));
+      setHasUnsavedChanges(true);
+      setSaveStatus("dirty");
+    },
+    clearUnsavedChanges: () => {
+      if (recordRef.current) {
+        const { profile: next, v2 } = loadedProfile(base, recordRef.current);
+        setProfile(next);
+        setV2Profile(v2);
+        setSchemaVersion(recordRef.current.schemaVersion ?? (v2 ? 2 : 1));
+      }
+      setHasUnsavedChanges(false);
+      setSaveStatus("idle");
+    },
+  };
 }
-
+export function FinancialProfileProvider({ children }: { children: ReactNode }) {
+  const value = useProfileState();
+  return <FinancialProfileContext.Provider value={value}>{children}</FinancialProfileContext.Provider>;
+}
 export function useFinancialProfile() {
   const context = useContext(FinancialProfileContext);
-  if (!context) {
-    throw new Error("useFinancialProfile must be used within a FinancialProfileProvider");
-  }
+  if (!context) throw new Error("useFinancialProfile must be used within FinancialProfileProvider");
   return context;
 }

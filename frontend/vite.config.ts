@@ -17,6 +17,7 @@ export default defineConfig({
         const rules = config.rewrites.map((rule: { source: string; destination: string }) => ({ pattern: new RegExp(`^${rule.source}$`), destination: rule.destination }));
         server.middlewares.use((request, _response, next) => {
           const pathname = new URL(request.url || '/', 'http://localhost').pathname;
+          if (pathname.startsWith('/api/')) return next();
           const rule = rules.find((item: { pattern: RegExp }) => item.pattern.test(pathname));
           if (rule) request.url = rule.destination;
           next();
@@ -33,8 +34,10 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 8443,
     strictPort: true,
+    proxy: { '/api': 'http://127.0.0.1:5000' },
   },
   preview: {
+    proxy: { '/api': 'http://127.0.0.1:5000' },
     host: '0.0.0.0',
     port: 8443,
   },

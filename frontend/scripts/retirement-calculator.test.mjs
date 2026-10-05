@@ -20,3 +20,8 @@ test('invalid ages, rates and money are rejected', () => {
   const errors = validateRetirementInput({ ...base, retirementAge: 32, lifeExpectancy: 30, annualInflationRate: -100, monthlyExpenseToday: Number.NaN });
   assert.ok(errors.length >= 4);
 });
+test('investable assets do not double-deduct consumer debt (F04 separation)', () => {
+  const withDebt = calculateRetirement({ ...base, consumerDebt: 100_000_000 });
+  const withoutDebt = calculateRetirement({ ...base, consumerDebt: 0 });
+  assert.equal(withDebt.investableAssetsToday, withoutDebt.investableAssetsToday);
+});

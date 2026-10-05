@@ -1,5 +1,7 @@
+import type { AssetProfile } from "../../context/FinancialProfileContext";
 import { useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { useI18n } from "../../i18n";
 
 interface AssetSlice {
   name: string;
@@ -8,16 +10,7 @@ interface AssetSlice {
   percent: number;
 }
 
-const assetData: AssetSlice[] = [
-  { name: "Bất động sản nhà ở", value: 2_400_000_000, color: "#153A52", percent: 65 },
-  { name: "Cổ phiếu & Quỹ đầu tư", value: 570_000_000, color: "#D9A85E", percent: 15 },
-  { name: "Tiền gửi tiết kiệm", value: 450_000_000, color: "#6F9B7C", percent: 12 },
-  { name: "Tài sản thanh khoản khác", value: 300_000_000, color: "#556B7A", percent: 8 },
-];
-
-const totalValue = assetData.reduce((acc, curr) => acc + curr.value, 0);
-
-const CustomTooltip = ({ active, payload }: any) => {
+const CustomTooltip = ({ active, payload, isVi }: any) => {
   if (!active || !payload || !payload.length) return null;
   const data: AssetSlice = payload[0].payload;
 
@@ -39,14 +32,26 @@ const CustomTooltip = ({ active, payload }: any) => {
         <span style={{ fontWeight: 600 }}>{data.name}</span>
       </div>
       <div style={{ color: "#E2E8F0" }}>
-        {data.value.toLocaleString("vi-VN")} đ ({data.percent}%)
+        {data.value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫ ({data.percent}%)
       </div>
     </div>
   );
 };
 
-export function AssetDonutChart() {
+export function AssetDonutChart({ assets }: { assets: AssetProfile }) {
+  const { language } = useI18n();
+  const isVi = language === "vi";
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  const totalValue = Object.values(assets).reduce((sum, value) => sum + value, 0);
+  const assetData: AssetSlice[] = [
+    { name: isVi ? "Bất động sản" : "Real Estate", value: assets.realEstateValue, color: "#052659", percent: 0 },
+    { name: isVi ? "Cổ phiếu & Quỹ" : "Stocks & Funds", value: assets.stockFundValue, color: "#334DAF", percent: 0 },
+    { name: isVi ? "Tiền tiết kiệm" : "Savings & Cash", value: assets.cashSavings, color: "#5483B3", percent: 0 },
+    { name: isVi ? "Thanh khoản khác" : "Other Liquid", value: assets.liquidAssets, color: "#7DA0CA", percent: 0 },
+  ].filter(item => item.value > 0).map(item => ({ ...item, percent: Math.round(item.value / totalValue * 100) }));
+
+  if (!totalValue) return <p>{isVi ? "Chưa có tài sản được khai báo." : "No assets declared yet."}</p>;
 
   return (
     <div style={{ width: "100%", height: 180, position: "relative" }}>
@@ -77,7 +82,7 @@ export function AssetDonutChart() {
               />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip isVi={isVi} />} />
         </PieChart>
       </ResponsiveContainer>
 
@@ -93,10 +98,10 @@ export function AssetDonutChart() {
         }}
       >
         <span style={{ fontSize: "10px", color: "#7B8F9D", textTransform: "uppercase", letterSpacing: "0.5px", display: "block" }}>
-          Tổng tài sản
+          {isVi ? "Tổng tài sản" : "Total Assets"}
         </span>
-        <strong style={{ fontSize: "14px", color: "#153A52", fontWeight: 800, display: "block", marginTop: "1px" }}>
-          3.72 tỷ
+        <strong style={{ fontSize: "14px", color: "var(--color-primary-700, #052659)", fontWeight: 800, display: "block", marginTop: "1px" }}>
+          {new Intl.NumberFormat(isVi ? "vi-VN" : "en-US", { notation: "compact", maximumFractionDigits: 1 }).format(totalValue)} ₫
         </strong>
       </div>
     </div>

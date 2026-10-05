@@ -5,12 +5,12 @@ type NavigationItem = { path: string; label: string; icon: IconName };
 export const adminNavigation: NavigationItem[] = [
   { path: "/admin/dashboard", label: "Tổng quan", icon: "grid" },
   { path: "/admin/users", label: "Người dùng", icon: "users" },
-  { path: "/admin/consultations", label: "Tư vấn & Lịch hẹn", icon: "message" },
-  { path: "/admin/content", label: "Quản lý nội dung", icon: "file-text" },
-  { path: "/admin/partners", label: "Đối tác & Sản phẩm", icon: "briefcase" },
-  { path: "/admin/ai", label: "Trợ lý AI & Tri thức", icon: "sparkles" },
-  { path: "/admin/financial-config", label: "Cấu hình tài chính", icon: "target" },
+  { path: "/admin/operations", label: "Tình trạng hệ thống", icon: "settings" },
   { path: "/admin/support", label: "Hỗ trợ & Ticket", icon: "life-buoy" },
+  { path: "/admin/partners", label: "Đối tác & Sản phẩm", icon: "briefcase" },
+  { path: "/admin/financial-config", label: "Cấu hình tài chính", icon: "target" },
+  { path: "/admin/content", label: "Quản lý nội dung", icon: "file-text" },
+  { path: "/admin/ai", label: "Trợ lý AI & Tri thức", icon: "sparkles" },
   { path: "/admin/reports", label: "Báo cáo", icon: "chart" },
   { path: "/admin/settings", label: "Cấu hình hệ thống", icon: "settings" },
 ];

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   AN HƯU — NOTIFICATION & ALERT STYLING (PIXEL-PERFECT FROM REFERENCE IMAGE)
+   AN HƯU - NOTIFICATION & ALERT STYLING (PIXEL-PERFECT FROM REFERENCE IMAGE)
    ========================================================================== */
 
 .ah-notification-card {
@@ -87,25 +87,25 @@
 .ah-notification-card--error .ah-notification-icon-disc,
 .ah-notification-card--danger .ah-notification-icon-disc {
   box-shadow: 
-    0 6px 16px -2px rgba(239, 68, 68, 0.28),
+    0 6px 16px -2px rgba(161, 77, 71, 0.25),
     0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .ah-notification-card--warning .ah-notification-icon-disc {
   box-shadow: 
-    0 6px 16px -2px rgba(245, 158, 11, 0.32),
+    0 6px 16px -2px rgba(217, 168, 94, 0.35),
     0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .ah-notification-card--success .ah-notification-icon-disc {
   box-shadow: 
-    0 6px 16px -2px rgba(16, 185, 129, 0.30),
+    0 6px 16px -2px rgba(72, 109, 83, 0.25),
     0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .ah-notification-card--info .ah-notification-icon-disc {
   box-shadow: 
-    0 6px 16px -2px rgba(59, 130, 246, 0.30),
+    0 6px 16px -2px rgba(54, 93, 108, 0.25),
     0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
@@ -128,7 +128,7 @@
   font-size: 15px;
   font-weight: 600;
   line-height: 1.35;
-  color: #1e293b;
+  color: var(--color-text-strong);
   letter-spacing: -0.01em;
 }
 
@@ -136,7 +136,7 @@
   margin: 0;
   font-size: 13.5px;
   line-height: 1.55;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-weight: 400;
 }
 
@@ -161,18 +161,18 @@
   background: transparent;
   border: none;
   border-radius: 50%;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .ah-notification-close:hover {
-  color: #334155;
+  color: var(--color-text-strong);
   background: rgba(0, 0, 0, 0.05);
 }
 
 .ah-notification-close:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--color-secondary-700);
   outline-offset: 1px;
 }
 

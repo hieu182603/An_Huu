@@ -27,8 +27,8 @@ export function NotificationIcon({ tone }: { tone: NotificationTone }) {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
             d="M12 3.25L21.5 19.75H2.5L12 3.25Z"
-            fill="#EF4444"
-            stroke="#EF4444"
+            fill="#A14D47"
+            stroke="#A14D47"
             strokeWidth="1.5"
             strokeLinejoin="round"
           />
@@ -45,7 +45,7 @@ export function NotificationIcon({ tone }: { tone: NotificationTone }) {
     case "warning":
       return (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" fill="#F59E0B" />
+          <circle cx="12" cy="12" r="10" fill="#D9A85E" />
           <path
             d="M12 7.5V12.5"
             stroke="#FFFFFF"
@@ -59,7 +59,7 @@ export function NotificationIcon({ tone }: { tone: NotificationTone }) {
     case "success":
       return (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" fill="#10B981" />
+          <circle cx="12" cy="12" r="10" fill="#486D53" />
           <path
             d="M8 12.2L10.7 14.8L16.2 9.2"
             stroke="#FFFFFF"
@@ -74,7 +74,7 @@ export function NotificationIcon({ tone }: { tone: NotificationTone }) {
     default:
       return (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" fill="#3B82F6" />
+          <circle cx="12" cy="12" r="10" fill="#365D6C" />
           <circle cx="12" cy="8" r="1.1" fill="#FFFFFF" />
           <path
             d="M12 11.5V16"
