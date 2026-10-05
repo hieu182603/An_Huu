@@ -1,0 +1,2164 @@
+HistoryDocument:
+  type: object
+  additionalProperties: false
+  properties:
+    schemaVersion:
+      type: integer
+      enum:
+        - 1
+    birth:
+      type: object
+      additionalProperties: false
+      properties:
+        precision:
+          type: string
+          enum: &a1
+            - DAY
+            - MONTH
+            - YEAR
+            - UNKNOWN
+        declaredValue:
+          anyOf:
+            - type: string
+              maxLength: 10
+            - type: object
+              nullable: true
+              enum:
+                - null
+      required:
+        - precision
+        - declaredValue
+    legalSex:
+      type: string
+      enum: &a2
+        - MALE
+        - FEMALE
+        - UNKNOWN
+    coverageFrom:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    coverageThrough:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    confirmedThroughMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    months:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          month:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+          scheme:
+            type: string
+            enum: &a3
+              - COMPULSORY
+              - VOLUNTARY
+              - UNKNOWN
+          salaryRegime:
+            type: string
+            enum: &a4
+              - EMPLOYER
+              - STATE
+              - VOLUNTARY_INCOME
+              - UNKNOWN
+          status:
+            type: string
+            enum: &a5
+              - PAID
+              - CREDITED
+              - UNKNOWN
+              - WITHDRAWN
+              - NOT_CONTRIBUTED
+          contributionBase:
+            anyOf:
+              - type: string
+                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          participantCategory:
+            type: string
+            enum: &a6
+              - ARTICLE_2_1_A
+              - ARTICLE_2_1_B
+              - ARTICLE_2_1_C
+              - ARTICLE_2_1_D
+              - ARTICLE_2_1_DD
+              - ARTICLE_2_1_G
+              - ARTICLE_2_1_I
+              - OTHER
+              - UNKNOWN
+          stateSalary:
+            type: object
+            additionalProperties: false
+            properties:
+              kind:
+                type: string
+                enum:
+                  - CURRENT_SCALE_COEFFICIENT
+              totalContributionCoefficient:
+                type: string
+                pattern: ^(0|[1-9]\d{0,3})(\.\d{1,12})?$
+              evidence:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    reference:
+                      type: string
+                      minLength: 1
+                      maxLength: 300
+                    contentHash:
+                      type: string
+                      pattern: ^[a-f0-9]{64}$
+                    confirmedOn:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                  required:
+                    - reference
+                    - contentHash
+                    - confirmedOn
+                minItems: 1
+                maxItems: 20
+            required:
+              - kind
+              - totalContributionCoefficient
+              - evidence
+          creditKind:
+            type: string
+            minLength: 1
+            maxLength: 100
+          evidence:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              properties:
+                reference:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                contentHash:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                confirmedOn:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              required:
+                - reference
+                - contentHash
+                - confirmedOn
+            maxItems: 20
+        required:
+          - month
+          - scheme
+          - salaryRegime
+          - status
+          - contributionBase
+          - evidence
+      maxItems: 1200
+    specialPeriods:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          kind:
+            type: string
+            minLength: 1
+            maxLength: 100
+          startMonth:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+          endMonth:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+          evidence:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              properties:
+                reference:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                contentHash:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                confirmedOn:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              required:
+                - reference
+                - contentHash
+                - confirmedOn
+            minItems: 1
+            maxItems: 20
+        required:
+          - kind
+          - startMonth
+          - endMonth
+          - evidence
+      maxItems: 200
+  required:
+    - schemaVersion
+    - birth
+    - legalSex
+    - coverageFrom
+    - coverageThrough
+    - confirmedThroughMonth
+    - months
+    - specialPeriods
+HistoryPreviewInput:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedHistoryRevision:
+      type: integer
+      minimum: 0
+    document:
+      type: object
+      additionalProperties: false
+      properties:
+        schemaVersion:
+          type: integer
+          enum:
+            - 1
+        birth:
+          type: object
+          additionalProperties: false
+          properties:
+            precision:
+              type: string
+              enum: *a1
+            declaredValue:
+              anyOf:
+                - type: string
+                  maxLength: 10
+                - type: object
+                  nullable: true
+                  enum:
+                    - null
+          required:
+            - precision
+            - declaredValue
+        legalSex:
+          type: string
+          enum: *a2
+        coverageFrom:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        coverageThrough:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        confirmedThroughMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        months:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              month:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              scheme:
+                type: string
+                enum: *a3
+              salaryRegime:
+                type: string
+                enum: *a4
+              status:
+                type: string
+                enum: *a5
+              contributionBase:
+                anyOf:
+                  - type: string
+                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                  - type: object
+                    nullable: true
+                    enum:
+                      - null
+              participantCategory:
+                type: string
+                enum: *a6
+              stateSalary:
+                type: object
+                additionalProperties: false
+                properties:
+                  kind:
+                    type: string
+                    enum:
+                      - CURRENT_SCALE_COEFFICIENT
+                  totalContributionCoefficient:
+                    type: string
+                    pattern: ^(0|[1-9]\d{0,3})(\.\d{1,12})?$
+                  evidence:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        reference:
+                          type: string
+                          minLength: 1
+                          maxLength: 300
+                        contentHash:
+                          type: string
+                          pattern: ^[a-f0-9]{64}$
+                        confirmedOn:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      required:
+                        - reference
+                        - contentHash
+                        - confirmedOn
+                    minItems: 1
+                    maxItems: 20
+                required:
+                  - kind
+                  - totalContributionCoefficient
+                  - evidence
+              creditKind:
+                type: string
+                minLength: 1
+                maxLength: 100
+              evidence:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    reference:
+                      type: string
+                      minLength: 1
+                      maxLength: 300
+                    contentHash:
+                      type: string
+                      pattern: ^[a-f0-9]{64}$
+                    confirmedOn:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                  required:
+                    - reference
+                    - contentHash
+                    - confirmedOn
+                maxItems: 20
+            required:
+              - month
+              - scheme
+              - salaryRegime
+              - status
+              - contributionBase
+              - evidence
+          maxItems: 1200
+        specialPeriods:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              kind:
+                type: string
+                minLength: 1
+                maxLength: 100
+              startMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              endMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              evidence:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    reference:
+                      type: string
+                      minLength: 1
+                      maxLength: 300
+                    contentHash:
+                      type: string
+                      pattern: ^[a-f0-9]{64}$
+                    confirmedOn:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                  required:
+                    - reference
+                    - contentHash
+                    - confirmedOn
+                minItems: 1
+                maxItems: 20
+            required:
+              - kind
+              - startMonth
+              - endMonth
+              - evidence
+          maxItems: 200
+      required:
+        - schemaVersion
+        - birth
+        - legalSex
+        - coverageFrom
+        - coverageThrough
+        - confirmedThroughMonth
+        - months
+        - specialPeriods
+  required:
+    - expectedHistoryRevision
+    - document
+HistorySaveInput:
+  type: object
+  additionalProperties: false
+  properties:
+    preview:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedHistoryRevision:
+          type: integer
+          minimum: 0
+        document:
+          type: object
+          additionalProperties: false
+          properties:
+            schemaVersion:
+              type: integer
+              enum:
+                - 1
+            birth:
+              type: object
+              additionalProperties: false
+              properties:
+                precision:
+                  type: string
+                  enum: *a1
+                declaredValue:
+                  anyOf:
+                    - type: string
+                      maxLength: 10
+                    - type: object
+                      nullable: true
+                      enum:
+                        - null
+              required:
+                - precision
+                - declaredValue
+            legalSex:
+              type: string
+              enum: *a2
+            coverageFrom:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            coverageThrough:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            confirmedThroughMonth:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            months:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  month:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  scheme:
+                    type: string
+                    enum: *a3
+                  salaryRegime:
+                    type: string
+                    enum: *a4
+                  status:
+                    type: string
+                    enum: *a5
+                  contributionBase:
+                    anyOf:
+                      - type: string
+                        pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      - type: object
+                        nullable: true
+                        enum:
+                          - null
+                  participantCategory:
+                    type: string
+                    enum: *a6
+                  stateSalary:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      kind:
+                        type: string
+                        enum:
+                          - CURRENT_SCALE_COEFFICIENT
+                      totalContributionCoefficient:
+                        type: string
+                        pattern: ^(0|[1-9]\d{0,3})(\.\d{1,12})?$
+                      evidence:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            reference:
+                              type: string
+                              minLength: 1
+                              maxLength: 300
+                            contentHash:
+                              type: string
+                              pattern: ^[a-f0-9]{64}$
+                            confirmedOn:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                          required:
+                            - reference
+                            - contentHash
+                            - confirmedOn
+                        minItems: 1
+                        maxItems: 20
+                    required:
+                      - kind
+                      - totalContributionCoefficient
+                      - evidence
+                  creditKind:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  evidence:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        reference:
+                          type: string
+                          minLength: 1
+                          maxLength: 300
+                        contentHash:
+                          type: string
+                          pattern: ^[a-f0-9]{64}$
+                        confirmedOn:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      required:
+                        - reference
+                        - contentHash
+                        - confirmedOn
+                    maxItems: 20
+                required:
+                  - month
+                  - scheme
+                  - salaryRegime
+                  - status
+                  - contributionBase
+                  - evidence
+              maxItems: 1200
+            specialPeriods:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  kind:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  startMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  endMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  evidence:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        reference:
+                          type: string
+                          minLength: 1
+                          maxLength: 300
+                        contentHash:
+                          type: string
+                          pattern: ^[a-f0-9]{64}$
+                        confirmedOn:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      required:
+                        - reference
+                        - contentHash
+                        - confirmedOn
+                    minItems: 1
+                    maxItems: 20
+                required:
+                  - kind
+                  - startMonth
+                  - endMonth
+                  - evidence
+              maxItems: 200
+          required:
+            - schemaVersion
+            - birth
+            - legalSex
+            - coverageFrom
+            - coverageThrough
+            - confirmedThroughMonth
+            - months
+            - specialPeriods
+      required:
+        - expectedHistoryRevision
+        - document
+    expectedInputHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    confirm:
+      type: boolean
+      enum:
+        - true
+  required:
+    - preview
+    - expectedInputHash
+    - confirm
+RuleDraft:
+  type: object
+  additionalProperties: false
+  properties:
+    code:
+      type: string
+      pattern: ^[A-Z0-9_-]{1,100}$
+    effectiveFrom:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+    effectiveTo:
+      anyOf:
+        - type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    supersedesId:
+      anyOf:
+        - type: string
+          format: uuid
+        - type: object
+          nullable: true
+          enum:
+            - null
+      default: null
+    document:
+      type: object
+      additionalProperties: false
+      properties:
+        schemaVersion:
+          type: integer
+          enum:
+            - 1
+        engineCode:
+          type: string
+          minLength: 1
+          maxLength: 100
+        coverage:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              branch:
+                type: string
+                minLength: 1
+                maxLength: 100
+              strategyCode:
+                type: string
+                minLength: 1
+                maxLength: 100
+              citationIds:
+                type: array
+                items:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                minItems: 1
+                maxItems: 50
+              requiredTableKeys:
+                type: array
+                items:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                maxItems: 200
+            required:
+              - branch
+              - strategyCode
+              - citationIds
+              - requiredTableKeys
+          minItems: 1
+          maxItems: 100
+        citations:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                minLength: 1
+                maxLength: 100
+              instrument:
+                type: string
+                minLength: 1
+                maxLength: 200
+              locator:
+                type: string
+                minLength: 1
+                maxLength: 200
+              url:
+                type: string
+                format: uri
+                maxLength: 1000
+              contentHash:
+                type: string
+                pattern: ^[a-f0-9]{64}$
+              effectiveFrom:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              effectiveTo:
+                anyOf:
+                  - type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                  - type: object
+                    nullable: true
+                    enum:
+                      - null
+            required:
+              - id
+              - instrument
+              - locator
+              - url
+              - contentHash
+              - effectiveFrom
+              - effectiveTo
+          minItems: 1
+          maxItems: 200
+        tables:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              kind:
+                type: string
+                enum: &a7
+                  - AGE_MONTHS
+                  - WAGE_FACTOR
+                  - INCOME_FACTOR
+                  - REFERENCE_AMOUNT
+                  - FUND_MONTHLY_RATE
+              key:
+                type: string
+                minLength: 1
+                maxLength: 100
+              value:
+                type: string
+                maxLength: 80
+                pattern: ^-?(0|[1-9]\d{0,30})(\.\d{1,30})?$
+              effectiveFrom:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              effectiveTo:
+                anyOf:
+                  - type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                  - type: object
+                    nullable: true
+                    enum:
+                      - null
+              citationId:
+                type: string
+                minLength: 1
+                maxLength: 100
+            required:
+              - kind
+              - key
+              - value
+              - effectiveFrom
+              - effectiveTo
+              - citationId
+          maxItems: 5000
+      required:
+        - schemaVersion
+        - engineCode
+        - coverage
+        - citations
+        - tables
+  required:
+    - code
+    - effectiveFrom
+    - effectiveTo
+    - document
+RulePatch:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    draft:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Z0-9_-]{1,100}$
+        effectiveFrom:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        effectiveTo:
+          anyOf:
+            - type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        supersedesId:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: object
+              nullable: true
+              enum:
+                - null
+          default: null
+        document:
+          type: object
+          additionalProperties: false
+          properties:
+            schemaVersion:
+              type: integer
+              enum:
+                - 1
+            engineCode:
+              type: string
+              minLength: 1
+              maxLength: 100
+            coverage:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  branch:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  strategyCode:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  citationIds:
+                    type: array
+                    items:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                    minItems: 1
+                    maxItems: 50
+                  requiredTableKeys:
+                    type: array
+                    items:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                    maxItems: 200
+                required:
+                  - branch
+                  - strategyCode
+                  - citationIds
+                  - requiredTableKeys
+              minItems: 1
+              maxItems: 100
+            citations:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  instrument:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                  locator:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                  url:
+                    type: string
+                    format: uri
+                    maxLength: 1000
+                  contentHash:
+                    type: string
+                    pattern: ^[a-f0-9]{64}$
+                  effectiveFrom:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                  effectiveTo:
+                    anyOf:
+                      - type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      - type: object
+                        nullable: true
+                        enum:
+                          - null
+                required:
+                  - id
+                  - instrument
+                  - locator
+                  - url
+                  - contentHash
+                  - effectiveFrom
+                  - effectiveTo
+              minItems: 1
+              maxItems: 200
+            tables:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  kind:
+                    type: string
+                    enum: *a7
+                  key:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  value:
+                    type: string
+                    maxLength: 80
+                    pattern: ^-?(0|[1-9]\d{0,30})(\.\d{1,30})?$
+                  effectiveFrom:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                  effectiveTo:
+                    anyOf:
+                      - type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      - type: object
+                        nullable: true
+                        enum:
+                          - null
+                  citationId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                required:
+                  - kind
+                  - key
+                  - value
+                  - effectiveFrom
+                  - effectiveTo
+                  - citationId
+              maxItems: 5000
+          required:
+            - schemaVersion
+            - engineCode
+            - coverage
+            - citations
+            - tables
+      required:
+        - code
+        - effectiveFrom
+        - effectiveTo
+        - document
+  required:
+    - expectedRevision
+    - draft
+RuleTransition:
+  type: object
+  additionalProperties: false
+  properties:
+    action:
+      type: string
+      enum:
+        - VALIDATE
+        - REVIEW
+        - PUBLISH
+    expectedRevision:
+      type: integer
+      minimum: 1
+    expectedDocumentHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    validationHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    reviewHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    reviewNote:
+      type: string
+      minLength: 1
+      maxLength: 1000
+    confirm:
+      type: boolean
+      enum:
+        - true
+  required:
+    - action
+    - expectedRevision
+    - expectedDocumentHash
+    - confirm
+EstimateInput:
+  type: object
+  additionalProperties: false
+  properties:
+    historyVersionId:
+      type: string
+      format: uuid
+    expectedHistoryRevision:
+      type: integer
+      minimum: 1
+    legalRuleSetVersionId:
+      type: string
+      format: uuid
+    intendedBenefitDate:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+    employmentEndDate:
+      anyOf:
+        - type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    contributionStopMonth:
+      anyOf:
+        - type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    benefitRequestDate:
+      anyOf:
+        - type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    futureContributions:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          month:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+          scheme:
+            type: string
+            enum: *a3
+          salaryRegime:
+            type: string
+            enum: *a4
+          status:
+            type: string
+            enum: *a5
+          contributionBase:
+            anyOf:
+              - type: string
+                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          participantCategory:
+            type: string
+            enum: *a6
+          stateSalary:
+            type: object
+            additionalProperties: false
+            properties:
+              kind:
+                type: string
+                enum:
+                  - CURRENT_SCALE_COEFFICIENT
+              totalContributionCoefficient:
+                type: string
+                pattern: ^(0|[1-9]\d{0,3})(\.\d{1,12})?$
+              evidence:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    reference:
+                      type: string
+                      minLength: 1
+                      maxLength: 300
+                    contentHash:
+                      type: string
+                      pattern: ^[a-f0-9]{64}$
+                    confirmedOn:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                  required:
+                    - reference
+                    - contentHash
+                    - confirmedOn
+                minItems: 1
+                maxItems: 20
+            required:
+              - kind
+              - totalContributionCoefficient
+              - evidence
+          creditKind:
+            type: string
+            minLength: 1
+            maxLength: 100
+          evidence:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              properties:
+                reference:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                contentHash:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                confirmedOn:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              required:
+                - reference
+                - contentHash
+                - confirmedOn
+            maxItems: 20
+        required:
+          - month
+          - scheme
+          - salaryRegime
+          - status
+          - contributionBase
+          - evidence
+      maxItems: 1200
+    caseDetails:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - NORMAL_EMPLOYEE
+        participationAtRetirement:
+          type: string
+          enum: &a8
+            - ACTIVE_COMPULSORY
+            - PRESERVED
+        benefitStart:
+          type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum: &a9
+                - EMPLOYER_NOTICE
+                - PERSON_REQUEST
+                - HYPOTHETICAL
+            month:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            evidence:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  reference:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  contentHash:
+                    type: string
+                    pattern: ^[a-f0-9]{64}$
+                  confirmedOn:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                required:
+                  - reference
+                  - contentHash
+                  - confirmedOn
+              minItems: 1
+              maxItems: 20
+          required:
+            - kind
+            - month
+            - evidence
+      required:
+        - kind
+        - participationAtRetirement
+        - benefitStart
+    stateSalaryCase:
+      type: object
+      additionalProperties: false
+      properties:
+        firstParticipationMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        firstParticipationEvidence:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              reference:
+                type: string
+                minLength: 1
+                maxLength: 300
+              contentHash:
+                type: string
+                pattern: ^[a-f0-9]{64}$
+              confirmedOn:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            required:
+              - reference
+              - contentHash
+              - confirmedOn
+          minItems: 1
+          maxItems: 20
+        salaryTreatment:
+          type: string
+          enum: &a10
+            - ORDINARY
+            - HAZARDOUS_TRANSFER
+            - MILITARY_TRANSFER
+            - SENIORITY_ALLOWANCE_TRANSFER
+            - UNKNOWN
+        treatmentEvidence:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              reference:
+                type: string
+                minLength: 1
+                maxLength: 300
+              contentHash:
+                type: string
+                pattern: ^[a-f0-9]{64}$
+              confirmedOn:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            required:
+              - reference
+              - contentHash
+              - confirmedOn
+          minItems: 1
+          maxItems: 20
+      required:
+        - firstParticipationMonth
+        - firstParticipationEvidence
+        - salaryTreatment
+        - treatmentEvidence
+  required:
+    - historyVersionId
+    - expectedHistoryRevision
+    - legalRuleSetVersionId
+    - intendedBenefitDate
+    - employmentEndDate
+    - contributionStopMonth
+    - benefitRequestDate
+    - futureContributions
+EstimateSaveInput:
+  type: object
+  additionalProperties: false
+  properties:
+    preview:
+      type: object
+      additionalProperties: false
+      properties:
+        historyVersionId:
+          type: string
+          format: uuid
+        expectedHistoryRevision:
+          type: integer
+          minimum: 1
+        legalRuleSetVersionId:
+          type: string
+          format: uuid
+        intendedBenefitDate:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        employmentEndDate:
+          anyOf:
+            - type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        contributionStopMonth:
+          anyOf:
+            - type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        benefitRequestDate:
+          anyOf:
+            - type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        futureContributions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              month:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              scheme:
+                type: string
+                enum: *a3
+              salaryRegime:
+                type: string
+                enum: *a4
+              status:
+                type: string
+                enum: *a5
+              contributionBase:
+                anyOf:
+                  - type: string
+                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                  - type: object
+                    nullable: true
+                    enum:
+                      - null
+              participantCategory:
+                type: string
+                enum: *a6
+              stateSalary:
+                type: object
+                additionalProperties: false
+                properties:
+                  kind:
+                    type: string
+                    enum:
+                      - CURRENT_SCALE_COEFFICIENT
+                  totalContributionCoefficient:
+                    type: string
+                    pattern: ^(0|[1-9]\d{0,3})(\.\d{1,12})?$
+                  evidence:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        reference:
+                          type: string
+                          minLength: 1
+                          maxLength: 300
+                        contentHash:
+                          type: string
+                          pattern: ^[a-f0-9]{64}$
+                        confirmedOn:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      required:
+                        - reference
+                        - contentHash
+                        - confirmedOn
+                    minItems: 1
+                    maxItems: 20
+                required:
+                  - kind
+                  - totalContributionCoefficient
+                  - evidence
+              creditKind:
+                type: string
+                minLength: 1
+                maxLength: 100
+              evidence:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    reference:
+                      type: string
+                      minLength: 1
+                      maxLength: 300
+                    contentHash:
+                      type: string
+                      pattern: ^[a-f0-9]{64}$
+                    confirmedOn:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                  required:
+                    - reference
+                    - contentHash
+                    - confirmedOn
+                maxItems: 20
+            required:
+              - month
+              - scheme
+              - salaryRegime
+              - status
+              - contributionBase
+              - evidence
+          maxItems: 1200
+        caseDetails:
+          type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - NORMAL_EMPLOYEE
+            participationAtRetirement:
+              type: string
+              enum: *a8
+            benefitStart:
+              type: object
+              additionalProperties: false
+              properties:
+                kind:
+                  type: string
+                  enum: *a9
+                month:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                evidence:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      reference:
+                        type: string
+                        minLength: 1
+                        maxLength: 300
+                      contentHash:
+                        type: string
+                        pattern: ^[a-f0-9]{64}$
+                      confirmedOn:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    required:
+                      - reference
+                      - contentHash
+                      - confirmedOn
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - kind
+                - month
+                - evidence
+          required:
+            - kind
+            - participationAtRetirement
+            - benefitStart
+        stateSalaryCase:
+          type: object
+          additionalProperties: false
+          properties:
+            firstParticipationMonth:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            firstParticipationEvidence:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  reference:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  contentHash:
+                    type: string
+                    pattern: ^[a-f0-9]{64}$
+                  confirmedOn:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                required:
+                  - reference
+                  - contentHash
+                  - confirmedOn
+              minItems: 1
+              maxItems: 20
+            salaryTreatment:
+              type: string
+              enum: *a10
+            treatmentEvidence:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  reference:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  contentHash:
+                    type: string
+                    pattern: ^[a-f0-9]{64}$
+                  confirmedOn:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                required:
+                  - reference
+                  - contentHash
+                  - confirmedOn
+              minItems: 1
+              maxItems: 20
+          required:
+            - firstParticipationMonth
+            - firstParticipationEvidence
+            - salaryTreatment
+            - treatmentEvidence
+      required:
+        - historyVersionId
+        - expectedHistoryRevision
+        - legalRuleSetVersionId
+        - intendedBenefitDate
+        - employmentEndDate
+        - contributionStopMonth
+        - benefitRequestDate
+        - futureContributions
+    expectedInputHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+  required:
+    - preview
+    - expectedInputHash
+Issue:
+  type: object
+  additionalProperties: false
+  required:
+    - path
+    - code
+  properties:
+    path: &a11
+      type: string
+    code: *a11
+HistoryPreview:
+  type: object
+  additionalProperties: false
+  required:
+    - status
+    - inputHash
+    - issues
+    - normalized
+  properties:
+    status:
+      type: string
+      enum:
+        - READY
+        - INCOMPLETE
+        - INVALID
+    inputHash: &a12
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    issues:
+      type: array
+      items:
+        $ref: "#/Issue"
+    normalized:
+      $ref: "#/HistoryDocument"
+History:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - revision
+    - parentVersionId
+    - parentHash
+    - documentHash
+    - recordedAt
+    - document
+  properties:
+    id: &a14
+      type: string
+      format: uuid
+    revision: &a15
+      type: integer
+    parentVersionId:
+      type: string
+      format: uuid
+      nullable: true
+    parentHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+      nullable: true
+    documentHash: *a12
+    recordedAt:
+      type: string
+      format: date-time
+    document:
+      $ref: "#/HistoryDocument"
+Validation:
+  type: object
+  additionalProperties: false
+  required:
+    - valid
+    - documentHash
+    - engineCode
+    - issues
+    - validationHash
+    - coverage
+  properties:
+    valid: &a13
+      type: boolean
+    documentHash: *a12
+    engineCode: *a11
+    issues:
+      type: array
+      items:
+        $ref: "#/Issue"
+    validationHash: *a12
+    coverage:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - branch
+          - supported
+          - fixtureSuiteHash
+          - cases
+        properties:
+          branch: *a11
+          supported: *a13
+          fixtureSuiteHash:
+            type: string
+            pattern: ^[a-f0-9]{64}$
+            nullable: true
+          cases:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              required:
+                - id
+                - passed
+                - expectedHash
+                - actualHash
+              properties:
+                id: *a11
+                passed: *a13
+                expectedHash: *a12
+                actualHash: *a12
+Review:
+  type: object
+  additionalProperties: false
+  required:
+    - actor
+    - reviewedAt
+    - reviewNote
+    - validationHash
+    - draftHash
+    - reviewHash
+  properties:
+    actor: *a11
+    reviewedAt:
+      type: string
+      format: date-time
+    reviewNote: *a11
+    validationHash: *a12
+    draftHash: *a12
+    reviewHash: *a12
+Rule:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - revision
+    - version
+    - status
+    - documentHash
+    - knowledgeAsOf
+    - publishedAt
+    - draft
+    - validation
+    - review
+  properties:
+    id: *a14
+    revision: *a15
+    version: *a15
+    status:
+      type: string
+      enum:
+        - DRAFT
+        - VALIDATED
+        - REVIEWED
+        - PUBLISHED
+    documentHash: *a12
+    knowledgeAsOf:
+      type: string
+      format: date-time
+    publishedAt:
+      type: string
+      format: date-time
+      nullable: true
+    draft:
+      $ref: "#/RuleDraft"
+    validation:
+      anyOf:
+        - $ref: "#/Validation"
+        - type: object
+          nullable: true
+          enum:
+            - null
+    review:
+      anyOf:
+        - $ref: "#/Review"
+        - type: object
+          nullable: true
+          enum:
+            - null
+RuleList:
+  type: object
+  additionalProperties: false
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Rule"
+BenefitAssessment:
+  type: object
+  additionalProperties: false
+  required:
+    - assessmentStatus
+    - estimateKind
+    - inputHash
+    - historyHash
+    - ruleHash
+    - countedMonths
+    - monthlyPension
+    - startMonth
+    - lumpSum
+    - missingFields
+    - breakdown
+    - citations
+  properties:
+    assessmentStatus:
+      type: string
+      enum:
+        - ELIGIBLE
+        - NOT_YET_ELIGIBLE
+        - INSUFFICIENT_DATA
+        - REVIEW_REQUIRED
+    estimateKind:
+      type: string
+      enum:
+        - CURRENT_RULE_ESTIMATE
+        - PROJECTED_SCENARIO
+    inputHash: *a12
+    historyHash: *a12
+    ruleHash: *a12
+    countedMonths:
+      type: integer
+      nullable: true
+    monthlyPension:
+      type: string
+      nullable: true
+    startMonth:
+      type: string
+      nullable: true
+    lumpSum:
+      type: string
+      nullable: true
+    missingFields:
+      type: array
+      items:
+        $ref: "#/Issue"
+    breakdown:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - code
+          - value
+          - unit
+          - citationIds
+        properties:
+          code: *a11
+          value:
+            type: string
+            nullable: true
+          unit:
+            type: string
+            enum:
+              - VND
+              - MONTHS
+              - YEARS
+              - PERCENT
+              - DATE
+              - CODE
+          citationIds:
+            type: array
+            items: *a11
+    citations: &a18
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id:
+            type: string
+            minLength: 1
+            maxLength: 100
+          instrument:
+            type: string
+            minLength: 1
+            maxLength: 200
+          locator:
+            type: string
+            minLength: 1
+            maxLength: 200
+          url:
+            type: string
+            format: uri
+            maxLength: 1000
+          contentHash:
+            type: string
+            pattern: ^[a-f0-9]{64}$
+          effectiveFrom:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+          effectiveTo:
+            anyOf:
+              - type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+        required:
+          - id
+          - instrument
+          - locator
+          - url
+          - contentHash
+          - effectiveFrom
+          - effectiveTo
+      minItems: 1
+      maxItems: 200
+EstimatePreview:
+  type: object
+  additionalProperties: false
+  required:
+    - inputHash
+    - engineCode
+    - assessedOn
+    - historyVersionId
+    - historyRevision
+    - legalRuleSetVersionId
+    - legalRuleVersion
+    - assessment
+  properties:
+    inputHash: *a12
+    engineCode: *a11
+    assessedOn: &a16
+      type: string
+      format: date
+    historyVersionId: *a14
+    historyRevision: *a15
+    legalRuleSetVersionId: *a14
+    legalRuleVersion: *a15
+    assessment: &a17
+      $ref: "#/BenefitAssessment"
+Estimate:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - createdAt
+    - integrityHash
+    - inputHash
+    - engineCode
+    - assessedOn
+    - historyVersionId
+    - historyRevision
+    - legalRuleSetVersionId
+    - legalRuleVersion
+    - assessment
+  properties:
+    id: *a14
+    createdAt:
+      type: string
+      format: date-time
+    integrityHash: *a12
+    inputHash: *a12
+    engineCode: *a11
+    assessedOn: *a16
+    historyVersionId: *a14
+    historyRevision: *a15
+    legalRuleSetVersionId: *a14
+    legalRuleVersion: *a15
+    assessment: *a17
+EstimateList:
+  type: object
+  additionalProperties: false
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Estimate"
+PublishedRuleList:
+  type: object
+  additionalProperties: false
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - id
+          - code
+          - version
+          - effectiveFrom
+          - effectiveTo
+          - documentHash
+          - knowledgeAsOf
+          - coverage
+          - citations
+        properties:
+          id: *a14
+          code: *a11
+          version: *a15
+          effectiveFrom:
+            type: string
+            format: date
+          effectiveTo:
+            type: string
+            format: date
+            nullable: true
+          documentHash: *a12
+          knowledgeAsOf:
+            type: string
+            format: date-time
+          coverage:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              properties:
+                branch:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                strategyCode:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                citationIds:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  minItems: 1
+                  maxItems: 50
+                requiredTableKeys:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  maxItems: 200
+              required:
+                - branch
+                - strategyCode
+                - citationIds
+                - requiredTableKeys
+            minItems: 1
+            maxItems: 100
+          citations: *a18
+HistoryPreviewEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/HistoryPreview"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a14
+HistoryEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/History"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a14
+RuleEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Rule"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a14
+RuleListEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/RuleList"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a14
+EstimatePreviewEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/EstimatePreview"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a14
+EstimateEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Estimate"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a14
+EstimateListEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/EstimateList"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a14
+PublishedRuleListEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/PublishedRuleList"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a14
+LatestHistoryEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      anyOf:
+        - $ref: "#/History"
+        - type: object
+          nullable: true
+          enum:
+            - null
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a14

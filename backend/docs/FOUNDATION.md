@@ -1,6 +1,6 @@
 # B00 — Nền API
 
-Đọc PROGRESS.md trước khi tiếp tục. Theo yêu cầu ngày 02/10/2026, bỏ qua bước kết nối database; integration test database được chuẩn bị nhưng chưa chạy.
+Đọc PROGRESS.md trước khi tiếp tục. Ngày 02/10/2026 người dùng đã xác nhận database local sẵn sàng; migrations và integration tests đã chạy trên database kiểm thử riêng. Xem kết quả và giới hạn trong nhật ký.
 
 - API nghiệp vụ: /api/v1. OpenAPI chỉ liệt kê endpoint đã có.
 - Success: { data, meta: { requestId } }; error: { error: { code, message, fieldErrors? }, requestId }.
@@ -8,7 +8,7 @@
 - CLIENT_URL local: http://localhost:8443. CORS_ORIGINS thêm origin chính xác, không wildcard hoặc đường dẫn. CORS không thay xác thực.
 - JWT_SECRET và JWT_REFRESH_SECRET độc lập, >=32 ký tự. Production từ chối secret mẫu và origin HTTP. Tạo bằng crypto.randomBytes; không commit .env.
 - TRUST_PROXY_HOPS mặc định 0; chỉ đổi sau khi xác minh topology proxy và chặn đường truy cập trực tiếp bỏ qua proxy.
-- JWT giới hạn HS256, issuer/audience, role và expiry. Auth lifecycle và database user status check thuộc B02.
+- JWT giới hạn HS256, issuer/audience, role và expiry. B02 đã bổ sung lifecycle, kiểm tra trạng thái user/securityVersion và session ở database.
 - Room tư vấn từ chối USER/ADMIN/guest đến khi B07 có ownership policy. Guest không vào room user/admin; token hết hạn ngắt socket.
 - Tiền API là decimal string Decimal(18,2), timestamp UTC, role USER/ADMIN; frontend map lowercase ở lớp API khi tích hợp B12.
 - Logger chỉ ghi metadata allowlist, không body/query/token/email hoặc nguyên văn lỗi provider/database.
@@ -25,7 +25,7 @@ Dùng database test riêng có tên anhuu_*_test trên localhost. Đặt TEST_DA
 
 Baseline migration mô tả schema ban đầu. Database đã có bảng cần kiểm tra/baseline trước, không chạy migration tạo bảng mù quáng.
 
-CI mặc định không chạy database checks. Có thể workflow_dispatch với run_database_checks=true sau khi sẵn sàng. Deploy cần BACKEND_DEPLOY_ENABLED=true; không phát hành khi database chưa cấu hình.
+CI chạy database checks trên push/PR và mặc định workflow_dispatch. Deploy cần BACKEND_DEPLOY_ENABLED=true và cả hai job kiểm tra thành công; việc migration release/triển khai cloud thuộc B12.
 
 ## Dependency
 

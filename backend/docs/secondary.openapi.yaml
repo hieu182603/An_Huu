@@ -1,0 +1,708 @@
+PartnerInput:
+  type: object
+  additionalProperties: false
+  properties:
+    name:
+      type: string
+      minLength: 2
+      maxLength: 200
+    type: &a3
+      type: string
+      enum: &a1
+        - OPEN_FUND
+        - BANK
+        - INSURANCE
+        - SECURITIES
+    logoUrl:
+      anyOf:
+        - type: string
+          format: uri
+          maxLength: 2000
+        - type: object
+          nullable: true
+          enum:
+            - null
+    website:
+      anyOf:
+        - type: string
+          format: uri
+          maxLength: 2000
+        - type: object
+          nullable: true
+          enum:
+            - null
+    contactEmail:
+      anyOf:
+        - type: string
+          maxLength: 254
+        - type: object
+          nullable: true
+          enum:
+            - null
+    isHighlight:
+      type: boolean
+    isVisible:
+      type: boolean
+  required:
+    - name
+    - type
+    - logoUrl
+    - website
+    - contactEmail
+    - isHighlight
+    - isVisible
+ProductInput:
+  type: object
+  additionalProperties: false
+  properties:
+    partnerId:
+      type: string
+      format: uuid
+    name:
+      type: string
+      minLength: 2
+      maxLength: 200
+    category:
+      type: string
+      minLength: 2
+      maxLength: 120
+    expectedReturn:
+      type: string
+      maxLength: 1000
+    riskLevel:
+      type: string
+      enum: &a2
+        - LOW
+        - MEDIUM
+        - HIGH
+    description:
+      anyOf:
+        - type: string
+          maxLength: 10000
+        - type: object
+          nullable: true
+          enum:
+            - null
+    annualFee:
+      anyOf:
+        - type: string
+          minLength: 1
+          maxLength: 5000
+        - type: object
+          nullable: true
+          enum:
+            - null
+    conditions:
+      anyOf:
+        - type: string
+          minLength: 1
+          maxLength: 10000
+        - type: object
+          nullable: true
+          enum:
+            - null
+    disclosure:
+      anyOf:
+        - type: string
+          minLength: 1
+          maxLength: 10000
+        - type: object
+          nullable: true
+          enum:
+            - null
+    isVisible:
+      type: boolean
+  required:
+    - partnerId
+    - name
+    - category
+    - expectedReturn
+    - riskLevel
+    - description
+    - annualFee
+    - conditions
+    - disclosure
+    - isVisible
+PartnerUpdate:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 0
+    data:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 200
+        type:
+          type: string
+          enum: *a1
+        logoUrl:
+          anyOf:
+            - type: string
+              format: uri
+              maxLength: 2000
+            - type: object
+              nullable: true
+              enum:
+                - null
+        website:
+          anyOf:
+            - type: string
+              format: uri
+              maxLength: 2000
+            - type: object
+              nullable: true
+              enum:
+                - null
+        contactEmail:
+          anyOf:
+            - type: string
+              maxLength: 254
+            - type: object
+              nullable: true
+              enum:
+                - null
+        isHighlight:
+          type: boolean
+        isVisible:
+          type: boolean
+      required:
+        - name
+        - type
+        - logoUrl
+        - website
+        - contactEmail
+        - isHighlight
+        - isVisible
+  required:
+    - expectedRevision
+    - data
+ProductUpdate:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 0
+    data:
+      type: object
+      additionalProperties: false
+      properties:
+        partnerId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 2
+          maxLength: 200
+        category:
+          type: string
+          minLength: 2
+          maxLength: 120
+        expectedReturn:
+          type: string
+          maxLength: 1000
+        riskLevel:
+          type: string
+          enum: *a2
+        description:
+          anyOf:
+            - type: string
+              maxLength: 10000
+            - type: object
+              nullable: true
+              enum:
+                - null
+        annualFee:
+          anyOf:
+            - type: string
+              minLength: 1
+              maxLength: 5000
+            - type: object
+              nullable: true
+              enum:
+                - null
+        conditions:
+          anyOf:
+            - type: string
+              minLength: 1
+              maxLength: 10000
+            - type: object
+              nullable: true
+              enum:
+                - null
+        disclosure:
+          anyOf:
+            - type: string
+              minLength: 1
+              maxLength: 10000
+            - type: object
+              nullable: true
+              enum:
+                - null
+        isVisible:
+          type: boolean
+      required:
+        - partnerId
+        - name
+        - category
+        - expectedReturn
+        - riskLevel
+        - description
+        - annualFee
+        - conditions
+        - disclosure
+        - isVisible
+  required:
+    - expectedRevision
+    - data
+SettingsInput:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 0
+    emailDigest:
+      type: boolean
+    goalAlerts:
+      type: boolean
+    partnerUpdates:
+      type: boolean
+  required:
+    - expectedRevision
+    - emailDigest
+    - goalAlerts
+    - partnerUpdates
+Partner:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - name
+    - type
+    - logoUrl
+    - website
+    - isHighlight
+    - isVisible
+    - revision
+    - updatedAt
+  properties:
+    id: &a6
+      type: string
+      format: uuid
+    name: &a4
+      type: string
+    type: *a3
+    logoUrl: &a7
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    website: &a8
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    isHighlight: &a5
+      type: boolean
+    isVisible: *a5
+    revision: &a9
+      type: integer
+    updatedAt: &a10
+      type: string
+      format: date-time
+AdminPartner:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - name
+    - type
+    - logoUrl
+    - website
+    - isHighlight
+    - isVisible
+    - revision
+    - updatedAt
+    - contactEmail
+  properties:
+    id: *a6
+    name: *a4
+    type: *a3
+    logoUrl: *a7
+    website: *a8
+    isHighlight: *a5
+    isVisible: *a5
+    revision: *a9
+    updatedAt: *a10
+    contactEmail: &a11
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+PartnerWritten:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - name
+    - type
+    - logoUrl
+    - website
+    - isHighlight
+    - isVisible
+    - revision
+    - updatedAt
+    - contactEmail
+    - createdAt
+  properties:
+    id: *a6
+    name: *a4
+    type: *a3
+    logoUrl: *a7
+    website: *a8
+    isHighlight: *a5
+    isVisible: *a5
+    revision: *a9
+    updatedAt: *a10
+    contactEmail: *a11
+    createdAt: *a10
+ProductWritten:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - partnerId
+    - name
+    - category
+    - expectedReturn
+    - riskLevel
+    - description
+    - annualFee
+    - conditions
+    - disclosure
+    - isVisible
+    - revision
+    - createdAt
+    - updatedAt
+  properties:
+    id: *a6
+    partnerId: *a6
+    name: *a4
+    category: *a4
+    expectedReturn: *a4
+    riskLevel: &a12
+      type: string
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+    description: &a13
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    annualFee: &a14
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    conditions: &a15
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    disclosure: &a16
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    isVisible: *a5
+    revision: *a9
+    createdAt: *a10
+    updatedAt: *a10
+Product:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - partnerId
+    - name
+    - category
+    - expectedReturn
+    - riskLevel
+    - description
+    - annualFee
+    - conditions
+    - disclosure
+    - isVisible
+    - revision
+    - updatedAt
+    - partner
+  properties:
+    id: *a6
+    partnerId: *a6
+    name: *a4
+    category: *a4
+    expectedReturn: *a4
+    riskLevel: *a12
+    description: *a13
+    annualFee: *a14
+    conditions: *a15
+    disclosure: *a16
+    isVisible: *a5
+    revision: *a9
+    updatedAt: *a10
+    partner:
+      $ref: "#/Partner"
+Settings:
+  type: object
+  additionalProperties: false
+  required:
+    - revision
+    - emailDigest
+    - goalAlerts
+    - partnerUpdates
+    - deliveryAvailable
+    - securityAndSupportRequired
+  properties:
+    revision: *a9
+    emailDigest: *a5
+    goalAlerts: *a5
+    partnerUpdates: *a5
+    deliveryAvailable:
+      type: object
+      additionalProperties: false
+      required:
+        - emailDigest
+        - goalAlerts
+        - partnerUpdates
+      properties:
+        emailDigest:
+          type: boolean
+          enum:
+            - false
+        goalAlerts:
+          type: boolean
+          enum:
+            - false
+        partnerUpdates:
+          type: boolean
+          enum:
+            - false
+    securityAndSupportRequired:
+      type: boolean
+      enum:
+        - true
+PartnerList:
+  type: object
+  additionalProperties: false
+  required:
+    - items
+    - total
+    - page
+    - limit
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Partner"
+    total: *a9
+    page: *a9
+    limit: *a9
+AdminPartnerList:
+  type: object
+  additionalProperties: false
+  required:
+    - items
+    - total
+    - page
+    - limit
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/AdminPartner"
+    total: *a9
+    page: *a9
+    limit: *a9
+ProductList:
+  type: object
+  additionalProperties: false
+  required:
+    - items
+    - total
+    - page
+    - limit
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Product"
+    total: *a9
+    page: *a9
+    limit: *a9
+PartnerEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Partner"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a6
+AdminPartnerEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/AdminPartner"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a6
+PartnerWrittenEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/PartnerWritten"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a6
+ProductWrittenEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/ProductWritten"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a6
+ProductEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Product"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a6
+SettingsEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Settings"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a6
+PartnerListEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/PartnerList"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a6
+AdminPartnerListEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/AdminPartnerList"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a6
+ProductListEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/ProductList"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a6

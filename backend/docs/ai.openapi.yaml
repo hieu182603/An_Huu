@@ -1,0 +1,926 @@
+ConsentInput:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 0
+    policyVersion:
+      type: string
+      enum:
+        - ai-explanation-gemini-2026-10-v2
+    processing:
+      type: boolean
+    saveHistory:
+      type: boolean
+  required:
+    - expectedRevision
+    - policyVersion
+    - processing
+    - saveHistory
+ExplanationInput:
+  type: object
+  additionalProperties: false
+  properties:
+    question:
+      type: string
+      minLength: 1
+      maxLength: 2000
+    planId:
+      type: string
+      format: uuid
+    versionId:
+      type: string
+      format: uuid
+    throughMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    conversationId:
+      type: string
+      format: uuid
+    expectedRevision:
+      type: integer
+      minimum: 0
+  required:
+    - question
+SimulationInput:
+  type: object
+  additionalProperties: false
+  properties:
+    planId:
+      type: string
+      format: uuid
+    versionId:
+      type: string
+      format: uuid
+    expectedProfileRevision:
+      type: integer
+      minimum: 1
+    changes:
+      type: object
+      additionalProperties: false
+      properties:
+        retirementMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        monthlyContribution:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        monthlyExpenseToday:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+  required:
+    - planId
+    - versionId
+    - expectedProfileRevision
+    - changes
+TitleInput:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 0
+    title:
+      type: string
+      minLength: 1
+      maxLength: 120
+  required:
+    - expectedRevision
+    - title
+SourceInput:
+  type: object
+  additionalProperties: false
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    referenceCode:
+      type: string
+      maxLength: 100
+    category:
+      type: string
+      minLength: 1
+      maxLength: 80
+    version:
+      type: string
+      minLength: 1
+      maxLength: 40
+    rawContent:
+      type: string
+      minLength: 20
+      maxLength: 50000
+    fileUrl:
+      type: string
+      format: uri
+      maxLength: 1000
+    effectiveDate:
+      type: string
+      format: date-time
+    validUntil:
+      anyOf:
+        - type: string
+          format: date-time
+        - type: object
+          nullable: true
+          enum:
+            - null
+  required:
+    - title
+    - category
+    - version
+    - rawContent
+    - effectiveDate
+SourceEditInput:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 0
+    data:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        referenceCode:
+          type: string
+          maxLength: 100
+        category:
+          type: string
+          minLength: 1
+          maxLength: 80
+        version:
+          type: string
+          minLength: 1
+          maxLength: 40
+        rawContent:
+          type: string
+          minLength: 20
+          maxLength: 50000
+        fileUrl:
+          type: string
+          format: uri
+          maxLength: 1000
+        effectiveDate:
+          type: string
+          format: date-time
+        validUntil:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: object
+              nullable: true
+              enum:
+                - null
+      required:
+        - title
+        - category
+        - version
+        - rawContent
+        - effectiveDate
+  required:
+    - expectedRevision
+    - data
+IndexInput:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 0
+  required:
+    - expectedRevision
+ApprovalInput:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 0
+    approved:
+      type: boolean
+    reviewNote:
+      type: string
+      minLength: 1
+      maxLength: 1000
+    confirm:
+      type: boolean
+      enum:
+        - true
+  required:
+    - expectedRevision
+    - approved
+    - reviewNote
+    - confirm
+MessageEditInput:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 0
+    content:
+      type: string
+      minLength: 1
+      maxLength: 2000
+  required:
+    - expectedRevision
+    - content
+MessageEdited:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - revision
+    - answerRemoved
+  properties:
+    id: &a4
+      type: string
+      format: uuid
+    revision: &a1
+      type: integer
+    answerRemoved: &a2
+      type: boolean
+Privacy:
+  type: object
+  additionalProperties: false
+  required:
+    - revision
+    - processing
+    - saveHistory
+    - policyVersion
+    - acceptedPolicyVersion
+    - retentionDays
+    - purpose
+    - providerData
+    - excludedData
+    - historyPolicy
+  properties:
+    revision: *a1
+    processing: *a2
+    saveHistory: *a2
+    policyVersion: &a3
+      type: string
+    acceptedPolicyVersion:
+      anyOf:
+        - *a3
+        - type: object
+          nullable: true
+          enum:
+            - null
+    retentionDays: *a1
+    purpose: *a3
+    providerData:
+      type: array
+      items: *a3
+    excludedData:
+      type: array
+      items: *a3
+    historyPolicy: *a3
+    providerConfigured: *a2
+    provider:
+      type: string
+      nullable: true
+    reconsentRequired: *a2
+    processingNotice: *a3
+Conversation:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - title
+    - revision
+    - expiresAt
+  properties:
+    id: *a4
+    title: *a3
+    revision: *a1
+    expiresAt: &a5
+      type: string
+      format: date-time
+ConversationList:
+  type: object
+  additionalProperties: false
+  required:
+    - page
+    - limit
+    - total
+    - items
+  properties:
+    page: *a1
+    limit: *a1
+    total: *a1
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - id
+          - title
+          - revision
+          - expiresAt
+          - createdAt
+        properties:
+          id: *a4
+          title: *a3
+          revision: *a1
+          expiresAt: *a5
+          createdAt: *a5
+Citation:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - sourceId
+    - title
+    - version
+    - url
+    - contentHash
+    - effectiveDate
+    - excerpt
+  properties:
+    id: *a4
+    sourceId: *a4
+    title: *a3
+    version: *a3
+    url:
+      anyOf:
+        - *a3
+        - type: object
+          nullable: true
+          enum:
+            - null
+    contentHash: *a3
+    effectiveDate: *a5
+    excerpt: *a3
+Explanation:
+  type: object
+  additionalProperties: false
+  required:
+    - status
+    - answer
+    - facts
+    - citations
+    - provenance
+    - knowledgeStatus
+    - nextAction
+    - applied
+    - savedHistory
+    - conversationId
+    - revision
+    - provider
+  properties:
+    status:
+      type: string
+      enum:
+        - AI_ASSISTED
+        - PROVIDER_NOT_CONFIGURED
+        - PROVIDER_UNAVAILABLE
+    answer: *a3
+    facts:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - key
+          - text
+        properties:
+          key: *a3
+          text: *a3
+    citations:
+      type: array
+      items:
+        $ref: "#/Citation"
+    provenance:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - planId
+            - versionId
+            - snapshotHash
+            - modelVersion
+            - valuationDate
+            - profileRevision
+            - references
+            - hypothetical
+            - warningCodes
+            - sources
+            - valueKind
+            - actuals
+          properties:
+            planId: *a4
+            versionId: *a4
+            snapshotHash: *a3
+            modelVersion: *a3
+            valuationDate: *a3
+            profileRevision: *a1
+            references:
+              $ref: ./retirement.openapi.yaml#/Preview/properties/references
+            hypothetical: *a2
+            warningCodes:
+              type: array
+              items: *a3
+            sources:
+              $ref: ./retirement.openapi.yaml#/Preview/properties/sources
+            valueKind: *a3
+            actuals:
+              anyOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - throughMonth
+                    - status
+                    - anchor
+                    - issues
+                    - revisions
+                  properties:
+                    throughMonth: *a3
+                    status: *a3
+                    anchor:
+                      anyOf:
+                        - type: object
+                          additionalProperties: false
+                          required:
+                            - period
+                            - revision
+                            - closingBalance
+                          properties:
+                            period: *a3
+                            revision: *a1
+                            closingBalance: *a3
+                        - type: object
+                          nullable: true
+                          enum:
+                            - null
+                    issues:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - month
+                          - code
+                        properties:
+                          month: *a3
+                          code: *a3
+                    revisions:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - month
+                          - revision
+                        properties:
+                          month: *a3
+                          revision: *a1
+                - type: object
+                  nullable: true
+                  enum:
+                    - null
+            sourceRegistry:
+              type: object
+              additionalProperties: false
+              required:
+                - registryHash
+                - attribution
+              properties:
+                registryHash:
+                  type: string
+                attribution:
+                  type: array
+                  items:
+                    $ref: ./source-snapshot.openapi.yaml#/Attribution
+        - type: object
+          nullable: true
+          enum:
+            - null
+    knowledgeStatus: *a3
+    nextAction: *a3
+    applied:
+      type: boolean
+      enum:
+        - false
+    savedHistory: *a2
+    conversationId:
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    revision:
+      anyOf:
+        - *a1
+        - type: object
+          nullable: true
+          enum:
+            - null
+    provider:
+      anyOf:
+        - *a3
+        - type: object
+          nullable: true
+          enum:
+            - null
+History:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - title
+    - revision
+    - expiresAt
+    - messages
+  properties:
+    id: *a4
+    title: *a3
+    revision: *a1
+    expiresAt: *a5
+    messages:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - id
+          - role
+          - content
+          - citedSources
+          - context
+          - createdAt
+        properties:
+          id: *a4
+          role: *a3
+          content: *a3
+          citedSources:
+            anyOf:
+              - type: array
+                items:
+                  $ref: "#/Citation"
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          context:
+            anyOf:
+              - type: object
+                additionalProperties: false
+                required:
+                  - requestHash
+                  - response
+                properties:
+                  requestHash: *a3
+                  response:
+                    $ref: "#/Explanation"
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          createdAt: *a5
+Renamed:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - title
+    - revision
+  properties:
+    id: *a4
+    title: *a3
+    revision: *a1
+Deleted:
+  type: object
+  additionalProperties: false
+  required:
+    - deleted
+  properties:
+    deleted: *a1
+Source:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - title
+    - referenceCode
+    - category
+    - version
+    - fileUrl
+    - effectiveDate
+    - validUntil
+    - revision
+    - status
+    - isApproved
+    - indexedHash
+    - contentHash
+    - indexMethod
+  properties:
+    id: *a4
+    title: *a3
+    referenceCode: &a6
+      anyOf:
+        - *a3
+        - type: object
+          nullable: true
+          enum:
+            - null
+    category: *a3
+    version: *a3
+    fileUrl: &a7
+      anyOf:
+        - *a3
+        - type: object
+          nullable: true
+          enum:
+            - null
+    effectiveDate: &a8
+      anyOf:
+        - *a5
+        - type: object
+          nullable: true
+          enum:
+            - null
+    validUntil: &a9
+      anyOf:
+        - *a5
+        - type: object
+          nullable: true
+          enum:
+            - null
+    revision: *a1
+    status: *a3
+    isApproved: *a2
+    indexedHash: &a10
+      anyOf:
+        - *a3
+        - type: object
+          nullable: true
+          enum:
+            - null
+    contentHash: *a3
+    indexMethod: &a11
+      anyOf:
+        - *a3
+        - type: object
+          nullable: true
+          enum:
+            - null
+SourceDetail:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - title
+    - referenceCode
+    - category
+    - version
+    - fileUrl
+    - effectiveDate
+    - validUntil
+    - revision
+    - status
+    - isApproved
+    - indexedHash
+    - contentHash
+    - indexMethod
+    - rawContent
+  properties:
+    id: *a4
+    title: *a3
+    referenceCode: *a6
+    category: *a3
+    version: *a3
+    fileUrl: *a7
+    effectiveDate: *a8
+    validUntil: *a9
+    revision: *a1
+    status: *a3
+    isApproved: *a2
+    indexedHash: *a10
+    contentHash: *a3
+    indexMethod: *a11
+    rawContent:
+      anyOf:
+        - *a3
+        - type: object
+          nullable: true
+          enum:
+            - null
+SourceList:
+  type: object
+  additionalProperties: false
+  required:
+    - page
+    - limit
+    - total
+    - items
+  properties:
+    page: *a1
+    limit: *a1
+    total: *a1
+    items:
+      type: array
+      items:
+        $ref: "#/Source"
+Simulation:
+  $ref: ./plans.openapi.yaml#/Simulation
+PrivacyEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Privacy"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+ConversationEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Conversation"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+ConversationListEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/ConversationList"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+ExplanationEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Explanation"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+HistoryEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/History"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+RenamedEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Renamed"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+DeletedEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Deleted"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+MessageEditedEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/MessageEdited"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+SourceEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Source"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+SourceDetailEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/SourceDetail"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+SourceListEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/SourceList"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4
+SimulationEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Simulation"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a4

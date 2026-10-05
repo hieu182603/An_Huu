@@ -1,0 +1,1257 @@
+Document:
+  type: object
+  additionalProperties: false
+  properties:
+    schemaVersion:
+      type: integer
+      enum:
+        - 2
+    title:
+      type: string
+      minLength: 3
+      maxLength: 200
+    currency:
+      type: string
+      enum:
+        - VND
+    effectiveFrom:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+    projectionStartYear:
+      type: integer
+      minimum: 1900
+      maximum: 2199
+    projectionEndYear:
+      type: integer
+      minimum: 1900
+      maximum: 2199
+    sources:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          kind:
+            type: string
+            enum: &a1
+              - HISTORICAL_OFFICIAL
+              - FORECAST
+              - AN_HUU_LONG_TERM
+              - ASSET_RESEARCH
+          title:
+            type: string
+            minLength: 3
+            maxLength: 200
+          publisher:
+            type: string
+            minLength: 2
+            maxLength: 150
+          url:
+            type: string
+            format: uri
+            maxLength: 2000
+          release:
+            type: string
+            minLength: 1
+            maxLength: 150
+          publishedOn:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+          retrievedOn:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+          fromYear:
+            type: integer
+            minimum: 1900
+            maximum: 2199
+          toYear:
+            type: integer
+            minimum: 1900
+            maximum: 2199
+          note:
+            type: string
+            minLength: 3
+            maxLength: 2000
+        required:
+          - id
+          - kind
+          - title
+          - publisher
+          - url
+          - release
+          - publishedOn
+          - retrievedOn
+          - fromYear
+          - toYear
+          - note
+      maxItems: 100
+    historicalCpi:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          year:
+            type: integer
+            minimum: 1900
+            maximum: 2199
+          percent:
+            type: string
+            pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+          sourceId:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          measure:
+            type: string
+            enum: &a2
+              - ANNUAL_AVERAGE_CHANGE
+              - END_YEAR_CHANGE
+        required:
+          - year
+          - percent
+          - sourceId
+          - measure
+      maxItems: 300
+    inflation:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          year:
+            type: integer
+            minimum: 1900
+            maximum: 2199
+          percent:
+            type: string
+            pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+          sourceId:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          kind:
+            type: string
+            enum: &a3
+              - FORECAST
+              - LONG_TERM
+          rateType:
+            type: string
+            enum:
+              - EFFECTIVE_ANNUAL
+          priceBasis:
+            type: string
+            enum:
+              - NOMINAL
+          conversionNote:
+            type: string
+            minLength: 3
+            maxLength: 2000
+        required:
+          - year
+          - percent
+          - sourceId
+          - kind
+          - rateType
+          - priceBasis
+          - conversionNote
+      maxItems: 300
+    assetClasses:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          code:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          label:
+            type: string
+            minLength: 1
+            maxLength: 120
+          horizons:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                minMonths:
+                  type: integer
+                  minimum: 1
+                  maximum: 1200
+                maxMonths:
+                  type: integer
+                  minimum: 1
+                  maximum: 1200
+              required:
+                - id
+                - minMonths
+                - maxMonths
+            minItems: 1
+            maxItems: 10
+        required:
+          - code
+          - label
+          - horizons
+      maxItems: 20
+    returns:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          year:
+            type: integer
+            minimum: 1900
+            maximum: 2199
+          assetClass:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          horizonId:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          sourceId:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          rate:
+            oneOf:
+              - type: object
+                additionalProperties: false
+                properties:
+                  type:
+                    type: string
+                    enum:
+                      - EFFECTIVE_ANNUAL
+                  percent:
+                    type: string
+                    pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                required:
+                  - type
+                  - percent
+              - type: object
+                additionalProperties: false
+                properties:
+                  type:
+                    type: string
+                    enum:
+                      - NOMINAL_ANNUAL
+                  percent:
+                    type: string
+                    pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                  compoundsPerYear:
+                    type: integer
+                    minimum: 1
+                    maximum: 366
+                required:
+                  - type
+                  - percent
+                  - compoundsPerYear
+          priceBasis:
+            type: string
+            enum: &a4
+              - NOMINAL
+              - REAL
+          fees:
+            oneOf:
+              - type: object
+                additionalProperties: false
+                properties:
+                  treatment:
+                    type: string
+                    enum:
+                      - INCLUDED
+                  evidence:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                required:
+                  - treatment
+                  - evidence
+              - type: object
+                additionalProperties: false
+                properties:
+                  treatment:
+                    type: string
+                    enum:
+                      - EXPLICIT_ANNUAL_DRAG
+                  percent:
+                    type: string
+                    pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                  convention:
+                    type: string
+                    enum:
+                      - PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION
+                  evidence:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                required:
+                  - treatment
+                  - percent
+                  - convention
+                  - evidence
+              - type: object
+                additionalProperties: false
+                properties:
+                  treatment:
+                    type: string
+                    enum:
+                      - UNKNOWN
+                required:
+                  - treatment
+          taxes:
+            oneOf:
+              - type: object
+                additionalProperties: false
+                properties:
+                  treatment:
+                    type: string
+                    enum:
+                      - INCLUDED
+                  evidence:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                required:
+                  - treatment
+                  - evidence
+              - type: object
+                additionalProperties: false
+                properties:
+                  treatment:
+                    type: string
+                    enum:
+                      - EXPLICIT_ANNUAL_DRAG
+                  percent:
+                    type: string
+                    pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                  convention:
+                    type: string
+                    enum:
+                      - PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION
+                  evidence:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                required:
+                  - treatment
+                  - percent
+                  - convention
+                  - evidence
+              - type: object
+                additionalProperties: false
+                properties:
+                  treatment:
+                    type: string
+                    enum:
+                      - UNKNOWN
+                required:
+                  - treatment
+        required:
+          - year
+          - assetClass
+          - horizonId
+          - sourceId
+          - rate
+          - priceBasis
+          - fees
+          - taxes
+      maxItems: 12000
+    reason:
+      type: string
+      minLength: 3
+      maxLength: 2000
+  required:
+    - schemaVersion
+    - title
+    - currency
+    - effectiveFrom
+    - projectionStartYear
+    - projectionEndYear
+    - sources
+    - historicalCpi
+    - inflation
+    - assetClasses
+    - returns
+    - reason
+  description: Drafts may be incomplete. Approval requires exactly one inflation
+    entry and each declared asset/horizon return entry for every projection
+    year, unique IDs, non-overlapping horizons, source coverage/kind and known
+    fee/tax treatment. Rates must be greater than -100% and at most 100%.
+    Historical CPI is reference only. effectiveFrom uses midnight UTC. No
+    fallback or source extrapolation.
+Write:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    data:
+      type: object
+      additionalProperties: false
+      properties:
+        schemaVersion:
+          type: integer
+          enum:
+            - 2
+        title:
+          type: string
+          minLength: 3
+          maxLength: 200
+        currency:
+          type: string
+          enum:
+            - VND
+        effectiveFrom:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        projectionStartYear:
+          type: integer
+          minimum: 1900
+          maximum: 2199
+        projectionEndYear:
+          type: integer
+          minimum: 1900
+          maximum: 2199
+        sources:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              kind:
+                type: string
+                enum: *a1
+              title:
+                type: string
+                minLength: 3
+                maxLength: 200
+              publisher:
+                type: string
+                minLength: 2
+                maxLength: 150
+              url:
+                type: string
+                format: uri
+                maxLength: 2000
+              release:
+                type: string
+                minLength: 1
+                maxLength: 150
+              publishedOn:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              retrievedOn:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              fromYear:
+                type: integer
+                minimum: 1900
+                maximum: 2199
+              toYear:
+                type: integer
+                minimum: 1900
+                maximum: 2199
+              note:
+                type: string
+                minLength: 3
+                maxLength: 2000
+            required:
+              - id
+              - kind
+              - title
+              - publisher
+              - url
+              - release
+              - publishedOn
+              - retrievedOn
+              - fromYear
+              - toYear
+              - note
+          maxItems: 100
+        historicalCpi:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              year:
+                type: integer
+                minimum: 1900
+                maximum: 2199
+              percent:
+                type: string
+                pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+              sourceId:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              measure:
+                type: string
+                enum: *a2
+            required:
+              - year
+              - percent
+              - sourceId
+              - measure
+          maxItems: 300
+        inflation:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              year:
+                type: integer
+                minimum: 1900
+                maximum: 2199
+              percent:
+                type: string
+                pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+              sourceId:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              kind:
+                type: string
+                enum: *a3
+              rateType:
+                type: string
+                enum:
+                  - EFFECTIVE_ANNUAL
+              priceBasis:
+                type: string
+                enum:
+                  - NOMINAL
+              conversionNote:
+                type: string
+                minLength: 3
+                maxLength: 2000
+            required:
+              - year
+              - percent
+              - sourceId
+              - kind
+              - rateType
+              - priceBasis
+              - conversionNote
+          maxItems: 300
+        assetClasses:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              code:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              label:
+                type: string
+                minLength: 1
+                maxLength: 120
+              horizons:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    id:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    minMonths:
+                      type: integer
+                      minimum: 1
+                      maximum: 1200
+                    maxMonths:
+                      type: integer
+                      minimum: 1
+                      maximum: 1200
+                  required:
+                    - id
+                    - minMonths
+                    - maxMonths
+                minItems: 1
+                maxItems: 10
+            required:
+              - code
+              - label
+              - horizons
+          maxItems: 20
+        returns:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              year:
+                type: integer
+                minimum: 1900
+                maximum: 2199
+              assetClass:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              horizonId:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              sourceId:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              rate:
+                oneOf:
+                  - type: object
+                    additionalProperties: false
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - EFFECTIVE_ANNUAL
+                      percent:
+                        type: string
+                        pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                    required:
+                      - type
+                      - percent
+                  - type: object
+                    additionalProperties: false
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - NOMINAL_ANNUAL
+                      percent:
+                        type: string
+                        pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                      compoundsPerYear:
+                        type: integer
+                        minimum: 1
+                        maximum: 366
+                    required:
+                      - type
+                      - percent
+                      - compoundsPerYear
+              priceBasis:
+                type: string
+                enum: *a4
+              fees:
+                oneOf:
+                  - type: object
+                    additionalProperties: false
+                    properties:
+                      treatment:
+                        type: string
+                        enum:
+                          - INCLUDED
+                      evidence:
+                        type: string
+                        minLength: 3
+                        maxLength: 2000
+                    required:
+                      - treatment
+                      - evidence
+                  - type: object
+                    additionalProperties: false
+                    properties:
+                      treatment:
+                        type: string
+                        enum:
+                          - EXPLICIT_ANNUAL_DRAG
+                      percent:
+                        type: string
+                        pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                      convention:
+                        type: string
+                        enum:
+                          - PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION
+                      evidence:
+                        type: string
+                        minLength: 3
+                        maxLength: 2000
+                    required:
+                      - treatment
+                      - percent
+                      - convention
+                      - evidence
+                  - type: object
+                    additionalProperties: false
+                    properties:
+                      treatment:
+                        type: string
+                        enum:
+                          - UNKNOWN
+                    required:
+                      - treatment
+              taxes:
+                oneOf:
+                  - type: object
+                    additionalProperties: false
+                    properties:
+                      treatment:
+                        type: string
+                        enum:
+                          - INCLUDED
+                      evidence:
+                        type: string
+                        minLength: 3
+                        maxLength: 2000
+                    required:
+                      - treatment
+                      - evidence
+                  - type: object
+                    additionalProperties: false
+                    properties:
+                      treatment:
+                        type: string
+                        enum:
+                          - EXPLICIT_ANNUAL_DRAG
+                      percent:
+                        type: string
+                        pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                      convention:
+                        type: string
+                        enum:
+                          - PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION
+                      evidence:
+                        type: string
+                        minLength: 3
+                        maxLength: 2000
+                    required:
+                      - treatment
+                      - percent
+                      - convention
+                      - evidence
+                  - type: object
+                    additionalProperties: false
+                    properties:
+                      treatment:
+                        type: string
+                        enum:
+                          - UNKNOWN
+                    required:
+                      - treatment
+            required:
+              - year
+              - assetClass
+              - horizonId
+              - sourceId
+              - rate
+              - priceBasis
+              - fees
+              - taxes
+          maxItems: 12000
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 2000
+      required:
+        - schemaVersion
+        - title
+        - currency
+        - effectiveFrom
+        - projectionStartYear
+        - projectionEndYear
+        - sources
+        - historicalCpi
+        - inflation
+        - assetClasses
+        - returns
+        - reason
+  required:
+    - expectedRevision
+    - data
+Revision:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+  required:
+    - expectedRevision
+Approve:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    impactToken:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    reviewNote:
+      type: string
+      minLength: 3
+      maxLength: 2000
+  required:
+    - expectedRevision
+    - impactToken
+    - reviewNote
+Publish:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    confirm:
+      type: boolean
+      enum:
+        - true
+  required:
+    - expectedRevision
+    - confirm
+ResolveInput:
+  type: object
+  additionalProperties: false
+  properties:
+    versionId:
+      type: string
+      format: uuid
+    startMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    endMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    assetClass:
+      type: string
+      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+    horizonMonths:
+      type: integer
+      minimum: 1
+      maximum: 1200
+  required:
+    - versionId
+    - startMonth
+    - endMonth
+    - assetClass
+    - horizonMonths
+Source:
+  type: object
+  additionalProperties: false
+  properties:
+    id:
+      type: string
+      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+    kind:
+      type: string
+      enum: *a1
+    title:
+      type: string
+      minLength: 3
+      maxLength: 200
+    publisher:
+      type: string
+      minLength: 2
+      maxLength: 150
+    url:
+      type: string
+      format: uri
+      maxLength: 2000
+    release:
+      type: string
+      minLength: 1
+      maxLength: 150
+    publishedOn:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+    retrievedOn:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+    fromYear:
+      type: integer
+      minimum: 1900
+      maximum: 2199
+    toYear:
+      type: integer
+      minimum: 1900
+      maximum: 2199
+    note:
+      type: string
+      minLength: 3
+      maxLength: 2000
+  required:
+    - id
+    - kind
+    - title
+    - publisher
+    - url
+    - release
+    - publishedOn
+    - retrievedOn
+    - fromYear
+    - toYear
+    - note
+Approval:
+  type: object
+  additionalProperties: false
+  properties:
+    actor: &a5
+      type: string
+      format: uuid
+    approvedAt: &a7
+      type: string
+      format: date-time
+    reviewNote:
+      type: string
+    documentHash:
+      type: string
+    baselineId:
+      type: string
+      format: uuid
+      nullable: true
+  required:
+    - actor
+    - approvedAt
+    - reviewNote
+    - documentHash
+    - baselineId
+Version:
+  type: object
+  additionalProperties: false
+  properties:
+    id: *a5
+    version: &a6
+      type: integer
+    revision: *a6
+    status:
+      type: string
+      enum:
+        - DRAFT
+        - APPROVED
+        - PUBLISHED
+    data:
+      $ref: "#/Document"
+    createdBy: *a5
+    createdAt: *a7
+    publishedBy:
+      type: string
+      format: uuid
+      nullable: true
+    effectiveAt:
+      type: string
+      format: date-time
+      nullable: true
+    approval:
+      anyOf:
+        - $ref: "#/Approval"
+        - type: object
+          nullable: true
+          enum:
+            - null
+    documentHash:
+      type: string
+  required:
+    - id
+    - version
+    - revision
+    - status
+    - data
+    - createdBy
+    - createdAt
+    - publishedBy
+    - effectiveAt
+    - approval
+    - documentHash
+Issue:
+  type: object
+  additionalProperties: false
+  properties:
+    path:
+      type: string
+    code:
+      type: string
+  required:
+    - path
+    - code
+Validation:
+  type: object
+  additionalProperties: false
+  properties:
+    status: &a8
+      type: string
+      enum:
+        - VALID
+        - INCOMPLETE
+    issues: &a9
+      type: array
+      items:
+        $ref: "#/Issue"
+  required:
+    - status
+    - issues
+Impact:
+  type: object
+  additionalProperties: false
+  properties:
+    status: *a8
+    issues: *a9
+    draftRevision: *a6
+    impactToken:
+      type: string
+    baselineId:
+      type: string
+      format: uuid
+      nullable: true
+    scope:
+      type: string
+      enum:
+        - CONFIGURATION_DIFF_ONLY
+    planProjectionStatus:
+      type: string
+      enum:
+        - AWAITING_T06
+    currentPlansChanged:
+      type: integer
+      enum:
+        - 0
+    changes:
+      type: object
+      additionalProperties: false
+      properties:
+        before:
+          anyOf:
+            - $ref: "#/Document"
+            - type: object
+              nullable: true
+              enum:
+                - null
+        after:
+          $ref: "#/Document"
+      required:
+        - before
+        - after
+  required:
+    - status
+    - issues
+    - draftRevision
+    - impactToken
+    - baselineId
+    - scope
+    - planProjectionStatus
+    - currentPlansChanged
+    - changes
+List:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - AVAILABLE
+        - UNCONFIGURED
+    total: *a6
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id: *a5
+          version: *a6
+          revision: *a6
+          status:
+            type: string
+            enum:
+              - DRAFT
+              - APPROVED
+              - PUBLISHED
+          title:
+            type: string
+          effectiveAt:
+            type: string
+            format: date-time
+            nullable: true
+          projectionStartYear: *a6
+          projectionEndYear: *a6
+        required:
+          - id
+          - version
+          - revision
+          - status
+          - title
+          - effectiveAt
+          - projectionStartYear
+          - projectionEndYear
+    page: *a6
+    limit: *a6
+  required:
+    - status
+    - total
+    - items
+    - page
+    - limit
+Month:
+  type: object
+  additionalProperties: false
+  properties:
+    month:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    inflationAnnualPercent: &a10
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+    returnAnnualNetNominalPercent: *a10
+    inflationMonthlyFactor: *a10
+    returnMonthlyFactor: *a10
+    inflationKind:
+      type: string
+      enum:
+        - FORECAST
+        - LONG_TERM
+    inflationSourceId:
+      type: string
+    returnSourceId:
+      type: string
+    assetClass:
+      type: string
+    horizonId:
+      type: string
+  required:
+    - month
+    - inflationAnnualPercent
+    - returnAnnualNetNominalPercent
+    - inflationMonthlyFactor
+    - returnMonthlyFactor
+    - inflationKind
+    - inflationSourceId
+    - returnSourceId
+    - assetClass
+    - horizonId
+Resolution:
+  type: object
+  additionalProperties: false
+  properties:
+    versionId: *a5
+    version: *a6
+    documentHash:
+      type: string
+    currency:
+      type: string
+      enum:
+        - VND
+    priceBasis:
+      type: string
+      enum:
+        - NOMINAL
+    costs:
+      type: string
+      enum:
+        - ALREADY_APPLIED
+    sources:
+      type: array
+      items:
+        $ref: "#/Source"
+    status:
+      type: string
+      enum:
+        - READY
+        - INCOMPLETE
+    issues:
+      type: array
+      items:
+        $ref: "#/Issue"
+    months:
+      type: array
+      items:
+        $ref: "#/Month"
+  required:
+    - versionId
+    - version
+    - documentHash
+    - currency
+    - priceBasis
+    - costs
+    - sources
+    - status
+    - issues
+    - months
+VersionEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/Version"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a5
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+ListEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/List"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a5
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+ValidationEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/Validation"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a5
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+ImpactEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/Impact"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a5
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+ResolutionEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/Resolution"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a5
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+Empty:
+  type: object
+  additionalProperties: false
+  properties: {}
