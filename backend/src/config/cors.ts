@@ -9,6 +9,6 @@ export function corsOptions(config: AppConfig): CorsOptions {
     origin: (origin, callback) => isAllowedOrigin(origin, config)
       ? callback(null, true)
       : callback(new AppError(403, "ORIGIN_NOT_ALLOWED", "Nguồn truy cập không được phép.")),
-    credentials: true, exposedHeaders: ["X-Request-Id", "Retry-After"],
+    credentials: true, exposedHeaders: ["X-Request-Id", "Retry-After", "Content-Disposition"],
   };
 }

@@ -1,0 +1,986 @@
+Unknown:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - UNKNOWN
+  required:
+    - status
+NotApplicable:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - NOT_APPLICABLE
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 300
+  required:
+    - status
+    - reason
+Month:
+  type: string
+  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+Date:
+  type: string
+  format: date
+  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+Amount:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - KNOWN
+        value:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+      required:
+        - status
+        - value
+    - $ref: "#/Unknown"
+Share:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - KNOWN
+        value:
+          type: string
+          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+      required:
+        - status
+        - value
+    - $ref: "#/Unknown"
+KnownMonth:
+  oneOf:
+    - &a1
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - KNOWN
+        value:
+          $ref: "#/Month"
+      required:
+        - status
+        - value
+    - &a2
+      $ref: "#/Unknown"
+KnownDate:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - KNOWN
+        value:
+          $ref: "#/Date"
+      required:
+        - status
+        - value
+    - $ref: "#/Unknown"
+Personal:
+  type: object
+  additionalProperties: false
+  properties: &a3
+    birthMonth:
+      $ref: "#/KnownMonth"
+    desiredRetirementMonth:
+      $ref: "#/KnownMonth"
+    pensionStartMonth:
+      oneOf:
+        - *a1
+        - *a2
+        - $ref: "#/NotApplicable"
+    gender:
+      type: string
+      enum:
+        - MALE
+        - FEMALE
+        - OTHER
+        - UNDISCLOSED
+    maritalStatus:
+      type: string
+      enum:
+        - SINGLE
+        - MARRIED
+        - OTHER
+    dependents:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            value:
+              type: integer
+              minimum: 0
+              maximum: 30
+          required:
+            - status
+            - value
+        - $ref: "#/Unknown"
+    city:
+      type: string
+      maxLength: 120
+    retirementCondition:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - kind
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - NORMAL
+          required:
+            - kind
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - ARTICLE_5_DECLARED
+            basis:
+              type: string
+              enum:
+                - HAZARDOUS_15_YEARS
+                - DIFFICULT_REGION_15_YEARS
+                - COMBINED_15_YEARS
+                - WORK_CAPACITY_LOSS_61_PERCENT
+            evidence:
+              type: string
+              minLength: 1
+              maxLength: 500
+          required:
+            - kind
+            - basis
+            - evidence
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - OTHER
+            description:
+              type: string
+              minLength: 1
+              maxLength: 500
+          required:
+            - kind
+            - description
+  required:
+    - birthMonth
+    - desiredRetirementMonth
+    - pensionStartMonth
+PartialPersonal:
+  type: object
+  additionalProperties: false
+  properties: *a3
+IncomeEntry:
+  type: object
+  additionalProperties: false
+  properties: &a10
+    id: &a4
+      type: string
+      minLength: 1
+      maxLength: 100
+      pattern: ^[a-zA-Z0-9_-]+$
+    label: &a5
+      type: string
+      minLength: 1
+      maxLength: 120
+    currency: &a6
+      type: string
+      pattern: ^[A-Z]{3}$
+      default: VND
+    kind:
+      type: string
+      enum:
+        - FIXED
+        - BONUS
+        - IRREGULAR
+    basis:
+      type: string
+      enum:
+        - DISPOSABLE
+    amount:
+      $ref: "#/Amount"
+    startMonth: &a7
+      $ref: "#/Month"
+    endMonth: &a8
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+      nullable: true
+    frequency: &a9
+      type: string
+      enum:
+        - MONTHLY
+        - ONCE
+    source:
+      type: string
+      enum:
+        - EMPLOYMENT
+        - OTHER
+        - PENSION
+  required:
+    - id
+    - label
+    - kind
+    - basis
+    - amount
+    - startMonth
+    - endMonth
+    - frequency
+ExpenseEntry:
+  type: object
+  additionalProperties: false
+  properties: &a11
+    id: *a4
+    label: *a5
+    currency: *a6
+    category:
+      type: string
+      enum:
+        - ESSENTIAL
+        - OPTIONAL
+        - HEALTH
+        - INSURANCE
+        - DEPENDENT
+        - DEBT_PAYMENT
+    amount:
+      $ref: "#/Amount"
+    loanId: *a4
+    startMonth: *a7
+    endMonth: *a8
+    frequency: *a9
+  required:
+    - id
+    - label
+    - category
+    - amount
+    - startMonth
+    - endMonth
+    - frequency
+HousingPlan:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - UNCONFIRMED
+      required:
+        - status
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - CONFIRMED
+        kind:
+          type: string
+          enum:
+            - SALE
+            - RENT
+        startMonth:
+          $ref: "#/Month"
+        netAmount:
+          $ref: "#/Amount"
+      required:
+        - status
+        - kind
+        - startMonth
+        - netAmount
+AssetEntry:
+  type: object
+  additionalProperties: false
+  properties: &a12
+    id: *a4
+    label: *a5
+    currency: *a6
+    type:
+      type: string
+      enum:
+        - CASH
+        - DEPOSIT
+        - STOCK_FUND
+        - PRIMARY_HOME
+        - REAL_ESTATE
+        - OTHER
+    value:
+      $ref: "#/Amount"
+    valuedOn:
+      $ref: "#/KnownDate"
+    ownershipShare:
+      $ref: "#/Share"
+    retirementShare:
+      $ref: "#/Share"
+    emergencyShare:
+      $ref: "#/Share"
+    otherGoalsShare:
+      $ref: "#/Share"
+    liquidity:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            value:
+              type: string
+              enum:
+                - LIQUID
+                - ILLIQUID
+                - LOCKED
+          required:
+            - status
+            - value
+        - $ref: "#/Unknown"
+    availableFromMonth:
+      $ref: "#/KnownMonth"
+    housingPlan:
+      $ref: "#/HousingPlan"
+  required:
+    - id
+    - label
+    - type
+    - value
+    - valuedOn
+    - ownershipShare
+    - retirementShare
+    - emergencyShare
+    - otherGoalsShare
+    - liquidity
+    - availableFromMonth
+DebtEntry:
+  type: object
+  additionalProperties: false
+  properties: &a13
+    id: *a4
+    label: *a5
+    currency: *a6
+    sharedLoanId: *a4
+    outstandingBalance:
+      $ref: "#/Amount"
+    balanceAsOf:
+      $ref: "#/KnownDate"
+    payment:
+      $ref: "#/Amount"
+    paymentShare:
+      $ref: "#/Share"
+    balanceShare:
+      $ref: "#/Share"
+    responsibility:
+      oneOf:
+        - $ref: "#/Unknown"
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            scope:
+              type: string
+              enum:
+                - ALLOCATED_ONLY
+                - FULL
+                - CAPPED
+            confirmedDocument:
+              type: string
+              minLength: 1
+              maxLength: 300
+            limit:
+              $ref: "#/Amount"
+          required:
+            - status
+            - scope
+            - confirmedDocument
+            - limit
+    startMonth: *a7
+    endMonth: *a8
+    frequency: *a9
+    contract:
+      $ref: ./debt.openapi.yaml#/Declaration
+  required:
+    - id
+    - label
+    - outstandingBalance
+    - balanceAsOf
+    - payment
+    - paymentShare
+    - balanceShare
+    - responsibility
+    - startMonth
+    - endMonth
+    - frequency
+FinancialDataV2:
+  type: object
+  additionalProperties: false
+  properties:
+    schemaVersion: &a14
+      type: integer
+      enum:
+        - 2
+    valuationDate: &a15
+      $ref: "#/Date"
+    currency: &a16
+      type: string
+      enum:
+        - VND
+    periodUnit: &a17
+      type: string
+      enum:
+        - MONTH
+    personal:
+      $ref: "#/Personal"
+    income:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            entries:
+              type: array
+              items:
+                $ref: "#/IncomeEntry"
+              maxItems: 200
+          required:
+            - status
+            - entries
+        - $ref: "#/Unknown"
+        - $ref: "#/NotApplicable"
+    expenses:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            entries:
+              type: array
+              items:
+                $ref: "#/ExpenseEntry"
+              maxItems: 200
+          required:
+            - status
+            - entries
+        - $ref: "#/Unknown"
+        - $ref: "#/NotApplicable"
+    assets:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            entries:
+              type: array
+              items:
+                $ref: "#/AssetEntry"
+              maxItems: 200
+          required:
+            - status
+            - entries
+        - $ref: "#/Unknown"
+        - $ref: "#/NotApplicable"
+    debts:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            entries:
+              type: array
+              items:
+                $ref: "#/DebtEntry"
+              maxItems: 200
+          required:
+            - status
+            - entries
+        - $ref: "#/Unknown"
+        - $ref: "#/NotApplicable"
+    pension:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - NOT_APPLICABLE
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 300
+          required:
+            - status
+            - reason
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            monthlyAmount:
+              type: string
+              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+            currency:
+              type: string
+              enum:
+                - VND
+            priceBasis:
+              type: string
+              enum: &a18
+                - TODAY
+                - NOMINAL_AT_START
+            basisMonth:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            source:
+              type: string
+              minLength: 1
+              maxLength: 500
+            estimatedOn:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            linkedIncomeId:
+              type: string
+              minLength: 1
+              maxLength: 100
+              pattern: ^[a-zA-Z0-9_-]+$
+            adjustment:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - NONE
+                  required:
+                    - kind
+                - type: object
+                  additionalProperties: false
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - EXPLICIT_SCHEDULE
+                    entries:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          effectiveMonth:
+                            type: string
+                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                          monthlyAmount:
+                            type: string
+                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                          source:
+                            type: string
+                            minLength: 1
+                            maxLength: 500
+                        required:
+                          - effectiveMonth
+                          - monthlyAmount
+                          - source
+                      minItems: 1
+                      maxItems: 200
+                  required:
+                    - kind
+                    - entries
+          required:
+            - status
+            - monthlyAmount
+            - currency
+            - priceBasis
+            - basisMonth
+            - source
+            - estimatedOn
+            - adjustment
+  required:
+    - schemaVersion
+    - valuationDate
+    - periodUnit
+    - personal
+    - income
+    - expenses
+    - assets
+    - debts
+  description: Explicit input states. Collections are atomic replacements. Income
+    is disposable after deductions. The server validates unique IDs, shares
+    summing to 1, calendar dates, effective periods and matching linked loan
+    payments. Complete onboarding does not certify retirement calculation
+    readiness.
+PartialIncomeEntry:
+  type: object
+  additionalProperties: false
+  properties: *a10
+  required:
+    - id
+PartialExpenseEntry:
+  type: object
+  additionalProperties: false
+  properties: *a11
+  required:
+    - id
+PartialAssetEntry:
+  type: object
+  additionalProperties: false
+  properties: *a12
+  required:
+    - id
+PartialDebtEntry:
+  type: object
+  additionalProperties: false
+  properties: *a13
+  required:
+    - id
+ProfileChangesV2:
+  type: object
+  additionalProperties: false
+  properties:
+    schemaVersion: *a14
+    valuationDate: *a15
+    currency: *a16
+    periodUnit: *a17
+    personal:
+      $ref: "#/PartialPersonal"
+    income:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            entries:
+              type: array
+              items:
+                $ref: "#/PartialIncomeEntry"
+              maxItems: 200
+          required:
+            - status
+            - entries
+        - $ref: "#/Unknown"
+        - $ref: "#/NotApplicable"
+    expenses:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            entries:
+              type: array
+              items:
+                $ref: "#/PartialExpenseEntry"
+              maxItems: 200
+          required:
+            - status
+            - entries
+        - $ref: "#/Unknown"
+        - $ref: "#/NotApplicable"
+    assets:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            entries:
+              type: array
+              items:
+                $ref: "#/PartialAssetEntry"
+              maxItems: 200
+          required:
+            - status
+            - entries
+        - $ref: "#/Unknown"
+        - $ref: "#/NotApplicable"
+    debts:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            entries:
+              type: array
+              items:
+                $ref: "#/PartialDebtEntry"
+              maxItems: 200
+          required:
+            - status
+            - entries
+        - $ref: "#/Unknown"
+        - $ref: "#/NotApplicable"
+    pension:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - NOT_APPLICABLE
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 300
+          required:
+            - status
+            - reason
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            monthlyAmount:
+              type: string
+              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+            currency:
+              type: string
+              enum:
+                - VND
+            priceBasis:
+              type: string
+              enum: *a18
+            basisMonth:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            source:
+              type: string
+              minLength: 1
+              maxLength: 500
+            estimatedOn:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            linkedIncomeId:
+              type: string
+              minLength: 1
+              maxLength: 100
+              pattern: ^[a-zA-Z0-9_-]+$
+            adjustment:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - NONE
+                  required:
+                    - kind
+                - type: object
+                  additionalProperties: false
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - EXPLICIT_SCHEDULE
+                    entries:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          effectiveMonth:
+                            type: string
+                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                          monthlyAmount:
+                            type: string
+                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                          source:
+                            type: string
+                            minLength: 1
+                            maxLength: 500
+                        required:
+                          - effectiveMonth
+                          - monthlyAmount
+                          - source
+                      minItems: 1
+                      maxItems: 200
+                  required:
+                    - kind
+                    - entries
+          required:
+            - status
+            - monthlyAmount
+            - currency
+            - priceBasis
+            - basisMonth
+            - source
+            - estimatedOn
+            - adjustment
+  required:
+    - schemaVersion
+SummaryV2:
+  type: object
+  additionalProperties: false
+  properties:
+    currency:
+      type: string
+      enum:
+        - VND
+    valuationDate:
+      $ref: "#/Date"
+    periodUnit:
+      type: string
+      enum:
+        - MONTH
+    values:
+      type: object
+      additionalProperties: false
+      properties:
+        monthlyIncome:
+          type: string
+          nullable: true
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        monthlyExpense:
+          type: string
+          nullable: true
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        monthlyDebtService:
+          type: string
+          nullable: true
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        totalAssets:
+          type: string
+          nullable: true
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        totalDebt:
+          type: string
+          nullable: true
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        netWorth:
+          type: string
+          nullable: true
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        retirementLiquidAssets:
+          type: string
+          nullable: true
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        availableMonthlySurplus:
+          type: string
+          nullable: true
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      required:
+        - monthlyIncome
+        - monthlyExpense
+        - monthlyDebtService
+        - totalAssets
+        - totalDebt
+        - netWorth
+        - retirementLiquidAssets
+        - availableMonthlySurplus
+    issues:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          path:
+            type: string
+          code:
+            type: string
+            description: Specific missing-data/valuation/contract issue code; contract
+              errors do not fall back to the legacy payment.
+        required:
+          - path
+          - code
+  required:
+    - currency
+    - valuationDate
+    - periodUnit
+    - values
+    - issues
+DataQuality:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - LEGACY_UNREVIEWED
+        - EXPLICIT_STATES
+    unconfirmedZeroFields:
+      type: array
+      items:
+        type: string
+  required:
+    - status
+    - unconfirmedZeroFields

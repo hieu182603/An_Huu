@@ -1,0 +1,23 @@
+// Executes unchanged frontend service functions against Express in memory.
+// Auth is stubbed for this contract probe; no DB, provider or network calls.
+require('ts-node/register');
+const ts=require('typescript'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),request=require('supertest'),{randomUUID}=require('node:crypto');
+const {memoryDb}=require('../src/tests/memory-db'),{config,token}=require('../src/tests/helpers'),{createServices}=require('../src/modules/services'),{createApp}=require('../src/app');
+const s=createServices(memoryDb().db,config);s.auth.validateSession=async()=>({id:'test-user'});const app=createApp({config,services:s}),calls=[],cache=new Map();
+const realInfo=console.info,realError=console.error;console.info=()=>{};console.error=()=>{};
+function load(filename){filename=path.resolve(filename);if(cache.has(filename))return cache.get(filename);const exported={},module={exports:exported};cache.set(filename,exported);
+ let source=fs.readFileSync(filename,'utf8').replace('import.meta.env.VITE_API_URL','"/api/v1"');const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ vm.runInNewContext(js,{module,exports:exported,require:name=>{if(!name.startsWith('.'))throw new Error('EXTERNAL_MODULE_NOT_ALLOWED');return load(path.resolve(path.dirname(filename),name+'.ts'));},console,AbortSignal,FormData,TextEncoder,URL,Blob,crypto:require('node:crypto').webcrypto,window:{dispatchEvent(){}},navigator:{},
+ fetch:async(url,init)=>{const method=init.method.toLowerCase(),wire={path:url,method:init.method,bodyKeys:init.body?Object.keys(JSON.parse(init.body)):[],idempotencyHeader:!!init.headers['Idempotency-Key']};let r=request(app)[method](url).set('Authorization','Bearer '+token(url.includes('/admin/')?'ADMIN':'USER')).set(init.headers);if(init.body)r=r.send(JSON.parse(init.body));const response=await r;calls.push({...wire,status:response.status,error:response.body.error?.code??null});return {ok:response.status<400,status:response.status,json:async()=>response.body};}}, {filename});return module.exports;}
+(async()=>{const root=path.resolve('../frontend/src/services'),a=load(path.join(root,'actuals.ts')),ai=load(path.join(root,'ai.ts')),k=load(path.join(root,'adminKnowledge.ts')),plans=load(path.join(root,'plans.ts'));
+ const id=randomUUID(),key=randomUUID(),payload={currency:'VND',openingBalance:'0',closingBalance:'0',entries:[],correctionReason:'Wire fixture'};
+ const source={title:'Wire fixture',category:'planning',version:'1',rawContent:'Only a fixture for transport validation.',effectiveDate:'2026-01-01T00:00:00.000Z'};
+ const cases=[['actual-write',()=>a.writeActualMonth('2026-08',0,payload,key)],['reforecast',()=>a.reforecastPlan(id,id,'2026-08')],
+ ['privacy',()=>ai.updateAiPrivacy({expectedRevision:0,policyVersion:ai.AI_POLICY_VERSION,processing:true,saveHistory:false})],['explain',()=>ai.explainRetirementPlan({question:'Fixture question'},key)],['simulate',()=>ai.simulateViaAi({planId:id,versionId:id,expectedProfileRevision:1,changes:{monthlyContribution:'100'}})],
+ ['create-conversation',()=>ai.createAiConversation()],['rename',()=>ai.renameAiConversation(id,0,'Fixture title')],['edit-message',()=>ai.editAiMessage(id,id,0,'Fixture text')],['delete-conversation',()=>ai.deleteAiConversation(id)],['delete-all',()=>ai.clearAllAiConversations()],
+ ['knowledge-create',()=>k.createKnowledgeSource(source)],['knowledge-edit',()=>k.editKnowledgeSource(id,0,source)],['knowledge-index',()=>k.indexKnowledgeSource(id,0)],['knowledge-approve',()=>k.approveKnowledgeSource(id,0,true,'Fixture review')],['plans-read-control',()=>plans.listRetirementPlans()]];
+ for(const [name,fn]of cases){const start=calls.length;try{await fn();}catch{}for(const c of calls.slice(start))c.case=name;}
+ const precision=a.calculateLocalReconciliation({currency:'VND',openingBalance:'9007199254740993.25',closingBalance:'9007199254740993.26',entries:[{eventId:id,date:'2026-08-01',kind:'CONTRIBUTION',amount:'0.01'}],correctionReason:'Fixture'});
+ const result={mode:'FRONTEND_FUNCTIONS_TO_EXPRESS_AUTH_STUB_NO_DB',calls,precision:{expectedContribution:'0.01',actualContribution:precision.actualContribution,expectedClosing:'9007199254740993.26',actualClosing:precision.calculatedClosingBalance}};
+ fs.mkdirSync('.cache',{recursive:true});fs.writeFileSync('.cache/frontend-wire-audit.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+})().catch(e=>{realError(JSON.stringify({code:'WIRE_AUDIT_FAILED',type:e.name}));process.exitCode=1;}).finally(()=>{console.info=realInfo;console.error=realError;});

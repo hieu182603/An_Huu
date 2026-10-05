@@ -1,0 +1,686 @@
+Rate:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - EFFECTIVE_ANNUAL
+        percent: &a1
+          type: string
+          pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+          description: 0–100 inclusive; server validates the upper bound.
+      required:
+        - kind
+        - percent
+    - type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - NOMINAL_ANNUAL_MONTHLY
+        percent: *a1
+      required:
+        - kind
+        - percent
+    - type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - EFFECTIVE_MONTHLY
+        percent: *a1
+      required:
+        - kind
+        - percent
+    - type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - SIMPLE_ANNUAL_DAILY
+        percent: *a1
+        days:
+          type: integer
+          minimum: 1
+          maximum: 366
+        yearDays:
+          type: integer
+          enum:
+            - 360
+            - 365
+            - 366
+      required:
+        - kind
+        - percent
+        - days
+        - yearDays
+Prepayment:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - UNKNOWN
+      required:
+        - status
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - PROHIBITED
+        reason: &a3
+          type: string
+          minLength: 1
+          maxLength: 300
+      required:
+        - status
+        - reason
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - ALLOWED
+        mode:
+          type: string
+          enum:
+            - PARTIAL_OR_FULL
+            - FULL_ONLY
+        minimumPrincipal: &a2
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        maximumPrincipal:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+          nullable: true
+        fixedFee: *a2
+        feePercent: *a1
+        effect:
+          type: string
+          enum:
+            - REDUCE_TERM_KEEP_SCHEDULE
+        funding:
+          type: string
+          enum:
+            - SOLE_BORROWER
+            - PRO_RATA_CONFIRMED
+        evidence: *a3
+      required:
+        - status
+        - mode
+        - minimumPrincipal
+        - maximumPrincipal
+        - fixedFee
+        - feePercent
+        - effect
+        - funding
+        - evidence
+Period:
+  type: object
+  additionalProperties: false
+  properties:
+    dueDate: &a4
+      type: string
+      format: date
+    rate:
+      $ref: "#/Rate"
+    repayment:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - PRINCIPAL_PLUS_INTEREST
+            amount: *a2
+          required:
+            - kind
+            - amount
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - TOTAL_PAYMENT
+            amount: *a2
+          required:
+            - kind
+            - amount
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - INTEREST_ONLY
+          required:
+            - kind
+    minimumPayment: *a2
+    fee: *a2
+    prepayment:
+      $ref: "#/Prepayment"
+  required:
+    - dueDate
+    - rate
+    - repayment
+    - minimumPayment
+    - fee
+    - prepayment
+Contract:
+  type: object
+  additionalProperties: false
+  properties:
+    contractVersion:
+      type: integer
+      enum:
+        - 1
+    source: *a3
+    confirmedOn: *a4
+    balanceAsOf: *a4
+    interestBasis:
+      type: string
+      enum:
+        - REDUCING_BALANCE
+    periodConvention:
+      type: string
+      enum:
+        - DECLARED_FULL_MONTH_OR_EXPLICIT_DAYS
+    maturityDate: *a4
+    settleRemainingAtMaturity:
+      type: boolean
+    parties:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          reference: &a5
+            type: string
+            minLength: 1
+            maxLength: 100
+            pattern: ^[a-zA-Z0-9_-]+$
+          role:
+            type: string
+            enum:
+              - BORROWER
+              - CO_OBLIGOR
+        required:
+          - reference
+          - role
+      minItems: 1
+      maxItems: 20
+    periods:
+      type: array
+      items:
+        $ref: "#/Period"
+      minItems: 1
+      maxItems: 600
+  required:
+    - contractVersion
+    - source
+    - confirmedOn
+    - balanceAsOf
+    - interestBasis
+    - periodConvention
+    - maturityDate
+    - settleRemainingAtMaturity
+    - parties
+    - periods
+  description: Remaining monthly contract from valuation date. One period per
+    consecutive month, first due in valuation month, final due exactly
+    maturityDate. Rate, fees, minimums and prepayment terms belong to each
+    period. Full-month accrual must be expressly declared; use explicit days for
+    a daily simple-interest contract. Only reducing-balance interest and term
+    reduction retaining the contractual schedule are supported.
+Declaration:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - UNKNOWN
+      required:
+        - status
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - KNOWN
+        value:
+          $ref: "#/Contract"
+      required:
+        - status
+        - value
+Input:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedProfileRevision:
+      type: integer
+      minimum: 1
+    horizonMonths:
+      type: integer
+      minimum: 1
+      maximum: 600
+    reserveMonthly:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+      nullable: true
+    extraMonthlyBudget:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+      nullable: true
+    payoffLoanId: *a5
+    stress:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          loanId: *a5
+          startMonth: &a6
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+          endMonth: *a6
+          totalPaymentShare:
+            type: string
+            pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+        required:
+          - loanId
+          - startMonth
+          - endMonth
+          - totalPaymentShare
+      maxItems: 20
+      default: []
+  required:
+    - expectedProfileRevision
+    - horizonMonths
+    - reserveMonthly
+    - extraMonthlyBudget
+  description: Read-only preview from the authenticated owner’s stored v2 profile
+    and revision. Null budget/reserve means unknown and blocks repayment
+    alternatives. Extra budget is a monthly cap from remaining cash after all
+    declared non-debt expenses, scheduled payments and reserve; never from
+    retirement or emergency assets. Stress uses the total payer share, replacing
+    the base share only in the named months.
+Issue:
+  type: object
+  additionalProperties: false
+  properties:
+    loanId:
+      type: string
+      nullable: true
+    code:
+      type: string
+  required:
+    - loanId
+    - code
+Pressure:
+  type: object
+  additionalProperties: false
+  properties:
+    definition:
+      type: string
+      enum:
+        - PRINCIPAL_INTEREST_OVER_DISPOSABLE_INCOME
+    ratioPercent: &a7
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      nullable: true
+    status:
+      type: string
+      enum:
+        - INSUFFICIENT_DATA
+        - NO_REPAYMENT_SOURCE
+        - UNDEFINED_RATIO
+        - LOW_PRESSURE
+        - REVIEW_DEBT_REDUCTION
+        - HIGH_PRESSURE
+    remainingCash: *a7
+    cashflowStatus:
+      type: string
+      enum:
+        - UNKNOWN
+        - DEFICIT
+        - BALANCED
+        - SURPLUS
+  required:
+    - definition
+    - ratioPercent
+    - status
+    - remainingCash
+    - cashflowStatus
+LoanPayment:
+  type: object
+  additionalProperties: false
+  properties:
+    loanId:
+      type: string
+    dueDate: *a4
+    principal: &a8
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+    interest: *a8
+    fee: *a8
+    extraPrincipal: *a8
+    prepaymentFee: *a8
+    totalLoanClosingBalance: *a8
+  required:
+    - loanId
+    - dueDate
+    - principal
+    - interest
+    - fee
+    - extraPrincipal
+    - prepaymentFee
+    - totalLoanClosingBalance
+Row:
+  type: object
+  additionalProperties: false
+  properties:
+    month: *a6
+    income: *a7
+    nonDebtExpense: *a7
+    reserveContribution:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+      nullable: true
+    scheduledPrincipalInterest: *a8
+    scheduledFees: *a8
+    extraPrincipal: *a8
+    prepaymentFees: *a8
+    debtPayment: *a8
+    stressIncrease: *a8
+    availableForRetirement: *a7
+    pressure:
+      $ref: "#/Pressure"
+    loans:
+      type: array
+      items:
+        $ref: "#/LoanPayment"
+    issues:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          path:
+            type: string
+          code:
+            type: string
+        required:
+          - path
+          - code
+  required:
+    - month
+    - income
+    - nonDebtExpense
+    - reserveContribution
+    - scheduledPrincipalInterest
+    - scheduledFees
+    - extraPrincipal
+    - prepaymentFees
+    - debtPayment
+    - stressIncrease
+    - availableForRetirement
+    - pressure
+    - loans
+    - issues
+Totals:
+  type: object
+  additionalProperties: false
+  properties:
+    principal: *a8
+    interest: *a8
+    fees: *a8
+    interestAndFees: *a8
+    extraPrincipal: *a8
+    totalPaid: *a8
+    peakMonthlyPayment: *a8
+    closingLoanBalance: *a8
+    debtFreeDate:
+      type: string
+      format: date
+      nullable: true
+    firstShortfallMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+      nullable: true
+  required:
+    - principal
+    - interest
+    - fees
+    - interestAndFees
+    - extraPrincipal
+    - totalPaid
+    - peakMonthlyPayment
+    - closingLoanBalance
+    - debtFreeDate
+    - firstShortfallMonth
+Result:
+  type: object
+  additionalProperties: false
+  properties:
+    strategy:
+      type: string
+      enum:
+        - CONTRACT
+        - AVALANCHE
+        - SNOWBALL
+        - SELECTED_PAYOFF
+        - STRESS
+    status:
+      type: string
+      enum:
+        - CALCULATED
+        - HORIZON_LIMIT
+    rows:
+      type: array
+      items:
+        $ref: "#/Row"
+    totals:
+      $ref: "#/Totals"
+  required:
+    - strategy
+    - status
+    - rows
+    - totals
+Alternative:
+  type: object
+  additionalProperties: false
+  properties:
+    strategy:
+      type: string
+      enum:
+        - AVALANCHE
+        - SNOWBALL
+        - SELECTED_PAYOFF
+    status:
+      type: string
+      enum:
+        - INCOMPLETE
+        - CALCULATED
+        - HORIZON_LIMIT
+    comparisonScope:
+      type: string
+      enum:
+        - UNAVAILABLE
+        - FULL_TERM
+        - SAME_HORIZON_ONLY
+    result:
+      anyOf:
+        - $ref: "#/Result"
+        - type: object
+          nullable: true
+          enum:
+            - null
+    interestAndFeesSaved: *a7
+    retirementCashflowDelta:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          month: *a6
+          value: *a8
+        required:
+          - month
+          - value
+    issues:
+      type: array
+      items:
+        $ref: "#/Issue"
+  required:
+    - strategy
+    - status
+    - comparisonScope
+    - result
+    - interestAndFeesSaved
+    - retirementCashflowDelta
+    - issues
+Stress:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - INCOMPLETE
+        - CALCULATED
+    result:
+      anyOf:
+        - $ref: "#/Result"
+        - type: object
+          nullable: true
+          enum:
+            - null
+    issues:
+      type: array
+      items:
+        $ref: "#/Issue"
+  required:
+    - status
+    - result
+    - issues
+Response:
+  type: object
+  additionalProperties: false
+  properties:
+    profileRevision:
+      type: integer
+      minimum: 1
+    modelVersion:
+      type: string
+      enum:
+        - debt-monthly-v1
+    valuationDate: *a4
+    currency:
+      type: string
+      enum:
+        - VND
+    periodUnit:
+      type: string
+      enum:
+        - MONTH
+    timing:
+      type: string
+      enum:
+        - EXTRA_AFTER_SCHEDULED_PAYMENT
+    budgetTiming:
+      type: string
+      enum:
+        - MONTHLY_LIQUIDITY_ONLY
+    issues:
+      type: array
+      items:
+        $ref: "#/Issue"
+    warnings:
+      type: array
+      items:
+        $ref: "#/Issue"
+    limitations:
+      type: array
+      items:
+        type: string
+    status:
+      type: string
+      enum:
+        - READY
+        - INCOMPLETE
+    baseline:
+      anyOf:
+        - $ref: "#/Result"
+        - type: object
+          nullable: true
+          enum:
+            - null
+    alternatives:
+      type: array
+      items:
+        $ref: "#/Alternative"
+    stress:
+      anyOf:
+        - $ref: "#/Stress"
+        - type: object
+          nullable: true
+          enum:
+            - null
+    capital:
+      type: object
+      additionalProperties: false
+      properties:
+        netWorth: *a7
+        retirementLiquidAssets: *a7
+      required:
+        - netWorth
+        - retirementLiquidAssets
+  required:
+    - profileRevision
+    - modelVersion
+    - valuationDate
+    - currency
+    - periodUnit
+    - timing
+    - budgetTiming
+    - issues
+    - warnings
+    - limitations
+    - status
+    - baseline
+    - alternatives
+    - stress
+    - capital
+Envelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/Response"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+      required:
+        - requestId
+  required:
+    - data
+    - meta

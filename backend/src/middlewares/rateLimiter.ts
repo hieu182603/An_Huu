@@ -8,7 +8,7 @@ export function createLimiter(windowMs: number, max: number) {
   });
 }
 export const generalLimiter = createLimiter(15 * 60 * 1000, 300);
-export const authLimiter = createLimiter(15 * 60 * 1000, 10);
+export const authLimiter = createLimiter(15 * 60 * 1000, process.env.NODE_ENV === "production" ? 10 : 500);
 export const aiLimiter = createLimiter(60 * 1000, 15);
 export const uploadLimiter = createLimiter(15 * 60 * 1000, 20);
 export const consultationLimiter = createLimiter(60 * 60 * 1000, 5);

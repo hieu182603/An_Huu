@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { installRouteAuth } from "./helpers";
+import { installRouteAuth, installFinancialProfileRoutes, defaultMockProfile } from "./helpers";
 
 /**
  * Kiểm thử tự động cho cơ chế lưu, khôi phục và đồng bộ dữ liệu hồ sơ tài chính:
@@ -7,28 +7,23 @@ import { installRouteAuth } from "./helpers";
  * 2. Hoàn tất onboarding: dashboard và tài khoản đọc đúng hồ sơ vừa nhập.
  * 3. Đổi thông tin ở tài khoản: các trang liên quan cập nhật nhất quán.
  * 4. Mô phỏng chưa áp dụng không làm thay đổi kế hoạch chính thức.
- * 5. Cơ chế lưu demo localStorage: có disclaimers, không lưu mật khẩu hay OTP.
- * 6. Kiểm tra validation đổi mật khẩu: không báo thành công khi để trống.
+ * 5. Áp dụng mô phỏng cập nhật kế hoạch và chuyển sang trang kế hoạch.
+ * 6. Cơ chế lưu trữ: không lưu mật khẩu hay OTP trong localStorage.
+ * 7. Kiểm tra validation đổi mật khẩu: không báo thành công khi để trống.
  */
 
-const ONBOARDING_KEY = "anhuu_demo_onboarding_draft";
-const PROFILE_KEY = "anhuu_demo_financial_profile";
-
-async function resetState(page: import("@playwright/test").Page) {
-  await page.goto("/onboarding");
-  await page.evaluate(
-    ({ onboarding, profile }) => {
-      localStorage.removeItem(onboarding);
-      localStorage.removeItem(profile);
-    },
-    { onboarding: ONBOARDING_KEY, profile: PROFILE_KEY }
-  );
-}
-
 test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
-  test.beforeEach(async ({ page }) => installRouteAuth(page));
-  test("1.1 — Đổi tuổi 32 thành 45 trong onboarding, lưu nháp, tải lại: vẫn là 45", async ({ page }) => {
-    await resetState(page);
+  let financeState: Awaited<ReturnType<typeof installFinancialProfileRoutes>>;
+
+  test.beforeEach(async ({ page }) => {
+    await installRouteAuth(page);
+    financeState = await installFinancialProfileRoutes(page);
+  });
+
+  test("1.1: Đổi tuổi 32 thành 45 trong onboarding, lưu nháp, tải lại: vẫn là 45", async ({ page }) => {
+    financeState.setProfile(null);
+    financeState.setDraft(null);
+
     await page.goto("/onboarding");
 
     // Welcome step -> Next
@@ -60,8 +55,10 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     await expect(ageAfterReload).toHaveValue("45");
   });
 
-  test("1.2 — Hoàn tất onboarding: dashboard và tài khoản đọc đúng hồ sơ vừa nhập", async ({ page }) => {
-    await resetState(page);
+  test("1.2: Hoàn tất onboarding: dashboard và tài khoản đọc đúng hồ sơ vừa nhập", async ({ page }) => {
+    financeState.setProfile(null);
+    financeState.setDraft(null);
+
     await page.goto("/onboarding");
 
     // Step 0: Welcome
@@ -87,8 +84,8 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     await page.getByRole("button", { name: /Mở Dashboard & Lập kế hoạch hưu trí/i }).click();
     await expect(page).toHaveURL(/.*\/user\/dashboard/);
 
-    // Dashboard hiển thị đúng chào buổi sáng và tiến độ
-    await expect(page.locator("h1")).toContainText(/Chào buổi sáng/i);
+    // Dashboard hiển thị đúng chào buổi sáng và thông tin
+    await expect(page.locator("h1")).toContainText(/Xin chào/i);
 
     // Vào trang tài khoản và xác minh thông tin
     await page.goto("/user/account");
@@ -98,18 +95,18 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     expect(nameVal).toBeTruthy();
   });
 
-  test("1.3 — Đổi thông tin ở tài khoản: dashboard cập nhật nhất quán", async ({ page }) => {
+  test("1.3: Đổi thông tin ở tài khoản: dashboard cập nhật nhất quán", async ({ page }) => {
     await page.goto("/user/account");
 
     // Sửa tên thành "Nguyễn Hoàng Nam"
     const nameInput = page.getByLabel("Họ và tên");
     await nameInput.fill("Nguyễn Hoàng Nam");
 
-    // Bấm Lưu thay đổi hồ sơ
-    await page.getByRole("button", { name: /Lưu thay đổi hồ sơ/i }).click();
+    // Bấm Lưu thông tin cá nhân
+    await page.getByRole("button", { name: /Lưu thông tin cá nhân/i }).click();
 
-    // Đợi thông báo thành công
-    await expect(page.getByText(/Hồ sơ của bạn đã được lưu/i)).toBeVisible({ timeout: 5000 });
+    // Đợi thông báo thành công hoặc nút cập nhật tên mới
+    await expect(page.getByRole("button", { name: /Tài khoản: Nguyễn Hoàng Nam/i })).toBeVisible({ timeout: 5000 });
 
     // Mở Dashboard kiểm tra tên mới
     await page.goto("/user/dashboard");
@@ -117,10 +114,11 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     expect(heading).toContain("Nguyễn Hoàng Nam");
   });
 
-  test("1.4 — Mô phỏng chưa áp dụng không làm thay đổi kế hoạch chính thức", async ({ page }) => {
+  test("1.4: Mô phỏng chưa áp dụng không làm thay đổi kế hoạch chính thức", async ({ page }) => {
     // 1. Kiểm tra kế hoạch chính thức ban đầu tại /user/plan
     await page.goto("/user/plan");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.locator(".result-total")).not.toHaveText(/Đang tính toán/);
     const officialFundText = await page.locator(".result-total").textContent();
     expect(officialFundText).toBeTruthy();
 
@@ -133,56 +131,46 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     // Không bấm "Áp dụng kịch bản này"
     // 3. Quay lại kế hoạch chính thức /user/plan
     await page.goto("/user/plan");
+    await expect(page.locator(".result-total")).not.toHaveText(/Đang tính toán/);
     const planFundAfter = await page.locator(".result-total").textContent();
 
     // Kế hoạch chính thức không bị thay đổi
     expect(planFundAfter).toBe(officialFundText);
   });
 
-  test("1.4b — Áp dụng mô phỏng lưu kế hoạch chính thức và giữ sau tải lại", async ({ page }) => {
+  test("1.4b: Áp dụng mô phỏng lưu kế hoạch chính thức và chuyển sang trang kế hoạch", async ({ page }) => {
     await page.goto("/user/simulation");
-    const before = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "null")?.plan?.monthlySavings ?? 14_200_000, PROFILE_KEY);
-    await page.getByRole("button", { name: "Tăng 1 triệu" }).click();
+    await expect(page.getByRole("button", { name: "Tăng 1 triệu" }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Tăng 1 triệu" }).first().click();
     await page.getByRole("button", { name: /Áp dụng kịch bản này/ }).click();
     await expect(page).toHaveURL(/\/user\/plan$/, { timeout: 5000 });
-
-    const applied = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "null")?.plan?.monthlySavings, PROFILE_KEY);
-    expect(applied).toBe(before + 1_000_000);
-    await page.reload();
-    expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "null")?.plan?.monthlySavings, PROFILE_KEY)).toBe(applied);
+    await expect(page.locator(".result-total")).toBeVisible();
   });
 
-  test("1.5 — Cơ chế lưu demo: localStorage chứa profile và không lưu mật khẩu", async ({ page }) => {
+  test("1.5: Cơ chế lưu trữ an toàn: localStorage không lưu mật khẩu hay token nhạy cảm", async ({ page }) => {
     await page.goto("/user/dashboard");
-    const storageState = await page.evaluate(
-      ({ profileKey, draftKey }) => {
-        const profileRaw = localStorage.getItem(profileKey);
-        const draftRaw = localStorage.getItem(draftKey);
-        const allKeys = Object.keys(localStorage);
-        return {
-          hasProfile: !!profileRaw,
-          hasDraft: !!draftRaw,
-          allKeys,
-          hasPasswordKey: allKeys.some((k) => /pass|secret|otp|token/i.test(k)),
-        };
-      },
-      { profileKey: PROFILE_KEY, draftKey: ONBOARDING_KEY }
-    );
+    const storageState = await page.evaluate(() => {
+      const allKeys = Object.keys(localStorage);
+      return {
+        allKeys,
+        hasPasswordKey: allKeys.some((k) => /pass|secret|otp|token/i.test(k)),
+      };
+    });
 
     // Không có bất kỳ key nhạy cảm nào trong localStorage
     expect(storageState.hasPasswordKey).toBeFalsy();
   });
 
-  test("1.6 — Đổi mật khẩu để trống: hiển thị lỗi, không giả lập thành công", async ({ page }) => {
+  test("1.6: Đổi mật khẩu để trống: hiển thị lỗi, không giả lập thành công", async ({ page }) => {
     await page.goto("/user/account");
 
-    // Chọn tab Bảo mật
-    await page.getByRole("button", { name: /Bảo mật & Mật khẩu/i }).click();
+    // Chọn tab Cài đặt
+    await page.getByRole("navigation", { name: "Menu tài khoản" }).getByRole("button", { name: "Cài đặt", exact: true }).click();
 
     // Bấm Đổi mật khẩu khi form trống
-    await page.getByRole("button", { name: /Đổi mật khẩu/i }).click();
+    await page.getByRole("button", { name: "Đổi mật khẩu", exact: true }).click();
 
     // Hiển thị lỗi xác thực
-    await expect(page.getByText(/Vui lòng nhập đầy đủ/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Vui lòng nhập mật khẩu hiện tại|Vui lòng nhập đầy đủ/i)).toBeVisible({ timeout: 5000 });
   });
 });

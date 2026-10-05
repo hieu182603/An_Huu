@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "knowledgeAsOf": "2026-10-05",
+  "status": "DRAFT_NOT_APPROVED",
+  "sources": [
+    {
+      "id": "R02",
+      "url": "https://congbaocdn.chinhphu.vn/180507251028987904/2026/3/5/468972-1772691642_v1_1772691941_signed.pdf",
+      "file": "R02.pdf",
+      "sha256": "90cf1e79ba6e778fd1bb7702662167372c7f646622edf83efd9851035af642b7",
+      "bytes": 3714646,
+      "retrievedAt": "2026-10-05T12:44:52.226Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "R03",
+      "url": "https://xaydungchinhsach.chinhphu.vn/toan-van-nghi-dinh-158-2025-nd-cp-quy-dinh-ve-bao-hiem-xa-hoi-bat-buoc-119250629171336803.htm",
+      "file": "R03.html.txt",
+      "sha256": "f9724a50864f0263c8999564ff803f87a32e40034b4e4159271b9904750fde3f",
+      "bytes": 868417,
+      "retrievedAt": "2026-10-05T12:44:51.339Z",
+      "format": "OFFICIAL_FULL_TEXT_HTML_SNAPSHOT"
+    },
+    {
+      "id": "R05",
+      "url": "https://xaydungchinhsach.chinhphu.vn/toan-van-thong-tu-12-2025-tt-bnv-quy-dinh-chi-tiet-mot-so-dieu-cua-luat-bhxh-ve-bhxh-bat-buoc-11925070415595016.htm",
+      "file": "R05.html.txt",
+      "sha256": "0d183827074028d160316f6c51ece9a23c78b350335674dec4c404d603f9b7b7",
+      "bytes": 586302,
+      "retrievedAt": "2026-10-05T12:44:51.473Z",
+      "format": "OFFICIAL_FULL_TEXT_HTML_SNAPSHOT"
+    },
+    {
+      "id": "AGE",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/11/135.signed.pdf",
+      "file": "AGE.pdf",
+      "sha256": "3e14d2e05041c12b6d71739dbb958015e0604eed41a6432e6d8cbbd4276455b0",
+      "bytes": 697036,
+      "retrievedAt": "2026-10-05T12:46:05.638Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "BASE2024",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/7/73-cp.signed.pdf",
+      "file": "BASE2024.pdf",
+      "sha256": "db402a18d1bca468437b8e27179793f50064404077a930460c6d7b90fe53d30b",
+      "bytes": 386990,
+      "retrievedAt": "2026-10-05T12:46:05.304Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "BASE2026",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/5/161-ndcp.signed.pdf",
+      "file": "BASE2026.pdf",
+      "sha256": "dbbc1c4793f801f925e28fe53252285b95727e793faf4e83640dcb7ded7444b8",
+      "bytes": 363855,
+      "retrievedAt": "2026-10-05T12:46:05.288Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "FACTORS2026",
+      "url": "https://xdcs.cdnchinhphu.vn/446259493575335936/2026/2/6/bhxhvn-340-bhxh-csxh-03022026-17703483427831116897245.pdf",
+      "file": "FACTORS2026.pdf",
+      "sha256": "ae105e9a17bc38184c17972ba98115811d4eab0b764d24935306ff882081a537",
+      "bytes": 585122,
+      "retrievedAt": "2026-10-05T12:46:04.927Z",
+      "format": "SIGNED_PDF"
+    }
+  ]
+}

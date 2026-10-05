@@ -1,54 +1,18 @@
+export { ArticleCards, KnowledgePage, ArticlePage } from "./PublicContent";
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link } from 'react-router';
 import { Icon } from '../components/ui';
-import heroLifestyle from '../assets/hero-lifestyle.webp';
-import peacefulRetirement from '../assets/peaceful-retirement.webp';
-import advisorPlanning from '../assets/advisor-planning.webp';
-import strategyPortfolio from '../assets/strategy-portfolio.webp';
-import pensionSecurity from '../assets/pension-security.webp';
-import seniorWellness from '../assets/senior-wellness.webp';
 import MarketingLayout, { FinalCTA, MarketingButton, PageIntro } from './MarketingLayout';
 import {
-  articles,
   assistantCapabilities,
   assistantComparison,
   assistantExamples,
   assistantFaqs,
-  knowledgePillars,
-  retirementGlossary,
   steps,
 } from './content';
 import { calculateRetirement, projectBalanceAtAge, type RetirementCalculationInput } from '../domain/retirementCalculator';
 
-const articleImages: Record<string, string> = {
-  lifestyle: heroLifestyle,
-  planning: advisorPlanning,
-  retirement: peacefulRetirement,
-  strategy: strategyPortfolio,
-  pension: pensionSecurity,
-  wellness: seniorWellness,
-};
 const currency = (amount: number) => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(amount)} đ`;
-
-export function ArticleCards({ category = 'all', limit }: { category?: string; limit?: number }) {
-  let filtered = category === 'all' ? articles : articles.filter(article => article.category === category);
-  if (limit) filtered = filtered.slice(0, limit);
-  return (
-    <div className="mk-article-grid">
-      {filtered.map(article => (
-        <Link className="mk-article mk-reveal" key={article.slug} to={`/kien-thuc/${article.slug}`}>
-          <div className="mk-article-image">
-            <img src={articleImages[article.image]} width="600" height="400" loading="lazy" alt="" />
-          </div>
-          <span className="mk-eyebrow">{article.category}</span>
-          <h3>{article.title}</h3>
-          <p>{article.summary}</p>
-          <span className="mk-text-link">Đọc bài viết<Icon name="arrow-right" /></span>
-        </Link>
-      ))}
-    </div>
-  );
-}
 
 export function AssistantPreview({ expanded = false }: { expanded?: boolean }) {
   const [selected, setSelected] = useState(0);
@@ -302,110 +266,6 @@ export function AssistantPage() {
       <FinalCTA />
     </MarketingLayout>
   );
-}
-
-export function KnowledgePage() {
-  const featuredArticle = articles[0];
-
-  return (
-    <MarketingLayout>
-      <PageIntro eyebrow="KIẾN THỨC HƯU TRÍ" title="Hiểu hôm nay. Vững bước ngày mai.">
-        Những khái niệm nền tảng về tài chính cá nhân, sức mạnh lãi kép và an sinh xã hội, được giải thích đơn giản và thực tế cho người Việt.
-      </PageIntro>
-
-      {/* SECTION 1: Featured Editorial Spotlight */}
-      <section className="mk-container mk-spotlight-section">
-        <Link to={`/kien-thuc/${featuredArticle.slug}`} className="mk-spotlight-card mk-reveal">
-          <div className="mk-spotlight-media">
-            <img src={articleImages[featuredArticle.image]} width="720" height="480" alt={featuredArticle.title} loading="eager" />
-            <span className="mk-spotlight-badge">Bài viết tiêu điểm</span>
-          </div>
-          <div className="mk-spotlight-content">
-            <span className="mk-eyebrow">{featuredArticle.category} · 5 phút đọc</span>
-            <h2>{featuredArticle.title}</h2>
-            <p>{featuredArticle.summary}</p>
-            <div className="mk-spotlight-highlights">
-              <span><Icon name="check" /> Xác định chi tiêu theo sức mua hôm nay</span>
-              <span><Icon name="check" /> Phân biệt tài sản sử dụng và tài sản sinh lời</span>
-              <span><Icon name="check" /> Cách ứng phó khi mục tiêu cuộc sống thay đổi</span>
-            </div>
-            <span className="mk-button mk-small">Đọc bài viết ngay<Icon name="arrow-right" /></span>
-          </div>
-        </Link>
-      </section>
-
-      {/* SECTION 2: Curated Articles Grid */}
-      <section className="mk-container mk-knowledge">
-        <div className="mk-knowledge-header">
-          <h2>Tất cả chuyên đề</h2>
-          <span>{articles.length} bài viết</span>
-        </div>
-        <div className="mk-article-grid">
-          {articles.map(article => (
-            <Link className="mk-article mk-reveal" key={article.slug} to={`/kien-thuc/${article.slug}`}>
-              <div className="mk-article-image">
-                <img src={articleImages[article.image]} width="600" height="400" loading="lazy" alt="" />
-              </div>
-              <span className="mk-eyebrow">{article.category}</span>
-              <h3>{article.title}</h3>
-              <p>{article.summary}</p>
-              <span className="mk-text-link">Đọc bài viết<Icon name="arrow-right" /></span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* SECTION 4: 3 Golden Principles Bento Strip */}
-      <section className="mk-section mk-pillars-section">
-        <div className="mk-container">
-          <div className="mk-section-heading mk-centered mk-reveal">
-            <span className="mk-eyebrow">NGUYÊN TẮC CỐT LÕI</span>
-            <h2>Ba nguyên tắc vàng cho quỹ hưu trí</h2>
-            <p>Những bài học đúc kết giúp người tuổi 30+ xây dựng nền tảng tài chính bền vững.</p>
-          </div>
-          <div className="mk-pillars-grid">
-            {knowledgePillars.map(pillar => (
-              <div className="mk-pillar-card mk-reveal" key={pillar.step}>
-                <span className="mk-pillar-number">{pillar.step}</span>
-                <h3>{pillar.title}</h3>
-                <strong>{pillar.highlight}</strong>
-                <p>{pillar.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 5: Glossary Quick Reference Bento */}
-      <section className="mk-section mk-glossary-section">
-        <div className="mk-container">
-          <div className="mk-section-heading mk-centered mk-reveal">
-            <span className="mk-eyebrow">SỔ TAY THUẬT NGỮ</span>
-            <h2>Bốn chỉ số tài chính bạn cần nhớ</h2>
-            <p>Nắm rõ các khái niệm này sẽ giúp bạn dễ dàng đọc hiểu mọi kết quả mô phỏng và kế hoạch.</p>
-          </div>
-          <div className="mk-glossary-grid">
-            {retirementGlossary.map(item => (
-              <div className="mk-glossary-card mk-reveal" key={item.term}>
-                <span className="mk-feature-icon"><Icon name="file-text" /></span>
-                <h3>{item.term}</h3>
-                <p>{item.meaning}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <FinalCTA />
-    </MarketingLayout>
-  );
-}
-
-export function ArticlePage() {
-  const { slug } = useParams();
-  const article = articles.find(item => item.slug === slug);
-  if (!article) return <MarketingLayout><PageIntro eyebrow="KHÔNG TÌM THẤY" title="Bài viết này chưa có.">Bạn có thể khám phá các bài viết hiện có trong thư viện kiến thức.</PageIntro><div className="mk-container mk-knowledge"><MarketingButton to="/kien-thuc">Về trang kiến thức</MarketingButton></div></MarketingLayout>;
-  return <MarketingLayout><article className="mk-reading"><Link to="/kien-thuc" className="mk-text-link"><Icon name="arrow-left" />Kiến thức</Link><span className="mk-eyebrow">{article.category}</span><h1>{article.title}</h1><p className="mk-reading-lead">{article.summary}</p><img src={articleImages[article.image]} width="960" height="640" alt="Không gian sống và chuẩn bị cho tương lai" />{article.sections.map(([title, text]) => <section key={title}><h2>{title}</h2><p>{text}</p></section>)}<aside className="mk-note">Nội dung giáo dục và minh họa cách sử dụng công cụ, không phải tư vấn đầu tư cá nhân.</aside><MarketingButton to="/mo-phong">Khám phá bằng mô phỏng</MarketingButton></article></MarketingLayout>;
 }
 
 const defaultInput: RetirementCalculationInput = {

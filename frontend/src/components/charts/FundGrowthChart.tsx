@@ -11,27 +11,28 @@ import {
 } from "recharts";
 import type { FinancialProfile } from "../../context/FinancialProfileContext";
 import { calculateRetirement, inputFromProfile } from "../../domain/retirementCalculator";
+import { useI18n } from "../../i18n";
 
 interface FundGrowthChartProps {
   view: "milestone" | "annual";
   profile: FinancialProfile;
 }
 
-const formatVND = (value: number) => {
+const formatVND = (value: number, isVi: boolean) => {
   if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
+    return isVi ? `${(value / 1_000_000_000).toFixed(1)} tỷ` : `${(value / 1_000_000_000).toFixed(1)}B ₫`;
   }
   if (value >= 1_000_000) {
-    return `${Math.round(value / 1_000_000)} tr`;
+    return isVi ? `${Math.round(value / 1_000_000)} tr` : `${Math.round(value / 1_000_000)}M ₫`;
   }
-  return `${value.toLocaleString("vi-VN")} đ`;
+  return `${value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫`;
 };
 
-const formatFullVND = (value: number) => {
-  return `${value.toLocaleString("vi-VN")} đ`;
+const formatFullVND = (value: number, isVi: boolean) => {
+  return `${value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫`;
 };
 
-const CustomTooltip = ({ active, payload }: any) => {
+const CustomTooltip = ({ active, payload, isVi }: any) => {
   if (!active || !payload || !payload.length) return null;
   const data = payload[0].payload;
 
@@ -61,25 +62,25 @@ const CustomTooltip = ({ active, payload }: any) => {
           justifyContent: "space-between",
         }}
       >
-        <span>Năm {data.year}</span>
-        <span style={{ color: "#6F9B7C" }}>{data.age} tuổi</span>
+        <span>{isVi ? `Năm ${data.year}` : `Year ${data.year}`}</span>
+        <span style={{ color: "#6F9B7C" }}>{isVi ? `${data.age} tuổi` : `${data.age} yrs`}</span>
       </div>
 
       <div style={{ display: "grid", gap: "6px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
           <span style={{ color: "#6F9B7C", display: "inline-flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#6F9B7C", display: "inline-block" }} />
-            Mục tiêu cần có:
+            {isVi ? "Mục tiêu cần có:" : "Target required:"}
           </span>
-          <strong style={{ color: "#ffffff" }}>{formatFullVND(data.target)}</strong>
+          <strong style={{ color: "#ffffff" }}>{formatFullVND(data.target, isVi)}</strong>
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
           <span style={{ color: "#93C5FD", display: "inline-flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#3B82F6", display: "inline-block" }} />
-            Tài sản dự phóng:
+            {isVi ? "Tài sản dự phóng:" : "Projected wealth:"}
           </span>
-          <strong style={{ color: "#ffffff" }}>{formatFullVND(data.current)}</strong>
+          <strong style={{ color: "#ffffff" }}>{formatFullVND(data.current, isVi)}</strong>
         </div>
 
         <div
@@ -93,8 +94,8 @@ const CustomTooltip = ({ active, payload }: any) => {
             fontWeight: 600,
           }}
         >
-          <span>Thiếu hụt:</span>
-          <span>{formatFullVND(Math.max(0, data.target - data.current))}</span>
+          <span>{isVi ? "Thiếu hụt:" : "Shortfall:"}</span>
+          <span>{formatFullVND(Math.max(0, data.target - data.current), isVi)}</span>
         </div>
       </div>
     </div>
@@ -102,6 +103,9 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export function FundGrowthChart({ view, profile }: FundGrowthChartProps) {
+  const { language } = useI18n();
+  const isVi = language === "vi";
+
   const chartData = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const input = inputFromProfile(profile);
@@ -119,12 +123,12 @@ export function FundGrowthChart({ view, profile }: FundGrowthChartProps) {
       return {
         age,
         year: currentYear + elapsed,
-        label: view === "annual" ? `${currentYear + elapsed}` : `${age}t (${currentYear + elapsed})`,
+        label: view === "annual" ? `${currentYear + elapsed}` : (isVi ? `${age}t (${currentYear + elapsed})` : `${age}y (${currentYear + elapsed})`),
         current: index === desiredPoints - 1 ? final.projectedFund : Math.round(partial),
         target: index === desiredPoints - 1 ? final.targetFund : Math.round(target),
       };
     });
-  }, [view, profile]);
+  }, [view, profile, isVi]);
 
   return (
     <div style={{ width: "100%", height: 320, position: "relative" }}>
@@ -135,19 +139,19 @@ export function FundGrowthChart({ view, profile }: FundGrowthChartProps) {
         >
           <defs>
             <linearGradient id="fundTargetGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#6F9B7C" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#6F9B7C" stopOpacity={0.0} />
+              <stop offset="5%" stopColor="#334DAF" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#334DAF" stopOpacity={0.0} />
             </linearGradient>
             <linearGradient id="fundCurrentGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#153A52" stopOpacity={0.35} />
-              <stop offset="95%" stopColor="#153A52" stopOpacity={0.0} />
+              <stop offset="5%" stopColor="#052659" stopOpacity={0.35} />
+              <stop offset="95%" stopColor="#052659" stopOpacity={0.0} />
             </linearGradient>
           </defs>
 
           <CartesianGrid
             strokeDasharray="3 3"
             vertical={false}
-            stroke="rgba(21, 58, 82, 0.08)"
+            stroke="rgba(5, 38, 89, 0.08)"
           />
 
           <XAxis
@@ -155,7 +159,7 @@ export function FundGrowthChart({ view, profile }: FundGrowthChartProps) {
             stroke="#7B8F9D"
             fontSize={11.5}
             tickLine={false}
-            axisLine={{ stroke: "rgba(21, 58, 82, 0.15)" }}
+            axisLine={{ stroke: "rgba(5, 38, 89, 0.15)" }}
           />
 
           <YAxis
@@ -163,20 +167,20 @@ export function FundGrowthChart({ view, profile }: FundGrowthChartProps) {
             fontSize={11}
             tickLine={false}
             axisLine={false}
-            tickFormatter={formatVND}
+            tickFormatter={(v) => formatVND(v, isVi)}
             domain={[0, "auto"]}
           />
 
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip isVi={isVi} />} />
 
           <ReferenceLine
             x={chartData.at(-1)?.label}
-            stroke="#D9A85E"
+            stroke="#334DAF"
             strokeDasharray="4 4"
             label={{
-              value: `Nghỉ hưu (${profile.goal.targetRetireAge}t)`,
+              value: isVi ? `Nghỉ hưu (${profile.goal.targetRetireAge}t)` : `Retirement (${profile.goal.targetRetireAge}y)`,
               position: "top",
-              fill: "#B88738",
+              fill: "#334DAF",
               fontSize: 11,
               fontWeight: 600,
             }}
@@ -185,8 +189,8 @@ export function FundGrowthChart({ view, profile }: FundGrowthChartProps) {
           <Area
             type="monotone"
             dataKey="target"
-            name="Mục tiêu tối thiểu"
-            stroke="#6F9B7C"
+            name={isVi ? "Mục tiêu tối thiểu" : "Minimum Target"}
+            stroke="#334DAF"
             strokeWidth={2.5}
             fillOpacity={1}
             fill="url(#fundTargetGrad)"
@@ -195,8 +199,8 @@ export function FundGrowthChart({ view, profile }: FundGrowthChartProps) {
           <Area
             type="monotone"
             dataKey="current"
-            name="Tiến độ hiện tại"
-            stroke="#153A52"
+            name={isVi ? "Tiến độ hiện tại" : "Current Trajectory"}
+            stroke="#052659"
             strokeWidth={2.5}
             fillOpacity={1}
             fill="url(#fundCurrentGrad)"

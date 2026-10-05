@@ -81,29 +81,27 @@ export function calculateRetirement(input: RetirementCalculationInput): Retireme
   const monthsToRetirement = yearsToRetirement * 12;
   const retirementMonths = retirementYears * 12;
 
-  // Nhà ở không được coi là tiền có thể chi tiêu. Chỉ các tài sản tài chính thanh khoản
-  // được đưa vào quỹ, sau khi trừ nợ tiêu dùng.
+  // Vốn hưu trí thanh khoản đầu kỳ không trừ toàn bộ dư nợ tiêu dùng vì nghĩa vụ trả nợ
+  // đã được phản ánh trong dòng tiền tiết kiệm hàng tháng (F04: tách tài sản ròng với vốn hưu trí, tránh trừ hai lần).
   const investableAssetsToday = Math.max(0,
-    finite(input.cashSavings) + finite(input.liquidAssets) + finite(input.stockFundValue) - Math.max(0, finite(input.consumerDebt)),
+    finite(input.cashSavings) + finite(input.liquidAssets) + finite(input.stockFundValue),
   );
   const projectedFund = futureValue(investableAssetsToday, Math.max(0, finite(input.monthlyContribution)), annualReturn, monthsToRetirement);
   const inflationFactor = Math.pow(1 + annualInflation / 100, yearsToRetirement);
   const futureMonthlyExpense = Math.max(0, finite(input.monthlyExpenseToday)) * inflationFactor;
 
-  // Ước tính demo: tỷ lệ thay thế 45% sau 20 năm, cộng 2% mỗi năm tiếp theo, tối đa 75%.
-  // Đây không phải phép tính quyền lợi BHXH chính thức.
-  const contributionYearsAtRetirement = Math.max(0, finite(input.socialInsuranceYears)) + yearsToRetirement;
-  const pensionReplacementRate = contributionYearsAtRetirement < 20
-    ? 0
-    : Math.min(0.75, 0.45 + (contributionYearsAtRetirement - 20) * 0.02);
-  const estimatedMonthlyPension = Math.max(0, finite(input.socialInsuranceSalary)) * inflationFactor * pensionReplacementRate;
-  const requiredMonthlyWithdrawal = Math.max(0, futureMonthlyExpense - estimatedMonthlyPension);
+  // Loại bỏ hoàn toàn công thức demo 20 năm/45% (FE-T05-04).
+  // Khi chưa nối engine tháng T06, kết quả quỹ hưu trí chưa bao gồm lương hưu tự tính.
+  // Lương hưu chính thức được người dùng tự khai báo và xem trước theo tháng tại T05.
+  const estimatedMonthlyPension = 0;
+  const requiredMonthlyWithdrawal = futureMonthlyExpense;
 
-  // Giai đoạn hưu trí dùng lợi suất thận trọng hơn 1,5 điểm phần trăm.
-  const retirementReturn = Math.max(0, annualReturn - 1.5);
+  // Giai đoạn hưu trí dùng lợi suất giả định khai báo (bỏ tự giảm 1,5 điểm % của demo).
+  const retirementReturn = annualReturn;
   const targetFund = requiredFundAtRetirement(futureMonthlyExpense, estimatedMonthlyPension, retirementReturn, annualInflation, retirementMonths);
   const gap = targetFund - projectedFund;
-  const readinessScore = targetFund <= 0 ? 100 : clamp(Math.round(projectedFund / targetFund * 100), 0, 100);
+  // Giữ tỷ lệ vượt 100% khi K > 0 (không cắt 100% theo F11).
+  const readinessScore = targetFund <= 0 ? (projectedFund > 0 ? 100 : 0) : Math.max(0, Math.round(projectedFund / targetFund * 100));
 
   return {
     yearsToRetirement,
@@ -127,19 +125,19 @@ export function projectBalanceAtAge(input: RetirementCalculationInput, age: numb
     const elapsedMonths = Math.round((boundedAge - input.currentAge) * 12);
     if (targetTrack) {
       const progress = result.yearsToRetirement <= 0 ? 1 : (boundedAge - input.currentAge) / result.yearsToRetirement;
-      return Math.round(result.investableAssetsToday + (result.targetFund - result.investableAssetsToday) * Math.pow(progress, 1.35));
+      return Math.round(result.investableAssetsToday + (result.targetFund - result.investableAssetsToday) * progress);
     }
     return Math.round(futureValue(result.investableAssetsToday, Math.max(0, input.monthlyContribution), clamp(input.annualReturnRate, 0, 30), elapsedMonths));
   }
 
   const postMonths = Math.round((boundedAge - input.retirementAge) * 12);
-  const monthlyReturn = Math.pow(1 + Math.max(0, clamp(input.annualReturnRate, 0, 30) - 1.5) / 100, 1 / 12) - 1;
+  const monthlyReturn = Math.pow(1 + clamp(input.annualReturnRate, 0, 30) / 100, 1 / 12) - 1;
   const monthlyInflation = Math.pow(1 + clamp(input.annualInflationRate, 0, 20) / 100, 1 / 12) - 1;
   let balance = targetTrack ? result.targetFund : result.projectedFund;
   for (let month = 0; month < postMonths; month++) {
     const withdrawal = Math.max(0,
       result.futureMonthlyExpense * Math.pow(1 + monthlyInflation, month) -
-      result.estimatedMonthlyPension * Math.pow(1 + monthlyInflation, month),
+      result.estimatedMonthlyPension,
     );
     balance = Math.max(0, balance * (1 + monthlyReturn) - withdrawal);
   }

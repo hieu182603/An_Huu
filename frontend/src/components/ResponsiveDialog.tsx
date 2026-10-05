@@ -16,18 +16,19 @@ export default function ResponsiveDialog({ open, title, onClose, children, drawe
     const root = document.getElementById("root");
     const previousInert = root?.inert ?? false;
     document.body.style.overflow = "hidden";
+    window.scrollTo({ left: 0 });
     if (root) root.inert = true;
     const focusable = () => Array.from(surface.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]') ?? []).filter(el => el.getClientRects().length && !el.closest('[inert]'));
-    focusable()[0]?.focus();
+    focusable()[0]?.focus({ preventScroll: true });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); close.current(); }
       if (event.key !== "Tab") return;
       const elements = focusable();
       const first = elements[0], last = elements[elements.length - 1];
-      if (!first) { event.preventDefault(); surface.current?.focus(); return; }
+      if (!first) { event.preventDefault(); surface.current?.focus({ preventScroll: true }); return; }
       const outside = !surface.current?.contains(document.activeElement);
-      if (event.shiftKey && (document.activeElement === first || outside)) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && (document.activeElement === last || outside)) { event.preventDefault(); first.focus(); }
+      if (event.shiftKey && (document.activeElement === first || outside)) { event.preventDefault(); last.focus({ preventScroll: true }); }
+      else if (!event.shiftKey && (document.activeElement === last || outside)) { event.preventDefault(); first.focus({ preventScroll: true }); }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {

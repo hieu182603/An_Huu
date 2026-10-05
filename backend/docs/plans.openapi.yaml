@@ -1,0 +1,1994 @@
+ReforecastInput:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    expectedInputHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    preview:
+      type: object
+      additionalProperties: false
+      properties:
+        planId:
+          type: string
+          format: uuid
+        versionId:
+          type: string
+          format: uuid
+        throughMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        expectedProfileRevision:
+          type: integer
+          minimum: 1
+        futureChanges:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                format: uuid
+              field:
+                type: string
+                enum:
+                  - income
+                  - livingExpense
+                  - additionalExpense
+                  - plannedContribution
+              operation:
+                type: string
+                enum:
+                  - REPLACE_MONTHLY_TOTAL
+              amount:
+                type: string
+                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              startMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              endMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 500
+            required:
+              - id
+              - field
+              - operation
+              - amount
+              - startMonth
+              - endMonth
+              - reason
+          maxItems: 200
+          default: []
+        sourceChanges:
+          type: array
+          items:
+            oneOf:
+              - type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  confirmed:
+                    type: boolean
+                    enum:
+                      - true
+                  document:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                  kind:
+                    type: string
+                    enum:
+                      - DEBT_SETTLED
+                  sourceId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  actual:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      period:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      eventId:
+                        type: string
+                        format: uuid
+                    required:
+                      - period
+                      - eventId
+                  remainingObligation:
+                    type: string
+                    enum:
+                      - "0"
+                required:
+                  - id
+                  - confirmed
+                  - document
+                  - kind
+                  - sourceId
+                  - actual
+                  - remainingObligation
+              - type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  confirmed:
+                    type: boolean
+                    enum:
+                      - true
+                  document:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                  kind:
+                    type: string
+                    enum:
+                      - ASSET_REALIZED
+                  sourceId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  actual:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      period:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      eventId:
+                        type: string
+                        format: uuid
+                    required:
+                      - period
+                      - eventId
+                required:
+                  - id
+                  - confirmed
+                  - document
+                  - kind
+                  - sourceId
+                  - actual
+              - type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  confirmed:
+                    type: boolean
+                    enum:
+                      - true
+                  document:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                  kind:
+                    type: string
+                    enum:
+                      - PENSION_REPLACE
+                  sourceId:
+                    type: string
+                    enum:
+                      - pension
+                  startMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  endMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  monthlyAmount:
+                    type: string
+                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                  priceBasis:
+                    type: string
+                    enum:
+                      - NOMINAL_MONTHLY
+                required:
+                  - id
+                  - confirmed
+                  - document
+                  - kind
+                  - sourceId
+                  - startMonth
+                  - endMonth
+                  - monthlyAmount
+                  - priceBasis
+              - type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  confirmed:
+                    type: boolean
+                    enum:
+                      - true
+                  document:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                  kind:
+                    type: string
+                    enum:
+                      - FLOW_REPLACE
+                  sourceType:
+                    type: string
+                    enum:
+                      - INCOME
+                      - EXPENSE
+                  sourceId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  startMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  endMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  monthlyAmount:
+                    type: string
+                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                required:
+                  - id
+                  - confirmed
+                  - document
+                  - kind
+                  - sourceType
+                  - sourceId
+                  - startMonth
+                  - endMonth
+                  - monthlyAmount
+          maxItems: 200
+      required:
+        - planId
+        - versionId
+        - throughMonth
+        - expectedProfileRevision
+  required:
+    - expectedRevision
+    - expectedInputHash
+    - preview
+CreateInput:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 0
+    expectedInputHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    preview:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedProfileRevision:
+          type: integer
+          minimum: 1
+        policyVersionId:
+          type: string
+          format: uuid
+        scenario:
+          type: string
+          enum: &a1
+            - BASE
+            - ADVERSE
+            - FAVORABLE
+        templateId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        answers:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              questionId:
+                type: string
+                minLength: 1
+                maxLength: 100
+              choiceId:
+                type: string
+                minLength: 1
+                maxLength: 100
+            required:
+              - questionId
+              - choiceId
+          maxItems: 30
+        liquidityNeedMonths:
+          type: integer
+          minimum: 0
+          maximum: 1200
+        endMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        monthlyExpenseToday:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        monthlyContribution:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        monthlyReserve:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        contributionTiming:
+          type: string
+          enum: &a2
+            - END_OF_MONTH
+            - START_OF_MONTH
+          default: END_OF_MONTH
+        surplusPolicy:
+          type: string
+          enum:
+            - EXPLICIT_DEPOSITS_ONLY
+          default: EXPLICIT_DEPOSITS_ONLY
+        startOfMonthFunding:
+          type: object
+          additionalProperties: false
+          properties:
+            confirmed:
+              type: boolean
+              enum:
+                - true
+            source:
+              type: string
+              enum:
+                - CURRENT_MONTH_DISPOSABLE_CASH_AVAILABLE_AT_START
+            monthlyAvailable:
+              type: string
+              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+            schedule:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  month:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  amount:
+                    type: string
+                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                required:
+                  - month
+                  - amount
+              maxItems: 1200
+              default: &a3 []
+          required:
+            - confirmed
+            - source
+            - monthlyAvailable
+        terminalBalance:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+          default: "0"
+        contributionSchedule:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              month:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              amount:
+                type: string
+                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+            required:
+              - month
+              - amount
+          maxItems: 1200
+          default: &a4 []
+        retirementContributionSchedule:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              month:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              amount:
+                type: string
+                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+            required:
+              - month
+              - amount
+          maxItems: 1200
+          default: &a5 []
+        retirementIncomeIds:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          maxItems: 200
+        retirementAdditionalExpenseIds:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          maxItems: 200
+          default: &a6 []
+        debtStress:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              loanId:
+                type: string
+                minLength: 1
+                maxLength: 100
+                pattern: ^[a-zA-Z0-9_-]+$
+              startMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              endMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              totalPaymentShare:
+                type: string
+                pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+            required:
+              - loanId
+              - startMonth
+              - endMonth
+              - totalPaymentShare
+          maxItems: 20
+          default: &a7 []
+        whatIf:
+          type: object
+          additionalProperties: false
+          properties:
+            retirementMonth:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            assetValues:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  assetId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  value:
+                    type: string
+                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                required:
+                  - assetId
+                  - value
+              minItems: 1
+              maxItems: 200
+        housing:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              assetId:
+                type: string
+                minLength: 1
+                maxLength: 100
+              amountScope:
+                type: string
+                enum: &a8
+                  - WHOLE_ASSET
+                  - OWNERS_SHARE
+              linkedIncomeId:
+                type: string
+                minLength: 1
+                maxLength: 100
+            required:
+              - assetId
+              - amountScope
+          maxItems: 200
+          default: &a9 []
+      required:
+        - expectedProfileRevision
+        - policyVersionId
+        - scenario
+        - answers
+        - liquidityNeedMonths
+        - endMonth
+        - monthlyExpenseToday
+        - monthlyContribution
+        - monthlyReserve
+        - retirementIncomeIds
+  required:
+    - expectedRevision
+    - expectedInputHash
+    - preview
+ApplyInput:
+  type: object
+  additionalProperties: false
+  properties:
+    versionId:
+      type: string
+      format: uuid
+    expectedRevision:
+      type: integer
+      minimum: 1
+    expectedProfileRevision:
+      type: integer
+      minimum: 1
+    confirm:
+      type: boolean
+      enum:
+        - true
+  required:
+    - versionId
+    - expectedRevision
+    - expectedProfileRevision
+    - confirm
+CompareInput:
+  type: object
+  additionalProperties: false
+  properties:
+    baselineVersionId:
+      type: string
+      format: uuid
+    candidateVersionId:
+      type: string
+      format: uuid
+  required:
+    - baselineVersionId
+    - candidateVersionId
+SimulationInput:
+  type: object
+  additionalProperties: false
+  properties:
+    preview:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedProfileRevision:
+          type: integer
+          minimum: 1
+        policyVersionId:
+          type: string
+          format: uuid
+        scenario:
+          type: string
+          enum: *a1
+        templateId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        answers:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              questionId:
+                type: string
+                minLength: 1
+                maxLength: 100
+              choiceId:
+                type: string
+                minLength: 1
+                maxLength: 100
+            required:
+              - questionId
+              - choiceId
+          maxItems: 30
+        liquidityNeedMonths:
+          type: integer
+          minimum: 0
+          maximum: 1200
+        endMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        monthlyExpenseToday:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        monthlyContribution:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        monthlyReserve:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        contributionTiming:
+          type: string
+          enum: *a2
+          default: END_OF_MONTH
+        surplusPolicy:
+          type: string
+          enum:
+            - EXPLICIT_DEPOSITS_ONLY
+          default: EXPLICIT_DEPOSITS_ONLY
+        startOfMonthFunding:
+          type: object
+          additionalProperties: false
+          properties:
+            confirmed:
+              type: boolean
+              enum:
+                - true
+            source:
+              type: string
+              enum:
+                - CURRENT_MONTH_DISPOSABLE_CASH_AVAILABLE_AT_START
+            monthlyAvailable:
+              type: string
+              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+            schedule:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  month:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  amount:
+                    type: string
+                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                required:
+                  - month
+                  - amount
+              maxItems: 1200
+              default: *a3
+          required:
+            - confirmed
+            - source
+            - monthlyAvailable
+        terminalBalance:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+          default: "0"
+        contributionSchedule:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              month:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              amount:
+                type: string
+                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+            required:
+              - month
+              - amount
+          maxItems: 1200
+          default: *a4
+        retirementContributionSchedule:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              month:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              amount:
+                type: string
+                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+            required:
+              - month
+              - amount
+          maxItems: 1200
+          default: *a5
+        retirementIncomeIds:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          maxItems: 200
+        retirementAdditionalExpenseIds:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          maxItems: 200
+          default: *a6
+        debtStress:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              loanId:
+                type: string
+                minLength: 1
+                maxLength: 100
+                pattern: ^[a-zA-Z0-9_-]+$
+              startMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              endMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              totalPaymentShare:
+                type: string
+                pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+            required:
+              - loanId
+              - startMonth
+              - endMonth
+              - totalPaymentShare
+          maxItems: 20
+          default: *a7
+        whatIf:
+          type: object
+          additionalProperties: false
+          properties:
+            retirementMonth:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            assetValues:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  assetId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  value:
+                    type: string
+                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                required:
+                  - assetId
+                  - value
+              minItems: 1
+              maxItems: 200
+        housing:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              assetId:
+                type: string
+                minLength: 1
+                maxLength: 100
+              amountScope:
+                type: string
+                enum: *a8
+              linkedIncomeId:
+                type: string
+                minLength: 1
+                maxLength: 100
+            required:
+              - assetId
+              - amountScope
+          maxItems: 200
+          default: *a9
+      required:
+        - expectedProfileRevision
+        - policyVersionId
+        - scenario
+        - answers
+        - liquidityNeedMonths
+        - endMonth
+        - monthlyExpenseToday
+        - monthlyContribution
+        - monthlyReserve
+        - retirementIncomeIds
+  required:
+    - preview
+Version:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - planId
+    - version
+    - createdAt
+    - profileRevision
+    - snapshotHash
+    - preview
+  properties:
+    id: &a10
+      type: string
+      format: uuid
+    planId: *a10
+    version: &a11
+      type: integer
+    createdAt: &a23
+      type: string
+      format: date-time
+    profileRevision: *a11
+    snapshotHash: &a20
+      type: string
+    preview: &a24
+      oneOf:
+        - $ref: ./retirement.openapi.yaml#/Preview
+        - $ref: ./source-snapshot.openapi.yaml#/Preview
+SourcePreviewInput:
+  type: object
+  additionalProperties: false
+  properties:
+    versionId:
+      type: string
+      format: uuid
+    expectedSnapshotHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    expectedRevision:
+      type: integer
+      minimum: 1
+    expectedProfileRevision:
+      type: integer
+      minimum: 1
+    throughMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    sourceCommands:
+      type: array
+      items:
+        oneOf:
+          - type: object
+            additionalProperties: false
+            properties:
+              commandId:
+                type: string
+                format: uuid
+              sourceId:
+                type: string
+                minLength: 1
+                maxLength: 200
+              expectedSourceRevision:
+                type: integer
+                minimum: 0
+              effectiveFromMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              effectiveToMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              confirm:
+                type: boolean
+                enum:
+                  - true
+              document:
+                type: string
+                minLength: 1
+                maxLength: 2000
+              operation:
+                type: string
+                enum:
+                  - CREATE
+              metric:
+                type: string
+                enum: &a12
+                  - income
+                  - livingExpense
+                  - additionalExpense
+                  - pension
+              frequency:
+                type: string
+                enum: &a13
+                  - ONCE
+                  - MONTHLY
+              amount:
+                type: string
+                maxLength: 160
+                pattern: ^(0|[1-9]\d*)(\.\d+)?$
+              currency:
+                type: string
+                enum:
+                  - VND
+              confirmation:
+                type: string
+                enum: &a14
+                  - USER_CONFIRMED
+                  - HYPOTHETICAL
+            required:
+              - commandId
+              - sourceId
+              - expectedSourceRevision
+              - effectiveFromMonth
+              - effectiveToMonth
+              - confirm
+              - document
+              - operation
+              - metric
+              - frequency
+              - amount
+              - currency
+              - confirmation
+          - type: object
+            additionalProperties: false
+            properties:
+              commandId:
+                type: string
+                format: uuid
+              sourceId:
+                type: string
+                minLength: 1
+                maxLength: 200
+              expectedSourceRevision:
+                type: integer
+                minimum: 0
+              effectiveFromMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              effectiveToMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              confirm:
+                type: boolean
+                enum:
+                  - true
+              document:
+                type: string
+                minLength: 1
+                maxLength: 2000
+              operation:
+                type: string
+                enum:
+                  - REVISE
+              metric:
+                type: string
+                enum: &a15
+                  - income
+                  - livingExpense
+                  - additionalExpense
+                  - pension
+              frequency:
+                type: string
+                enum: &a16
+                  - ONCE
+                  - MONTHLY
+              amount:
+                type: string
+                maxLength: 160
+                pattern: ^(0|[1-9]\d*)(\.\d+)?$
+              currency:
+                type: string
+                enum:
+                  - VND
+              confirmation:
+                type: string
+                enum: &a17
+                  - USER_CONFIRMED
+                  - HYPOTHETICAL
+            required:
+              - commandId
+              - sourceId
+              - expectedSourceRevision
+              - effectiveFromMonth
+              - effectiveToMonth
+              - confirm
+              - document
+              - operation
+              - metric
+              - frequency
+              - amount
+              - currency
+              - confirmation
+          - type: object
+            additionalProperties: false
+            properties:
+              commandId:
+                type: string
+                format: uuid
+              sourceId:
+                type: string
+                minLength: 1
+                maxLength: 200
+              expectedSourceRevision:
+                type: integer
+                minimum: 0
+              effectiveFromMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              effectiveToMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              confirm:
+                type: boolean
+                enum:
+                  - true
+              document:
+                type: string
+                minLength: 1
+                maxLength: 2000
+              operation:
+                type: string
+                enum:
+                  - END
+            required:
+              - commandId
+              - sourceId
+              - expectedSourceRevision
+              - effectiveFromMonth
+              - effectiveToMonth
+              - confirm
+              - document
+              - operation
+      maxItems: 100
+    pensionSelections:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          estimateId:
+            type: string
+            format: uuid
+          expectedEstimateIntegrityHash:
+            type: string
+            pattern: ^[a-f0-9]{64}$
+          expectedRegistryHash:
+            type: string
+            pattern: ^[a-f0-9]{64}$
+          commandId:
+            type: string
+            format: uuid
+          sourceId:
+            type: string
+            minLength: 1
+            maxLength: 200
+          operation:
+            type: string
+            enum: &a18
+              - CREATE
+              - REVISE
+          expectedSourceRevision:
+            type: integer
+            minimum: 0
+          effectiveFromMonth:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+          effectiveToMonth:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+          amountPolicy:
+            type: string
+            enum:
+              - FIXED_NOMINAL
+          confirm:
+            type: boolean
+            enum:
+              - true
+        required:
+          - estimateId
+          - expectedEstimateIntegrityHash
+          - expectedRegistryHash
+          - commandId
+          - sourceId
+          - operation
+          - expectedSourceRevision
+          - effectiveFromMonth
+          - effectiveToMonth
+          - amountPolicy
+          - confirm
+      maxItems: 1
+      default: &a19 []
+  required:
+    - versionId
+    - expectedSnapshotHash
+    - expectedRevision
+    - expectedProfileRevision
+    - throughMonth
+    - sourceCommands
+SourceSaveInput:
+  type: object
+  additionalProperties: false
+  properties:
+    preview:
+      type: object
+      additionalProperties: false
+      properties:
+        versionId:
+          type: string
+          format: uuid
+        expectedSnapshotHash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        expectedRevision:
+          type: integer
+          minimum: 1
+        expectedProfileRevision:
+          type: integer
+          minimum: 1
+        throughMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        sourceCommands:
+          type: array
+          items:
+            oneOf:
+              - type: object
+                additionalProperties: false
+                properties:
+                  commandId:
+                    type: string
+                    format: uuid
+                  sourceId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                  expectedSourceRevision:
+                    type: integer
+                    minimum: 0
+                  effectiveFromMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  effectiveToMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  confirm:
+                    type: boolean
+                    enum:
+                      - true
+                  document:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                  operation:
+                    type: string
+                    enum:
+                      - CREATE
+                  metric:
+                    type: string
+                    enum: *a12
+                  frequency:
+                    type: string
+                    enum: *a13
+                  amount:
+                    type: string
+                    maxLength: 160
+                    pattern: ^(0|[1-9]\d*)(\.\d+)?$
+                  currency:
+                    type: string
+                    enum:
+                      - VND
+                  confirmation:
+                    type: string
+                    enum: *a14
+                required:
+                  - commandId
+                  - sourceId
+                  - expectedSourceRevision
+                  - effectiveFromMonth
+                  - effectiveToMonth
+                  - confirm
+                  - document
+                  - operation
+                  - metric
+                  - frequency
+                  - amount
+                  - currency
+                  - confirmation
+              - type: object
+                additionalProperties: false
+                properties:
+                  commandId:
+                    type: string
+                    format: uuid
+                  sourceId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                  expectedSourceRevision:
+                    type: integer
+                    minimum: 0
+                  effectiveFromMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  effectiveToMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  confirm:
+                    type: boolean
+                    enum:
+                      - true
+                  document:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                  operation:
+                    type: string
+                    enum:
+                      - REVISE
+                  metric:
+                    type: string
+                    enum: *a15
+                  frequency:
+                    type: string
+                    enum: *a16
+                  amount:
+                    type: string
+                    maxLength: 160
+                    pattern: ^(0|[1-9]\d*)(\.\d+)?$
+                  currency:
+                    type: string
+                    enum:
+                      - VND
+                  confirmation:
+                    type: string
+                    enum: *a17
+                required:
+                  - commandId
+                  - sourceId
+                  - expectedSourceRevision
+                  - effectiveFromMonth
+                  - effectiveToMonth
+                  - confirm
+                  - document
+                  - operation
+                  - metric
+                  - frequency
+                  - amount
+                  - currency
+                  - confirmation
+              - type: object
+                additionalProperties: false
+                properties:
+                  commandId:
+                    type: string
+                    format: uuid
+                  sourceId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                  expectedSourceRevision:
+                    type: integer
+                    minimum: 0
+                  effectiveFromMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  effectiveToMonth:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                  confirm:
+                    type: boolean
+                    enum:
+                      - true
+                  document:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                  operation:
+                    type: string
+                    enum:
+                      - END
+                required:
+                  - commandId
+                  - sourceId
+                  - expectedSourceRevision
+                  - effectiveFromMonth
+                  - effectiveToMonth
+                  - confirm
+                  - document
+                  - operation
+          maxItems: 100
+        pensionSelections:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              estimateId:
+                type: string
+                format: uuid
+              expectedEstimateIntegrityHash:
+                type: string
+                pattern: ^[a-f0-9]{64}$
+              expectedRegistryHash:
+                type: string
+                pattern: ^[a-f0-9]{64}$
+              commandId:
+                type: string
+                format: uuid
+              sourceId:
+                type: string
+                minLength: 1
+                maxLength: 200
+              operation:
+                type: string
+                enum: *a18
+              expectedSourceRevision:
+                type: integer
+                minimum: 0
+              effectiveFromMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              effectiveToMonth:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              amountPolicy:
+                type: string
+                enum:
+                  - FIXED_NOMINAL
+              confirm:
+                type: boolean
+                enum:
+                  - true
+            required:
+              - estimateId
+              - expectedEstimateIntegrityHash
+              - expectedRegistryHash
+              - commandId
+              - sourceId
+              - operation
+              - expectedSourceRevision
+              - effectiveFromMonth
+              - effectiveToMonth
+              - amountPolicy
+              - confirm
+          maxItems: 1
+          default: *a19
+      required:
+        - versionId
+        - expectedSnapshotHash
+        - expectedRevision
+        - expectedProfileRevision
+        - throughMonth
+        - sourceCommands
+    expectedInputHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    confirm:
+      type: boolean
+      enum:
+        - true
+  required:
+    - preview
+    - expectedInputHash
+    - confirm
+SourcePreview:
+  type: object
+  additionalProperties: false
+  required:
+    - status
+    - issues
+    - inputHash
+    - candidate
+    - saved
+    - applied
+  properties:
+    status:
+      type: string
+      enum:
+        - READY
+        - BLOCKED
+        - HORIZON_COMPLETE
+    issues:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - month
+          - code
+        properties:
+          month: *a20
+          code: *a20
+    inputHash:
+      type: string
+      nullable: true
+    candidate:
+      anyOf:
+        - $ref: ./source-snapshot.openapi.yaml#/Preview
+        - type: object
+          nullable: true
+          enum:
+            - null
+    saved:
+      type: boolean
+      enum:
+        - false
+    applied:
+      type: boolean
+      enum:
+        - false
+Created:
+  type: object
+  additionalProperties: false
+  required:
+    - planId
+    - revision
+    - currentVersionId
+    - baselineVersionId
+    - saved
+  properties:
+    planId: *a10
+    revision: *a11
+    currentVersionId: &a21
+      type: string
+      format: uuid
+      nullable: true
+    baselineVersionId: *a21
+    saved:
+      $ref: "#/Version"
+Applied:
+  type: object
+  additionalProperties: false
+  required:
+    - planId
+    - revision
+    - currentVersionId
+    - baselineVersionId
+    - alreadyCurrent
+  properties:
+    planId: *a10
+    revision: *a11
+    currentVersionId: *a10
+    baselineVersionId: *a10
+    alreadyCurrent: &a22
+      type: boolean
+Plan:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - userId
+    - currentVersionId
+    - baselineVersionId
+    - revision
+    - stale
+    - createdAt
+  properties:
+    id: *a10
+    userId: *a10
+    currentVersionId: *a21
+    baselineVersionId: *a21
+    revision: *a11
+    stale: *a22
+    createdAt: *a23
+Update:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - version
+  properties:
+    id: *a10
+    version: *a11
+Detail:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - userId
+    - currentVersionId
+    - baselineVersionId
+    - revision
+    - stale
+    - createdAt
+    - current
+    - profileChanged
+    - actualSourceChanged
+    - updates
+    - updatePolicy
+  properties:
+    id: *a10
+    userId: *a10
+    currentVersionId: *a21
+    baselineVersionId: *a21
+    revision: *a11
+    stale: *a22
+    createdAt: *a23
+    current:
+      anyOf:
+        - $ref: "#/Version"
+        - type: object
+          nullable: true
+          enum:
+            - null
+    profileChanged: *a22
+    actualSourceChanged: *a22
+    updates:
+      type: object
+      additionalProperties: false
+      required:
+        - assumptions
+        - policy
+      properties:
+        assumptions:
+          anyOf:
+            - $ref: "#/Update"
+            - type: object
+              nullable: true
+              enum:
+                - null
+        policy:
+          anyOf:
+            - $ref: "#/Update"
+            - type: object
+              nullable: true
+              enum:
+                - null
+    updatePolicy:
+      type: string
+      enum:
+        - USER_EXPLICIT_CREATE_AND_APPLY
+List:
+  type: object
+  additionalProperties: false
+  required:
+    - page
+    - limit
+    - total
+    - items
+  properties:
+    page: *a11
+    limit: *a11
+    total: *a11
+    items:
+      type: array
+      items:
+        $ref: "#/Plan"
+History:
+  type: object
+  additionalProperties: false
+  required:
+    - page
+    - limit
+    - total
+    - items
+  properties:
+    page: *a11
+    limit: *a11
+    total: *a11
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - id
+          - version
+          - createdAt
+          - profileRevision
+          - snapshotHash
+          - references
+          - summary
+        properties:
+          id: *a10
+          version: *a11
+          createdAt: *a23
+          profileRevision: *a11
+          snapshotHash: *a20
+          references:
+            $ref: ./retirement.openapi.yaml#/Preview/properties/references
+          summary:
+            $ref: ./retirement.openapi.yaml#/Summary
+Replay:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - planId
+    - version
+    - createdAt
+    - profileRevision
+    - snapshotHash
+    - preview
+    - replay
+  properties:
+    id: *a10
+    planId: *a10
+    version: *a11
+    createdAt: *a23
+    profileRevision: *a11
+    snapshotHash: *a20
+    preview: *a24
+    replay:
+      type: object
+      additionalProperties: false
+      required:
+        - matched
+        - modelVersion
+        - summary
+        - rows
+      properties:
+        matched:
+          type: boolean
+          enum:
+            - true
+        modelVersion: *a20
+        summary:
+          $ref: ./retirement.openapi.yaml#/Summary
+        rows:
+          type: array
+          items:
+            $ref: ./retirement.openapi.yaml#/Row
+Goal:
+  type: object
+  additionalProperties: false
+  required:
+    - retirementMonth
+    - endMonth
+    - monthlyExpenseToday
+    - monthlyContribution
+    - monthlyReserve
+    - terminalBalance
+  properties:
+    retirementMonth: *a20
+    endMonth: *a20
+    monthlyExpenseToday: &a25
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+    monthlyContribution: *a25
+    monthlyReserve: *a25
+    terminalBalance: *a25
+Report:
+  type: object
+  additionalProperties: false
+  required:
+    - planId
+    - planRevision
+    - currentVersionId
+    - baselineVersionId
+    - status
+    - valueKind
+    - version
+    - actualSourceChanged
+    - profileChanged
+    - hypothetical
+    - goal
+  properties:
+    planId: *a10
+    planRevision: *a11
+    currentVersionId: *a21
+    baselineVersionId: *a21
+    status:
+      type: string
+      enum:
+        - AVAILABLE
+        - NO_APPLIED_VERSION
+    valueKind:
+      type: string
+      enum:
+        - FORECAST
+        - REFORECAST
+    version:
+      anyOf:
+        - $ref: "#/Version"
+        - type: object
+          nullable: true
+          enum:
+            - null
+    actualSourceChanged: *a22
+    profileChanged: *a22
+    hypothetical: *a22
+    goal:
+      anyOf:
+        - $ref: "#/Goal"
+        - type: object
+          nullable: true
+          enum:
+            - null
+Delta:
+  type: object
+  additionalProperties: false
+  required:
+    - projectedFundAtValuation
+    - requiredFundAtValuation
+    - fundingGapAtValuation
+    - coveragePercentagePoints
+    - requiredConstantMonthlyContribution
+    - additionalMonthlyContribution
+    - unfundedWithdrawals
+    - terminalBalance
+  properties:
+    projectedFundAtValuation:
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      nullable: true
+    requiredFundAtValuation:
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      nullable: true
+    fundingGapAtValuation:
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      nullable: true
+    coveragePercentagePoints:
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      nullable: true
+    requiredConstantMonthlyContribution:
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      nullable: true
+    additionalMonthlyContribution:
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      nullable: true
+    unfundedWithdrawals:
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      nullable: true
+    terminalBalance:
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      nullable: true
+ComparisonResult:
+  type: object
+  additionalProperties: false
+  required:
+    - status
+    - reasons
+    - direction
+    - basis
+    - delta
+    - differences
+    - limitations
+  properties:
+    status:
+      type: string
+      enum:
+        - COMPARABLE
+        - NOT_COMPARABLE
+    reasons:
+      type: array
+      items: *a20
+    direction:
+      type: string
+      enum:
+        - CANDIDATE_MINUS_BASELINE
+    basis:
+      type: string
+      enum:
+        - VALUATION_DATE_EACH_VERSION_DISCOUNT_FACTORS
+    delta:
+      anyOf:
+        - $ref: "#/Delta"
+        - type: object
+          nullable: true
+          enum:
+            - null
+    differences:
+      type: object
+      additionalProperties: false
+      required:
+        - profile
+        - policy
+        - assumptions
+        - retirementMonth
+        - selectionFields
+      properties:
+        profile: *a22
+        policy: *a22
+        assumptions: *a22
+        retirementMonth: *a22
+        selectionFields:
+          type: array
+          items: *a20
+    limitations:
+      type: array
+      items: *a20
+Comparison:
+  type: object
+  additionalProperties: false
+  required:
+    - baseline
+    - candidate
+    - comparison
+  properties:
+    baseline:
+      $ref: "#/Version"
+    candidate:
+      $ref: "#/Version"
+    comparison:
+      $ref: "#/ComparisonResult"
+Simulation:
+  type: object
+  additionalProperties: false
+  required:
+    - baseline
+    - candidate
+    - comparison
+    - saved
+    - applied
+  properties:
+    baseline:
+      $ref: "#/Version"
+    candidate:
+      $ref: ./retirement.openapi.yaml#/Preview
+    comparison:
+      $ref: "#/ComparisonResult"
+    saved:
+      type: boolean
+      enum:
+        - false
+    applied:
+      type: boolean
+      enum:
+        - false
+CreatedEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Created"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10
+AppliedEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Applied"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10
+DetailEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Detail"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10
+ListEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/List"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10
+HistoryEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/History"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10
+VersionEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Version"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10
+ReplayEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Replay"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10
+ReportEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Report"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10
+ComparisonEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Comparison"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10
+SimulationEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Simulation"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10
+SourcePreviewEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/SourcePreview"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a10

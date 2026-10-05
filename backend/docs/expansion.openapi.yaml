@@ -1,0 +1,967 @@
+openapi: 3.0.3
+info:
+  title: An Huu T13 expansion contract — design only
+  version: 0.1.0
+  description: >-
+    NOT IMPLEMENTED. Decision contract for T13-02, not part of
+    docs/openapi.yaml. Routes remain unavailable until T13-03/T14/T15/T16 are
+    implemented and verified. Cross-field, ownership, coverage, temporal and
+    allocation checks in ADR-001-EXPANSION.md are mandatory in addition to JSON
+    schema validation. Money is a VND decimal string.
+x-runtime-status: NOT_IMPLEMENTED
+security: [ { bearerAuth: [] } ]
+paths:
+  /api/v1/admin/legal-rules:
+    post:
+      summary: Create a rule draft (ADMIN)
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        {
+          required: true,
+          content: { application/json: { schema: { $ref: '#/components/schemas/RuleDraft' } } }
+        }
+      responses:
+        '201':
+          {
+            description: Draft created,
+            content: { application/json: { schema: { $ref: '#/components/schemas/RuleEnvelope' } } }
+          }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/admin/legal-rules/{id}/transitions:
+    post:
+      summary: Validate, review or publish the exact rule revision (ADMIN)
+      description: >-
+        VALIDATE runs server fixtures. REVIEW requires validation hash and a
+        different reviewer from the draft author. PUBLISH requires current
+        review hash, matching engine/coverage, effective-window checks and
+        explicit confirmation. A client hash is never proof of review.
+      parameters:
+        [
+          { $ref: '#/components/parameters/Id' },
+          { $ref: '#/components/parameters/IdempotencyKey' }
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json: { schema: { $ref: '#/components/schemas/RuleTransition' } }
+            }
+        }
+      responses:
+        '200':
+          {
+            description: Transition complete,
+            content: { application/json: { schema: { $ref: '#/components/schemas/RuleEnvelope' } } }
+          }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/me/pension/history/import-preview:
+    post:
+      summary: Validate a proposed history without saving (USER)
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json: { schema: { $ref: '#/components/schemas/HistoryPreviewInput' } }
+            }
+        }
+      responses:
+        '200':
+          {
+            description: 'Normalized input, missing months and conflicts',
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/HistoryPreviewEnvelope' } }
+              }
+          }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/me/pension/history:
+    get:
+      summary: Read the latest owned history (USER)
+      responses:
+        '200':
+          {
+            description: Latest immutable history,
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/HistoryEnvelope' } }
+              }
+          }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      summary: Append history after checking preview hash and latest revision (USER)
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json: { schema: { $ref: '#/components/schemas/HistorySaveInput' } }
+            }
+        }
+      responses:
+        '201':
+          {
+            description: Immutable history saved,
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/HistoryEnvelope' } }
+              }
+          }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/me/pension/estimates/preview:
+    post:
+      summary: Assess an owned history under a published rule (USER, read only)
+      requestBody:
+        {
+          required: true,
+          content: { application/json: { schema: { $ref: '#/components/schemas/EstimateInput' } } }
+        }
+      responses:
+        '200':
+          {
+            description: Assessment with missing fields or estimated amounts,
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/EstimateEnvelope' } }
+              }
+          }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/me/pension/estimates:
+    post:
+      summary: Recompute and save an immutable estimate (USER)
+      description: Save does not update the financial profile, pension income or
+        applied plan.
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json: { schema: { $ref: '#/components/schemas/EstimateSaveInput' } }
+            }
+        }
+      responses:
+        '201':
+          {
+            description: Estimate saved,
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/SavedEstimateEnvelope' } }
+              }
+          }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/me/actuals/reforecast-v4/preview:
+    post:
+      summary: Compose a candidate from owned sources and reconciled actuals (USER)
+      description: No write. Does not accept client balances, monthly aggregate
+        results or law overrides.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json: { schema: { $ref: '#/components/schemas/ReforecastInput' } }
+            }
+        }
+      responses:
+        '200':
+          {
+            description: Candidate and source attribution,
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/ReforecastEnvelope' } }
+              }
+          }
+        default: { $ref: '#/components/responses/Error' }
+  /api/v1/me/plans/{id}/reforecasts-v4:
+    post:
+      summary: Save candidate version; apply remains a separate existing plan command
+        (USER)
+      description: Path id must equal sourcePlanId. Checks expected hash and current
+        actual/source revisions.
+      parameters:
+        [
+          { $ref: '#/components/parameters/Id' },
+          { $ref: '#/components/parameters/IdempotencyKey' }
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json: { schema: { $ref: '#/components/schemas/ReforecastSaveInput' } }
+            }
+        }
+      responses:
+        '201':
+          {
+            description: Candidate saved,
+            content:
+              {
+                application/json: { schema: { $ref: '#/components/schemas/SavedCandidateEnvelope' } }
+              }
+          }
+        default: { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Id:
+      {
+        in: path,
+        name: id,
+        required: true,
+        schema: { type: string, format: uuid }
+      }
+    IdempotencyKey:
+      {
+        in: header,
+        name: Idempotency-Key,
+        required: true,
+        schema: { type: string, format: uuid }
+      }
+  responses:
+    Error:
+      description: '400 invalid input; 401/403 auth; 404 unavailable/other owner; 409
+        stale/idempotency/hash; 422 unsupported or incomplete'
+      content:
+        {
+          application/json: { schema: { $ref: './openapi.yaml#/components/schemas/ErrorEnvelope' } }
+        }
+  schemas:
+    Id: { type: string, format: uuid }
+    Hash: { type: string, pattern: '^[0-9a-f]{64}$' }
+    Date: { type: string, format: date }
+    Timestamp: { type: string, format: date-time }
+    Month: { type: string, pattern: '^(19|20|21)\d{2}-(0[1-9]|1[0-2])$' }
+    Money: { type: string, pattern: '^(0|[1-9]\d{0,15})(\.\d{1,2})?$' }
+    Decimal: { type: string, pattern: '^-?(0|[1-9]\d*)(\.\d+)?$' }
+    Revision: { type: integer, minimum: 1 }
+    ExpectedRevision: { type: integer, minimum: 0 }
+    Meta:
+      type: object
+      additionalProperties: false
+      required: [ requestId ]
+      properties: { requestId: { $ref: '#/components/schemas/Id' } }
+    Issue:
+      type: object
+      additionalProperties: false
+      required: [ path, code ]
+      properties: { path: { type: string }, code: { type: string } }
+    Citation:
+      type: object
+      additionalProperties: false
+      required: [ id, instrument, locator, url, contentHash, effectiveFrom ]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 100 }
+        instrument: { type: string, minLength: 1, maxLength: 200 }
+        locator: { type: string, minLength: 1, maxLength: 200 }
+        url: { type: string, format: uri, maxLength: 1000 }
+        contentHash: { $ref: '#/components/schemas/Hash' }
+        effectiveFrom: { $ref: '#/components/schemas/Date' }
+        effectiveTo: { type: string, format: date, nullable: true, description: Exclusive end }
+    RuleDocument:
+      type: object
+      additionalProperties: false
+      required: [ schemaVersion, engineCode, coverage, citations, tables ]
+      properties:
+        schemaVersion: { type: integer, enum: [ 1 ] }
+        engineCode:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 100,
+            description: Registered server strategy family; never executable client code
+          }
+        coverage:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [ branch, strategyCode, citationIds, requiredTableKeys ]
+            properties:
+              branch: { type: string, minLength: 1, maxLength: 100 }
+              strategyCode: { type: string, minLength: 1, maxLength: 100 }
+              citationIds:
+                {
+                  type: array,
+                  minItems: 1,
+                  maxItems: 50,
+                  uniqueItems: true,
+                  items: { type: string }
+                }
+              requiredTableKeys: { type: array, maxItems: 200, uniqueItems: true, items: { type: string } }
+        citations:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 200,
+            items: { $ref: '#/components/schemas/Citation' }
+          }
+        tables:
+          type: array
+          maxItems: 5000
+          description: Unique (kind,key,effectiveFrom); kind-specific key/value semantics
+            validated by registered engine. Missing future table never
+            extrapolated.
+          items:
+            type: object
+            additionalProperties: false
+            required: [ kind, key, value, effectiveFrom, effectiveTo, citationId ]
+            properties:
+              kind:
+                {
+                  type: string,
+                  enum:
+                    [
+                      AGE_MONTHS,
+                      WAGE_FACTOR,
+                      INCOME_FACTOR,
+                      REFERENCE_AMOUNT,
+                      FUND_MONTHLY_RATE
+                    ]
+                }
+              key: { type: string, minLength: 1, maxLength: 100 }
+              value: { $ref: '#/components/schemas/Decimal' }
+              effectiveFrom: { $ref: '#/components/schemas/Date' }
+              effectiveTo: { type: string, format: date, nullable: true }
+              citationId: { type: string }
+    RuleDraft:
+      type: object
+      additionalProperties: false
+      required: [ code, effectiveFrom, effectiveTo, document ]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 100 }
+        effectiveFrom: { $ref: '#/components/schemas/Date' }
+        effectiveTo: { type: string, format: date, nullable: true }
+        supersedesId: { type: string, format: uuid, nullable: true }
+        document: { $ref: '#/components/schemas/RuleDocument' }
+    RuleTransition:
+      type: object
+      additionalProperties: false
+      required: [ action, expectedRevision, expectedDocumentHash, confirm ]
+      properties:
+        action: { type: string, enum: [ VALIDATE, REVIEW, PUBLISH ] }
+        expectedRevision: { $ref: '#/components/schemas/Revision' }
+        expectedDocumentHash: { $ref: '#/components/schemas/Hash' }
+        validationHash: { $ref: '#/components/schemas/Hash' }
+        reviewHash: { $ref: '#/components/schemas/Hash' }
+        reviewNote: { type: string, minLength: 1, maxLength: 1000 }
+        confirm: { type: boolean, enum: [ true ] }
+    RuleView:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          revision,
+          version,
+          status,
+          documentHash,
+          knowledgeAsOf,
+          publishedAt,
+          draft
+        ]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        revision: { $ref: '#/components/schemas/Revision' }
+        version: { $ref: '#/components/schemas/Revision' }
+        status: { type: string, enum: [ DRAFT, VALIDATED, REVIEWED, PUBLISHED ] }
+        documentHash: { $ref: '#/components/schemas/Hash' }
+        knowledgeAsOf: { $ref: '#/components/schemas/Timestamp' }
+        publishedAt: { type: string, format: date-time, nullable: true }
+        validationHash: { type: string, nullable: true }
+        reviewHash: { type: string, nullable: true }
+        draft: { $ref: '#/components/schemas/RuleDraft' }
+    Evidence:
+      type: object
+      additionalProperties: false
+      required: [ reference, contentHash, confirmedOn ]
+      properties:
+        reference:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 300,
+            description: 'Private reference, never an automatic download URL'
+          }
+        contentHash: { $ref: '#/components/schemas/Hash' }
+        confirmedOn: { $ref: '#/components/schemas/Date' }
+    ContributionMonth:
+      type: object
+      additionalProperties: false
+      required: [ month, scheme, salaryRegime, status, contributionBase, evidence ]
+      properties:
+        month: { $ref: '#/components/schemas/Month' }
+        scheme: { type: string, enum: [ COMPULSORY, VOLUNTARY, UNKNOWN ] }
+        salaryRegime: { type: string, enum: [ EMPLOYER, STATE, VOLUNTARY_INCOME, UNKNOWN ] }
+        status: { type: string, enum: [ PAID, CREDITED, UNKNOWN, WITHDRAWN ] }
+        contributionBase: { type: string, nullable: true, pattern: '^(0|[1-9]\d{0,15})(\.\d{1,2})?$' }
+        creditKind: { type: string, maxLength: 100 }
+        evidence:
+          {
+            type: array,
+            maxItems: 20,
+            items: { $ref: '#/components/schemas/Evidence' }
+          }
+    InsuranceHistory:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          birth,
+          legalSex,
+          coverageFrom,
+          coverageThrough,
+          confirmedThroughMonth,
+          months,
+          specialPeriods
+        ]
+      properties:
+        schemaVersion: { type: integer, enum: [ 1 ] }
+        birth:
+          type: object
+          additionalProperties: false
+          required: [ precision, declaredValue ]
+          properties:
+            precision: { type: string, enum: [ DAY, MONTH, YEAR, UNKNOWN ] }
+            declaredValue:
+              {
+                type: string,
+                nullable: true,
+                maxLength: 10,
+                description: Matches precision; UNKNOWN requires null
+              }
+        legalSex: { type: string, enum: [ MALE, FEMALE, UNKNOWN ] }
+        coverageFrom: { $ref: '#/components/schemas/Month' }
+        coverageThrough: { $ref: '#/components/schemas/Month' }
+        confirmedThroughMonth: { $ref: '#/components/schemas/Month' }
+        months:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 1200,
+            items: { $ref: '#/components/schemas/ContributionMonth' }
+          }
+        specialPeriods:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            additionalProperties: false
+            required: [ kind, startMonth, endMonth, evidence ]
+            properties:
+              kind:
+                {
+                  type: string,
+                  maxLength: 100,
+                  description: 'Unregistered kind is stored for review, never silently assessed as
+                    normal'
+                }
+              startMonth: { $ref: '#/components/schemas/Month' }
+              endMonth: { $ref: '#/components/schemas/Month' }
+              evidence:
+                {
+                  type: array,
+                  minItems: 1,
+                  maxItems: 20,
+                  items: { $ref: '#/components/schemas/Evidence' }
+                }
+    HistoryPreviewInput:
+      type: object
+      additionalProperties: false
+      required: [ expectedHistoryRevision, document ]
+      properties:
+        expectedHistoryRevision: { $ref: '#/components/schemas/ExpectedRevision' }
+        document: { $ref: '#/components/schemas/InsuranceHistory' }
+    HistorySaveInput:
+      type: object
+      additionalProperties: false
+      required: [ preview, expectedInputHash, confirm ]
+      properties:
+        preview: { $ref: '#/components/schemas/HistoryPreviewInput' }
+        expectedInputHash: { $ref: '#/components/schemas/Hash' }
+        confirm: { type: boolean, enum: [ true ] }
+    HistoryPreview:
+      type: object
+      additionalProperties: false
+      required: [ status, inputHash, issues, normalized ]
+      properties:
+        status: { type: string, enum: [ READY, INCOMPLETE, INVALID ] }
+        inputHash: { $ref: '#/components/schemas/Hash' }
+        issues: { type: array, items: { $ref: '#/components/schemas/Issue' } }
+        normalized: { $ref: '#/components/schemas/InsuranceHistory' }
+    HistoryView:
+      type: object
+      additionalProperties: false
+      required: [ id, revision, documentHash, recordedAt, document ]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        revision: { $ref: '#/components/schemas/Revision' }
+        documentHash: { $ref: '#/components/schemas/Hash' }
+        recordedAt: { $ref: '#/components/schemas/Timestamp' }
+        document: { $ref: '#/components/schemas/InsuranceHistory' }
+    EstimateInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          historyVersionId,
+          expectedHistoryRevision,
+          legalRuleSetVersionId,
+          intendedBenefitDate,
+          employmentEndDate,
+          contributionStopMonth,
+          benefitRequestDate,
+          futureContributions
+        ]
+      properties:
+        historyVersionId: { $ref: '#/components/schemas/Id' }
+        expectedHistoryRevision: { $ref: '#/components/schemas/Revision' }
+        legalRuleSetVersionId: { $ref: '#/components/schemas/Id' }
+        intendedBenefitDate: { $ref: '#/components/schemas/Date' }
+        employmentEndDate: { type: string, format: date, nullable: true }
+        contributionStopMonth: { type: string, nullable: true, pattern: '^(19|20|21)\d{2}-(0[1-9]|1[0-2])$' }
+        benefitRequestDate: { type: string, format: date, nullable: true }
+        futureContributions:
+          type: array
+          maxItems: 1200
+          description: Future-only hypothetical history; never counted as paid actual months
+          items: { $ref: '#/components/schemas/ContributionMonth' }
+    EstimateSaveInput:
+      type: object
+      additionalProperties: false
+      required: [ preview, expectedInputHash ]
+      properties:
+        preview: { $ref: '#/components/schemas/EstimateInput' }
+        expectedInputHash: { $ref: '#/components/schemas/Hash' }
+    Estimate:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          assessmentStatus,
+          estimateKind,
+          inputHash,
+          historyHash,
+          ruleHash,
+          countedMonths,
+          monthlyPension,
+          startMonth,
+          lumpSum,
+          missingFields,
+          breakdown,
+          citations
+        ]
+      properties:
+        assessmentStatus:
+          {
+            type: string,
+            enum: [ ELIGIBLE, NOT_YET_ELIGIBLE, INSUFFICIENT_DATA, REVIEW_REQUIRED ]
+          }
+        estimateKind: { type: string, enum: [ CURRENT_RULE_ESTIMATE, PROJECTED_SCENARIO ] }
+        inputHash: { $ref: '#/components/schemas/Hash' }
+        historyHash: { $ref: '#/components/schemas/Hash' }
+        ruleHash: { $ref: '#/components/schemas/Hash' }
+        countedMonths: { type: integer, minimum: 0, nullable: true }
+        monthlyPension:
+          {
+            type: string,
+            nullable: true,
+            description: Unrounded Decimal; null when not determined
+          }
+        startMonth: { type: string, nullable: true }
+        lumpSum: { type: string, nullable: true }
+        missingFields: { type: array, items: { $ref: '#/components/schemas/Issue' } }
+        breakdown:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [ code, value, unit, citationIds ]
+            properties:
+              code: { type: string }
+              value: { type: string, nullable: true }
+              unit: { type: string, enum: [ VND, MONTHS, PERCENT, DATE, CODE ] }
+              citationIds: { type: array, items: { type: string } }
+        citations: { type: array, items: { $ref: '#/components/schemas/Citation' } }
+    Allocation:
+      type: object
+      additionalProperties: false
+      required: [ eventId, actualRevision, principal, interest, prepaymentFee, otherFee ]
+      properties:
+        eventId: { $ref: '#/components/schemas/Id' }
+        actualRevision: { $ref: '#/components/schemas/Revision' }
+        principal: { $ref: '#/components/schemas/Money' }
+        interest: { $ref: '#/components/schemas/Money' }
+        prepaymentFee: { $ref: '#/components/schemas/Money' }
+        otherFee: { $ref: '#/components/schemas/Money' }
+    LoanRevision:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          contractVersion,
+          signedOn,
+          amendedOn,
+          effectiveOn,
+          balanceAsOf,
+          amountScope,
+          principalBalance,
+          paymentStatus,
+          allocationBasis,
+          mode,
+          periods,
+          payments,
+          evidence
+        ]
+      properties:
+        contractVersion: { type: integer, enum: [ 2 ] }
+        signedOn: { $ref: '#/components/schemas/Date' }
+        amendedOn: { type: string, format: date, nullable: true }
+        effectiveOn: { $ref: '#/components/schemas/Date' }
+        balanceAsOf: { $ref: '#/components/schemas/Date' }
+        amountScope: { type: string, enum: [ FULL_CONTRACT, USER_SHARE ] }
+        principalBalance: { $ref: '#/components/schemas/Money' }
+        paymentStatus: { type: string, enum: [ CURRENT, OVERDUE, UNKNOWN ] }
+        allocationBasis: { type: string, minLength: 1, maxLength: 500 }
+        mode:
+          {
+            type: string,
+            enum:
+              [
+                REDUCE_PAYMENT_KEEP_TERM,
+                REDUCE_TERM_KEEP_PAYMENT,
+                BANK_SCHEDULE,
+                RESTRUCTURED,
+                REFINANCED
+              ]
+          }
+        periods:
+          type: array
+          minItems: 1
+          maxItems: 1200
+          description: Authoritative or explicitly hypothetical schedule; validate
+            continuity, day convention and principal balance independently
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              [
+                dueDate,
+                openingPrincipal,
+                principal,
+                interest,
+                fee,
+                closingPrincipal,
+                calculationBasis
+              ]
+            properties:
+              dueDate: { $ref: '#/components/schemas/Date' }
+              openingPrincipal: { $ref: '#/components/schemas/Money' }
+              principal: { $ref: '#/components/schemas/Money' }
+              interest: { $ref: '#/components/schemas/Money' }
+              fee: { $ref: '#/components/schemas/Money' }
+              closingPrincipal: { $ref: '#/components/schemas/Money' }
+              calculationBasis: { type: string, minLength: 1, maxLength: 500 }
+        payments:
+          {
+            type: array,
+            maxItems: 200,
+            items: { $ref: '#/components/schemas/Allocation' }
+          }
+        evidence:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 20,
+            items: { $ref: '#/components/schemas/Evidence' }
+          }
+    SourcePayload:
+      type: object
+      additionalProperties: false
+      description: >-
+        Conditional requirements enforced by kind. PENSION requires either owned
+        estimateId or manual evidence. DEBT requires loan and forbids
+        income/capital schedule. ASSET_CAPITAL requires availableNetAmount,
+        confirmedContributionAmount and availability; all capital schedule
+        amounts represent confirmed contributions. Other kinds forbid
+        loan/capital fields. No unknown kind is silently accepted.
+      required:
+        [
+          kind,
+          label,
+          currency,
+          priceBasis,
+          basisMonth,
+          frequency,
+          schedule,
+          evidence
+        ]
+      properties:
+        kind: { type: string, enum: [ INCOME, EXPENSE, PENSION, ASSET_CAPITAL, DEBT ] }
+        label: { type: string, minLength: 1, maxLength: 200 }
+        currency: { type: string, enum: [ VND ] }
+        priceBasis: { type: string, enum: [ NOMINAL, TODAY ] }
+        basisMonth: { $ref: '#/components/schemas/Month' }
+        frequency: { type: string, enum: [ ONE_OFF, RECURRING ] }
+        schedule:
+          type: array
+          maxItems: 1200
+          description: Monthly amounts, no duplicate month. ONE_OFF has exactly one row
+            except DEBT which uses loan.periods.
+          items:
+            type: object
+            additionalProperties: false
+            required: [ month, amount ]
+            properties:
+              {
+                month: { $ref: '#/components/schemas/Month' },
+                amount: { $ref: '#/components/schemas/Money' }
+              }
+        estimateId: { $ref: '#/components/schemas/Id' }
+        linkedIncomeSourceId: { type: string, maxLength: 150 }
+        availableNetAmount: { $ref: '#/components/schemas/Money' }
+        confirmedContributionAmount: { $ref: '#/components/schemas/Money' }
+        availability: { type: string, enum: [ START_OF_MONTH, END_OF_MONTH ] }
+        loan: { $ref: '#/components/schemas/LoanRevision' }
+        evidence:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 20,
+            items: { $ref: '#/components/schemas/Evidence' }
+          }
+    SourceCommand:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          commandId,
+          operation,
+          sourceId,
+          expectedSourceRevision,
+          expectedSourceHash,
+          effectiveFromMonth,
+          effectiveToMonth,
+          confirmation
+        ]
+      description: >-
+        CREATE expects revision 0/hash null and a new plan UUID. REVISE/END
+        require latest revision/hash. CREATE/REVISE require payload. END forbids
+        payload and takes effect at start of effectiveFromMonth. Each source can
+        be changed once per command batch; interval ends are inclusive.
+      properties:
+        commandId: { $ref: '#/components/schemas/Id' }
+        operation: { type: string, enum: [ CREATE, REVISE, END ] }
+        sourceId: { type: string, minLength: 1, maxLength: 150 }
+        expectedSourceRevision: { $ref: '#/components/schemas/ExpectedRevision' }
+        expectedSourceHash: { type: string, nullable: true, pattern: '^[0-9a-f]{64}$' }
+        effectiveFromMonth: { $ref: '#/components/schemas/Month' }
+        effectiveToMonth: { type: string, nullable: true, pattern: '^(19|20|21)\d{2}-(0[1-9]|1[0-2])$' }
+        confirmation: { type: string, enum: [ HYPOTHETICAL, USER_CONFIRMED, BANK_CONFIRMED ] }
+        payload: { $ref: '#/components/schemas/SourcePayload' }
+    SourceRevision:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          sourceId,
+          revision,
+          previousHash,
+          payloadHash,
+          scope,
+          origin,
+          recordedAt,
+          command
+        ]
+      properties:
+        sourceId: { type: string }
+        revision: { $ref: '#/components/schemas/Revision' }
+        previousHash: { type: string, nullable: true }
+        payloadHash: { $ref: '#/components/schemas/Hash' }
+        scope: { type: string, enum: [ PLAN_VERSION ] }
+        origin: { type: string, enum: [ PINNED_PROFILE, PLAN_CREATED, LEGACY_AGGREGATE ] }
+        recordedAt: { $ref: '#/components/schemas/Timestamp' }
+        command: { $ref: '#/components/schemas/SourceCommand' }
+    SourceRegistry:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          anchorThroughMonth,
+          knowledgeAsOf,
+          revisions,
+          registryHash
+        ]
+      properties:
+        schemaVersion: { type: integer, enum: [ 1 ] }
+        anchorThroughMonth: { $ref: '#/components/schemas/Month' }
+        knowledgeAsOf: { $ref: '#/components/schemas/Timestamp' }
+        revisions:
+          {
+            type: array,
+            maxItems: 5000,
+            items: { $ref: '#/components/schemas/SourceRevision' }
+          }
+        registryHash: { $ref: '#/components/schemas/Hash' }
+    ReforecastInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          sourcePlanId,
+          sourceVersionId,
+          expectedPlanRevision,
+          expectedProfileRevision,
+          throughMonth,
+          expectedRegistryHash,
+          sourceCommands
+        ]
+      properties:
+        sourcePlanId: { $ref: '#/components/schemas/Id' }
+        sourceVersionId: { $ref: '#/components/schemas/Id' }
+        expectedPlanRevision: { $ref: '#/components/schemas/Revision' }
+        expectedProfileRevision: { $ref: '#/components/schemas/Revision' }
+        throughMonth: { $ref: '#/components/schemas/Month' }
+        expectedRegistryHash:
+          {
+            type: string,
+            nullable: true,
+            description: Null only for first v3-to-v4 conversion
+          }
+        sourceCommands:
+          {
+            type: array,
+            maxItems: 200,
+            items: { $ref: '#/components/schemas/SourceCommand' }
+          }
+    ReforecastSaveInput:
+      type: object
+      additionalProperties: false
+      required: [ preview, expectedInputHash ]
+      properties:
+        preview: { $ref: '#/components/schemas/ReforecastInput' }
+        expectedInputHash: { $ref: '#/components/schemas/Hash' }
+    Attribution:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          sourceId,
+          sourceRevision,
+          month,
+          metric,
+          nominalAmount,
+          todayAmount,
+          confirmation
+        ]
+      properties:
+        sourceId: { type: string }
+        sourceRevision: { $ref: '#/components/schemas/Revision' }
+        month: { $ref: '#/components/schemas/Month' }
+        metric:
+          {
+            type: string,
+            enum:
+              [
+                INCOME,
+                PENSION,
+                LIVING_EXPENSE,
+                ADDITIONAL_EXPENSE,
+                DEBT_PAYMENT,
+                CAPITAL_INJECTION
+              ]
+          }
+        nominalAmount: { $ref: '#/components/schemas/Decimal' }
+        todayAmount: { type: string, nullable: true }
+        confirmation: { type: string, enum: [ HYPOTHETICAL, USER_CONFIRMED, BANK_CONFIRMED ] }
+    ReforecastCandidate:
+      $ref: ./source-snapshot.openapi.yaml#/Preview
+    RuleEnvelope:
+      type: object
+      additionalProperties: false
+      required: [ data, meta ]
+      properties:
+        {
+          data: { $ref: '#/components/schemas/RuleView' },
+          meta: { $ref: '#/components/schemas/Meta' }
+        }
+    HistoryPreviewEnvelope:
+      type: object
+      additionalProperties: false
+      required: [ data, meta ]
+      properties:
+        {
+          data: { $ref: '#/components/schemas/HistoryPreview' },
+          meta: { $ref: '#/components/schemas/Meta' }
+        }
+    HistoryEnvelope:
+      type: object
+      additionalProperties: false
+      required: [ data, meta ]
+      properties:
+        {
+          data: { $ref: '#/components/schemas/HistoryView' },
+          meta: { $ref: '#/components/schemas/Meta' }
+        }
+    EstimateEnvelope:
+      type: object
+      additionalProperties: false
+      required: [ data, meta ]
+      properties:
+        {
+          data: { $ref: '#/components/schemas/Estimate' },
+          meta: { $ref: '#/components/schemas/Meta' }
+        }
+    SavedEstimateEnvelope:
+      type: object
+      additionalProperties: false
+      required: [ data, meta ]
+      properties:
+        meta: { $ref: '#/components/schemas/Meta' }
+        data:
+          type: object
+          additionalProperties: false
+          required: [ id, integrityHash, estimate ]
+          properties:
+            {
+              id: { $ref: '#/components/schemas/Id' },
+              integrityHash: { $ref: '#/components/schemas/Hash' },
+              estimate: { $ref: '#/components/schemas/Estimate' }
+            }
+    ReforecastEnvelope:
+      type: object
+      additionalProperties: false
+      required: [ data, meta ]
+      properties:
+        {
+          data: { $ref: '#/components/schemas/ReforecastCandidate' },
+          meta: { $ref: '#/components/schemas/Meta' }
+        }
+    SavedCandidateEnvelope:
+      type: object
+      additionalProperties: false
+      required: [ data, meta ]
+      properties:
+        meta: { $ref: '#/components/schemas/Meta' }
+        data:
+          type: object
+          additionalProperties: false
+          required: [ planId, versionId, revision, snapshotHash, applied ]
+          properties:
+            planId: { $ref: '#/components/schemas/Id' }
+            versionId: { $ref: '#/components/schemas/Id' }
+            revision: { $ref: '#/components/schemas/Revision' }
+            snapshotHash: { $ref: '#/components/schemas/Hash' }
+            applied: { type: boolean, enum: [ false ] }
+    PensionSourceSelection:
+      $ref: ./source-snapshot.openapi.yaml#/PensionSourceSelection
+    PensionSourceEvidence:
+      $ref: ./source-snapshot.openapi.yaml#/PensionSourceEvidence

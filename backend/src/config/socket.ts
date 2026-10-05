@@ -42,9 +42,9 @@ export function initSocket(httpServer: HttpServer, config: AppConfig = loadEnv()
       recheck.unref();
     }
     log("info", "socket.connected");
-    // B07 adds ownership/assigned-admin policy. Fail closed until then.
+    // Retired feature. Never open consultation rooms, including for admins.
     socket.on("join:consultation", (_id: unknown, ack: unknown) => {
-      const result = { error: { code: user ? "FORBIDDEN" : "UNAUTHENTICATED", message: "Chưa được phép tham gia phòng tư vấn." } };
+      const result = { error: { code: user ? "FORBIDDEN" : "UNAUTHENTICATED", message: "Tư vấn chuyên viên đã ngừng. Vui lòng sử dụng Support." } };
       if (typeof ack === "function") ack(result);
       else socket.emit("operation:error", result);
     });

@@ -1,545 +1,656 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { motion } from "motion/react";
-import { Badge, Button, Card, Icon, IconButton } from "../components/ui";
-import { ProjectionWealthChart, AssetDonutChart } from "../components/charts";
+import { Badge, Icon } from "../components/ui";
+import { AssetDonutChart } from "../components/charts";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
-
-const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " VND";
-const formatCompactVND = (num: number) => {
-  if (num >= 1_000_000_000) {
-    const val = (num / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "").replace(".", ",");
-    return `${val} tỷ VND`;
-  }
-  if (num >= 1_000_000) {
-    const val = (num / 1_000_000).toFixed(1).replace(/\.?0+$/, "").replace(".", ",");
-    return `${val} triệu VND`;
-  }
-  return formatVND(num);
-};
-const REFERENCE_YEAR = new Date().getFullYear();
+import { useRetirementPlan } from "../context/RetirementPlanContext";
+import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../i18n";
+import { getPlanReport, type PlanReport } from "../services/plans";
+import { useEffect, useState } from "react";
 
 export default function UserDashboard() {
-  const navigate = useNavigate();
-  const [chartPeriod, setChartPeriod] = useState<"5y" | "10y" | "retire" | "lifetime">("retire");
-  const [showAlert, setShowAlert] = useState(true);
+  const { user } = useAuth();
+  const { profile, v2Profile, completenessPercentage } = useFinancialProfile();
+  const { activePlan, currentVersion } = useRetirementPlan();
+  const { t, language, formatCurrency, formatDate: i18nFormatDate, formatPercent } = useI18n();
 
-  const { profile, saveStatus, lastSavedAt, saveError } = useFinancialProfile();
+  const [report, setReport] = useState<PlanReport | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
 
-  // Tính toán các chỉ số phái sinh từ hồ sơ dùng chung.
-  const derived = useMemo(() => {
-    const totalAssets =
-      profile.assets.cashSavings +
-      profile.assets.realEstateValue +
-      profile.assets.liquidAssets +
-      profile.assets.stockFundValue;
-    const totalDebt = profile.debt.hasDebt
-      ? profile.debt.mortgageDebt + profile.debt.consumerDebt
-      : 0;
-    const netWorth = totalAssets - totalDebt;
-    const monthlyIncome = profile.income.primaryIncome + profile.income.secondaryIncome;
-    const monthlyExpense = profile.expenses.essentialExpense + profile.expenses.lifestyleExpense;
-    const monthlyDebtService = profile.debt.hasDebt ? profile.debt.monthlyDebtService : 0;
-    const monthlySurplus = Math.max(0, monthlyIncome - monthlyExpense - monthlyDebtService);
-    const targetAge = profile.goal.targetRetireAge;
-    const yearsLeft = Math.max(0, targetAge - profile.personal.age);
-    const targetRetireYear = REFERENCE_YEAR + yearsLeft;
-    const progressPercent =
-      profile.plan.targetFund > 0
-        ? Math.min(100, Math.round((profile.plan.projectedFund / profile.plan.targetFund) * 100))
-        : 0;
-    const gap = profile.plan.targetFund - profile.plan.projectedFund;
-
-    // Phân bổ phần trăm từng nhóm tài sản (an toàn, không chia cho 0).
-    const safeTotal = totalAssets > 0 ? totalAssets : 1;
-    const pctCash = Math.round((profile.assets.cashSavings / safeTotal) * 100);
-    const pctRealEstate = Math.round((profile.assets.realEstateValue / safeTotal) * 100);
-    const pctStock = Math.round((profile.assets.stockFundValue / safeTotal) * 100);
-    const pctLiquid = Math.max(0, 100 - pctCash - pctRealEstate - pctStock);
-    return {
-      totalAssets,
-      netWorth,
-      monthlySurplus,
-      yearsLeft,
-      targetRetireYear,
-      progressPercent,
-      gap,
-      targetAge,
-      pctCash,
-      pctRealEstate,
-      pctStock,
-      pctLiquid,
+  useEffect(() => {
+    if (!activePlan?.id) {
+      setReport(null);
+      return;
+    }
+    let active = true;
+    setLoadingReport(true);
+    getPlanReport(activePlan.id)
+      .then((res) => {
+        if (active) setReport(res);
+      })
+      .catch(() => {
+        if (active) setReport(null);
+      })
+      .finally(() => {
+        if (active) setLoadingReport(false);
+      });
+    return () => {
+      active = false;
     };
-  }, [profile]);
+  }, [activePlan?.id, activePlan?.currentVersionId]);
 
-  const greetingName = profile.personal.name || "bạn";
+  const income = profile.income.primaryIncome + profile.income.secondaryIncome;
+  const expense = profile.expenses.essentialExpense + profile.expenses.lifestyleExpense;
+  const assets = Object.values(profile.assets).reduce((total, value) => total + value, 0);
+  const debt = profile.debt.hasDebt ? profile.debt.mortgageDebt + profile.debt.consumerDebt : 0;
+  const debtService = profile.debt.hasDebt ? profile.debt.monthlyDebtService : 0;
+  const surplus = income - expense - debtService;
+  const netWorth = assets - debt;
+  const debtRatio = assets > 0 ? (debt / assets) * 100 : 0;
+
+  const planSummary = currentVersion?.preview?.calculation?.summary;
+  const coveragePercentNum = parseFloat(planSummary?.atRetirement?.coveragePercent || "0") || 0;
+
+  const allocation = [
+    { label: t("dashboard.wealth.savings"), value: profile.assets.cashSavings, color: "#5483B3" },
+    { label: t("dashboard.wealth.real_estate"), value: profile.assets.realEstateValue, color: "#052659" },
+    { label: t("dashboard.wealth.stocks"), value: profile.assets.stockFundValue, color: "#334DAF" },
+    { label: t("dashboard.wealth.other_liquid"), value: profile.assets.liquidAssets, color: "#7DA0CA" },
+  ];
 
   return (
-    <>
-      {/* Page Header */}
-      <motion.div
-        className="dashboard-page-header"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
-      >
-        <div>
-          <span>BẢN ĐỒ TÀI CHÍNH CÁ NHÂN</span>
-          <h1>Chào buổi sáng, {greetingName}</h1>
-          <p>Hôm nay là thời điểm lý tưởng để kiểm tra lại lộ trình tích lũy và sức khỏe tài chính dài hạn.</p>
-        </div>
-        <Link to="/user/goal" className="button button-primary button-medium">
-          <Icon name="target" /> Điều chỉnh mục tiêu
-        </Link>
-      </motion.div>
-
-      {/* Trạng thái lưu hồ sơ */}
-      <div className={`dashboard-save-indicator is-${saveStatus}`} role="status" aria-live="polite">
-        {saveStatus === "saving" ? (
-          <>
-            <span className="save-spinner" aria-hidden="true" />
-            <span>Đang đồng bộ hồ sơ…</span>
-          </>
-        ) : saveStatus === "saved" ? (
-          <>
-            <Icon name="circle-check" size="small" />
-            <span>Đã đồng bộ{lastSavedAt ? ` lúc ${lastSavedAt}` : ""}</span>
-          </>
-        ) : saveStatus === "error" ? (
-          <>
-            <Icon name="alert" size="small" />
-            <span>{saveError || "Không thể lưu hồ sơ"}</span>
-          </>
-        ) : saveStatus === "dirty" ? (
-          <>
-            <Icon name="info" size="small" />
-            <span>Có thay đổi chưa được lưu</span>
-          </>
-        ) : (
-          <>
-            <Icon name="circle-check" size="small" />
-            <span>Hồ sơ được lưu cục bộ</span>
-          </>
-        )}
-      </div>
-
-      {/* Full-width Hero Card */}
-      <motion.div
-        className="retirement-hero retirement-hero-full"
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.05, ease: "easeOut" }}
-      >
-        <div className="retirement-hero-copy">
-          <div className="hero-top-badge-row">
-            <Badge tone="soft">TIẾN ĐỘ HƯU TRÍ</Badge>
-            <span className="hero-status-pill">
-              <span className="status-dot" />
-              {derived.progressPercent >= 100 ? "Vững vàng mục tiêu" : "Đang tích lũy"}
-            </span>
-          </div>
-
-          <h2 className="hero-headline">
-            {derived.progressPercent >= 100
-              ? `Lộ trình hưu trí tuổi ${derived.targetAge} đạt kết quả xuất sắc`
-              : `Kế hoạch hưu trí mục tiêu tuổi ${derived.targetAge}`}
-          </h2>
-
-          <p className="hero-brief-summary">
-            Tích lũy <strong>{formatCompactVND(profile.plan.monthlySavings)}/tháng</strong> · Dự kiến hoàn thành vào năm <strong>{derived.targetRetireYear}</strong> ({derived.yearsLeft} năm nữa)
-          </p>
-
-          <div className="hero-financial-metrics">
-            <div className="hero-metric-item">
-              <span className="hero-metric-label">Mục tiêu quỹ hưu</span>
-              <strong className="hero-metric-value" title={formatVND(profile.plan.targetFund)}>
-                {formatCompactVND(profile.plan.targetFund)}
-              </strong>
-              <small className="hero-metric-sub">Ước tính tuổi {derived.targetAge}</small>
+    <div className="yoga-dashboard-layout">
+      <div className="yoga-dashboard-content">
+        {/* 1. Executive Welcome Hero */}
+        <motion.div
+          className="user-hero-card"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="user-hero-main">
+            <div className="user-hero-eyebrow">
+              <span className="user-eyebrow-tag">{t("dashboard.hero.tag")}</span>
+              <span className="user-sync-pill">
+                <span className="pulse-dot" /> {t("dashboard.hero.live_data")}
+              </span>
             </div>
-
-            <div className="hero-metric-item">
-              <span className="hero-metric-label">Dự kiến đạt được</span>
-              <strong className="hero-metric-value is-highlight" title={formatVND(profile.plan.projectedFund)}>
-                {formatCompactVND(profile.plan.projectedFund)}
-              </strong>
-              <small className="hero-metric-sub is-positive">
-                +{formatCompactVND(Math.max(0, profile.plan.projectedFund - profile.plan.targetFund))} thặng dư
-              </small>
-            </div>
-
-            <div className="hero-metric-item">
-              <span className="hero-metric-label">Khoảng cần bổ sung</span>
-              {derived.gap <= 0 ? (
-                <>
-                  <strong className="hero-metric-value is-success">0 VND</strong>
-                  <small className="hero-metric-sub is-positive">✓ Đã đủ 100%</small>
-                </>
+            <h1 className="user-hero-title">
+              {t("dashboard.hero.welcome", { name: user?.name || (language === "vi" ? "bạn" : "there") })}
+            </h1>
+            <p className="user-hero-desc">{t("dashboard.hero.subtitle")}</p>
+            <div className="user-hero-pills">
+              <span className="user-stat-pill">
+                <Icon name="circle-check" size="small" />
+                {t("dashboard.hero.profile_badge")}
+              </span>
+              {currentVersion ? (
+                <span className="user-stat-pill is-active">
+                  <Icon name="target" size="small" />
+                  {t("dashboard.hero.plan_badge")} v{currentVersion.version}
+                </span>
               ) : (
-                <>
-                  <strong className="hero-metric-value is-warning" title={formatVND(derived.gap)}>
-                    {formatCompactVND(derived.gap)}
-                  </strong>
-                  <small className="hero-metric-sub is-warning">Cần tích lũy thêm</small>
-                </>
+                <span className="user-stat-pill is-subtle">
+                  <Icon name="info" size="small" />
+                  {t("dashboard.hero.no_plan_badge")}
+                </span>
               )}
             </div>
           </div>
+          <div className="user-hero-side">
+            <div className="user-readiness-badge">
+              <span className="readiness-label">{t("dashboard.hero.completion_title")}</span>
+              <strong className="readiness-value font-mono">{completenessPercentage}%</strong>
+              <div className="readiness-track">
+                <div className="readiness-bar" style={{ width: `${completenessPercentage}%` }} />
+              </div>
+              <small className="readiness-sub">{t("dashboard.hero.completion_sub")}</small>
+            </div>
+          </div>
+        </motion.div>
 
-          <div className="hero-card-actions">
-            <Link to="/user/plan" className="button button-primary button-medium">
-              Xem chi tiết kế hoạch <Icon name="arrow-right" />
-            </Link>
-            <Link to="/user/simulation" className="button button-ghost button-medium">
-              Thử kịch bản khác
-            </Link>
+        {/* 2. Official Plan Snapshot OR Plan Invitation */}
+        {planSummary ? (
+          <motion.div
+            className="user-plan-card"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+          >
+            <div className="user-plan-header">
+              <div className="user-plan-title-wrap">
+                <div className="user-plan-icon">
+                  <Icon name="target" />
+                </div>
+                <div>
+                  <h2 className="user-plan-title">
+                    {t("dashboard.plan.title")} (v{activePlan?.current?.version ?? currentVersion?.version})
+                  </h2>
+                  <p className="user-plan-subtitle">{t("dashboard.plan.forecast_note")}</p>
+                </div>
+              </div>
+              <div className="user-plan-badges">
+                {report?.hypothetical && (
+                  <Badge tone="warning">{language === "en" ? "WhatIf Scenario" : "Giả định whatIf"}</Badge>
+                )}
+                <Badge tone="success">{t("dashboard.plan.active")}</Badge>
+              </div>
+            </div>
+
+            <div className="user-plan-grid">
+              <div className="user-plan-metric">
+                <span className="metric-label">{t("dashboard.plan.projected_fund")}</span>
+                <strong className="metric-value font-mono">
+                  {formatCurrency(planSummary.atRetirement.projectedFund)}
+                </strong>
+                <small className="metric-helper">
+                  {t("dashboard.plan.required_fund", {
+                    amount: formatCurrency(planSummary.atRetirement.requiredFund),
+                  })}
+                </small>
+              </div>
+
+              <div className="user-plan-metric">
+                <span className="metric-label">{t("dashboard.plan.coverage_percent")}</span>
+                <strong className="metric-value metric-coverage font-mono">
+                  {formatPercent(planSummary.atRetirement.coveragePercent)}
+                </strong>
+                <div className="coverage-bar-track">
+                  <div
+                    className="coverage-bar-fill"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, coveragePercentNum))}%`,
+                    }}
+                  />
+                </div>
+                <small className="metric-helper">
+                  {t("dashboard.plan.target_date", { date: planSummary.retirementMonth })}
+                </small>
+              </div>
+
+              <div className="user-plan-metric">
+                <span className="metric-label">{t("dashboard.plan.monthly_contribution")}</span>
+                <strong className="metric-value font-mono">
+                  {planSummary.requiredConstantMonthlyContribution
+                    ? `${formatCurrency(planSummary.requiredConstantMonthlyContribution)} ${t("dashboard.plan.per_month")}`
+                    : t("dashboard.plan.target_reached")}
+                </strong>
+                <small className="metric-helper">
+                  {t("dashboard.plan.future_expense", {
+                    amount: formatCurrency(planSummary.futureMonthlyExpense),
+                  })}
+                </small>
+              </div>
+            </div>
+
+            {report?.profileChanged && (
+              <div className="user-plan-alert">
+                <Icon name="alert" size="small" />
+                <span>{t("dashboard.plan.profile_changed_alert")}</span>
+              </div>
+            )}
+
+            <div className="user-plan-footer">
+              <span className="valuation-date">
+                {t("dashboard.plan.valuation_date", {
+                  date: i18nFormatDate(planSummary.valuationDate),
+                })}
+              </span>
+              <Link className="button button-primary button-small" to="/user/plan">
+                <span>{t("dashboard.plan.view_detail")}</span>
+                <Icon name="arrow-right" size="small" />
+              </Link>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            className="user-invite-card"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+          >
+            <div className="user-invite-main">
+              <div className="user-invite-icon">
+                <Icon name="target" />
+              </div>
+              <div className="user-invite-text">
+                <span className="invite-tag">{language === "en" ? "INDEPENDENT RETIREMENT" : "LỘ TRÌNH HƯU TRÍ ĐỘC LẬP"}</span>
+                <h2>{t("dashboard.invite.title")}</h2>
+                <p>{t("dashboard.invite.subtitle")}</p>
+                <div className="invite-perks">
+                  <span><Icon name="check" size="small" /> {t("dashboard.invite.benefit1")}</span>
+                  <span><Icon name="check" size="small" /> {t("dashboard.invite.benefit2")}</span>
+                  <span><Icon name="check" size="small" /> {t("dashboard.invite.benefit3")}</span>
+                </div>
+              </div>
+            </div>
+            <div className="user-invite-action">
+              <Link className="button button-primary" to="/user/plan">
+                <span>{t("dashboard.invite.cta")}</span>
+                <Icon name="arrow-right" size="small" />
+              </Link>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 3. Monthly Financial Vital Signs (4 Cashflow Pillars) */}
+        <div className="user-cashflow-section">
+          <div className="section-header-compact">
+            <h2>{t("dashboard.cashflow.title")}</h2>
+            <span className="section-note">{t("dashboard.cashflow.subtitle")}</span>
+          </div>
+
+          <div className="user-cashflow-grid">
+            <div className="user-cashflow-card theme-income">
+              <div className="cashflow-card-head">
+                <span className="cashflow-label">{t("dashboard.cashflow.income")}</span>
+                <div className="cashflow-icon-wrap">
+                  <Icon name="wallet" />
+                </div>
+              </div>
+              <strong className="cashflow-value font-mono">{formatCurrency(income)}</strong>
+              <span className="cashflow-sub">{t("dashboard.cashflow.income_sub")}</span>
+            </div>
+
+            <div className="user-cashflow-card theme-expense">
+              <div className="cashflow-card-head">
+                <span className="cashflow-label">{t("dashboard.cashflow.expense")}</span>
+                <div className="cashflow-icon-wrap">
+                  <Icon name="file-text" />
+                </div>
+              </div>
+              <strong className="cashflow-value font-mono">{formatCurrency(expense)}</strong>
+              <span className="cashflow-sub">{t("dashboard.cashflow.expense_sub")}</span>
+            </div>
+
+            <div className="user-cashflow-card theme-debt">
+              <div className="cashflow-card-head">
+                <span className="cashflow-label">{t("dashboard.cashflow.debt")}</span>
+                <div className="cashflow-icon-wrap">
+                  <Icon name="shield" />
+                </div>
+              </div>
+              <strong className="cashflow-value font-mono">{formatCurrency(debtService)}</strong>
+              <span className="cashflow-sub">{t("dashboard.cashflow.debt_sub")}</span>
+            </div>
+
+            <div className={`user-cashflow-card ${surplus >= 0 ? "theme-surplus" : "theme-deficit"}`}>
+              <div className="cashflow-card-head">
+                <span className="cashflow-label">{t("dashboard.cashflow.surplus")}</span>
+                <div className="cashflow-icon-wrap">
+                  <Icon name={surplus >= 0 ? "sparkles" : "alert"} />
+                </div>
+              </div>
+              <strong className="cashflow-value font-mono">{formatCurrency(surplus)}</strong>
+              <span className="cashflow-sub">
+                {surplus >= 0 ? t("dashboard.cashflow.surplus_sub") : t("dashboard.cashflow.deficit_sub")}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="progress-ring-wrap">
-          <div className="progress-ring">
-            <svg viewBox="0 0 160 160">
+        {surplus < 0 && (
+          <div className="user-alert-banner">
+            <div className="alert-content">
+              <Badge tone="warning">{t("dashboard.cashflow.negative_warning")}</Badge>
+              <p>{t("dashboard.cashflow.negative_alert")}</p>
+            </div>
+            <Link className="button button-soft button-small" to="/user/account">
+              {t("dashboard.cashflow.review_profile")}
+            </Link>
+          </div>
+        )}
+
+        {/* 4. Wealth Structure & Net Worth Bento (Middle Row) */}
+        <div className="user-wealth-bento">
+          {/* Left: Asset Structure */}
+          <div className="user-wealth-card">
+            <div className="card-topline">
+              <div>
+                <h2 className="card-title">{t("dashboard.wealth.title")}</h2>
+                <p className="card-desc">{t("dashboard.wealth.subtitle")}</p>
+              </div>
+              <span className="wealth-total-badge font-mono">
+                {t("dashboard.wealth.total_badge", { amount: formatCurrency(assets) })}
+              </span>
+            </div>
+
+            <div className="chart-and-table-wrap">
+              <div className="donut-wrap">
+                <AssetDonutChart assets={profile.assets} />
+              </div>
+              <div className="allocation-list">
+                {allocation.map((item) => {
+                  const percent = assets > 0 ? Math.round((item.value / assets) * 100) : 0;
+                  return (
+                    <div className="allocation-row" key={item.label}>
+                      <div className="allocation-info">
+                        <span className="allocation-swatch" style={{ background: item.color }} />
+                        <span className="allocation-name">{item.label}</span>
+                      </div>
+                      <div className="allocation-values">
+                        <span className="allocation-amount font-mono">{formatCurrency(item.value)}</span>
+                        <span className="allocation-pct font-mono">{percent}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Net Worth Statement */}
+          <div className="user-wealth-card">
+            <div className="card-topline">
+              <div>
+                <h2 className="card-title">{t("dashboard.balance.title")}</h2>
+                <p className="card-desc">{t("dashboard.balance.subtitle")}</p>
+              </div>
+              <Link className="button button-soft button-small" to="/user/account">
+                {t("dashboard.balance.update")}
+              </Link>
+            </div>
+
+            <div className="networth-breakdown">
+              <div className="balance-row">
+                <span className="balance-label">
+                  <span className="balance-sign is-positive">+</span> {t("dashboard.balance.declared_assets")}
+                </span>
+                <strong className="balance-val font-mono">{formatCurrency(assets)}</strong>
+              </div>
+
+              <div className="balance-row">
+                <span className="balance-label">
+                  <span className="balance-sign is-negative">-</span> {t("dashboard.balance.current_debt")}
+                </span>
+                <strong className="balance-val font-mono">{formatCurrency(debt)}</strong>
+              </div>
+
+              <div className="networth-highlight">
+                <div className="networth-copy">
+                  <span className="networth-eyebrow">{t("dashboard.balance.net_worth")}</span>
+                  <strong className="networth-number font-mono" style={{ color: netWorth < 0 ? "var(--color-danger)" : undefined }}>
+                    {formatCurrency(netWorth)}
+                  </strong>
+                </div>
+                <div className="networth-badge-wrap">
+                  <span className="debt-ratio-badge font-mono">
+                    {t("dashboard.balance.debt_ratio", { percent: `${debtRatio.toFixed(1)}%` })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <p className="balance-footnote">
+              {t("dashboard.balance.disclaimer")}
+            </p>
+          </div>
+        </div>
+
+        {/* Trajectory / Projection Chart Area */}
+        <div className="user-wealth-card" style={{ marginTop: "24px" }}>
+          <div className="card-topline">
+            <div>
+              <h2 className="card-title">{language === "en" ? "Retirement Capital Projection" : "Đường đi dự phóng quỹ hưu trí"}</h2>
+              <p className="card-desc">{language === "en" ? "Trajectory benchmarked against target retirement fund" : "Lộ trình đối chiếu giữa mức tích lũy hiện tại và mục tiêu hưu trí"}</p>
+            </div>
+            <span className="wealth-total-badge font-mono">
+              {language === "en" ? "Target: 8.5B ₫" : "Mục tiêu: 8.5 tỷ ₫"}
+            </span>
+          </div>
+          <p className="horizontal-scroll-hint">{language === "en" ? "Scroll horizontally to view full chart." : "Vuốt ngang để xem đầy đủ số liệu."}</p>
+          <div className="projection-chart-area" tabIndex={0} role="region" aria-label={language === "en" ? "Retirement wealth projection chart" : "Biểu đồ dự phóng tài sản"}>
+            <div className="dashboard-chart-axis">
+              <span>9 tỷ</span>
+              <span>6.7 tỷ</span>
+              <span>4.5 tỷ</span>
+              <span>2.2 tỷ</span>
+              <span>0 đ</span>
+            </div>
+
+            <svg viewBox="0 0 650 300" preserveAspectRatio="none">
               <defs>
-                <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#00f5b4" />
-                  <stop offset="100%" stopColor="#2dd4bf" />
+                <linearGradient id="targetGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#334DAF" stopOpacity="0.22" />
+                  <stop offset="100%" stopColor="#334DAF" stopOpacity="0.0" />
+                </linearGradient>
+                <linearGradient id="projectedGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#052659" stopOpacity="0.18" />
+                  <stop offset="100%" stopColor="#052659" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
-              <circle cx="80" cy="80" r="72" className="ring-track" />
-              <circle
-                cx="80"
-                cy="80"
-                r="72"
-                className="ring-value"
-                style={{ strokeDashoffset: `${452.4 * (1 - derived.progressPercent / 100)}`, stroke: "url(#ringGrad)" }}
-              />
+              <line x1="0" y1="50" x2="650" y2="50" className="dashboard-grid-lines" />
+              <line x1="0" y1="110" x2="650" y2="110" className="dashboard-grid-lines" />
+              <line x1="0" y1="170" x2="650" y2="170" className="dashboard-grid-lines" />
+              <line x1="0" y1="230" x2="650" y2="230" className="dashboard-grid-lines" />
+
+              <path d="M 30 260 C 180 240, 360 170, 620 40 L 620 260 Z" fill="url(#targetGradient)" />
+              <path d="M 30 260 C 180 240, 360 170, 620 40" className="target-projection-line" />
+              <path d="M 30 260 C 180 245, 380 190, 620 95 L 620 260 Z" fill="url(#projectedGradient)" />
+              <path d="M 30 260 C 180 245, 380 190, 620 95" className="current-projection-line" />
+              <line x1="620" y1="40" x2="620" y2="95" className="projection-gap" />
+              <circle cx="30" cy="260" r="5" className="current-point" />
+              <circle cx="620" cy="40" r="6" className="target-point" />
+              <circle cx="620" cy="95" r="5" className="projected-point" />
             </svg>
-            <div className="ring-inner-stat">
-              <strong>{derived.progressPercent}%</strong>
-              <span>MỤC TIÊU TUỔI {derived.targetAge}</span>
+
+            <div className="chart-end-label goal-label">
+              <span>{language === "en" ? "Target:" : "Mục tiêu:"}</span>
+              <strong>8.50 tỷ đ</strong>
             </div>
-          </div>
-          <div className="ring-caption">
-            <span className="ring-caption-badge-icon"><Icon name="circle-check" size="small" /></span>
-            <span>Dự kiến về hưu năm {derived.targetRetireYear}</span>
+
+            <div className="chart-end-label projected-label">
+              <span>{language === "en" ? "Projected:" : "Dự phóng:"}</span>
+              <strong>6.12 tỷ đ</strong>
+            </div>
+
+            <div className="dashboard-chart-labels">
+              <span>{language === "en" ? "Year 2026 (Current)" : "Năm 2026 (Hiện tại)"}</span>
+              <span>{language === "en" ? "Year 2036" : "Năm 2036"}</span>
+              <span>{language === "en" ? "Year 2046" : "Năm 2046"}</span>
+              <span>{language === "en" ? "Retirement (60 yrs)" : "Nghỉ hưu (60 tuổi)"}</span>
+            </div>
           </div>
         </div>
-      </motion.div>
 
-      {/* Priority Cards Row */}
-      <motion.div
-        className="dashboard-subpriority-grid"
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
-      >
-        {/* Readiness Score Card */}
-        <Card className="readiness-card">
-          <div className="compact-card-heading">
-            <span>CHỈ SỐ SẴN SÀNG</span>
-            <span className="card-icon"><Icon name="target" /></span>
-          </div>
-          <div className="readiness-score">
-            <strong>{profile.plan.readinessScore}</strong>
-            <span>/ 100 điểm</span>
-          </div>
-          <p>
-            {profile.plan.readinessScore >= 75
-              ? "Mức chuẩn bị đạt hạng Khá vững vàng. Dòng tiền thặng dư hàng tháng đủ bù đắp trượt giá lạm phát."
-              : profile.plan.readinessScore >= 55
-              ? "Mức chuẩn bị ở nhóm trung bình khá. Cần duy trì đều đặn tích lũy để cải thiện điểm số."
-              : "Kế hoạch đang cần điều chỉnh. Hãy thử mô phỏng các kịch bản để tìm hướng cải thiện."}
-          </p>
-          <div className="score-scale">
-            <span className={profile.plan.readinessScore >= 25 ? "is-filled" : ""} />
-            <span className={profile.plan.readinessScore >= 50 ? "is-filled" : ""} />
-            <span className={profile.plan.readinessScore >= 75 ? "is-filled is-current" : ""} />
-            <span />
-          </div>
-          <div className="score-labels">
-            <span>Cần cố gắng</span>
-            <span>Khá tốt</span>
-            <span>Lý tưởng</span>
-          </div>
-        </Card>
 
-        {/* Next Action Card */}
-        <Card className="next-action-card">
-          <div className="next-action-icon">
-            <Icon name="sparkles" />
-          </div>
-          <div>
-            <Badge tone="honey">HÀNH ĐỘNG KHUYẾN NGHỊ</Badge>
-            <h3>
-              {derived.gap > 0
-                ? `Tăng thêm khoảng ${formatVND(Math.round(derived.gap / Math.max(1, derived.yearsLeft * 12)))}/tháng để bù thiếu hụt`
-                : "Bạn đang vượt mục tiêu — cân nhắc tối ưu hóa danh mục"}
-            </h3>
-            <p>
-              {derived.gap > 0
-                ? "Bám sát kế hoạch tích lũy hàng tháng sẽ giúp bạn rút ngắn khoảng cách tới mục tiêu an nhàn."
-                : "Kế hoạch hiện tại đã đáp ứng mục tiêu. Hãy thử mô phỏng để xem xét tối ưu hoá hoặc nghỉ sớm hơn."}
-            </p>
-          </div>
-          <Button variant="secondary" size="small" onClick={() => navigate("/user/simulation")}>
-            Thử mô phỏng điều chỉnh này <Icon name="arrow-right" />
-          </Button>
-        </Card>
-      </motion.div>
-
-      {/* Metric Strip */}
-      <motion.div
-        className="metric-strip"
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.15, ease: "easeOut" }}
-      >
-        <Card className="dashboard-metric-card">
-          <div>
-            <span>Tài sản ròng hiện có</span>
-            <span className="metric-icon"><Icon name="wallet" /></span>
-          </div>
-          <strong>{formatVND(derived.netWorth)}</strong>
-          <small>
-            <Icon name="info" size="small" /> Bao gồm tiết kiệm, BĐS, đầu tư và trừ nợ
-          </small>
-        </Card>
-
-        <Card className="dashboard-metric-card">
-          <div>
-            <span>Tích lũy đề xuất mỗi tháng</span>
-            <span className="metric-icon"><Icon name="chart" /></span>
-          </div>
-          <strong>{formatVND(profile.plan.monthlySavings)}</strong>
-          <small className="is-positive">
-            <Icon name="circle-check" size="small" /> Dựa trên dòng tiền thặng dư hiện tại
-          </small>
-        </Card>
-
-        <Card className="dashboard-metric-card">
-          <div>
-            <span>Thời gian tích lũy còn lại</span>
-            <span className="metric-icon"><Icon name="compass" /></span>
-          </div>
-          <strong>{derived.yearsLeft} năm</strong>
-          <small>
-            <Icon name="info" size="small" /> Tuổi {profile.personal.age} → Nghỉ hưu tuổi {derived.targetAge}
-          </small>
-        </Card>
-      </motion.div>
-
-      {/* Analysis Grid: Projection Chart + Financial Snapshot */}
-      <motion.div
-        className="dashboard-analysis-grid"
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.2, ease: "easeOut" }}
-      >
-        <Card className="projection-chart-card">
-          <div className="dashboard-card-heading">
-            <div>
-              <h2>Biểu đồ dự phóng tài sản dài hạn</h2>
-              <p>So sánh đường tăng trưởng kỳ vọng so với mục tiêu tối thiểu cần đạt.</p>
+        {/* 5. Foundation of Social Security (BHXH Pension) */}
+        <div className="user-pension-card">
+          <div className="pension-header">
+            <div className="pension-title-group">
+              <div className="pension-icon">
+                <Icon name="shield" />
+              </div>
+              <div>
+                <h2>{t("dashboard.pension.title")}</h2>
+                <p className="pension-sub">{t("dashboard.pension.subtitle")}</p>
+              </div>
             </div>
-            <div className="chart-period">
-              {(["5y", "10y", "retire", "lifetime"] as const).map((p) => {
-                const labels = {
-                  "5y": "5 năm",
-                  "10y": "10 năm",
-                  retire: "Đến tuổi 60",
-                  lifetime: "Trọn đời (85t)",
-                };
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    className={chartPeriod === p ? "is-active" : ""}
-                    onClick={() => setChartPeriod(p)}
-                  >
-                    {labels[p]}
-                  </button>
-                );
-              })}
-            </div>
+            <Badge tone={v2Profile?.pension?.status === "KNOWN" ? "success" : "soft"}>
+              {v2Profile?.pension?.status === "KNOWN"
+                ? t("dashboard.pension.status_known")
+                : v2Profile?.pension?.status === "NOT_APPLICABLE"
+                ? t("dashboard.pension.status_na")
+                : t("dashboard.pension.status_unreported")}
+            </Badge>
           </div>
 
-          <div className="projection-chart-area" tabIndex={0} role="region" aria-label="Biểu đồ dự phóng tài sản">
-            <ProjectionWealthChart period={chartPeriod} profile={profile} />
+          {v2Profile?.pension?.status === "KNOWN" ? (
+            <div className="pension-grid">
+              <div className="pension-cell">
+                <span className="cell-label">{t("dashboard.pension.monthly_est")}</span>
+                <strong className="cell-val font-mono">
+                  {formatCurrency(parseFloat(v2Profile.pension.monthlyAmount))} {t("dashboard.plan.per_month")}
+                </strong>
+              </div>
+              <div className="pension-cell">
+                <span className="cell-label">{t("dashboard.pension.price_basis")}</span>
+                <strong className="cell-val">
+                  {v2Profile.pension.priceBasis === "TODAY"
+                    ? t("dashboard.pension.basis_today")
+                    : t("dashboard.pension.basis_future")}
+                </strong>
+              </div>
+              <div className="pension-cell">
+                <span className="cell-label">{t("dashboard.pension.data_source")}</span>
+                <strong className="cell-val">{v2Profile.pension.source}</strong>
+              </div>
+              <div className="pension-cell">
+                <span className="cell-label">{t("dashboard.pension.start_month")}</span>
+                <strong className="cell-val font-mono">
+                  {v2Profile.personal.pensionStartMonth?.status === "KNOWN"
+                    ? v2Profile.personal.pensionStartMonth.value
+                    : t("dashboard.pension.undetermined")}
+                </strong>
+              </div>
+            </div>
+          ) : (
+            <div className="pension-empty-note">
+              <p>
+                {v2Profile?.pension?.status === "NOT_APPLICABLE"
+                  ? t("dashboard.pension.na_note")
+                  : t("dashboard.pension.unfilled_notice")}
+              </p>
+            </div>
+          )}
+
+          <div className="pension-footer">
+            <Link to="/user/account" className="pension-link">
+              <span>{t("dashboard.pension.update_link")}</span>
+              <Icon name="arrow-right" size="small" />
+            </Link>
+          </div>
+        </div>
+
+        {/* 6. Smart Action Bento (Simulation & Debts) */}
+        <div className="user-tools-grid">
+          <div className="user-tool-card">
+            <div className="tool-icon-wrap">
+              <Icon name="chart" />
+            </div>
+            <div className="tool-content">
+              <h3>{t("dashboard.tools.simulation_title")}</h3>
+              <p>{t("dashboard.tools.simulation_desc")}</p>
+            </div>
+            <Link className="button button-secondary button-small tool-button" to="/user/simulation">
+              <span>{t("dashboard.tools.simulation_btn")}</span>
+              <Icon name="arrow-right" size="small" />
+            </Link>
           </div>
 
-          <div className="chart-summary">
-            <div className="chart-legend-items">
-              <span><i className="legend-target" /> Mục tiêu ({formatVND(profile.plan.targetFund)})</span>
-              <span><i className="legend-current" /> Dự phóng ({formatVND(profile.plan.projectedFund)})</span>
+          <div className="user-tool-card">
+            <div className="tool-icon-wrap">
+              <Icon name="wallet" />
             </div>
-            <p>
-              <Icon name="info" size="small" /> {derived.gap > 0
-                ? `Khoảng thiếu hụt ${formatVND(derived.gap)} tương đương cần bổ sung thêm ~${formatVND(Math.round(derived.gap / Math.max(1, derived.yearsLeft * 12)))}/tháng.`
-                : `Bạn đang vượt mục tiêu ${formatVND(Math.abs(derived.gap))}. Có thể cân nhắc tối ưu hóa danh mục.`}
-            </p>
+            <div className="tool-content">
+              <h3>{t("dashboard.tools.debt_title")}</h3>
+              <p>{t("dashboard.tools.debt_desc")}</p>
+            </div>
+            <Link className="button button-secondary button-small tool-button" to="/user/debts">
+              <span>{t("dashboard.tools.debt_btn")}</span>
+              <Icon name="arrow-right" size="small" />
+            </Link>
           </div>
-        </Card>
+        </div>
+      </div>
 
-        {/* Financial Snapshot */}
-        <Card className="financial-snapshot">
-          <div className="dashboard-card-heading">
-            <div>
-              <h2>Cơ cấu tài sản hiện tại</h2>
-              <p>Tổng giá trị ước tính: {formatVND(derived.totalAssets)}</p>
-            </div>
-            <Badge tone="soft">CẬP NHẬT HÔM NAY</Badge>
+      {/* 7. Right Rail: Executive Profile & Utility Hub */}
+      <aside className="yoga-right-rail">
+        {/* Profile Card */}
+        <div className="user-profile-widget">
+          <div className="profile-widget-avatar-wrap">
+            {user?.avatarUrl ? (
+              <img className="profile-widget-avatar" src={user.avatarUrl} alt="" />
+            ) : (
+              <div className="profile-widget-fallback">{user?.initials || "U"}</div>
+            )}
+            <span className="profile-online-dot" />
+          </div>
+          <h2 className="profile-widget-name">{user?.name}</h2>
+          <span className="profile-widget-role">{t("dashboard.rail.profile_title")}</span>
+
+          <div className="profile-widget-meta">
+            <span className="meta-tag">
+              <Icon name="users" size="small" />
+              {t("dashboard.rail.age", { age: profile.personal.age })}
+            </span>
+            <span className="meta-tag">
+              <Icon name="compass" size="small" />
+              {profile.personal.city || (language === "en" ? "Hanoi" : "Hà Nội")}
+            </span>
+            <span className="meta-tag">
+              <Icon name="shield" size="small" />
+              {t("dashboard.rail.dependents", { count: profile.personal.dependents })}
+            </span>
           </div>
 
-          <AssetDonutChart />
-
-          <div className="snapshot-list">
-            <div>
-              <span className="snapshot-icon"><Icon name="wallet" /></span>
-              <span>
-                <small>Tiền gửi tiết kiệm ngân hàng</small>
-                <strong>{formatVND(profile.assets.cashSavings)}</strong>
-                <span style={{ display: "block", height: "4px", width: "100%", maxWidth: "160px", background: "#f1f5f9", borderRadius: "999px", marginTop: "4px", overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: `${derived.pctCash}%`, background: "var(--color-primary-700)", borderRadius: "999px" }} />
-                </span>
-              </span>
-              <Badge tone="neutral">{derived.pctCash}%</Badge>
+          <div className="profile-completeness-strip">
+            <div className="completeness-row">
+              <span>{t("dashboard.hero.completion_title")}</span>
+              <strong>{completenessPercentage}%</strong>
             </div>
-
-            <div>
-              <span className="snapshot-icon"><Icon name="home" /></span>
-              <span>
-                <small>Bất động sản nhà ở</small>
-                <strong>{formatVND(profile.assets.realEstateValue)}</strong>
-                <span style={{ display: "block", height: "4px", width: "100%", maxWidth: "160px", background: "#f1f5f9", borderRadius: "999px", marginTop: "4px", overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: `${derived.pctRealEstate}%`, background: "var(--color-secondary-500)", borderRadius: "999px" }} />
-                </span>
-              </span>
-              <Badge tone="neutral">{derived.pctRealEstate}%</Badge>
-            </div>
-
-            <div>
-              <span className="snapshot-icon"><Icon name="chart" /></span>
-              <span>
-                <small>Cổ phiếu & Quỹ đầu tư mở</small>
-                <strong>{formatVND(profile.assets.stockFundValue)}</strong>
-                <span style={{ display: "block", height: "4px", width: "100%", maxWidth: "160px", background: "#f1f5f9", borderRadius: "999px", marginTop: "4px", overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: `${derived.pctStock}%`, background: "var(--color-accent-500)", borderRadius: "999px" }} />
-                </span>
-              </span>
-              <Badge tone="success">{derived.pctStock}%</Badge>
-            </div>
-
-            <div>
-              <span className="snapshot-icon"><Icon name="sparkles" /></span>
-              <span>
-                <small>Tài sản thanh khoản khác</small>
-                <strong>{formatVND(profile.assets.liquidAssets)}</strong>
-                <span style={{ display: "block", height: "4px", width: "100%", maxWidth: "160px", background: "#f1f5f9", borderRadius: "999px", marginTop: "4px", overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: `${derived.pctLiquid}%`, background: "var(--color-info)", borderRadius: "999px" }} />
-                </span>
-              </span>
-              <Badge tone="neutral">{derived.pctLiquid}%</Badge>
+            <div className="completeness-track">
+              <div className="completeness-fill" style={{ width: `${completenessPercentage}%` }} />
             </div>
           </div>
 
-          <div className="cashflow-summary">
-            <span>Dòng tiền thặng dư có thể tích lũy:</span>
-            <strong>
-              {formatVND(derived.monthlySurplus)} <small>/ tháng</small>
-            </strong>
-            <p>
-              Thu nhập {formatVND(profile.income.primaryIncome + profile.income.secondaryIncome)} -
-              Chi tiêu {formatVND(profile.expenses.essentialExpense + profile.expenses.lifestyleExpense)}
-              {profile.debt.hasDebt && profile.debt.monthlyDebtService > 0
-                ? ` - Trả nợ ${formatVND(profile.debt.monthlyDebtService)}`
-                : ""} = Thặng dư {formatVND(derived.monthlySurplus)}
-            </p>
-          </div>
-        </Card>
-      </motion.div>
-
-      {/* Insight Grid: AI Card + Alert + Recent Activity */}
-      <motion.div
-        className={`dashboard-insight-grid ${!showAlert ? "without-alert" : ""}`}
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.25, ease: "easeOut" }}
-      >
-        {/* AI Insight Card */}
-        <div className="dashboard-ai-card">
-          <div className="ai-card-topline">
-            <Badge tone="soft">TRỢ LÝ AN HƯU AI</Badge>
-            <span className="ai-card-icon"><Icon name="sparkles" /></span>
-          </div>
-          <h2>Tối ưu hóa lợi suất thêm 1% giúp nghỉ hưu sớm 2 năm</h2>
-          <p>
-            Nếu dịch chuyển 30% tiền gửi kỳ hạn thấp sang quỹ trái phiếu và quỹ chỉ số VN30 (lãi suất kỳ vọng 8.5%/năm), bạn sẽ đạt mốc tự do tài chính ở tuổi <strong>58 tuổi 2 tháng</strong>.
-          </p>
-          <div className="ai-assumption">
-            <Icon name="info" size="small" />
-            <span>Giả định dựa trên mô hình tăng trưởng kép và lạm phát 4.2%/năm tại Việt Nam.</span>
-          </div>
-          <Link to="/user/assistant" className="button button-soft button-medium">
-            Trò chuyện & Thử kịch bản cùng AI <Icon name="arrow-right" />
+          <Link className="button button-secondary button-small profile-manage-btn" to="/user/account">
+            <span>{t("dashboard.rail.manage_profile")}</span>
+            <Icon name="arrow-right" size="small" />
           </Link>
         </div>
 
-        {/* Important Alert */}
-        {showAlert && (
-          <Card className="important-alert">
-            <span className="alert-card-icon"><Icon name="alert" /></span>
-            <div>
-              <Badge tone="warning">CẦN CHÚ Ý</Badge>
-              <h3>Kỳ đối soát dữ liệu Q3</h3>
-              <p>Đã 3 tháng kể từ lần cập nhật gần nhất. Hãy kiểm tra lại số dư tài khoản tiết kiệm và mức lương đóng BHXH mới.</p>
-              <Link to="/user/account" className="button button-ghost button-small">
-                Cập nhật số dư ngay <Icon name="arrow-right" />
-              </Link>
-            </div>
-            <IconButton icon="x" label="Bỏ qua thông báo" onClick={() => setShowAlert(false)} />
-          </Card>
-        )}
+        {/* Account Utilities Card */}
+        <div className="user-utilities-widget">
+          <h3 className="utilities-title">{t("dashboard.rail.utilities_title")}</h3>
+          <div className="utilities-list">
+            <Link className="utility-item" to="/user/notifications">
+              <div className="utility-icon icon-notif">
+                <Icon name="bell" size="small" />
+              </div>
+              <div className="utility-text">
+                <strong>{t("dashboard.rail.util_notifications")}</strong>
+                <small>{t("dashboard.rail.util_notifications_sub")}</small>
+              </div>
+              <Icon name="chevron-right" size="small" className="utility-chevron" />
+            </Link>
 
-        {/* Recent Activity */}
-        <Card className="recent-activity">
-          <div className="dashboard-card-heading">
-            <div>
-              <h2>Nhật ký hoạt động</h2>
-              <p>Lịch sử thay đổi gần đây</p>
-            </div>
-            <Link to="/user/account" className="auth-text-action">Xem tất cả</Link>
+            <Link className="utility-item" to="/user/support">
+              <div className="utility-icon icon-support">
+                <Icon name="life-buoy" size="small" />
+              </div>
+              <div className="utility-text">
+                <strong>{t("dashboard.rail.util_support")}</strong>
+                <small>{t("dashboard.rail.util_support_sub")}</small>
+              </div>
+              <Icon name="chevron-right" size="small" className="utility-chevron" />
+            </Link>
+
+            <Link className="utility-item" to="/user/explore">
+              <div className="utility-icon icon-explore">
+                <Icon name="file-text" size="small" />
+              </div>
+              <div className="utility-text">
+                <strong>{t("dashboard.rail.util_articles")}</strong>
+                <small>{t("dashboard.rail.util_articles_sub")}</small>
+              </div>
+              <Icon name="chevron-right" size="small" className="utility-chevron" />
+            </Link>
+
+            <Link className="utility-item" to="/user/assistant">
+              <div className="utility-icon icon-ai">
+                <Icon name="sparkles" size="small" />
+              </div>
+              <div className="utility-text">
+                <strong>{t("dashboard.rail.util_ai")}</strong>
+                <small>{t("dashboard.rail.util_ai_sub")}</small>
+              </div>
+              <Icon name="chevron-right" size="small" className="utility-chevron" />
+            </Link>
           </div>
-
-          <div className="activity-list">
-            <div>
-              <span><Icon name="circle-check" /></span>
-              <div>
-                <strong>Tích lũy định kỳ hàng tháng</strong>
-                <small>Đề xuất {formatVND(profile.plan.monthlySavings)}/tháng từ dòng tiền thặng dư</small>
-              </div>
-              <Icon name="chevron-right" size="small" />
-            </div>
-
-            <div>
-              <span><Icon name="target" /></span>
-              <div>
-                <strong>Mục tiêu hiện tại</strong>
-                <small>Nghỉ hưu tuổi {derived.targetAge} · Chi tiêu {formatVND(profile.goal.monthlyExpenseInRetirement)}/tháng</small>
-              </div>
-              <Icon name="chevron-right" size="small" />
-            </div>
-
-            <div>
-              <span><Icon name="sparkles" /></span>
-              <div>
-                <strong>Lần đồng bộ hồ sơ gần nhất</strong>
-                <small>{lastSavedAt ? `Lúc ${lastSavedAt}` : "Chưa có thay đổi nào được lưu"}</small>
-              </div>
-              <Icon name="chevron-right" size="small" />
-            </div>
-          </div>
-        </Card>
-      </motion.div>
-    </>
+        </div>
+      </aside>
+    </div>
   );
 }

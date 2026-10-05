@@ -26,39 +26,6 @@ export const steps = [
   { title: 'Đi từng bước nhỏ', text: 'Lưu kế hoạch và cập nhật khi cuộc sống có thay đổi.', icon: 'circle-check' as const },
 ];
 
-export const articles = [
-  { slug: 'bat-dau-ke-hoach-huu-tri', category: 'Lập kế hoạch', title: 'Kế hoạch hưu trí bắt đầu từ đâu?', summary: 'Từ cuộc sống bạn mong muốn đến những thông tin cần chuẩn bị.', image: 'lifestyle', sections: [
-    ['Bắt đầu bằng một cuộc sống cụ thể', 'Bạn muốn nghỉ hưu khi nào? Mỗi tháng bạn dự kiến chi bao nhiêu, theo sức mua hôm nay? Những câu hỏi này giúp biến một ý tưởng xa xôi thành đầu vào cụ thể cho mô phỏng.'],
-    ['Nhìn lại điểm xuất phát', 'Tổng hợp tiền tiết kiệm, tài sản có thể dùng cho hưu trí, các khoản nợ và khoản tích lũy hàng tháng. Phân biệt tài sản bạn đang sử dụng với tài sản có thể chuyển thành dòng tiền.'],
-    ['Một kế hoạch có thể thay đổi', 'Kết quả mô phỏng phụ thuộc vào dữ liệu và giả định. Khi thu nhập, gia đình hoặc mục tiêu thay đổi, cập nhật đầu vào để xem bức tranh mới. An Hưu là công cụ tham khảo, không cam kết kết quả tài chính.'],
-  ] },
-  { slug: 'hieu-ve-lam-phat', category: 'Kiến thức nền tảng', title: 'Vì sao kế hoạch cần tính đến lạm phát?', summary: 'Phân biệt số tiền trong tương lai và sức mua ở thời điểm hiện tại.', image: 'planning', sections: [
-    ['Cùng số tiền, sức mua có thể khác', 'Lạm phát mô tả sự tăng lên của mức giá chung. Vì thế, một khoản chi tiêu trong tương lai có thể cần nhiều tiền hơn để mua lượng hàng hóa và dịch vụ tương đương hôm nay.'],
-    ['Một ví dụ bằng giả định', 'Nếu chi tiêu là 20 triệu đồng mỗi tháng và giả định lạm phát đều 3% mỗi năm, sau 10 năm khoản chi tương đương là 20 × (1,03)^10, khoảng 26,9 triệu đồng. Đây là ví dụ toán học, không phải dự báo lạm phát.'],
-    ['Thử hơn một giả định', 'Trong mô phỏng, thay đổi mức lạm phát để quan sát độ nhạy của kết quả. Một mức cố định giúp tính toán đơn giản hơn nhưng không diễn tả toàn bộ biến động trong thực tế.'],
-  ] },
-  { slug: 'hieu-ve-tich-luy', category: 'Tích lũy', title: 'Những khoản nhỏ tạo nên kế hoạch dài hạn', summary: 'Hiểu cách thời gian và khoản đóng góp tác động đến mô phỏng.', image: 'retirement', sections: [
-    ['Hai phần của một khoản tích lũy', 'Giá trị mô phỏng gồm tài sản ban đầu và các khoản đóng góp tiếp theo. Khi có lợi suất, phần tăng trưởng ở kỳ trước có thể tiếp tục tạo ra tăng trưởng ở các kỳ sau.'],
-    ['Thời gian cũng là một đầu vào', 'Cùng một mức đóng góp, thay đổi thời gian tích lũy sẽ làm kết quả khác nhau. Thử thay tuổi nghỉ hưu trong công cụ để so sánh, trong khi giữ nguyên các giả định còn lại.'],
-    ['Lợi suất giả định không phải lời hứa', 'Công cụ sử dụng lợi suất cố định để minh họa. Kết quả chưa bao gồm thuế, phí hoặc biến động thị trường và không phải lời khuyên lựa chọn sản phẩm đầu tư.'],
-  ] },
-  { slug: 'quy-tac-4-phan-tram-huu-tri', category: 'Chiến lược tài chính', title: 'Quy tắc 4% rút tiền hưu trí: Áp dụng thế nào tại Việt Nam?', summary: 'Hiểu nguyên lý bảo toàn vốn gốc và cân nhắc biên an toàn phù hợp với thị trường trong nước.', image: 'strategy', sections: [
-    ['Quy tắc 4% ra đời từ đâu?', 'Quy tắc này xuất phát từ nghiên cứu Trinity (Mỹ), chỉ ra rằng nếu bạn rút 4% tổng giá trị danh mục trong năm đầu nghỉ hưu và điều chỉnh theo lạm phát những năm sau, xác suất danh mục tồn tại ít nhất 30 năm là trên 95%.'],
-    ['Thích ứng với bối cảnh Việt Nam', 'Ở Việt Nam, lạm phát thường dao động cao hơn các nước phát triển. Mức rút an toàn khuyến nghị nên từ 3,5% - 4% kèm danh mục cân bằng giữa tiết kiệm an toàn, trái phiếu và quỹ chỉ số.'],
-    ['Linh hoạt theo tình hình thị trường', 'Thay vì rút cố định bất chấp thị trường, nguyên tắc hiện đại khuyên nên giảm tỷ lệ rút trong năm thị trường suy giảm và tăng nhẹ khi thị trường thuận lợi.'],
-  ] },
-  { slug: 'luong-huu-bhxh-va-thuc-te', category: 'Bảo hiểm & An sinh', title: 'Lương hưu BHXH: Hiểu đúng quyền lợi để không bị hụt hẫng', summary: 'Đóng bao nhiêu năm, hưởng tối đa bao nhiêu % và vì sao cần có thêm quỹ hưu trí tự nguyện.', image: 'pension', sections: [
-    ['Tỷ lệ hưởng tối đa 75% nghĩa là gì?', 'Mức hưởng tối đa 75% được tính trên mức bình quân tiền lương đóng BHXH của các năm tham gia, không phải mức thu nhập thực nhận hiện tại của bạn. Đây là khoảng chênh lệch lớn nhất khiến nhiều người bất ngờ khi nhận sổ hưu.'],
-    ['Khoảng trống thu nhập khi nghỉ hưu', 'Với đa số người làm việc khu vực tư nhân, mức đóng BHXH thấp hơn tổng thu nhập thực tế. Lương hưu BHXH đóng vai trò là "lưới an sinh cơ bản", cần thêm quỹ tự nguyện để duy trì chất lượng sống mong muốn.'],
-    ['Mô hình kiềng ba chân bền vững', 'Cấu trúc tài chính hưu trí vững chắc gồm: (1) Lương hưu BHXH nhà nước, (2) Quỹ hưu trí tự nguyện tích lũy độc lập, và (3) Bảo hiểm y tế / sức khỏe dự phòng.'],
-  ] },
-  { slug: 'chi-phi-y-te-tuoi-gia', category: 'Quản trị rủi ro', title: 'Chi phí y tế tuổi già: Khoản chi vô hình làm lung lay quỹ hưu trí', summary: 'Chuẩn bị quỹ y tế độc lập để bảo vệ nguồn tiền sinh hoạt dưỡng già trước các biến cố sức khỏe.', image: 'wellness', sections: [
-    ['Lạm phát y tế luôn cao hơn lạm phát chung', 'Thống kê cho thấy chi phí chăm sóc sức khỏe và thuốc men thường tăng từ 6% - 10%/năm, cao gấp đôi lạm phát thông thường. Sau tuổi 65, nhu cầu thăm khám và điều dưỡng tăng nhanh chóng.'],
-    ['Tách bạch quỹ y tế và quỹ sinh hoạt', 'Nếu không có quỹ y tế riêng, một đợt điều trị dài ngày có thể làm vơi đi phần lớn tiền dưỡng già tích lũy cả đời. Chuẩn bị sớm BHYT kết hợp bảo hiểm sức khỏe nội trú trước tuổi 50 là lá chắn quan trọng.'],
-    ['Chủ động chăm sóc sức khỏe từ sớm', 'Đầu tư cho thể lực, lối sống lành mạnh và khám tầm soát định kỳ ở độ tuổi 30-40 chính là khoản đầu tư có lợi suất cao nhất cho tương lai nghỉ hưu.'],
-  ] },
-];
-
 export const assistantExamples = [
   {
     question: 'Tôi 35 tuổi, nên bắt đầu tích lũy bao nhiêu mỗi tháng?',
@@ -124,7 +91,6 @@ export const pageMetadata: Record<string, { title: string; description: string }
   '/mo-phong': { title: 'Mô phỏng hưu trí | Tính quỹ tích lũy cùng An Hưu', description: 'Thử mô phỏng hưu trí miễn phí. Điều chỉnh tuổi nghỉ hưu, tích lũy hàng tháng, lợi suất và lạm phát để so sánh quỹ dự kiến với mục tiêu.' },
   '/tro-ly-ai': { title: 'Trợ lý AI An Hưu | Tìm hiểu kế hoạch hưu trí', description: 'Khám phá trợ lý An Hưu qua các câu hỏi mẫu về mục tiêu, tích lũy và mô phỏng hưu trí. Nội dung minh họa minh bạch, dễ hiểu.' },
   '/kien-thuc': { title: 'Kiến thức hưu trí và tài chính cá nhân | An Hưu', description: 'Đọc kiến thức nền tảng về lập kế hoạch hưu trí, lạm phát và tích lũy dài hạn. Những bài viết dễ hiểu để bắt đầu cùng An Hưu.' },
-  ...Object.fromEntries(articles.map(article => [`/kien-thuc/${article.slug}`, { title: `${article.title} | An Hưu`, description: article.summary }])),
 };
 
 export function normalizePublicPath(path: string) { return path.replace(/\/+$/, '') || '/'; }

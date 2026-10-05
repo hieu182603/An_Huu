@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { OAuth2Client, type TokenPayload as GoogleTokenPayload } from "google-auth-library";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Prisma, type PrismaClient, type User, type TokenType } from "@prisma/client";
 import type { AppConfig } from "../../config/env";
@@ -11,9 +12,10 @@ import { enqueue, seal } from "../../jobs/outbox";
 
 const unauthorized = () => new AppError(401, "UNAUTHENTICATED", "Thông tin xác thực không hợp lệ hoặc đã hết hạn.");
 const invalidCode = () => new AppError(400, "INVALID_TOKEN", "Mã xác thực không hợp lệ hoặc đã hết hạn.");
+const googleClient = new OAuth2Client();
 export const tokenHash = (value: string) => createHash("sha256").update(value).digest("hex");
 export const publicUser = (u: User) => ({ id: u.id, email: u.email, fullName: u.fullName, role: u.role, status: u.status,
-  phone: u.phone, city: u.city, avatarUrl: u.avatarUrl, revision: u.revision });
+  phone: u.phone, city: u.city, avatarUrl: u.avatarUrl, revision: u.revision, emailVerifiedAt: u.emailVerifiedAt });
 function seconds(value: string) {
   const match = /^(\d+)([smhd])$/.exec(value)!;
   return Number(match[1]) * ({ s: 1, m: 60, h: 3600, d: 86400 }[match[2]]!);
@@ -38,14 +40,14 @@ export class AuthService {
     await enqueue(tx, type === "EMAIL_VERIFICATION" ? "auth.verify_email" : "auth.reset_password", user.id,
       seal({ tokenId: record.id, to: user.email, token: raw }, this.config));
   }
-  async register(input: { email: string; password: string; fullName: string }) {
+  async register(input: { email: string; password: string; fullName: string; phone?: string }) {
     const passwordHash = await bcrypt.hash(input.password, 12);
     try {
       await transaction(this.db, async tx => {
         const existing = await tx.user.findUnique({ where: { email: input.email } });
         // Never overwrite an existing account/password or reveal whether it exists.
         if (existing) return;
-        const user = await tx.user.create({ data: { email: input.email, fullName: input.fullName, passwordHash, role: "USER", status: "PENDING_VERIFICATION" } });
+        const user = await tx.user.create({ data: { email: input.email, fullName: input.fullName, phone: input.phone, passwordHash, role: "USER", status: "PENDING_VERIFICATION" } });
         await this.issueVerification(tx, user, "EMAIL_VERIFICATION");
         await audit(tx, user.id, "AUTH_REGISTER", "USER", user.id);
       });
@@ -98,7 +100,9 @@ export class AuthService {
     if (!(await bcrypt.compare(input.password, hash)) || !found) throw unauthorized();
     return transaction(this.db, async tx => {
       const user = await tx.user.findUnique({ where: { id: found.id } });
-      if (!user || user.passwordHash !== found.passwordHash || user.status !== "ACTIVE") throw unauthorized();
+      if (!user || user.passwordHash !== found.passwordHash) throw unauthorized();
+      if (user.status === "PENDING_VERIFICATION") throw new AppError(403, "EMAIL_NOT_VERIFIED", "Bạn cần xác minh email trước khi đăng nhập. Hãy mở trang xác minh để nhập hoặc gửi lại mã OTP.");
+      if (user.status !== "ACTIVE") throw unauthorized();
       const lifetime = input.remember ? seconds(this.config.JWT_REFRESH_EXPIRES_IN) : 24 * 3600;
       const session = await this.issueSession(tx, user, new Date(Date.now() + lifetime * 1000), undefined, input.remember);
       await tx.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
@@ -163,6 +167,25 @@ export class AuthService {
     this.disconnectUser(userId);
     return { changed: true };
   }
+  async changePassword(userId: string, currentPassword: string, password: string) {
+    const found = await this.db.user.findUnique({ where: { id: userId } });
+    if (!found || found.status !== "ACTIVE") throw unauthorized();
+    if (!(await bcrypt.compare(currentPassword, found.passwordHash)))
+      throw new AppError(400, "INCORRECT_PASSWORD", "Mật khẩu hiện tại không đúng.");
+    const passwordHash = await bcrypt.hash(password, 12);
+    await transaction(this.db, async tx => {
+      const updated = await tx.user.updateMany({ where: { id: userId, passwordHash: found.passwordHash, securityVersion: found.securityVersion, status: "ACTIVE" },
+        data: { passwordHash, securityVersion: { increment: 1 } } });
+      if (!updated.count) throw new AppError(409, "ACCOUNT_CHANGED", "Tài khoản đã thay đổi. Vui lòng đăng nhập lại.");
+      await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+      await tx.verificationToken.updateMany({ where: { userId, type: "PASSWORD_RESET", consumedAt: null }, data: { consumedAt: new Date() } });
+      await audit(tx, userId, "AUTH_CHANGE_PASSWORD", "USER", userId);
+      await enqueue(tx, "notification.password_changed", userId, {});
+      await enqueue(tx, "security.sessions_revoked", userId, { userId });
+    });
+    this.disconnectUser(userId);
+    return { changed: true };
+  }
   async validateSession(claims: TokenPayload) {
     if (!claims.sessionId) throw unauthorized();
     const user = await this.db.user.findUnique({ where: { id: claims.userId } });
@@ -173,5 +196,57 @@ export class AuthService {
     } });
     if (!session) throw unauthorized();
     return publicUser(user);
+  }
+  async googleLogin(credential: string) {
+    if (!this.config.GOOGLE_CLIENT_ID) throw new AppError(503, "GOOGLE_NOT_CONFIGURED", "Đăng nhập Google chưa được cấu hình.");
+    let payload: GoogleTokenPayload | undefined;
+    try {
+      const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: this.config.GOOGLE_CLIENT_ID });
+      payload = ticket.getPayload();
+    } catch { throw unauthorized(); }
+    if (!payload?.email || !payload.sub || payload.email_verified !== true) throw unauthorized();
+    // Only automatically link emails for which Google is authoritative.
+    if (!payload.email.toLowerCase().endsWith("@gmail.com") && !payload.hd)
+      throw new AppError(403, "EMAIL_LOGIN_REQUIRED", "Vui lòng đăng nhập bằng email và mật khẩu cho địa chỉ này.");
+
+    const email = payload.email.trim().toLowerCase();
+    const fullName = (payload.name || email.split("@")[0]).slice(0, 120);
+    const avatarUrl = payload.picture ? String(payload.picture).slice(0, 1000) : null;
+
+    return transaction(this.db, async tx => {
+      let user = await tx.user.findUnique({ where: { email } });
+      if (!user) {
+        const randomPass = randomBytes(32).toString("hex");
+        const passwordHash = await bcrypt.hash(randomPass, 12);
+        user = await tx.user.create({
+          data: {
+            email,
+            fullName,
+            avatarUrl,
+            passwordHash,
+            role: "USER",
+            status: "ACTIVE",
+            emailVerifiedAt: new Date(),
+          },
+        });
+        await audit(tx, user.id, "AUTH_REGISTER_GOOGLE", "USER", user.id);
+      } else {
+        if (user.status === "SUSPENDED") throw new AppError(403, "SUSPENDED", "Tài khoản của bạn đã bị khóa.");
+        if (user.status === "PENDING_VERIFICATION") {
+          // Discard a password supplied before ownership of this email was proven.
+          const passwordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 12);
+          user = await tx.user.update({
+            where: { id: user.id },
+            data: { status: "ACTIVE", emailVerifiedAt: new Date(), passwordHash, ...(avatarUrl && !user.avatarUrl ? { avatarUrl } : {}) },
+          });
+        }
+      }
+
+      const lifetime = seconds(this.config.JWT_REFRESH_EXPIRES_IN);
+      const session = await this.issueSession(tx, user, new Date(Date.now() + lifetime * 1000), undefined, true);
+      await tx.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
+      await audit(tx, user.id, "AUTH_LOGIN_GOOGLE", "USER", user.id);
+      return { ...session, remember: true };
+    });
   }
 }

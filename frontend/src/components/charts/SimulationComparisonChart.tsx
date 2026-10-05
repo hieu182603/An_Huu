@@ -10,6 +10,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { projectBalanceAtAge, type RetirementCalculationInput } from "../../domain/retirementCalculator";
+import { useI18n } from "../../i18n";
 
 interface SimulationComparisonChartProps {
   baseInput: RetirementCalculationInput;
@@ -17,34 +18,34 @@ interface SimulationComparisonChartProps {
   simFundTarget: number;
 }
 
-const formatVND = (value: number) => {
+const formatVND = (value: number, isVi: boolean) => {
   if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
+    return isVi ? `${(value / 1_000_000_000).toFixed(1)} tỷ` : `${(value / 1_000_000_000).toFixed(1)}B ₫`;
   }
   if (value >= 1_000_000) {
-    return `${Math.round(value / 1_000_000)} tr`;
+    return isVi ? `${Math.round(value / 1_000_000)} tr` : `${Math.round(value / 1_000_000)}M ₫`;
   }
-  return `${value.toLocaleString("vi-VN")} đ`;
+  return `${value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫`;
 };
 
-const formatFullVND = (value: number) => {
-  return `${value.toLocaleString("vi-VN")} đ`;
+const formatFullVND = (value: number, isVi: boolean) => {
+  return `${value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫`;
 };
 
-const CustomTooltip = ({ active, payload }: any) => {
+const CustomTooltip = ({ active, payload, isVi }: any) => {
   if (!active || !payload || !payload.length) return null;
   const data = payload[0].payload;
 
   return (
     <div
       style={{
-        background: "rgba(15, 38, 54, 0.95)",
+        background: "rgba(16, 45, 61, 0.96)",
         backdropFilter: "blur(12px)",
-        border: "1px solid rgba(255, 255, 255, 0.15)",
+        border: "1px solid rgba(185, 204, 190, 0.22)",
         borderRadius: "10px",
         padding: "12px 16px",
-        color: "#ffffff",
-        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3)",
+        color: "#F6F1E8",
+        boxShadow: "0 10px 25px -5px rgba(16, 45, 61, 0.5)",
         fontSize: "12.5px",
         minWidth: "230px",
         pointerEvents: "none",
@@ -52,51 +53,51 @@ const CustomTooltip = ({ active, payload }: any) => {
     >
       <div
         style={{
-          borderBottom: "1px solid rgba(255, 255, 255, 0.12)",
+          borderBottom: "1px solid rgba(185, 204, 190, 0.2)",
           paddingBottom: "6px",
           marginBottom: "8px",
           fontWeight: 700,
-          color: "#E2E8F0",
+          color: "#F6F1E8",
           display: "flex",
           justifyContent: "space-between",
         }}
       >
-        <span>Năm {data.year}</span>
-        <span style={{ color: "#6F9B7C" }}>{data.age} tuổi</span>
+        <span>{isVi ? `Năm ${data.year}` : `Year ${data.year}`}</span>
+        <span style={{ color: "#6F9B7C" }}>{isVi ? `${data.age} tuổi` : `${data.age} yrs`}</span>
       </div>
 
       <div style={{ display: "grid", gap: "6px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-          <span style={{ color: "#6F9B7C", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#6F9B7C", display: "inline-block" }} />
-            Mô phỏng mới:
+          <span style={{ color: "#7096D1", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#334DAF", display: "inline-block" }} />
+            {isVi ? "Mô phỏng mới:" : "New simulation:"}
           </span>
-          <strong style={{ color: "#ffffff" }}>{formatFullVND(data.simulated)}</strong>
+          <strong style={{ color: "#ffffff" }}>{formatFullVND(data.simulated, isVi)}</strong>
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-          <span style={{ color: "#94A3B8", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#64748B", display: "inline-block" }} />
-            Kế hoạch gốc:
+          <span style={{ color: "#C1E8FF", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#052659", border: "1px solid #7DA0CA", display: "inline-block" }} />
+            {isVi ? "Kế hoạch gốc:" : "Baseline plan:"}
           </span>
-          <strong style={{ color: "#CBD5E1" }}>{formatFullVND(data.base)}</strong>
+          <strong style={{ color: "#CBD5E1" }}>{formatFullVND(data.base, isVi)}</strong>
         </div>
 
         <div
           style={{
             marginTop: "4px",
             paddingTop: "6px",
-            borderTop: "1px dashed rgba(255, 255, 255, 0.1)",
+            borderTop: "1px dashed rgba(185, 204, 190, 0.2)",
             display: "flex",
             justifyContent: "space-between",
-            color: data.simulated >= data.base ? "#86EFAC" : "#FCA5A5",
+            color: data.simulated >= data.base ? "var(--color-success, #486D53)" : "var(--color-danger, #A14D47)",
             fontWeight: 600,
           }}
         >
-          <span>Chênh lệch:</span>
+          <span>{isVi ? "Chênh lệch:" : "Difference:"}</span>
           <span>
             {data.simulated >= data.base ? "+" : ""}
-            {formatFullVND(data.simulated - data.base)}
+            {formatFullVND(data.simulated - data.base, isVi)}
           </span>
         </div>
       </div>
@@ -109,6 +110,9 @@ export function SimulationComparisonChart({
   scenarioInput,
   simFundTarget,
 }: SimulationComparisonChartProps) {
+  const { language } = useI18n();
+  const isVi = language === "vi";
+
   const currentAge = baseInput.currentAge;
   const simRetireAge = scenarioInput.retirementAge;
   const currentYear = new Date().getFullYear();
@@ -127,12 +131,12 @@ export function SimulationComparisonChart({
       return {
         age,
         year,
-        label: `${age}t (${year})`,
+        label: isVi ? `${age}t (${year})` : `${age}y (${year})`,
         base: projectBalanceAtAge(baseInput, Math.min(age, baseInput.lifeExpectancy)),
         simulated: projectBalanceAtAge(scenarioInput, Math.min(age, scenarioInput.lifeExpectancy)),
       };
     });
-  }, [baseInput, scenarioInput, currentAge, simRetireAge, currentYear]);
+  }, [baseInput, scenarioInput, currentAge, simRetireAge, currentYear, isVi]);
 
   return (
     <div style={{ width: "100%", height: 320, position: "relative" }}>
@@ -171,21 +175,21 @@ export function SimulationComparisonChart({
             fontSize={11}
             tickLine={false}
             axisLine={false}
-            tickFormatter={formatVND}
+            tickFormatter={(v) => formatVND(v, isVi)}
             domain={[0, "auto"]}
           />
 
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip isVi={isVi} />} />
 
           {/* Reference Line for Target */}
           <ReferenceLine
             y={simFundTarget}
-            stroke="var(--color-accent-500, #D9A85E)"
+            stroke="var(--color-secondary-500, #334DAF)"
             strokeDasharray="4 4"
             label={{
-              value: `Mục tiêu (${formatVND(simFundTarget)})`,
+              value: isVi ? `Mục tiêu (${formatVND(simFundTarget, isVi)})` : `Target (${formatVND(simFundTarget, isVi)})`,
               position: "top",
-              fill: "#B88738",
+              fill: "#334DAF",
               fontSize: 11,
               fontWeight: 600,
             }}
@@ -193,13 +197,13 @@ export function SimulationComparisonChart({
 
           {/* Reference Line for Simulated Retirement Age */}
           <ReferenceLine
-            x={`${simRetireAge}t (${currentYear + (simRetireAge - currentAge)})`}
+            x={isVi ? `${simRetireAge}t (${currentYear + (simRetireAge - currentAge)})` : `${simRetireAge}y (${currentYear + (simRetireAge - currentAge)})`}
             stroke="var(--chart-secondary)"
             strokeDasharray="3 3"
             label={{
-              value: `Hưu (${simRetireAge}t)`,
+              value: isVi ? `Hưu (${simRetireAge}t)` : `Retire (${simRetireAge}y)`,
               position: "insideTopLeft",
-              fill: "#2E6B56",
+              fill: "#052659",
               fontSize: 11,
               fontWeight: 600,
             }}
@@ -208,7 +212,7 @@ export function SimulationComparisonChart({
           <Area
             type="monotone"
             dataKey="base"
-            name="Kế hoạch gốc"
+            name={isVi ? "Kế hoạch gốc" : "Baseline Plan"}
             stroke="var(--color-text-muted)"
             strokeWidth={2}
             strokeDasharray="4 4"
@@ -219,7 +223,7 @@ export function SimulationComparisonChart({
           <Area
             type="monotone"
             dataKey="simulated"
-            name="Mô phỏng mới"
+            name={isVi ? "Mô phỏng mới" : "New Simulation"}
             stroke="var(--chart-secondary)"
             strokeWidth={3}
             fillOpacity={1}

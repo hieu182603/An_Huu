@@ -1,45 +1,125 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Icon } from "../components/ui";
+import { Alert, Badge, Button, Card, Drawer, Icon, IconButton, Modal, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
-import { calculateRetirement, inputFromProfile } from "../domain/retirementCalculator";
+import { useRetirementPlan } from "../context/RetirementPlanContext";
+import {
+  getAiPrivacy,
+  updateAiPrivacy,
+  explainRetirementPlan,
+  simulateViaAi,
+  listAiConversations,
+  createAiConversation,
+  getAiConversation,
+  renameAiConversation,
+  deleteAiConversation,
+  exportAiConversation,
+  AI_POLICY_VERSION,
+  type AiPrivacyResponse,
+  type AiCitation,
+  type AiFact,
+  type AiProvenance,
+  type AiConversationItem,
+} from "../services/ai";
+import { formatVNDCurrency } from "../services/retirement";
+import { useI18n } from "../i18n";
+import type { SimulatePlanResponse } from "../services/plans";
 
-type ToolItem = {
-  type: "edit" | "command" | "images" | "time";
-  label: string;
-  details?: string;
-  images?: { title: string; subtitle: string; tag: string }[];
-};
+const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " ₫";
 
-type Message = {
+interface ChatMessage {
   id: string;
-  sender: "user" | "assistant";
-  text: string;
+  role: "user" | "assistant";
+  content: string;
   time: string;
-  tools?: ToolItem[];
-  metric?: { label: string; value: string; detail: string; deltaType?: "neutral" | "warning" | "positive" };
-  hasChart?: boolean;
-};
+  facts?: AiFact[];
+  citations?: AiCitation[];
+  provenance?: AiProvenance | null;
+  status?: string;
+}
 
 export default function AIAssistantPage() {
+  const { t, language } = useI18n();
   const navigate = useNavigate();
-  const { profile } = useFinancialProfile();
-  const calculation = calculateRetirement(inputFromProfile(profile));
+  const { notify } = useNotification();
+  const { profile, profileRevision } = useFinancialProfile();
+  const { activePlan, currentVersion } = useRetirementPlan();
+
   const [inputPrompt, setInputPrompt] = useState("");
   const [railOpen, setRailOpen] = useState(() => window.innerWidth >= 1024);
-  const [modelMode, setModelMode] = useState<string>("Minh họa theo hồ sơ");
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const requestVersion = useRef(0);
 
-  const initialMessage: Message = {
+  // Privacy & Consent state
+  const [privacy, setPrivacy] = useState<AiPrivacyResponse | null>(null);
+  const [consentModalOpen, setConsentModalOpen] = useState(false);
+  const [updatingConsent, setUpdatingConsent] = useState(false);
+
+  // Conversations state
+  const [conversations, setConversations] = useState<AiConversationItem[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [conversationRevision, setConversationRevision] = useState<number>(0);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+
+  // What-if simulation modal state
+  const [whatIfModalOpen, setWhatIfModalOpen] = useState(false);
+  const [whatIfRetireAge, setWhatIfRetireAge] = useState<number>(profile.goal.targetRetireAge || 60);
+  const [whatIfMonthlyContribution, setWhatIfMonthlyContribution] = useState<number>(profile.plan.monthlySavings || 5000000);
+  const [whatIfMonthlyExpense, setWhatIfMonthlyExpense] = useState<number>(profile.goal.monthlyExpenseInRetirement || 20000000);
+  const [whatIfSimulating, setWhatIfSimulating] = useState(false);
+  const [whatIfResult, setWhatIfResult] = useState<SimulatePlanResponse | null>(null);
+
+  // Initial welcome message
+  const initialMessage = useMemo<ChatMessage>(() => ({
     id: "m-init-assistant",
-    sender: "assistant",
-    text: "Xin chào! Tôi là trợ lý minh họa của An Hưu. Tôi có thể giải thích các con số đang có trong hồ sơ demo và gợi ý nơi bạn nên điều chỉnh. Phản hồi hiện chưa được tạo bởi dịch vụ AI trực tuyến và không tự thay đổi kế hoạch của bạn.",
-    time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+    role: "assistant",
+    content: language === "en"
+      ? "Hello! I am your An Huu explanation assistant. I help explain calculation results, forecasting rules, and regulatory knowledge sources in your retirement plan. Responses are grounded in actual model data without altering your official plan."
+      : "Xin chào! Tôi là trợ lý giải thích của An Hữu. Tôi hỗ trợ giải thích rõ ràng các kết quả tính toán, quy tắc dự báo và các nguồn tri thức pháp lý trong kế hoạch hưu trí của bạn. Phản hồi luôn dựa trên dữ liệu mô hình thực tế và không tự ý thay đổi kế hoạch chính thức.",
+    time: new Date().toLocaleTimeString(language === "en" ? "en-US" : "vi-VN", { hour: "2-digit", minute: "2-digit" }),
+  }), [language]);
+
+  const [messages, setMessages] = useState<ChatMessage[]>([initialMessage]);
+
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].id === "m-init-assistant") {
+        return [initialMessage];
+      }
+      return prev;
+    });
+  }, [initialMessage]);
+
+  // Load privacy settings
+  const loadPrivacy = async () => {
+    try {
+      const p = await getAiPrivacy();
+      setPrivacy(p);
+      if (!p.processing) {
+        setConsentModalOpen(true);
+      }
+    } catch {
+      // Ignore if unauthenticated / offline
+    }
   };
-  const [messages, setMessages] = useState<Message[]>([initialMessage]);
+
+  // Load conversation list
+  const loadConversations = async () => {
+    try {
+      const res = await listAiConversations(1, 20);
+      setConversations(res.items);
+    } catch {
+      // Ignore
+    }
+  };
+
+  useEffect(() => {
+    loadPrivacy();
+    loadConversations();
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -50,67 +130,256 @@ export default function AIAssistantPage() {
     }
   }, [messages, isTyping]);
 
-  const handleSend = (textToSend?: string) => {
-    const text = (textToSend || inputPrompt).trim();
-    if (!text) return;
+  const handleConsent = async (processing: boolean, saveHistory: boolean) => {
+    if (!privacy) return;
+    setUpdatingConsent(true);
+    try {
+      const updated = await updateAiPrivacy({
+        expectedRevision: privacy.revision,
+        policyVersion: AI_POLICY_VERSION,
+        processing,
+        saveHistory,
+      });
+      setPrivacy(updated);
+      setConsentModalOpen(false);
+      notify.success(
+        language === "en" ? "Preferences Saved" : "Đã lưu tùy chọn",
+        language === "en" ? "Updated AI data processing preferences." : "Đã cập nhật tùy chọn xử lý dữ liệu của trợ lý."
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : (language === "en" ? "Could not update preferences." : "Không thể cập nhật tùy chọn.");
+      notify.error(language === "en" ? "Update Error" : "Lỗi cập nhật", msg);
+    } finally {
+      setUpdatingConsent(false);
+    }
+  };
 
-    const version = ++requestVersion.current;
-    const userMsg: Message = {
+  const handleSelectConversation = async (id: string) => {
+    try {
+      const detail = await getAiConversation(id);
+      setCurrentConversationId(detail.id);
+      setConversationRevision(detail.revision);
+      const loaded: ChatMessage[] = detail.messages.map((m) => {
+        const parsedContext = m.context as { response?: { facts?: AiFact[]; citations?: AiCitation[]; provenance?: AiProvenance } } | undefined;
+        return {
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          time: new Date(m.createdAt).toLocaleTimeString(language === "en" ? "en-US" : "vi-VN", { hour: "2-digit", minute: "2-digit" }),
+          facts: parsedContext?.response?.facts,
+          citations: m.citedSources || parsedContext?.response?.citations,
+          provenance: parsedContext?.response?.provenance,
+        };
+      });
+      setMessages(loaded.length > 0 ? loaded : [initialMessage]);
+      setDrawerOpen(false);
+    } catch (e) {
+      notify.error(
+        language === "en" ? "Failed to Load Conversation" : "Lỗi tải hội thoại",
+        e instanceof Error ? e.message : (language === "en" ? "Could not load conversation." : "Không thể tải hội thoại.")
+      );
+    }
+  };
+
+  const handleNewConversation = async () => {
+    try {
+      const created = await createAiConversation();
+      setCurrentConversationId(created.id);
+      setConversationRevision(created.revision);
+      setMessages([initialMessage]);
+      await loadConversations();
+      setDrawerOpen(false);
+      notify.info(
+        language === "en" ? "New Conversation" : "Hội thoại mới",
+        language === "en" ? "Started a new conversation session." : "Đã khởi tạo phiên trò chuyện mới."
+      );
+    } catch (e) {
+      if (privacy?.saveHistory) {
+        notify.error(
+          language === "en" ? "Could Not Create Conversation" : "Không thể khởi tạo hội thoại",
+          e instanceof Error ? e.message : (language === "en" ? "Could not start new conversation on server." : "Không thể khởi tạo cuộc hội thoại trên máy chủ.")
+        );
+      }
+      // Fallback: local session
+      setCurrentConversationId(null);
+      setConversationRevision(0);
+      setMessages([initialMessage]);
+      setDrawerOpen(false);
+    }
+  };
+
+  const handleRename = async (id: string, rev: number) => {
+    if (!newTitle.trim()) return;
+    try {
+      await renameAiConversation(id, rev, newTitle.trim());
+      await loadConversations();
+      setRenamingId(null);
+      setNewTitle("");
+      notify.success(
+        language === "en" ? "Renamed Successfully" : "Đổi tên thành công",
+        language === "en" ? "Updated conversation title." : "Đã cập nhật tiêu đề cuộc trò chuyện."
+      );
+    } catch (e) {
+      notify.error(
+        language === "en" ? "Rename Error" : "Lỗi đổi tên",
+        e instanceof Error ? e.message : (language === "en" ? "Could not rename conversation." : "Không thể đổi tên.")
+      );
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAiConversation(id);
+      await loadConversations();
+      if (currentConversationId === id) {
+        handleNewConversation();
+      }
+      notify.success(
+        language === "en" ? "Deleted" : "Đã xóa",
+        language === "en" ? "Conversation deleted." : "Đã xóa cuộc trò chuyện."
+      );
+    } catch (e) {
+      notify.error(
+        language === "en" ? "Delete Error" : "Lỗi xóa",
+        e instanceof Error ? e.message : (language === "en" ? "Could not delete." : "Không thể xóa.")
+      );
+    }
+  };
+
+  const handleExportJson = async () => {
+    if (currentConversationId) {
+      try {
+        await exportAiConversation(currentConversationId);
+        notify.success(
+          language === "en" ? "Exported Successfully" : "Xuất thành công",
+          language === "en" ? "AI conversation exported." : "Đã xuất cuộc trò chuyện AI."
+        );
+        return;
+      } catch (e) {
+        notify.error(
+          language === "en" ? "Export Failed" : "Xuất thất bại",
+          e instanceof Error ? e.message : (language === "en" ? "Could not export conversation." : "Không thể xuất cuộc trò chuyện.")
+        );
+      }
+    }
+    const data = {
+      conversationId: currentConversationId,
+      exportedAt: new Date().toISOString(),
+      planId: activePlan?.id,
+      versionId: currentVersion?.id,
+      messages,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `an-huu-ai-conversation-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSend = async (textToSend?: string) => {
+    const question = (textToSend || inputPrompt).trim();
+    if (!question || isTyping) return;
+
+    if (!privacy?.processing) {
+      setConsentModalOpen(true);
+      return;
+    }
+
+    const userMsg: ChatMessage = {
       id: `m-${Date.now()}`,
-      sender: "user",
-      text,
-      time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+      role: "user",
+      content: question,
+      time: new Date().toLocaleTimeString(language === "en" ? "en-US" : "vi-VN", { hour: "2-digit", minute: "2-digit" }),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     if (!textToSend) setInputPrompt("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      if (requestVersion.current !== version) return;
-      const format = (value: number) => `${new Intl.NumberFormat("vi-VN").format(value)} đ`;
-      let aiText = `Theo hồ sơ demo hiện tại, quỹ dự phóng ở tuổi ${profile.goal.targetRetireAge} là ${format(calculation.projectedFund)}, so với mục tiêu ${format(calculation.targetFund)}. Đây là phản hồi minh họa từ bộ quy tắc cục bộ, chưa phải tư vấn của chuyên gia hoặc AI trực tuyến.`;
-      let metric: Message["metric"] | undefined = undefined;
-      const lower = text.toLowerCase();
+    try {
+      const res = await explainRetirementPlan({
+        question,
+        planId: activePlan?.id,
+        versionId: currentVersion?.id,
+        conversationId: privacy.saveHistory && currentConversationId ? currentConversationId : undefined,
+        expectedRevision: privacy.saveHistory && currentConversationId ? conversationRevision : undefined,
+      });
 
-      if (lower.includes("bhxh") || lower.includes("bảo hiểm xã hội") || lower.includes("lương hưu")) {
-        aiText = `Bộ tính demo ước tính lương hưu ${format(calculation.estimatedMonthlyPension)}/tháng tại thời điểm nghỉ hưu, dựa trên ${profile.socialSecurity.socialInsuranceYears} năm đã đóng và giả định tiếp tục tham gia. Con số này chỉ phục vụ mô phỏng; quyền lợi thực tế cần được xác nhận với cơ quan BHXH.`;
-        metric = {
-          label: "Lương hưu ước tính trong mô hình demo",
-          value: format(calculation.estimatedMonthlyPension),
-          detail: "Không phải kết quả tính quyền lợi BHXH chính thức.",
-          deltaType: "positive",
-        };
-      } else if (lower.includes("lạm phát") || lower.includes("giá cả") || lower.includes("sức mua")) {
-        aiText = `Với giả định lạm phát ${profile.goal.inflationRate}%/năm, mức chi tiêu ${format(profile.goal.monthlyExpenseInRetirement)} theo giá hiện tại tương đương khoảng ${format(calculation.futureMonthlyExpense)}/tháng ở tuổi ${profile.goal.targetRetireAge}. Bạn có thể đổi giả định tại trang Mục tiêu rồi lưu để tính lại.`;
-        metric = {
-          label: "Chi tiêu tháng tại thời điểm nghỉ hưu",
-          value: format(calculation.futureMonthlyExpense),
-          detail: `Sau ${calculation.yearsToRetirement} năm với lạm phát ${profile.goal.inflationRate}%/năm.`,
-          deltaType: "neutral",
-        };
-      } else if (calculation.gap > 0) {
-        aiText = `Kế hoạch demo hiện còn thiếu ${format(calculation.gap)} tại thời điểm nghỉ hưu. Bạn nên dùng trang Mô phỏng để thử tăng tích lũy, nghỉ muộn hơn hoặc điều chỉnh mức chi tiêu. Hội thoại này không tự áp dụng thay đổi.`;
-        metric = {
-          label: "Khoảng thiếu theo mô hình demo",
-          value: format(calculation.gap),
-          detail: "Mở trang Mô phỏng để thử kịch bản và xác nhận riêng trước khi áp dụng.",
-          deltaType: "warning",
-        };
+      if (res.conversationId && res.revision !== null) {
+        setCurrentConversationId(res.conversationId);
+        setConversationRevision(res.revision);
+        loadConversations();
       }
 
-      const aiMsg: Message = {
+      const aiMsg: ChatMessage = {
         id: `m-${Date.now() + 1}`,
-        sender: "assistant",
-        text: aiText,
-        time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-        metric,
-        hasChart: false,
+        role: "assistant",
+        content: res.answer,
+        time: new Date().toLocaleTimeString(language === "en" ? "en-US" : "vi-VN", { hour: "2-digit", minute: "2-digit" }),
+        facts: res.facts,
+        citations: res.citations,
+        provenance: res.provenance,
+        status: res.status,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : (language === "en" ? "Could not get response from assistant." : "Không thể nhận phản hồi từ trợ lý.");
+      const errorMsg: ChatMessage = {
+        id: `m-${Date.now() + 1}`,
+        role: "assistant",
+        content: language === "en"
+          ? `Sorry, an error occurred: ${msg}. Please retry or start a new conversation.`
+          : `Rất tiếc, đã có lỗi xảy ra: ${msg}. Vui lòng thử lại hoặc làm mới cuộc trò chuyện.`,
+        time: new Date().toLocaleTimeString(language === "en" ? "en-US" : "vi-VN", { hour: "2-digit", minute: "2-digit" }),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
       setIsTyping(false);
-    }, 600);
+    }
+  };
+
+  const handleRunWhatIfSimulation = async () => {
+    if (!activePlan?.id || !currentVersion?.id) {
+      notify.error(
+        language === "en" ? "No Plan Available" : "Chưa có kế hoạch",
+        language === "en" ? "An active official plan version is required to run what-if simulations." : "Cần một phiên bản kế hoạch chính thức để mô phỏng."
+      );
+      return;
+    }
+
+    setWhatIfSimulating(true);
+    setWhatIfResult(null);
+
+    const birthYear = new Date().getFullYear() - (profile.personal.age || 30);
+    const retireMonth = `${birthYear + whatIfRetireAge}-12`;
+
+    try {
+      const res = await simulateViaAi({
+        planId: activePlan.id,
+        versionId: currentVersion.id,
+        expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
+        changes: {
+          retirementMonth: retireMonth,
+          monthlyContribution: String(whatIfMonthlyContribution),
+          monthlyExpenseToday: String(whatIfMonthlyExpense),
+        },
+      });
+      setWhatIfResult(res);
+      notify.success(
+        language === "en" ? "Simulation Completed" : "Mô phỏng thành công",
+        language === "en" ? "Comparative simulation for experimental scenario finished." : "Đã hoàn thành tính toán so sánh cho phương án thử nghiệm."
+      );
+    } catch (e) {
+      notify.error(
+        language === "en" ? "Simulation Error" : "Lỗi mô phỏng",
+        e instanceof Error ? e.message : (language === "en" ? "Could not run simulation." : "Không thể chạy mô phỏng.")
+      );
+    } finally {
+      setWhatIfSimulating(false);
+    }
   };
 
   return (
@@ -119,57 +388,57 @@ export default function AIAssistantPage() {
       <header className="codex-topbar">
         <div className="codex-title-wrap">
           <span className="codex-folder-icon" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-            </svg>
+            <Icon name="sparkles" size="small" />
           </span>
           <h1>
-            Trợ lý tài chính
-            <span className="codex-title-sub"> · Chế độ minh họa</span>
+            {t("ai.page_title")}
+            <span className="codex-title-sub">{language === "en" ? " · Calculation Engine" : " · Động cơ An Hữu"}</span>
           </h1>
           <span className="codex-status-pill">
             <span className="codex-pulse" />
-            Không kết nối AI trực tuyến
+            {privacy?.providerConfigured
+              ? (language === "en" ? "AI Analytical Assistant" : "AI Hỗ trợ phân tích")
+              : (language === "en" ? "Plan Data Explainer - Local Calculation Engine" : "Giải thích từ số liệu kế hoạch - chưa kết nối AI ngoài")}
           </span>
         </div>
 
         <div className="codex-actions-wrap">
+          <Button
+            variant="ghost"
+            size="small"
+            onClick={() => setDrawerOpen(true)}
+          >
+            <Icon name="file-text" size="small" /> {language === "en" ? "Conversations" : "Danh sách hội thoại"} ({conversations.length})
+          </Button>
+
           <button
             type="button"
             className="codex-icon-btn"
-            title="Tùy chọn khác"
-            aria-label="Tùy chọn khác"
-            onClick={() => handleSend("Tóm tắt lại tình trạng tài chính hiện tại của tôi.")}
+            title={language === "en" ? "Export conversation data (JSON)" : "Xuất dữ liệu hội thoại (JSON)"}
+            aria-label={language === "en" ? "Export conversation data" : "Xuất dữ liệu hội thoại"}
+            onClick={handleExportJson}
           >
-            <span>···</span>
+            <Icon name="download" size="small" />
           </button>
 
           <button
             type="button"
             className={`codex-icon-btn ${railOpen ? "is-active" : ""}`}
-            title="Bật/tắt thanh Outputs & Sources"
-            aria-label="Bật/tắt thanh Outputs & Sources"
+            title={language === "en" ? "Toggle Sources & Context Rail" : "Bật/tắt thanh Nguồn dữ liệu & Ngữ cảnh"}
+            aria-label={language === "en" ? "Toggle Sources & Context Rail" : "Bật/tắt thanh Nguồn dữ liệu & Ngữ cảnh"}
             onClick={() => setRailOpen(!railOpen)}
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
-              <line x1="15" y1="3" x2="15" y2="21"/>
-            </svg>
+            <Icon name="panel-right" size="small" />
           </button>
 
           <button
             type="button"
             className="codex-icon-btn"
-            title="Làm mới cuộc trò chuyện"
-            aria-label="Làm mới cuộc trò chuyện"
-            onClick={() => {
-              requestVersion.current++;
-              setIsTyping(false);
-              setMessages([initialMessage]);
-            }}
+            title={language === "en" ? "Start new conversation" : "Khởi tạo hội thoại mới"}
+            aria-label={language === "en" ? "Start new conversation" : "Khởi tạo hội thoại mới"}
+            onClick={handleNewConversation}
           >
-            <Icon name="trash" size="small" />
+            <Icon name="plus" size="small" />
           </button>
         </div>
       </header>
@@ -182,128 +451,108 @@ export default function AIAssistantPage() {
             {messages.map((msg) => (
               <motion.div
                 key={msg.id}
-                className={`codex-turn ${msg.sender}`}
+                className={`codex-turn ${msg.role}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, ease: "easeOut" }}
               >
-                {/* Tool execution logs */}
-                {msg.tools && msg.tools.map((t, idx) => (
-                  <div key={idx} className="codex-tool-log">
-                    {t.type === "edit" && (
-                      <div className="tool-row">
-                        <span className="tool-icon">✎</span>
-                        <span className="tool-text">{t.label}</span>
-                      </div>
-                    )}
-
-                    {t.type === "command" && (
-                      <div className="tool-row">
-                        <span className="tool-icon cmd">⊡</span>
-                        <span className="tool-text">{t.label}</span>
-                      </div>
-                    )}
-
-                    {t.type === "images" && (
-                      <div className="tool-images-block">
-                        <div className="tool-row">
-                          <span className="tool-icon">◫</span>
-                          <span className="tool-text">{t.label} ▾</span>
-                        </div>
-                        {t.images && (
-                          <div className="tool-images-grid">
-                            {t.images.map((img, imgIdx) => (
-                              <div key={imgIdx} className="scenario-thumb-card">
-                                <div className="thumb-header">
-                                  <strong>{img.title}</strong>
-                                  <span className="thumb-tag">{img.tag}</span>
-                                </div>
-                                <div className="thumb-preview">
-                                  <div className="mini-phone-header">
-                                    <span className="pill-dot" />
-                                    <span className="pill-line" />
-                                  </div>
-                                  <div className="mini-phone-body">
-                                    <div className="mini-card-row" />
-                                    <div className="mini-card-row short" />
-                                  </div>
-                                </div>
-                                <small>{img.subtitle}</small>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {t.type === "time" && (
-                      <div className="tool-time-row">
-                        <span>{t.label}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* Message Body */}
+                {/* Assistant Message Body */}
                 <div className="codex-message-prose">
-                  {msg.text.split("\n\n").map((para, pIdx) => (
+                  {msg.content.split("\n\n").map((para, pIdx) => (
                     <p key={pIdx}>{para}</p>
                   ))}
                 </div>
 
-                {/* Optional Highlight Metric */}
-                {msg.metric && (
-                  <div className={`codex-metric-card ${msg.metric.deltaType || "neutral"}`}>
-                    <div className="metric-top">
-                      <span>{msg.metric.label}</span>
-                      <span className="metric-pill">Ước tính demo</span>
+                {/* Structured Key Facts Grid */}
+                {msg.facts && msg.facts.length > 0 && (
+                  <div style={{ marginTop: "14px", display: "grid", gap: "8px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted)", letterSpacing: "0.04em" }}>
+                      {language === "en" ? "KEY METRICS FROM ENGINE:" : "SỐ LIỆU CHÍNH TỪ MÔ HÌNH:"}
+                    </span>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "8px" }}>
+                      {msg.facts.map((fact) => (
+                        <div
+                          key={fact.key}
+                          style={{
+                            padding: "8px 12px",
+                            borderRadius: "var(--radius-sm)",
+                            background: "rgba(15, 23, 42, 0.03)",
+                            border: "1px solid var(--color-border)",
+                            fontSize: "12px",
+                            lineHeight: "1.45",
+                          }}
+                        >
+                          <strong style={{ display: "block", color: "var(--color-primary-700)", fontSize: "11px", marginBottom: "2px" }}>
+                            {fact.key.toUpperCase()}
+                          </strong>
+                          {fact.text}
+                        </div>
+                      ))}
                     </div>
-                    <strong>{msg.metric.value}</strong>
-                    <small>{msg.metric.detail}</small>
                   </div>
                 )}
 
-                {/* Optional Interactive Curve Chart */}
-                {msg.hasChart && (
-                  <div className="codex-chart-card">
-                    <div className="chart-top">
-                      <div>
-                        <h4>Đường cong tích lũy tài sản hưu trí (Mô phỏng lãi kép 7.8%/năm)</h4>
-                        <p>So sánh lộ trình mục tiêu tuổi 60 và kịch bản tuổi 58</p>
-                      </div>
-                      <span className="chart-badge">LIVE SIMULATION</span>
+                {/* Approved Citations from Knowledge Base */}
+                {msg.citations && msg.citations.length > 0 && (
+                  <div style={{ marginTop: "14px", borderTop: "1px dashed var(--color-border)", paddingTop: "10px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted)" }}>
+                      {language === "en" ? "LEGAL & REGULATORY CITATIONS:" : "CĂN CỨ VÀ NGUỒN TRI THỨC PHÁP LÝ / CHUẨN MỰC:"}
+                    </span>
+                    <div style={{ display: "grid", gap: "6px", marginTop: "6px" }}>
+                      {msg.citations.map((c) => (
+                        <div
+                          key={c.id}
+                          style={{
+                            padding: "8px 10px",
+                            background: "var(--color-surface-subtle)",
+                            borderRadius: "var(--radius-sm)",
+                            fontSize: "11.5px",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <strong>{c.title} (v{c.version})</strong>
+                            <small className="font-mono" style={{ color: "var(--color-text-muted)" }}>
+                              {language === "en" ? "Effective" : "Hiệu lực"}: {new Date(c.effectiveDate).toLocaleDateString(language === "en" ? "en-US" : "vi-VN")}
+                            </small>
+                          </div>
+                          <p style={{ margin: "4px 0 0", color: "var(--color-text-muted)", fontStyle: "italic" }}>
+                            "{c.excerpt}"
+                          </p>
+                          {c.url && (
+                            <a
+                              href={c.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ fontSize: "11px", color: "var(--color-primary-600)", marginTop: "4px", display: "inline-block" }}
+                            >
+                              {language === "en" ? "View source text →" : "Xem văn bản gốc →"}
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Provenance Metadata & Simulation Trigger Button */}
+                {msg.role === "assistant" && msg.provenance && (
+                  <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                      <Badge tone="soft">
+                        {language === "en" ? "Plan" : "Kế hoạch"}: {msg.provenance.valueKind}
+                      </Badge>
+                      <small className="font-mono" style={{ fontSize: "10.5px", color: "var(--color-text-muted)" }}>
+                        {language === "en" ? "Model v" : "Mô hình v"}{msg.provenance.modelVersion} • {language === "en" ? "Valuation" : "Định giá"}: {msg.provenance.valuationDate}
+                      </small>
                     </div>
 
-                    <div className="chart-svg-wrap">
-                      <svg viewBox="0 0 540 180" preserveAspectRatio="none">
-                        <defs>
-                          <linearGradient id="codexGreenGlow" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
-                            <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-                          </linearGradient>
-                        </defs>
-                        <line x1="0" y1="30" x2="540" y2="30" className="chart-grid-line" />
-                        <line x1="0" y1="80" x2="540" y2="80" className="chart-grid-line" />
-                        <line x1="0" y1="130" x2="540" y2="130" className="chart-grid-line" />
-
-                        <path d="M 20 160 C 160 150, 320 110, 510 50 L 510 160 Z" fill="url(#codexGreenGlow)" />
-                        <path d="M 20 160 C 160 150, 320 110, 510 50" className="chart-base-line" />
-                        <path d="M 20 160 C 140 135, 290 80, 460 25" className="chart-sim-line" />
-
-                        <circle cx="20" cy="160" r="4" className="chart-dot" />
-                        <circle cx="220" cy="135" r="4" className="chart-dot" />
-                        <circle cx="460" cy="25" r="5" className="chart-sim-dot" />
-                        <circle cx="510" cy="50" r="5" className="chart-base-dot" />
-
-                        <text x="460" y="16" textAnchor="middle" className="chart-tag-text">Tuổi 58</text>
-                        <text x="510" y="42" textAnchor="middle" className="chart-tag-text">Tuổi 60</text>
-                      </svg>
-                    </div>
-
-                    <div className="chart-legends-row">
-                      <span><i className="dot green" /> Kế hoạch hiện tại: {new Intl.NumberFormat("vi-VN").format(profile.plan.monthlySavings)} đ/tháng</span>
-                      <span><i className="dot blue" /> Mục tiêu tuổi {profile.goal.targetRetireAge}: {new Intl.NumberFormat("vi-VN").format(calculation.targetFund)} đ</span>
-                    </div>
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onClick={() => setWhatIfModalOpen(true)}
+                    >
+                      <Icon name="sparkles" size="small" /> {language === "en" ? "Test What-if" : "Thử nghiệm What-if"}
+                    </Button>
                   </div>
                 )}
               </motion.div>
@@ -313,7 +562,9 @@ export default function AIAssistantPage() {
               <div className="codex-turn assistant typing">
                 <div className="tool-row">
                   <span className="tool-icon">✎</span>
-                  <span className="tool-text">Đang chuẩn bị phản hồi minh họa từ hồ sơ đã lưu...</span>
+                  <span className="tool-text">
+                    {language === "en" ? "Cross-referencing plan data and regulatory standards..." : "Đang đối chiếu dữ liệu kế hoạch và tri thức chuẩn mực..."}
+                  </span>
                 </div>
                 <div className="typing-pulse-dots">
                   <span />
@@ -323,102 +574,61 @@ export default function AIAssistantPage() {
               </div>
             )}
 
-            {/* Informational Limit / Sync Divider */}
+            {/* Informational Sync Divider */}
             <div className="codex-sync-divider">
               <span className="sync-line" />
               <span className="sync-label">
-                ⓘ Dữ liệu đang đọc từ hồ sơ {profile.personal.name} ({profile.personal.age} tuổi, mục tiêu nghỉ hưu ở tuổi {profile.goal.targetRetireAge})
+                {language === "en"
+                  ? `ⓘ Grounded on active plan for ${profile.personal.name} • Target retire age ${profile.goal.targetRetireAge}`
+                  : `ⓘ Phân tích dựa trên kế hoạch hiện hành của ${profile.personal.name} • Mục tiêu tuổi ${profile.goal.targetRetireAge}`}
               </span>
               <span className="sync-line" />
             </div>
 
-            {/* Financial Status Summary Card (matches layout of usage card in screenshot) */}
-            <div className="codex-status-card">
-              <div className="status-copy">
-                <strong>Mục tiêu hưu trí: {new Intl.NumberFormat("vi-VN").format(calculation.targetFund)} đ (đạt {calculation.readinessScore}%)</strong>
-                <p>{calculation.gap > 0 ? `Kế hoạch còn thiếu ${new Intl.NumberFormat("vi-VN").format(calculation.gap)} đ theo các giả định hiện tại.` : `Kế hoạch đang vượt mục tiêu ${new Intl.NumberFormat("vi-VN").format(Math.abs(calculation.gap))} đ theo các giả định hiện tại.`}</p>
-              </div>
-              <div className="status-actions">
+            {/* Quick Suggestions Block */}
+            <div className="codex-suggestions-block">
+              <span className="suggestions-title">{language === "en" ? "FREQUENT PLAN QUESTIONS:" : "CÂU HỎI THƯỜNG GẶP VỀ KẾ HOẠCH:"}</span>
+              <div className="suggestions-pills">
                 <button
                   type="button"
-                  className="btn-ghost-dark"
-                  onClick={() => navigate("/user/goal")}
+                  onClick={() => handleSend(language === "en" ? "Explain my retirement coverage ratio and its most critical driving factors?" : "Giải thích tỷ lệ bao phủ quỹ hưu trí của tôi và các yếu tố ảnh hưởng lớn nhất?")}
                 >
-                  Điều chỉnh mục tiêu
+                  {language === "en" ? "What is the retirement coverage ratio?" : "Tỷ lệ bao phủ quỹ hưu trí là gì?"}
                 </button>
                 <button
                   type="button"
-                  className="btn-primary-dark"
-                  onClick={() => navigate("/user/simulation")}
+                  onClick={() => handleSend(language === "en" ? "How much more do I need to contribute monthly to retire 2 years earlier?" : "Nếu tôi muốn nghỉ hưu sớm hơn 2 năm thì cần đóng góp thêm bao nhiêu mỗi tháng?")}
                 >
-                  ✦ Mở mô phỏng
+                  {language === "en" ? "Retiring 2 years earlier requirements" : "Nghỉ hưu sớm hơn 2 năm cần thêm vốn gì?"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSend(language === "en" ? "How are inflation and investment return assumptions set in this plan?" : "Giả định lạm phát và lợi suất trong phiên bản này được quy định như thế nào?")}
+                >
+                  {language === "en" ? "Inflation and yield assumptions" : "Quy ước lạm phát và lợi suất đầu tư"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSend(language === "en" ? "What key limitations should I keep in mind regarding these projections?" : "Các giới hạn quan trọng tôi cần lưu ý trước khi dựa vào kết quả này?")}
+                >
+                  {language === "en" ? "Important model limitations" : "Các giới hạn cần lưu ý"}
                 </button>
               </div>
             </div>
-
-            {/* Quick Prompt Suggestions to fill empty frame */}
-            {messages.length <= 1 && (
-              <div className="codex-suggestions-block">
-                <div className="suggestions-header">
-                  <Icon name="sparkles" size="small" />
-                  <span>GỢI Ý CÂU HỎI THƯỜNG GẶP</span>
-                </div>
-                <div className="suggestions-grid">
-                  <button
-                    type="button"
-                    className="suggestion-chip"
-                    onClick={() => handleSend("Ước tính lương hưu BHXH của tôi khi về hưu là bao nhiêu?")}
-                  >
-                    <span className="chip-icon">🛡️</span>
-                    <div>
-                      <strong>Lương hưu BHXH ước tính</strong>
-                      <p>Dựa trên {profile.socialSecurity.socialInsuranceYears} năm đóng BHXH trong hồ sơ</p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="suggestion-chip"
-                    onClick={() => handleSend("Lạm phát 4% ảnh hưởng thế nào đến sức mua khi tôi nghỉ hưu?")}
-                  >
-                    <span className="chip-icon">📈</span>
-                    <div>
-                      <strong>Tác động của lạm phát</strong>
-                      <p>Quy đổi chi tiêu {new Intl.NumberFormat("vi-VN").format(profile.goal.monthlyExpenseInRetirement)} đ sang giá tương lai</p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="suggestion-chip"
-                    onClick={() => handleSend("Làm thế nào để bù đắp khoảng thiếu hụt quỹ hưu trí?")}
-                  >
-                    <span className="chip-icon">🎯</span>
-                    <div>
-                      <strong>Bù đắp khoảng thiếu hụt</strong>
-                      <p>Phương án tăng tích lũy hoặc điều chỉnh mốc tuổi hưu</p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="suggestion-chip"
-                    onClick={() => handleSend("Gợi ý cho tôi 3 bước tối ưu tài chính quan trọng nhất trong tháng này.")}
-                  >
-                    <span className="chip-icon">💡</span>
-                    <div>
-                      <strong>Tối ưu hóa tích lũy tháng</strong>
-                      <p>3 gợi ý minh họa dựa trên hồ sơ đang lưu</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Bottom Floating Composer */}
+          {/* Composer Input Form */}
           <div className="codex-composer-wrapper">
-            <div className="codex-composer-card">
+            <form
+              className="codex-composer-card"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+            >
               <textarea
-                aria-label="Câu hỏi dành cho trợ lý AI"
-                placeholder="Hỏi An Hưu AI về kế hoạch hưu trí, BHXH, tích lũy..."
+                aria-label={language === "en" ? "Question for AI assistant" : "Câu hỏi dành cho trợ lý AI"}
+                placeholder={t("ai.input_placeholder")}
                 value={inputPrompt}
                 onChange={(e) => setInputPrompt(e.target.value)}
                 onKeyDown={(e) => {
@@ -427,96 +637,334 @@ export default function AIAssistantPage() {
                     handleSend();
                   }
                 }}
-                rows={1}
+                rows={2}
+                disabled={isTyping}
               />
-
-              <div className="composer-bottom-bar">
+              <div className="composer-actions-bar">
                 <div className="composer-left-actions">
-                  <button
-                    type="button"
-                    className="composer-circle-btn"
-                    title="Gợi ý câu hỏi"
-                    onClick={() => handleSend("Gợi ý cho tôi 3 bước tối ưu tài chính quan trọng nhất trong tháng này.")}
-                  >
-                    +
-                  </button>
-
-                  <div className="composer-shield-badge">
-                    <span className="shield-icon">🛡️</span>
-                    <span>Mô hình demo để tham khảo</span>
-                  </div>
+                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
+                    {language === "en" ? "Press Enter to send, Shift+Enter for new line" : "Nhấn Enter để gửi, Shift+Enter để xuống dòng"}
+                  </span>
                 </div>
-
-                <div className="composer-right-actions">
-                  <button
-                    type="button"
-                    className="composer-model-pill"
-                    onClick={() => setModelMode("Minh họa theo hồ sơ")}
-                  >
-                    <span>{modelMode}</span>
-                    <span className="caret">▾</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="composer-send-btn"
-                    aria-label="Gửi câu hỏi"
-                    title="Gửi câu hỏi"
-                    disabled={!inputPrompt.trim()}
-                    onClick={() => handleSend()}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <line x1="12" y1="19" x2="12" y2="5" />
-                      <polyline points="5 12 12 5 19 12" />
-                    </svg>
-                  </button>
-                </div>
+                <Button
+                  variant="primary"
+                  size="small"
+                  type="submit"
+                  disabled={!inputPrompt.trim() || isTyping}
+                >
+                  <Icon name="arrow-right" size="small" /> {t("ai.send")}
+                </Button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
 
-        {/* Right Floating Rail: Outputs & Sources */}
+        {/* Right Docked Rail: Outputs & Sources */}
         {railOpen && (
-          <aside className="codex-side-rail" aria-label="Kết quả và nguồn dữ liệu">
+          <aside className="codex-side-rail" aria-label={language === "en" ? "Sources and Context" : "Nguồn dữ liệu và Ngữ cảnh"}>
             <div className="codex-dock-widget">
-              {/* Outputs Section */}
-              <div className="dock-section">
-                <div className="dock-header">
-                  <span>Kết quả</span>
-                </div>
-                <div className="dock-list">
-                  <button type="button" className="dock-item" onClick={() => navigate("/user/plan")}>
-                    <span className="dock-icon globe"><Icon name="target" size="small" /></span>
-                    <span className="dock-label">Xem kế hoạch hiện tại</span>
-                  </button>
-                  <button type="button" className="dock-item" onClick={() => navigate("/user/simulation")}>
-                    <span className="dock-icon doc"><Icon name="chart" size="small" /></span>
-                    <span className="dock-label">Mở công cụ mô phỏng</span>
-                  </button>
-                </div>
-              </div>
+              <header className="dock-widget-header">
+                <h3>{language === "en" ? "Active Plan Context" : "Ngữ cảnh kế hoạch đang phân tích"}</h3>
+              </header>
 
-              {/* Sources Section */}
-              <div className="dock-section">
-                <div className="dock-header">
-                  <span>Nguồn dữ liệu</span>
+              <div style={{ padding: "var(--space-4)", display: "grid", gap: "14px" }}>
+                <div>
+                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 600 }}>
+                    {language === "en" ? "PLAN VERSION" : "PHIÊN BẢN KẾ HOẠCH"}
+                  </span>
+                  <div style={{ marginTop: "4px" }}>
+                    <strong>{currentVersion ? (language === "en" ? `Version v${currentVersion.version}` : `Phiên bản v${currentVersion.version}`) : (language === "en" ? "No applied version" : "Chưa có bản áp dụng")}</strong>
+                    <p style={{ margin: "2px 0 0", fontSize: "11.5px", color: "var(--color-text-muted)" }}>
+                      {currentVersion?.snapshotHash ? `Hash: ${currentVersion.snapshotHash.slice(0, 12)}...` : ""}
+                    </p>
+                  </div>
                 </div>
-                <div className="dock-list">
-                  <button type="button" className="dock-item" onClick={() => navigate("/user/account")}>
-                    <span className="dock-icon clip"><Icon name="users" size="small" /></span>
-                    <span className="dock-label">Hồ sơ tài chính của bạn</span>
-                  </button>
-                  <button type="button" className="dock-item" onClick={() => navigate("/user/goal")}>
-                    <span className="dock-icon doc"><Icon name="settings" size="small" /></span>
-                    <span className="dock-label">Giả định mục tiêu đã lưu</span>
-                  </button>
+
+                <div>
+                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 600 }}>
+                    {language === "en" ? "RETIREMENT GOAL" : "MỤC TIÊU HƯU TRÍ"}
+                  </span>
+                  <div style={{ marginTop: "4px" }}>
+                    <strong className="font-mono">
+                      {currentVersion?.preview.calculation ? formatVND(Number(currentVersion.preview.calculation.summary.atRetirement.requiredFund)) : "-"}
+                    </strong>
+                    <p style={{ margin: "2px 0 0", fontSize: "11.5px", color: "var(--color-text-muted)" }}>
+                      {language === "en" ? "Retire age" : "Tuổi hưu"}: {profile.goal.targetRetireAge || 60} • {language === "en" ? "Savings" : "Tích lũy"}: {formatVND(profile.plan.monthlySavings)}/{language === "en" ? "mo" : "tháng"}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: "1px dashed var(--color-border)", paddingTop: "12px" }}>
+                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 600 }}>
+                    {language === "en" ? "PRIVACY & DATA SETTINGS" : "QUYỀN RIÊNG TƯ & DỮ LIỆU"}
+                  </span>
+                  <p style={{ margin: "4px 0", fontSize: "11.5px", color: "var(--color-text-muted)" }}>
+                    {language === "en" ? "Save history" : "Lưu lịch sử"}: <b>{privacy?.saveHistory ? (language === "en" ? "On (auto-purges in 30 days)" : "Bật (tự xóa sau 30 ngày)") : (language === "en" ? "Off" : "Tắt")}</b>
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    onClick={() => setConsentModalOpen(true)}
+                    style={{ paddingLeft: 0, marginTop: "4px" }}
+                  >
+                    {language === "en" ? "Privacy settings →" : "Cài đặt quyền riêng tư →"}
+                  </Button>
+                </div>
+
+                <div style={{ borderTop: "1px dashed var(--color-border)", paddingTop: "12px" }}>
+                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 600 }}>
+                    {language === "en" ? "LEGAL DISCLAIMER" : "GIỚI HẠN PHÁP LÝ (DISCLAIMER)"}
+                  </span>
+                  <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
+                    {language === "en"
+                      ? "The assistant explains figures calculated by the formal actuarial engine. Any real-world financial decision requires your independent evaluation and professional verification."
+                      : "Trợ lý chỉ hỗ trợ giải thích dữ liệu từ mô hình tính toán chuẩn mực. Mọi quyết định tài chính thực tế cần bạn cân nhắc riêng và xác nhận độc lập."}
+                  </p>
                 </div>
               </div>
             </div>
           </aside>
         )}
       </div>
+
+      {/* Conversations Drawer */}
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={language === "en" ? "Conversation Sessions History" : "Lịch sử các phiên hội thoại"}
+      >
+        <div style={{ display: "grid", gap: "12px", padding: "8px 0" }}>
+          <Button variant="primary" onClick={handleNewConversation}>
+            <Icon name="plus" size="small" /> {language === "en" ? "New Conversation" : "Tạo cuộc trò chuyện mới"}
+          </Button>
+
+          {conversations.length === 0 ? (
+            <p style={{ color: "var(--color-text-muted)", fontSize: "12px", textAlign: "center", margin: "20px 0" }}>
+              {language === "en" ? "No stored conversations yet." : "Chưa có cuộc trò chuyện nào được lưu."}
+            </p>
+          ) : (
+            <div style={{ display: "grid", gap: "8px", marginTop: "12px" }}>
+              {conversations.map((c) => (
+                <div
+                  key={c.id}
+                  style={{
+                    padding: "10px 12px",
+                    border: `1.5px solid ${c.id === currentConversationId ? "var(--color-primary-700)" : "var(--color-border)"}`,
+                    borderRadius: "var(--radius-md)",
+                    background: c.id === currentConversationId ? "var(--color-surface-subtle)" : "var(--color-white)",
+                  }}
+                >
+                  {renamingId === c.id ? (
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                      <input
+                        type="text"
+                        value={newTitle}
+                        onChange={(e) => setNewTitle(e.target.value)}
+                        className="input"
+                        style={{ height: "30px", fontSize: "12px" }}
+                      />
+                      <Button size="small" variant="primary" onClick={() => handleRename(c.id, c.revision)}>
+                        {language === "en" ? "Save" : "Lưu"}
+                      </Button>
+                      <Button size="small" variant="ghost" onClick={() => setRenamingId(null)}>
+                        {language === "en" ? "Cancel" : "Hủy"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div
+                        style={{ cursor: "pointer", flex: 1 }}
+                        onClick={() => handleSelectConversation(c.id)}
+                      >
+                        <strong style={{ fontSize: "12.5px", display: "block" }}>{c.title}</strong>
+                        <small style={{ color: "var(--color-text-muted)", fontSize: "11px" }}>
+                          {new Date(c.createdAt).toLocaleDateString(language === "en" ? "en-US" : "vi-VN")} • {language === "en" ? "Expires" : "Tự xóa"}: {new Date(c.expiresAt).toLocaleDateString(language === "en" ? "en-US" : "vi-VN")}
+                        </small>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "4px" }}>
+                        <IconButton
+                          icon="settings"
+                          label={language === "en" ? "Rename" : "Đổi tên"}
+                          onClick={() => {
+                            setRenamingId(c.id);
+                            setNewTitle(c.title);
+                          }}
+                        />
+                        <IconButton
+                          icon="trash"
+                          label={language === "en" ? "Delete" : "Xóa"}
+                          onClick={() => handleDelete(c.id)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Drawer>
+
+      {/* Privacy Consent Modal */}
+      <Modal
+        open={consentModalOpen}
+        onClose={() => setConsentModalOpen(false)}
+        title={language === "en" ? "AI Privacy & Data Processing" : "Quyền riêng tư & Xử lý dữ liệu AI"}
+      >
+        <div style={{ display: "grid", gap: "16px" }}>
+          <p style={{ margin: 0, fontSize: "13px", lineHeight: 1.6 }}>
+            {language === "en"
+              ? "The An Huu assistant uses key metric outputs from your retirement plan to provide rigorous explanations. The system never exposes personal identification, contact details, or granular transaction records."
+              : "Trợ lý An Hữu sử dụng các chỉ số đầu ra từ kế hoạch hưu trí của bạn để giải thích tường tận. Hệ thống cam kết không gửi hồ sơ cá nhân đầy đủ, thông tin liên hệ hay dữ liệu giao dịch chi tiết ra ngoài."}
+          </p>
+
+          <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)", fontSize: "12px" }}>
+            <span style={{ fontWeight: 700, display: "block", marginBottom: "4px" }}>
+              {language === "en" ? "DATA PROTECTION POLICY:" : "CHÍNH SÁCH BẢO VỆ DỮ LIỆU:"}
+            </span>
+            <ul style={{ margin: 0, paddingLeft: "18px" }}>
+              <li>
+                {language === "en"
+                  ? "Transmits only: Your prompt, high-level plan summaries, and regulatory citations."
+                  : "Chỉ gửi: Câu hỏi của bạn, các chỉ số tóm tắt của kế hoạch và các đoạn tri thức chuẩn mực."}
+              </li>
+              <li>
+                {language === "en"
+                  ? "Strictly excludes: Full name, email, phone number, bank account details, and raw ledgers."
+                  : "Loại trừ tuyệt đối: Tên, email, số điện thoại, số tài khoản và các dòng giao dịch chi tiết."}
+              </li>
+              <li>
+                {language === "en"
+                  ? "Conversations automatically expire and are purged after 30 days."
+                  : "Hội thoại được lưu tự động hết hạn và xóa hoàn toàn sau 30 ngày."}
+              </li>
+            </ul>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+            <Button
+              variant="secondary"
+              onClick={() => handleConsent(false, false)}
+              disabled={updatingConsent}
+            >
+              {language === "en" ? "Decline Processing" : "Từ chối xử lý"}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => handleConsent(true, true)}
+              loading={updatingConsent}
+            >
+              {language === "en" ? "Agree & Save History (30 Days)" : "Đồng ý & Lưu lịch sử (30 ngày)"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* What-If Simulation Modal */}
+      <Modal
+        open={whatIfModalOpen}
+        onClose={() => setWhatIfModalOpen(false)}
+        title={language === "en" ? "What-If Simulation from AI Suggestions" : "Mô phỏng thử nghiệm What-if từ gợi ý AI"}
+      >
+        <div style={{ display: "grid", gap: "16px" }}>
+          <p style={{ margin: 0, fontSize: "12.5px", color: "var(--color-text-muted)" }}>
+            {language === "en"
+              ? "Quickly adjust key parameters to recalculate your retirement fund without changing base profile data."
+              : "Điều chỉnh nhanh các thông số để xem động cơ tính toán lại quỹ hưu mà không làm thay đổi hồ sơ gốc."}
+          </p>
+
+          <div style={{ display: "grid", gap: "12px" }}>
+            <div>
+              <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>
+                {language === "en" ? "Target retirement age" : "Tuổi nghỉ hưu mong muốn"}: {whatIfRetireAge} {language === "en" ? "yrs" : "tuổi"}
+              </label>
+              <input
+                type="range"
+                min={(profile.personal.age || 30) + 1}
+                max={75}
+                value={whatIfRetireAge}
+                onChange={(e) => setWhatIfRetireAge(Number(e.target.value))}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>
+                {language === "en" ? "Monthly contribution amount (₫)" : "Mức tích lũy mỗi tháng (₫)"}: {formatVND(whatIfMonthlyContribution)}
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={new Intl.NumberFormat("vi-VN").format(whatIfMonthlyContribution)}
+                onChange={(e) => setWhatIfMonthlyContribution(Number(e.target.value.replace(/\D/g, "")) || 0)}
+                className="input font-mono"
+                style={{ width: "100%", height: "36px" }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>
+                {language === "en" ? "Retirement monthly expense (today's value)" : "Chi tiêu khi hưu (giá trị hôm nay)"}: {formatVND(whatIfMonthlyExpense)}
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={new Intl.NumberFormat("vi-VN").format(whatIfMonthlyExpense)}
+                onChange={(e) => setWhatIfMonthlyExpense(Number(e.target.value.replace(/\D/g, "")) || 0)}
+                className="input font-mono"
+                style={{ width: "100%", height: "36px" }}
+              />
+            </div>
+          </div>
+
+          <Button
+            variant="primary"
+            onClick={handleRunWhatIfSimulation}
+            loading={whatIfSimulating}
+          >
+            <Icon name="sparkles" size="small" /> {language === "en" ? "Run Test Calculation" : "Chạy tính toán thử nghiệm"}
+          </Button>
+
+          {whatIfResult && (
+            <div style={{ marginTop: "12px", padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)", fontSize: "12px" }}>
+              <strong style={{ display: "block", marginBottom: "6px" }}>
+                {language === "en" ? "COMPARISON WITH BASELINE PLAN:" : "KẾT QUẢ SO SÁNH VỚI KẾ HOẠCH GỐC:"}
+              </strong>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }} className="font-mono">
+                <div>
+                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
+                    {language === "en" ? "Projected Test Fund:" : "Quỹ dự phóng thử nghiệm:"}
+                  </span>
+                  <strong style={{ display: "block" }}>{formatVND(Number(whatIfResult.candidate.calculation?.summary.atRetirement.projectedFund || 0))}</strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
+                    {language === "en" ? "Retirement Fund Delta:" : "Chênh lệch quỹ hưu:"}
+                  </span>
+                  <strong style={{ display: "block", color: Number(whatIfResult.comparison.delta?.projectedFundAtValuation || 0) >= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }}>
+                    {Number(whatIfResult.comparison.delta?.projectedFundAtValuation || 0) >= 0 ? "+" : ""}
+                    {formatVND(Number(whatIfResult.comparison.delta?.projectedFundAtValuation || 0))}
+                  </strong>
+                </div>
+              </div>
+
+              <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onClick={() => {
+                    setWhatIfModalOpen(false);
+                    navigate("/user/simulation");
+                  }}
+                >
+                  {language === "en" ? "Open Simulation page for details →" : "Mở trang Mô phỏng để xem chi tiết →"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

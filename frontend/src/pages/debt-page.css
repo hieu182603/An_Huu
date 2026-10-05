@@ -1,0 +1,702 @@
+/* Debt Analysis & Loan Management - An Hưu Design System 1.1 */
+
+.debt-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.debt-page-container .ah-notification-card {
+  max-width: 100%;
+}
+
+/* ==========================================================================
+   1. HERO COMMAND BANNER
+   ========================================================================== */
+.debt-hero-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: var(--space-8);
+  border-radius: 28px;
+  background: linear-gradient(135deg, #021024 0%, #052659 55%, #334DAF 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 20px 48px -12px rgba(2, 16, 36, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  color: #ffffff;
+  padding: 36px 40px;
+}
+
+.debt-hero-ambient {
+  position: absolute;
+  top: -40px;
+  right: 15%;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(51, 77, 175, 0.25) 0%, rgba(193, 232, 255, 0.15) 50%, transparent 70%);
+  filter: blur(50px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.debt-hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.debt-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-accent-sage);
+  margin-bottom: 12px;
+}
+
+.debt-hero-title {
+  margin: 0 0 12px;
+  font-size: clamp(26px, 3.2vw, 36px);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.debt-hero-description {
+  margin: 0 0 24px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--color-mist-300);
+  max-width: 720px;
+}
+
+.debt-hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.debt-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.debt-hero-pill strong {
+  color: var(--color-accent-sage);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hero Right: Visual & DTI Gauge Panel */
+.debt-hero-visual {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  border-radius: 20px;
+  background: rgba(16, 45, 61, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.debt-dti-ring-container {
+  position: relative;
+  width: 170px;
+  height: 170px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.debt-dti-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.debt-dti-center {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.debt-dti-number {
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+}
+
+.debt-dti-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-mist-300);
+  margin-top: 4px;
+}
+
+.debt-dti-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.debt-dti-badge.is-safe {
+  background: var(--color-success-soft);
+  color: var(--color-secondary-700);
+  border: 1px solid var(--color-border);
+}
+
+.debt-dti-badge.is-warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  border: 1px solid var(--color-border);
+}
+
+.debt-dti-badge.is-danger {
+  background: rgba(var(--color-danger-rgb), 0.14);
+  color: var(--color-danger);
+  border: 1px solid var(--color-border);
+}
+
+.debt-hero-visual-footer {
+  font-size: 12px;
+  color: var(--color-mist-300);
+  text-align: center;
+  max-width: 280px;
+  line-height: 1.45;
+  margin-top: 6px;
+}
+
+/* ==========================================================================
+   2. SECTION HEADERS & ACTION BARS
+   ========================================================================== */
+.debt-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.debt-section-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.debt-section-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--color-text-strong);
+  letter-spacing: -0.02em;
+}
+
+/* ==========================================================================
+   3. LOAN PORTFOLIO CARDS
+   ========================================================================== */
+.debt-loan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-4);
+}
+
+.debt-loan-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 16px -2px rgba(21, 58, 82, 0.03);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.debt-loan-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--color-secondary-500);
+  box-shadow: 0 12px 28px -6px rgba(21, 58, 82, 0.08);
+}
+
+.debt-loan-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.debt-loan-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--color-secondary-soft);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary-700);
+  flex-shrink: 0;
+}
+
+.debt-loan-title-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.debt-loan-title-group h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debt-loan-sub {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.debt-loan-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  margin-bottom: 16px;
+}
+
+.debt-loan-metric-item span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.debt-loan-metric-item strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-text-strong);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.debt-loan-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+  margin-top: auto;
+}
+
+/* Empty State */
+.debt-empty-card {
+  padding: 48px 32px;
+  text-align: center;
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px dashed var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.debt-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-success-soft);
+  color: var(--color-secondary-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  font-size: 28px;
+}
+
+/* ==========================================================================
+   4. SCENARIO & CONTROLS CARD
+   ========================================================================== */
+.debt-scenario-card {
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 20px -2px rgba(21, 58, 82, 0.04);
+  padding: 28px 32px;
+}
+
+.debt-scenario-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.debt-scenario-head-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--color-soft);
+  color: var(--color-primary-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.debt-scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  align-items: flex-end;
+}
+
+.debt-horizon-pills {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--color-soft);
+  margin-top: 6px;
+}
+
+.debt-horizon-btn {
+  flex: 1;
+  border: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.debt-horizon-btn.is-active {
+  background: #ffffff;
+  color: var(--color-primary-700);
+  box-shadow: 0 1px 3px rgba(21, 58, 82, 0.1);
+}
+
+.debt-quick-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.debt-chip {
+  border: 1px solid var(--color-border);
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary-700);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.debt-chip:hover {
+  background: var(--color-accent-soft);
+  border-color: var(--color-secondary-500);
+}
+
+.debt-chip.is-selected {
+  background: var(--color-primary-700);
+  color: #ffffff;
+  border-color: var(--color-primary-700);
+}
+
+/* ==========================================================================
+   5. PRESSURE METRICS GRID
+   ========================================================================== */
+.debt-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.debt-metric-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 16px -2px rgba(21, 58, 82, 0.03);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.debt-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -4px rgba(21, 58, 82, 0.06);
+}
+
+.debt-metric-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: transparent;
+}
+
+.debt-metric-card.accent-blue::before { background: var(--color-primary-700); }
+.debt-metric-card.accent-emerald::before { background: var(--color-secondary-500); }
+.debt-metric-card.accent-amber::before { background: var(--color-warning); }
+.debt-metric-card.accent-rose::before { background: var(--color-danger); }
+
+.debt-metric-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.debt-metric-value {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--color-text-strong);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  margin-bottom: 8px;
+}
+
+.debt-metric-subtext {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  margin-top: 10px;
+}
+
+/* ==========================================================================
+   6. STRATEGY COMPARISON MATRIX
+   ========================================================================== */
+.debt-strategies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-5);
+}
+
+.debt-strategy-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 6px 20px -3px rgba(21, 58, 82, 0.04);
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.debt-strategy-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 36px -8px rgba(21, 58, 82, 0.09);
+}
+
+/* Highlighted Avalanche Card */
+.debt-strategy-card.is-avalanche {
+  border: 2px solid var(--color-secondary-500);
+  background: linear-gradient(180deg, #ffffff 0%, var(--color-secondary-soft) 100%);
+  box-shadow: 0 10px 30px -5px rgba(51, 77, 175, 0.15);
+}
+
+.debt-strategy-card.is-avalanche .strategy-crown-badge {
+  position: absolute;
+  top: -12px;
+  left: 24px;
+  background: linear-gradient(135deg, var(--color-secondary-700) 0%, var(--color-secondary-500) 100%);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(72, 109, 83, 0.25);
+}
+
+.strategy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.strategy-title-wrap h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-text-strong);
+}
+
+.debt-strategy-card.is-avalanche .strategy-title-wrap h3 {
+  color: var(--color-secondary-700);
+}
+
+.strategy-description {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+  min-height: 48px;
+  margin: 0 0 18px;
+}
+
+.strategy-savings-banner {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-border);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.strategy-savings-banner span {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-secondary-700);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.strategy-savings-banner strong {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--color-secondary-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.strategy-data-box {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.strategy-data-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.strategy-data-row span {
+  color: var(--color-text-muted);
+}
+
+.strategy-data-row strong {
+  color: var(--color-text-strong);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   7. MODAL STYLING
+   ========================================================================== */
+.debt-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 45, 61, 0.65);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.debt-modal-card {
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 24px 60px -12px rgba(16, 45, 61, 0.35);
+  border: 1px solid var(--color-border);
+}
+
+/* ==========================================================================
+   8. RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+@media (max-width: 900px) {
+  .debt-hero-card {
+    grid-template-columns: 1fr;
+    padding: 28px 24px;
+  }
+  .debt-hero-visual {
+    margin-top: var(--space-4);
+    max-width: 100%;
+    width: 100%;
+  }
+}

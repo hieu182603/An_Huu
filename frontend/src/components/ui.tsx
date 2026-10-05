@@ -9,6 +9,7 @@ import {
 import logoHorizontal from "../assets/logo.png";
 import logoVertical from "../assets/logo-vertical.png";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useI18n } from "../i18n";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faAnglesLeft,
@@ -35,14 +36,17 @@ import {
   faFileLines,
   faFilter,
   faGear,
+  faGlobe,
   faHouse,
   faLifeRing,
   faMagnifyingGlass,
   faPlus,
   faRightFromBracket,
+  faShieldHalved,
   faTableCellsLarge,
   faTrashCan,
   faTriangleExclamation,
+  faUpload,
   faUsers,
   faWallet,
   faWandMagicSparkles,
@@ -53,9 +57,9 @@ import {
 export type IconName =
   | "arrow-left" | "arrow-right" | "bell" | "briefcase" | "chart" | "check"
   | "chevron-down" | "chevron-left" | "chevron-right" | "compass" | "download"
-  | "file-text" | "filter" | "grid" | "home" | "info" | "life-buoy" | "log-out"
+  | "file-text" | "filter" | "globe" | "grid" | "home" | "info" | "life-buoy" | "log-out"
   | "maximize" | "message" | "mouse-pointer" | "panel-left" | "panel-right"
-  | "plus" | "search" | "settings" | "sparkles" | "target" | "trash" | "users"
+  | "plus" | "search" | "settings" | "shield" | "sparkles" | "target" | "trash" | "upload" | "users"
   | "wallet" | "x" | "alert" | "circle-check" | "eye" | "eye-off";
 
 export const fontAwesomeIconMap: Record<IconName, IconDefinition> = {
@@ -72,6 +76,7 @@ export const fontAwesomeIconMap: Record<IconName, IconDefinition> = {
   download: faDownload,
   "file-text": faFileLines,
   filter: faFilter,
+  globe: faGlobe,
   grid: faTableCellsLarge,
   home: faHouse,
   info: faCircleInfo,
@@ -85,9 +90,11 @@ export const fontAwesomeIconMap: Record<IconName, IconDefinition> = {
   plus: faPlus,
   search: faMagnifyingGlass,
   settings: faGear,
+  shield: faShieldHalved,
   sparkles: faWandMagicSparkles,
   target: faBullseye,
   trash: faTrashCan,
+  upload: faUpload,
   users: faUsers,
   wallet: faWallet,
   x: faXmark,
@@ -158,6 +165,7 @@ export function Button({
   onClick,
   type = "button",
   className = "",
+  style,
 }: {
   children: ReactNode;
   variant?: "primary" | "secondary" | "soft" | "ghost" | "danger";
@@ -168,6 +176,7 @@ export function Button({
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   type?: "button" | "submit" | "reset";
   className?: string;
+  style?: React.CSSProperties;
 }) {
   return (
     <button
@@ -175,6 +184,7 @@ export function Button({
       disabled={disabled || loading}
       onClick={onClick}
       type={type}
+      style={style}
     >
       {loading ? <span className="spinner" aria-hidden="true" /> : icon ? <Icon name={icon} size="small" /> : null}
       <span>{children}</span>
@@ -186,9 +196,9 @@ export function IconButton({ icon, label, onClick, badge = false, disabled = fal
   return <button className="icon-button" aria-label={label} disabled={disabled} onClick={onClick} title={label} type="button"><Icon name={icon} />{badge && <span className="icon-notification" />}</button>;
 }
 
-export function Card({ children, className = "", variant = "default" }: { children: ReactNode; className?: string; variant?: "default" | "dark" | "ai" }) {
+export function Card({ children, className = "", variant = "default", style }: { children: ReactNode; className?: string; variant?: "default" | "dark" | "ai"; style?: React.CSSProperties }) {
   const variantClass = variant === "dark" || variant === "ai" ? "card-dark" : "";
-  return <div className={`card ${variantClass} ${className}`.trim()}>{children}</div>;
+  return <div className={`card ${variantClass} ${className}`.trim()} style={style}>{children}</div>;
 }
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "success" | "warning" | "danger" | "info" | "neutral" | "soft" | "honey" | "deficit" }) {
@@ -196,62 +206,221 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
   return <span className={`badge badge-${tone}`}>{icon && <Icon name={icon} size="small" />}{children}</span>;
 }
 
-export function Avatar({ initials, name, detail, onLogout }: { initials: string; name?: string; detail?: string; onLogout?: () => void }) {
+export function Avatar({
+  initials,
+  name,
+  detail,
+  avatarUrl,
+  onLogout,
+  menuItems,
+}: {
+  initials: string;
+  name?: string;
+  detail?: string;
+  avatarUrl?: string;
+  onLogout?: () => void;
+  menuItems?: Array<{ label: string; icon?: IconName; onClick: () => void; isDanger?: boolean }>;
+}) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  const displayInitials = (initials || "U").slice(0, 2).toUpperCase();
+  const hasInteractiveMenu = Boolean(onLogout || (menuItems && menuItems.length > 0));
+
+  const avatarMedia = (
+    <span className="avatar-frame">
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={name || initials}
+          className="avatar-thumb"
+          style={{ width: "38px", height: "38px", minWidth: "38px", minHeight: "38px", maxWidth: "38px", maxHeight: "38px", objectFit: "cover", borderRadius: "50%", display: "block" }}
+        />
+      ) : (
+        <span className="avatar-initials">{displayInitials}</span>
+      )}
+      {hasInteractiveMenu && <span className="avatar-status-dot" aria-hidden="true" />}
+    </span>
+  );
+
+  if (!hasInteractiveMenu) {
+    return (
+      <div className="avatar-wrap">
+        {avatarMedia}
+        {name && (
+          <span className="avatar-copy">
+            <strong>{name}</strong>
+            {detail && <small>{detail}</small>}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  const { language } = useI18n();
+
   return (
-    <div className="avatar-wrap" style={{ position: "relative" }}>
+    <div className="avatar-wrap" ref={containerRef} style={{ position: "relative" }}>
       <button
         type="button"
-        className="avatar-button"
+        className={`avatar-button ${open ? "is-active" : ""}`}
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={`Tài khoản: ${name || initials}`}
-        style={{ display: "flex", alignItems: "center", gap: "10px", background: "transparent", border: "none", cursor: "pointer", padding: "4px", borderRadius: "8px" }}
+        aria-label={language === "en" ? `Account: ${name || initials}` : `Tài khoản: ${name || initials}`}
       >
-        <span className="avatar">{initials}</span>
-        {name && <span className="avatar-copy"><strong>{name}</strong>{detail && <small>{detail}</small>}</span>}
+        {avatarMedia}
+        {name && (
+          <span className="avatar-copy">
+            <strong>{name}</strong>
+            {detail && <small>{detail}</small>}
+          </span>
+        )}
+        <Icon name="chevron-down" size="small" className={`avatar-chevron ${open ? "is-rotated" : ""}`} />
       </button>
+
       {open && (
-        <div className="avatar-dropdown" role="menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--color-white)", borderRadius: "12px", boxShadow: "var(--shadow-card)", minWidth: "200px", zIndex: 100, overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--color-border)" }}>
-            <strong style={{ display: "block", fontSize: "14px" }}>{name}</strong>
-            <small style={{ color: "var(--color-text-muted)", fontSize: "12px" }}>{detail}</small>
+        <div className="avatar-dropdown" role="menu">
+          <div className="avatar-dropdown-header">
+            <span className="avatar-frame large">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={name || initials}
+                  className="avatar-thumb"
+                  style={{ width: "42px", height: "42px", minWidth: "42px", minHeight: "42px", maxWidth: "42px", maxHeight: "42px", objectFit: "cover", borderRadius: "50%", display: "block" }}
+                />
+              ) : (
+                <span className="avatar-initials">{displayInitials}</span>
+              )}
+            </span>
+            <div className="avatar-dropdown-user-info">
+              <strong>{name || (language === "en" ? "An Huu Account" : "Tài khoản An Hưu")}</strong>
+              <small>{detail || (language === "en" ? "Official Member" : "Hội viên chính thức")}</small>
+            </div>
           </div>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => { onLogout?.(); setOpen(false); }}
-            style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "10px 16px", border: "none", background: "transparent", cursor: "pointer", fontSize: "13px", color: "var(--color-danger)", textAlign: "left" }}
-          >
-            <Icon name="log-out" size="small" />
-            <span>Đăng xuất</span>
-          </button>
+
+          {menuItems && menuItems.length > 0 && (
+            <div className="avatar-dropdown-links">
+              {menuItems.map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  role="menuitem"
+                  className={`avatar-dropdown-item ${item.isDanger ? "is-danger" : ""}`}
+                  onClick={() => {
+                    setOpen(false);
+                    item.onClick();
+                  }}
+                >
+                  {item.icon && <Icon name={item.icon} size="small" />}
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {onLogout && (
+            <>
+              {menuItems && menuItems.length > 0 && <div className="avatar-dropdown-divider" />}
+              <button
+                type="button"
+                role="menuitem"
+                className="avatar-dropdown-item is-danger"
+                onClick={() => {
+                  setOpen(false);
+                  onLogout();
+                }}
+              >
+                <Icon name="log-out" size="small" />
+                <span>{language === "en" ? "Log Out" : "Đăng xuất"}</span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export function Input({ label, helper, error, suffix, placeholder, defaultValue, value, onChange, type = "text", autoComplete, inputMode, disabled }: { label: string; helper?: string; error?: string; suffix?: string; placeholder?: string; defaultValue?: string; value?: string; onChange?: (value: string) => void; type?: "text" | "email" | "password" | "number" | "datetime-local"; autoComplete?: string; inputMode?: "numeric" | "decimal" | "text"; disabled?: boolean }) {
+export function Input({ label, labelAction, helper, error, suffix, placeholder, defaultValue, value, onChange, type = "text", autoComplete, inputMode, disabled, hideLabel = false }: { label: string; labelAction?: ReactNode; helper?: string; error?: string; suffix?: string; placeholder?: string; defaultValue?: string; value?: string; onChange?: (value: string) => void; type?: "text" | "email" | "password" | "number" | "datetime-local" | "date" | "month"; autoComplete?: string; inputMode?: "numeric" | "decimal" | "text"; disabled?: boolean; hideLabel?: boolean }) {
   const id = useId();
   const messageId = `${id}-message`;
-  return <label className={`form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`} htmlFor={id}><span className="field-label">{label}</span><span className="input-wrap"><input id={id} type={type} disabled={disabled} autoComplete={autoComplete} inputMode={inputMode} placeholder={placeholder} defaultValue={value === undefined ? defaultValue : undefined} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} aria-invalid={Boolean(error)} aria-describedby={helper || error ? messageId : undefined} />{suffix && <span className="input-suffix">{suffix}</span>}</span>{(helper || error) && <small id={messageId}>{error || helper}</small>}</label>;
+  return (
+    <div className={`form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`}>
+      {!hideLabel ? (
+        <label className="field-header-row" htmlFor={id}>
+          <span className="field-label">{label}</span>
+          {labelAction}
+        </label>
+      ) : (
+        <label htmlFor={id} className="sr-only">{label}</label>
+      )}
+      <span className="input-wrap">
+        <input id={id} type={type} disabled={disabled} autoComplete={autoComplete} inputMode={inputMode} placeholder={placeholder} defaultValue={value === undefined ? defaultValue : undefined} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} aria-invalid={Boolean(error)} aria-describedby={helper || error ? messageId : undefined} />
+        {suffix && <span className="input-suffix">{suffix}</span>}
+      </span>
+      {(helper || error) && <small id={messageId}>{error || helper}</small>}
+    </div>
+  );
 }
 
 export function Textarea({ label, placeholder, value, onChange, rows = 4, hideLabel = false, disabled }: { label: string; placeholder?: string; value?: string; onChange?: (value: string) => void; rows?: number; hideLabel?: boolean; disabled?: boolean }) {
   const id = useId();
-  return <label className={`form-field ${hideLabel ? "label-hidden" : ""} ${disabled ? "is-disabled" : ""}`} htmlFor={id}><span className="field-label">{label}</span><textarea id={id} disabled={disabled} placeholder={placeholder} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} rows={rows} /></label>;
+  return (
+    <div className={`form-field ${hideLabel ? "label-hidden" : ""} ${disabled ? "is-disabled" : ""}`}>
+      <label htmlFor={id} className={hideLabel ? "sr-only" : "field-label"}>{label}</label>
+      <textarea id={id} disabled={disabled} placeholder={placeholder} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} rows={rows} />
+    </div>
+  );
 }
 
-export function Select({ label, options, value, onChange, helper, disabled }: { label: string; options: string[]; value?: string; onChange?: (value: string) => void; helper?: string; disabled?: boolean }) {
+export function Select({ label, options, value, onChange, helper, error, disabled }: { label: string; options: string[]; value?: string; onChange?: (value: string) => void; helper?: string; error?: string; disabled?: boolean }) {
   const id = useId();
-  return <label className={`form-field ${disabled ? "is-disabled" : ""}`} htmlFor={id}><span className="field-label">{label}</span><span className="select-wrap"><select id={id} disabled={disabled} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined}>{options.map((option) => <option key={option}>{option}</option>)}</select><Icon name="chevron-down" size="small" /></span>{helper && <small>{helper}</small>}</label>;
+  const messageId = `${id}-message`;
+  return (
+    <div className={`form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`}>
+      <label htmlFor={id} className="field-label">{label}</label>
+      <span className="select-wrap">
+        <select id={id} disabled={disabled} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} aria-invalid={Boolean(error)} aria-describedby={helper || error ? messageId : undefined}>
+          {options.map((option) => <option key={option}>{option}</option>)}
+        </select>
+        <Icon name="chevron-down" size="small" />
+      </span>
+      {(helper || error) && <small id={messageId}>{error || helper}</small>}
+    </div>
+  );
 }
 
 export function SearchField({ label, placeholder, value, onChange, hideLabel = false, disabled }: { label: string; placeholder?: string; value?: string; onChange?: (value: string) => void; hideLabel?: boolean; disabled?: boolean }) {
   const id = useId();
-  return <label className={`search-field ${hideLabel ? "label-hidden" : ""} ${disabled ? "is-disabled" : ""}`} htmlFor={id}><span className="field-label">{label}</span><span><Icon name="search" size="small" /><input id={id} type="search" disabled={disabled} placeholder={placeholder} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} /></span></label>;
+  return (
+    <div className={`search-field ${hideLabel ? "label-hidden" : ""} ${disabled ? "is-disabled" : ""}`}>
+      <label htmlFor={id} className={hideLabel ? "sr-only" : "field-label"}>{label}</label>
+      <span>
+        <Icon name="search" size="small" />
+        <input id={id} type="search" disabled={disabled} placeholder={placeholder} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} />
+      </span>
+    </div>
+  );
 }
 
 export function Checkbox({ checked, label, onChange, disabled }: { checked: boolean; label: string; onChange: (value: boolean) => void; disabled?: boolean }) {
@@ -271,7 +440,8 @@ export function Tooltip({ children, content }: { children: ReactNode; content: s
 }
 
 export function ProgressBar({ value }: { value: number }) {
-  return <div className="progress-track" role="progressbar" aria-label={`Tiến độ ${value}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}><span style={{ "--progress": `${value}%` } as React.CSSProperties} /></div>;
+  const { language } = useI18n();
+  return <div className="progress-track" role="progressbar" aria-label={language === "en" ? `Progress ${value}%` : `Tiến độ ${value}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}><span style={{ "--progress": `${value}%` } as React.CSSProperties} /></div>;
 }
 
 export function Tabs({ items, active, onChange }: { items: string[]; active: string; onChange: (item: string) => void }) {
@@ -283,9 +453,20 @@ export function Breadcrumb({ items }: { items: string[] }) {
 }
 
 export function Pagination({ current, total }: { current: number; total: number }) {
-  if (total <= 1) return <p className="pagination-summary" aria-label="Phân trang">Trang 1/1</p>;
+  const { language } = useI18n();
+  if (total <= 1) return <p className="pagination-summary" aria-label={language === "en" ? "Pagination" : "Phân trang"}>{language === "en" ? `Page ${current}/${total}` : `Trang ${current}/${total}`}</p>;
   const pages = Array.from({ length: Math.min(total, 5) }, (_, index) => index + 1);
-  return <nav className="pagination" aria-label="Pagination"><IconButton icon="chevron-left" label="Trang trước" />{pages.map((page) => <button className={page === current ? "is-active" : ""} aria-current={page === current ? "page" : undefined} key={page} type="button">{page}</button>)}<IconButton icon="chevron-right" label="Trang sau" /></nav>;
+  return (
+    <nav className="pagination" aria-label={language === "en" ? "Pagination" : "Phân trang"}>
+      <IconButton icon="chevron-left" label={language === "en" ? "Previous page" : "Trang trước"} />
+      {pages.map((page) => (
+        <button className={page === current ? "is-active" : ""} aria-current={page === current ? "page" : undefined} key={page} type="button">
+          {page}
+        </button>
+      ))}
+      <IconButton icon="chevron-right" label={language === "en" ? "Next page" : "Trang sau"} />
+    </nav>
+  );
 }
 
 export function Dropdown({ label, items }: { label: string; items: string[] }) {
@@ -337,8 +518,16 @@ export function Alert({
 }
 
 
-export function EmptyState() {
-  return <div className="empty-state"><span><Icon name="file-text" size="large" /></span><h3>Chưa có dữ liệu</h3><p>Dữ liệu mới sẽ xuất hiện tại đây sau khi được thêm.</p><Button icon="plus">Thêm dữ liệu</Button></div>;
+export function EmptyState({ title, description, actionLabel }: { title?: string; description?: string; actionLabel?: string }) {
+  const { language } = useI18n();
+  return (
+    <div className="empty-state">
+      <span><Icon name="file-text" size="large" /></span>
+      <h3>{title || (language === "en" ? "No data available" : "Chưa có dữ liệu")}</h3>
+      <p>{description || (language === "en" ? "New data will appear here once added." : "Dữ liệu mới sẽ xuất hiện tại đây sau khi được thêm.")}</p>
+      <Button icon="plus">{actionLabel || (language === "en" ? "Add data" : "Thêm dữ liệu")}</Button>
+    </div>
+  );
 }
 
 export function Skeleton({ width = "full", height = "normal" }: { width?: "small" | "medium" | "full"; height?: "normal" | "large" }) {
@@ -384,6 +573,7 @@ export function BrandLogo({
   height?: number | string;
   className?: string;
 }) {
+  const { language } = useI18n();
   const [hasError, setHasError] = useState(false);
   const isVertical = variant === "vertical";
   const src = compact || isVertical ? logoVertical : logoHorizontal;
@@ -408,7 +598,7 @@ export function BrandLogo({
       {!hasError ? (
         <img
           src={src}
-          alt="An Hưu · Lập kế hoạch hôm nay, Cho an yên ngày mai"
+          alt={language === "en" ? "An Huu · Plan Today, Peace of Mind Tomorrow" : "An Hưu · Lập kế hoạch hôm nay, Cho an yên ngày mai"}
           className="brand-logo-img"
           onError={() => setHasError(true)}
           style={{
@@ -430,7 +620,7 @@ export function BrandLogo({
             gap: "8px",
             height: renderedHeight,
             fontWeight: 700,
-            color: inverted ? "#153A52" : "var(--color-primary-700, #153A52)",
+            color: inverted ? "#052659" : "var(--color-primary-700, #052659)",
             letterSpacing: "0.5px",
             fontSize: compact ? "14px" : "18px",
             fontFamily: "var(--font-heading, serif)",
@@ -441,8 +631,8 @@ export function BrandLogo({
               width: compact ? "28px" : "32px",
               height: compact ? "28px" : "32px",
               borderRadius: "8px",
-              background: "#153A52",
-              color: "#F6F1E8",
+              background: "#052659",
+              color: "#F9FBFF",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
@@ -457,7 +647,7 @@ export function BrandLogo({
             <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.1, textAlign: "left" }}>
               <span style={{ fontSize: "15px", fontWeight: 800, letterSpacing: "0.5px" }}>AN HƯU</span>
               <span style={{ fontSize: "9px", fontWeight: 500, color: "var(--color-text-muted, #556B7A)" }}>
-                Hưu trí an tâm
+                {language === "en" ? "Peaceful Retirement" : "Hưu trí an tâm"}
               </span>
             </span>
           )}

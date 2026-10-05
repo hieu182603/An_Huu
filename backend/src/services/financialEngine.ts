@@ -20,7 +20,8 @@ export interface RetirementCalculationResult {
   investableAssetsToday: number;
   homeEquityExcluded: true;
   futureMonthlyExpense: number;
-  estimatedMonthlyPension: number;
+  estimatedMonthlyPension: null;
+  pensionStatus: "NOT_ESTIMATED";
   requiredMonthlyWithdrawal: number;
   targetFund: number;
   projectedFund: number;
@@ -70,7 +71,7 @@ export function requiredFundAtRetirement(
   const monthlyInflation = Math.pow(1 + annualInflation / 100, 1 / 12) - 1;
   let required = 0;
   for (let month = months - 1; month >= 0; month--) {
-    const withdrawal = Math.max(0, monthlyExpense * Math.pow(1 + monthlyInflation, month) - monthlyPension * Math.pow(1 + monthlyInflation, month));
+    const withdrawal = Math.max(0, monthlyExpense * Math.pow(1 + monthlyInflation, month) - monthlyPension);
     required = (required + withdrawal) / (1 + monthlyReturn);
   }
   return required;
@@ -103,19 +104,16 @@ export function calculateRetirement(input: RetirementCalculationInput): Retireme
   const inflationFactor = Math.pow(1 + annualInflation / 100, yearsToRetirement);
   const futureMonthlyExpense = Math.max(0, finite(input.monthlyExpenseToday)) * inflationFactor;
 
-  // Tính lương hưu BHXH theo Luật Việt Nam (ước tính)
-  const contributionYearsAtRetirement = Math.max(0, finite(input.socialInsuranceYears)) + yearsToRetirement;
-  const pensionReplacementRate = contributionYearsAtRetirement < 20
-    ? 0
-    : Math.min(0.75, 0.45 + (contributionYearsAtRetirement - 20) * 0.02);
+  // Legacy input cannot establish pension entitlement. T05 uses declared amounts,
+  // dated sources and receipt months; never infer benefits from salary/years.
+  const requiredMonthlyWithdrawal = Math.max(0, futureMonthlyExpense);
 
-  const estimatedMonthlyPension = Math.max(0, finite(input.socialInsuranceSalary)) * inflationFactor * pensionReplacementRate;
-  const requiredMonthlyWithdrawal = Math.max(0, futureMonthlyExpense - estimatedMonthlyPension);
-
-  const retirementReturn = Math.max(0, annualReturn - 1.5);
+  // Legacy demo only: no unsupported retirement discount. Production uses the
+  // approved annual asset/horizon series in modules/assumptions (T03/T06).
+  const retirementReturn = annualReturn;
   const targetFund = requiredFundAtRetirement(
     futureMonthlyExpense,
-    estimatedMonthlyPension,
+    0,
     retirementReturn,
     annualInflation,
     retirementMonths
@@ -130,7 +128,8 @@ export function calculateRetirement(input: RetirementCalculationInput): Retireme
     investableAssetsToday: Math.round(investableAssetsToday),
     homeEquityExcluded: true,
     futureMonthlyExpense: Math.round(futureMonthlyExpense),
-    estimatedMonthlyPension: Math.round(estimatedMonthlyPension),
+    estimatedMonthlyPension: null,
+    pensionStatus: "NOT_ESTIMATED",
     requiredMonthlyWithdrawal: Math.round(requiredMonthlyWithdrawal),
     targetFund: Math.round(targetFund),
     projectedFund: Math.round(projectedFund),

@@ -1,0 +1,307 @@
+LegacyAgeReference:
+  description: Frozen reference metadata for retirement-monthly-v2/v3 snapshots; not a benefit entitlement.
+  type: object
+  additionalProperties: false
+  required: [rule, eligibility, desiredRetirementMonth, status, issue, ageMonths, retirementMonth, pensionStartMonth, conditionBasis]
+  properties:
+    rule:
+      type: object
+      additionalProperties: false
+      required: [version, verifiedOn, source, effectiveFrom]
+      properties:
+        version: { type: string }
+        verifiedOn: { type: string }
+        source: { type: string }
+        effectiveFrom: { type: string }
+    eligibility: { type: string, enum: [NOT_ASSESSED] }
+    desiredRetirementMonth: { type: string, nullable: true }
+    status: { type: string, enum: [REFERENCE_ONLY, REVIEW_REQUIRED] }
+    issue: { type: string, nullable: true }
+    ageMonths: { type: integer, nullable: true }
+    retirementMonth: { type: string, nullable: true }
+    pensionStartMonth: { type: string, nullable: true }
+    conditionBasis: { type: string }
+Input:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedProfileRevision:
+      type: integer
+      minimum: 1
+    startMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    months:
+      type: integer
+      minimum: 1
+      maximum: 1200
+    assumptionVersionId:
+      type: string
+      format: uuid
+  required:
+    - expectedProfileRevision
+    - startMonth
+    - months
+Pension:
+  oneOf:
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - UNKNOWN
+      required:
+        - status
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - NOT_APPLICABLE
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+      required:
+        - status
+        - reason
+    - type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - KNOWN
+        monthlyAmount:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        currency:
+          type: string
+          enum:
+            - VND
+        priceBasis:
+          type: string
+          enum:
+            - TODAY
+            - NOMINAL_AT_START
+        basisMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        source:
+          type: string
+          minLength: 1
+          maxLength: 500
+        estimatedOn:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        linkedIncomeId:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: ^[a-zA-Z0-9_-]+$
+        adjustment:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - NONE
+              required:
+                - kind
+            - type: object
+              additionalProperties: false
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - EXPLICIT_SCHEDULE
+                entries:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      effectiveMonth:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      monthlyAmount:
+                        type: string
+                        pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      source:
+                        type: string
+                        minLength: 1
+                        maxLength: 500
+                    required:
+                      - effectiveMonth
+                      - monthlyAmount
+                      - source
+                  minItems: 1
+                  maxItems: 200
+              required:
+                - kind
+                - entries
+      required:
+        - status
+        - monthlyAmount
+        - currency
+        - priceBasis
+        - basisMonth
+        - source
+        - estimatedOn
+        - adjustment
+Preview:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - READY
+        - INCOMPLETE
+    profileRevision:
+      type: integer
+    valuationDate: &a1
+      type: string
+    currency:
+      type: string
+      enum:
+        - VND
+    priceBasis:
+      type: string
+      enum:
+        - NOMINAL
+    estimateBasis:
+      type: string
+      enum:
+        - USER_DECLARED_NOT_VERIFIED
+    issues:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          path: *a1
+          code: *a1
+        required:
+          - path
+          - code
+    rows:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          month: *a1
+          amount: &a2
+            type: string
+            nullable: true
+        required:
+          - month
+          - amount
+    assumptionVersionId: *a2
+    assumptionHash: *a2
+    declaration:
+      $ref: "#/Pension"
+    limitations:
+      type: array
+      items: *a1
+    legalRetirementAge:
+      type: object
+      additionalProperties: false
+      properties:
+        rule:
+          type: object
+          additionalProperties: false
+          properties:
+            version: *a1
+            verifiedOn: *a1
+            source: *a1
+            effectiveFrom: *a1
+            scope:
+              type: string
+              enum: [AGE_REFERENCE_ONLY]
+            relatedSources:
+              type: array
+              items:
+                type: string
+                format: uri
+          required:
+            - version
+            - verifiedOn
+            - source
+            - effectiveFrom
+            - scope
+            - relatedSources
+        eligibility:
+          type: string
+          enum:
+            - NOT_ASSESSED
+        desiredRetirementMonth: *a2
+        status:
+          type: string
+          enum:
+            - REFERENCE_ONLY
+            - REVIEW_REQUIRED
+        issue: *a2
+        ageMonths:
+          type: integer
+          nullable: true
+        retirementMonth: *a2
+        pensionStartMonth:
+          type: string
+          nullable: true
+          enum: [null]
+          description: Age reference does not determine the benefit receipt month.
+        referenceFollowingMonth: *a2
+        pensionStartStatus:
+          type: string
+          enum: [REQUIRES_BENEFIT_ASSESSMENT]
+        conditionBasis: *a1
+      required:
+        - rule
+        - eligibility
+        - desiredRetirementMonth
+        - status
+        - issue
+        - ageMonths
+        - retirementMonth
+        - pensionStartMonth
+        - referenceFollowingMonth
+        - pensionStartStatus
+        - conditionBasis
+  required:
+    - status
+    - profileRevision
+    - valuationDate
+    - currency
+    - priceBasis
+    - estimateBasis
+    - issues
+    - rows
+    - assumptionVersionId
+    - assumptionHash
+    - declaration
+    - limitations
+    - legalRetirementAge
+Envelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/Preview"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+      required:
+        - requestId
+  required:
+    - data
+    - meta
