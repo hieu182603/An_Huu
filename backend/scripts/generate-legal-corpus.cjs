@@ -12,8 +12,19 @@ function verifySources(directory = root) {
   for (const source of manifest.sources) {
     if (ids.has(source.id) || !/^[A-Z0-9]+\.(pdf|html\.txt)$/.test(source.file)) throw Error('Invalid source identity');
     ids.add(source.id);
-    const bytes = fs.readFileSync(path.join(directory, 'sources', source.file));
-    if (bytes.length !== source.bytes || sha256(bytes) !== source.sha256) throw Error('Source integrity failed: ' + source.id);
+    let bytes = fs.readFileSync(path.join(directory, 'sources', source.file));
+    if (bytes.length !== source.bytes || sha256(bytes) !== source.sha256) {
+      if (source.file.endsWith('.html.txt')) {
+        const withCrlf = Buffer.from(bytes.toString('utf8').replace(/\r?\n/g, '\r\n'), 'utf8');
+        if (withCrlf.length === source.bytes && sha256(withCrlf) === source.sha256) {
+          bytes = withCrlf;
+        } else {
+          throw Error('Source integrity failed: ' + source.id);
+        }
+      } else {
+        throw Error('Source integrity failed: ' + source.id);
+      }
+    }
   }
   return manifest;
 }
