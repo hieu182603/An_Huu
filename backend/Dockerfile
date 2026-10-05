@@ -1,49 +1,27 @@
-# Stage 1: Build & Prisma Generate
 FROM node:22-alpine AS builder
-
 WORKDIR /app
-
-# Cài đặt OpenSSL cần thiết cho Prisma trên Alpine
 RUN apk add --no-cache openssl
-
 COPY package*.json ./
 COPY prisma ./prisma/
-
 RUN npm ci
-
 COPY tsconfig.json ./
 COPY src ./src/
-
-# Sinh Prisma Client và biên dịch TypeScript
-RUN npx prisma generate
 RUN npm run build
+RUN npm prune --omit=dev
 
-# Stage 2: Production Runtime
 FROM node:22-alpine AS runner
-
 WORKDIR /app
-
 RUN apk add --no-cache openssl
-
 ENV NODE_ENV=production
 ENV PORT=5000
-
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 COPY package*.json ./
 COPY prisma ./prisma/
-
-# Cài đặt chỉ production dependencies
-RUN npm ci --only=production
-RUN npx prisma generate
-
-# Copy mã đã biên dịch từ builder
-COPY --from=builder /app/dist ./dist
-
-# Tạo user không đặc quyền để bảo mật container
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 expressjs
-USER expressjs
-
+COPY scripts ./scripts/
+USER node
 EXPOSE 5000
-
-# Chạy server
+# Run migrations in a separate release job with pinned CLI before scaling replicas.
+# Use the same image with "node dist/worker.js" for the outbox worker.
+# A scheduled retention job runs "node dist/retention.js --execute" (DB only, no SMTP).
 CMD ["node", "dist/server.js"]

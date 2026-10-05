@@ -13,7 +13,7 @@ export class CloudinaryImageStorage implements multer.StorageEngine {
   _handleFile(_req: Request, file: Express.Multer.File,
     callback: (error?: unknown, info?: Partial<Express.Multer.File>) => void): void {
     const stream = cloudinary.uploader.upload_stream({
-      folder: "an_huu_media", public_id: randomUUID(), resource_type: "image",
+      folder: process.env.CLOUDINARY_FOLDER || "anhuu", public_id: randomUUID(), resource_type: "image",
       allowed_formats: ["jpg", "jpeg", "png", "webp"],
     }, (error, result) => {
       if (error || !result) return callback(new AppError(502, "MEDIA_UPLOAD_FAILED", "Không thể tải ảnh lên."));

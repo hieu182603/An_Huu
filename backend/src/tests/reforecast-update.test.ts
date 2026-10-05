@@ -1,0 +1,128 @@
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
+import request from "supertest";
+import SwaggerParser from "@apidevtools/swagger-parser";
+import Ajv from "ajv";
+import { plansFixture } from "./plans-fixtures";
+import { ActualsService } from "../modules/actuals/service";
+import { reforecastPreviewSchema, type ActualPayload } from "../modules/actuals/schema";
+import { createApp } from "../app";
+import { AuthService } from "../modules/auth/service";
+import { config, token } from "./helpers";
+import { digest } from "../common/digest";
+import { projectRetirement as legacy } from "../modules/retirement/engine-v2";
+import { AiService } from "../modules/ai/service";
+import { AI_POLICY_VERSION } from "../modules/ai/schema";
+
+beforeEach(() => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2027-05-01T00:00:00Z")); });
+afterEach(() => vi.useRealTimers());
+const data = (balance = "1000"): ActualPayload => ({ currency: "VND", openingBalance: balance, closingBalance: balance, entries: [], correctionReason: "Reviewed statement" });
+async function fixture() {
+  const f = await plansFixture(), plan = await f.create(), actuals = new ActualsService(f.db);
+  await f.plans.apply(f.owner, plan.planId, { versionId: plan.saved.id, expectedRevision: 1, expectedProfileRevision: 1, confirm: true }, randomUUID());
+  await actuals.write(f.owner, "2026-10", { expectedRevision: 0, data: data() }, randomUUID());
+  const input = reforecastPreviewSchema.parse({ planId: plan.planId, versionId: plan.saved.id, throughMonth: "2026-10", expectedProfileRevision: 1 });
+  const save = async () => { const preview = await actuals.previewUpdate(f.owner, input); return f.plans.saveReforecast(f.owner, plan.planId, { expectedRevision: 2, expectedInputHash: preview.inputHash!, preview: input }, randomUUID()); };
+  return { ...f, plan, actuals, input, save };
+}
+it("previews without writes; saves idempotently; applies separately and preserves the baseline", async () => {
+  const f = await fixture(), before = JSON.stringify(f.rows("planVersion")), profile = JSON.stringify(f.rows("financialProfile"));
+  const preview = await f.actuals.previewUpdate(f.owner, f.input);
+  expect(preview.candidate!.calculation!.rows[0]).toMatchObject({ month: "2026-11", openingBalance: "1000", contribution: "100" });
+  expect(JSON.stringify(f.rows("planVersion"))).toBe(before);
+  const cmd = { expectedRevision: 2, expectedInputHash: preview.inputHash!, preview: f.input }, key = randomUUID();
+  const saved = await f.plans.saveReforecast(f.owner, f.plan.planId, cmd, key);
+  expect(await f.plans.saveReforecast(f.owner, f.plan.planId, cmd, key)).toEqual(saved);
+  expect(saved.currentVersionId).toBe(f.plan.saved.id);
+  expect(saved.saved.preview.reforecast!.actualRevisions).toEqual([{ period: "2026-10", revision: 1, closingBalance: "1000" }]);
+  const replay = await f.plans.version(f.owner, f.plan.planId, saved.saved.id, true);
+  expect("replay" in replay && replay.replay.matched).toBe(true);
+  expect((await f.plans.exportCsv(f.owner, f.plan.planId, saved.saved.id)).content).toContain("REFORECAST");
+  await f.plans.apply(f.owner, f.plan.planId, { versionId: saved.saved.id, expectedRevision: 3, expectedProfileRevision: 1, confirm: true }, randomUUID());
+  expect(await f.plans.report(f.owner, f.plan.planId, {})).toMatchObject({ valueKind: "REFORECAST", baselineVersionId: f.plan.saved.id, actualSourceChanged: false });
+  expect(await f.plans.version(f.owner, f.plan.planId, f.plan.saved.id)).toEqual(f.plan.saved);
+  expect(JSON.stringify(f.rows("financialProfile"))).toBe(profile);
+});
+it("invalidates a changed preview and blocks applying stale actual sources while preserving replay", async () => {
+  const f = await fixture(), preview = await f.actuals.previewUpdate(f.owner, f.input);
+  await f.actuals.write(f.owner, "2026-10", { expectedRevision: 1, data: data("900") }, randomUUID());
+  await expect(f.plans.saveReforecast(f.owner, f.plan.planId, { expectedRevision: 2, expectedInputHash: preview.inputHash!, preview: f.input }, randomUUID())).rejects.toMatchObject({ code: "PREVIEW_CHANGED" });
+  const saved = await f.save();
+  await f.actuals.write(f.owner, "2026-10", { expectedRevision: 2, data: data("800") }, randomUUID());
+  await expect(f.plans.apply(f.owner, f.plan.planId, { versionId: saved.saved.id, expectedRevision: 3, expectedProfileRevision: 1, confirm: true }, randomUUID())).rejects.toMatchObject({ code: "ACTUAL_SOURCE_CHANGED" });
+  expect((await f.plans.report(f.owner, f.plan.planId, { versionId: saved.saved.id })).actualSourceChanged).toBe(true);
+  expect(await f.plans.version(f.owner, f.plan.planId, saved.saved.id, true)).toHaveProperty("replay.matched", true);
+  await expect(f.actuals.previewUpdate(f.owner, { ...f.input, versionId: saved.saved.id, throughMonth: "2026-11" })).rejects.toMatchObject({ code: "ACTUAL_SOURCE_CHANGED" });
+});
+it("replaces future totals only in their interval and never invests the whole surplus", async () => {
+  const f = await fixture();
+  const change = { id: randomUUID(), field: "plannedContribution" as const, operation: "REPLACE_MONTHLY_TOTAL" as const, amount: "20", startMonth: "2026-11", endMonth: "2026-11", reason: "Confirmed contribution" };
+  const preview = await f.actuals.previewUpdate(f.owner, { ...f.input, futureChanges: [change] });
+  expect(preview.candidate!.calculation!.rows[0]).toMatchObject({ plannedContribution: "20", contribution: "20", uninvestedSurplus: "80" });
+  expect(preview.beforeChanges!.rows[0].contribution).toBe("100");
+  expect(preview.candidate!.calculation!.rows[1].contribution).toBe("100");
+  expect(preview.candidate!.calculation!.rows[2].contribution).toBe("0");
+  await expect(f.actuals.previewUpdate(f.owner, { ...f.input, futureChanges: [{ ...change, startMonth: "2026-10" }] })).rejects.toMatchObject({ code: "FUTURE_CHANGE_OUTSIDE_REMAINING_HORIZON" });
+  expect(reforecastPreviewSchema.safeParse({ ...f.input, futureChanges: [change, { ...change, id: randomUUID() }] }).success).toBe(false);
+  expect(reforecastPreviewSchema.safeParse({ ...f.input, annualReturnRate: "100" }).success).toBe(false);
+});
+it("continues from another reforecast without repeating past flows, with a continuous actual balance", async () => {
+  const f = await fixture(), saved = await f.save();
+  await f.actuals.write(f.owner, "2026-11", { expectedRevision: 0, data: data("500") }, randomUUID());
+  const input = { ...f.input, versionId: saved.saved.id, throughMonth: "2026-11" };
+  expect((await f.actuals.previewUpdate(f.owner, input)).issues).toContainEqual({ month: "2026-11", code: "OPENING_BALANCE_MISMATCH" });
+  await f.actuals.write(f.owner, "2026-11", { expectedRevision: 1, data: data() }, randomUUID());
+  const preview = await f.actuals.previewUpdate(f.owner, input);
+  expect(preview.candidate!.reforecast!.actualRevisions.map(r => r.period)).toEqual(["2026-10", "2026-11"]);
+  expect(preview.candidate!.calculation!.rows[0]).toMatchObject({ month: "2026-12", openingBalance: "1000", closingBalance: "1100" });
+  await expect(f.plans.simulate(f.owner, f.plan.planId, saved.saved.id, { preview: f.command.preview })).rejects.toMatchObject({ code: "REFORECAST_USE_ACTUAL_UPDATE" });
+});
+it("blocks missing/open months, stale profiles and other accounts", async () => {
+  const f = await fixture();
+  expect((await f.actuals.previewUpdate(f.owner, { ...f.input, throughMonth: "2026-11" })).status).toBe("BLOCKED");
+  await expect(f.actuals.previewUpdate("other", f.input)).rejects.toMatchObject({ status: 404 });
+  await expect(f.actuals.previewUpdate(f.owner, { ...f.input, expectedProfileRevision: 2 })).rejects.toMatchObject({ code: "PROFILE_CHANGED_RECREATE_VERSION" });
+  vi.setSystemTime(new Date("2026-10-05T00:00:00Z"));
+  expect((await f.actuals.previewUpdate(f.owner, f.input)).issues).toContainEqual({ month: "2026-10", code: "MONTH_NOT_CLOSED" });
+});
+it("reads and replays an unmarked v2 snapshot without rewriting it", async () => {
+  const f = await fixture(), row = f.rows("planVersion")[0];
+  const snapshot = structuredClone(row.inputSnapshot) as any;
+  delete snapshot.preview.replayInput.modelVersion; delete snapshot.preview.replayInput.contributionStartMonth;
+  delete snapshot.preview.selection.contributionTiming; delete snapshot.preview.selection.surplusPolicy;
+  const calculation = legacy(snapshot.preview.replayInput);
+  snapshot.preview.modelVersion = "retirement-monthly-v2";
+  snapshot.preview.calculation = { ...snapshot.preview.calculation, ...calculation };
+  const { integrityHash: _old, ...body } = snapshot; snapshot.integrityHash = digest(body);
+  row.inputSnapshot = snapshot; row.result = snapshot.preview.calculation; row.chartSeries = calculation.rows;
+  const before = JSON.stringify(row);
+  expect(await f.plans.version(f.owner, f.plan.planId, row.id, true)).toHaveProperty("replay.modelVersion", "retirement-monthly-v2");
+  expect((await f.actuals.previewUpdate(f.owner, f.input)).candidate!.modelVersion).toBe("retirement-monthly-v3");
+  expect(JSON.stringify(row)).toBe(before);
+});
+it("serves the new HTTP endpoints using their documented response schemas", async () => {
+  const f = await fixture(), auth = new AuthService(f.db, config);
+  vi.spyOn(auth, "validateSession").mockResolvedValue({ id: f.owner, role: "USER" } as never);
+  const app = createApp({ config, services: { auth, profiles: f.profiles, actuals: f.actuals, plans: f.plans } });
+  const spec = await SwaggerParser.dereference("docs/openapi.yaml") as any;
+  const ajv = new Ajv({ strict: false, formats: { uuid: true, date: true, "date-time": true } });
+  const root = "/api/v1/me/retirement", authorization = "Bearer " + token();
+  const preview = await request(app).post(root + "/actuals/reforecast/preview").set("Authorization", authorization).send(f.input);
+  expect(preview.status).toBe(200);
+  const check = ajv.compile(spec.components.schemas.ActualUpdatePreviewEnvelope);
+  expect(check(preview.body), JSON.stringify(check.errors)).toBe(true);
+  const saved = await request(app).post(root + "/plans/" + f.plan.planId + "/reforecasts").set("Authorization", authorization).set("Idempotency-Key", randomUUID()).send({ expectedRevision: 2, expectedInputHash: preview.body.data.inputHash, preview: f.input });
+  expect(saved.status).toBe(201);
+  const created = ajv.compile(spec.components.schemas.PlanCreatedEnvelope);
+  expect(created(saved.body), JSON.stringify(created.errors)).toBe(true);
+});
+it("labels saved actual forecasts in AI context and refuses changed sources", async () => {
+  const f = await fixture(), saved = await f.save(), ai = new AiService(f.db);
+  await ai.setPrivacy(f.owner, { expectedRevision: 0, policyVersion: AI_POLICY_VERSION, processing: true, saveHistory: false });
+  const question = { planId: f.plan.planId, versionId: saved.saved.id, question: "Explain my updated forecast" };
+  const answer = await ai.explain(f.owner, question, randomUUID()) as any;
+  expect(answer.status).toBe("PROVIDER_NOT_CONFIGURED");
+  expect(answer.provenance).toMatchObject({ valueKind: "REFORECAST", actuals: { throughMonth: "2026-10", anchor: { closingBalance: "1000" } } });
+  await f.actuals.write(f.owner, "2026-10", { expectedRevision: 1, data: data("900") }, randomUUID());
+  await expect(ai.explain(f.owner, question, randomUUID())).rejects.toMatchObject({ code: "ACTUAL_SOURCE_CHANGED" });
+});

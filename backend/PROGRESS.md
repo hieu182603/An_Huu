@@ -1,36 +1,640 @@
 # Tiến độ triển khai backend An Hưu
 
+## Hiện hành — 05/10/2026: public nguồn v4 và estimate→candidate
+
+Đã nối `POST plans/{id}/source-reforecasts/preview` và save riêng `POST .../source-reforecasts`. CREATE/REVISE/END thu/chi/pension danh nghĩa VND, ONCE/MONTHLY; owner/plan/profile/source revisions/snapshot hash, actual anchor và idempotency. Cho sửa lại cùng cutoff/cùng tháng bắt đầu nếu chưa nằm trong actual, giữ chuỗi revision; không hồi sinh lịch cũ sau khoảng thay thế. Legacy tổng override được kiểm trên toàn phần lịch bị tác động. Chưa nhận tài sản/vốn/vay mới, T15/T16-02 còn mở.
+
+T14-06 đã nối estimate thuộc user vào candidate: pin toàn bộ capture/history/rules/hash vào snapshot, đọc/replay kiểm lại chứng cứ và mức tiền, không tự góp trợ cấp. Chọn mới/save/apply kiểm dependency BHXH còn dùng trong tương lai; nguồn đã bị thay/dừng vẫn giữ bằng chứng lịch sử nhưng không chặn thay kết quả stale. Luật/lịch hiện hành đổi không thay replay snapshot cũ. Corpus thực vẫn nháp, chưa duyệt/công bố.
+
+PlansService lưu/đọc/replay/apply v4 đúng format/model, đăng ký release lúc tạo version; v2/v3 replay giữ nguyên. Report/compare/CSV có attribution/hash, AI provenance có nguồn nhưng không gửi registry/history ra provider. Actual forecast nhận v4; preview-update v3 chặn v4 để không mất lịch nguồn. Contract production và thiết kế đã cập nhật, [SOURCE_COMMANDS_V4.md](docs/SOURCE_COMMANDS_V4.md), ADR và FE-T16-SOURCE-V4 đầy đủ; không sửa frontend.
+
+Kiểm chứng cuối đợt: **413 tests/37 files PASS**, source/test typechecks và TypeScript emit PASS; production + expansion OpenAPI PASS. Có 9 tests mới cho luồng public v4 gồm HTTP/response schema, actual→preview/save/replay/report/compare/CSV/AI, idempotency/ownership/stale, cùng cutoff/đẩy cutoff, ONCE/FX, BHXH→candidate→stale→END→apply, evidence bị bỏ và aggregate override. Startup thiếu secrets từ chối an toàn; verifier DB syntax đạt. Không coi memory DB là bằng chứng race PostgreSQL.
+
+**DB mới chưa kiểm:** script `verify-source-reforecast-db.cjs` đã chuẩn bị 17checks/rollback, nhưng automatic approval review không hoàn tất do hết hạn mức và từ chối thực thi lệnh. Đây là lỗi cổng duyệt, không phải kết luận thao tác unsafe. Không retry/bypass cổng duyệt. Không có dữ liệu DB được ghi trong đợt này, không migration/provider/email. Lỗi preflight của corpus ở checkpoint trước là lượt khác.
+
+Bước tiếp: T15 contractv2/partial repayment/restructure/refinance và T16-02 assets/capital/debt; các nhánh BHXH lịch sử/CREDITED/tự nguyện/đặc thù T14 cùng legal review; PostgreSQL/races/T17, UI/browser và vận hành. Toàn bộ backend chưa hoàn tất; giữ mục tiêu đầy đủ. Không session kiểm thử còn chạy.
+
+## Hiện hành — 05/10/2026: corpus 2026 và nguồn từ estimate
+
+Đã tạo hai bộ luật nháp BH1/BH2 (`seed-data/legal-2026/`), mỗi bộ 1.127 dòng; lưu bảy nguồn gốc/hash/URL, trình tạo offline tái lập byte và hướng dẫn rà soát. NĐ158/TT12 là bản toàn văn HTML chính thức, chưa phải bản ký lưu trữ. Chỉ thêm đúng CDN chính thức cho Công văn 340 vào allowlist; test tên miền giả mạo và byte nguồn bị sửa. Chưa seed hoặc duyệt/công bố luật thực.
+
+T14-06 có bước nội bộ `captureForSource` kiểm owner/hash/history/rule supersession và `pensionSourceCandidate` pin toàn bộ estimate để replay, CREATE/REVISE sau cutoff, giữ nguyên lịch trước đó, chặn cộng trùng, FIXED_NOMINAL được chọn rõ. Luôn là nguồn dự kiến; trợ cấp một lần không thành vốn góp. Chưa nối public T16 preview/save/apply hoặc lưu evidence vào plan snapshot; không đánh dấu T14-06 hoàn thành. Contract thiết kế và FE-T14-CORPUS-SOURCE đã ghi.
+
+Kiểm chứng: toàn bộ **404 tests/36 files PASS**; sau sửa guard nguồn có END trong tương lai, **29 focused tests/3 files PASS**; OpenAPI expansion và kiểm tái lập corpus PASS. Source/test typechecks và TypeScript emit cuối đợt PASS. Script kiểm DB BH2 đã hỗ trợ `--corpus`, gửi draft qua HTTP và kiểm capture nguồn; **ba lượt đều lỗi PrismaClientInitializationError ngay preflight, 0 checks**, gồm retry ngoài sandbox. Không có dữ liệu kiểm thử nào được ghi, không được dùng bằng chứng DB cũ để coi lượt mới đạt. Không migration/frontend/email/provider. Migration0011 giữ nguyên.
+
+Bước tiếp: các nhánh BHXH lịch sử/CREDITED/tự nguyện/đặc thù và rà soát corpus độc lập; tích hợp candidate vào publicv4/T16, loan revision T15, T17 và vận hành. DB cần kiểm lại khi kết nối phục hồi. Backend chưa hoàn tất. Các checkpoint cũ dưới đây là lịch sử.
+
+## Hiện hành — 05/10/2026: BH2 Nhà nước/hỗn hợp thông thường đã nối
+
+Đã có engine `vn-pension-state-v1`, branch/strategy riêng với18mẫu kiểm chứng, dùng chung API discovery/preview/save/replay. Bổ sung stateSalaryCase và hệ số tháng Nhà nước có evidence; mốc tham gia không bỏ qua lịch đã rút một lần, chặn chứng từ tương lai. Trước2016 dùng hệ số đóng nhân mức tham chiếu; từ2016 dùng hệ số năm hưởng/năm đóng; ghép bình quân với lương doanh nghiệp. Giữ engineBH1v1/v2 và modelretirementv2/v3. Không migration hoặc frontend.
+
+Đã chạy **388tests/35files PASS**, source/testtypecheck+emitPASS; **13HTTP/DBchecks riêng STATE_PENSION PASS**, rollback giữ38bảng. Sau thêm guard hệ số>20 và citationĐiều31, chạy lại11focusedtests+typechecks+emitPASS. Không tiến trình còn chạy. Script verify-state-pension-db.cjs được allowlist, fixture luật/history/estimate không được giữ lại. Contractgen đã chạy và FE-T14-STATE đã ghi hướng dẫn đầy đủ.
+
+Phạm vi BH2 hiện là nhómĐiều2(1)(a)/(b), lương Nhà nước từ10/2004 và hỗn hợp doanh nghiệp, hưởng thông thường. **Còn trước10/2004/nghề/chuyển ngành/phụ cấp/CREDITED, tự nguyện/hỗn hợp tự nguyện/BH3/BH4**, trả thiếu/rà không có nghĩa đã làm xong. Corpus luật thật chưa được chuẩn bị/phê duyệt/PUBLISHED; cần làm artifact cụ thể để rà trước release. Bước tiếp chuẩn bị corpus/rule tables có nguồn/hash và hoàn thiện các nhánhBHXH còn lại; sau đócandidate/T15/T16/T17/vận hành. Goal active. Các checkpoint “BH2chỉcore” phía dưới đã được thay thế.
+
+## Hiện hành — 05/10/2026: trợ cấp BH1 v2, nền bình quân BH2
+
+Đợt trước là progress: engine/API/DB được thay đổi và kiểm chứng. Đợt này thêm `vn-pension-benefit-v2`, giữ v1 không đổi; dispatcher/capture/save pin đúng engine. V2 tính trợ cấp vượt420/360tháng, tách trước/sau tuổi và breakdown riêng, không đưa vào quỹ. Validator16mẫu; test lưuv1 rồi công bốv2 vẫn replayv1 đúng. Có15mẫu cửa sổ/bình quân lương Nhà nước và hỗn hợp; helper chỉ nhận tháng đã điều chỉnh, **chưa là API/coverageBH2**, còn tầng điều chỉnhĐiều73/tiền lương trước10/2004/nghề/phụ cấp và corpus thực.
+
+Đã chạy **382tests/34files PASS**, source/test typecheck và TypeScript emit PASS; **39HTTP/DBchecks PASS, rollback giữ38bảng**, gồm publishfixturev2/save/readv2/replayv1. Không có tiến trình kiểm tra còn chạy. Không migration, không giữ luật/estimate fixture trongDB, không email/provider/frontend. Căn cứ TT12Điều14/16, NĐ158Điều15 và LuậtĐiều72/73 được mở đọc lại; diễn giải quy đổi tháng lẻ theo từng phần trợ cấp đã ghi rõ để người rà đối chiếu khi duyệt corpus. UI FE-T14-ESTIMATES có bổ sungv2.
+
+Goal còn active: tiếp tục corpus luật thật có hash/nguồn và phê duyệt độc lập; hoàn thiện BH2/BH3/BH4 (không thay bằng guardREVIEW_REQUIRED), CREDITED/lịch sử; nối estimatecandidate; T15,T16,T17 và vận hành. Bước tiếp hợp đồng dữ liệu điều chỉnh lương Nhà nước/hỗn hợp và engine/strategyBH2, đồng thời chuẩn bị corpus để rà. Không đánh dấu backend hoàn tất.
+
+## Hiện hành — 05/10/2026: BH1 và API estimate đã nối
+
+Đã đăng ký strategy BH1 lương doanh nghiệp nhómĐiều2(1)(a), đếm tháng/điều kiện/tuổi theo cohort/bình quân điều chỉnh/hệ số2026/tỷ lệ/sàn đúng nhóm và tháng văn bản hưởng. 24test công thức +11assessment; validation9goldens/guards độc lập. API discovery luật đã công bố, preview/save/list/ownedread estimate nối production. Pin toàn bộ lịch/luật/input/ngày đánh giá, hash kiểm chứng/phê duyệt; CAS/idempotency, rule supersession, immutable replay không đọc dữ liệu mới. Không tự sửa pension/profile/plan.
+
+Kiểm chứng đã chạy: **353tests/32files PASS**, source/testtypechecks, TypeScript emit và startup guard PASS. **34ca HTTP/DB thật PASS**, rollback giữ38bảng, không email/provider; lượt đầu sandbox không kết nối được, lượt retry thành công. Không có migration mới hoặc luật PUBLISHED được giữ lại trong DB;0011 bất biến. Contract production/schema và UI bàn giao **FE-T14-ESTIMATES** đã cập nhật; không sửa frontend.
+
+Còn T14-01/03 corpus luật thật với chứng từ/hash và phê duyệt độc lập; BH1 chưa xử lý credited/hồ sơ lịch sử/trợ cấp dư năm, trả REVIEW_REQUIRED rõ. T14-04/05 các nhómBH2–4; T14-06 nối estimate thành nguồn candidate; T15loanrevision; T16publicv4/sourcecommands/report/CSV/AI; T17race/acceptance/vận hành. Không gọi BHXH đầy đủ hoặc backend hoàn tất. Goal vẫn active. Bước tiếp hoàn thiện corpusBH1 và trợ cấp, rồi BH2/3 theo nguồn đã rà. Các đoạn “strategy rỗng/chưa estimate” bên dưới là checkpoint cũ, được thay bằng mục này.
+
+## Đang thực hiện — 05/10/2026: T13-03 core và T14-01/02, migration0011
+
+Hậu kiểm0011 hoàn tất: audit11/11checksum,37modeltables+history=38bảng, không thiếubảng/cột, schema diffempty; ba bảngBHXH vẫn0record.23HTTP/DBchecks sauapply PASS,rollbackgiữ38bảng. Lỗi kết nối trung gian đã phục hồi. FE-T14-HISTORY-RULES đã ghi đủUI contract. source-snapshot.openapi.yaml/gen đã thêm financialv4 nội bộ vào spec thiết kế, khôngmởroutev4. Nhóm20tests/3files đạt saucontracttestinsurance; productionSwaggervalidatePASS, tscemitPASS. Bước tiếpT14-03 research luật rồiengineBH1/estimate.
+
+User yêu cầu làm liên tục đến hết backend; goal active, không dừng ở batch này. Nền registry/composer/modelv4/serializer/upgrade no-op đã có và7tests; chưa nối v4 public preview/save/report/CSV/AI, T13-03 vẫn mở phần tích hợp. Giữ nguyên engine/hash/modelv2/v3. T14 rules/history services/routes đã có, [INSURANCE_HISTORY_RULES.md](docs/INSURANCE_HISTORY_RULES.md), production insurance.openapi.yaml/generator; strategy registry hiện rỗng nên chưa publish engineBHXH. Không giả fixture workflow là mẫu pháp lý.
+
+Migration202610050011_pension_rules_history **APPLIED**, ba bảng rules/history/estimates, composite ownership FK, checks, immutable triggers; không chỉnh0001–0010. Normal Prisma generate và TypeScript emit đạt. Audit trước thêm:10checksums, schema empty,50profiles giữ nguyên. DDL rehearsal giữ34bảng;23HTTP/DBchecks+rollback giữ35bảng đạt trước deploy. Clean11/upgrade4→11/10integration/custombackup-restore38bảng/expiry cleanup đạt trong container tạm đã dọn. Apply lần đầu thất bại, kiểm chỉ đọc xác nhận chưa chạy/không dở dang; retry đạt, fingerprint dữ liệu cũ không đổi. Hậu kiểm audit/23DBchecks đang retry lỗi kết nối P1001/TLS tạm thời; cần ghi kết quả cuối trước kết thúc.
+
+Full313tests/29files+test/source typechecks đạt; thêm contract test mới → nhóm20tests/3files đạt. Đã research lại TT12 Điều15/16, NĐ158 và hệ số340/2026 để tiếp T14-03; chưa code công thức BH1. Tiếp: kết thúc audit/DBcheck0011 và contract/source snapshot, rồi BH1 registered strategy + immutable estimate, sau từng BH2–4, T15/T16/T17/vận hành. Frontend không sửa; cần FE-T14-HISTORY-RULES. Không có migration/bảng cần user bổ sung thủ công, không seed/PUBLISH luật, không gọi provider/email.
+
+## Checkpoint hiện hành — 05/10/2026: T13-01/T13-02, căn cứ và thiết kế mở rộng
+
+User yêu cầu tiếp tục các task vừa nghiên cứu sau khi sửa cổng dev. Đã thực hiện T13-01 và T13-02 trong docs/task.md; chưa thực hiện T13-03 hoặc các engine BHXH/loan/source mới.
+
+- LEGAL_RULE_MATRIX.md có nhóm/ngày/điều khoản, ranh giới coverage và bước nghiệm thu. Đã dựng ảnh và đọc toàn bộ bản ký R04(17trang), R06(4), R11(3); SHA-256 được ghi để đối chiếu byte tài liệu. NĐ158 Điều44 không bãi bỏ bảng tuổi I–II, nhưng bãi bỏ căn cứ thời điểm hưởng cũ. R11 Điều4/10 được đưa vào loan design, R12 TT14/2026 là nguồn bổ sung cho T14-04 cần đối chiếu khi làm bộ điều chỉnh. Không coi PDF đã đọc là bộ quy tắc đã publish.
+- Pension preview dùng age referencev2: referenceFollowingMonth tách riêng; pensionStartMonth trong kết quả tra tuổi luôn null, pensionStartStatus REQUIRES_BENEFIT_ASSESSMENT. Không sửa personal.pensionStartMonth hoặc tiền pension đã khai. Xóa limitation cũ nói chưa tích hợpT06, thêm giới hạn assessment chưa triển khai.
+- Đóng băng legal-age-v1.ts và preparev3 tiếp tục gọi bản đó. OpenAPI tách LegacyAgeReference cho retirement/plans; cập nhật generator để không tái tạo ref sai. Không thay engine/formula/hash/modelv2/v3. Bước focused đầu49tests có1contract failure vì ref chung; đã sửa tách schema, full suite sau đạt.
+- ADR-001-EXPANSION.md chốt3bảng BHXH (rules/history versions/estimates), ERD, JSONB plan-scoped registry/loan revisions, hiệu lực/knowledge time, ownership/CAS/hash/atomic changeset, migration cộng thêm. expansion.openapi.yaml là spec thiết kế với x-runtime-status NOT_IMPLEMENTED, chưa ghép production; financial outputv4 hoàn thiện cùngT13-03. Không tạo route/bảng luật giả hoặc seedPUBLISHED.
+
+Bằng chứng thực chạy: full Vitest **299tests/27files PASS** (`node node_modules/vitest/vitest.mjs run --maxWorkers=2`); source/test typechecks PASS; SwaggerParser validate spec thiết kế PASS; isolated Prisma generation + TypeScript emit PASS; production startup missing-secrets guard PASS. Sau siết OpenAPI pensionStartMonth=null, nhóm42tests/4files pensions/legal-reference/plans/contract PASS và spec thiết kế validate lại PASS. Bước build đầu bị EPERM lstat C:/Users/os (thư mục temp sandbox); đặt TEMP/TMP riêng trong .cache/t13-build-temp cho tiến trình kiểm tra rồi đạt, không sửa env tài khoản hoặc dừng server. Đây là build riêng, chưa chứng minh normalbuild với DLL đang dùng.
+
+Không DB write/migration/provider/email/frontend edits, không khởi chạy thêm server. Không cần thêm DB thủ công lúc này; DDL ởT14 phải audit hiện trạng0010 trước. FE-T13-REFERENCE ghi giao diện cần sửa và các route thiết kế chưa khả dụng. Browser, CI, production operations/P36 còn mở; chưa dùng299tests để nghiệm thu chức năng mở rộng chưa code. **Tiếp theo T13-03: composer nguồn + registry snapshot/modelv4 + dispatcher v2/v3/v4 và no-op/replay/attribution tests**, rồi T14-01 rules lifecycle/storage theoADR.
+
+## Checkpoint — 05/10/2026: xử lý cổng dev EADDRINUSE
+
+User yêu cầu sửa lỗi `npm run dev` trước khi tiếp tục kế hoạch. Cổng 5000 bị PID 8952 giữ: đã xác minh command thuộc `E:\An_Huu\backend\node_modules\...\ts-node` chạy `src/server.ts`, tiến trình cha không còn, `/health` trả đúng An Hưu. Đã dừng riêng tiến trình cũ này. Kiểm tra khởi động cùng entrypoint với quyền mạng: `/health` và `/health/ready` đều HTTP 200; đã dừng tiến trình kiểm tra và xác nhận cổng 5000 không còn listener, sẵn cho terminal của user chạy lại (`rs` nếu nodemon còn mở). Lượt sandbox gặp P1011 nhưng lượt có quyền mạng đạt. Không sửa code, cấu hình, frontend hoặc dữ liệu DB; không đổi cổng. Các tiến trình npm/nodemon do phiên kiểm tra tạo đã được dọn. Kế hoạch T13–T17 giữ nguyên, chưa triển khai.
+
+## Checkpoint hiện hành — 05/10/2026: nghiên cứu mở rộng sau MVP
+
+User yêu cầu research chi tiết rồi lên plan cho BHXH tự tính, trả một phần/tái cơ cấu nợ và nguồn mới trong reforecast. Đã tra nguồn Chính phủ/Công báo và đối chiếu pensions/debts/actuals/plans; tạo docs/research-bhxh-no-nguon-moi.md, mục10 T13–T17 trong docs/task.md và FE-EXPANSION-T13-T17 trong task-frontend. Phiên này chỉ tài liệu: không code runtime, migration, DB write, provider call hoặc chạy lại tests.295tests/7DBretention/backup rehearsal ở checkpoint trước vẫn là bằng chứng cũ, không nghiệm thu phần mở rộng.
+
+Research có Luật BHXH gốc +bản hợp nhất2026, NĐ158/159, TT11/12, hệ số340/2026, Luật Nhà giáo và NĐ162/2026; tín dụng dùng VBHN06/NHNN cộng rà TT29/2026 hiệu lực15/08, không gọi bản01/2026 là đủ hiện hành. Đã xác minh nguồn/hiệu lực R04/R06/R11 nhưng bản scan/điều khoản còn phải đối chiếu chi tiết trước executable rules; danh mục nghề/địa bàn/BH4 cần research riêng. NĐ158 Điều44 bãi bỏ một số khoản NĐ135: cần rà metadata/legal-age, không suy toàn bộ bảng tuổi hiện tại sai. Làm rõ engine nợ đã có mô phỏng partial prepay giảm kỳ; thiếu phần actual+revision lịch mới vào reforecast.
+
+Plan: T13 rules/source registry/version compatibility; T14 BHXH theo coverageBH1–BH4, history tháng/factors/estimates; T15 payment allocation/loan revisions/restructure/refinance; T16 create/revise/end sources; T17 golden/DB/browser. Dự kiến3thực thể DB cho rule/history/estimate, chưa chốtDDL; registry ưu tiên snapshot JSON, phải đánh giá ràng buộc. Giữ EXPLICIT_DEPOSITS_ONLY, actual anchor, no double-count, save/apply riêng và replayv2/v3; proposedv4 không được sửa nghĩa v3. Next implementation khi user tiếp tục: T13-01/T13-02, không khởi động lạiT00 hoặc hỏi chốtP13/P15. Operations/backup deletion/P36/UI củaMVP vẫn mở riêng.
+
+## Checkpoint hiện hành — 05/10/2026: retention độc lập và diễn tập backup/restore
+
+Tiếp tục T10/T12 theo user: tách purge khỏi AiService sang ai/retention, giữ export tương thích. Thêm dist/retention.js chỉ cần DATABASE_URL, mặc định dry-run, --execute rõ ràng; batch/maxBatches có giới hạn, cutoff cố định, rollback từng lô, dừng giữa lô/đóng DB, log mã/count không PII. Worker outbox gọi cùng sweep có giới hạn và báo backlog; thêm npm scripts/env mẫu/Docker command. Không cần SMTP/JWT/outbox/Gemini để dọn AI. Không migration/frontend hoặc gửi email/provider.
+
+Mở rộng verify-clean-upgrade: pg_dump custom→pg_restore vào DB thứ ba trong container tạm;35bảng count/digest khớp, giữ lịch sử migration/profile/nguồn. Chạy executable retention thật với các secret không liên quan trống: dry-run giữ dữ liệu, execute xóa expired conversation/messages/context, giữ hồ sơ/partner. Dump chỉ chứa fixture, nằm trong container rồi được dọn. Không phải backup production.
+
+Evidence: test typecheck và full295tests/26files PASS; isolated Prisma generation/emit +startup guard PASS. verify-retention-db7checks PASS, chỉ ID mẫu, rollback/fingerprint35bảng giữ nguyên; lần đầu Prisma initialization lỗi trước fixture, TCP/SELECT1 sau đó đạt và retry thành công. CLI trên DB đang dùng chạy DRY_RUN:0eligible/0deleted/0remaining, không thực thi xóa dữ liệu thật. verify-clean-upgrade clean10/upgrade4→10 +10integration/2files PASS, backup/restore35bảng +standalone cleanup PASS, container/volume đã dọn; artifact .cache/migration-fd1bd4f2-f2d2-4276-9b06-1627cd76afc7. Lỗi type của mock trong test mới đã sửa trước lượt full PASS; không thay logic production để né test.
+
+Contract docs/RETENTION_OPERATIONS.md; task/T12/info/plan/FE cập nhật. Còn mở: cấu hình lịch chạy và giám sát trên môi trường triển khai, backup production/retention của bản sao và áp lại yêu cầu xóa sau restore (purge expired không giải quyết dữ liệu còn hạn đã xóa sau backup), quyền dữ liệu toàn tài khoản/P36, staging provider khác, CIremote/build mặc địnhDLL và browser/UI. Bước tiếp backend phụ thuộc UI/staging: kiểm API lỗi thực khi nối FE-GEMINI/P13/P15; chọn môi trường scheduler/backup trước triển khai thật. Không coi mã/lần chạy thủ công là lịch production đã vận hành. Các checkpoint phía dưới là lịch sử.
+
+## Checkpoint hiện hành — 05/10/2026: kết nối Google Gemini
+
+User chốt Gemini và cung cấp key, thay chỉ đạo “chưa chọn provider” ở các checkpoint lịch sử. Đã nối GeminiProvider vào createServices: cấu hình bằng env, key chỉ trong backend/.env được Git bỏ qua, HTTPS/header không query/redirect, schema chỉ chọn facts/citations, giới hạn output/timeout, fallback giữ facts server và không lộ lỗi upstream. Không migration, không dữ liệu khách hàng gửi ra ngoài khi kiểm thử, không sửa frontend.
+
+Policy `ai-explanation-gemini-2026-10-v2` yêu cầu consent lại trước outbound với tài khoản v1. Privacy GET/PUT có provider/processingNotice/reconsentRequired; OpenAPI cập nhật. “Training” hiện là tri thức local có index/duyệt/truy xuất vào context, chưa fine-tuning. Contract `docs/GEMINI.md`, UI ghi FE-GEMINI trong docs/task-frontend.md; UI hiện hardcode policy v1 cần cập nhật trước dùng luồng AI mới.
+
+Đã chạy test typecheck PASS; full Vitest `--maxWorkers=2`:290tests/25files PASS; isolated Prisma generation/tsc emit PASS; startup thiếu secrets bị từ chối trước DB. Live smoke `verify-gemini.cjs` PASS bằng dữ liệu mẫu với Gemini API developer, gemini-3.8-flash, timeout15s. Thăm dò Vertex trước đó403 API_KEY_SERVICE_BLOCKED; developer 2.5 Flash404 không còn dành cho user mới, Google chỉ định3.8. Có lần timeout/network thất bại trước smoke cuối thành công; không suy độ ổn định dịch vụ từ một lần PASS. Đã lưu developer/3.8 trong env, không đưa key vào tài liệu/source/log. Không restart server đang chạy.
+
+Bước tiếp: frontend thực hiện FE-GEMINI (notice/consent v2/trạng thái thật/tri thức), restart backend theo vận hành rồi nghiệm thu browser/tri thức theo version; quota/billing/retentionworker/backup/P36 và staging vẫn mở. Những dòng “không có provider” phía dưới là lịch sử; không còn chờ user chọn nhà cung cấp. T12 chưa nghiệm thu toàn sản phẩm.
+
+## Checkpoint hiện hành — 05/10/2026: Q15-03 điều chỉnh từng nguồn
+
+Đã thêm sourceChanges vào reforecast preview/save: DEBT_SETTLED (hợp đồng + event DEBT_PAYMENT + xác nhận remainingObligation0), ASSET_REALIZED (event CONTRIBUTION; bỏ đúng vốn/tiền thuê dự kiến), PENSION_REPLACE và FLOW_REPLACE (nguồn thu/chi có sẵn; số danh nghĩa theo khoảng). Không suy tất toán từ khoản trả một phần, không cộng lại tiền tài sản đã nằm trong actual anchor. SourceID phải thuộc capture của version; kiểm loại/ngày/event, reuseID/event, overlap theo nguồn và xung đột với futureChanges tổng tháng. Giữ nguồn cũ ngoài khoảng, recompute capacity/withdrawal/contribution và giữ explicit surplus policy. Không thay CPI/lãi suất/hồ sơ tài khoản. Model vẫn v3, không migration mới, không sửa frontend.
+
+Snapshot lưu lịch sử sourceChanges; report/CSV/AI đánh dấu giả định khi thay dòng tương lai, CSV có sourceChangeIds, compare có sourceChanges. Actual evidence thay đổi vẫn invalidates save/apply qua hash/lineage, replay version cũ không đổi. Contract `docs/SOURCE_REFORECAST.md`, OpenAPI và contract chung CONTRIBUTIONS_REFORECAST đã cập nhật; UI ghi FE-Q15-03 trong docs/task-frontend.md.
+
+Đã chạy: `node node_modules/typescript/bin/tsc -p tsconfig.test.json` PASS; full `node node_modules/vitest/vitest.mjs run --maxWorkers=2`:273tests/24files PASS, gồm7ca source mới. `verify-build-isolated.cjs`:Prisma generation riêng +tsc emit PASS. `check-production-startup.cjs`:thiếu secret bị từ chối trước DB. `verify-source-changes-db.cjs`:17HTTP/PostgreSQL checks PASS, rollback verified/35tables preserved/noemail/noexternal; có bốn loại nguồn, retry/save/apply/replay/CSV/OpenAPI/ownerADMIN/correction. Lần đầu fixture hợp đồng có kỳ đầu khác tháng định giá nên INCOMPLETE; đã sửa fixture theo quy tắc sẵn có. Hai lần kết nối tạm thời thất bại trước kiểm chứng, SELECT1 sau đó phục hồi và lần cuối17ca đạt. Không coi lần lỗi là evidence PASS; không reset/dừng DB. Git diff whitespace cho các file tracked thuộc đợt này không có lỗi.
+
+Phạm vi còn mở: trả một phần/tái cơ cấu khoản vay, tài sản/nguồn hoàn toàn mới trong reforecast, tự tính BHXH không nằm trong sourceChanges đợt này; dùng cập nhật hồ sơ/nguồn riêng và tạo version nguồn mới. Bộ tính CAPPED/LIMITED vẫn theo giới hạn đã ghi trước. UI/browser FE-Q15-03/FE-P13-P15/FE-RECHECK và T12 toàn sản phẩm chưa nghiệm thu; actual nhu cầu chưa tài trợ cần thể hiện đúng, không tự sinh WITHDRAWAL/CONTRIBUTION. NormalbuildDLL, CIremote, staging, retentionworker/backup/P36 và provider chưa chọn vẫn mở. Bước tiếp backend: rà các điều kiện nghiệp vụ còn mở theo task và kiểm tích hợp với UI đã nối; không tự bật AIprovider, không nhận backend PASS làm UI/phát hành PASS. Các checkpoint dưới là lịch sử.
+
+## Checkpoint hiện hành — 05/10/2026: triển khai P13/P15 backend
+
+Chốt kiểm tra cuối đợt: source emit PASS;45tests/4files (contribution-policy, reforecast-update, ai, plan-presentation) PASS sau bổ sung nhãn nguồn AI và metadata so sánh. Full265 là lượt trước khi thêm test AI mới, không cộng hai lượt thành tổng mới. Không còn tiến trình kiểm tra của đợt này. UI handoff ở task-frontend.md dòng433; contract mới có đầy đủ JSON và giới hạn phạm vi.
+
+Đã triển khai theo thứ tự Q13/Q15: enum START/END (END mặc định), khai nguồn đầu tháng có xác nhận, tháng hiệu lực sau partial month, capacity/solver nhất quán, model retirement-monthly-v3. engine-v2 giữ nguyên để replay snapshot cũ. EXPLICIT_DEPOSITS_ONLY chính thức. Có trạng thái EARLY_FUNDING_REQUIRED/NO_ELIGIBLE_CONTRIBUTION_PERIOD, không lấy số null làm0.
+
+Q15 có POST actuals/reforecast/preview và plans/:id/reforecasts; preview trả candidate/beforeChanges cùng anchor, save idempotent/hash/revision và apply riêng. Snapshot pin source/hash/cutoff/actual revisions, mở lại history vẫn replay sau sửa actual; apply/dự báo tiếp/AI chặn nguồn lỗi thời, report/detail trả actualSourceChanged. Điều chỉnh REPLACE_MONTHLY_TOTAL cho income/livingExpense/additionalExpense/plannedContribution theo khoảng tương lai, không tự nhân giao dịch một lần hoặc góp hết dư. Report/CSV/AI đã phân biệt REFORECAST. Generic simulate từ chối reforecast để tránh bỏ anchor. Không sửa frontend, không migration mới.
+
+Bằng chứng: full265tests/23files PASS bằng `node node_modules/vitest/vitest.mjs run --maxWorkers=2`; sau thêm AI provenance test, nhóm contribution-policy/reforecast-update/ai35tests PASS. Test typecheck PASS. `verify-contribution-reforecast-db.cjs`:22HTTP/DBchecks PASS, rollback/35tables preserved/noemail/noexternal. `verify-reforecast-concurrency-db.cjs`:3independent races PASS, fixture private SUSPENDED + config chuyển DRAFT trước commit, exact-ID cleanup và fingerprints unchanged. Không chạy lại migration0010. Sandbox không kết nối DB được, chạy phạm vi đã được user cho phép ngoài sandbox thì đạt. Isolated Prisma generation + tsc emit PASS ngoài sandbox; startup thiếu secret từ chối an toàn. Lượt full chạy song song cao có6 rồi2timeout ở các test cũ; lần2 npm PowerShell không chuyển maxWorkers như mong muốn. Gọi trực tiếp Vitest2workers đạt265; không thay timeout/assertions để làm xanh.
+
+Contract mới `docs/CONTRIBUTIONS_REFORECAST.md`, OpenAPI và5contract liên quan đã đồng bộ. `docs/task.md` mục7.1 đánh dấu phần có evidence; `docs/task-frontend.md` có FE-P13-P15 contract/payload/error/state/acceptance. Generators liên quan và scripts kiểm chứng đã bỏ ignore có chọn lọc để bàn giao tái chạy được.
+
+Còn lại: UI/browser trong các checkbox gộp; Q15-03 hiện thay tổng tháng, chưa chỉnh từng nguồn/hợp đồng nợ/tài sản/lương hưu trong reforecast. Các lịch đó vẫn pin và trả limitation yêu cầu rà nguồn riêng; netWorth/selection giữ cơ sở hồ sơ gốc. Actual ledger không tự tạo bút toán rút để bù thiếu, cần hoàn thiện trình bày nhu cầu chưa tài trợ cùng UI. Hồ sơ khác nguồn phải tạo version nguồn mới. Normal build DLL/CIremote/staging/workerretention/backup/P36/provider vẫn mở, không tự chọn AI provider. Bước tiếp: hoàn thiện luồng rà nguồn riêng Q15-03 nếu tiếp tục mở rộng backend, phối hợp UI AI kết nối FE-P13-P15/FE-RECHECK rồi chạy browser bằng runner sở hữu port; không nhận backend PASS thay UI nghiệm thu. Checkpoint bên dưới là lịch sử.
+
+## Checkpoint hiện hành — 05/10/2026: rà việc còn lại sau kế hoạch P13/P15
+
+User yêu cầu kiểm tra việc chưa làm. Đã đối chiếu mã hiện tại, không chỉ đếm checkbox. Q13-01–03/Q15-01–04 vẫn chưa triển khai bổ sung: prepare hardcodeEND_OF_MONTH, engine START_OF_MONTH_RESEARCH; plans metadataEND; actual router chỉreforecast, limitationREFORECAST_NOT_SAVED_OR_APPLIED. Nền ledger/explicit contributions đã có, không gọi toàn bộP15 là chưa làm. Nghiệp vụ đã chốt, không hỏi lại.
+
+Frontend có sửa mới của workspace: actuals/AI/adminKnowledge đã gọi helper đúng; Decimal riêng thayNumber. Chạy `node scripts/verify-frontend-wire.cjs` lại:14writes đúngmethod/body/header; actualPUT/privacy/explain/deleteall200,knowledgecreate201;404 là IDfixture khôngtồn tại,403createconversation vìsaveHistory chưaconsent. Precision0.01 và9007199254740993.26 đạt đúng. Artifact `.cache/frontend-wire-audit.json` hiện là lần chạy mới, thay diagnostic cũ; không coi các lỗi nghiệp vụ fixture là transportfail. `node --experimental-strip-types --test scripts/actuals-and-ai.test.mjs`:2/2PASS nhưng test đối soát tự chép hàm, chưa bằng chứng hồi quy hàmproduction; probe dùng hàm thật đã kiểm mộtca. Không chạy lại browser/build/fulltests/DB trong lần rà này.
+
+Còn thấy trong mã: save/apply bỏfalse/closurecũ, choices[0], CSVlocal, completion90%; settings Account/modal vẫnlocalStorage dùserviceAPIcó; AdminBusinessPages vẫndemostate. AdminAIConfigPages hiện initialSources vàlocalStoragefinancialassumptions/history, routesApp vẫntrỏđó: cần nối lại UI dùadminKnowledgeservice đãsửa. Accountstate đã córeset/sequence mới, cầnbrowserđánhgiá chứkhôngghi chưa sửa. Browserlần gầnnhất15/41 trước cácsửamới; runnerfrontend vẫntaskkill.
+
+Việc còn lại:7góibổsungP13/P15; UI nêu trên vàFE-T11; T12browser/realDB/offline/multitab; normalbuildDLL/CIremote/staging/workerretention/backup/P36; providerAI chưachọn. Nợ nghĩa vụCAPPED/LIMITED chưa mô phỏngđầyđủ; BHXHtựtính thuộc sauMVP. DBsạch/nângcấp10migration đãđạt ởlầntrước, không đưa lại vào backlog. Cập nhật task/task-frontend để tránh checklist cũ dẫn sai trạng thái. Bước backend tiếp vẫn Q13-01 + Q15-01, frontend xử lý phần kết nối/kiểm chứng còn lại.
+
+## Checkpoint hiện hành — 05/10/2026: bổ sung kế hoạch sau chốt P13/P15
+
+Chủ dự án xác nhận khách đã chốt hướng giải thích; câu trả lời bổ sung **“Chỉ góp số người dùng xác nhận”** chốt EXPLICIT_DEPOSITS_ONLY. Đã cập nhật `docs/task.md` mục5/7.1 với Q13-01–03 và Q15-01–04, đồng bộ FE-P13-P15. P13 hướng hỗ trợ lựa chọn đầu/cuối tháng, giữ mặc định cuối tháng tương thích P12; cần điều kiện khả dụng đầu kỳ và kiểm semantics trước mở API. P15 giữ tiền dư/góp dự kiến/góp actual riêng; bổ sung lưu reforecast thành candidate version, linked actual revisions/anchor/hash, thay đổi lịch tương lai có xác nhận, apply riêng, replay lịch sử.
+
+**Phiên này chỉ lập kế hoạch, chưa sửa backend/frontend runtime, chưa migration hoặc chạy lại tests.** API hiện tại vẫn chỉ END_OF_MONTH và reforecast chỉ đọc. Không dùng trạng thái chốt nghiệp vụ để đánh dấu code đạt. Bước backend tiếp: Q13-01 + Q15-01 thiết kế contract/version tương thích, rồi Q13-02/Q15-02; AI frontend xử lý FE-RECHECK và chỉ mở UI mới khi contract sẵn. Các mốc “Q13/Q15 còn chờ khách” phía dưới là lịch sử, không hỏi lại chính sách tiền dư. Provider/P36/worker/backup/browser/build vẫn là việc riêng chưa đóng.
+
+## Checkpoint hiện hành — 05/10/2026: kiểm tra lại bốn nhóm còn mở
+
+Theo ảnh user gửi: đã rà T00, frontend T06–T10, T10 provider/retention/P36 và Q13/Q15. **Báo cáo hiện hành: `docs/RECHECK-T00-T10.md`; UI ưu tiên FE-RECHECK-20261005 ở đầu `docs/task-frontend.md`. Các checkpoint dưới là lịch sử. Không sửa frontend trong đợt này.**
+
+- Phát hiện DB sạch sau9 migrations thiếu5cột metadata giả định/goal mặc dù DB đang dùng có sẵn. Thêm migration `202610050010_complete_financial_metadata`, không sửa migration cũ; preview DDL rollback, apply thật và fingerprint dữ liệu giữ nguyên. Audit09:48 VN:34bảng nghiệp vụ+history,10/10checksum,không pending/thiếu cột,bảng,diff rỗng.50profiles/50goals/2config/5knowledge giữ nguyên.21refresh/2outbox/14audit là hoạt động hiện có, không dọn theo count.
+- `node scripts/verify-clean-upgrade.cjs`: PostgreSQL16/pgvector Docker cổng localhost tạm; bare chưaextension thất bại đúngvector; clean10/upgrade từ4→10 với legacy fixture giữ nguyên và diff rỗng;10integration tests/2files PASS; purge history/context hết hạn, giữ chưa hết hạn PASS; xóa đúng container/volume có label. Artifact cuối `.cache/migration-1665fb0f-b373-4d50-b57b-ec871598ab0a`. Không backup production/không reset DB thật.
+- `prepare-test-db.cjs` tạo extension sau guard local/tên DB; CI service đổi pgvector image ghim digest đã kiểm. Đường chuẩn bị CI chạy localPASS; chưa chạy GitHub Actions. Lần đầu container pg_isready socket sớm làm kết nối thất bại, đã sửa đợiTCP; lần tiếp theo phát hiện thiếu5cột rồi thêm0010 và chạy lại đạt. Không sửa công thức để làm test xanh.
+- `verify-frontend-wire.cjs`: gọi nguyên hàm frontend vào Express/auth+DB giả lập;14 thao tác ghi actuals/AI/knowledge sai chữ ký authenticatedRequest → POST wrapper và mất header,400/404; GET plans đối chứng200. Diagnostic exit0 không có nghĩa nghiệp vụPASS. Cùng script chứng minh Number/round làm góp0.01→0 và số lớn mất chính xác. `.cache/frontend-wire-audit.json` lưu evidence. Findings static thêm: save/apply closure cũ/toastfalse, fabricated answers/defaults, account state chưa invalidation, CSVlegacy,90%cố định/adminsavecục bộ; giao UI kiểm và sửa, chưa gọi các phát hiện static là browser tái hiện.
+- Fresh frontendbuild+5prerender PASS. `T12_BROWSER_EXTENDED=1 node scripts/verify-browser.cjs`:41ca,15PASS/26FAIL,0skip,558.95s/exit1,khôngteardownhang; JSON+traces `.cache/t12-browser-*`. Lỗi gồm selector/fixture cũ và UI overflow/menuhitbox thật; không coi26fail là26lỗibackend. admin-ui artifact đã dùng testInfo.outputPath, ghi chú path cá nhân cũ không còn áp dụng. Không chạy setup-preview freePort/taskkill.
+- Rerun `npm test -- --run src/tests/ai.test.ts src/tests/actuals.test.ts src/tests/retirement-monthly.test.ts src/tests/plan-presentation.test.ts`:62/62,4files PASS; `npm run typecheck:tests` PASS. Standard build vẫnEPERM defaultPrismaDLL; không kill tiến trình khác. Bằng chứng build isolated ởcheckpoint trước vẫn ghi riêng.
+- T10 không chọn/call provider. Retention logic PASS trên PGtạm, chưa chứng minh worker đã deploy: worker cầnSMTP/outboxconfig trước khi purge; workflow repo chỉdeployweb. Không chạy worker thật do outbox đang chờ. P36 UIrights bịlỗitransport; backup/quyền toàn tài khoản/pháp lý cònmở. Q13 productionEND_OF_MONTH, researchtest riêng; Q15 khôngautoinvestsurplus; chưa có quyết định user mới.
+- Kiểm cuối:6script syntax,3case guard từ chối DBthiếu/remote/sai tên, YAML/image digest vàgitdiffcheck scoped PASS. Thêm exception `.gitignore` đúng các script kiểm chứng được bàn giao vì rule `scripts/` trước đó bỏ qua cả scripts backend; không mở toàn bộ thư mục script địa phương. Không commit hoặc deploy.
+
+**Bước tiếp chính xác:** AI frontend sửa FE-RECHECK-20261005, ưu tiêntransport/precision/save-apply/data theoaccount; rerun41browser và bổ sung luồng nốiDB. Backend xử lý regression API có evidence; vận hành xác nhận normalbuild/worker/backup. F15/F21 phần migration local đã đạt; không còn ghi “chưa có bằng chứng DB sạch”. T00/T12 toàn bộ vẫn mở. Không áp lại0010 hoặc sửa0001–0010, không phục hồi SESSION_HANDOFF đã bị xóa.
+
+## Checkpoint hiện hành — 05/10/2026: T11 backend và T12 nghiệm thu nội bộ
+
+**T11 backend hoàn thành; T12 chưa đủ điều kiện phát hành toàn sản phẩm.** User yêu cầu tiếp T11/T12 theo task.md; tiếp tục backend và ghi UI vào file bàn giao, không sửa frontend implementation/test hiện có. Contract `backend/docs/SECONDARY_MODULES.md`; ma trận P01–P36/F01–F24 và bằng chứng `docs/T12-acceptance.md`; checklist FE-T11/T12 đã append vào `docs/task-frontend.md`. Các checkpoint phía dưới là lịch sử.
+
+### Thay đổi
+
+- Catalog có public GET list/detail partners/products và ADMIN GET/POST/PUT; revision/CAS/SERIALIZABLE/audit, pagination/search, HTTPS URL. Công khai sản phẩm cần phí/điều kiện/disclosure không rỗng và parent hiển thị. Ẩn parent ẩn sản phẩm khỏi public; contactEmail chỉ admin đối tác. Không có mua/giao dịch, không chuyển expectedReturn mô tả thành giả định engine; không DELETE lịch sử.
+- GET/PUT `/me/notification-settings` lưu theo user từ session, revision0 trước lần lưu, defaultfalse, chống ghi đè/ghi đồng thời. Ba field emailDigest/goalAlerts/partnerUpdates là lựa chọn bền vững; **deliveryAvailable cả ba false**, chưa triển khai sender/campaign mới. Thông báo bảo mật/Support vẫn bắt buộc. Không queue email khi lưu, không suy consent từ localStorage.
+- `/me/consultations` và `/admin/consultations` cả đường dẫn con trả410 FEATURE_RETIRED sau auth/role; bỏ service đọc/tạo/sửa và socket producer riêng, join socket tiếp tục từ chối. Giữ nguyên bảng/3 bản ghi lịch sử và Support.
+- Content duplicate slug trả409 SLUG_CONFLICT. Support status query dùng enum đúng thay arbitrary string. Operations audit targetType nhận tên module mới có giới hạn độ dài; không lộ details. Mail delivery metadata nhắc COMPLETED không chứng minh delivered.
+- OpenAPI và generator secondary mới; report/CSV tiếp tục T08 pin version/snapshot, không công thức mới. Không chọn/call provider AI. Không sửa/seed cấu hình production để làm test xanh.
+
+### Migration và kiểm chứng thực tế
+
+1. **202610050009_secondary_modules đã áp dụng** sau checksum/preflight và DDL rollback. Thêm notification_preferences, partners revision/isVisible, products revision/isVisible/updatedAt/annualFee/conditions/disclosure. Giữ nội dung6partners/11products, mặc địnhẩn pending rà disclosure; không bịa phí/điều kiện. Không sửa/áp lại0005–0009.
+2. `npm test`: **246/246,21files PASS** gồm5 T11; nhóm T11+contract10/10PASS. Root frontend/backend typecheck và backend testtypecheck PASS.
+3. `verify-secondary-db.cjs`: **26/26 HTTP/AuthService/DB checks PASS**, tất cả35bảng fingerprint giữ nguyên sau outer rollback; savepoint giữ rollback boundary từng command. Kiểm catalogdisclosure/visibility/revision/owner/contract, settingsreload/conflict, contentdraft/duplicate/bookmark, Supportreply/closed/notificationsowner, tư vấn410giữhistory, Operations/audit, suspend/restore cũtoken401. Lần đầu fixture viết hoa T11-email không khớp auth normalize; sửa fixturelowercase và chạy lại đạt, không sửa auth để lách kiểm.
+4. `verify-secondary-concurrency-db.cjs`: **2ca transaction độc lập PASS**: tạo preference cùng revision0 chỉ một thắng; sửa đối tác cùng revision chỉ một thắng. User SUSPENDED riêng, không email; dọn chính xác IDs và kiểm sạch. Không global delete hoặc kill server.
+5. `verify-acceptance-flow-db.cjs`: **18/18 HTTP/DB toàn luồng PASS**: onboarding+goal v2→review/approve/publish A/R→preview→save/idempotent retry→apply→publish bộ mới không tự đổi current→save/apply version2→actual/reforecast→correct history blocker→export bản cũ→owner/ADMIN→trigger immutable→logout-all. Oracle zero-rate Aug–Dec100/tháng→A500,K300; actual anchorSep100+còn3đóng100→A400. History/snapshot/35bảng rollback sạch. Đây là HTTP/DB, **chưa browser nốiDB**.
+6. Frontend `test:assets`: **25/25PASS**; frontend build +5marketingprerender PASS. Đo JS chính750.67kB/gzip244.17kB,three.module746.95kB/gzip191.81kB,CSS381.73kB/gzip64.68kB,loadingimage1.67MB; chỉ ghi số đo/handoff, không tự tối ưu UI.
+7. `verify-browser.cjs`: **7/8PASS,1FAIL**, lệnh thoát50.6s khôngteardowntimeout.6authAPIca và1accountedit/reload/conflict đạt; đổi mật khẩu test tìm nhãn cũ có dấu ngoặc trong khi UIname không ngoặc. Artifact/trace/JSON ở `backend/.cache/t12-browser-*`; FE-T12-01 chỉ rõ sửa selector và giữ assertions. API mocked, không evidenceprovider/DB thật. Runner backend staticservercổngđộng sở hữu đúngprocess,503mọiAPIchưa mock; không sử dụng `frontend/tests/setup-preview.ts` vì file đó freePort/taskkill tiến trình bất kỳ ở8444. Đã note AIfrontend sửa lifecycle, không chỉnh file đó trong phiên này.
+8. **Build backend mặc định chưaPASS**: `prisma generate` bị WindowsEPERM rename query_engine-windows.dll.node đang được tiến trình khác giữ, kể cả sau khi DBfixtures kết thúc. Không kill hoặc lách bằng no-engine client. `verify-build-isolated.cjs` sinh client mới vào `.cache/t12-prisma-build` **PASS**, TypeScript emit **PASS**; startupguard thiếusecret **PASS**. F23 mở cho vận hành restartserver đúngquytrình/rerun npm build; không ghi test thay thế thành build mặc định đã đạt.
+9. Audit chỉ đọc **09:31 ngày05/10 VN**: **34bảngnghiệpvụ+_prisma_migrations=35**,9/9checksums,khôngpending/thiếucộtbảng,diffrỗng,vector0.8.2.51users/50profilesv2/2configpublished/6partners/11products/3consultations giữ. Preferences/plans/versions/actuals/AIprivacy/chat/idempotency0saufixture. Có18refresh/2outbox/14audit hiện có từ hoạt động khác so với checkpoint cũ: bảo toàn, không dọn theo count.5knowledgePENDING/chưaduyệt/18chunks0embedding.
+
+### Còn mở và bước tiếp chính xác
+
+- AIfrontend thực hiện FE-T11/T12: APIcatalog/settings; Account/UserAccountModal bỏCSVtínhcục bộ; xử lý410; sửa passwordselector và previewlifecycle; kiểm toàn bộ màn hình390/768/1024/1440/accessibility/nội dung/loader, không tự đóng nghiệm thu từ testbackend.
+- Rerun safe browser8/8 sau UI sửa, sau đó browser tài chính nốibackend/DB dùng fixturequảnlý; HTTPflow18/18 không thay browserflow. Build mặc định rerun khi server không còn khóaDLL; clientruntime cũ cần restart để dùng schema mới.
+- T12release chưa đóng: migrationDBsạch, fullbrowser/offline/multitab, Q13/Q15 kết quả đã giải thích/ghi nhận, stagingGoogle/Cloudinary/AI/Azure/emailaccepted-vs-delivered/backuprestore và P36legal/retention. User chưa chọn AIprovider; không hỏi lại hoặc tự gọi dịch vụ. Nghĩa vụ LIMITED/cótrần và bộ tínhBHXH đầy đủ vẫn nằm giới hạn đã công bố.
+- Ma trận `docs/T12-acceptance.md` phân biệt CLOSEDbackend/PARTIAL/OPEN/DEFERRED; không đánh dấu toàn bộF01–F22/P01–P36đạt. Không tái tạo SESSION_HANDOFF cũ đã được xóa bởi workspace; AGENTS/PROGRESS/PLAN/info/task là bàn giao hiện hành.
+
+## Checkpoint hiện hành — 05/10/2026: T10 backend chuẩn bị AI, quyền dữ liệu và tri thức
+
+**Phạm vi user đã chọn:** “Chưa chọn; chuẩn bị backend trước” khi được hỏi nhà cung cấp AI. Đã hoàn thành phần backend độc lập nhà cung cấp; composition production không có provider, không gửi dữ liệu ra AI ngoài. Không sửa frontend; FE-T10-01–04 và nghiệm thu đã ghi `docs/task-frontend.md`. **Chưa đóng T10 toàn sản phẩm/provider/pháp lý.**
+
+### Thay đổi
+
+- Module `ai`: GET/PUT privacy, POST explain/simulate, CRUD/export hội thoại, sửa câu hỏi. USER ownership/session/no-store; ADMIN chỉ quản trị knowledge, không đọc hội thoại USER. Consent processing/history tách biệt, default false, policyVersion có revision. Explain lấy snapshot T07 qua kiểm integrity; optional throughMonth lấy T09 trong cùng transaction, chỉ giữ anchor/revisions/issues, không đưa bút toán/ghi chú vào context.
+- Facts gồm quỹ/vốn cần/chênh/mức góp/coverage/tháng thiếu được backend dựng từ số engine. Context giữ version/model/hash/nguồn/cảnh báo, không tự lấy hồ sơ mới thay bản cũ; thiếu version hoặc actual BLOCKED không lấp số. Nhãn mô phỏng, cảnh báo và giới hạn không bị provider loại bỏ; đã sửa câu chữ mốc vốn sau hưu thành đầu phần dự báo còn lại.
+- `ExplanationProvider` chỉ nhận câu hỏi đã lọc email/số dài, facts và tối đa 4 đoạn tri thức với ID tạm; không DB/service/tool/planId/userId/fullprofile/history. Chỉ chấp nhận factKeys/citationIds từ tập đã đưa, backend dựng answer; output tự bịa số/citation hoặc lệnh khác bị fallback. Timeout 8s/AbortSignal. Khi chưa cấu hình trả PROVIDER_NOT_CONFIGURED kèm facts cơ bản, lỗi provider trả PROVIDER_UNAVAILABLE; không làm mất kết quả engine. Đây là nền lựa chọn giải thích có kiểm soát, chưa chatbot tự do/provider thật. Regex không được tuyên bố là ẩn danh toàn bộ PII tự nhập.
+- Simulate nhận input cá nhân có cấu trúc do user xác nhận, chuyển vào T08/T06, không gọi provider hoặc tự apply. Thay đổi lưu/apply vẫn qua T07 riêng. Không nhận tỷ suất/CPI/tỷ trọng/input tài chính qua lời nói tự do làm lệnh.
+- History fixed expiry 30 ngày từ lúc tạo (chính sách triển khai, không suy là luật), max100messages; samekey/body retry trả response đã lưu, revision chống ghi đè. Không history thì không ghi question/answer/context hoặc IdempotencyRecord chung. Sửa question xóa answer/context cũ, đổi key của câu hỏi về null; xóa/thu hồi history xóa cả messages/context và vô hiệu hóa response đang chờ bằng privacy revision. Audit chỉ metadata, không nội dung chat. API chặn đọc hết hạn; worker purge tối đa100 mỗi phút, lỗi purge không chặn outbox. Có script purge thủ công, chưa chạy global purge production.
+- Knowledge ADMIN: tạo/sửa source strict/revision/audit; sửa bỏ duyệt/hash. Index LEXICAL_V1 local text 50k/chunk1500, INDEXED chưa approved; approval riêng với note/confirm. Chỉ retrieve approved+effective+chưa hết hạn+hash/index/content khớp; kiểm citation lại sau provider. Không fetch URL/OCR/vector/provider, không tự duyệt 5 nguồn production. Giới hạn lexical100 nguồn gần nhất/4000chunks/4kết quả, nêu rõ trong contract.
+- OpenAPI/generator mới `ai.openapi.yaml`/`generate-ai-openapi.cjs`; shared generator bổ sung nullable/datetime. Contract `AI_GOVERNANCE.md`, API router/services và memory double mở rộng; ActualsService.forecast nhận optional transaction để giữ context đọc nhất quán. Không đổi công thức T06/model hoặc snapshot cũ.
+
+### Migration và kiểm chứng
+
+1. **Migration `202610050008_ai_governance` đã áp dụng lên DB thật**: ai_privacy; source revision/validUntil/indexedHash; conversation revision/expiresAt; message requestKey/context và unique conversation/key/role. Kiểm checksum + đúng một pending + DDL preview rollback, rồi apply; fingerprint giữ dữ liệu hồ sơ/kế hoạch/config/nguồn/chunks/nội dung chat. DB có 0 hội thoại lúc áp; legacy expiry rule createdAt+30days không cấp consent ngầm. Không sửa/áp lại file migration đã chạy.
+2. Full cuối `npm test`: **241/241 tests, 20 files PASS**, gồm **15 T10**. Bao phủ consent/default/rollback, version pin/context loại ID, nguồn pending/future/expired/edited/tampered, prompt override/provider invalid IDs/timeout, actual blocker, bắt buộc giữ warning/hypothetical, retry/history/edit/export/delete/expiry, revoke/delete đang chờ, simulate không apply và HTTP/role/OpenAPI. Vòng trước là240 tests; cuối thêm ca warning/hypothetical đạt241. Các lỗi generator nullable và required=[] của empty body đã sửa, contract chạy lại đạt.
+3. Root `npm run typecheck` **PASS frontend/backend**; `npm run typecheck:tests` cuối **PASS**, full `npm run build` **PASS** (Prisma generate+tsc), `npm run test:startup` **PASS**. Không kill tiến trình Prisma/UI khác.
+4. `verify-ai-db.cjs` **21 kiểm tra HTTP/AuthService/PostgreSQL thật PASS**, chạy lại sau thay batch retrieve/delete và cảnh báo. Outer transaction+savepoints rollback; fingerprint gồm users/profile/plans/versions/config/model/knowledge/chunks/AI/privacy/audit/outbox/refresh/idempotency giữ nguyên. Kiểm fallback số golden, source citations qua stub, privacy/history/owner/role/sửa/xóa/revoke/expiry, actual BLOCKED/simulate150 thay300, macro injection và snapshot giữ nguyên. 50 hồ sơ,5 nguồn giữ nguyên, không external AI/email. Stub chỉ để chứng minh boundary, không bằng chứng nhà cung cấp ngoài.
+5. `verify-ai-concurrency-db.cjs` **3 ca transaction độc lập PASS**: cùng key/body chỉ một cặp message; hai body cùng revision chỉ một thắng; revoke trong lúc chờ provider ngăn ghi và xóa history/context. Tài khoản SUSPENDED riêng, cleanup đúng ID cả audit/privacy/thread/message, manifest xóa sau kiểm. Lần gọi đầu từng bị automatic approval review không thực hiện do hết hạn mức xét duyệt (không phải kết luận unsafe); sau user yêu cầu tiếp tục đã chạy qua xét duyệt bình thường và PASS. Không bypass hoặc fixture sót từ lần bị từ chối.
+6. Audit chỉ đọc **01:39 ngày 05/10/2026 giờ Việt Nam**: **33 bảng nghiệp vụ + _prisma_migrations**, không thiếu bảng/cột, **8/8 checksum khớp, không pending, schema diff rỗng**, vector0.8.2. Giữ51users/50profilesv2/2configs PUBLISHED, 5knowledge PENDING unapproved/18chunks0embedding. AI/privacy/actual/plans/versions/model/idempotency đều0 sau fixture. 4 refresh/2 outbox có sẵn giữ nguyên, không xóa dựa vào count.
+
+### Phần còn lại và bước tiếp
+
+**Backend T10 chuẩn bị xong theo lựa chọn chưa chọn provider.** AI thật, UI/browser, độ phù hợp tìm kiếm tri thức, worker retention ở môi trường triển khai/backup, quy trình quyền dữ liệu toàn tài khoản và rà pháp lý P36/S08 trước phát hành còn riêng. Chỉ xác nhận nguồn chính thức Luật91/2025/QH15 và Nghị định356/2025/NĐ-CP/trang thuộc tính hiệu lực01/01/2026; chưa hoàn tất đối chiếu từng điều khoản, không tuyên bố tuân thủ. Contract ghi link và phần cần người phụ trách rà, không tự duyệt nguồn hoặc consent cho user. Provider được chọn sau này cần adapter/notice/policyVersion mới/kiểm outbound và hiệu quả model; không dùng consent hiện tại cho mục đích mở rộng âm thầm.
+
+**Bước backend tiếp: T11** — rà modules hiện có/admin/content/bookmark/support/notification/operations, nối partners/products/notification-settings theo phạm vi task, dừng route/producer tư vấn chuyên viên nhưng giữ lịch sử và Support, đồng bộ tài liệu. Đọc mã hiện có và quyền trước thay; không thực hiện frontend, tiếp tục ghi FE-T11. Q13/Q15/T12 vẫn mở. Không áp lại migration 0005–0008.
+
+## Checkpoint hiện hành — 05/10/2026: backend T09, sổ thực tế/đối soát/dự báo còn lại
+
+**Chỉ đạo:** tiếp tục backend, dùng DB thật, ghi UI cho AI frontend. Hoàn thành API sổ thực tế có sửa đổi/lịch sử/idempotency, đối soát và reforecast theo version; frontend không sửa. Q15 tự nộp tiền dư vẫn chưa bật.
+
+### Thay đổi
+
+- `modules/actuals`: USER GET list theo khoảng tháng, GET tháng/history, PUT toàn bộ tháng với expectedRevision + Idempotency-Key; POST reforecast từ planId/versionId/throughMonth. Tiền chuỗi, 10 loại bút toán, Decimal 48, revision CAS/audit/idempotency cùng SERIALIZABLE transaction. Trùng event UUID trong hoặc giữa tháng bị chặn, giữ chỗ ID sau khi loại bút toán khỏi bản mới. History bất biến, lưu chưa khớp được nhưng không đưa vào forecast.
+- Một sổ quỹ hưu trí hợp nhất VND/user dùng giữa các phương án. Tách householdSurplus ba trạng thái với actualContribution; chuyển nội bộ không làm tăng vốn; lãi tái đầu tư chỉ ghi thu đầu tư. Đối soát đầu+nộp−rút+thu đầu tư+biến động giá−phí+điều chỉnh; điều chỉnh phải có note, không tự cân chênh. Không suy hai UUID khác nhau là cùng giao dịch ngân hàng; chưa có import/giao dịch ngân hàng.
+- Reforecast đọc version qua integrity T07 và actual trong cùng transaction; chặn thiếu tháng/không khớp/đầu kỳ sau lệch/cuối kỳ chưa đóng theo lịch Việt Nam. Đầu tháng tiếp theo dùng actual cuối đã đối soát; giữ lịch tương lai/rates trong version, không lặp khoản bất thường thực tế, không tự nộp surplus. HORIZON_COMPLETE riêng, summary sau hưu là phần còn lại, originalRetirementMonth giữ mục tiêu gốc. Không viết profile/current/baseline/snapshot hoặc tự tạo job.
+- Thêm `PlansService.readVersion(tx,...)` để đọc đúng ownership/integrity cùng transaction, không bật calculate legacy. `createServices`/router/OpenAPI đăng ký; contract `MONTHLY_ACTUALS.md`, generator `generate-actuals-openapi.cjs`. FE-T09-01–03 + nghiệm thu đã thêm vào `docs/task-frontend.md`.
+
+### DB và bằng chứng đã chạy
+
+1. Migration **202610050007_monthly_actuals đã áp dụng**: ba bảng actual_months/actual_month_revisions/actual_event_identities, unique tháng/event và trigger chặn UPDATE history. Kiểm checksum lịch sử + đúng một pending + DDL rollback trước apply; fingerprint hồ sơ/kế hoạch/phiên bản/tracking/config hiện có giữ nguyên. Không backfill legacy hoặc seed actual production.
+2. Full `npm test`: **226/226 tests, 19 files PASS**, trong đó **11 T09** (ba trạng thái/precision/âm/nội bộ/interest, revision/idempotency/reserved IDs/rollback, thiếu tháng/sửa quá khứ, one-off/reforecast/baseline, đã hưu/hết horizon/tháng hiện tại/quyền và HTTP/OpenAPI). Sau bổ sung kiểm apply version mới giữ nguyên actual/history, nhóm T09 **11/11 PASS**. Một vòng contract ban đầu nhầm core output với enriched T06 Calculation có netWorth; đã sửa schema reforecast dùng đúng core, chạy lại contract đạt.
+3. Root `npm run typecheck` **PASS frontend/backend**, `npm run typecheck:tests` **PASS**, `npm run build` đầy đủ Prisma+tsc **PASS**, `npm run test:startup` **PASS**. Git diff check scoped **PASS**, chỉ cảnh báo LF/CRLF.
+4. `verify-actuals-db.cjs` **16 kiểm tra HTTP/AuthService/PostgreSQL thật PASS**, outer rollback xác nhận fingerprint toàn bộ profile/plan/version/config/model/actual/identity/history/idempotency/audit/outbox/refresh giữ nguyên, 50 hồ sơ. Có verify trigger bất biến bằng savepoint, quyền ADMIN/owner, retry/stale/trùng event, reforecast golden và sửa quá khứ. Vòng đầu fixture proxy không rollback riêng request lỗi tạo tháng trước khi phát hiện event trùng; đã sửa harness dùng SAVEPOINT cho từng command trong outer transaction rồi chạy lại đạt. Không phải sửa công thức hoặc bỏ kiểm lỗi; không fixture/email tồn dư.
+5. `verify-actuals-concurrency-db.cjs` **3 ca transaction độc lập PASS**: cùng key đúng body trả cùng kết quả/chỉ một audit; khác request cùng revision chỉ một thắng; cùng event ở hai tháng chỉ một tháng được ghi. User mẫu SUSPENDED riêng, không cấu hình/email; cleanup chính xác ID cả audit/idempotency/history/event. Lần đầu setup thiếu passwordHash bắt buộc, chưa ghi user; cleanup kiểm sạch. Sửa fixture rồi chạy ba ca đạt, không đụng dữ liệu người dùng.
+6. Audit chỉ đọc lúc **01:09 ngày 05/10/2026 giờ Việt Nam**: **32 bảng nghiệp vụ + migration**, không thiếu bảng/cột, **7/7 migration checksum khớp, không pending, schema diff rỗng**, vector 0.8.2. 50 hồ sơ v2, 2 cấu hình PUBLISHED/effective giữ nguyên; actual/history/event/model/plan/version/idempotency đều 0 sau kiểm thử. Có **4 refresh_tokens, 2 outbox_events** từ hoạt động khác so với checkpoint cũ, giữ nguyên, không coi số khác 0 là fixture để xóa. Knowledge vẫn 5 PENDING/chưa duyệt, 18 chunks/0 embedding.
+
+### Giới hạn và bước tiếp chính xác
+
+**T09 backend đã hoàn thành phạm vi ghi thực tế/đối soát/reforecast, chưa nghiệm thu UI toàn sản phẩm và chưa đóng Q15.** Một quỹ hợp nhất/user, chưa nhiều sổ tài khoản. Lịch tương lai giữ theo version; tất toán sớm/bán tài sản trước lịch hoặc nguồn thu mới cần cập nhật hồ sơ/phương án, không suy diễn từ nộp/rút. Reforecast chỉ đọc, chưa lưu thành PlanVersion; lịch sử actual độc lập phiên bản, không tự đổi baseline. Source version có whatIf vẫn là phương án giả định, UI dùng metadata T08 để trình bày đúng. Không dùng số thực tế lấp hồ sơ thiếu.
+
+**Bước backend tiếp: T10** — AI giải thích và quản trị dữ liệu theo task.md, kiểm context tối thiểu/version/nguồn/cảnh báo, workflow tạo mô phỏng so với xác nhận apply, guard nội dung/role và knowledge đã duyệt. Đọc các module AI/knowledge đã có trước khi đổi, không tự duyệt 5 nguồn PENDING hoặc tạo nguồn mẫu production. Ghi UI phát sinh vào task-frontend.md. Không áp lại migration 0005/0006/0007.
+
+## Checkpoint hiện hành — 04/10/2026: backend T08, báo cáo/so sánh/mô phỏng/CSV
+
+**Chỉ đạo:** tiếp tục backend và ghi UI cho AI frontend. Đã bổ sung các API để dashboard/goal/plan/simulation/export dùng cùng phiên bản. Không sửa mã frontend hoặc tuyên bố nghiệm thu UI T08. Không migration/seed; giữ schema 0006 đã áp dụng.
+
+### Thay đổi
+
+- `GET /me/retirement/plans/:id/report?versionId`: snapshot cụ thể hoặc current trong cùng transaction, goal từ selection/tháng hưu đã tính, profileChanged/hypothetical và FORECAST. Chưa có current trả NO_APPLIED_VERSION/null, không lấy bản lưu mới nhất hoặc số mẫu.
+- `POST /:id/compare`: so hai version cùng plan/ownership, Decimal candidate−baseline tại ngày định giá; delta null nếu khác ngày/tiền tệ/endMonth hoặc thiếu kết quả. Giữ null K=0, nêu nguồn/selectionFields khác nhau và hạn chế so nhiều biến/hệ số chiết khấu khác nhau.
+- `POST /:id/versions/:versionId/simulate`: baseline snapshot và candidate từ hồ sơ hiện tại/revision/T03/T04 chỉ định; không ghi current/plan/profile/audit/outbox. Candidate có thể lưu/apply bằng T07, không tự áp dụng trong simulate.
+- T06/T07 request thêm optional `whatIf.retirementMonth` và `whatIf.assetValues[{assetId,value}]`. Chỉ thay bản sao hồ sơ; giữ sở hữu/phần hưu trí/thanh khoản/ngày định giá/lịch thu/hưu/nợ. Không nhận macro/vốn quỹ trực tiếp, không tự đổi tiền bán/thuê nhà. Có warning HYPOTHETICAL_VALUES_PROFILE_UNCHANGED; apply chỉ chọn kế hoạch, không đổi hồ sơ gốc. Core/model recurrence không đổi; request/snapshot cũ vẫn tái lập.
+- `GET /:id/versions/:versionId/export.csv`: UTF-8 BOM/CRLF, số tháng nguyên precision chưa làm tròn, giữ âm, metadata/version/hash/nguồn trên mỗi dòng. Không dùng calculator client hoặc current mới để xuất bản cũ. CSV thành công không JSON envelope, lỗi vẫn ErrorEnvelope. CORS expose Content-Disposition; auth/no-store giữ nguyên.
+- Contract [PLAN_PRESENTATION.md](docs/PLAN_PRESENTATION.md), generator/OpenAPI T06/T07 mở rộng và contract tests. Dùng chung fixture T07 qua `plans-fixtures.ts`. Thêm **FE-T08-01–04** và nghiệm thu cho AI frontend. Rà UI thấy wrappers retirement/plans bóc data hai lần; simRetireMonth chưa gửi; tự lấy choice đầu/policy mới nhất; fallback tiền/revision mẫu; goal calculator cũ; save→apply dùng state cũ/bỏ qua false; pending retry chỉ giữ key chưa giữ body. Đã ghi file/cách xử lý, không chỉnh frontend.
+
+### Bằng chứng đã chạy
+
+1. Full `npm test` **215/215 tests, 18 files PASS**, gồm **10 ca T08**: whatIf/không đổi sourceprofile, ownership/validation, report trống/pin, simulation→save→apply→report/replay, null/khác ngày/horizon, source/CSV precision, HTTP contract/read-only. Ca CSV ban đầu dùng input 5 số lẻ trái moneySchema (tối đa 2); đã sửa input, kiểm precision dài sinh từ tính lãi/CPI. Sau thêm expose header, nhóm T08 + OpenAPI **15/15 PASS**.
+2. Root `npm run typecheck` **PASS frontend/backend**; `npm run typecheck:tests` cuối **PASS**. `npm run build` đầy đủ **PASS** sau tiến trình DB verify kết thúc; lần đầu chạy khi Prisma DLL đang được tiến trình verify giữ bị EPERM, không kill tiến trình. `npm run test:startup` **PASS**.
+3. `verify-plan-presentation-db.cjs` **31 kiểm tra HTTP/AuthService/PostgreSQL thật PASS**. Kế thừa T07 trigger/replay/revision/idempotency/baseline/worker; thêm report current và version cụ thể, CSV đối chiếu mọi field tháng, simulate readonly/INCOMPLETE, candidate save/apply/reload cùng kết quả, source profile giữ nguyên, compare tương đương preview, export bản cũ giữ nguyên, role/owner/macro injection. Outer transaction **rollback hoàn toàn**; fingerprint 50 hồ sơ, plans/snapshots/model/config trước/sau giữ nguyên, 2 cấu hình có sẵn; không email/fixture tồn dư.
+4. Không đổi schema/migration T08; không chạy lại 0005/0006. DB không cần thêm bảng/cột cho API mới. Không bơm fixture production khi thiếu dữ liệu. File `docs/SESSION_HANDOFF_2026_10_03.md` không còn trong workspace tại lúc chốt (không do lượt này xóa); giữ thay đổi đồng thời đó, cập nhật bàn giao tại AGENTS/PROGRESS/IMPLEMENTATION_PLAN và docs/info/task hiện có.
+
+### Giới hạn và bước tiếp chính xác
+
+**T08 backend report/compare/simulate/export đã đạt; T08 toàn sản phẩm còn UI, tải CSV trong browser và nghiệm thu xuyên dashboard→goal→plan→simulation→apply→reload.** AI frontend xử lý FE-T08 cùng T06/T07; cần đối chiếu lỗi đã ghi thay vì suy nghiệm thu từ backend test. API mới vẫn USER; quản trị T03/T04 có endpoint riêng. FinancialService legacy calculate không đăng ký vì tự đổi current; mục tiêu tuổi-năm cũ không trở lại làm nguồn quỹ.
+
+**Bước backend tiếp: T09** — sổ thực tế tháng, nộp/rút/thu/chi/nợ/phí/biến động giá, đối soát/revision/idempotency; lấy số dư thực tế đã đối soát làm đầu dự báo còn lại, giữ baseline/snapshot. Không coi report FORECAST là actual hoặc tự nộp surplus Q15. Tiếp tục DB thật theo fixture rollback/scoped cleanup và ghi UI vào task-frontend.md. T10 AI/T11–T12 còn mở.
+
+## Checkpoint hiện hành — 04/10/2026: backend T07, snapshot và áp dụng phiên bản
+
+**Chỉ đạo:** tiếp tục backend, DB thật, ghi UI cho AI frontend. Đã hoàn thành đợt T07: snapshot bất biến, lưu và áp dụng tách biệt, giữ bản gốc/lịch sử, worker chỉ báo cần rà soát. Không sửa frontend hoặc tự chọn kế hoạch cho dữ liệu production.
+
+### Thay đổi
+
+- `modules/plans`: API USER danh sách/chi tiết/history/version/replay, create plan + version, create version tiếp và apply. Chỉ nhận request T06 + expectedInputHash/revision để backend tính lại; không nhận snapshot/result từ client. Ownership, revision hồ sơ/kế hoạch, confirm và Idempotency-Key UUID bắt buộc cho lệnh ghi.
+- Lưu snapshot `retirement-plan-snapshot-v1` gồm profile, full T03/T04/approval/nguồn/hash, lựa chọn, model, ngày định giá, quy ước, chuỗi tháng/kết quả/replay. SHA-256 chuẩn hóa thứ tự khóa để JSONB không phá hash; đọc kiểm snapshot/result/chart khớp. Replay core từ dữ liệu đã lưu, không lấy cấu hình hiện hành.
+- Create chỉ lưu, không đổi current/baseline. Apply mới thay current, giữ baseline đầu tiên, audit và response chống lặp cùng SERIALIZABLE transaction. Profile đổi yêu cầu tạo bản mới; publish mới không bắt buộc đổi bản đã chọn. Revision tăng khi save/apply thực sự, không tăng khi thông báo stale. Cùng key retry trả response lịch sử; UI cần tải lại trạng thái hiện hành.
+- Model registry tạo bản `retirement-monthly-v2` IMPLEMENTED khi lưu lần đầu, không tự duyệt tham số nghiệp vụ. goalRevision legacy = 0 vì mục tiêu tháng/lựa chọn T06 nằm trong snapshot; không đọc goal tuổi-năm v1. Kế hoạch có thể nhiều bản/plan; current riêng theo planId, chưa có primaryPlan toàn tài khoản.
+- `jobs/handlers.ts` nối event legacy qua `plans/events.ts`; `FinancialService.handleEvent` cũng chuyển sang handler này. Job chỉ đánh stale; không gọi calculator/sinh version/chọn current. Batch 20, marker và continuation cùng transaction, retry không nhân bản, event riêng kiểm current còn khớp. T03/T04 publish không tạo job áp dụng; detail trả cờ có phiên bản mới khi đã có hiệu lực.
+- Contract/generator [PLANS.md](docs/PLANS.md), `plans.openapi.yaml`, main OpenAPI. Đã thêm **FE-T07-01–04** và nghiệm thu cho AI frontend trong `docs/task-frontend.md`, giữ các cập nhật UI trước đó.
+
+### Migration và bằng chứng
+
+1. **Đã áp dụng `202610040006_plan_snapshots` lên DB thật** sau kiểm lịch sử/checksum và preview DDL rollback. Thêm revision/baselineVersionId + FK/unique và trigger chặn UPDATE PlanVersion; không thêm bảng, không chọn current/baseline hoặc sửa nội dung snapshot cũ. Fingerprint 50 hồ sơ/plans/versions không đổi. Script deploy lần đầu lỗi ở dòng in báo cáo sau khi áp dụng/kiểm dữ liệu thành công (truy cập shape cũ của fingerprint); đã sửa reporter, kiểm tra chỉ đọc xác nhận migration/checksum/cột/trigger, không áp lại. `apply-plan-snapshots.cjs` nay đã áp dụng thì chỉ kiểm tra.
+2. `npm test`: **205/205 tests, 17 files PASS**, 12 ca T07 gồm lifecycle/idempotency, pin version/replay, baseline/switch back, conflict/profile đổi, quyền/cross-plan, integrity JSONB, rollback audit, worker retry/batch, HTTP và cả 7 loại response OpenAPI. Một vòng đầu contract phát hiện test double có updatedAt thừa; API đã đổi sang DTO rõ trường thay spread raw row. Bổ sung fixture type assertion rồi `typecheck:tests` cuối **PASS**.
+3. Root `npm run typecheck` **PASS frontend/backend**; `npm run build` đầy đủ **PASS** với Prisma generate + tsc; `npm run test:startup` **PASS**, thiếu secrets bị chặn trước DB. Không dừng tiến trình khác.
+4. `verify-plans-db.cjs`: **23 kiểm tra HTTP/AuthService/PostgreSQL thật PASS**, cả lưu JSONB/đọc/replay, trigger UPDATE bị chặn, create/apply lặp, revision/quyền, current/baseline, version cũ, profile đổi và worker. Fixture/model/plan/config/session/outbox trong outer transaction **rollback hoàn toàn**, giữ 50 hồ sơ và 2 cấu hình hiện có, không email.
+5. `verify-plan-concurrency-db.cjs`: **3 ca kết nối độc lập PASS**: hai apply khác cùng revision chỉ một thắng; hai request cùng key trả cùng kết quả/không áp dụng lần hai; sửa profile cạnh tranh apply không mất dữ liệu mới. Fixture tài khoản riêng SUSPENDED không đăng nhập, policy/T03 mẫu chuyển DRAFT trước commit nên không hiển thị như cấu hình công bố. Dọn đúng ID. Rà soát sau vòng đầu phát hiện IdempotencyRecord không có FK cascade nên còn 5 response fixture; đã nhận diện bằng owner/time/payload mẫu và dọn đúng 5 bản, bổ sung cleanup + fingerprint bảng này + manifest ID; chạy lại 3 ca để kiểm cleanup đầy đủ. Không xóa bản ghi của người dùng.
+6. Audit chỉ đọc cuối lúc **20:22 giờ Việt Nam**: đủ 29 bảng + migration, **6/6 migration checksum khớp, diff rỗng, không pending**, vector 0.8.2. Các cấu hình T03/T04 công bố và 50 hồ sơ v2 có sẵn giữ nguyên; knowledge còn PENDING/chưa embedding. Model/plan/snapshot production vẫn chưa có vì fixture đã dọn; các dòng thật sẽ được sinh qua luồng lưu của người dùng, không seed tay. Xác nhận cuối **idempotency_records/outbox_events/processed_events/refresh_tokens đều 0**, không còn dữ liệu kiểm thử của hai vòng cạnh tranh.
+
+### Phần còn lại và bước tiếp chính xác
+
+**T07 backend đã có luồng lưu/apply và kiểm chứng; UI toàn sản phẩm chưa nghiệm thu. Tiếp T08** — nối dashboard/goal/plan/history/simulation/export vào cùng planId/versionId/API tháng, loại đường calculator/demo hoặc báo unsupported giả thành công; bổ sung endpoint backend thực sự thiếu khi đối chiếu UI. Đọc `PLANS.md` về nhiều plan, revision, mục tiêu T06 so với goal legacy và phiên bản đang áp dụng. Không đăng ký calculate legacy tự thay current. Snapshot legacy khác model trả UNSUPPORTED, chưa có chuyển đổi ngầm. T09 thực tế/T10 AI còn riêng; thay công thức về sau phải tăng model code và giữ bộ replay cũ. Tiếp tục ghi mọi thay đổi UI vào task-frontend.md. **Không áp lại migration 0005 hoặc 0006.**
+
+## Checkpoint hiện hành — 04/10/2026: backend T06, bộ tính hưu trí tháng
+
+**Chỉ đạo:** tiếp tục T06/backend, dùng DB thật; yêu cầu UI ghi riêng cho AI frontend. Đã hoàn thành phần engine, adapter hồ sơ và API preview T06; không sửa frontend, không migration, không tự seed hoặc áp dụng kế hoạch.
+
+### Thay đổi
+
+- `modules/retirement/engine.ts`: core thuần Decimal precision 48, kỳ tháng, góp/rút/giải phóng vốn cuối tháng, L danh nghĩa, giữ số dư âm. Ledger tiền còn có riêng đếm nhu cầu mới chưa tài trợ; báo tháng thiếu đầu tiên, không cộng lặp thiếu cũ. PV vốn cần ràng buộc thanh khoản từng tháng để khoản thu muộn không che thiếu sớm.
+- Solver tuyến tính cho mức góp đều tổng và phần tăng đều trên lịch thực góp biến đổi, kiểm tra thiếu sớm trong tích lũy; nghỉ ngay trả null thay chia 0. A/K/G cùng ngày, K=0 tỷ lệ null, >100% không cắt. Rows/summary/replay cùng công thức; đường vốn cần truy hồi từ nghĩa vụ còn lại.
+- `prepare.ts`: vốn thanh khoản đủ điều kiện theo T01, không trừ toàn bộ nợ rồi lại trừ lịch T02. Thu/chi đúng lịch, nợ/stress thay phần trả, dự phòng giữ ngoài quỹ, góp không vượt khả năng tháng. Ghép T03/T04 đã duyệt (phí trong hệ số ròng, CPI theo năm) và pension T05 một lần, không auto CPI sau nhận. Nhà bán/thuê cần xác nhận phạm vi số tiền và liên kết dòng thu trùng; tài sản chưa dùng được giải phóng đúng tháng.
+- Q13 chỉ nhánh core `START_OF_MONTH_RESEARCH`, public luôn END_OF_MONTH. Q15 không tự nộp surplus; phải khai góp sau hưu. Ngày định giá giữa tháng dùng đủ kỳ tháng, có cảnh báo; dòng khai danh nghĩa khác không tự tăng CPI. Chưa mô hình phí phân bổ vốn ban đầu; limitations trong response/contract.
+- `POST /api/v1/me/retirement/preview`: USER/phiên thật, ownership, revision v2, policy và bộ T03 chốt hash trong cùng transaction đọc; không nhận macro/vốn/userId/timing ghi đè. READY/INCOMPLETE/warnings, phiên bản/hash/source/inputHash, marketRows, replayInput. Không ghi plan/snapshot/audit/outbox, không đăng ký worker tài chính legacy.
+- Contract/generator `docs/RETIREMENT_MONTHLY.md`, `retirement.openapi.yaml`, main OpenAPI. UI thêm **FE-T06-01–04** và nghiệm thu trong `docs/task-frontend.md`; giữ các cập nhật trước của AI frontend. Chưa xác nhận nghiệm thu UI.
+
+### Bằng chứng đã chạy
+
+1. `npm test`: **193/193 tests, 16 files PASS**, trong đó **26 ca T06**. Golden FV/PV độc lập, 0/âm/biến lãi, L, nghỉ ngay, tiền lớn, thiếu sớm, nguồn đến muộn, góp thay tháng, pension/scenario, nợ/stress, nhà/tài sản muộn, chi phí tái cân bằng thực, replay, HTTP quyền/revision/phiên bản và OpenAPI READY/INCOMPLETE.
+2. `npm run typecheck:tests` **PASS**. Root `npm run typecheck` **PASS frontend/backend**.
+3. `npm run build` **PASS đầy đủ** (Prisma generate + tsc) ngoài sandbox. Lần sandbox ban đầu bị EPERM lstat thư mục tạm `C:\Users\os`; chạy lại với quyền phù hợp đạt. Lỗi DLL EPERM của checkpoint T05 không còn chặn lần build này; không dừng tiến trình khác. `npm run test:startup` **PASS**: thiếu secrets production bị chặn trước kết nối DB.
+4. `node scripts/verify-retirement-db.cjs` **13 kiểm tra HTTP/AuthService/PostgreSQL thật PASS**, outer transaction serializable bắt buộc rollback. Lưu/đọc profile v2, công bố T03/T04 fixture, golden quỹ, replay/read-only, quyền/revision/injection, INCOMPLETE, chốt bản cũ khi có T03 mới, pension UNKNOWN/nợ UNKNOWN. **Rollback PASS**: 50 hồ sơ, toàn bộ plans/snapshots/config hiện có giữ nguyên; cấu hình trước/sau **2**; fixture/session/outbox không tồn tại sau rollback; không gửi email. Không thay kiểm chứng cạnh tranh transaction độc lập hoặc E2E UI.
+5. Rà soát DB chỉ đọc lúc **19:51 giờ Việt Nam 04/10/2026** (`audit-database-readonly.cjs`): vẫn đủ 29 bảng + migration, diff rỗng, 5/5 checksum khớp. Trạng thái đã khác lần 09:52: **50/50 hồ sơ hiện v2**, **1 T03 + 1 T04 PUBLISHED/có hiệu lực**, **5 knowledge sources PENDING/chưa duyệt, 18 chunks chưa có embedding**. Đây là dữ liệu có sẵn khi kiểm tra, không do fixture T06 lưu lại. Chỉ kiểm metadata/cấu trúc, không khẳng định chất lượng nghiệp vụ hoặc toàn bộ hồ sơ hợp lệ/đủ input T06. Đã cập nhật ghi chú DB và UI để không dùng trạng thái trống cũ làm hiện trạng.
+
+### Giới hạn và bước tiếp
+
+**T06 backend engine/preview đã đạt đợt này; nghiệm thu toàn sản phẩm còn UI/chart/export gắn snapshot T07–T08.** Preview chưa lưu; không tạo model row hoặc giả áp dụng. Khoản góp/thu/chi/năm dự phóng phải do người dùng/cấu hình đã duyệt cung cấp; không dự báo xác suất, không tự bổ sung tỷ lệ production.
+
+**Bước tiếp chính xác: T07** — snapshot bất biến với model/input/lịch tháng/phiên bản/quy ước, tách preview/create/apply với revision/idempotency; publish không tự đổi currentVersion; sửa semantics worker trước khi nối. Cần giữ khả năng tái lập T06, không pha giả định mới vào kế hoạch cũ. Tiếp tục dùng DB thật với fixture rollback và ghi UI vào task-frontend.md. Không áp lại migration 0005.
+
+## Rà soát DB chỉ đọc — 04/10/2026, 09:52 giờ Việt Nam
+
+Theo yêu cầu kiểm tra phần DB cần bổ sung: chạy `scripts/audit-database-readonly.cjs` trên DB thật với transaction READ ONLY và Prisma migrate diff (không thực thi DDL). Đủ 29 bảng nghiệp vụ + bảng migration; không thiếu bảng/cột, diff cấu trúc rỗng; 5/5 migration đã hoàn tất/checksum khớp, không pending; vector 0.8.2 có sẵn. Thiếu **dữ liệu cấu hình**: assumption_set_versions 0 (cả T03/T04), knowledge_sources/chunks 0; 50/50 hồ sơ vẫn v1. financial_assumptions có 8 bản legacy không thay thế bộ T03 có phiên bản. Model/plan/snapshot trống là phần backend T06–T08 cần sinh đúng luồng, không yêu cầu người dùng seed thủ công. Đã lập checklist [database-bo-sung.md](../docs/database-bo-sung.md). Không sửa DB; bước code tiếp vẫn T06. Đây là kiểm tra cấu trúc/số lượng, không thẩm định dữ liệu người dùng hay nghiệm thu UI.
+
+## Checkpoint hiện hành — 04/10/2026: backend T05, lương hưu nhập tay và tuổi tham chiếu
+
+**Chỉ đạo:** tiếp tục backend; mọi yêu cầu UI phát sinh ghi vào `docs/task-frontend.md` để AI frontend xử lý. Vẫn dùng DB thật theo ủy quyền. Đã hoàn thành đợt backend T05 contract/lưu/preview/tra tuổi; không sửa mã frontend, không migration hoặc deploy.
+
+### Thay đổi
+
+- `modules/pensions/schema.ts`: khai báo UNKNOWN/NOT_APPLICABLE/KNOWN, số tiền chuỗi VND, cơ sở TODAY/NOMINAL_AT_START, tháng cơ sở, nguồn/ngày ước tính, lịch điều chỉnh danh nghĩa. Lưu trong profile v2; dữ liệu cũ không có pension vẫn đọc được và không bị xác nhận 0 ngầm.
+- `profiles/schema-v2.ts`: ràng buộc tháng cơ sở/nhận, ngày ước tính, điều chỉnh không trùng và sau tháng nhận; nguồn thu PENSION liên kết một lần qua linkedIncomeId. Summary/cashflow chỉ cộng mức hưu tính được một lần; thiếu mức khai có cảnh báo, thiếu quy đổi cho mức đã khai không thành số 0.
+- `pensions/engine.ts`: dòng thu bắt đầu đúng tháng; TODAY quy đổi một lần bằng chuỗi lạm phát T03 đã công bố, Decimal precision 48; giữ mức danh nghĩa sau tháng nhận trừ lịch điều chỉnh được khai. Không dùng CPI lịch sử/tự kéo năm thiếu/tự giảm phát khoản đã nhận. Cache hệ số theo năm và theo đoạn mức nhận trong preview.
+- `pensions/legal-age.ts`: tra nhóm tháng sinh Phụ lục I/II NĐ 135/2020, mốc chuyển tiếp Điều 7; phiên bản nguồn/ngày rà rõ ràng. Mục tiêu cá nhân độc lập với tuổi tham chiếu. Điều 5 là mốc thấp nhất dựa trên điều kiện tự khai, chưa xác minh; không kết luận đủ điều kiện hưởng. Ngoài phạm vi/thiếu thông tin trả REVIEW_REQUIRED.
+- `POST /api/v1/me/pension/preview`: USER/session thật, ownership từ JWT, expectedProfileRevision, chỉ đọc. Có chuỗi tháng/null/issue, bản/hash T03, tuổi tham chiếu. Không nhận macro/số tiền/userId ghi đè, không ghi current plan/audit/outbox.
+- Đã bỏ công thức BHXH demo khỏi calculator legacy backend: estimatedMonthlyPension null, pensionStatus NOT_ESTIMATED; lương đóng và số năm không còn tạo quyền lợi suy đoán. Context AI T10 và engine tháng cá nhân T06 chưa tích hợp.
+- Contract `docs/PENSIONS.md`, `docs/pensions.openapi.yaml`, cập nhật profile-v2/main OpenAPI qua generator. `docs/task-frontend.md` đã thêm FE-T05-01–04 và checklist nghiệm thu; giữ phần cập nhật đồng thời từ luồng UI, không xác nhận thay các tuyên bố hoàn thành UI ở đó.
+
+### Bằng chứng đã chạy
+
+1. `npm test`: **167/167 tests, 15 files PASS** trên mã cuối; **21 ca T05**, gồm ranh giới phụ lục, điều kiện thiếu/đặc thù, đổi mục tiêu, lịch nhận/điều chỉnh, null/0, âm CPI, tiền lớn, quy đổi qua năm, không CPI sau nhận, chống trùng, HTTP quyền/revision/lifecycle T03 và OpenAPI. Lần đầu test mới thiếu confirm trong lệnh publish fixture; đã sửa fixture đúng contract và chạy lại đạt.
+2. `npm run typecheck:tests`: **PASS** trên mã cuối. `npm run typecheck` từ root: **PASS frontend/backend**; sau chỉnh guard lịch/cache cuối, `npm exec -- tsc` backend và typecheck tests tiếp tục **PASS**. `npm run test:startup`: **PASS**, thiếu secrets production bị chặn trước DB.
+3. `node scripts/verify-pensions-db.cjs` với quyền mạng: preflight cột/schema thật; **13 kiểm tra HTTP/AuthService/PostgreSQL PASS**, gồm lưu/đọc, lịch kỳ nhận, tuổi tham chiếu, read-only/replay, USER/ADMIN/ownership/revision, zero/unknown, thiếu bản T03/công bố trong rollback, chặn dữ liệu sai. **Rollback PASS**: 50 hồ sơ và toàn bộ kế hoạch/snapshot/cấu hình hiện có giữ nguyên; số bộ giả định trước/sau 0; không gửi email, không lưu fixture production. Kiểm chứng này không thay kiểm tra cạnh tranh transaction độc lập hoặc E2E UI.
+4. **Build đầy đủ chưa đạt:** `npm run build` dừng ở `prisma generate` với EPERM khi rename DLL query engine Windows. Không dừng tiến trình của người dùng/AI khác để thay DLL. Schema Prisma không đổi; đã dùng client hiện có để biên dịch toàn bộ TypeScript backend thành công (`npm exec -- tsc`). Không báo build đầy đủ PASS; cần chạy lại khi tệp Prisma có thể được thay.
+
+### Giới hạn và bước tiếp
+
+- **T05 toàn sản phẩm còn mở:** UI cần FE-T05, kế hoạch cá nhân cần T06–T08; AI chỉ giải thích theo context đã kiểm chứng tại T10. Chưa triển khai tự tính quyền lợi BHXH hoặc xác minh điều kiện lao động/hồ sơ hưởng.
+- Không có bộ số liệu T03 production được duyệt; TODAY cần quy đổi thì trả thiếu dữ liệu khi không có phiên bản được chọn. Preview nợ chưa nhận T03 nên khoản TODAY chưa quy đổi không được giả làm thu đã biết.
+- **Bước tiếp chính xác: T06** — engine tháng dùng hồ sơ v2, lịch vay T02, giả định T03/danh mục T04 và dòng hưu T05; FV/PV/cuối kỳ, thanh khoản thiếu sớm, solver mức đóng, chuỗi chart, golden tests. Giữ Q13/Q15 rõ nhánh chưa chốt; chưa nối apply/worker T07 trước khi sửa semantics phiên bản. Dùng DB thật/fixture rollback; không áp lại migration 0005. Tiếp tục ghi thay đổi UI vào task-frontend.md.
+
+## Checkpoint trước — 04/10/2026: backend T04, rủi ro/danh mục/kịch bản
+
+**Chỉ đạo:** tiếp tục backend sau T03, vẫn dùng DB thật theo ủy quyền. Đã hoàn thành đợt T04 contract/lifecycle/preview; không tự đặt điểm/ngưỡng/tỷ trọng/kịch bản production và không thêm migration.
+
+### Thay đổi
+
+- `modules/portfolios/schema.ts`: chính sách có version, metadata nguồn/ngày hiệu lực và assumptionVersionId chốt T03. Sáu chiều questionnaire OBJECTIVE/HORIZON/LIQUIDITY/LOSS_TOLERANCE/EXPERIENCE/FINANCIAL_CAPACITY, lựa chọn/điểm và risk bands cấu hình; điều kiện từng chiều/thời hạn/thanh khoản, template, lịch phân bổ và phí tái cân bằng.
+- `engine.ts`: kiểm tra đủ chiều, điểm liên tục, ID không trùng, lịch đủ kỳ, tổng tỷ trọng 100% không âm, nhóm/thời hạn có trong T03. Câu trả lời thiếu/sai không thành 0; trả null, không sinh phân bổ. Nhiều danh mục hợp lệ yêu cầu chọn rõ. Response giải thích câu trả lời/điểm/quy tắc khớp hoặc không khớp; tuổi không quyết định danh mục.
+- Ba kịch bản BASE/ADVERSE/FAVORABLE từ delta từng năm/nhóm đã duyệt, không tự đặt spread. Lấy lãi danh nghĩa ròng T03, cộng điểm kịch bản và quy đổi tháng bằng Decimal precision 48. Danh mục chuẩn khởi đầu giá trị 1; tỷ trọng trôi theo tăng trưởng giữa kỳ, tái cân bằng đầu tháng theo chu kỳ 1/3/6/12 hoặc khi đổi đoạn lịch. Phí tái cân bằng theo nửa tổng chênh tỷ trọng tuyệt đối × tỷ lệ phí khai rõ. Không tự thêm đòn bẩy hoặc tiền góp/rút.
+- `service.ts`/`router.ts`: ADMIN create/edit/validate/approve/publish; USER đọc bản công bố có hiệu lực và preview. Revision/approval/hash chốt đúng bản T03; bản duyệt/công bố không sửa được, chặn version đi lùi. Publish/preview không sửa current plan/stale/snapshot hoặc tạo outbox. Bộ cũ tái lập từ ID/hash, không tự nhảy sang T03 mới.
+- Lưu cùng bảng cấu hình version hiện có với discriminator `portfolio-policy-v1`; không migration và không thay các bản T03/legacy. OpenAPI `portfolios.openapi.yaml`, generator `generate-portfolios-openapi.cjs`; dùng lại converter cấu trúc T03 (thêm hỗ trợ union). Hướng dẫn `docs/PORTFOLIOS.md` và tham chiếu chính thức Investor.gov. Không nối giao diện hoặc ghi cấu hình demo vào DB thật.
+
+### Bằng chứng đã chạy
+
+1. `npm test`: **146/146 tests, 14 files PASS**. Có **17 tests T04**: khác chịu lỗ/thanh khoản/khả năng tài chính, thiếu/invalid answers, ngưỡng/câu hỏi trùng, tổng tỷ trọng và lịch sai, horizon, scenario years/direction/rate domain, nhiều danh mục hợp lệ, weighted monthly growth độc lập, drift/tái cân bằng/phí/đổi năm, input bất biến, lifecycle/revision/audit rollback, replay bản cũ, hash/dependency/tương lai/version đi lùi, quyền HTTP ADMIN/USER và macro injection. OpenAPI phản hồi READY/INCOMPLETE/list/version/validation khớp và main specification hợp lệ.
+2. `npm run typecheck:tests`: **PASS**. `npm run typecheck` từ root: **PASS frontend/backend**. `npm --prefix backend run build`: **PASS**, Prisma generate + tsc tuần tự sau test, TEMP/TMP workspace. `npm --prefix backend run test:startup`: **PASS**, production thiếu secrets bị từ chối trước kết nối DB.
+3. `node scripts/verify-portfolios-db.cjs` với quyền mạng: preflight schema thật, **15 kiểm tra HTTP/PostgreSQL PASS** qua AuthService/session thật. Chuẩn bị T03 fixture đã duyệt; ADMIN lưu/reload/validate/approve/publish 2 chính sách, USER phân quyền/preview, câu trả lời thiếu, khác chịu lỗ/thanh khoản, chặn rate injection, bất biến và replay version cũ. Audit hiện diện, không tạo job/mail.
+4. Tất cả tài khoản/phiên/bộ T03/chính sách công bố thử trong transaction rollback. **Rollback PASS**, **50 hồ sơ, kế hoạch chính và snapshot cũ không đổi**, số bản cấu hình trước/sau **0**. Fixture không commit cho tiến trình khác, không có giao dịch. Không coi kiểm tra này là bằng chứng cạnh tranh nhiều transaction độc lập hoặc E2E UI.
+
+### Giới hạn và bước tiếp
+
+- **T04 toàn sản phẩm còn mở**: UI và bộ câu hỏi/ngưỡng/tỷ trọng/tham số production chưa do người phụ trách duyệt. Không giả định policy mặc định khi thiếu; UNCONFIGURED/INCOMPLETE rõ ràng.
+- Preview là **unit portfolio**, không có dòng tiền cá nhân, initial allocation cost hoặc giá trị quỹ hưu trí; tuổi/mức sống/tích lũy/tài sản nối T06–T08. Câu trả lời là tự khai, chưa xác minh độc lập bằng hồ sơ. Chưa lưu lựa chọn/câu trả lời thành snapshot hoặc apply current plan. Chưa tính thuế giao dịch riêng ngoài tham số phí/thuế đã khai.
+- Dải lợi suất theo horizon cố định của lần preview; lịch phân bổ có thể đổi theo tháng. Phiên bản/căn cứ được giữ cho T06; không tự giảm 1,5 điểm lợi suất lúc nghỉ hưu, không tự gán danh mục theo tuổi.
+- **Bước tiếp chính xác: T05** — mức lương hưu nhập tay với cơ sở tiền/ngày nhận/nguồn/trạng thái thiếu, không tăng theo CPI ngầm hoặc trùng thu; loại BHXH demo khỏi luồng chính/AI; đối chiếu văn bản/phụ lục chính thức cho tuổi nghỉ hưu, tách khỏi tuổi mục tiêu. Đọc task.md/S06–S07 và kiểm tra dữ liệu v2 trước sửa. Giữ DB thật/fixture rollback, không áp lại migration 0005. Q13/Q15 không chặn phần độc lập.
+
+## Checkpoint trước — 04/10/2026: backend T03, bộ giả định năm có version
+
+**Chỉ đạo:** tiếp tục backend sau T02, dùng DB thật đã được cho phép. Đợt này hoàn thành contract/lifecycle/chuỗi tháng T03, không nhập bộ số liệu kinh tế production thay người duyệt, không thêm migration hoặc deploy.
+
+### Đã triển khai
+
+- `modules/assumptions/schema.ts`: tài liệu v2 có năm đầu/cuối, ngày hiệu lực, sources với release/publisher/ngày công bố/ngày lấy/khoảng năm; historicalCpi riêng, inflation dự báo/dài hạn từng năm, lợi suất từng nhóm tài sản/dải thời hạn; loại lãi, thực/danh nghĩa, phí/thuế khai rõ. Nháp được thiếu kỳ, duyệt/công bố phải đủ, không trùng/không chồng thời hạn và đúng nguồn.
+- `series.ts`: Decimal precision 48, danh nghĩa ghép kỳ → hiệu dụng, thực → danh nghĩa đúng một lần, phí/thuế INCLUDED không trừ lại, EXPLICIT_ANNUAL_DRAG trừ theo quy ước đã khai. UNKNOWN không thành 0; tỷ lệ âm/0 hợp lệ. Chuỗi tháng đổi rate đúng tháng 01 từng năm, không kéo lịch sử hoặc tự ngoại suy cuối nguồn. T04 sẽ cung cấp chính sách danh mục, chưa gán tỷ trọng theo tuổi.
+- `service.ts`/`router.ts`: ADMIN nháp → validate → xem diff cấu hình → approve → publish. Revision/actor/token/hash/baseline bảo vệ đúng bản đã xem; bản đã duyệt/công bố bất biến qua API, không công bố version thấp sau số cao. Audit trong transaction; lỗi audit rollback thay đổi. Bản cũ vẫn resolve bằng ID sau khi công bố bản mới. USER chỉ xem/chọn bộ công bố đã có hiệu lực, server từ chối rate override/userId/dữ liệu thừa.
+- Lưu `modelCode: assumption-series-v2` trong bảng `assumption_set_versions`, JSON values/policy/source hiện có; không migration hay sửa legacy. Không sửa currentVersionId/stale/snapshot, không tạo outbox job khi công bố. T03 không đi qua engine legacy. Đã bỏ phép tự trừ 1,5 điểm lợi suất hưu trí trong demo backend `services/financialEngine.ts`.
+- OpenAPI `docs/assumptions.openapi.yaml` gắn main contract; script sinh DTO `scripts/generate-assumptions-openapi.cjs`. Hướng dẫn `docs/ASSUMPTIONS.md` gồm công thức, nguồn tham chiếu IMF/Investor.gov, lifecycle và giới hạn. Không tải URL nguồn do admin nhập hoặc seed tỷ lệ mẫu.
+
+### Bằng chứng đã chạy
+
+1. `npm test`: **129/129 tests, 13 files PASS** trên mã cuối. **19 tests T03** gồm ranh giới năm/không dùng CPI quá khứ, quy đổi thực/danh nghĩa/lãi ghép kỳ/lãi âm, phí/thuế, thiếu năm/nguồn sai/dải chồng, không kéo dài nguồn, revision/review/approve/publish, rollback audit, quyền HTTP ADMIN/USER, macro injection, OpenAPI response, replay bản cũ và hash đã duyệt. Lượt OpenAPI đầu phát hiện required rỗng ở body `{}`; đã sửa generator, bộ contract hoàn chỉnh đạt.
+2. `npm run typecheck:tests`: **PASS** trên mã cuối. `npm run typecheck` từ root: **PASS frontend/backend**. `npm --prefix backend run build`: **PASS** Prisma generate + tsc, TEMP/TMP workspace, sau khi test kết thúc. `npm --prefix backend run test:startup`: **PASS**, production thiếu secrets bị từ chối an toàn trước kết nối DB.
+3. `node scripts/verify-assumptions-db.cjs` với quyền mạng: kiểm tra cột DB thật trước ghi fixture, sau đó **14 kiểm tra HTTP/PostgreSQL PASS** qua AuthService/session thật. ADMIN/USER, lưu/đọc nháp, chặn publish chưa duyệt, xem tác động/duyệt/công bố thử 2 bản, resolve đúng năm, không sửa bản công bố, replay bản cũ, chặn macro override, thiếu năm, audit, không tạo job/mail.
+4. Mọi tài khoản/phiên/bộ giả định kiểm thử trong một transaction rollback; bản công bố thử không lộ cho API/worker bên ngoài. **Rollback PASS**; fingerprint **50 hồ sơ, kế hoạch chính và snapshot cũ giữ nguyên**. Bảng assumption_set_versions có **0 bản trước/sau**, không đưa fixture vào production. Không cần migration. Bằng chứng này không thay kiểm tra cạnh tranh các transaction độc lập hoặc E2E frontend.
+
+### Phần còn lại và bước tiếp
+
+- Backend T03 contract/lifecycle/series đã kiểm chứng; **T03 toàn sản phẩm chưa đóng**. Chưa có bộ số liệu production được nghiệp vụ duyệt, chưa nối UI quản trị/tự đồng bộ CPI/WEO, frontend demo còn cần thay phép giảm lợi suất. Không dùng 0/4%/7,8% để giả bộ đủ cấu hình.
+- Impact hiện **CONFIGURATION_DIFF_ONLY / AWAITING_T06**, có before/after và gate phê duyệt, chưa tính tác động quỹ trước/sau. T06 dùng factors danh nghĩa/ròng; caller không áp phí hoặc chuyển thực/danh nghĩa lần nữa. Chọn bộ ở resolve chưa ghi current plan; snapshot/apply thuộc T07–T08.
+- Module tài chính legacy vẫn chưa nối router chính; T06/T07 phải thay engine/job/snapshot cũ trước khi nối. F07/F13 toàn sản phẩm còn mở phần UI/danh mục/engine. Không gửi email hoặc deploy.
+- **Bước tiếp chính xác: T04** — questionnaire/rules/version/approval rủi ro đa yếu tố, danh mục tỷ trọng đủ 100% và lịch thay đổi, kịch bản tham số duyệt. Không tự đặt ngưỡng điểm/tỷ trọng production, không gán danh mục chỉ theo tuổi. Q13/Q15 không chặn phần độc lập. Dùng DB thật với fixture rollback, không áp dụng lại migration 0005.
+
+## Checkpoint trước — 04/10/2026: backend T02, HTTP và DB thật
+
+**Chỉ đạo:** người dùng yêu cầu tiếp tục sau T01, giữ ưu tiên backend và dùng DB thật đã được cho phép. Đợt này làm T02; không tạo migration vì hợp đồng nằm trong JSON v2, không sửa migration 0005 đã áp dụng.
+
+### Thay đổi
+
+- `modules/debts/schema.ts`, `loan.ts`, `engine.ts`: hợp đồng có nguồn/ngày chốt/các bên/kỳ trả/lãi/phí/tối thiểu/đáo hạn/điều khoản trả trước. Phân biệt lãi hiệu dụng năm, danh nghĩa năm ghép tháng, hiệu dụng tháng và lãi đơn theo ngày khai rõ. Dư nợ giảm dần, Decimal precision 48, không làm tròn tiền giữa các bước. Lịch rỗng/sai được từ chối bằng validation; không tự suy APR hoặc vốn hóa lãi chưa hỗ trợ.
+- `profiles/schema-v2.ts`, `cashflow.ts`, `summary-v2.ts`: thêm contract tùy chọn, giữ đọc dữ liệu T01 chưa có hợp đồng. Summary và preview dùng cùng nguồn thu/chi và lịch nợ; contract KNOWN ghi đè payment scalar cũ. Chi liên kết nợ không cộng hai lần, netWorth và retirementLiquidAssets tiếp tục riêng biệt.
+- So CONTRACT/AVALANCHE/SNOWBALL/SELECTED_PAYOFF với ngân sách sau chi thường kỳ và dự phòng; trả trước sau kỳ bắt buộc, phí cố định/phần trăm/mức tối thiểu/tối đa/thời gian cấm. Nợ chung trả trước cần xác nhận góp theo tỷ lệ, không tự lấy tiền dự phòng hoặc tài sản hưu trí. Tổng chi phí có thể cao hơn baseline; không ẩn chênh lệch âm. Hết horizon còn nợ báo HORIZON_LIMIT và SAME_HORIZON_ONLY, không gọi đó là tiết kiệm toàn kỳ.
+- Stress thay phần phải trả trong tháng, không cộng lại cơ sở; tăng share chỉ khi phạm vi FULL xác nhận. UNKNOWN/CAPPED/ALLOCATED_ONLY trả thiếu dữ liệu cho phần stress, baseline có cảnh báo giới hạn mô hình. Không tính giới hạn nghĩa vụ còn lại hoặc suy nghĩa vụ pháp lý từ paymentShare.
+- `POST /api/v1/me/debts/preview`: USER + phiên thực, ownership từ JWT, expectedProfileRevision, chỉ đọc hồ sơ đã lưu, không nhận macro/userId. Trả chuỗi tháng, áp lực theo ngưỡng 30/50, tiền còn lại (giữ âm), kỳ thiếu tiền, chi phí/ngày hết nợ và dòng tiền có thể dành hưu trí. OpenAPI `debt.openapi.yaml` liên kết với profile v2/main contract; hướng dẫn `docs/DEBT_PLANNING.md`.
+
+### Bằng chứng đã chạy
+
+1. `npm test`: **110/110 tests, 12 files PASS**. T02 có **26 tests** gồm số tính độc lập, lãi đổi/0/ngày/đáo hạn, tiền lớn và phần lẻ, nợ 5/10/15 triệu, tỷ lệ 29,99/30/50/50,01%, DTI thấp vẫn thiếu tiền, phí làm phương án đắt hơn, lịch thiếu, reserve/budget, tiền một lần, share, ownership/revision/auth và HTTP/OpenAPI. Sau rà soát thêm chặn horizon vượt 2199, lịch rỗng và ca tổng nợ 15 triệu: chạy lại riêng 26 tests T02 **PASS**.
+2. `npm run typecheck:tests`: **PASS**, gồm lượt sau sửa cuối. `npm run typecheck` từ root: **PASS frontend/backend**. `npm --prefix backend run build`: **PASS** Prisma generate + tsc; TEMP/TMP tại workspace. `npm --prefix backend run test:startup`: **PASS**, production thiếu secrets bị từ chối trước kết nối DB.
+3. `node scripts/verify-debts-db.cjs` với quyền mạng: **12 kiểm tra HTTP/PostgreSQL thật PASS**. AuthService login/validateSession thật; lưu nháp, complete, reload hợp đồng và summary, preview/replay, chỉ đọc, user khác 404, revision cũ 409, injection 400, stress nợ chung và hợp đồng UNKNOWN. Không mock DB hoặc session guard trong script này.
+4. Toàn bộ fixture, refresh session, audit/outbox trong transaction ngoài rollback; event không commit cho worker. **Rollback/cleanup PASS**, **50 hồ sơ và toàn bộ snapshot cũ không đổi** qua fingerprint trước/sau, không có email được xếp hàng. Không chạy destructive integration suite trên DB thật. Script này không chứng minh isolation/concurrency của transaction nghiệp vụ độc lập; T01 đã có ca revision cạnh tranh riêng.
+
+### Giới hạn và bước tiếp
+
+- T02 backend/API đã có bằng chứng; **T02 toàn sản phẩm chưa đóng**. Frontend chưa có form contract/preview; engine hưu trí cũ chưa thay, F04/F05 toàn sản phẩm vẫn mở. `availableForRetirement` và chênh tháng sẵn để nối T06, không phải kết quả dự phóng quỹ hưu trí đã nghiệm thu.
+- Chỉ lịch tháng VND giảm dần, khai lãi/dòng tiền rõ; không bảo đảm đủ tiền từng ngày trong tháng. Chưa hỗ trợ recast, tái cấp vốn, giao dịch thật, nghĩa vụ có trần/điều kiện bảo lãnh, vỡ nợ hoặc chậm trả. Thiếu điều khoản không biến thành giả định hợp lệ. Stress và tối ưu là các phương án riêng.
+- T00/browser/nhà cung cấp ngoài chưa nghiệm thu. Không gửi mail hoặc deploy. Không thay các phần frontend/công việc khác đang có trong workspace.
+- **Bước tiếp chính xác: T03** — đọc yêu cầu chuỗi giả định theo năm, nguồn/version/phê duyệt/hiệu lực/loại lãi/phí-thuế/danh nghĩa-thực; kiểm tra schema assumption hiện có và đường publish trước thay đổi. Giữ macro ngoài quyền USER. Q13/Q15 không chặn phần độc lập. Tiếp tục dùng DB thật có kiểm tra trạng thái, không chạy lại migration T01.
+
+## Checkpoint trước — 04/10/2026: backend T01 và DB thật
+
+**Chỉ đạo mới nhất:** người dùng yêu cầu “bắt đầu từ T01” rồi “dùng luôn db thật”. Tiếp tục backend T01, không chặn bởi yêu cầu DB test local trong ghi chú cũ. Không reset dữ liệu, không chạy cả bộ test phá dữ liệu trên DB thật, không gửi email hay deploy dịch vụ. Các mục T00 còn lại giữ trạng thái chưa nghiệm thu.
+
+### Đã triển khai
+
+- `modules/profiles/schema-v2.ts`: schemaVersion 2, ngày định giá, VND/tháng, KNOWN/UNKNOWN/NOT_APPLICABLE đúng phạm vi; không có tiền mặc định. Thu khả dụng FIXED/BONUS/IRREGULAR, nhóm chi chi tiết, lịch MONTHLY/ONCE, asset ownership/retirement/emergency/other-goals, thanh khoản/tháng dùng và phương án nhà ở; nợ chung và khoản chi trả nợ có liên kết, kiểm tra ID trùng/lịch/số tiền.
+- `summary-v2.ts`: Decimal precision 48, chuỗi số không làm tròn; thiếu dữ liệu trả null theo chỉ số. Thu/chi theo tháng; trả nợ chỉ tính một lần. Tài sản ròng khác vốn hưu trí; nhà ở/dự phòng/mục tiêu khác không thành tiền mặt hưu trí. Ngoại tệ chưa có quy tắc và khác ngày định giá không cộng ngầm.
+- `schema.ts`/`service.ts`: API hiện có đọc/ghi v1 và v2. Nháp thiếu nhóm/trường/khoản (giữ ID), merge personal và thay trạng thái/danh sách nguyên khối; validate lại khi complete. Giữ ownership, USER, revision, idempotency, audit/outbox và rollback. V2 không tự đổi ngày định giá khi sửa trường khác; không nhận dữ liệu v1 ghi đè v2.
+- Dữ liệu v1 đọc được, kèm `LEGACY_UNREVIEWED` và đường dẫn số 0 chưa có bằng chứng. Chỉ nâng cấp khi user gửi tài liệu v2 đầy đủ; giữ nguyên JSON cũ trong `legacyProfileData`. Không tự xác nhận số 0 cũ hay thay snapshot/currentVersion.
+- Migration `202610040005_profile_v2`: thêm JSONB lưu bản cũ; netWorth legacy cho phép null/bỏ default 0. V2 tính summary từ JSON, cache cũ đặt null để không lưu số đã làm tròn. OpenAPI cập nhật cả hai schema và thêm `docs/profile-v2.openapi.yaml`; hướng dẫn tại `docs/FINANCIAL_PROFILE_V2.md`.
+
+### Bằng chứng thực tế
+
+1. `node scripts/check-profile-db.cjs`: kết nối DB thật thành công; đủ migrations 0001–0004, checksum khớp file, pgvector **0.8.2**, **50 hồ sơ schemaVersion 1**. Chỉ đọc metadata/tổng số, không xuất hồ sơ/URL/credentials. Lượt sandbox đầu lỗi TLS P1011; chạy kết nối với quyền mạng đã đạt.
+2. `node scripts/apply-profile-v2.cjs`: thử DDL trong transaction, đối chiếu fingerprint 50 hồ sơ, **PASS và rollback**. Sau đó `--apply`: **migration 0005 áp dụng thành công**, dữ liệu JSON/revision/schemaVersion/netWorth cũ không đổi. Không có pending migration khác bị áp dụng kèm.
+3. `npm test`: **84/84 tests, 11 files PASS**. Bao gồm 16 tests T01 về thiếu/0, tiền Decimal lớn, ngày/tháng, lịch một lần, FX, phân bổ, chống trùng nợ, lưu/đọc lại, migration v1, rollback/idempotency, USER/ADMIN/ownership và HTTP/OpenAPI. Kết quả này là offline, không thay bằng chứng PostgreSQL.
+4. `node scripts/verify-profile-v2-db.cjs`: **12 kiểm tra workflow PostgreSQL thật PASS**, gồm nháp thiếu trường, complete/replay, lưu UNKNOWN và số 0 nhập rõ ràng, đọc lại, ownership, stale revision, outbox và nâng cấp bảo toàn v1. Toàn luồng rollback; event không được commit cho worker. Một lỗi fixture ban đầu thiếu passwordHash đã sửa; không phải lỗi service hoặc thay đổi dữ liệu thật.
+5. Cùng script: hai transaction draft thực cạnh tranh → **một thành công/một 409**, revision chỉ tăng một lần. User fixture bị khóa đăng nhập và draft đã dọn đúng ID; **cleanup PASS**. Đối chiếu **50 hồ sơ và toàn bộ snapshot cũ không đổi**.
+6. `npm run typecheck:tests`: **PASS**. `npm run typecheck` tại root: **PASS frontend và backend**. `npm --prefix backend run build`: **PASS Prisma generate + tsc**; TEMP/TMP dùng thư mục workspace. `npm --prefix backend run test:startup`: **PASS**, thiếu secret production bị từ chối an toàn.
+
+### Phạm vi còn lại và bước tiếp
+
+- Backend T01 đã có bằng chứng ở trên; **T01 toàn sản phẩm chưa hoàn tất** vì onboarding/form/frontend v2 và browser chưa nối. Client cũ tiếp tục dùng v1 cho hồ sơ v1; cần hỗ trợ v2 trước khi nâng hồ sơ người dùng thực tế qua UI.
+- Lịch hợp đồng/gốc/lãi/phí/tối ưu nợ ở T02 chưa làm. Thu từ phương án nhà ở mới lưu dữ liệu, chưa tạo dự báo T06. Lương hưu/tuổi pháp lý ở T05; engine T06 chưa nghiệm thu. Không tự tính hưu trí bằng summary T01.
+- T00 migration sạch/browser và nhà cung cấp ngoài vẫn chưa nghiệm thu. Kiểm chứng T01 trên DB thật không tương đương chạy toàn bộ bộ integration hoặc chạy migrations từ DB trắng.
+- Bước backend tiếp theo: đọc T02, mở rộng lịch vay trên cấu trúc v2 và kiểm chứng chống tính trùng; tiếp tục dùng DB thật theo chỉ đạo, ưu tiên transaction rollback/fixture riêng, không áp dụng lại migration 0005. Không sửa migration đã áp dụng.
+
+## Checkpoint hiện hành — 04/10/2026: nhận backend T00–T12, sửa kiểm thử auth T00
+
+- Theo yêu cầu người dùng, nhận phần backend của T00–T12 và ưu tiên T00 → T01. Phạm vi chi tiết ở mục 7 [task.md](../docs/task.md). Chưa triển khai toàn bộ danh sách; T00 còn mở phần DB và frontend/browser.
+- Task hiện hành thay các ghi chú lịch sử “chờ khảo sát”, “không chạy test” và kế hoạch 14 phase. Chỉ Q13/Q15 còn trao đổi; không dùng chúng để chặn công việc độc lập.
+- Đọc luồng đăng nhập/reset, router, OpenAPI và test trước khi sửa. Lượt baseline: **66/67 tests**, lỗi ở `modules.test.ts` reset mật khẩu: test đòi 403 EMAIL_NOT_VERIFIED cho mật khẩu cũ và đòi xóa refresh token đã có. Đúng nghiệp vụ là 401 UNAUTHENTICATED và thu hồi token, bảo toàn dấu vết phiên. Nhánh pending trong service test đã đúng khi bắt đầu lượt này.
+- Sửa test reset đúng hành vi; thêm contract test HTTP chạy AuthService thật với DB giả lập: đúng mật khẩu/pending → 403, sai mật khẩu → 401; response theo OpenAPI, không cấp cookie, token hoặc bản ghi phiên. Làm rõ mô tả 401/403 của `/auth/login` trong OpenAPI. Không đổi logic AuthService.
+
+Bằng chứng đã chạy tại backend:
+
+1. `npm test`: **68/68 tests, 10 files PASS** (offline; không phải PostgreSQL integration).
+2. `npm run typecheck:tests` và `npm run typecheck`: **PASS**.
+3. `npm run build`: **PASS**, Prisma generate + tsc. Lần đầu chạy đồng thời test gặp EPERM đổi tên Prisma DLL; sau khi test kết thúc, chạy lại tuần tự đạt. TEMP/TMP dùng `E:/An_Huu/.cache/tmp`.
+4. `npm run test:startup`: **PASS**, từ chối khởi động production thiếu secret, không kết nối DB.
+5. `npm run test:local-db`: **FAIL trước integration**, thông báo `LOCAL_TEST_FAILED`. Kiểm tra chỉ xuất cờ cấu hình xác nhận DATABASE_URL không local và TEST_DATABASE_URL chưa được đặt; guard từ chối trước tạo database/migrate. Không kết luận DB/pgvector/migrations đạt.
+
+Giới hạn: chưa chạy frontend/browser, chưa kiểm chứng provider thật, không migrate/reset/seed DB ứng dụng, không gửi email hoặc phát hành. F01 đóng trong phạm vi contract/test đã kiểm chứng; F15/F21 và các việc T00 còn lại giữ mở. Các checkpoint bên dưới là lịch sử, không phải bằng chứng cho toàn bộ code hiện tại.
+
+Bước tiếp cụ thể: chuẩn bị PostgreSQL test local cô lập `anhuu_*_test`, kiểm tra extension vector ngay trong DB test trước migration 0003, chạy migration sạch và nâng từ phiên bản cũ, sau đó integration. Hoàn tất cổng T00 liên quan trước triển khai schema hồ sơ T01; tiếp tục theo thứ tự đã nhận, giữ các thay đổi khác trong workspace.
+
+## Checkpoint mới nhất — 03/10/2026: Nodemailer + HTML email + refresh chủ động
+
+- Theo yêu cầu mới, thay Resend bằng Nodemailer 10.0.13; cài types, cập nhật lockfile và gỡ SDK/config Resend. `jobs/mail.ts`, worker, legacy EmailService, dev runner và trang operations dùng SMTP mới. Không gọi API Resend nữa.
+- Đã đọc HTML người dùng gửi tại attachment Pasted text.txt; chuyển thành template `src/templates/auth-email.json`, renderer `authEmail.ts`. Giữ thiết kế navy/mint, thêm biến nội dung cho OTP/reset, CTA, HTML escape mọi dữ liệu user và text fallback. Template JSON được tsc mang theo vào dist.
+- Gmail cá nhân là cấu hình mặc định tạm; thêm các trường SMTP vào `.env.example` và chỉ thêm trường thiếu vào `.env` hiện có. Không in hoặc thay credentials cũ. SMTP_USER/SMTP_PASS ban đầu chưa có, cần người dùng điền riêng. Tên miền email không bắt buộc. Xem `../docs/SMTP_EMAIL_SETUP.md`.
+- OTP và reset vẫn dùng verification hash/outbox mã hóa, cooldown/expiry/single-use và rate limit có sẵn. Nút xác minh mở form nhận email từ fragment, không tự kích hoạt tài khoản. Reset thành công xóa session frontend và thông báo logout sang tab khác.
+- JWT/session backend đã có thật trước đợt này. Bổ sung client đọc exp để lên lịch refresh trước hết hạn, refresh khi focus/online, ngừng poll khi tab ẩn và retry mạng sau 30 giây. Authorization vẫn chỉ do backend quyết định; không lưu JWT localStorage. Request 401 không xoay thêm token nếu request khác vừa refresh xong.
+- Đăng nhập bằng mật khẩu đúng nhưng email pending trả EMAIL_NOT_VERIFIED để hướng dẫn xác minh. Giữ xác thực backend, revoke/session family và HttpOnly cookie.
+- SMTP bắt buộc TLS/STARTTLS, xác minh chứng chỉ, timeout từng giai đoạn, không log thư/secret. Worker gia hạn lease khi SMTP đang xử lý; Message-ID ổn định không phải idempotency provider. SMTP có thể gửi trùng nếu crash sau provider accept nhưng trước ghi completion.
+- Đã cài dependency và sửa mã/tài liệu. **Không chạy test/build/typecheck hay gửi email thật** theo yêu cầu; mock test Resend cũ đã được chuyển sang Nodemailer, chưa thực thi. Không migrate/seed/reset database.
+- Bước tiếp: người dùng điền SMTP_USER/SMTP_PASS của hộp thư gửi; chạy `npm run worker:dev` tại backend nếu API/web đang chạy. AI kiểm thử tiếp nhận các trường hợp ghi trong SMTP_EMAIL_SETUP. Không chạy thêm Vite trên 8443, không replay toàn bộ mail FAILED cũ.
+
+Các mục nhắc Resend bên dưới là lịch sử trước khi chuyển SMTP, không phải cấu hình hiện tại.
+
 ## Điểm tiếp tục
 
-- Ngày: 02/10/2026.
-- Phase hiện tại: **hoàn thiện B00, code nhóm B01–B03**.
-- Chỉ dẫn mới nhất của người dùng: code các module theo nhóm rồi kiểm tra chung; bỏ qua kết nối database vì chưa setup. Thay thế yêu cầu kiểm tra từng phase trước khi chuyển ban đầu.
-- Kế hoạch: `IMPLEMENTATION_PLAN.md`. Hướng dẫn phiên tiếp theo: `AGENTS.md`.
+- Cập nhật: **03/10/2026**, múi giờ Asia/Saigon.
+- **Đã nối frontend đăng ký/đăng nhập vào API B02. Yêu cầu hiện tại ưu tiên xác thực; nghiệp vụ tài chính chính còn chờ phản hồi khảo sát. Phần data mẫu đã được người dùng giao AI khác.**
+- Người dùng cho phép code theo nhóm rồi test chung. Ban đầu hoãn database; sau đó xác nhận database local đã kết nối được. Đã kiểm tra kết nối và dùng database test riêng để chạy migrations/integration.
+- Đọc `AGENTS.md`, `IMPLEMENTATION_PLAN.md`, `info.md`, `task.md` trước khi tiếp tục. Không làm lại setup/đổi stack.
+- **Chưa phát hành production. Frontend auth đã nối API; phần hồ sơ/tài chính chưa nối đầy đủ.** Không coi unit test hoặc adapter Azure đã compile là bằng chứng cloud hoạt động.
 
-## Trạng thái phase
+## Checkpoint 03/10/2026 — hoàn thiện auth frontend/API
 
-| Phase | Trạng thái |
-| --- | --- |
-| B00 | Đang thực hiện |
-| B01–B03 | Đang code theo nhóm; sẽ kiểm tra chung |
-| B04–B12 | Chưa bắt đầu |
+- Thay phiên demo/localStorage bằng API đăng ký, OTP, gửi lại, đăng nhập, Google, refresh, logout, forgot/reset. USER/ADMIN lấy từ máy chủ; refresh cookie HttpOnly, access token chỉ trong bộ nhớ. Có loading/error, giữ nguyên mật khẩu, giới hạn gửi lại OTP trên UI, đồng bộ tài khoản/đăng xuất giữa tab và Web Locks cho rotation.
+- Backend lưu điện thoại Việt Nam tùy chọn; Google token phải qua verifyIdToken đúng audience, email verified và Gmail/Workspace authoritative. Mật khẩu chưa xác minh cũ bị vô hiệu hóa khi Google kích hoạt tài khoản pending để ngăn chiếm quyền qua đăng ký trước.
+- Link đặt mật khẩu dùng fragment và xóa sau khi đọc. Đường dẫn analytics không chứa token. Dữ liệu tài chính demo phía frontend tách khóa theo tài khoản; không thay công thức nghiệp vụ.
+- Vite dev/preview proxy `/api` tới 5000. `npm run dev` ở root chạy frontend, API, worker khi đủ cấu hình; tạo khóa outbox local ổn định nếu thiếu. Đã chạy chính lệnh supervisor này: web 8443 trả 200, API readiness trả 200, log xác nhận worker.started/server.started. Không còn lỗi ECONNREFUSED trong probe local.
+- Chỉ đọc trạng thái database ứng dụng; không import/seed/migrate/reset. Đã xác nhận 0 email auth đang chờ trước khi bật worker. Không gửi email thử hoặc đăng ký tài khoản thử vào DB ứng dụng. Không ghi secret vào tài liệu.
 
-## Mốc kiểm tra trước thay đổi
+Bằng chứng đã chạy:
 
-- Typecheck và 6/6 test nền đã pass trong phiên lập kế hoạch.
-- Backend chưa có router nghiệp vụ hoặc migrations; B00 sẽ bổ sung hợp đồng và bảo vệ nền.
-- PostgreSQL tạm đã được khởi chạy để chuẩn bị kiểm tra, sau đó dừng theo yêu cầu bỏ qua database. Chưa chạy migrations/integration tests lên database. Không dùng database của người dùng.
+1. `npm run typecheck` ở root: frontend/backend đạt; `npm run typecheck:tests` backend đạt.
+2. `npm --prefix frontend run build`: đạt, prerender 11 trang; còn cảnh báo chunk lớn của bundle hiện có.
+3. `node node_modules/typescript/bin/tsc` ở backend: đạt.
+4. `npm test` ở backend: **59/59 tests, 8 files PASS**, gồm kiểm tra Google giả lập, pending password, phone, HTTP/session và worker giả lập.
+5. `npx playwright test tests/auth.spec.ts tests/auth-api.spec.ts tests/knowledge.spec.ts --reporter=line --timeout=30000`: **19/19 PASS**, 9 auth + 10 knowledge. Các API trong bộ trình duyệt dùng mock; không coi đây là kiểm chứng gửi email thật. Auth ở 1440/1024/768/390px không tràn ngang; đã xem ảnh đăng ký desktop/mobile.
+6. Probe API thật `/health/ready`: **200**; POST `/api/v1/auth/refresh` qua Vite với Origin/CSRF hợp lệ, không có cookie: **401 UNAUTHENTICATED** đúng hợp đồng.
 
-## Checklist B00
+Giới hạn và bước tiếp theo: kiểm tra nhận OTP/reset ở hộp thư người dùng và OAuth Google trên origin đã đăng ký; chưa có bằng chứng gửi thư/Google thật hoặc deploy production. Cấu hình hosting API theo [AUTH_API_SETUP.md](../docs/AUTH_API_SETUP.md). B04 và các luồng tài chính tiếp theo chỉ triển khai theo phản hồi nghiệp vụ mới nhất; không tiếp tục sinh data mẫu.
 
-- [ ] Env validation, secret production, CORS dùng chung, trust proxy cấu hình.
-- [ ] Request ID, logger an toàn, AppError/404/body errors, asyncHandler, Zod validation, pagination/sort, money/role contract.
-- [ ] Health live/ready và timeout; giữ health legacy.
-- [ ] Chặn room tư vấn riêng tư khi chưa có policy nghiệp vụ.
-- [ ] OpenAPI và test HTTP/Socket.IO/contract.
-- [ ] CI working directory, npm ci, Prisma generate/build, kiểm tra database tạm.
-- [ ] Typecheck, build, toàn bộ test và rà soát diff thành công.
+## Trạng thái
 
-## Lần cập nhật đầu
+| Phase | Code | Bằng chứng / giới hạn |
+| --- | --- | --- |
+| B00 | Hoàn tất nền API | Env, error/HTTP, CORS, health, auth claims, Socket.IO, contract, CI config đã có; kiểm tra local pass |
+| B01 | Hoàn tất nền dữ liệu/audit/outbox | 2 migrations chạy trên DB trắng; rollback và cạnh tranh worker đã test bằng PostgreSQL; seed/bootstrap đã kiểm tra. Azure Service Bus và mail thật chưa chạy |
+| B02 | Hoàn tất API xác thực | OTP, password reset, rotation/reuse, revoke/securityVersion, cookie/CSRF, auth/user status; offline + PostgreSQL pass |
+| B03 | Hoàn tất hồ sơ/onboarding | Decimal, partial merge, revision conflict, ownership, completion transaction, idempotency; offline + PostgreSQL pass |
+| B04–B12 | Chưa triển khai trong nhóm này | Các bảng goal/model/assumptions/plan version chỉ là nền schema; chưa có API/bộ tính mới |
 
-Đã đọc lại setup, tạo nhật ký và quy tắc handoff. Không ghi nhận phase nào hoàn tất chỉ dựa trên kế hoạch.
+## Kết quả kiểm tra đã thực sự chạy
+
+Ngày 02/10/2026:
+
+1. `npm run verify` **PASS**:
+   - typecheck nguồn và test;
+   - **50/50 tests, 7 files**: foundation, auth/profile HTTP và service, worker/mail giả lập, Socket.IO thật, media giả lập, OpenAPI, engine cũ;
+   - Prisma generate + TypeScript build;
+   - production startup thiếu secret bị từ chối, không lộ secret, không kết nối DB.
+2. Kết nối read-only tới database local cấu hình trong `.env`: **PASS**, server localhost cổng 5433; database ứng dụng đang có bảng. Không ghi URL/mật khẩu vào nhật ký.
+3. Tạo database riêng **anhuu_b013_6ead0b15c5_test** trên cùng server; `prisma migrate deploy` áp dụng **cả 2 migrations thành công**.
+4. `npm run test:integration` với TEST_DATABASE_URL trỏ database riêng: **10/10 tests, 2 files PASS**.
+   - Register → verify → login → refresh → logout với phiên lưu thật.
+   - Hai refresh đồng thời: một thành công, token reuse làm revoke cả family.
+   - Hai draft update cùng revision: một thành công, một trả conflict.
+   - Onboarding ghi chính xác decimal vượt miền số nguyên an toàn JS, giữ surplus âm, replay idempotency và tách ownership.
+   - Rollback user/audit/outbox cùng transaction.
+   - Hai worker claim cùng event: xử lý một lần; phục hồi lease hết hạn.
+   - Readiness/liveness với PostgreSQL thật và khi connection bị lỗi.
+5. Seed chạy hai lần trên database test: đủ USER/ADMIN, không ghi đè. Bootstrap admin: tạo một lần có audit; lần trùng bị từ chối.
+6. `npm audit --audit-level=high`: **0 vulnerabilities**.
+7. `git diff --check`: không có lỗi whitespace; Git chỉ cảnh báo quy ước LF/CRLF.
+
+Lỗi tìm được và đã sửa trong lượt kiểm tra:
+- Kiểu UUID của familyId, tương thích cookie với CommonJS/TypeScript.
+- Zod/Prisma JSON type tại payload mã hóa.
+- OpenAPI 3.0 không cho required là mảng rỗng.
+- Cleanup test dependency hỏng: Prisma có thể báo initialization error khi disconnect trong lúc probe cố ý thất bại đang kết thúc.
+- Migration refresh family phải backfill trước SET NOT NULL; token plaintext cũ được vô hiệu hóa và xóa giá trị bí mật.
+
+Không chạy migrate/reset/seed lên database ứng dụng. Database test được giữ để xem kết quả, chứa tài khoản fixture. Cụm PostgreSQL tạm ở cổng 55432 từ bước chuẩn bị trước vẫn đã dừng; không dùng lại.
+
+## Những gì đã triển khai
+
+- Hợp đồng `/api/v1`, envelope, requestId, Zod strict, lỗi chuẩn, CORS HTTP/WS, liveness/readiness, log metadata.
+- Bảng auth/draft/goal/model/assumption/plan/outbox/processed/idempotency; audit cùng transaction; serializable transaction retry.
+- Worker riêng với lease, backoff, FAILED sau 5 lỗi, processed marker, payload email AES-GCM, timeout và provider idempotency key.
+- Azure adapter dùng managed identity; queue chỉ chứa eventId. Local worker xử lý từ database.
+- Register/verify/resend/login/refresh/logout/logout-all/forgot/reset/auth-me; chỉ USER/ADMIN. Refresh cookie HttpOnly, production Secure; CSRF/Origin ở refresh/logout.
+- Session xác thực lại user ACTIVE/role/securityVersion/family trên mỗi protected request. Socket xác thực lại định kỳ 15 giây; callback ngắt socket cùng instance khi revoke.
+- `GET/PATCH /me`, profile và onboarding draft/complete; CAS revision, dữ liệu tiền chính xác, không nhận benchmark/summary do client tự tạo.
+- OpenAPI cập nhật đủ B00–B03; [hướng dẫn cấu hình/vận hành](docs/ACCOUNTS_PROFILES.md).
+- CI kiểm tra database service riêng trên push/PR; deploy cần cả hai job pass và cờ BACKEND_DEPLOY_ENABLED. Docker dùng client đã generate ở build stage, không tải Prisma CLI tùy ý ở runtime.
+
+## Giới hạn còn cần xử lý
+
+- Chưa kiểm tra gửi mail thật, quyền/domain Resend, Azure Service Bus, managed identity, image Docker, workflow CI/cloud hay tải nhiều instance.
+- API/worker cần cấu hình OUTBOX_ENCRYPTION_KEY chung ổn định; worker cần RESEND_API_KEY/EMAIL_FROM. Không ghi/tạo provider credentials trong phiên này.
+- Database ứng dụng đã có bảng: kiểm tra migrations/schema và baseline trước khi áp dụng vào đó. Chỉ chứng minh migration trên DB trắng; nâng cấp dữ liệu legacy thực tế cần kiểm tra riêng.
+- Rate limiter còn memory. Pub/sub socket và thu hồi tức thời nhiều instance thuộc B12; hiện instance khác phát hiện tối đa chu kỳ kiểm tra 15 giây, còn HTTP kiểm tra session mỗi request.
+- profile.changed/security.sessions_revoked hiện xác nhận dấu vết bền vững; tác động stale/revoke đã ở transaction nguồn. Chưa tự tính lại plan/push notification. B04/B10/B12 phải thêm consumer cho event mới khi triển khai tính năng đó.
+- Financial engine cũ vẫn là demo, đặc biệt BHXH. Không nối kết quả cũ thành số liệu production. Không seed benchmark mẫu.
+- Frontend tài chính vẫn có luồng demo, rate input và dữ liệu local. Auth đã nối API theo checkpoint 03/10; phần tài chính/hồ sơ cần adapter riêng và quy ước nhóm tiền không trùng.
+- Có thay đổi frontend từ công việc khác trong workspace; giữ nguyên, không revert hoặc gom vào thay đổi backend.
+
+## Bước tiếp theo cụ thể
+
+1. B04: đọc lại phần giả định/mục tiêu trong info/task và kế hoạch. Thêm API published benchmarks + admin draft/publish bất biến; lưu nguồn, hiệu lực, lý do và model version.
+2. Xây retirement goal với tuổi nghỉ hưu, chi tiêu và contribution/risk input được phép; cấm inflation/return override của USER.
+3. Engine thuần dùng Decimal, snapshot input/version và chart series; định nghĩa thời điểm đóng/rút, làm tròn, số tích lũy yêu cầu và cạn quỹ.
+4. Thiếu benchmark hợp lệ thì trả trạng thái chưa tính được. BHXH chưa đủ dữ liệu/quy tắc đã xác nhận thì không tự suy diễn quyền lợi.
+5. Test theo nhóm đã thống nhất; tiếp tục dùng database test riêng và cập nhật nhật ký sau mỗi checkpoint.
+
+## Lệnh tiếp tục
+
+Từ backend:
+
+- `npm run verify`
+- `npm run test:local-db`: tạo database test mới trên server local, migrate rồi test; không đụng dữ liệu ứng dụng.
+- Hoặc đặt TEST_DATABASE_URL local có tên anhuu_*_test rồi `npm run db:test:prepare` và `npm run test:integration`.
+- `npm run worker` sau build/config đầy đủ; không chạy worker thật trên fixture nếu chưa muốn gửi email.
+
+Trong sandbox Windows này, Prisma cần TEMP/TMP trỏ thư mục writable (đã dùng E:/An_Huu/.cache/tmp); npm cache đã dùng E:/An_Huu/.cache/npm. Đây là workaround môi trường, không phải yêu cầu khi chạy máy/CI thông thường.
+## Checkpoint mới nhất — 03/10/2026: tiện ích API, reload và khôi phục dịch vụ
+
+**Ưu tiên đọc mục này trước các checkpoint cũ bên dưới.** Người dùng đã giao dữ liệu mẫu và kiểm thử cho AI khác; yêu cầu phiên này tập trung viết chức năng, bỏ bước test, sửa reload/backend trước và để lại danh sách tiếp tục.
+
+### Đã viết và nối giao diện
+
+- Account: GET/PATCH tài khoản có revision; avatar upload/remove; đổi mật khẩu hiện tại/mới; thu hồi toàn bộ phiên. Thông báo account/password dùng outbox, tránh làm account API phụ thuộc bảng Notification chưa cập nhật. Worker tạo notification idempotent theo event ID.
+- Admin users: tìm kiếm/lọc/phân trang, chi tiết/lịch sử, khóa/mở khóa có lý do/revision, cấm sửa ADMIN/tự khóa, thu hồi session.
+- Content: quản trị ARTICLE/FAQ/GLOSSARY, nháp/xuất bản/ẩn, tìm kiếm không dấu, lưu/bỏ lưu bài theo user trên server. Explore chuyển sang KnowledgeLibraryApi; component demo cũ không còn là luồng chính.
+- Support: tạo yêu cầu, xem 200 phản hồi mới nhất, trao đổi, admin đổi trạng thái có revision, notification.
+- Consultations: tiếp nhận nhu cầu, admin cập nhật trạng thái/ghi chú/nhận phụ trách, bảo vệ ghi chú nội bộ; chưa xác nhận lịch tự động.
+- Notifications: danh sách, đếm chưa đọc, đánh dấu một/tất cả, liên kết điều hướng; header đọc số chưa đọc từ API.
+- Operations: API và trang `/admin/operations` hiển thị cấu hình dạng cờ, thống kê hàng đợi email, mã lỗi đã làm sạch; `/admin/settings/audit-log` lấy dữ liệu thật từ server. Không coi có cấu hình là đã kết nối nhà cung cấp thành công.
+- Reload: bỏ % và thông điệp tiến độ tự giả lập; giữ nền/logo/vòng chờ, sửa SVG animation ghi đè transform, responsive và reduced motion, portal tránh ancestor transform. Khi restore lỗi mạng/5xx hiển thị thử lại; chỉ 401 mới về login. Bổ sung error boundary cho lỗi tải trang và thời hạn chờ khóa phiên giữa các tab. Bỏ export hằng navigation gây Vite full refresh.
+- Dev runner: một dịch vụ chết không dừng tất cả; tối đa 3 lần thử lại có backoff, theo dõi source backend để restart; dừng tiến trình do runner quản lý khi thoát. Backend startup log whitelist mã lỗi cổng/DB/TypeScript; Prisma thiếu bảng/cột hoặc mất kết nối trả 503 có thông báo phù hợp.
+
+### Trạng thái chạy thực tế, không phải kết quả test
+
+- Khởi động backend chẩn đoán cổng 5001 đã ghi `server.started`; chưa tái hiện được crash mà user báo. Đã dừng đúng tiến trình chẩn đoán này.
+- Đã khởi động lại backend An Hưu cổng 5000 bằng nodemon, log `.cache/backend-recovery.stdout.log` ghi `server.started`.
+- Đã mở lại frontend, `.cache/frontend-recovery.stdout.log` ghi Vite ready tại localhost:8443. Không cần chạy thêm một bản trên cùng cổng.
+- Backend chạy nền qua nodemon, frontend chạy nền riêng. Phần supervisor mới trong `scripts/dev.cjs` sẽ có hiệu lực khi dùng root `npm run dev`; không chạy lệnh đó chồng lên hai tiến trình hiện tại.
+- **Không chạy test/typecheck/build/browser kiểm tra cho đợt tiện ích và sửa reload này theo chỉ đạo mới nhất.** Số test PASS ở checkpoint cũ không chứng minh code mới đã đạt.
+- Không seed/import dữ liệu; không apply migration/reset database ứng dụng. Không gửi thêm email để kiểm thử trong đợt sửa reload.
+
+### Phụ thuộc và việc tiếp theo
+
+1. Xem `docs/SESSION_HANDOFF_2026_10_03.md` ở root và `backend/docs/SECONDARY_API.md` để tiếp tục. Các route bổ sung đã được mô tả bằng văn bản và OpenAPI v0.4.0; chưa chạy validation/contract tests cho bản mới.
+2. Migration `202610030004_community_features` đã chuẩn bị: Article kind/revision/publishedAt/searchText, SavedArticle, SupportTicket/SupportMessage, Notification. **Chưa apply DB ứng dụng**. Phối hợp migration 0003 AI/pgvector của công việc khác; đọc lịch sử/schema thật và dùng bản sao trước, không reset/baseline mù. Prisma client đã generate trước checkpoint; nếu AI dữ liệu sửa schema sau đó phải generate lại.
+3. Account API chỉ enqueue thông báo; nếu worker chạy trước migration0004, notification delivery có thể FAILED. Sau schema readiness cần xử lý sự kiện notification bị lỗi có kiểm soát, không replay hàng loạt email OTP/reset đã hết hạn.
+4. Resend thật đã trả 403 do giới hạn sandbox/domain chưa được phép gửi tới địa chỉ user cung cấp. Cần domain/sender có quyền; không đổi Google password, không hứa email đã đến. Google login thật/Cloudinary thật chưa được xác nhận.
+5. AI kiểm thử nhận phần quyền sở hữu, session/reload/backend outage, revision/concurrency, nội dung/bookmark, support/consultation/notification, upload, mobile. Tests frontend account/knowledge cũ có selector/localStorage assumptions cần điều chỉnh theo giao diện hiện tại.
+6. Code tiếp: upload ảnh nội dung nếu cần, đưa cài đặt notification/quản trị còn demo sang server theo phạm vi đã thống nhất. Dashboard/report/partner/AI/tính tài chính production còn phụ thuộc khảo sát và nguồn dữ liệu được duyệt.
+
+Giữ nguyên thay đổi từ AI frontend và AI dữ liệu; không coi dữ liệu trong khảo sát là quyết định đã phê duyệt.

@@ -1,0 +1,33 @@
+import { Router } from "express";
+import { z } from "zod";
+import { asyncHandler, sendData, validate } from "../../common/http";
+import { aiLimiter } from "../../middlewares/rateLimiter";
+import type { AuthenticatedRequest } from "../../middlewares/authMiddleware";
+import type { AiService } from "./service";
+import type { KnowledgeService } from "./knowledge";
+import { consentSchema, explanationSchema, aiSimulationSchema, titleSchema, messageEditSchema, pageSchema, sourceInputSchema, sourceEditSchema, sourceRevisionSchema, sourceApprovalSchema } from "./schema";
+const id=(value:unknown)=>z.string().uuid().parse(value),empty=z.object({}).strict();
+export function aiRouter(s:AiService){const r=Router();
+  r.get("/privacy",asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.privacy(req.user!.userId))));
+  r.put("/privacy",validate(consentSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.setPrivacy(req.user!.userId,req.body))));
+  r.post("/explain",aiLimiter,validate(explanationSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.explain(req.user!.userId,req.body,id(req.get("Idempotency-Key"))))));
+  r.post("/simulate",aiLimiter,validate(aiSimulationSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.simulate(req.user!.userId,req.body))));
+  r.get("/conversations",asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.list(req.user!.userId,pageSchema.parse(req.query)))));
+  r.post("/conversations",aiLimiter,validate(empty),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.createConversation(req.user!.userId),201)));
+  r.delete("/conversations",validate(empty),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.remove(req.user!.userId))));
+  r.get("/conversations/:id",asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.get(req.user!.userId,id(req.params.id)))));
+  r.get("/conversations/:id/export",asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.get(req.user!.userId,id(req.params.id)))));
+  r.patch("/conversations/:id",validate(titleSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.rename(req.user!.userId,id(req.params.id),req.body))));
+  r.patch("/conversations/:id/messages/:messageId",validate(messageEditSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.editMessage(req.user!.userId,id(req.params.id),id(req.params.messageId),req.body))));
+  r.delete("/conversations/:id",validate(empty),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.remove(req.user!.userId,id(req.params.id)))));
+  return r;
+}
+export function knowledgeRouter(s:KnowledgeService){const r=Router();
+  r.get("/",asyncHandler(async(req,res)=>sendData(res,await s.list(pageSchema.parse(req.query)))));
+  r.post("/",validate(sourceInputSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.create(req.user!.userId,req.body),201)));
+  r.get("/:id",asyncHandler(async(req,res)=>sendData(res,await s.get(id(req.params.id)))));
+  r.put("/:id",validate(sourceEditSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.edit(req.user!.userId,id(req.params.id),req.body))));
+  r.post("/:id/index",validate(sourceRevisionSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.index(req.user!.userId,id(req.params.id),req.body))));
+  r.post("/:id/approval",validate(sourceApprovalSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.approve(req.user!.userId,id(req.params.id),req.body))));
+  return r;
+}

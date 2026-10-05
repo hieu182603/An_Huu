@@ -47,8 +47,18 @@ async function start() {
     throw error;
   }
 }
-void start().catch(() => {
+void start().catch((error: unknown) => {
   // Invalid environment values and connection strings must never reach logs.
-  log("error", "server.start_failed", { code: "STARTUP_FAILED" });
+  const failure = error as { code?: unknown; errorCode?: unknown; name?: unknown; diagnosticCodes?: unknown } | null;
+  const candidate = failure?.code ?? failure?.errorCode;
+  const allowed = ["EADDRINUSE", "EACCES", "ECONNREFUSED", "ETIMEDOUT", "P1000", "P1001", "P1002", "P1011", "P1012", "P2021", "P2022"];
+  const code = typeof candidate === "string" && allowed.includes(candidate) ? candidate
+    : failure?.name === "TSError" ? "TYPESCRIPT_STARTUP_FAILED" : "STARTUP_FAILED";
+  log("error", "server.start_failed", { code });
+  if (code === "TYPESCRIPT_STARTUP_FAILED" && Array.isArray(failure?.diagnosticCodes)) {
+    for (const diagnostic of failure.diagnosticCodes) {
+      if (Number.isSafeInteger(diagnostic)) log("error", "server.start_failed", { code: `TS${diagnostic}` });
+    }
+  }
   process.exit(1);
 });

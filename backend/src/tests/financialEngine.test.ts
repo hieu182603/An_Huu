@@ -33,7 +33,9 @@ describe("Financial Calculation Engine", () => {
     expect(result.projectedFund).toBeGreaterThan(0);
     expect(result.readinessScore).toBeGreaterThanOrEqual(0);
     expect(result.readinessScore).toBeLessThanOrEqual(100);
-    expect(result.estimatedMonthlyPension).toBeGreaterThan(0);
+    expect(result.estimatedMonthlyPension).toBeNull();
+    expect(result.pensionStatus).toBe("NOT_ESTIMATED");
+    expect(calculateRetirement({ ...sampleInput, socialInsuranceYears: 40, socialInsuranceSalary: 90000000 }).targetFund).toBe(result.targetFund);
   });
 
   it("validates input boundary ranges correctly", () => {

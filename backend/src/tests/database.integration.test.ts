@@ -29,6 +29,12 @@ describe("PostgreSQL migrations and readiness", () => {
       const app = createApp({ config, databaseProbe: () => unavailable.$queryRaw`SELECT 1` });
       expect((await request(app).get("/health/ready")).status).toBe(503);
       expect((await request(app).get("/health/live")).status).toBe(200);
-    } finally { await unavailable.$disconnect(); }
+    } finally {
+      // Prisma may reject disconnect while the intentionally failing initialization
+      // is still settling after the shorter readiness timeout.
+      await unavailable.$disconnect().catch(error => {
+        expect(error).toMatchObject({ name: "PrismaClientInitializationError" });
+      });
+    }
   });
 });

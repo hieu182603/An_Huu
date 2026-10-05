@@ -20,9 +20,15 @@ const schema = z.object({
   OUTBOX_ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/).optional(),
   COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).default("lax"),
   JOB_TRANSPORT: z.enum(["inline", "azure"]).default("inline"),
-  AZURE_SERVICE_BUS_NAMESPACE: z.string().optional(),
+  AZURE_SERVICE_BUS_NAMESPACE: z.string().regex(/^[a-zA-Z0-9-]+\.servicebus\.windows\.net$/).optional(),
   AZURE_SERVICE_BUS_QUEUE: z.string().default("anhuu-events"),
   HEALTH_TIMEOUT_MS: z.coerce.number().int().min(50).max(10000).default(1500),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  AI_PROVIDER: z.enum(["none", "gemini"]).default("none"),
+  GEMINI_API_KEY: z.string().trim().optional(),
+  GEMINI_API_MODE: z.enum(["developer", "vertex-express"]).default("developer"),
+  GEMINI_MODEL: z.string().regex(/^gemini-[a-z0-9.-]+$/).default("gemini-3.8-flash"),
+  GEMINI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(15000),
 });
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env) {
@@ -30,6 +36,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env) {
   if (!parsed.success) throw new Error("Cấu hình không hợp lệ: " +
     [...new Set(parsed.error.issues.map(i => i.path[0]))].join(", "));
   const config = parsed.data;
+  if (config.AI_PROVIDER === "gemini" && !config.GEMINI_API_KEY)
+    throw new Error("Gemini yêu cầu GEMINI_API_KEY.");
+  if (config.JOB_TRANSPORT === "azure" && !config.AZURE_SERVICE_BUS_NAMESPACE)
+    throw new Error("Azure queue yêu cầu AZURE_SERVICE_BUS_NAMESPACE.");
   if (config.COOKIE_SAME_SITE === "none" && config.NODE_ENV !== "production")
     throw new Error("SameSite=None yêu cầu cookie Secure trong production HTTPS.");
   const origins = [...new Set([config.CLIENT_URL, ...(config.CORS_ORIGINS?.split(",").map(v => v.trim()).filter(Boolean) ?? [])])];

@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { moneySchema } from "../../common/http";
+import { partialProfileV2Schema } from "./schema-v2";
 export const personalSchema = z.object({
   age: z.number().int().min(18).max(110),
   gender: z.enum(["MALE", "FEMALE", "OTHER", "UNDISCLOSED"]),
@@ -14,6 +16,10 @@ const debt = z.object({ hasDebt: z.boolean(), mortgageDebt: moneySchema, consume
 const socialSecurity = z.object({ socialInsuranceYears: z.number().min(0).max(110), socialInsuranceSalary: moneySchema }).strict();
 const full = z.object({ personal: personalSchema, income, expenses, assets, debt, socialSecurity }).strict();
 export const profileSchema = full.superRefine((data, ctx) => {
+  const netWorth = Object.values(data.assets).reduce((sum, value) => sum.plus(value), new Prisma.Decimal(0))
+    .minus(data.debt.mortgageDebt).minus(data.debt.consumerDebt);
+  if (netWorth.abs().greaterThan("9999999999999999.99"))
+    ctx.addIssue({ code: "custom", path: ["assets"], message: "Tổng tài sản ròng vượt giới hạn lưu trữ." });
   if (!data.debt.hasDebt && ["mortgageDebt", "consumerDebt", "monthlyDebtService"].some(key => Number(data.debt[key as "consumerDebt"]) !== 0))
     ctx.addIssue({ code: "custom", path: ["debt"], message: "Không có nợ thì số dư nợ và khoản trả nợ phải bằng 0." });
   if (data.socialSecurity.socialInsuranceYears > data.personal.age)
@@ -25,12 +31,12 @@ export const partialProfileSchema = z.object({
   socialSecurity: socialSecurity.partial().optional(),
 }).strict();
 export const patchProfileSchema = z.object({
-  expectedRevision: z.number().int().min(1), changes: partialProfileSchema,
+  expectedRevision: z.number().int().min(1), changes: z.union([partialProfileV2Schema, partialProfileSchema]),
 }).strict();
 export const draftSchema = z.object({
   expectedRevision: z.number().int().min(0),
   step: z.enum(["welcome", "personal", "income", "expenses", "assets", "debt", "investment", "socialSecurity", "summary"]),
-  data: partialProfileSchema,
+  data: z.union([partialProfileV2Schema, partialProfileSchema]),
 }).strict();
 export const completeSchema = z.object({
   expectedDraftRevision: z.number().int().min(1), expectedProfileRevision: z.number().int().min(0),
@@ -45,3 +51,4 @@ export const patchAccountSchema = z.object({
 }).strict();
 export type FinancialData = z.infer<typeof profileSchema>;
 export type ProfileChanges = z.infer<typeof partialProfileSchema>;
+export type ProfileInputChanges = z.infer<typeof patchProfileSchema>["changes"];

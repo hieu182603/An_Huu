@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import type { AppConfig } from "../config/env";
 import { AppError } from "../common/errors";
 
-export function seal(payload: object, config: AppConfig): Prisma.InputJsonObject {
+export function seal(payload: object, config: AppConfig): { encrypted: string; iv: string; tag: string } {
   if (!config.OUTBOX_ENCRYPTION_KEY) throw new AppError(503, "EMAIL_NOT_CONFIGURED", "Chức năng email chưa được cấu hình.");
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", Buffer.from(config.OUTBOX_ENCRYPTION_KEY, "hex"), iv);
