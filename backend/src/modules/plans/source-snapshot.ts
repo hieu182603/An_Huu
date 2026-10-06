@@ -11,6 +11,7 @@ import { sourceRegistrySchema } from "../retirement/sources";
 import { loanSourceEvidenceSchema, replayLoanSourceEvidence } from "../debts/source-candidate";
 import type { LoanConsumedAllocation } from "../debts/reconciliation";
 import { loanCreationEvidenceSchema, replayLoanCreation } from "../debts/source-create";
+import { reconcileRefinance } from "../debts/refinance";
 
 export type SourceSnapshot = { format: typeof SOURCE_SNAPSHOT_FORMAT;
   capture: Awaited<ReturnType<RetirementService["capture"]>>; preview: SourceRetirementResult; integrityHash: string };
@@ -88,6 +89,19 @@ export function readSourceSnapshot(value: unknown): SourceSnapshot {
     consumed.push(...command.allocations.map(allocation => ({ sourceId: command.sourceId, allocation })));
     priorContracts.set(command.sourceId, { sourceHash: source.sourceHash, contract: command.contract });
     evidenced.add(command.commandId);
+  }
+  const refinanceLinks = new Set<string>();
+  for (const proof of stored.preview.refinances ?? []) {
+    const closing = stored.preview.loanSources?.find(s => s.sourceHash === proof.closingSourceHash);
+    const replacement = stored.preview.newLoanSources?.find(s => s.sourceHash === proof.newSourceHash);
+    if (!closing || !replacement || evidenced.has(proof.command.commandId) || refinanceLinks.has(proof.closingSourceHash) || refinanceLinks.has(proof.newSourceHash)) evidenceError();
+    if (digest(reconcileRefinance(proof.command, closing!, replacement!)) !== digest(proof)) evidenceError();
+    refinanceLinks.add(proof.closingSourceHash); refinanceLinks.add(proof.newSourceHash); evidenced.add(proof.command.commandId);
+  }
+  for (const source of [...(stored.preview.loanSources ?? []), ...(stored.preview.newLoanSources ?? [])]) {
+    const command = source.evidence.command;
+    if (command.refinanceCommandId && !stored.preview.refinances?.some(r => r.command.commandId === command.refinanceCommandId &&
+      (r.closingSourceHash === source.sourceHash || r.newSourceHash === source.sourceHash))) evidenceError();
   }
   // Imported profile/legacy commands have namespaced IDs. Every new public
   // UUID command must retain its evidence even after its source ends.

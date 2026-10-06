@@ -16,6 +16,7 @@ import type { SourceReforecastCommand } from "./source-schema";
 import { loanSourceCandidate, type LoanSourceBasis } from "../debts/source-candidate";
 import { loanActualEvidenceSchema } from "../debts/reconciliation";
 import { createLoanSource } from "../debts/source-create";
+import { reconcileRefinance } from "../debts/refinance";
 
 export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.TransactionClient, userId: string, planId: string, input: SourceReforecastCommand) {
   const { plan, version, capture } = await new PlansService(db).readVersion(tx, userId, planId, input.versionId);
@@ -43,6 +44,10 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
   let registry = upgraded.replayInput.sourceRegistry;
   const pensions = new PensionEstimateService(db), pensionSources = [...(upgraded.pensionSources ?? [])], loanSources = [...(upgraded.loanSources ?? [])];
   const newLoanSources = [...(upgraded.newLoanSources ?? [])];
+  const refinances = [...(upgraded.refinances ?? [])];
+  const newCommandIds = [...input.sourceCommands, ...input.pensionSelections, ...(input.loanRevisions ?? []), ...(input.loanCreations ?? []), ...(input.refinances ?? [])].map(c => c.commandId);
+  if (newCommandIds.some(id => refinances.some(r => r.command.commandId === id)) || (input.refinances ?? []).some(c => registry.revisions.some(r => r.commandId === c.commandId)))
+    throw new AppError(409, "SOURCE_COMMAND_REUSED", "Mã thao tác đã được dùng trong lịch sử phương án.");
   for (const command of input.sourceCommands) registry = applyFlowSourceCommand(registry, command, input.throughMonth, knownOn);
   for (const selection of input.pensionSelections) {
     const evidence = await pensions.captureForSource(userId, selection.estimateId, selection.expectedEstimateIntegrityHash, tx);
@@ -80,6 +85,12 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
       registry = result.registry; loanSources.push({ sourceHash: result.sourceHash, evidence: result.evidence });
     }
   }
+  for (const command of input.refinances ?? []) {
+    const closing = loanSources.find(s => s.evidence.command.commandId === command.closingCommandId);
+    const replacement = newLoanSources.find(s => s.evidence.command.commandId === command.newLoanCommandId);
+    if (!closing || !replacement) throw new AppError(422, "REFINANCE_COMMANDS_REQUIRED", "Thiếu cặp tất toán và khoản vay thay thế.");
+    refinances.push(reconcileRefinance(command, closing, replacement));
+  }
   const nextMonth = addMonths(input.throughMonth, 1), remaining = upgraded.replayInput.rows.filter(r => r.month >= nextMonth);
   // Replaced/ended estimates remain immutable history, but must not prevent a
   // user from replacing a stale estimate. Recheck only surviving future cells.
@@ -91,11 +102,12 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
     valuationDate: nextMonth + "-01", retirementMonth: forecast.originalRetirementMonth < nextMonth ? nextMonth : forecast.originalRetirementMonth,
     initialCapital: forecast.anchor.closingBalance, rows: remaining };
   replayInput.rows = rebuildSourceBudget(replayInput, future.rows);
-  const inputHash = digest({ input, knownOn, parentHash: version.snapshotHash, replayInput, lineage, pensionSources, loanSources, newLoanSources });
+  const inputHash = digest({ input, knownOn, parentHash: version.snapshotHash, replayInput, lineage, pensionSources, loanSources, newLoanSources, refinances });
   const candidate: SourceRetirementResult = { ...upgraded, valuationDate: replayInput.valuationDate, inputHash, replayInput, reforecast: lineage,
     sourceCommands: [...(upgraded.sourceCommands ?? []), ...input.sourceCommands], pensionSources,
     ...(loanSources.length ? { loanSources } : {}),
     ...(newLoanSources.length ? { newLoanSources } : {}),
+    ...(refinances.length ? { refinances } : {}),
     calculation: { ...upgraded.calculation, ...projectSources(replayInput), marketRows: upgraded.calculation.marketRows.filter(r => r.month >= nextMonth),
       limitations: [...new Set([...upgraded.calculation.limitations, "PLAN_SCOPED_SOURCES", "EXPLICIT_DEPOSITS_ONLY", "PENSION_ESTIMATE_NOT_OFFICIAL_AWARD", "PROFILE_NET_WORTH_AND_GOAL_SELECTION_RETAIN_ORIGINAL_BASIS"])] } };
   const latestSources = new Map(registry.revisions.map(s => [s.sourceId, s]));

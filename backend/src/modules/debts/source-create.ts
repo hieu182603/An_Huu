@@ -10,6 +10,7 @@ import { assertSourceRegistry, composeSourceMonths, sealSourceRegistry, sealSour
 
 export const loanCreationSchema = z.object({ commandId: z.string().uuid(), sourceId: z.string().regex(/^plan:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i),
   operation: z.literal("CREATE"), expectedSourceRevision: z.literal(0), confirm: z.literal(true),
+  refinanceCommandId: z.string().uuid().optional(),
   agreementReference: z.string().trim().min(1).max(200), contract: loanContractV2Schema,
   funding: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("EXISTING_BALANCE"), notAlreadyInSources: z.literal(true), evidence: z.array(loanEvidenceSchema).min(1).max(20) }).strict(),

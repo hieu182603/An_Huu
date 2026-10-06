@@ -13,9 +13,8 @@ import './index.css'
 import './responsive.css'
 
 function AccountProfile({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
   return (
-    <FinancialProfileProvider key={user?.id || "guest"}>
+    <FinancialProfileProvider>
       <RetirementPlanProvider>
         {children}
       </RetirementPlanProvider>

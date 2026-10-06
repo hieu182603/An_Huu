@@ -183,9 +183,12 @@ export function LoginPage() {
     setError("");
     try {
       const loggedUser = await login(cleanEmail, cleanPassword, remember);
-      trackLoginEvent("email");
-      notify.success("Đăng nhập thành công", `Chào mừng bạn trở lại, ${loggedUser.name}!`);
-      navigate(resumeDestination(location.state?.from, loggedUser.role), { replace: true });
+      const targetDestination = resumeDestination(
+        location.state?.from,
+        loggedUser.role,
+        (location.state as { isNewUser?: boolean } | null)?.isNewUser ? "/onboarding" : undefined
+      );
+      navigate(targetDestination, { replace: true });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -359,7 +362,7 @@ export function RegisterPage() {
           const u = await loginWithGoogle(credential);
           trackSignUpEvent("google");
           notify.success("Đăng ký thành công với Google", `Chào mừng bạn gia nhập An Hưu, ${u.name}!`);
-          navigate(resumeDestination(location.state?.from, u.role), { replace: true });
+          navigate(resumeDestination(location.state?.from, u.role, "/onboarding"), { replace: true });
         },
         (err) => {
           console.error("Google Auth Error:", err);
@@ -407,7 +410,7 @@ export function RegisterPage() {
       }
       await apiRequest("/auth/register", { fullName: cleanName, email: cleanEmail, password: cleanPassword, ...(cleanPhone ? { phone: cleanPhone } : {}) });
       trackSignUpEvent("email");
-      navigate("/verify", { state: { email: cleanEmail, from: location.state?.from } });
+      navigate("/verify", { state: { email: cleanEmail, from: location.state?.from || "/onboarding", isNewUser: true } });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -910,7 +913,13 @@ export function VerifyPage() {
         "Xác thực hoàn tất",
         "Tài khoản đã được kích hoạt. Vui lòng đăng nhập."
       );
-      navigate("/login", { replace: true, state: { from: location.state?.from } });
+      navigate("/login", {
+        replace: true,
+        state: {
+          from: (location.state as { from?: string } | null)?.from || "/onboarding",
+          isNewUser: (location.state as { isNewUser?: boolean } | null)?.isNewUser ?? true,
+        },
+      });
     } catch (err) {
       setResendNotice(getErrorMessage(err));
     } finally {

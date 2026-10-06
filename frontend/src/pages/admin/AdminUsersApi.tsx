@@ -8,6 +8,7 @@ import {
   Icon,
   Input,
   Modal,
+  Pagination,
   SearchField,
   Select,
 } from "../../components/ui";
@@ -64,6 +65,7 @@ export function AdminUsersPage() {
   const [activeSearch, setActiveSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(allStatusLabel);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [data, setData] = useState<{ items: User[]; total: number; limit: number } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -76,7 +78,7 @@ export function AdminUsersPage() {
 
     const query = new URLSearchParams({
       page: String(page),
-      limit: "20",
+      limit: String(pageSize),
       search: activeSearch,
     });
 
@@ -99,7 +101,7 @@ export function AdminUsersPage() {
     return () => {
       active = false;
     };
-  }, [page, activeSearch, statusFilter, retry, language]);
+  }, [page, pageSize, activeSearch, statusFilter, retry, language]);
 
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -273,33 +275,12 @@ export function AdminUsersPage() {
             <Button variant="primary" onClick={handleSearchSubmit}>
               {language === "en" ? "Search" : "Tìm kiếm"}
             </Button>
-          </div>
-        </div>
-
-        {/* Results summary bar */}
-        <div className="admin-results-summary">
-          <span>
-            {loading ? (
-              language === "en" ? "Loading user data..." : "Đang tải dữ liệu người dùng…"
-            ) : data ? (
-              language === "en" ? (
-                <>
-                  Showing <strong>{data.items.length}</strong> of <strong>{data.total}</strong> total users
-                </>
-              ) : (
-                <>
-                  Hiển thị <strong>{data.items.length}</strong> trên tổng số <strong>{data.total}</strong> người dùng
-                </>
-              )
-            ) : (
-              language === "en" ? "Loading..." : "Đang tải…"
+            {(activeSearch || statusFilter !== allStatusLabel) && (
+              <Button variant="ghost" onClick={handleClearFilters}>
+                <Icon name="trash" size="small" /> {language === "en" ? "Clear filters" : "Xóa bộ lọc"}
+              </Button>
             )}
-          </span>
-          {(activeSearch || statusFilter !== allStatusLabel) && (
-            <button type="button" onClick={handleClearFilters}>
-              <Icon name="trash" size="small" /> {language === "en" ? "Clear filters" : "Xóa bộ lọc"}
-            </button>
-          )}
+          </div>
         </div>
 
         {/* Desktop Table View */}
@@ -389,31 +370,18 @@ export function AdminUsersPage() {
 
         {/* Pagination Footer */}
         {data && data.total > 0 && (
-          <div className="admin-table-footer">
-            <span>
-              {language === "en"
-                ? `Page ${page} / ${totalPages} (${data.total} total users)`
-                : `Trang ${page} / ${totalPages} (Tổng cộng ${data.total} người dùng)`}
-            </span>
-            <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <Button
-                size="small"
-                variant="secondary"
-                disabled={page === 1 || loading}
-                onClick={() => setPage((v) => Math.max(1, v - 1))}
-              >
-                <Icon name="chevron-left" size="small" /> {language === "en" ? "Previous" : "Trang trước"}
-              </Button>
-              <Button
-                size="small"
-                variant="secondary"
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage((v) => v + 1)}
-              >
-                {language === "en" ? "Next" : "Trang sau"} <Icon name="chevron-right" size="small" />
-              </Button>
-            </div>
-          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={data.total}
+            pageSize={pageSize}
+            pageSizeOptions={[10, 20, 50, 100]}
+            onPageChange={(p) => setPage(p)}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
+          />
         )}
       </Card>
     </div>

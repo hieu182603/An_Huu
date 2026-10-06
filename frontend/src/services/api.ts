@@ -7,7 +7,7 @@ let accessTokenExpiresAt = 0;
 let refreshPromise: Promise<Session> | null = null;
 export type ApiUser = { id: string; email: string; fullName: string; role: "USER" | "ADMIN"; status: string; phone: string | null; city: string | null; avatarUrl: string | null; revision: number; emailVerifiedAt?: string | null };
 export type Session = { accessToken: string; user: ApiUser };
-export function clearAccessToken() { accessToken = null; accessTokenExpiresAt = 0; }
+export function clearAccessToken() { accessToken = null; accessTokenExpiresAt = 0; invalidateApiCache(); }
 export function getAccessToken(): string | null { return accessToken; }
 export function sessionRefreshDelay(): number | null {
   return accessToken ? Math.max(0, accessTokenExpiresAt - Date.now() - 60000) : null;
@@ -84,21 +84,91 @@ export async function ensureFreshSession() {
     throw error;
   }
 }
-export async function authenticatedRequest<T>(path: string, body?: unknown, method?: string, extraHeaders?: Record<string, string>): Promise<T> {
-  await ensureFreshSession();
-  const sentToken = accessToken;
-  try { return await apiRequest<T>(path, body, method, extraHeaders); }
-  catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401) throw error;
-    try { if (!accessToken || accessToken === sentToken) await refreshSession(); }
-    catch (refreshError) {
-      if (refreshError instanceof ApiError && refreshError.status === 401) {
-        clearAccessToken(); window.dispatchEvent(new Event("anhuu:session-expired"));
-      }
-      throw refreshError;
-    }
-    return apiRequest<T>(path, body, method, extraHeaders);
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const apiGetCache = new Map<string, CacheEntry<unknown>>();
+const inflightGetRequests = new Map<string, Promise<unknown>>();
+
+export function invalidateApiCache(filter?: string | RegExp) {
+  if (!filter) {
+    apiGetCache.clear();
+    return;
   }
+  for (const key of apiGetCache.keys()) {
+    if (typeof filter === "string" ? key.includes(filter) : filter.test(key)) {
+      apiGetCache.delete(key);
+    }
+  }
+}
+
+
+export async function authenticatedRequest<T>(
+  path: string,
+  body?: unknown,
+  method?: string,
+  extraHeaders?: Record<string, string>,
+  options?: { skipCache?: boolean; ttlMs?: number }
+): Promise<T> {
+  const isGet = (method === undefined || method.toUpperCase() === "GET") && body === undefined;
+  const ttlMs = options?.ttlMs ?? 45000;
+  const cacheKey = `${path}|${JSON.stringify(extraHeaders || {})}`;
+
+  if (isGet && !options?.skipCache) {
+    const cached = apiGetCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.data as T;
+    }
+    const inflight = inflightGetRequests.get(cacheKey);
+    if (inflight) {
+      return inflight as Promise<T>;
+    }
+  }
+
+  const exec = async (): Promise<T> => {
+    await ensureFreshSession();
+    const sentToken = accessToken;
+    let res: T;
+    try {
+      res = await apiRequest<T>(path, body, method, extraHeaders);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 401) throw error;
+      try {
+        if (!accessToken || accessToken === sentToken) await refreshSession();
+      } catch (refreshError) {
+        if (refreshError instanceof ApiError && refreshError.status === 401) {
+          clearAccessToken();
+          window.dispatchEvent(new Event("anhuu:session-expired"));
+        }
+        throw refreshError;
+      }
+      res = await apiRequest<T>(path, body, method, extraHeaders);
+    }
+
+    if (isGet) {
+      apiGetCache.set(cacheKey, { data: res, expiresAt: Date.now() + ttlMs });
+    } else {
+      const isReadOnlyPost =
+        method?.toUpperCase() === "POST" &&
+        (path.includes("/preview") || path.includes("/simulate") || path.includes("/compare"));
+      if (!isReadOnlyPost) {
+        invalidateApiCache();
+      }
+    }
+    return res;
+  };
+
+  if (isGet && !options?.skipCache) {
+    const promise = exec().finally(() => {
+      inflightGetRequests.delete(cacheKey);
+    });
+    inflightGetRequests.set(cacheKey, promise);
+    return promise;
+  }
+
+  return exec();
 }
 export async function authenticatedBlobRequest(path: string): Promise<{ blob: Blob; filename: string | null }> {
   await ensureFreshSession();

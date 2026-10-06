@@ -23,12 +23,13 @@ export function reconcileRefinance(value: RefinanceCommand,
   closing: { sourceHash: string; evidence: LoanSourceEvidence }, replacement: { sourceHash: string; evidence: LoanCreationEvidence }): RefinanceProof {
   const command = refinanceSchema.parse(value), old = loanSourceRevisionSchema.parse(closing.evidence.command), next = loanCreationSchema.parse(replacement.evidence.command);
   if (old.commandId !== command.closingCommandId || next.commandId !== command.newLoanCommandId || old.operation !== "END" ||
+    old.refinanceCommandId !== command.commandId || next.refinanceCommandId !== command.commandId ||
     old.sourceId === next.sourceId || old.contract.confirmation !== "BANK_CONFIRMED" || next.contract.confirmation !== "BANK_CONFIRMED" ||
     next.funding.kind !== "EXISTING_BALANCE" || old.contract.balanceScope !== command.fundingScope || next.contract.balanceScope !== command.fundingScope ||
     old.contract.balanceAsOf !== next.contract.balanceAsOf || closing.evidence.cutoff !== replacement.evidence.cutoff ||
     !new D(old.contract.principalBalance).isZero() || !new D(next.contract.principalBalance).eq(command.grossDisbursement) ||
     command.settledOn > next.contract.balanceAsOf || command.settledOn < next.contract.signedOn || command.settledOn < next.contract.effectiveOn ||
-    command.evidence.some(e => e.confirmedOn > replacement.evidence.knownOn) || old.principalAdvances.length) fail();
+    command.evidence.some(e => e.confirmedOn > replacement.evidence.knownOn) || old.allocations.some(a => a.bookedOn > command.settledOn)) fail();
   const settlement = old.allocations.filter(a => a.bookedOn === command.settledOn);
   if (!settlement.length || settlement.some(a => a.scope !== command.fundingScope)) fail();
   const paid = settlement.reduce((n, a) => n.plus(loanComponentsTotal(a.contractComponents)), new D(0));

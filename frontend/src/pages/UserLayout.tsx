@@ -11,6 +11,7 @@ import { routeIntent } from "../services/routePreload";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { NotificationDropdown } from "../components/NotificationDropdown";
 import { useI18n } from "../i18n";
+import FinancialProfileGate from "../components/FinancialProfileGate";
 
 export type UserNavItem = {
   path: string;
@@ -245,9 +246,13 @@ export default function UserLayout() {
         </header>
 
         <main className={`dashboard-main ${location.pathname === "/user/assistant" ? "dashboard-main-assistant" : ""}`} id="main-content">
-          <Suspense fallback={<AppLoader variant="inline" label={t("common.loading")} />}>
-            <PageTransition key={location.pathname}><Outlet /></PageTransition>
-          </Suspense>
+          <FinancialProfileGate>
+            <Suspense fallback={<AppLoader variant="inline" label={t("common.loading")} />}>
+              <PageTransition key={location.pathname}>
+                <Outlet />
+              </PageTransition>
+            </Suspense>
+          </FinancialProfileGate>
         </main>
       </div>
 

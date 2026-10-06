@@ -366,16 +366,31 @@ export default function OnboardingPage() {
           )}
         </div>
 
-        <IconButton
-          icon="x"
-          label={isEn ? "Save and return to Dashboard" : "Lưu và về tổng quan"}
-          onClick={async () => {
-            if (working) return;
-            setWorking(true);
-            try { if (await saveOnboardingDraft({ step: currentStep, ...formData })) navigate("/user/dashboard"); }
-            finally { setWorking(false); }
-          }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Button
+            variant="ghost"
+            onClick={async () => {
+              if (working) return;
+              setWorking(true);
+              try { await saveOnboardingDraft({ step: currentStep, ...formData }); } catch {}
+              finally { setWorking(false); }
+              navigate("/user/dashboard");
+            }}
+            style={{ fontSize: "13px", color: "var(--color-text-muted)" }}
+          >
+            {isEn ? "Skip to Dashboard" : "Bỏ qua & Vào tổng quan"}
+          </Button>
+          <IconButton
+            icon="x"
+            label={isEn ? "Save and return to Dashboard" : "Lưu và về tổng quan"}
+            onClick={async () => {
+              if (working) return;
+              setWorking(true);
+              try { if (await saveOnboardingDraft({ step: currentStep, ...formData })) navigate("/user/dashboard"); }
+              finally { setWorking(false); }
+            }}
+          />
+        </div>
       </header>
 
       {apiSaveError && <p role="alert">{apiSaveError}</p>}
@@ -1016,6 +1031,16 @@ export default function OnboardingPage() {
               )}
               <Button variant="ghost" onClick={handleSaveDraft} loading={working || draftSaveStatus === "saving"}>
                 {isEn ? "Save Draft" : "Lưu nháp"}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  try { await saveOnboardingDraft({ step: currentStep, ...formData }); } catch {}
+                  navigate("/user/dashboard");
+                }}
+                className="onboarding-skip-btn"
+              >
+                {isEn ? "Skip for now" : "Bỏ qua & Vào ứng dụng"}
               </Button>
             </div>
 

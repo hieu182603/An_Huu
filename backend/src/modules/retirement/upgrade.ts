@@ -9,6 +9,7 @@ import type { PensionSourceEvidence, PensionSourceSelection } from "../pensions/
 import type { FlowSourceCommand } from "../plans/source-schema";
 import type { LoanSourceEvidence } from "../debts/source-candidate";
 import type { LoanCreationEvidence } from "../debts/source-create";
+import type { RefinanceProof } from "../debts/refinance";
 
 export type SourceRetirementResult = Omit<RetirementResult, "modelVersion" | "replayInput" | "calculation" | "status"> & {
   status: "READY";
@@ -19,6 +20,7 @@ export type SourceRetirementResult = Omit<RetirementResult, "modelVersion" | "re
   pensionSources?: Array<{ sourceHash: string; selection: PensionSourceSelection; evidence: PensionSourceEvidence }>;
   loanSources?: Array<{ sourceHash: string; evidence: LoanSourceEvidence }>;
   newLoanSources?: Array<{ sourceHash: string; evidence: LoanCreationEvidence }>;
+  refinances?: RefinanceProof[];
 };
 export type PlanPreview = RetirementResult | SourceRetirementResult;
 

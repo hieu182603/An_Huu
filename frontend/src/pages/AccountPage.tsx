@@ -170,7 +170,7 @@ export default function AccountPage() {
 
         {/* Content Panel */}
         <div className="account-content">
-          {activeTab === "profile" && <><AccountProfilePanel /><FinancialProfileGate><FinancialProfilePanel /></FinancialProfileGate></>}
+          {activeTab === "profile" && <><AccountProfilePanel /><FinancialProfileGate inline><FinancialProfilePanel /></FinancialProfileGate></>}
 
           {/* TAB 2: SETTINGS (Security + Notifications) */}
           {activeTab === "settings" && (
