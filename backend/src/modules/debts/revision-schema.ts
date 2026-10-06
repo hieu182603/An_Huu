@@ -20,6 +20,7 @@ export const loanContractV2Schema = z.object({ contractVersion: z.literal(2), cu
   signedOn: dateSchema, amendedOn: dateSchema.nullable(), effectiveOn: dateSchema, knownOn: dateSchema,
   confirmation: z.enum(["HYPOTHETICAL", "BANK_CONFIRMED"]), evidence,
   balanceAsOf: dateSchema, principalBalance: moneySchema, balanceScope: z.enum(["FULL_CONTRACT", "USER_SHARE"]),
+  balanceNature: z.enum(["CONFIRMED_BALANCE", "PROJECTED_DISBURSEMENT"]).optional(),
   paymentShare: z.string().regex(/^(0(\.\d{1,8})?|1(\.0{1,8})?)$/),
   responsibility: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("ALLOCATED_SHARE") }).strict(),
@@ -28,15 +29,18 @@ export const loanContractV2Schema = z.object({ contractVersion: z.literal(2), cu
   interestBasis: z.literal("REDUCING_BALANCE"), rounding: z.enum(["EXACT", "CENT_HALF_UP"]),
   mode: z.enum(["REDUCE_PAYMENT_KEEP_TERM", "REDUCE_TERM_KEEP_PAYMENT", "BANK_SCHEDULE", "RESTRUCTURED"]),
   fixedPayment: moneySchema.nullable(), finalPayment: z.enum(["ADJUST_FINAL_PAYMENT", "BALLOON_CONFIRMED", "NO_BALLOON"]),
-  maturityDate: dateSchema, periods: z.array(period).min(1).max(600),
+  maturityDate: dateSchema, periods: z.array(period).max(600),
 }).strict().superRefine((v, ctx) => {
   const error = (message: string) => ctx.addIssue({ code: "custom", message });
-  if (v.signedOn > v.effectiveOn || v.effectiveOn > v.balanceAsOf || v.balanceAsOf > v.knownOn ||
+  if (v.signedOn > v.effectiveOn || v.effectiveOn > v.balanceAsOf ||
+    (v.balanceAsOf > v.knownOn && v.balanceNature !== "PROJECTED_DISBURSEMENT") ||
     (v.amendedOn && (v.amendedOn < v.signedOn || v.amendedOn > v.effectiveOn))) error("Ngày hợp đồng/số dư/ghi nhận không nhất quán.");
+  if (v.balanceNature === "PROJECTED_DISBURSEMENT" && v.confirmation !== "HYPOTHETICAL") error("Giải ngân dự kiến chưa là số dư thực tế ngân hàng.");
   if (v.balanceScope === "USER_SHARE" && !new D(v.paymentShare).eq(1)) error("Số dư phần người dùng không nhân tỷ lệ lần nữa.");
   if (v.responsibility.kind === "CAPPED" && new D(v.responsibility.previouslyPaid).gt(v.responsibility.limit)) error("Số đã thực hiện vượt trần nghĩa vụ.");
   if (v.evidence.some(e => e.confirmedOn > v.knownOn) || (v.responsibility.kind === "CAPPED" && v.responsibility.evidence.some(e => e.confirmedOn > v.knownOn))) error("Chứng từ được xác nhận sau ngày ghi nhận.");
-  if (v.periods.at(-1)?.dueDate !== v.maturityDate) error("Lịch phải kết thúc tại ngày đáo hạn.");
+  if (v.periods.length ? v.periods.at(-1)?.dueDate !== v.maturityDate :
+    !new D(v.principalBalance).isZero() || v.maturityDate !== v.balanceAsOf || v.mode !== "BANK_SCHEDULE") error("Lịch phải kết thúc tại đáo hạn; lịch rỗng chỉ dành cho khoản đã tất toán.");
   const bank = v.mode === "BANK_SCHEDULE" || v.mode === "RESTRUCTURED";
   if (v.mode === "REDUCE_TERM_KEEP_PAYMENT" ? !v.fixedPayment || new D(v.fixedPayment).lte(0) : v.fixedPayment !== null) error("Khoản trả cố định không phù hợp chế độ lịch.");
   v.periods.forEach((p, i) => {
@@ -57,5 +61,11 @@ export const loanContractV2Schema = z.object({ contractVersion: z.literal(2), cu
   if (v.mode === "REDUCE_TERM_KEEP_PAYMENT" && v.finalPayment === "ADJUST_FINAL_PAYMENT") error("Giữ khoản trả cần chọn rõ có/không balloon tại đáo hạn.");
 });
 export type LoanContractV2 = z.infer<typeof loanContractV2Schema>;
+// A v1 loan contributes a confirmed opening balance, not an invented v2
+// schedule. Its original schedule stays pinned unchanged in the source registry.
+export const loanBalanceBasisSchema = loanContractV2Schema.innerType().pick({ currency: true, signedOn: true, amendedOn: true,
+  effectiveOn: true, knownOn: true, evidence: true, balanceAsOf: true, principalBalance: true, balanceScope: true,
+  paymentShare: true, responsibility: true }).extend({ basisVersion: z.literal(1) }).strict();
+export type LoanBalanceBasis = z.infer<typeof loanBalanceBasisSchema>;
 export type LoanAllocation = z.infer<typeof loanAllocationSchema>;
 export type LoanComponents = z.infer<typeof loanComponentsSchema>;

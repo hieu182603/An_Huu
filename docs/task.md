@@ -691,6 +691,7 @@ Nghiệm thu: BH-G01–08 và từng coverage group trong tài liệu; legal his
 
 T15 — Trả nợ một phần và cập nhật hợp đồng (P05/P25, Q15)
 Backend đã có mô phỏng trả trước giảm kỳ; mở rộng phần cập nhật thực tế/reforecast, không viết lại toàn bộ engine nợ.
+Checkpoint 06/10: đã nối Contractv2/lịch giữ hạn-giữ khoản trả-ngân hàng-cơ cấu/đối soát gốc-lãi-phí và chuyển basis v1 vào API nguồn preview/save/apply/replay. Có proof snapshot, ownership/CAS/idempotency/stale actual, đa khoản vay không vượt event và CAPPED carry; OpenAPI và UI `FE-T15-LOAN-V2-API`. **Refinance, kiểm PostgreSQL/races/ngân hàng/UI chưa xong**, các checkbox giữ mở. Phạm vi: [LOAN_REVISIONS_V2.md](../backend/docs/LOAN_REVISIONS_V2.md).
 - [ ] T15-01: Contractv2, số dư xác nhận và allocation event gốc/lãi/phí; phạm vi toàn hợp đồng/phần người dùng rõ; rà hiệu lực pháp lý hiện hành, không suy tiền trả=tiền giảm gốc.
 - [ ] T15-02: trả một phần giữ hạn/giảm tiền, giữ khoản trả/giảm hạn, lịch ngân hàng và trả giữa kỳ; lãi0, phí, lãi thả nổi, balloon có kiểm.
 - [ ] T15-03: cơ cấu/ân hạn/refinance/đồng nghĩa vụ CAPPED; chấp thuận ngân hàng khác hypothetical, không vốn hóa lãi/phí ngầm. Nhánh chưa hỗ trợ trả REVIEW_REQUIRED.

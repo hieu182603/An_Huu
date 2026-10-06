@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { useI18n } from "../../i18n";
 import type { RetirementRow, RetirementSummary } from "../../services/retirement";
+import { formatCompactVND, formatFullVND } from "../../utils/currency";
 
 interface MonthlyRetirementChartProps {
   rows: RetirementRow[];
@@ -19,20 +20,6 @@ interface MonthlyRetirementChartProps {
 
 export type ChartFilterMode = "annual" | "all-months" | "first-5y" | "retirement-phase";
 
-const formatVNDAxis = (value: number, isEn: boolean) => {
-  if (Math.abs(value) >= 1_000_000_000) {
-    return isEn ? `${(value / 1_000_000_000).toFixed(1)}B ₫` : `${(value / 1_000_000_000).toFixed(1)} tỷ`;
-  }
-  if (Math.abs(value) >= 1_000_000) {
-    return isEn ? `${Math.round(value / 1_000_000)}M ₫` : `${Math.round(value / 1_000_000)} tr`;
-  }
-  return `${value.toLocaleString(isEn ? "en-US" : "vi-VN")} ₫`;
-};
-
-const formatFullVND = (value: number, isEn: boolean) => {
-  return `${new Intl.NumberFormat(isEn ? "en-US" : "vi-VN").format(Math.round(value))} ₫`;
-};
-
 const CustomTooltip = ({ active, payload, isEn }: any) => {
   if (!active || !payload || !payload.length) return null;
   const data = payload[0].payload;
@@ -40,13 +27,13 @@ const CustomTooltip = ({ active, payload, isEn }: any) => {
   return (
     <div
       style={{
-        background: "rgba(16, 45, 61, 0.96)",
+        background: "rgba(5, 38, 89, 0.95)",
         backdropFilter: "blur(12px)",
-        border: "1px solid rgba(185, 204, 190, 0.22)",
+        border: "1px solid rgba(208, 228, 254, 0.25)",
         borderRadius: "10px",
         padding: "12px 16px",
-        color: "#F6F1E8",
-        boxShadow: "0 10px 25px -5px rgba(16, 45, 61, 0.5)",
+        color: "#F9FBFF",
+        boxShadow: "0 10px 25px -5px rgba(2, 16, 36, 0.5)",
         fontSize: "12.5px",
         minWidth: "260px",
         pointerEvents: "none",
@@ -55,11 +42,11 @@ const CustomTooltip = ({ active, payload, isEn }: any) => {
     >
       <div
         style={{
-          borderBottom: "1px solid rgba(185, 204, 190, 0.2)",
+          borderBottom: "1px solid rgba(208, 228, 254, 0.25)",
           paddingBottom: "6px",
           marginBottom: "8px",
           fontWeight: 700,
-          color: "#F6F1E8",
+          color: "#F9FBFF",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -71,8 +58,8 @@ const CustomTooltip = ({ active, payload, isEn }: any) => {
             fontSize: "11px",
             padding: "2px 6px",
             borderRadius: "4px",
-            background: data.phase === "RETIREMENT" ? "rgba(217, 168, 94, 0.25)" : "rgba(111, 155, 124, 0.25)",
-            color: data.phase === "RETIREMENT" ? "#E2B874" : "#B9CCBE",
+            background: data.phase === "RETIREMENT" ? "rgba(51, 77, 175, 0.25)" : "rgba(112, 150, 209, 0.25)",
+            color: data.phase === "RETIREMENT" ? "#C1E8FF" : "#D0E4FE",
           }}
         >
           {data.phase === "RETIREMENT"
@@ -87,8 +74,8 @@ const CustomTooltip = ({ active, payload, isEn }: any) => {
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#052659", border: "1px solid #7DA0CA", display: "inline-block" }} />
             {isEn ? "Projected Balance:" : "Số dư dự phóng:"}
           </span>
-          <strong style={{ color: data.closingBalance < 0 ? "#A14D47" : "#FFFFFF" }}>
-            {formatFullVND(data.closingBalance, isEn)}
+          <strong style={{ color: data.closingBalance < 0 ? "var(--color-danger, #C0392B)" : "#FFFFFF" }}>
+            {formatFullVND(data.closingBalance, !isEn)}
           </strong>
         </div>
 
@@ -97,7 +84,7 @@ const CustomTooltip = ({ active, payload, isEn }: any) => {
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#334DAF", display: "inline-block" }} />
             {isEn ? "Minimum Required Capital:" : "Vốn yêu cầu tối thiểu:"}
           </span>
-          <strong style={{ color: "#FFFFFF" }}>{formatFullVND(data.requiredClosingBalance, isEn)}</strong>
+          <strong style={{ color: "#FFFFFF" }}>{formatFullVND(data.requiredClosingBalance, !isEn)}</strong>
         </div>
 
         {data.unfundedWithdrawal > 0 && (
@@ -105,15 +92,15 @@ const CustomTooltip = ({ active, payload, isEn }: any) => {
             style={{
               marginTop: "4px",
               paddingTop: "6px",
-              borderTop: "1px dashed rgba(161, 77, 71, 0.4)",
+              borderTop: "1px dashed rgba(192, 57, 43, 0.4)",
               display: "flex",
               justifyContent: "space-between",
-              color: "#C5726B",
+              color: "#F87171",
               fontWeight: 600,
             }}
           >
             <span>{isEn ? "Shortfall this month:" : "Thiếu hụt tháng này:"}</span>
-            <span>{formatFullVND(data.unfundedWithdrawal, isEn)}</span>
+            <span>{formatFullVND(data.unfundedWithdrawal, !isEn)}</span>
           </div>
         )}
 
@@ -121,20 +108,20 @@ const CustomTooltip = ({ active, payload, isEn }: any) => {
           style={{
             marginTop: "6px",
             paddingTop: "6px",
-            borderTop: "1px solid rgba(185, 204, 190, 0.15)",
+            borderTop: "1px solid rgba(208, 228, 254, 0.2)",
             display: "grid",
             gap: "3px",
             fontSize: "11px",
-            color: "#B9CCBE",
+            color: "#CBD5E1",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>{isEn ? "Fund Contribution:" : "Đóng góp vào quỹ:"}</span>
-            <span>{formatFullVND(data.contribution, isEn)}</span>
+            <span>{formatFullVND(data.contribution, !isEn)}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>{isEn ? "Living Withdrawal:" : "Rút chi tiêu từ quỹ:"}</span>
-            <span>{formatFullVND(data.withdrawal, isEn)}</span>
+            <span>{formatFullVND(data.withdrawal, !isEn)}</span>
           </div>
         </div>
       </div>
@@ -271,7 +258,7 @@ export function MonthlyRetirementChart({ rows, summary }: MonthlyRetirementChart
               fontSize={11}
               tickLine={false}
               axisLine={{ stroke: "rgba(216, 226, 217, 0.4)" }}
-              tickFormatter={(v) => formatVNDAxis(v, isEn)}
+              tickFormatter={(v) => formatCompactVND(v, !isEn)}
               width={72}
             />
 
@@ -294,12 +281,12 @@ export function MonthlyRetirementChart({ rows, summary }: MonthlyRetirementChart
             {/* Reference Line for Retirement Month */}
             <ReferenceLine
               x={summary.retirementMonth}
-              stroke="#D9A85E"
+              stroke="#334DAF"
               strokeWidth={2}
               strokeDasharray="4 4"
               label={{
                 value: isEn ? `Retirement Month (${summary.retirementMonth})` : `Tháng hưu (${summary.retirementMonth})`,
-                fill: "#D9A85E",
+                fill: "#052659",
                 fontSize: 11,
                 position: "insideTopLeft",
               }}

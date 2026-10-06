@@ -48,117 +48,6 @@ export type FinancialProduct = {
   status: "Đang phân phối" | "Tạm dừng";
 };
 
-const initialPartners: PartnerOrg[] = [
-  {
-    id: "PT-01",
-    name: "Vietcombank (VCBF)",
-    type: "Công ty Quản lý Quỹ",
-    productsCount: 4,
-    contactPerson: "Trần Anh Tuấn",
-    contactEmail: "tuan.ta@vcbf.com",
-    status: "Đang hợp tác",
-    rating: "AAA",
-  },
-  {
-    id: "PT-02",
-    name: "Dragon Capital (DCVFM)",
-    type: "Công ty Quản lý Quỹ",
-    productsCount: 5,
-    contactPerson: "Lê Minh Trang",
-    contactEmail: "trang.lm@dragoncapital.com",
-    status: "Đang hợp tác",
-    rating: "AAA",
-  },
-  {
-    id: "PT-03",
-    name: "SSI Asset Management (SSIAM)",
-    type: "Công ty Quản lý Quỹ",
-    productsCount: 3,
-    contactPerson: "Vũ Hải Đăng",
-    contactEmail: "dangvh@ssi.com.vn",
-    status: "Đang hợp tác",
-    rating: "AA+",
-  },
-  {
-    id: "PT-04",
-    name: "Bảo Việt Nhân Thọ",
-    type: "Công ty Bảo hiểm Nhân thọ",
-    productsCount: 2,
-    contactPerson: "Nguyễn Thị Mai",
-    contactEmail: "maintt@baoviet.com.vn",
-    status: "Đang rà soát hợp đồng",
-    rating: "AA",
-  },
-];
-
-const initialProducts: FinancialProduct[] = [
-  {
-    id: "PRD-501",
-    name: "Quỹ Đầu tư Cân bằng Chiến lược (VCBF-TBF)",
-    partnerName: "Vietcombank (VCBF)",
-    partnerType: "Công ty Quản lý Quỹ",
-    category: "Quỹ mở cổ phiếu/trái phiếu",
-    riskTier: "Rủi ro trung bình",
-    annualFee: "1.5%/năm",
-    conditions: "Tối thiểu 500.000 đ/tháng; Khuyến nghị nắm giữ từ 3-5 năm",
-    disclosure: "Hoa hồng môi giới 0.25%; Minh bạch biểu phí NAV hàng ngày",
-    isVisible: true,
-    status: "Đang phân phối",
-  },
-  {
-    id: "PRD-502",
-    name: "Quỹ Đầu tư Trái phiếu Doanh nghiệp (DCVFM-BF)",
-    partnerName: "Dragon Capital (DCVFM)",
-    partnerType: "Công ty Quản lý Quỹ",
-    category: "Quỹ mở cổ phiếu/trái phiếu",
-    riskTier: "Rủi ro thấp",
-    annualFee: "0.95%/năm",
-    conditions: "Tối thiểu 100.000 đ/lần nạp; Dành cho giai đoạn tích lũy phòng thủ",
-    disclosure: "Không thu phí hoa hồng người dùng; Phí quản lý khấu trừ trực tiếp vào NAV",
-    isVisible: true,
-    status: "Đang phân phối",
-  },
-  {
-    id: "PRD-503",
-    name: "Quỹ Cổ phiếu Tăng trưởng Bền vững (SSIAM-SCA)",
-    partnerName: "SSI Asset Management (SSIAM)",
-    partnerType: "Công ty Quản lý Quỹ",
-    category: "Quỹ mở cổ phiếu/trái phiếu",
-    riskTier: "Rủi ro cao",
-    annualFee: "1.75%/năm",
-    conditions: "Tối thiểu 1.000.000 đ; Phù hợp nhóm tuổi dưới 40 tích lũy tăng tốc",
-    disclosure: "Hoa hồng liên kết 0.3%; Khuyến nghị đọc kỹ Bản cáo bạch",
-    isVisible: true,
-    status: "Đang phân phối",
-  },
-  {
-    id: "PRD-504",
-    name: "Gói Hưu trí An Sinh Toàn Diện",
-    partnerName: "Bảo Việt Nhân Thọ",
-    partnerType: "Công ty Bảo hiểm Nhân thọ",
-    category: "Bảo hiểm hưu trí tự nguyện",
-    riskTier: "Rủi ro thấp",
-    annualFee: "Phí theo hợp đồng bảo hiểm",
-    conditions: "Đóng phí tối thiểu 10 năm; Chi trả niên kim từ tuổi 60 đến 80",
-    disclosure: "Chiết khấu đại lý theo quy định Bộ Tài chính; Khấu trừ phí rủi ro theo tuổi",
-    isVisible: false,
-    status: "Tạm dừng",
-  },
-  {
-    id: "PRD-505",
-    name: "Tiết kiệm Tích lũy Hưu trí Chủ động",
-    partnerName: "Vietcombank",
-    partnerType: "Ngân hàng thương mại",
-    category: "Tiết kiệm mục tiêu",
-    riskTier: "Rủi ro thấp",
-    annualFee: "0 đồng",
-    conditions: "Kỳ hạn 12 - 36 tháng; Lãi suất cố định cộng thưởng kỳ hạn dài",
-    disclosure: "Bảo hiểm tiền gửi theo quy định Ngân hàng Nhà nước",
-    isVisible: true,
-    status: "Đang phân phối",
-  },
-];
-
 export function AdminPartnersPage() {
   const { language } = useI18n();
   const isEn = language === "en";
@@ -167,15 +56,12 @@ export function AdminPartnersPage() {
   const tabProductsLabel = isEn ? "Financial Products" : "Sản phẩm tài chính";
   const tabPartnersLabel = isEn ? "Partner Organizations" : "Tổ chức đối tác";
 
-  const [products, setProducts] = useState<FinancialProduct[]>(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem("anhuu_demo_financial_products") || "null");
-      return Array.isArray(stored) ? stored : initialProducts;
-    } catch {
-      return initialProducts;
-    }
-  });
-  const [partners, setPartners] = useState<PartnerOrg[]>(initialPartners);
+  const [products, setProducts] = useState<FinancialProduct[]>([]);
+  const [partners, setPartners] = useState<PartnerOrg[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [reload, setReload] = useState(0);
+  const [savingProduct, setSavingProduct] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [riskFilterKey, setRiskFilterKey] = useState<string>("ALL");
   const [selectedProduct, setSelectedProduct] = useState<FinancialProduct | null>(null);
@@ -226,22 +112,24 @@ export function AdminPartnersPage() {
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setLoadError("");
     Promise.all([listAdminPartners(1, 50), listAdminProducts(1, 50)])
       .then(([partnersRes, productsRes]) => {
         if (!active) return;
-        if (partnersRes.items?.length > 0) {
+        if (partnersRes.items) {
           setPartners(partnersRes.items.map(p => ({
             id: p.id,
             name: p.name,
             type: p.type === "BANK" ? "Ngân hàng thương mại" : p.type === "INSURANCE" ? "Công ty Bảo hiểm Nhân thọ" : "Công ty Quản lý Quỹ",
-            productsCount: 0,
+            productsCount: productsRes.items.filter(item => item.partnerId === p.id).length,
             contactPerson: p.contactEmail || "Đang cập nhật",
-            contactEmail: p.contactEmail || "contact@anhuu.vn",
+            contactEmail: p.contactEmail || "Chưa công bố",
             status: p.isVisible ? "Đang hợp tác" : "Đang rà soát hợp đồng",
-            rating: p.isHighlight ? "AAA" : "AA+",
+            rating: "Chưa công bố",
           })));
         }
-        if (productsRes.items?.length > 0) {
+        if (productsRes.items) {
           const map = new Map<string, ProductItem>();
           productsRes.items.forEach(item => map.set(item.id, item));
           rawProductsRef.current = map;
@@ -254,27 +142,25 @@ export function AdminPartnersPage() {
             riskTier: item.riskLevel === "LOW" ? "Rủi ro thấp" : item.riskLevel === "HIGH" ? "Rủi ro cao" : "Rủi ro trung bình",
             annualFee: item.annualFee || "Theo biểu phí niêm yết",
             conditions: item.conditions || item.description || "",
-            disclosure: item.disclosure || "Minh bạch hoa hồng 100%",
+            disclosure: item.disclosure || "Chưa công bố",
             isVisible: item.isVisible,
             status: item.isVisible ? "Đang phân phối" : "Tạm dừng",
           })));
         }
       })
-      .catch(() => {});
+      .catch(() => { if (active) setLoadError(isEn ? "Unable to load catalog." : "Không thể tải danh mục đối tác."); })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [reload, isEn]);
 
   const handleToggleProductVisibility = async (id: string) => {
     const raw = rawProductsRef.current.get(id);
     const target = products.find(p => p.id === id);
     const nextVisible = target ? !target.isVisible : true;
 
-    setProducts((prev) => {
-      const next = prev.map((p) => (p.id === id ? { ...p, isVisible: !p.isVisible, status: !p.isVisible ? ("Đang phân phối" as const) : ("Tạm dừng" as const) } : p));
-      localStorage.setItem("anhuu_demo_financial_products", JSON.stringify(next));
-      return next;
-    });
-
+    if (savingProduct || !raw || typeof raw.revision !== "number") return;
+    setSavingProduct(id);
+    setLoadError("");
     if (raw && typeof raw.revision === "number") {
       try {
         const updated = await updateAdminProduct(id, raw.revision, {
@@ -290,9 +176,10 @@ export function AdminPartnersPage() {
           isVisible: nextVisible,
         });
         rawProductsRef.current.set(id, updated);
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, isVisible: updated.isVisible, status: updated.isVisible ? "Đang phân phối" : "Tạm dừng" } : p));
       } catch (err) {
-        setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, isVisible: !nextVisible } : p)));
-      }
+        setLoadError(err instanceof Error ? err.message : "Không thể lưu thay đổi.");
+      } finally { setSavingProduct(null); }
     }
   };
 
@@ -345,6 +232,9 @@ export function AdminPartnersPage() {
 
   return (
     <div className="admin-page business-page">
+      {loading && <p role="status">{isEn ? "Loading catalog…" : "Đang tải danh mục…"}</p>}
+      {loadError && <Alert tone="danger" title={loadError} action={<Button onClick={() => setReload(n => n + 1)}>{isEn ? "Retry" : "Thử lại"}</Button>} />}
+      <p className="catalog-scope">{isEn ? "Showing up to 50 records returned by the service." : "Hiển thị tối đa 50 bản ghi do dịch vụ trả về."}</p>
       <header className="admin-page-header">
         <div>
           <span>{isEn ? "PARTNERS & SOLUTIONS" : "ĐỐI TÁC VÀ GIẢI PHÁP"}</span>
@@ -491,6 +381,7 @@ export function AdminPartnersPage() {
                       </td>
                       <td>
                         <Switch
+                        disabled={Boolean(savingProduct) || loading}
                           checked={item.isVisible}
                           label={item.isVisible ? (isEn ? "Visible" : "Hiển thị") : (isEn ? "Hidden" : "Ẩn")}
                           onChange={() => handleToggleProductVisibility(item.id)}

@@ -2,6 +2,8 @@ import { z } from "zod";
 import { monthSchema } from "../../common/calendar";
 import { RetirementDecimal as D } from "../retirement/engine";
 import { pensionSourceSelectionSchema } from "../pensions/source-candidate";
+import { loanSourceRevisionSchema } from "../debts/source-candidate";
+import { loanCreationSchema } from "../debts/source-create";
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const amount = z.string().max(160).regex(/^(0|[1-9]\d*)(\.\d+)?$/).refine(v => new D(v).lte("1e100"));
 const identity = { commandId: z.string().uuid(), sourceId: z.string().min(1).max(200), expectedSourceRevision: z.number().int().min(0),
@@ -16,8 +18,10 @@ export const flowSourceCommandSchema = z.discriminatedUnion("operation", [
 export const sourceReforecastSchema = z.object({ versionId: z.string().uuid(), expectedSnapshotHash: hash,
   expectedRevision: z.number().int().min(1), expectedProfileRevision: z.number().int().min(1), throughMonth: monthSchema,
   sourceCommands: z.array(flowSourceCommandSchema).max(100), pensionSelections: z.array(pensionSourceSelectionSchema).max(1).default([]),
+  loanRevisions: z.array(loanSourceRevisionSchema).max(30).optional(),
+  loanCreations: z.array(loanCreationSchema).max(30).optional(),
 }).strict().superRefine((v, ctx) => {
-  const commands = [...v.sourceCommands, ...v.pensionSelections];
+  const commands = [...v.sourceCommands, ...v.pensionSelections, ...(v.loanRevisions ?? []), ...(v.loanCreations ?? [])];
   if (new Set(commands.map(c => c.commandId)).size !== commands.length || new Set(commands.map(c => c.sourceId)).size !== commands.length)
     ctx.addIssue({ code: "custom", message: "Mỗi nguồn và mã thao tác chỉ được dùng một lần trong một lần xem trước." });
 });

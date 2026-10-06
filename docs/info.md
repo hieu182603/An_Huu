@@ -1,5 +1,7 @@
 # AN HƯU — PRODUCT INFORMATION
 
+> **06/10 — cập nhật khoản vay qua API:** đã có chuyển basis v1, phân bổ tiền trả theo gốc/lãi/phí và lịch vay v2 trong dự báo nguồn, lưu/áp dụng riêng, giữ lịch sử. Trần nghĩa vụ không reset; tiền đã rút ở actual không trừ lại. UI FE-T15-LOAN-V2-API. Refinance/vay-tài sản mới, kiểm DB/races/UI và các nhánh BHXH còn tiếp tục; chi tiết LOAN_REVISIONS_V2.md/PROGRESS.md.
+
 > **05/10 — nguồn dự báo v4 đã có API:** thêm/sửa/dừng thu, chi, pension và đưa estimate BHXH vào candidate; lưu và áp dụng riêng, giữ replay bản cũ. Báo cáo/CSV/AI theo nguồn đã nối. UI nhận FE-T16-SOURCE-V4; PostgreSQL/race/browser chưa nghiệm thu, tài sản/vay mới và các nhánh BHXH còn tiếp tục. Chi tiết SOURCE_COMMANDS_V4.md và PROGRESS.md; thông tin “chưa mở API nguồn” bên dưới là checkpoint cũ.
 
 > **05/10 — corpus và nguồn BHXH:** đã có hai bộ dữ liệu luật nháp 2026 có nguồn/hash và bước nội bộ chọn estimate vào nguồn pension; chưa công bố luật hoặc mở API chọn vào kế hoạch.404tests đạt, thêm29focused sau sửa cuối đạt. Kiểm DB mới chưa chạy được vì lỗi kết nối trước khi ghi. Backend mở rộng vẫn còn việc; UI xem FE-T14-CORPUS-SOURCE.

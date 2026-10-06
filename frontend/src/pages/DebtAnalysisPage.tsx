@@ -320,10 +320,10 @@ export default function DebtAnalysisPage() {
                   dtiRatio === null
                     ? "rgba(255, 255, 255, 0.2)"
                     : dtiRatio < 30
-                    ? "#6F9B7C"
+                    ? "var(--color-success, #1E7E55)"
                     : dtiRatio <= 50
-                    ? "#D9A85E"
-                    : "#A14D47"
+                    ? "var(--color-warning, #B36800)"
+                    : "var(--color-danger, #C0392B)"
                 }
                 strokeWidth="12"
                 strokeLinecap="round"
@@ -333,10 +333,10 @@ export default function DebtAnalysisPage() {
                   transition: "stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.4s ease",
                   filter:
                     dtiRatio !== null && dtiRatio < 30
-                      ? "drop-shadow(0 0 8px rgba(16, 185, 129, 0.5))"
+                      ? "drop-shadow(0 0 8px rgba(30, 126, 85, 0.5))"
                       : dtiRatio !== null && dtiRatio <= 50
-                      ? "drop-shadow(0 0 8px rgba(245, 158, 11, 0.5))"
-                      : "drop-shadow(0 0 8px rgba(239, 68, 68, 0.5))",
+                      ? "drop-shadow(0 0 8px rgba(179, 104, 0, 0.5))"
+                      : "drop-shadow(0 0 8px rgba(192, 57, 43, 0.5))",
                 }}
               />
             </svg>

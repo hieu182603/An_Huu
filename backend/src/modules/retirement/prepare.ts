@@ -76,14 +76,28 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
   }
   for (const debt of debts) {
     if (debt.outstandingBalance.status === "KNOWN" && new D(debt.outstandingBalance.value).isZero()) continue;
-    const schedule = buildContractSchedule(debt, data.valuationDate);
-    if (schedule.status !== "READY") { issues.push(...schedule.issues.map(i => ({ path: `debts.${debt.id}`, code: i.code }))); continue; }
-    if (schedule.rows.some(r => r.dueDate.slice(0, 7) > input.endMonth && new D(r.userPayment).gt(0)))
-      warnings.push({ path: `debts.${debt.id}`, code: "DEBT_PAYMENTS_AFTER_PLAN_END" });
-    for (const row of schedule.rows) {
-      const month = row.dueDate.slice(0, 7), stress = input.debtStress.find(s => s.loanId === debt.id && s.startMonth <= month && month <= s.endMonth);
-      const payment = stress ? new D(row.principal).plus(row.interest).plus(row.fee).mul(stress.totalPaymentShare) : new D(row.userPayment);
-      debtRows.set(month, (debtRows.get(month) ?? new D(0)).plus(payment));
+    if (debt.contract?.status === "KNOWN") {
+      const schedule = buildContractSchedule(debt, data.valuationDate);
+      if (schedule.status !== "READY") { issues.push(...schedule.issues.map(i => ({ path: `debts.${debt.id}`, code: i.code }))); continue; }
+      if (schedule.rows.some(r => r.dueDate.slice(0, 7) > input.endMonth && new D(r.userPayment).gt(0)))
+        warnings.push({ path: `debts.${debt.id}`, code: "DEBT_PAYMENTS_AFTER_PLAN_END" });
+      for (const row of schedule.rows) {
+        const month = row.dueDate.slice(0, 7), stress = input.debtStress.find(s => s.loanId === debt.id && s.startMonth <= month && month <= s.endMonth);
+        const payment = stress ? new D(row.principal).plus(row.interest).plus(row.fee).mul(stress.totalPaymentShare) : new D(row.userPayment);
+        debtRows.set(month, (debtRows.get(month) ?? new D(0)).plus(payment));
+      }
+    } else if (debt.payment.status === "KNOWN" && debt.paymentShare.status === "KNOWN") {
+      warnings.push({ path: `debts.${debt.id}`, code: "LOAN_CONTRACT_ESTIMATED" });
+      const monthlyPayment = new D(debt.payment.value).mul(debt.paymentShare.value);
+      const balance = debt.outstandingBalance.status === "KNOWN" ? new D(debt.outstandingBalance.value) : new D(0);
+      const estMonths = monthlyPayment.gt(0) && balance.gt(0) ? Math.ceil(balance.div(monthlyPayment).toNumber()) : 12;
+      for (let m = 0; m < estMonths; m++) {
+        const month = addMonths(firstMonth, m);
+        if (month > input.endMonth) break;
+        debtRows.set(month, (debtRows.get(month) ?? new D(0)).plus(monthlyPayment));
+      }
+    } else {
+      issue(`debts.${debt.id}`, "DEBT_SCHEDULE_REQUIRED");
     }
   }
   const injections = new Map<string, InstanceType<typeof D>>(), rents: Array<{ start: string; amount: InstanceType<typeof D> }> = [];

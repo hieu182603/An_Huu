@@ -12,6 +12,7 @@ import {
 import type { FinancialProfile } from "../../context/FinancialProfileContext";
 import { inputFromProfile, projectBalanceAtAge } from "../../domain/retirementCalculator";
 import { useI18n } from "../../i18n";
+import { formatCompactVND, formatFullVND } from "../../utils/currency";
 
 export type ChartPeriod = "5y" | "10y" | "retire" | "lifetime";
 
@@ -62,20 +63,6 @@ const generateData = (period: ChartPeriod, profile: FinancialProfile, isVi: bool
   return data;
 };
 
-const formatVND = (value: number, isVi: boolean) => {
-  if (value >= 1_000_000_000) {
-    return isVi ? `${(value / 1_000_000_000).toFixed(2)} tỷ` : `${(value / 1_000_000_000).toFixed(2)}B ₫`;
-  }
-  if (value >= 1_000_000) {
-    return isVi ? `${Math.round(value / 1_000_000)} tr` : `${Math.round(value / 1_000_000)}M ₫`;
-  }
-  return `${value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫`;
-};
-
-const formatFullVND = (value: number, isVi: boolean) => {
-  return `${value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫`;
-};
-
 interface CustomTooltipProps {
   active?: boolean;
   payload?: any[];
@@ -92,13 +79,13 @@ const CustomTooltip = ({ active, payload, isVi }: CustomTooltipProps) => {
   return (
     <div
       style={{
-        background: "rgba(16, 45, 61, 0.96)",
+        background: "rgba(5, 38, 89, 0.95)",
         backdropFilter: "blur(12px)",
-        border: "1px solid rgba(185, 204, 190, 0.22)",
+        border: "1px solid rgba(208, 228, 254, 0.25)",
         borderRadius: "10px",
         padding: "12px 16px",
-        color: "#F6F1E8",
-        boxShadow: "0 10px 25px -5px rgba(16, 45, 61, 0.5)",
+        color: "#F9FBFF",
+        boxShadow: "0 10px 25px -5px rgba(2, 16, 36, 0.5)",
         fontSize: "12.5px",
         minWidth: "220px",
         pointerEvents: "none",
@@ -106,17 +93,17 @@ const CustomTooltip = ({ active, payload, isVi }: CustomTooltipProps) => {
     >
       <div
         style={{
-          borderBottom: "1px solid rgba(185, 204, 190, 0.2)",
+          borderBottom: "1px solid rgba(208, 228, 254, 0.25)",
           paddingBottom: "6px",
           marginBottom: "8px",
           fontWeight: 700,
-          color: "#F6F1E8",
+          color: "#F9FBFF",
           display: "flex",
           justifyContent: "space-between",
         }}
       >
         <span>{isVi ? `Năm ${data.year}` : `Year ${data.year}`}</span>
-        <span style={{ color: "#6F9B7C" }}>{isVi ? `${data.age} tuổi` : `${data.age} yrs`}</span>
+        <span style={{ color: "#C1E8FF" }}>{isVi ? `${data.age} tuổi` : `${data.age} yrs`}</span>
       </div>
 
       <div style={{ display: "grid", gap: "6px" }}>
@@ -143,7 +130,7 @@ const CustomTooltip = ({ active, payload, isVi }: CustomTooltipProps) => {
             borderTop: "1px dashed rgba(208, 228, 254, 0.4)",
             display: "flex",
             justifyContent: "space-between",
-            color: gapPositive ? "var(--color-danger, #A14D47)" : "var(--color-secondary-500, #334DAF)",
+            color: gapPositive ? "var(--color-danger, #C0392B)" : "var(--color-secondary-500, #334DAF)",
             fontWeight: 600,
           }}
         >
@@ -197,7 +184,7 @@ export function ProjectionWealthChart({ period, profile }: { period: ChartPeriod
             fontSize={11}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => formatVND(v, isVi)}
+            tickFormatter={(v) => formatCompactVND(v, isVi, 2)}
             domain={[0, "auto"]}
           />
 
@@ -207,12 +194,12 @@ export function ProjectionWealthChart({ period, profile }: { period: ChartPeriod
           {period !== "5y" && period !== "10y" && (
             <ReferenceLine
               x={chartData.find((d) => d.age === profile.goal.targetRetireAge)?.label}
-              stroke="#D9A85E"
+              stroke="#334DAF"
               strokeDasharray="4 4"
               label={{
                 value: isVi ? `Nghỉ hưu (${profile.goal.targetRetireAge}t)` : `Retirement (${profile.goal.targetRetireAge}y)`,
                 position: "top",
-                fill: "#B88738",
+                fill: "#052659",
                 fontSize: 11,
                 fontWeight: 600,
               }}

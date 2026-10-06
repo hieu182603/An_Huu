@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
 import { Badge, BrandLogo, Button, Checkbox, GoogleIcon, Icon, Input, useNotification } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import { resumeDestination } from "../services/navigation";
 import { apiRequest, forgetSession, validPassword } from "../services/api";
 import { isGoogleAuthConfigured, triggerGoogleSignIn } from "../services/googleAuth";
 import { trackLoginEvent, trackSignUpEvent } from "../services/googleAnalytics";
@@ -112,11 +113,11 @@ function AuthStory({
           </span>
           <span className="auth-minimal-pill">
             <Icon name="check" size="small" />
-            <span>Miễn phí trọn đời</span>
+            <span>Lập kế hoạch chủ động</span>
           </span>
           <span className="auth-minimal-pill">
             <Icon name="check" size="small" />
-            <span>Bảo mật AES-256</span>
+            <span>Quản lý dữ liệu cá nhân</span>
           </span>
         </div>
       </div>
@@ -130,6 +131,7 @@ function AuthStory({
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, loginWithGoogle, initializing } = useAuth();
   const { notify } = useNotification();
 
@@ -155,11 +157,7 @@ export function LoginPage() {
           const u = await loginWithGoogle(credential);
           trackLoginEvent("google");
           notify.success("Đăng nhập Google thành công", `Chào mừng bạn trở lại, ${u.name}!`);
-          if (u.role === "admin") {
-            navigate("/admin/dashboard");
-          } else {
-            navigate("/user/dashboard");
-          }
+          navigate(resumeDestination(location.state?.from, u.role), { replace: true });
         },
         (err) => {
           console.error("Google Auth Error:", err);
@@ -187,7 +185,7 @@ export function LoginPage() {
       const loggedUser = await login(cleanEmail, cleanPassword, remember);
       trackLoginEvent("email");
       notify.success("Đăng nhập thành công", `Chào mừng bạn trở lại, ${loggedUser.name}!`);
-      navigate(loggedUser.role === "admin" ? "/admin/dashboard" : "/user/dashboard");
+      navigate(resumeDestination(location.state?.from, loggedUser.role), { replace: true });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -207,7 +205,7 @@ export function LoginPage() {
       <AuthStory
         title="Tự chủ tài chính, an nhiên mỗi ngày."
         highlight="8,5 TỶ ĐỒNG"
-        sub="Mục tiêu tích lũy tuổi 60"
+        sub="Ví dụ minh họa ở tuổi 60"
         badge="Đồng hành dài hạn"
       />
 
@@ -320,7 +318,7 @@ export function LoginPage() {
 
             <div style={{ textAlign: "center", marginTop: "16px" }}>
               <span style={{ color: "#7B8F9D", fontSize: "13px" }}>Chưa có tài khoản? </span>
-              <Link to="/register" className="auth-switch-link">
+              <Link to="/register" state={{ from: location.state?.from }} className="auth-switch-link">
                 Đăng ký ngay <Icon name="arrow-right" size="small" />
               </Link>
             </div>
@@ -333,6 +331,7 @@ export function LoginPage() {
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { loginWithGoogle, initializing } = useAuth();
   const { notify } = useNotification();
 
@@ -360,7 +359,7 @@ export function RegisterPage() {
           const u = await loginWithGoogle(credential);
           trackSignUpEvent("google");
           notify.success("Đăng ký thành công với Google", `Chào mừng bạn gia nhập An Hưu, ${u.name}!`);
-          navigate("/user/dashboard");
+          navigate(resumeDestination(location.state?.from, u.role), { replace: true });
         },
         (err) => {
           console.error("Google Auth Error:", err);
@@ -408,7 +407,7 @@ export function RegisterPage() {
       }
       await apiRequest("/auth/register", { fullName: cleanName, email: cleanEmail, password: cleanPassword, ...(cleanPhone ? { phone: cleanPhone } : {}) });
       trackSignUpEvent("email");
-      navigate("/verify", { state: { email: cleanEmail } });
+      navigate("/verify", { state: { email: cleanEmail, from: location.state?.from } });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -498,7 +497,7 @@ export function RegisterPage() {
               <div className="auth-field-item">
                 <label className="auth-field-label" htmlFor="register-password">
                   <span>Mật khẩu</span>
-                  <span style={{ fontSize: "11px", color: passwordStrength === 3 ? "#34A853" : passwordStrength === 2 ? "#D9A85E" : "#7B8F9D" }}>
+                  <span style={{ fontSize: "11px", color: passwordStrength === 3 ? "var(--color-success, #007A3D)" : passwordStrength === 2 ? "var(--color-warning, #B36800)" : "var(--color-ink-muted, #5483B3)" }}>
                     {passwordStrength === 3
                       ? "Mạnh"
                       : passwordStrength === 2
@@ -588,7 +587,7 @@ export function RegisterPage() {
 
             <div style={{ textAlign: "center", marginTop: "16px" }}>
               <span style={{ color: "#7B8F9D", fontSize: "13px" }}>Đã có tài khoản? </span>
-              <Link to="/login" className="auth-switch-link">
+              <Link to="/login" state={{ from: location.state?.from }} className="auth-switch-link">
                 Đăng nhập ngay <Icon name="arrow-right" size="small" />
               </Link>
             </div>
@@ -911,7 +910,7 @@ export function VerifyPage() {
         "Xác thực hoàn tất",
         "Tài khoản đã được kích hoạt. Vui lòng đăng nhập."
       );
-      navigate("/login");
+      navigate("/login", { replace: true, state: { from: location.state?.from } });
     } catch (err) {
       setResendNotice(getErrorMessage(err));
     } finally {
@@ -957,7 +956,7 @@ export function VerifyPage() {
           </Link>
           <div className="auth-topbar-action">
             <span>Đổi email khác?</span>
-            <Link to="/register" className="auth-switch-link">Quay lại</Link>
+            <Link to="/register" state={{ from: location.state?.from }} className="auth-switch-link">Quay lại</Link>
           </div>
         </div>
 

@@ -41,7 +41,7 @@ const AdminUserDetailPage = lazy(() => import("./pages/admin/AdminUsersApi").the
 const AdminContentPage = lazy(() => import("./pages/admin/AdminContentApi"));
 const AdminPartnersPage = lazy(() => import("./pages/admin/AdminBusinessPages").then(module => ({ default: module.AdminPartnersPage })));
 const AdminAIManagementPage = lazy(() => import("./pages/admin/AdminAIConfigPages").then(module => ({ default: module.AdminAIManagementPage })));
-const AdminFinancialConfigPage = lazy(() => import("./pages/admin/AdminAIConfigPages").then(module => ({ default: module.AdminFinancialConfigPage })));
+const AdminFinancialConfigPage = lazy(() => import("./pages/admin/AdminFinancialConfigPage"));
 import { useAuth, type UserRole } from "./context/AuthContext";
 
 function RequireRole({ role, children }: { role: UserRole; children: ReactNode }) {
@@ -49,7 +49,7 @@ function RequireRole({ role, children }: { role: UserRole; children: ReactNode }
   const location = useLocation();
   if (initializing) return <AppLoader label="Đang khôi phục phiên đăng nhập…" />;
   if (restoreError && !user) return <AppLoader error={restoreError} onRetry={retrySession} />;
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search + location.hash }} />;
   if (user.role !== role) return <Navigate to={user.role === "admin" ? "/admin/dashboard" : "/user/dashboard"} replace />;
   return children;
 }
@@ -120,6 +120,7 @@ export default function App() {
           <Route path="account" element={<AccountPage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="*" element={<NotFoundView />} />
         </Route>
         <Route path="/admin" element={<RequireRole role="admin"><AdminLayout /></RequireRole>}>
           <Route index element={<Navigate to="dashboard" replace />} />

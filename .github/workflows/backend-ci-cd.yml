@@ -81,7 +81,7 @@ jobs:
       - run: npm run test:integration
   deploy-to-azure:
     needs: [validate-and-test, database-integration]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.BACKEND_DEPLOY_ENABLED == 'true'
+    if: ((github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch') && vars.BACKEND_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -91,6 +91,6 @@ jobs:
           path: backend
       - uses: azure/webapps-deploy@v3
         with:
-          app-name: an-huu-api
+          app-name: anhuu-backend
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: backend

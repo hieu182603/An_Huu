@@ -111,12 +111,23 @@ export async function updateAdminAssumptionDraft(id: string, expectedRevision: n
   return authenticatedRequest<AssumptionDetail>(`/admin/assumptions/${id}`, { expectedRevision, data }, "PATCH");
 }
 
-export async function validateAdminAssumption(id: string): Promise<{ valid: boolean; issues?: string[] }> {
-  return authenticatedRequest<{ valid: boolean; issues?: string[] }>(`/admin/assumptions/${id}/validate`, {}, "POST");
+export interface AssumptionValidation {
+  status: "VALID" | "INCOMPLETE";
+  issues: Array<{ path: string; code: string }>;
 }
 
-export async function previewAssumptionImpact(id: string, expectedRevision: number): Promise<{ impactToken: string; affectedProfilesCount?: number }> {
-  return authenticatedRequest<{ impactToken: string; affectedProfilesCount?: number }>(`/admin/assumptions/${id}/impact`, { expectedRevision }, "POST");
+export interface AssumptionImpact extends AssumptionValidation {
+  impactToken: string;
+  baselineId: string | null;
+  currentPlansChanged: number;
+}
+
+export async function validateAdminAssumption(id: string): Promise<AssumptionValidation> {
+  return authenticatedRequest<AssumptionValidation>(`/admin/assumptions/${id}/validate`, {}, "POST");
+}
+
+export async function previewAssumptionImpact(id: string, expectedRevision: number): Promise<AssumptionImpact> {
+  return authenticatedRequest<AssumptionImpact>(`/admin/assumptions/${id}/impact`, { expectedRevision }, "POST");
 }
 
 export async function approveAssumption(id: string, expectedRevision: number, impactToken: string, reviewNote: string): Promise<AssumptionDetail> {

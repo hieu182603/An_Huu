@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Alert, Badge, Button, Card, Drawer, Icon, IconButton, Modal, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
@@ -52,6 +52,7 @@ export default function AIAssistantPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Privacy & Consent state
+  const [privacyError, setPrivacyError] = useState(false);
   const [privacy, setPrivacy] = useState<AiPrivacyResponse | null>(null);
   const [consentModalOpen, setConsentModalOpen] = useState(false);
   const [updatingConsent, setUpdatingConsent] = useState(false);
@@ -95,6 +96,7 @@ export default function AIAssistantPage() {
 
   // Load privacy settings
   const loadPrivacy = async () => {
+    setPrivacyError(false);
     try {
       const p = await getAiPrivacy();
       setPrivacy(p);
@@ -102,7 +104,7 @@ export default function AIAssistantPage() {
         setConsentModalOpen(true);
       }
     } catch {
-      // Ignore if unauthenticated / offline
+      setPrivacyError(true);
     }
   };
 
@@ -384,9 +386,11 @@ export default function AIAssistantPage() {
 
   return (
     <div className="codex-work-workspace">
+        {privacyError && <Alert tone="danger" title={language === "en" ? "Unable to load AI preferences" : "Không thể tải tùy chọn AI"} action={<Button onClick={loadPrivacy}>{language === "en" ? "Retry" : "Thử lại"}</Button>} />}
+      {!currentVersion && <Alert tone="info" title={language === "en" ? "No applied plan" : "Chưa có kế hoạch được áp dụng"}>{language === "en" ? "Apply a plan to ask questions about its figures." : "Áp dụng kế hoạch để trợ lý có số liệu giải thích chính xác."}<Link className="button button-secondary" to="/user/plan">{language === "en" ? "Open plan" : "Đến kế hoạch"}</Link></Alert>}
       {/* Top Header Bar */}
       <header className="codex-topbar">
-        <div className="codex-title-wrap">
+      <div className="codex-title-wrap">
           <span className="codex-folder-icon" aria-hidden="true">
             <Icon name="sparkles" size="small" />
           </span>
@@ -447,6 +451,21 @@ export default function AIAssistantPage() {
       <div className="codex-body-layout">
         {/* Chat Feed */}
         <div className="codex-chat-container">
+          {!activePlan && (
+            <div style={{ margin: "16px 20px 0", padding: "12px 16px", borderRadius: "var(--radius-sm)", background: "var(--color-secondary-soft)", border: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--color-primary-700)" }}>
+                <Icon name="info" size="small" />
+                <span>
+                  {language === "en"
+                    ? "You haven't established an official retirement plan yet. Create one to get personalized AI data insights."
+                    : "Bạn chưa có kế hoạch hưu trí chính thức. Hãy tạo kế hoạch để trợ lý phân tích số liệu cá nhân hóa cho bạn."}
+                </span>
+              </div>
+              <Link to="/user/goal" className="button button-primary button-small" style={{ textDecoration: "none", fontSize: "12px" }}>
+                {language === "en" ? "Set Up Goal" : "Thiết lập mục tiêu"}
+              </Link>
+            </div>
+          )}
           <div className="conversation-scroll" ref={scrollRef}>
             {messages.map((msg) => (
               <motion.div

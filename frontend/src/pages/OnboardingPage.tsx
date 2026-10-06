@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useLocation } from "react-router";
 import { Badge, BrandLogo, Button, Card, Checkbox, Icon, IconButton, Input, Select, useNotification } from "../components/ui";
 import {
   useFinancialProfile,
   EMPTY_PROFILE,
   type OnboardingDraftData,
 } from "../context/FinancialProfileContext";
+import { resumeDestination } from "../services/navigation";
 import { useI18n } from "../i18n";
 
 type StepId =
@@ -42,6 +43,7 @@ const INITIAL_FORM_DATA = {
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { notify } = useNotification();
   const { language } = useI18n();
   const isEn = language === "en";
@@ -226,22 +228,39 @@ export default function OnboardingPage() {
 
   const handleNext = async () => {
     if (working) return;
-    if (!validateCurrentStep(currentStep)) return;
+    if (!validateCurrentStep(currentStep)) {
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+      return;
+    }
     setWorking(true); setSaveError(null);
     try {
       if (currentStepIndex < steps.length - 1) {
         const next = steps[currentStepIndex + 1].id;
-        setCurrentStep(next);
-        window.scrollTo({ left: 0, top: 0, behavior: "instant" as ScrollBehavior });
-        document.documentElement.scrollLeft = 0;
-        document.body.scrollLeft = 0;
-        await saveOnboardingDraft({ step: next, ...formData });
-      } else if (await completeOnboarding({ ...formData, step: currentStep, updatedAt: new Date().toISOString() } as OnboardingDraftData)) {
-        setIsCompleted(true);
-        notify.success(
-          isEn ? "Profile Initialized Successfully" : "Khởi tạo hồ sơ thành công",
-          isEn ? "Your financial baseline has been saved to your account." : "Thông tin đã được lưu vào tài khoản của bạn."
-        );
+        const ok = await saveOnboardingDraft({ step: next, ...formData });
+        if (ok) {
+          setCurrentStep(next);
+        } else {
+          const msg = isEn
+            ? "Could not save your survey progress due to a connection issue. Please retry."
+            : "Chưa thể lưu tiến độ khảo sát do gián đoạn kết nối. Vui lòng bấm Thử lại.";
+          setSaveError(msg);
+          notify.error(isEn ? "Save Progress Error" : "Lỗi lưu tiến độ", msg);
+        }
+      } else {
+        const ok = await completeOnboarding({ ...formData, step: currentStep, updatedAt: new Date().toISOString() } as OnboardingDraftData);
+        if (ok) {
+          setIsCompleted(true);
+          notify.success(
+            isEn ? "Profile Initialized Successfully" : "Khởi tạo hồ sơ thành công",
+            isEn ? "Your financial baseline has been saved to your account." : "Thông tin đã được lưu vào tài khoản của bạn."
+          );
+        } else {
+          const msg = isEn
+            ? "Could not complete your profile. Please check your data and retry."
+            : "Chưa thể hoàn tất hồ sơ tài chính. Vui lòng kiểm tra và bấm Thử lại.";
+          setSaveError(msg);
+          notify.error(isEn ? "Submission Failed" : "Chưa thể hoàn tất", msg);
+        }
       }
     } finally { setWorking(false); }
   };
@@ -285,7 +304,7 @@ export default function OnboardingPage() {
             <Icon name="circle-check" size="large" />
           </div>
           <Badge tone="success">{isEn ? "FINANCIAL PROFILE COMPLETED" : "HỒ SƠ TÀI CHÍNH HOÀN TẤT"}</Badge>
-          <h1>{isEn ? "Wonderful! Your financial foundation is ready" : "Tuyệt vời! Bức tranh tài chính của bạn đã sẵn sàng"}</h1>
+          <h1>{isEn ? "Wonderful! Your financial foundation is ready" : "Đã lưu hồ sơ tài chính ban đầu"}</h1>
           <p>
             {isEn
               ? "An Huu has analyzed your assets, income, and cashflow. Your current estimated net worth:"
@@ -300,12 +319,12 @@ export default function OnboardingPage() {
             <Button
               variant="primary"
               size="large"
-              onClick={() => navigate("/user/dashboard")}
+              onClick={() => navigate(resumeDestination(location.state?.from, "user", "/user/account"), { replace: true })}
             >
-              {isEn ? "Open Dashboard & Plan Retirement" : "Mở Dashboard & Lập kế hoạch hưu trí"} <Icon name="arrow-right" />
+              {isEn ? "Continue to Financial Profile" : "Tiếp tục hoàn thiện hồ sơ"} <Icon name="arrow-right" />
             </Button>
           </div>
-          <small>{isEn ? "This data will serve as the automatic basis for the retirement simulation engine." : "Dữ liệu này sẽ được dùng làm căn cứ tự động cho công cụ mô phỏng hưu trí."}</small>
+          <small>{isEn ? "This data will serve as the automatic basis for the retirement simulation engine." : "Tiếp theo, bổ sung mốc thời gian và phân bổ tài sản trong hồ sơ chi tiết để tính kế hoạch hưu trí."}</small>
         </Card>
       </div>
     );
@@ -349,11 +368,11 @@ export default function OnboardingPage() {
 
         <IconButton
           icon="x"
-          label={isEn ? "Save and return to Home" : "Lưu và thoát về trang chủ"}
+          label={isEn ? "Save and return to Dashboard" : "Lưu và về tổng quan"}
           onClick={async () => {
             if (working) return;
             setWorking(true);
-            try { if (await saveOnboardingDraft({ step: currentStep, ...formData })) navigate("/"); }
+            try { if (await saveOnboardingDraft({ step: currentStep, ...formData })) navigate("/user/dashboard"); }
             finally { setWorking(false); }
           }}
         />
@@ -430,67 +449,122 @@ export default function OnboardingPage() {
         {/* Main Content Area */}
         <main className="onboarding-main" id="main-content">
           <div className="onboarding-content">
-            {/* STEP 0: WELCOME */}
+            {/* STEP 0: WELCOME - REDESIGNED PREMIUM FINTECH ONBOARDING */}
             {currentStep === "welcome" && (
-              <div className="welcome-step">
-                <div className="welcome-illustration">
-                  <div className="welcome-ring ring-outer" />
-                  <div className="welcome-ring ring-inner" />
-                  <div className="welcome-center">
-                    <Icon name="wallet" size="large" />
+              <div className="welcome-step-v2">
+                {/* Header section with clean badge & hierarchy */}
+                <div className="welcome-header-v2">
+                  <div className="welcome-badge-pill">
+                    <span className="welcome-badge-dot" />
+                    <span>{isEn ? "STEP 0 OF 7 · ESTIMATED 5 MINS" : "BƯỚC KHỞI ĐẦU · ƯỚC TÍNH 5 PHÚT"}</span>
                   </div>
-                  <div className="orbit-item orbit-wallet">
-                    <Icon name="target" />
-                  </div>
-                  <div className="orbit-item orbit-chart">
-                    <Icon name="chart" />
-                  </div>
-                  <div className="orbit-item orbit-home">
-                    <Icon name="home" />
+                  <h1 className="welcome-title-v2">
+                    {isEn ? "Initial Financial Profile Setup" : "Thiết lập hồ sơ tài chính ban đầu"}
+                  </h1>
+                  <p className="welcome-subtitle-v2">
+                    {isEn
+                      ? "To calculate an accurate retirement plan, An Huu needs an overview of your current cashflow and assets. Your data is encrypted and strictly used for your projections."
+                      : "Để lượng hóa kế hoạch hưu trí chính xác đến từng tháng, An Hưu cần hiểu bức tranh toàn cảnh về dòng tiền và tài sản hiện tại của bạn. Mọi số liệu đều được bảo mật tuyệt đối."}
+                  </p>
+                </div>
+
+                {/* Central Visual Banner: Financial Horizon Preview */}
+                <div className="welcome-showcase-card">
+                  <div className="welcome-showcase-ambient" />
+                  
+                  <div className="welcome-showcase-content">
+                    <div className="showcase-tag">
+                      <Icon name="sparkles" size="small" />
+                      <span>{isEn ? "HOLISTIC RETIREMENT JOURNEY" : "HÀNH TRÌNH ĐỘC LẬP TÀI CHÍNH"}</span>
+                    </div>
+
+                    <h2 className="showcase-heading">
+                      {isEn ? "From current savings to lifelong golden retirement" : "Từ dòng tiền hiện tại đến an tâm tuổi vàng viên mãn"}
+                    </h2>
+
+                    {/* 3 Pillars Preview Floating Grid */}
+                    <div className="showcase-pillars-grid">
+                      <div className="showcase-pillar-item">
+                        <div className="pillar-icon-wrap">
+                          <Icon name="wallet" />
+                        </div>
+                        <div className="pillar-meta">
+                          <span className="pillar-label">{isEn ? "Pillar 01" : "Trụ cột 01"}</span>
+                          <strong>{isEn ? "Income & Cashflow" : "Thu nhập & Dòng tiền"}</strong>
+                          <small>{isEn ? "Monthly surplus optimization" : "Tối ưu hóa thặng dư hàng tháng"}</small>
+                        </div>
+                      </div>
+
+                      <div className="showcase-pillar-item highlight">
+                        <div className="pillar-icon-wrap highlight">
+                          <Icon name="target" />
+                        </div>
+                        <div className="pillar-meta">
+                          <span className="pillar-label highlight">{isEn ? "Pillar 02" : "Trụ cột 02"}</span>
+                          <strong>{isEn ? "Assets & Investments" : "Tài sản & Đầu tư"}</strong>
+                          <small>{isEn ? "Savings, real estate & funds" : "Tiết kiệm, bất động sản & quỹ"}</small>
+                        </div>
+                      </div>
+
+                      <div className="showcase-pillar-item">
+                        <div className="pillar-icon-wrap">
+                          <Icon name="shield" />
+                        </div>
+                        <div className="pillar-meta">
+                          <span className="pillar-label">{isEn ? "Pillar 03" : "Trụ cột 03"}</span>
+                          <strong>{isEn ? "Social Pension & Net Worth" : "Bảo hiểm & Lương hưu"}</strong>
+                          <small>{isEn ? "BHXH & comprehensive safety net" : "Lương hưu BHXH & lưới an sinh"}</small>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="welcome-points">
-                  <div className="step-heading">
-                    <Badge tone="soft">{isEn ? "STEP 0 · GETTING STARTED" : "BƯỚC 0 · KHỞI ĐẦU"}</Badge>
-                    <h1>{isEn ? "Initial Financial Profile Setup" : "Thiết lập hồ sơ tài chính ban đầu"}</h1>
+                {/* 3 Bento Feature Cards */}
+                <div className="welcome-bento-grid">
+                  <div className="welcome-bento-card">
+                    <div className="bento-card-icon">
+                      <Icon name="compass" />
+                    </div>
+                    <div className="bento-card-text">
+                      <h3>{isEn ? "Estimated Figures" : "Số liệu mang tính ước tính"}</h3>
+                      <p>{isEn ? "You do not need exact penny-level numbers, just a reasonable approximation." : "Không cần chính xác từng đồng lẻ, con số xấp xỉ hợp lý là đủ để thuật toán vận hành."}</p>
+                    </div>
+                  </div>
+
+                  <div className="welcome-bento-card">
+                    <div className="bento-card-icon">
+                      <Icon name="chart" />
+                    </div>
+                    <div className="bento-card-text">
+                      <h3>{isEn ? "Easily Editable Later" : "Dễ dàng chỉnh sửa linh hoạt"}</h3>
+                      <p>{isEn ? "All information can be revised anytime at Plan screen as your family situation evolves." : "Mọi số liệu đều có thể cập nhật lại khi thu nhập hoặc hoàn cảnh gia đình thay đổi."}</p>
+                    </div>
+                  </div>
+
+                  <div className="welcome-bento-card">
+                    <div className="bento-card-icon">
+                      <Icon name="shield" />
+                    </div>
+                    <div className="bento-card-text">
+                      <h3>{isEn ? "Bank-Grade Security" : "Bảo mật chuẩn tài chính"}</h3>
+                      <p>{isEn ? "Data is strictly for your retirement projections, never sold or shared with third parties." : "Dữ liệu chỉ phục vụ mục đích tính toán của bạn, không bán hay chia sẻ cho bên thứ ba."}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preparation Guide Card */}
+                <div className="welcome-prep-card">
+                  <div className="welcome-prep-icon">
+                    <Icon name="info" />
+                  </div>
+                  <div className="welcome-prep-body">
+                    <strong>{isEn ? "Quick Preparation Tips" : "Gợi ý chuẩn bị để hoàn thành trong 5 phút"}</strong>
                     <p>
                       {isEn
-                        ? "To calculate an accurate retirement plan, An Huu needs an overview of your current finances. This takes about 5 to 7 minutes."
-                        : "Để tính toán kế hoạch nghỉ hưu chính xác, An Hưu cần hiểu bức tranh toàn cảnh về tài chính của bạn hiện tại. Quá trình này chỉ mất khoảng 5 - 7 phút."}
+                        ? "Having ready estimated numbers for your monthly income, savings balance, and years of social insurance contributions will help you finish effortlessly."
+                        : "Bạn chỉ cần ước lượng nhanh: Thu nhập hàng tháng, số dư tiết kiệm hiện có và số năm đã đóng BHXH để hoàn tất bảng khảo sát dễ dàng."}
                     </p>
-                  </div>
-
-                  <div>
-                    <span><Icon name="check" /></span>
-                    <div>
-                      <strong>{isEn ? "Estimated Figures" : "Số liệu mang tính ước tính"}</strong>
-                      <p>{isEn ? "You do not need exact penny-level numbers, just a reasonable approximation." : "Bạn không cần phải nhớ chính xác từng đồng lẻ, chỉ cần con số xấp xỉ hợp lý."}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span><Icon name="check" /></span>
-                    <div>
-                      <strong>{isEn ? "Easily Editable Later" : "Dễ dàng chỉnh sửa về sau"}</strong>
-                      <p>{isEn ? "All information can be revised as your income or family situation evolves." : "Mọi thông tin đều có thể cập nhật lại khi thu nhập hoặc hoàn cảnh gia đình thay đổi."}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span><Icon name="check" /></span>
-                    <div>
-                      <strong>{isEn ? "Financial-Grade Security" : "Bảo mật chuẩn tài chính"}</strong>
-                      <p>{isEn ? "Data is strictly for your retirement projections, never sold or shared with third parties." : "Dữ liệu chỉ phục vụ mục đích tính toán của bạn, không bán hay chia sẻ với bên thứ ba."}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="context-note">
-                  <span><Icon name="info" /></span>
-                  <div>
-                    <strong>{isEn ? "Preparation Advice" : "Lời khuyên chuẩn bị"}</strong>
-                    <p>{isEn ? "Have ready estimated numbers for your monthly income, savings balance, and years of social insurance contributions to finish quickly." : "Hãy chuẩn bị sẵn con số ước tính về thu nhập hàng tháng, số dư tiết kiệm và số năm đã đóng BHXH để hoàn thành nhanh nhất."}</p>
                   </div>
                 </div>
               </div>
@@ -946,7 +1020,9 @@ export default function OnboardingPage() {
             </div>
 
             <Button variant="primary" size="large" onClick={handleNext} loading={working}>
-              {currentStepIndex === steps.length - 1 ? (
+              {currentStepIndex === 0 ? (
+                <>{isEn ? "Start Profile Setup" : "Bắt đầu thiết lập ngay"} <Icon name="arrow-right" /></>
+              ) : currentStepIndex === steps.length - 1 ? (
                 <>{isEn ? "Complete Profile & View Plan" : "Hoàn tất hồ sơ & Nhận kế hoạch"} <Icon name="check" /></>
               ) : (
                 <>{isEn ? "Continue to Next Step" : "Tiếp tục bước tiếp theo"} <Icon name="arrow-right" /></>

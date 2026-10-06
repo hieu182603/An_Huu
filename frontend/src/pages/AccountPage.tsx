@@ -2,8 +2,8 @@ import { AccountProfilePanel, AccountSecurityPanel } from "../components/Account
 import FinancialProfileGate from "../components/FinancialProfileGate";
 import FinancialProfilePanel from "../components/FinancialProfilePanel";
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
-import { Badge, Button, Card, Icon, Switch, useNotification } from "../components/ui";
+import { Link, useSearchParams } from "react-router";
+import { Alert, Badge, Button, Card, Icon, Switch, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { inputFromProfile, projectBalanceAtAge } from "../domain/retirementCalculator";
@@ -16,19 +16,25 @@ type AccountTab = "profile" | "settings" | "reports";
 
 export default function AccountPage() {
   const { language } = useI18n();
-  const [activeTab, setActiveTab] = useState<AccountTab>("profile");
+  const [query, setQuery] = useSearchParams();
+  const activeTab: AccountTab = query.get("tab") === "settings" ? "settings" : query.get("tab") === "reports" ? "reports" : "profile";
+  const setActiveTab = (tab: AccountTab) => setQuery(prev => { prev.set("tab", tab); return prev; });
   const { notify } = useNotification();
   const { profile } = useFinancialProfile();
   const { activePlan } = useRetirementPlan();
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings | null>(null);
-  const [emailDigest, setEmailDigest] = useState(() => localStorage.getItem("an_huu_pref_digest") !== "false");
-  const [goalAlerts, setGoalAlerts] = useState(() => localStorage.getItem("an_huu_pref_goals") !== "false");
-  const [partnerUpdates, setPartnerUpdates] = useState(() => localStorage.getItem("an_huu_pref_policy") === "true");
+  const [emailDigest, setEmailDigest] = useState(false);
+  const [goalAlerts, setGoalAlerts] = useState(false);
+  const [partnerUpdates, setPartnerUpdates] = useState(false);
+  const [settingsError, setSettingsError] = useState("");
+  const [reloadSettings, setReloadSettings] = useState(0);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
 
   useEffect(() => {
     let active = true;
+    setSettingsError("");
     getNotificationSettings()
       .then(settings => {
         if (active) {
@@ -38,16 +44,17 @@ export default function AccountPage() {
           setPartnerUpdates(settings.partnerUpdates);
         }
       })
-      .catch(() => {});
+      .catch(() => { if (active) setSettingsError(language === "en" ? "Unable to load preferences." : "Không thể tải tùy chọn thông báo."); });
     return () => { active = false; };
-  }, []);
+  }, [reloadSettings, language]);
 
   const handleToggle = async (key: "emailDigest" | "goalAlerts" | "partnerUpdates", val: boolean) => {
+    if (!notificationSettings || savingSettings) return;
+    setSavingSettings(true);
     const prev = { emailDigest, goalAlerts, partnerUpdates };
     if (key === "emailDigest") setEmailDigest(val);
     if (key === "goalAlerts") setGoalAlerts(val);
     if (key === "partnerUpdates") setPartnerUpdates(val);
-    localStorage.setItem(key === "emailDigest" ? "an_huu_pref_digest" : key === "goalAlerts" ? "an_huu_pref_goals" : "an_huu_pref_policy", String(val));
 
     if (notificationSettings) {
       try {
@@ -69,7 +76,7 @@ export default function AccountPage() {
           language === "en" ? "Failed to save settings" : "Lưu cài đặt thất bại",
           e instanceof Error ? e.message : String(e)
         );
-      }
+      } finally { setSavingSettings(false); }
     }
   };
 
@@ -91,21 +98,8 @@ export default function AccountPage() {
         setIsExportingCsv(false);
       }
     } else {
-      exportProjectionCsv();
+      notify.info(language === "en" ? "Apply a plan first" : "Cần áp dụng kế hoạch trước khi xuất");
     }
-  };
-
-  const exportProjectionCsv = () => {
-    const input = inputFromProfile(profile);
-    const rows: Array<Array<string | number>> = [[language === "en" ? "Age" : "Tuổi", language === "en" ? "Year" : "Năm", language === "en" ? "Projected Balance (VND)" : "Số dư dự phóng (VND)"]];
-    for (let age = input.currentAge; age <= input.lifeExpectancy; age += 1) {
-      rows.push([age, new Date().getFullYear() + age - input.currentAge, projectBalanceAtAge(input, age)]);
-    }
-    downloadCsv("an-huu-du-phong-dong-tien.csv", rows);
-    notify.success(
-      language === "en" ? "CSV Export Successful" : "Xuất tệp CSV thành công",
-      language === "en" ? "Retirement cash flow projection table downloaded to your device." : "Bảng dự phóng dòng tiền hưu trí đã được tải về máy của bạn."
-    );
   };
 
   return (
@@ -123,7 +117,7 @@ export default function AccountPage() {
         </div>
 
         <div className="phase-eight-switcher">
-          <Link to="/user/explore"><button type="button">{language === "en" ? "Explore" : "Khám phá"}</button></Link>
+          <Link to="/user/explore">{language === "en" ? "Explore" : "Khám phá"}</Link>
           <button type="button" className="is-active">{language === "en" ? "Account" : "Tài khoản"}</button>
         </div>
       </div>
@@ -142,20 +136,16 @@ export default function AccountPage() {
           </button>
 
           <Link to="/user/debts" style={{ textDecoration: "none" }}>
-            <button type="button">
               <Icon name="wallet" />
               <span>{language === "en" ? "Loans & Debts" : "Khoản vay & Trả nợ"}</span>
               <Icon name="chevron-right" size="small" />
-            </button>
-          </Link>
+            </Link>
 
           <Link to="/user/risk-portfolio" style={{ textDecoration: "none" }}>
-            <button type="button">
               <Icon name="shield" />
               <span>{language === "en" ? "Risk Assessment & Portfolio" : "Khảo sát rủi ro & Danh mục"}</span>
               <Icon name="chevron-right" size="small" />
-            </button>
-          </Link>
+            </Link>
 
           <button
             type="button"
@@ -195,48 +185,68 @@ export default function AccountPage() {
                   </div>
                 </header>
 
-                <div className="account-setting-row preference-row">
-                  <div>
-                    <strong>{language === "en" ? "Monthly Progress Summary (Email Digest)" : "Bản tổng hợp tiến độ hàng tháng (Email Digest)"}</strong>
-                    <small>{language === "en" ? "Receive a monthly summary of your accumulation status and balance on the 1st of each month." : "Gửi báo cáo tóm tắt tình hình tích lũy và cập nhật số dư vào ngày 01 đầu tháng."}</small>
-                  </div>
-                  <Switch
-                    checked={emailDigest}
-                    label={emailDigest ? (language === "en" ? "On" : "Bật") : (language === "en" ? "Off" : "Tắt")}
-                    onChange={val => handleToggle("emailDigest", val)}
+                {settingsError && (
+                  <Alert
+                    tone="danger"
+                    title={settingsError}
+                    action={
+                      <Button variant="secondary" onClick={() => setReloadSettings(n => n + 1)}>
+                        {language === "en" ? "Retry" : "Thử lại"}
+                      </Button>
+                    }
                   />
-                </div>
+                )}
+                {!notificationSettings && !settingsError && <p role="status">{language === "en" ? "Loading preferences…" : "Đang tải tùy chọn…"}</p>}
 
-                <div className="account-setting-row preference-row">
-                  <div>
-                    <strong>{language === "en" ? "Goal Deviation & Milestone Alerts" : "Cảnh báo chệch mục tiêu & Cột mốc quan trọng"}</strong>
-                    <small>{language === "en" ? "Timely alerts when actual spending deviates from your planned retirement budget." : "Nhắc nhở kịp thời khi mức chi tiêu thực tế vượt quá ngân sách kế hoạch."}</small>
-                  </div>
-                  <Switch
-                    checked={goalAlerts}
-                    label={goalAlerts ? (language === "en" ? "On" : "Bật") : (language === "en" ? "Off" : "Tắt")}
-                    onChange={val => handleToggle("goalAlerts", val)}
-                  />
-                </div>
+                {notificationSettings && (
+                  <>
+                    <div className="account-setting-row preference-row">
+                      <div>
+                        <strong>{language === "en" ? "Monthly Progress Summary (Email Digest)" : "Bản tổng hợp tiến độ hàng tháng (Email Digest)"}</strong>
+                        <small>{language === "en" ? "Receive a monthly summary of your accumulation status and balance on the 1st of each month." : "Gửi báo cáo tóm tắt tình hình tích lũy và cập nhật số dư vào ngày 01 đầu tháng."}</small>
+                      </div>
+                      <Switch
+                        disabled={savingSettings}
+                        checked={emailDigest}
+                        label={emailDigest ? (language === "en" ? "On" : "Bật") : (language === "en" ? "Off" : "Tắt")}
+                        onChange={val => handleToggle("emailDigest", val)}
+                      />
+                    </div>
 
-                <div className="account-setting-row preference-row">
-                  <div>
-                    <strong>{language === "en" ? "Social Insurance Law & Pension Policy Updates" : "Thông tin cập nhật luật BHXH & Sản phẩm hưu trí"}</strong>
-                    <small>{language === "en" ? "Get notified when state pension regulations change or new market reports publish." : "Nhận thông báo khi có thay đổi chính sách lương hưu hoặc báo cáo thị trường mới."}</small>
-                  </div>
-                  <Switch
-                    checked={partnerUpdates}
-                    label={partnerUpdates ? (language === "en" ? "On" : "Bật") : (language === "en" ? "Off" : "Tắt")}
-                    onChange={val => handleToggle("partnerUpdates", val)}
-                  />
-                </div>
+                    <div className="account-setting-row preference-row">
+                      <div>
+                        <strong>{language === "en" ? "Goal Deviation & Milestone Alerts" : "Cảnh báo chệch mục tiêu & Cột mốc quan trọng"}</strong>
+                        <small>{language === "en" ? "Timely alerts when actual spending deviates from your planned retirement budget." : "Nhắc nhở kịp thời khi mức chi tiêu thực tế vượt quá ngân sách kế hoạch."}</small>
+                      </div>
+                      <Switch
+                        disabled={savingSettings}
+                        checked={goalAlerts}
+                        label={goalAlerts ? (language === "en" ? "On" : "Bật") : (language === "en" ? "Off" : "Tắt")}
+                        onChange={val => handleToggle("goalAlerts", val)}
+                      />
+                    </div>
 
-                <div className="account-save-row">
-                  <span>
-                    <Icon name="info" size="small" />{" "}
-                    {language === "en" ? "Notification preferences are synced with your account." : "Cài đặt thông báo được đồng bộ với tài khoản của bạn."}
-                  </span>
-                </div>
+                    <div className="account-setting-row preference-row">
+                      <div>
+                        <strong>{language === "en" ? "Social Insurance Law & Pension Policy Updates" : "Thông tin cập nhật luật BHXH & Sản phẩm hưu trí"}</strong>
+                        <small>{language === "en" ? "Get notified when state pension regulations change or new market reports publish." : "Nhận thông báo khi có thay đổi chính sách lương hưu hoặc báo cáo thị trường mới."}</small>
+                      </div>
+                      <Switch
+                        disabled={savingSettings}
+                        checked={partnerUpdates}
+                        label={partnerUpdates ? (language === "en" ? "On" : "Bật") : (language === "en" ? "Off" : "Tắt")}
+                        onChange={val => handleToggle("partnerUpdates", val)}
+                      />
+                    </div>
+
+                    <div className="account-save-row">
+                      <span>
+                        <Icon name="info" size="small" />{" "}
+                        {language === "en" ? "Notification preferences are synced with your account." : "Các thay đổi đã lưu được đồng bộ với tài khoản."}
+                      </span>
+                    </div>
+                  </>
+                )}
               </Card>
             </div>
           )}
@@ -244,20 +254,16 @@ export default function AccountPage() {
           {/* TAB 3: REPORTS / EXPORT */}
           {activeTab === "reports" && (
             <div style={{ display: "grid", gap: "16px" }}>
+              {!activePlan?.currentVersionId && <Alert tone="info" title={language === "en" ? "No official plan yet" : "Chưa có kế hoạch chính thức"}>{language === "en" ? "Apply a version before exporting its figures." : "Áp dụng một phiên bản trước khi xuất số liệu chính thức."}<Link to="/user/plan">{language === "en" ? "Open plan" : "Đến kế hoạch"}</Link></Alert>}
               <Card className="report-card">
                 <div>
                   <span className="report-icon"><Icon name="file-text" size="large" /></span>
                   <div>
                     <h2>{language === "en" ? "Retirement Plan Report (PDF)" : "Báo cáo Kế hoạch Hưu trí"}</h2>
-                    <p>{language === "en" ? "Open the browser print dialog to print your plan or save it as a PDF." : "Mở hộp thoại in của trình duyệt để in báo cáo hiện tại hoặc chọn “Lưu dưới dạng PDF”."}</p>
+                    <p>{language === "en" ? "View the plan and use its print action to save a PDF." : "Mở trang kế hoạch để kiểm tra số liệu và sử dụng chức năng in hoặc lưu PDF tại đó."}</p>
                   </div>
                 </div>
-                <Button
-                  variant="primary"
-                  onClick={() => window.print()}
-                >
-                  <Icon name="download" /> {language === "en" ? "Print or Save PDF" : "In hoặc lưu PDF"}
-                </Button>
+                <Link className="button button-primary" to="/user/plan"><Icon name="file-text" />{language === "en" ? "Open plan report" : "Mở báo cáo kế hoạch"}</Link>
               </Card>
 
               <Card className="report-card">
@@ -274,6 +280,7 @@ export default function AccountPage() {
                   variant="secondary"
                   onClick={handleExportCsv}
                   loading={isExportingCsv}
+                  disabled={!activePlan?.currentVersionId || isExportingCsv}
                 >
                   <Icon name="download" /> {language === "en" ? "Export CSV File" : "Xuất tệp CSV"}
                 </Button>

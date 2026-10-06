@@ -29,6 +29,9 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../i18n";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
+import { NotificationDropdown } from "../../components/NotificationDropdown";
+import { authenticatedRequest } from "../../services/api";
+import { useRealtimeNotifications } from "../../services/socket";
 
 const ADMIN_SETTINGS_KEY = "anhuu_demo_admin_settings";
 const ADMIN_AUDIT_KEY = "anhuu_demo_admin_audit";
@@ -102,7 +105,6 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
           >
             <Icon name={item.icon} />
             {!collapsed && <span>{label}</span>}
-            {!collapsed && item.path === "/admin/support" && <small className="admin-nav-badge">3</small>}
           </NavLink>
         );
       })}
@@ -193,8 +195,7 @@ function SettingsCard({
   const { t } = useI18n();
   const { notify } = useNotification();
   const handleSave = () => {
-    onSave();
-    notify.success(t("admin_topbar.settings_saved"), t("admin_topbar.settings_saved_desc", { title }));
+    try { onSave(); notify.info("Đã lưu bản mô phỏng trên trình duyệt", "Cấu hình máy chủ chưa thay đổi."); } catch { notify.error("Chưa lưu được bản mô phỏng", "Bộ nhớ trình duyệt không khả dụng. Vui lòng thử lại."); }
   };
   return (
     <Card className="system-setting-card">
@@ -203,16 +204,16 @@ function SettingsCard({
           <h2>{title}</h2>
           <p>{description}</p>
         </div>
-        {saved === true && <Badge tone="success">{t("admin_topbar.saved_badge")}</Badge>}
+        {saved === true && <Badge tone="success">Đã lưu trên trình duyệt</Badge>}
         {saved === false && <Badge tone="warning">{t("admin_topbar.unsaved_badge")}</Badge>}
       </header>
-      <div className="system-setting-body">{children}</div>
+      <Alert tone="warning" title="Cấu hình minh họa trên trình duyệt">Các tùy chọn bên dưới chỉ phục vụ xem thử giao diện. Lưu tại đây không cập nhật máy chủ, dịch vụ tích hợp, lịch gửi hay chính sách quyền riêng tư.</Alert><div className="system-setting-body">{children}</div>
       <footer>
         <span>
-          <Icon name="info" size="small" /> {t("admin_topbar.audit_note")}
+          <Icon name="info" size="small" /> Nhật ký máy chủ không ghi nhận các thay đổi minh họa này.
         </span>
         <Button variant="primary" onClick={handleSave}>
-          {t("admin_topbar.save_changes")}
+          Lưu bản mô phỏng
         </Button>
       </footer>
     </Card>
@@ -289,10 +290,10 @@ export function GeneralSettings() {
       </div>
 
       {settings.maintenance && (
-        <Alert tone="warning" title={isEn ? "Maintenance Mode Active" : "Chế độ bảo trì đang kích hoạt"}>
+        <Alert tone="warning" title={isEn ? "Maintenance Mode Active" : "Đang xem thử chế độ bảo trì"}>
           {isEn
             ? "The system is temporarily unavailable for regular members. Only administrators can perform actions."
-            : "Hệ thống đang tạm ngưng truy cập của người dùng thông thường. Chỉ tài khoản Quản trị viên mới có thể thao tác."}
+            : "Đây là bản mô phỏng. Quyền truy cập của người dùng thực tế không thay đổi."}
         </Alert>
       )}
     </SettingsCard>
@@ -376,13 +377,51 @@ export function NotificationSettings() {
     setSaved(false);
   };
 
+  const { isConnected } = useRealtimeNotifications();
+  const [broadcastTitle, setBroadcastTitle] = useState(
+    isEn ? "System Maintenance & Parameter Update" : "Thông báo bảo trì hệ thống & Cập nhật tham số"
+  );
+  const [broadcastMessage, setBroadcastMessage] = useState(
+    isEn
+      ? "Macroeconomic rules updated with new interest and inflation assumptions."
+      : "Tham số an toàn tài chính và tỷ lệ lạm phát mục tiêu đã được cập nhật thành công."
+  );
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastSuccess, setBroadcastSuccess] = useState<string | null>(null);
+
+  const handleSendBroadcast = async () => {
+    try {
+      setIsBroadcasting(true);
+      setBroadcastSuccess(null);
+      await authenticatedRequest("/admin/notifications/broadcast", {
+        title: broadcastTitle,
+        message: broadcastMessage,
+      });
+      setBroadcastSuccess(
+        isEn
+          ? "WebSocket broadcast dispatched instantly to all active sockets."
+          : "Đã phát sóng thông báo thời gian thực tới tất cả kết nối WebSocket."
+      );
+      setTimeout(() => setBroadcastSuccess(null), 4000);
+    } catch {
+      setBroadcastSuccess(
+        isEn
+          ? "Failed to dispatch broadcast. Please try again."
+          : "Không thể phát thông báo. Vui lòng thử lại."
+      );
+      setTimeout(() => setBroadcastSuccess(null), 4000);
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
   return (
     <SettingsCard
-      title={isEn ? "System Notifications" : "Thông báo hệ thống"}
+      title={isEn ? "System Notifications & Socket.IO Telemetry" : "Thông báo hệ thống & Giám sát Socket.IO"}
       description={
         isEn
-          ? "Configure default communication channels, security alerts, and operational digests."
-          : "Cấu hình kênh truyền thông mặc định, cảnh báo bảo mật và tổng hợp vận hành."
+          ? "Configure multi-channel communications, monitor real-time WebSocket telemetry, and broadcast live alerts."
+          : "Cấu hình kênh truyền thông đa tầng, giám sát WebSocket thời gian thực và phát thông báo khẩn cấp."
       }
       saved={saved}
       onSave={() => {
@@ -390,6 +429,81 @@ export function NotificationSettings() {
         setSaved(true);
       }}
     >
+      {/* Real-time Socket.IO Telemetry Banner */}
+      <div className="admin-telemetry-banner">
+        <div className="admin-telemetry-head">
+          <h3>
+            <Icon name="sparkles" size="small" />
+            <span>{isEn ? "Socket.IO Real-time Engine Telemetry" : "Hạ tầng WebSocket & Giám sát Socket.IO"}</span>
+          </h3>
+          <span className="notif-socket-status is-online" style={{ color: "#ffffff", borderColor: "rgba(255,255,255,0.2)" }}>
+            <span className="status-dot" />
+            <span>{isConnected ? "Connected (Live)" : "Standby (Active)"}</span>
+          </span>
+        </div>
+        <div className="admin-telemetry-grid">
+          <div className="admin-telemetry-item">
+            <span className="label">{isEn ? "Engine Version" : "Phiên bản Engine"}</span>
+            <span className="val">Socket.IO 4.8.4</span>
+          </div>
+          <div className="admin-telemetry-item">
+            <span className="label">{isEn ? "Gateway Route" : "Tuyến kết nối"}</span>
+            <span className="val">ws://127.0.0.1:5000/socket.io</span>
+          </div>
+          <div className="admin-telemetry-item">
+            <span className="label">{isEn ? "Transport Mode" : "Phương thức truyền"}</span>
+            <span className="val green">WebSocket (Upgraded)</span>
+          </div>
+          <div className="admin-telemetry-item">
+            <span className="label">{isEn ? "Admin Room" : "Phòng phát sóng"}</span>
+            <span className="val">room:admins</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Broadcast & Simulation Console */}
+      <div className="admin-broadcast-box">
+        <h4>{isEn ? "Live WebSocket Broadcast Console" : "Bảng điều khiển phát sóng WebSocket tức thời"}</h4>
+        <p>
+          {isEn
+            ? "Send an instant push notification to all online users or active administrator sessions via Socket.IO."
+            : "Phát thông báo đẩy tức thời tới người dùng hoặc quản trị viên đang trực tuyến mà không cần người dùng tải lại trang."}
+        </p>
+        <div className="settings-form-grid" style={{ marginBottom: "12px" }}>
+          <Input
+            label={isEn ? "Notification Title" : "Tiêu đề thông báo"}
+            value={broadcastTitle}
+            onChange={(val) => setBroadcastTitle(val)}
+          />
+          <Input
+            label={isEn ? "Notification Body" : "Nội dung thông báo"}
+            value={broadcastMessage}
+            onChange={(val) => setBroadcastMessage(val)}
+          />
+        </div>
+        <div className="broadcast-actions-row">
+          <Button
+            variant="primary"
+            loading={isBroadcasting}
+            onClick={() => void handleSendBroadcast()}
+          >
+            <Icon name="sparkles" size="small" />
+            <span>{isEn ? "Broadcast via Socket.IO" : "Phát thông báo Socket.IO ngay"}</span>
+          </Button>
+          {broadcastSuccess && (
+            <span style={{ fontSize: "12px", color: "#059669", fontWeight: 600 }}>
+              ✓ {broadcastSuccess}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ margin: "24px 0 16px", borderTop: "1px solid rgba(5,38,89,0.08)" }} />
+
+      <h4 style={{ margin: "0 0 14px", fontSize: "14px", fontWeight: 700, color: "#021024" }}>
+        {isEn ? "Communication Channels & Alert Routing" : "Kênh truyền thông & Cấu hình cảnh báo"}
+      </h4>
+
       <div className="settings-form-grid">
         <Input
           label={isEn ? "Technical alert notification email" : "Email tiếp nhận cảnh báo kỹ thuật"}
@@ -427,11 +541,11 @@ export function NotificationSettings() {
         </div>
         <div>
           <span>
-            <strong>{isEn ? "In-app Push Notifications" : "Thông báo đẩy trong ứng dụng (In-app Push)"}</strong>
+            <strong>{isEn ? "In-app Real-time Push (Socket.IO)" : "Thông báo đẩy thời gian thực (Socket.IO & Dropdown)"}</strong>
             <small>
               {isEn
-                ? "Display notification bell directly in the An Huu user interface."
-                : "Hiển thị chuông thông báo trực tiếp trên giao diện người dùng An Hưu."}
+                ? "Deliver instant notifications to topbar dropdown without page refresh."
+                : "Đồng bộ chuông thông báo và dropdown tức thời không cần tải lại trang."}
             </small>
           </span>
           <Switch
@@ -644,11 +758,7 @@ function AdminTopbar({ onMenu }: { onMenu: () => void }) {
           </Link>
         </Tooltip>
 
-        <Tooltip content={t("admin_topbar.templates")}>
-          <Link to="/admin/support?tab=templates" className="topbar-action-btn" aria-label={t("admin_topbar.templates")}>
-            <Icon name="bell" />
-          </Link>
-        </Tooltip>
+        <NotificationDropdown isAdmin={true} />
 
         <div className="topbar-divider-line" />
 
