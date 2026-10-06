@@ -12,6 +12,7 @@ import { assertSourceRegistry, composeSourceMonths, sealSourceRegistry, sealSour
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 export const loanSourceRevisionSchema = z.object({ commandId: z.string().uuid(), sourceId: z.string().min(1).max(200), operation: z.enum(["REVISE", "END"]),
   expectedSourceRevision: z.number().int().positive(), expectedSourceHash: hash, expectedContractHash: hash,
+  refinanceCommandId: z.string().uuid().optional(),
   confirm: z.literal(true), contract: loanContractV2Schema, legacyOpening: loanLegacyOpeningSchema.optional(),
   allocations: z.array(loanAllocationSchema).max(500), principalAdvances: z.array(loanBalanceChangeSchema).max(100) }).strict();
 export type LoanSourceRevisionCommand = z.infer<typeof loanSourceRevisionSchema>;

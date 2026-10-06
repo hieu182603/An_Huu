@@ -8,7 +8,7 @@ import {
 } from "./Notification";
 import logoHorizontal from "../assets/logo.png";
 import logoVertical from "../assets/logo-vertical.png";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -55,6 +55,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 export type IconName =
+  | "angles-left" | "angles-right"
   | "arrow-left" | "arrow-right" | "bell" | "briefcase" | "chart" | "check"
   | "chevron-down" | "chevron-left" | "chevron-right" | "compass" | "download"
   | "file-text" | "filter" | "globe" | "grid" | "home" | "info" | "life-buoy" | "log-out"
@@ -63,6 +64,8 @@ export type IconName =
   | "wallet" | "x" | "alert" | "circle-check" | "eye" | "eye-off";
 
 export const fontAwesomeIconMap: Record<IconName, IconDefinition> = {
+  "angles-left": faAnglesLeft,
+  "angles-right": faAnglesRight,
   "arrow-left": faArrowLeft,
   "arrow-right": faArrowRight,
   bell: faBell,
@@ -452,20 +455,177 @@ export function Breadcrumb({ items }: { items: string[] }) {
   return <nav className="breadcrumb" aria-label="Breadcrumb">{items.map((item, index) => <span key={item}><button type="button" aria-current={index === items.length - 1 ? "page" : undefined}>{item}</button>{index < items.length - 1 && <Icon name="chevron-right" size="small" />}</span>)}</nav>;
 }
 
-export function Pagination({ current, total }: { current: number; total: number }) {
+export interface PaginationProps {
+  current?: number;
+  page?: number;
+  total?: number;
+  totalPages?: number;
+  totalItems?: number;
+  pageSize?: number;
+  pageSizeOptions?: number[];
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  className?: string;
+  showRowsPerPage?: boolean;
+}
+
+export function Pagination({
+  current,
+  page,
+  total,
+  totalPages,
+  totalItems,
+  pageSize = 10,
+  pageSizeOptions = [10, 20, 50, 100],
+  onPageChange,
+  onPageSizeChange,
+  className = "",
+  showRowsPerPage = true,
+}: PaginationProps) {
   const { language } = useI18n();
-  if (total <= 1) return <p className="pagination-summary" aria-label={language === "en" ? "Pagination" : "Phân trang"}>{language === "en" ? `Page ${current}/${total}` : `Trang ${current}/${total}`}</p>;
-  const pages = Array.from({ length: Math.min(total, 5) }, (_, index) => index + 1);
+  const isEn = language === "en";
+
+  const activePage = Math.max(1, page ?? current ?? 1);
+  const activeTotalPages = Math.max(1, totalPages ?? total ?? 1);
+
+  // Generate page numbers with windowing matching the user's design: 1 2 3 ... 8 9 10
+  const pageNumbers = useMemo(() => {
+    if (activeTotalPages <= 7) {
+      return Array.from({ length: activeTotalPages }, (_, i) => i + 1);
+    }
+    if (activePage <= 3) {
+      return [1, 2, 3, "...", activeTotalPages - 2, activeTotalPages - 1, activeTotalPages];
+    }
+    if (activePage >= activeTotalPages - 2) {
+      return [1, 2, 3, "...", activeTotalPages - 2, activeTotalPages - 1, activeTotalPages];
+    }
+    return [1, "...", activePage - 1, activePage, activePage + 1, "...", activeTotalPages];
+  }, [activePage, activeTotalPages]);
+
+  const handleSelectPage = (p: number) => {
+    if (p >= 1 && p <= activeTotalPages && p !== activePage) {
+      onPageChange?.(p);
+    }
+  };
+
   return (
-    <nav className="pagination" aria-label={language === "en" ? "Pagination" : "Phân trang"}>
-      <IconButton icon="chevron-left" label={language === "en" ? "Previous page" : "Trang trước"} />
-      {pages.map((page) => (
-        <button className={page === current ? "is-active" : ""} aria-current={page === current ? "page" : undefined} key={page} type="button">
-          {page}
+    <div
+      className={`admin-pagination-bar ${className}`}
+      role="navigation"
+      aria-label={isEn ? "Pagination" : "Phân trang"}
+    >
+      {/* Left section: Page X of Y & Rows per page */}
+      <div className="pagination-left">
+        <span className="pagination-page-indicator">
+          {isEn
+            ? `Page ${activePage} of ${activeTotalPages}`
+            : `Trang ${activePage} / ${activeTotalPages}`}
+        </span>
+
+        {showRowsPerPage && (
+          <div className="pagination-rows-control">
+            <span className="pagination-rows-label">
+              {isEn ? "Rows per page" : "Dòng mỗi trang"}
+            </span>
+            <div className="pagination-select-wrap">
+              <select
+                className="pagination-select"
+                value={pageSize}
+                onChange={(e) => {
+                  const newSize = Number(e.target.value);
+                  onPageSizeChange?.(newSize);
+                }}
+                aria-label={isEn ? "Rows per page" : "Số dòng mỗi trang"}
+              >
+                {pageSizeOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <Icon name="chevron-down" size="small" className="pagination-select-arrow" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Right section: <<  <  1 2 3 ... 8 9 10  >  >> */}
+      <div className="pagination-right">
+        {/* First page: << */}
+        <button
+          type="button"
+          className="pagination-nav-btn"
+          onClick={() => handleSelectPage(1)}
+          disabled={activePage <= 1}
+          aria-label={isEn ? "First page" : "Trang đầu"}
+          title={isEn ? "First page" : "Trang đầu"}
+        >
+          <Icon name="angles-left" size="small" />
         </button>
-      ))}
-      <IconButton icon="chevron-right" label={language === "en" ? "Next page" : "Trang sau"} />
-    </nav>
+
+        {/* Previous page: < */}
+        <button
+          type="button"
+          className="pagination-nav-btn"
+          onClick={() => handleSelectPage(activePage - 1)}
+          disabled={activePage <= 1}
+          aria-label={isEn ? "Previous page" : "Trang trước"}
+          title={isEn ? "Previous page" : "Trang trước"}
+        >
+          <Icon name="chevron-left" size="small" />
+        </button>
+
+        {/* Numbers list: 1 2 3 ... 8 9 10 */}
+        <div className="pagination-numbers">
+          {pageNumbers.map((item, index) => {
+            if (item === "...") {
+              return (
+                <span key={`ellipsis-${index}`} className="pagination-ellipsis" aria-hidden="true">
+                  ···
+                </span>
+              );
+            }
+            const isCurrent = item === activePage;
+            return (
+              <button
+                key={item}
+                type="button"
+                className={`pagination-num-btn ${isCurrent ? "is-active" : ""}`}
+                onClick={() => handleSelectPage(item as number)}
+                aria-current={isCurrent ? "page" : undefined}
+                aria-label={isEn ? `Page ${item}` : `Trang ${item}`}
+              >
+                {item}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Next page: > */}
+        <button
+          type="button"
+          className="pagination-nav-btn"
+          onClick={() => handleSelectPage(activePage + 1)}
+          disabled={activePage >= activeTotalPages}
+          aria-label={isEn ? "Next page" : "Trang sau"}
+          title={isEn ? "Next page" : "Trang sau"}
+        >
+          <Icon name="chevron-right" size="small" />
+        </button>
+
+        {/* Last page: >> */}
+        <button
+          type="button"
+          className="pagination-nav-btn"
+          onClick={() => handleSelectPage(activeTotalPages)}
+          disabled={activePage >= activeTotalPages}
+          aria-label={isEn ? "Last page" : "Trang cuối"}
+          title={isEn ? "Last page" : "Trang cuối"}
+        >
+          <Icon name="angles-right" size="small" />
+        </button>
+      </div>
+    </div>
   );
 }
 

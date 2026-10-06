@@ -6,6 +6,7 @@ import {
   Card,
   Icon,
   Input,
+  Pagination,
   SearchField,
   Select,
 } from "../../components/ui";
@@ -54,6 +55,7 @@ export default function AdminContentPage() {
   const [searchInput, setSearchInput] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [statusFilter, setStatusFilter] = useState("ALL");
 
   const [editor, setEditor] = useState(false);
@@ -83,7 +85,7 @@ export default function AdminContentPage() {
 
     const params = new URLSearchParams({
       page: String(page),
-      limit: "20",
+      limit: String(pageSize),
       kind,
       search: activeQuery,
     });
@@ -106,7 +108,7 @@ export default function AdminContentPage() {
     return () => {
       active = false;
     };
-  }, [kind, activeQuery, page, statusFilter, reload, isEn]);
+  }, [kind, activeQuery, page, pageSize, statusFilter, reload, isEn]);
 
   const handleSearchSubmit = (e?: FormEvent) => {
     if (e) e.preventDefault();
@@ -316,33 +318,12 @@ export default function AdminContentPage() {
             <Button variant="primary" onClick={handleSearchSubmit}>
               {isEn ? "Search" : "Tìm kiếm"}
             </Button>
-          </div>
-        </div>
-
-        {/* Results summary bar */}
-        <div className="admin-results-summary">
-          <span>
-            {loading ? (
-              isEn ? "Loading content data..." : "Đang tải dữ liệu nội dung…"
-            ) : data ? (
-              isEn ? (
-                <>
-                  Showing <strong>{data.items.length}</strong> of <strong>{data.total}</strong> content items
-                </>
-              ) : (
-                <>
-                  Hiển thị <strong>{data.items.length}</strong> trên tổng số <strong>{data.total}</strong> mục nội dung
-                </>
-              )
-            ) : (
-              isEn ? "Loading..." : "Đang tải…"
+            {(activeQuery || statusFilter !== "ALL") && (
+              <Button variant="ghost" onClick={handleClearFilters}>
+                <Icon name="trash" size="small" /> {isEn ? "Clear filters" : "Xóa bộ lọc"}
+              </Button>
             )}
-          </span>
-          {(activeQuery || statusFilter !== "ALL") && (
-            <button type="button" onClick={handleClearFilters}>
-              <Icon name="trash" size="small" /> {isEn ? "Clear filters" : "Xóa bộ lọc"}
-            </button>
-          )}
+          </div>
         </div>
 
         {/* Table View */}
@@ -436,31 +417,18 @@ export default function AdminContentPage() {
 
         {/* Pagination Footer */}
         {data && data.total > 0 && (
-          <div className="admin-table-footer">
-            <span>
-              {isEn
-                ? `Page ${page} / ${totalPages} (${data.total} total items)`
-                : `Trang ${page} / ${totalPages} (Tổng cộng ${data.total} mục nội dung)`}
-            </span>
-            <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <Button
-                size="small"
-                variant="secondary"
-                disabled={page === 1 || loading}
-                onClick={() => setPage((v) => Math.max(1, v - 1))}
-              >
-                <Icon name="chevron-left" size="small" /> {isEn ? "Previous" : "Trang trước"}
-              </Button>
-              <Button
-                size="small"
-                variant="secondary"
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage((v) => v + 1)}
-              >
-                {isEn ? "Next" : "Trang sau"} <Icon name="chevron-right" size="small" />
-              </Button>
-            </div>
-          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={data.total}
+            pageSize={pageSize}
+            pageSizeOptions={[10, 20, 50, 100]}
+            onPageChange={(p) => setPage(p)}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
+          />
         )}
       </Card>
 

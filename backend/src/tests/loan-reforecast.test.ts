@@ -261,3 +261,57 @@ it("revises a previously planned loan after its disbursement and actual repaymen
   const result = await f.plans.saveSources(f.owner, saved.planId, { preview: update, expectedInputHash: next.inputHash!, confirm: true }, randomUUID());
   expect((await f.plans.version(f.owner, saved.planId, result.saved.id, true)).preview).toEqual(next.candidate);
 });
+
+async function refinanceFixture() {
+  const f = await fixture(), command = structuredClone(f.command), refinanceId = randomUUID();
+  const actual = structuredClone(f.actual); actual.entries[0].amount = "1020";
+  await f.actuals.write(f.owner, "2026-10", { expectedRevision: 1, data: actual }, randomUUID());
+  const closing = command.loanRevisions![0]; closing.operation = "END"; closing.refinanceCommandId = refinanceId;
+  closing.contract = { ...closing.contract, amendedOn: "2026-10-28", effectiveOn: "2026-10-28", principalBalance: "0", mode: "BANK_SCHEDULE", periods: [],
+    maturityDate: "2026-10-31", finalPayment: "NO_BALLOON" };
+  closing.allocations[0].actualRevision = 2;
+  closing.allocations[0].components.principal = closing.allocations[0].contractComponents.principal = "1000";
+  const replacement = plannedLoan(); replacement.refinanceCommandId = refinanceId;
+  replacement.contract = { ...nextContract(), signedOn: "2026-10-01", amendedOn: null, effectiveOn: "2026-10-28" };
+  replacement.funding = { kind: "EXISTING_BALANCE", notAlreadyInSources: true, evidence };
+  command.loanCreations = [replacement];
+  command.refinances = [{ commandId: refinanceId, closingCommandId: closing.commandId, newLoanCommandId: replacement.commandId, settledOn: "2026-10-28",
+    fundingScope: "FULL_CONTRACT", grossDisbursement: "900", withheldFees: "0", externalTopUp: "120", unusedProceeds: "0", confirm: true, evidence }];
+  return { ...f, command, replacement };
+}
+
+it("atomically closes an actual settled loan and creates its refinancing replacement with balanced funding", async () => {
+  const f = await refinanceFixture(), preview = await f.plans.previewSources(f.owner, f.saved.planId, f.command);
+  expect(preview.candidate!.refinances![0]).toMatchObject({ settlementAmount: "1020" });
+  expect(preview.candidate!.calculation.rows[0].openingBalance).toBe("880");
+  expect(preview.candidate!.calculation.attribution.some(a => a.sourceId === "profile:debt:loan-a")).toBe(false);
+  expect(preview.candidate!.calculation.attribution.filter(a => a.sourceId === f.replacement.sourceId).map(a => a.amount)).toEqual(Array(5).fill("100"));
+  const saved = await f.plans.saveSources(f.owner, f.saved.planId, { preview: f.command, expectedInputHash: preview.inputHash!, confirm: true }, randomUUID());
+  expect(f.rows("planVersion")).toHaveLength(2);
+  expect((await f.plans.version(f.owner, saved.planId, saved.saved.id, true)).preview).toEqual(preview.candidate);
+  await f.plans.apply(f.owner, saved.planId, { versionId: saved.saved.id, expectedRevision: 2, expectedProfileRevision: 1, confirm: true }, randomUUID());
+  const snapshot = structuredClone(f.rows("planVersion").at(-1)!.inputSnapshot) as any;
+  delete snapshot.preview.refinances; const { integrityHash: _, ...payload } = snapshot; snapshot.integrityHash = digest(payload);
+  expect(() => readSourceSnapshot(snapshot)).toThrowError(expect.objectContaining({ code: "SOURCE_EVIDENCE_MISMATCH" }));
+});
+
+it("rejects unbalanced refinance without persisting either side and requires both commands together", async () => {
+  const f = await refinanceFixture();
+  const preview = await f.plans.previewSources(f.owner, f.saved.planId, f.command);
+  f.command.refinances![0].unusedProceeds = "1";
+  await expect(f.plans.saveSources(f.owner, f.saved.planId, { preview: f.command, expectedInputHash: preview.inputHash!, confirm: true }, randomUUID()))
+    .rejects.toMatchObject({ code: "REFINANCE_FUNDING_MISMATCH" });
+  expect(f.rows("planVersion")).toHaveLength(1); expect(f.rows("retirementPlan")[0].revision).toBe(1);
+  expect(sourceReforecastSchema.safeParse({ ...f.command, loanCreations: [] }).success).toBe(false);
+  expect(sourceReforecastSchema.safeParse({ ...f.command, refinances: [] }).success).toBe(false);
+});
+
+it("will not terminate a loan that still has principal or unpaid future charges", async () => {
+  const f = await fixture(); f.command.loanRevisions![0].operation = "END";
+  await expect(f.plans.previewSources(f.owner, f.saved.planId, f.command)).rejects.toMatchObject({ code: "LOAN_NOT_FULLY_SETTLED" });
+  const r = await refinanceFixture();
+  r.command.refinances = []; delete r.command.loanRevisions![0].refinanceCommandId; r.command.loanCreations = [];
+  r.command.loanRevisions![0].contract.periods = [{ ...nextContract().periods[0], fee: "10", bankPayment: { principal: "0", interest: "0" } }];
+  r.command.loanRevisions![0].contract.maturityDate = "2026-11-30";
+  await expect(r.plans.previewSources(r.owner, r.saved.planId, r.command)).rejects.toMatchObject({ code: "LOAN_NOT_FULLY_SETTLED" });
+});

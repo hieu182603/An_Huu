@@ -112,13 +112,13 @@ export default function UserDashboard() {
         </motion.div>
 
         {/* 2. Official Plan Snapshot OR Plan Invitation */}
-        {loadingPlans || loadingReport ? (
+        {(loadingPlans || loadingReport) && !planSummary ? (
           <Card style={{ padding: "var(--space-6)", textAlign: "center", border: "1px solid var(--color-border)" }}>
             <p role="status" style={{ color: "var(--color-text-muted)", margin: 0 }}>
               {language === "en" ? "Loading your retirement plan…" : "Đang tải dữ liệu kế hoạch hưu trí của bạn…"}
             </p>
           </Card>
-        ) : plansError ? (
+        ) : plansError && !planSummary ? (
           <Alert
             tone="danger"
             title={language === "en" ? "Could not load plan" : "Chưa tải được kế hoạch"}

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Alert, Badge, Button, Card, Icon, Input, Select } from "../../components/ui";
+import { Alert, Badge, Button, Card, Icon, Input, Pagination, Select } from "../../components/ui";
 import { authenticatedRequest } from "../../services/api";
 import { useI18n } from "../../i18n";
 
@@ -513,22 +513,14 @@ export function AdminAuditPage() {
           {!data.items.length && (
             <p className="stream-empty-text">{isEn ? "No matching actions found." : "Không có thao tác phù hợp."}</p>
           )}
-          <div className="account-save-row">
-            <Button disabled={page === 1} onClick={() => setPage((value) => value - 1)}>
-              {isEn ? "Previous" : "Trang trước"}
-            </Button>
-            <span>
-              {isEn
-                ? `Page ${page} / ${Math.max(1, Math.ceil(data.total / data.limit))}`
-                : `Trang ${page} / ${Math.max(1, Math.ceil(data.total / data.limit))}`}
-            </span>
-            <Button
-              disabled={page * data.limit >= data.total}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              {isEn ? "Next" : "Trang sau"}
-            </Button>
-          </div>
+          <Pagination
+            page={page}
+            totalPages={Math.max(1, Math.ceil(data.total / data.limit))}
+            totalItems={data.total}
+            pageSize={data.limit}
+            onPageChange={setPage}
+            showRowsPerPage={false}
+          />
         </>
       )}
     </Card>

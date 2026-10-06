@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
-import { Alert, Badge, Button, Card, Icon, Input, Select } from "../components/ui";
+import { Alert, Badge, Button, Card, Icon, Input, Pagination, Select } from "../components/ui";
 import ResponsiveDialog from "../components/ResponsiveDialog";
 import { authenticatedRequest } from "../services/api";
 import { useI18n } from "../i18n";
@@ -490,31 +490,14 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
 
         {/* Pagination Bar */}
         {data && (
-          <div className="account-save-row admin-pagination" style={{ padding: "var(--space-4) var(--space-5)", borderTop: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>
-              {isEn
-                ? `${data.total} requests · Page ${page} / ${Math.max(1, Math.ceil(data.total / data.limit))}`
-                : `${data.total} yêu cầu · Trang ${page} / ${Math.max(1, Math.ceil(data.total / data.limit))}`}
-            </span>
-            <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <Button
-                variant="secondary"
-                size="small"
-                disabled={page === 1}
-                onClick={() => setPage((v) => v - 1)}
-              >
-                {isEn ? "Previous" : "Trang trước"}
-              </Button>
-              <Button
-                variant="secondary"
-                size="small"
-                disabled={page * data.limit >= data.total}
-                onClick={() => setPage((v) => v + 1)}
-              >
-                {isEn ? "Next" : "Trang sau"}
-              </Button>
-            </div>
-          </div>
+          <Pagination
+            page={page}
+            totalPages={Math.max(1, Math.ceil(data.total / data.limit))}
+            totalItems={data.total}
+            pageSize={data.limit}
+            onPageChange={setPage}
+            showRowsPerPage={false}
+          />
         )}
       </Card>
 

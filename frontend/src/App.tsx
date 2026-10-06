@@ -84,7 +84,7 @@ function RouteEffects() {
 }
 
 function NotFound({ admin = false }: { admin?: boolean }) {
-  return admin ? <NotFoundView admin /> : <main id="main-content" className="ah-404-page"><NotFoundView /></main>;
+  return <NotFoundView admin={admin} />;
 }
 
 export default function App() {
@@ -109,18 +109,18 @@ export default function App() {
         {/* User Area Routes */}
         <Route path="/user" element={<RequireRole role="user"><UserLayout /></RequireRole>}>
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<FinancialProfileGate><UserDashboard /></FinancialProfileGate>} />
-          <Route path="goal" element={<FinancialProfileGate><RetirementGoalPage /></FinancialProfileGate>} />
-          <Route path="plan" element={<FinancialProfileGate><RetirementPlanPage /></FinancialProfileGate>} />
-          <Route path="simulation" element={<FinancialProfileGate><SimulationTrackingPage /></FinancialProfileGate>} />
-          <Route path="debts" element={<FinancialProfileGate><DebtAnalysisPage /></FinancialProfileGate>} />
-          <Route path="risk-portfolio" element={<FinancialProfileGate><RiskPortfolioPage /></FinancialProfileGate>} />
-          <Route path="assistant" element={<FinancialProfileGate><AIAssistantPage /></FinancialProfileGate>} />
+          <Route path="dashboard" element={<UserDashboard />} />
+          <Route path="goal" element={<RetirementGoalPage />} />
+          <Route path="plan" element={<RetirementPlanPage />} />
+          <Route path="simulation" element={<SimulationTrackingPage />} />
+          <Route path="debts" element={<DebtAnalysisPage />} />
+          <Route path="risk-portfolio" element={<RiskPortfolioPage />} />
+          <Route path="assistant" element={<AIAssistantPage />} />
           <Route path="explore" element={<ExplorePage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="*" element={<NotFoundView />} />
+          <Route path="onboarding" element={<Navigate to="/onboarding" replace />} />
         </Route>
         <Route path="/admin" element={<RequireRole role="admin"><AdminLayout /></RequireRole>}>
           <Route index element={<Navigate to="dashboard" replace />} />
@@ -142,7 +142,6 @@ export default function App() {
             <Route path="privacy" element={<PrivacySettings />} />
             <Route path="audit-log" element={<AuditLog />} />
           </Route>
-          <Route path="*" element={<NotFound admin />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

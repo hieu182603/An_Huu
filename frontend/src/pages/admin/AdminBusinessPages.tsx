@@ -516,18 +516,13 @@ export function AdminPartnersPage() {
           </>
         )}
 
-        <footer style={{ padding: "var(--space-4) var(--space-5)", borderTop: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <small style={{ color: "var(--color-text-muted)" }}>
-            {activeTabKey === "products"
-              ? isEn
-                ? `Showing ${filteredProducts.length} of ${products.length} products`
-                : `Hiển thị ${filteredProducts.length} trên tổng số ${products.length} sản phẩm`
-              : isEn
-              ? `Showing ${filteredPartners.length} of ${partners.length} partners`
-              : `Hiển thị ${filteredPartners.length} trên tổng số ${partners.length} đối tác`}
-          </small>
-          <Pagination current={1} total={1} />
-        </footer>
+        <Pagination
+          page={1}
+          totalPages={1}
+          totalItems={activeTabKey === "products" ? filteredProducts.length : filteredPartners.length}
+          pageSize={10}
+          showRowsPerPage={false}
+        />
       </Card>
 
       {/* Product Detail Modal */}
