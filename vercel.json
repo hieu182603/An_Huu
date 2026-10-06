@@ -65,6 +65,22 @@
       "destination": "/kien-thuc/hieu-ve-tich-luy/index.html"
     },
     {
+      "source": "/api/(.*)",
+      "destination": "https://anhuu-backend-addwbfcshng0hcf7.japaneast-01.azurewebsites.net/api/$1"
+    },
+    {
+      "source": "/api",
+      "destination": "https://anhuu-backend-addwbfcshng0hcf7.japaneast-01.azurewebsites.net/api"
+    },
+    {
+      "source": "/health/(.*)",
+      "destination": "https://anhuu-backend-addwbfcshng0hcf7.japaneast-01.azurewebsites.net/health/$1"
+    },
+    {
+      "source": "/health",
+      "destination": "https://anhuu-backend-addwbfcshng0hcf7.japaneast-01.azurewebsites.net/health"
+    },
+    {
       "source": "/((?!assets(?:/|$)|images(?:/|$)|.*\\.[^/]+$).*)",
       "destination": "/app-shell.html"
     }

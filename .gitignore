@@ -6,10 +6,11 @@ dist/
 build/
 .vercel/
 
-# Environment files
+# Environment files & Deployment secrets
 .env
 .env.*
 !.env.example
+*.PublishSettings
 
 # Logs and runtime caches
 *.log
@@ -23,6 +24,7 @@ pnpm-debug.log*
 test-results/
 playwright-report/
 responsive-audit/
+screenshots/
 
 # Temporary, OS and local artifacts
 .claude/
@@ -64,3 +66,8 @@ artifacts/
 !/backend/scripts/verify-source-changes-db.cjs
 !/backend/scripts/verify-gemini.cjs
 !/backend/scripts/verify-retention-db.cjs
+
+# Local AI / Agent skills & tools
+.agents/
+agent/
+skills-lock.json
