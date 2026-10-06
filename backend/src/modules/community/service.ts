@@ -4,6 +4,7 @@ import { paginationSchema } from "../../common/http";
 import { transaction } from "../../common/transaction";
 import { audit } from "../../common/audit";
 import { AppError } from "../../common/errors";
+import { SocketService } from "../../services/socketService";
 export const listQuery = paginationSchema(["createdAt", "updatedAt"]).extend({ status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]).optional() });
 export const ticketInput = z.object({ subject: z.string().trim().min(3).max(200), category: z.enum(["Tài khoản", "Sử dụng website", "Nội dung", "Khác"]), message: z.string().trim().min(3).max(5000) }).strict();
 export const replyInput = z.object({ message: z.string().trim().min(1).max(5000) }).strict();
@@ -11,7 +12,11 @@ export const ticketStatusInput = z.object({ expectedRevision: z.number().int().m
 const missing = () => new AppError(404, "NOT_FOUND", "Không tìm thấy yêu cầu.");
 const conflict = () => new AppError(409, "REVISION_CONFLICT", "Yêu cầu đã thay đổi. Vui lòng tải lại.");
 const ticketSelect = { id: true, userId: true, subject: true, category: true, status: true, revision: true, createdAt: true, updatedAt: true } as const;
-const notify = (tx: Prisma.TransactionClient, userId: string, title: string, message: string, path: string) => tx.notification.create({ data: { userId, title, message, path } });
+const notify = async (tx: Prisma.TransactionClient, userId: string, title: string, message: string, path: string) => {
+  const notif = await tx.notification.create({ data: { userId, title, message, path } });
+  SocketService.notifyUser(userId, "notification:new", notif);
+  return notif;
+};
 export class CommunityService {
   constructor(private db: PrismaClient) {}
   async tickets(userId: string | null, query: z.infer<typeof listQuery>) {
@@ -63,6 +68,8 @@ export class CommunityService {
   async readNotification(userId: string, id?: string) {
     if (id && !(await this.db.notification.findFirst({ where: { id, userId }, select: { id: true } }))) throw missing();
     await this.db.notification.updateMany({ where: { userId, ...(id ? { id } : {}), readAt: null }, data: { readAt: new Date() } });
+    SocketService.notifyUser(userId, id ? "notification:read" : "notification:read_all", { id, readAt: new Date().toISOString() });
     return { updated: true };
   }
 }
+

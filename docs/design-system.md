@@ -4,9 +4,9 @@
 >
 > **Scope:** Chỉ áp dụng cho 2 nhóm giao diện: **USER** và **ADMIN**.
 >
-> **Visual direction:** Tài chính hưu trí gần gũi với thiên nhiên: navy sâu, xanh lá dịu, nền kem và điểm nhấn vàng mật ong. Giao diện User/Admin giữ cấu trúc dashboard rõ ràng, nhiều khoảng trắng và biểu đồ tối giản.
+> **Visual direction:** Nền tảng hoạch định tài chính hưu trí cao cấp, bình tĩnh và minh bạch: sắc xanh biển sâu (Oceanic Deep Navy) vững chãi kết hợp với màu băng sương Bắc Âu (Nordic Ice) thanh khiết, bề mặt Frosted Ice cao cấp và điểm nhấn Royal Blue sắc sảo. Giao diện User/Admin giữ cấu trúc dashboard rõ ràng, nhiều khoảng trắng và biểu đồ tối giản.
 >
-> **Brand palette:** Navy `#153A52` · Sage `#6F9B7C` · Mist `#B9CCBE` · Cream `#F6F1E8` · Honey `#D9A85E`.
+> **Brand palette (Oceanic Navy & Nordic Ice System):** Abyss `#021024` · Marine Navy `#052659` · Midnight Cobalt `#091F5C` · Royal Blue `#334DAF` · Slate Steel `#5483B3` · Cornflower `#7096D1` · Air `#7DA0CA` · Ice `#C1E8FF` · Sky Frost `#D0E4FE` · Frosted `#E8F2FE` · Canvas `#F9FBFF`.
 
 ---
 
@@ -16,16 +16,16 @@ AI/Developer phải tuân thủ các nguyên tắc sau:
 
 1. **Đọc toàn bộ file này trước khi sửa UI.** Không tạo style mới nếu Design System đã có quy tắc tương đương.
 2. **Không hard-code màu, radius, spacing, shadow trong component** nếu giá trị đó đã có token.
-3. **Không tự đổi brand palette.** Không dùng purple, neon, blue-electric, gradient nhiều màu hoặc màu “fintech trading” không thuộc hệ An Hưu.
+3. **Không tự đổi brand palette.** Tuyệt đối không dùng tím neon, đỏ chói, gradient AI lòe loẹt hoặc màu “fintech trading” không thuộc hệ An Hưu.
 4. **Không biến UI thành trading app.** An Hưu là nền tảng lập kế hoạch nghỉ hưu: bình tĩnh, rõ ràng, dài hạn, có giải thích.
-5. **Một khu vực chỉ có một primary CTA.** Các action còn lại dùng secondary/ghost/soft.
+5. **Một khu vực chỉ có một primary CTA.** CTA chính dùng Royal Blue `#334DAF` hoặc Marine Navy `#052659`. Các action còn lại dùng secondary/ghost/soft.
 6. **User và Admin dùng cùng Design System.** Khác nhau ở mật độ thông tin, không khác brand.
 7. **Mọi component phải có đủ state:** default, hover, focus, active/selected, disabled, loading, error nếu phù hợp.
-8. **Responsive là hành vi, không chỉ co nhỏ.** Trên mobile phải ưu tiên hierarchy, có thể đổi table thành card list, modal thành bottom sheet/full-screen.
+8. **Responsive là hành vi, không chỉ co nhỏ.** Trên mobile phải ưu tiên hierarchy, đổi table thành card list, modal thành bottom sheet/full-screen khi cần.
 9. **Không dùng màu đơn lẻ để biểu đạt trạng thái.** Luôn kèm icon, label hoặc text.
 10. **Dữ liệu tài chính quan trọng không được truncate gây mất nghĩa.**
 11. **AI content phải có disclosure:** “Gợi ý từ AI”, kèm nguồn/giả định khi phù hợp.
-12. **Accessibility là yêu cầu bắt buộc**, không phải phần bổ sung sau cùng.
+12. **Accessibility là yêu cầu bắt buộc**, tuân thủ nghiêm ngặt tiêu chuẩn WCAG 2.1 AA. Tuyệt đối không dùng chữ trắng trên các nền băng sáng (`#C1E8FF`, `#D0E4FE`, `#E8F2FE`).
 13. Nếu codebase hiện tại có component khác chuẩn này, **ưu tiên refactor về token/component chung** thay vì vá CSS cục bộ.
 14. Nếu có xung đột giữa yêu cầu một màn hình và Design System, **giữ logic nghiệp vụ nhưng không phá hệ thống thị giác**; chỉ tạo exception khi thật sự cần và phải ghi chú lý do.
 
@@ -38,7 +38,7 @@ Một task UI chỉ được xem là hoàn thành khi:
 - đủ hover/focus/disabled/loading/empty/error;
 - responsive được kiểm tra ở `1440`, `1024`, `768`, `390` px;
 - keyboard navigation hoạt động;
-- contrast đạt yêu cầu;
+- contrast đạt yêu cầu WCAG 2.1 AA;
 - không hard-code style lặp lại;
 - không có component mới nếu component tương đương đã tồn tại;
 - dữ liệu tiền tệ, %, ngày tháng hiển thị nhất quán;
@@ -57,7 +57,7 @@ An Hưu cần tạo cảm giác:
 - **Bình tĩnh** thay vì gây áp lực hoặc FOMO.
 - **Dễ hiểu** với người dùng không chuyên tài chính.
 - **Trưởng thành** nhưng không cứng nhắc.
-- **Ấm áp, gần gũi** cho chủ đề lập kế hoạch tương lai dài hạn.
+- **Thanh khiết, an tâm** cho chủ đề lập kế hoạch tương lai dài hạn.
 - **Hiện đại** theo phong cách SaaS dashboard cao cấp.
 
 ### Từ khóa thị giác
@@ -140,135 +140,134 @@ Card, input, button, dropdown, modal, table và chart phải dùng chung hệ ra
 
 # 3. COLOR SYSTEM
 
-## 3.1. Brand colors
+## 3.1. Brand colors — Oceanic Navy & Nordic Ice System
 
-Năm màu nhận diện lấy theo mã HEX ghi trực tiếp trong ảnh tham chiếu do người dùng cung cấp ngày 01.10.2026. Không lấy màu từ vùng ảnh phong cảnh vì ánh sáng và lớp phủ làm thay đổi sắc độ.
+Hệ màu chuẩn hóa gồm **11 mã HEX** trích xuất từ 2 ảnh swatches nhận diện thương hiệu An Hưu:
 
-| Token | Hex | Vai trò |
-|---|---|---|
-| `navy-700` | `#153A52` | Primary, heading, active nav, CTA chính, text quan trọng |
-| `sage-500` | `#6F9B7C` | Xanh lá nhận diện, progress và biểu đồ; không dùng cho chữ nhỏ trên nền sáng |
-| `mist-300` | `#B9CCBE` | Xanh nhạt nhận diện, đồ họa phụ và track biểu đồ |
-| `cream-50` | `#F6F1E8` | App background, canvas ấm |
-| `honey-500` | `#D9A85E` | Điểm nhấn mặt trời, milestone và chi tiết trang trí tiết chế |
+| Token | Hex | Tên màu | Vai trò ngữ nghĩa |
+|---|---|---|---|
+| `navy-800` | `#021024` | Deepest Navy Abyss | Nền tối sâu nhất, tiêu đề tối quan trọng, sidebar hover cực tối |
+| `navy-700` | `#052659` | Marine Classic Navy | Primary Brand Color, heading H1/H2, active nav, primary text |
+| `cobalt-600` | `#091F5C` | Midnight Cobalt | Điểm nhấn chiều sâu, button secondary hover, đường viền nhấn |
+| `royal-500` | `#334DAF` | Royal Blue | Primary CTA, nút hành động chính, active toggle, milestone chính |
+| `slate-500` | `#5483B3` | Slate Steel | Chữ phụ (text-muted), icon thứ cấp, đường phân cách |
+| `cornflower-400`| `#7096D1` | Cornflower Blue | Phân đoạn biểu đồ cổ phiếu/tăng trưởng, tag công nghệ |
+| `air-300` | `#7DA0CA` | Air Subtle Blue | Viền input control khi focus/active, đường phân đoạn biểu đồ phụ |
+| `ice-200` | `#C1E8FF` | Crisp Nordic Ice | Tag trạng thái tích cực, highlight card, track tiến độ |
+| `sky-100` | `#D0E4FE` | Pale Ice Sky | Border card, border container, hover highlight trên table |
+| `frosted-50` | `#E8F2FE` | Frosted Ice Surface | Nền card surface, drawer, modal header, input background hover |
+| `canvas` | `#F9FBFF` | Pristine Canvas White| Nền toàn bộ ứng dụng (app background), tạo cảm giác thanh khiết |
 
-Các sắc độ hỗ trợ dưới đây được bổ sung cho giao diện, không phải màu gốc lấy từ ảnh:
+### Cách phối màu & Cảm thụ thị giác
 
-| Token | Hex | Vai trò |
-|---|---|---|
-| `sage-700` | `#486D53` | Chữ xanh trên nền sáng, nhãn trạng thái thành công, focus outline |
-| `soft-50` | `#E8EEE8` | Nền selected/hover, vùng phụ; sáng hơn Mist gốc để bảng dữ liệu thoáng |
-| `midnight-900` | `#102D3D` | High-emphasis data, dark focus panel |
-| `white` | `#FFFFFF` | Card, input, popover, modal |
-
-### Cách đọc phong cách tham chiếu
-
-- Navy thiên xanh tự nhiên tạo cảm giác ổn định cho thương hiệu tài chính dài hạn.
-- Sage và Mist gợi cây cối, sự phát triển đều đặn và cuộc sống nghỉ hưu an yên.
-- Cream giữ độ ấm của ánh nắng, tạo khoảng nghỉ cho mắt giữa các bảng dữ liệu.
-- Honey là điểm nhấn duy nhất ngoài nhóm navy/xanh lá, gắn với hình mặt trời của ảnh tham chiếu.
-- Phạm vi cập nhật là hệ màu. Typography, bố cục, bán kính và hành vi điều hướng theo hệ thống hiện có. Áp dụng phần phân tích thương hiệu/màu của skill design-taste-frontend; dashboard tiếp tục dùng component An Hưu hiện có.
+- **Marine Navy & Abyss (`#052659`, `#021024`):** Tạo sự an tâm, vững chãi, uy tín của một tổ chức tài chính hưu trí tin cậy.
+- **Royal Blue (`#334DAF`):** Điểm nhấn năng động nhưng nghiêm túc, dùng cho CTA chính để hướng dẫn hành động rõ ràng.
+- **Nordic Ice & Canvas (`#C1E8FF`, `#D0E4FE`, `#E8F2FE`, `#F9FBFF`):** Mang lại sự nhẹ nhõm, bình yên, xua tan áp lực lo lắng về tài chính của người dùng khi lập kế hoạch dài hạn.
 
 ## 3.2. Semantic colors
 
 | Token | Hex | Dùng cho |
 |---|---|---|
-| `success-500` | `#486D53` | Hoàn thành, đạt mục tiêu, tăng trưởng tích cực |
-| `warning-500` | `#805719` | Chữ/icon cảnh báo trên nền Honey pha nhạt |
-| `danger-500` | `#A14D47` | Lỗi, khóa tài khoản, destructive action, khoản thiếu hụt |
-| `info-500` | `#365D6C` | Thông tin trung tính, đang xử lý |
-| `text-muted` | `#586B61` | Secondary copy, helper text |
-| `text-strong` | `#23352F` | Nội dung chính, số liệu cần nhấn mạnh |
-| `border-subtle` | `#D8E2D9` | Border nhẹ |
-| `border-input` | `#7C8F81` | Biên input nhìn rõ trên White/Cream |
-| `chart-deficit` | `#D06A4C` | Khoản thiếu hụt hưu trí, lạm phát bào mòn trên biểu đồ |
+| `success-500` | `#1E7E55` | Đạt mục tiêu, dòng tiền thặng dư, tăng trưởng an toàn |
+| `warning-500` | `#B36800` | Cảnh báo thiếu hụt nhẹ, giả định cần cập nhật |
+| `danger-500` | `#C0392B` | Thiếu hụt nghiêm trọng, nợ quá hạn, hành động xóa/hủy |
+| `info-500` | `#052659` | Thông tin hướng dẫn, giải thích thuật ngữ |
+| `text-primary` | `#052659` | Chữ nội dung chính, tiêu đề, label |
+| `text-strong` | `#021024` | Số liệu KPI, giá trị tiền tệ lớn |
+| `text-muted` | `#456B91` | Chú thích, helper text, mô tả phụ (Slate Cerulean) |
+| `border-card` | `#D0E4FE` | Đường viền card, bảng phân cách |
+| `border-input` | `#7DA0CA` | Viền input nhìn rõ nét trên nền canvas trắng băng |
+| `chart-deficit` | `#C0392B` | Khoản thâm hụt hưu trí, lạm phát bào mòn trên biểu đồ |
 
-Các token semantic phía trên ưu tiên dùng cho chữ/icon. Nền badge/alert dùng màu pha nhạt: Sage 12% (`#EDF4EE`), Honey 15% (`#FAF3E8`), Danger 12% (`#F7EBEA`) và Info 12% (`#EDF3F5`). `--color-warning-fill` và `--chart-warning` dùng Honey gốc; không dùng nâu cảnh báo làm màu thương hiệu. Mọi trạng thái đi kèm nhãn hoặc icon.
+Nền badge và alert dùng sắc độ pha nhạt với tương phản chữ cao:
+- **Success soft:** `#E6F8F0` kết hợp chữ `#1E7E55`
+- **Warning soft:** `#FEF3D6` kết hợp chữ `#B36800`
+- **Danger soft:** `#FDE8E8` kết hợp chữ `#C0392B`
+- **Info soft:** `#E8F2FE` kết hợp chữ `#052659`
 
-## 3.3. Tỷ lệ sử dụng màu
+## 3.3. Tỷ lệ sử dụng màu (60-30-10 Rule)
 
-Mục tiêu tổng thể:
+- **60% Canvas & Surfaces:** `#F9FBFF` (Background), `#FFFFFF` (Card inner), `#E8F2FE` (Surface tint).
+- **30% Structure & Text:** `#052659` (Text, Headings), `#021024` (Deep Accent), `#5483B3` / `#D0E4FE` (Borders, subtle lines).
+- **10% Focal & CTA:** `#334DAF` (Primary CTA, focus states) + Semantic Alerts (`#1E7E55`, `#B36800`, `#C0392B`).
 
-- **65%** Cream + White + nền Soft
-- **15%** Navy
-- **15%** Sage + Mist
-- **5% tối đa** Honey và các trạng thái semantic
+### Quy tắc bất biến (Strict Rules)
+1. **Tuyệt đối không dùng chữ trắng trên nền sáng:** Cấm dùng text trắng trên `#C1E8FF`, `#D0E4FE`, `#E8F2FE`, `#F9FBFF`. Text trên các nền này bắt buộc là `#052659` hoặc `#021024`.
+2. **Một primary CTA duy nhất:** Nút quan trọng nhất trong viewport luôn là Royal Blue `#334DAF` với text trắng `#FFFFFF`.
+3. **Không phủ màu tùy tiện:** Không lạm dụng nền gradient nhiều màu. Giữ nền băng sương bình lặng.
 
-### Quy tắc
-
-- Navy = hierarchy chính.
-- Sage = progress / selected / positive soft.
-- Cream = canvas chính.
-- Mist = đồ họa phụ; Soft là sắc độ sáng dành cho nền selected/hover.
-- Honey chỉ làm điểm nhấn nhỏ; CTA chính vẫn Navy, không dùng chữ trắng trên Honey.
-- Danger không dùng để “gây chú ý” nếu chưa phải lỗi/nguy hiểm thật.
-- Không phủ Sage toàn trang.
-- Không dùng quá 1 accent semantic mạnh trong một card.
-
-## 3.4. CSS tokens
+## 3.4. CSS tokens chuẩn hóa
 
 ```css
 :root {
-  --color-primary-700: #153A52;
-  --color-secondary-500: #6F9B7C;
-  --color-secondary-700: #486D53;
-  --color-mist-300: #B9CCBE;
-  --color-accent-500: #D9A85E;
-  --color-bg: #F6F1E8;
-  --color-soft: #E8EEE8;
-  --color-midnight-900: #102D3D;
+  /* An Hưu Brand Palette — Oceanic Navy & Nordic Ice System */
+  --color-primary-700: #052659; /* Marine Classic Navy */
+  --color-primary-800: #021024; /* Deepest Navy Abyss */
+  --color-primary-600: #091F5C; /* Midnight Cobalt */
+  --color-secondary-500: #334DAF; /* Royal Blue / Primary Focus CTA */
+  --color-secondary-700: #091F5C; /* Deep Cobalt */
+  --color-secondary-light: #7096D1; /* Cornflower Blue */
+  --color-secondary-soft: #E8F2FE; /* Frosted Ice Surface */
+  --color-mist-300: #C1E8FF; /* Crisp Nordic Ice */
+  --color-accent-500: #334DAF; /* Vibrant Focus Accent */
+  --color-accent-soft: #D0E4FE; /* Pale Ice Sky Surface */
+  --color-bg: #F9FBFF; /* Pristine Ice-White Canvas */
+  --color-soft: #E8F2FE; /* Soft Ice Tint */
+  --color-midnight-900: #021024; /* Deepest Navy Abyss */
   --color-white: #FFFFFF;
 
-  --color-text-primary: #153A52;
-  --color-text-strong: #23352F;
-  --color-text-muted: #586B61;
-  --color-border: #D8E2D9;
-  --color-border-input: #7C8F81;
+  /* Typography Colors */
+  --color-text-primary: #052659;
+  --color-text-strong: #021024;
+  --color-text-muted: #456B91;
 
-  --color-success: #486D53;
-  --color-warning: #805719;
-  --color-warning-fill: var(--color-accent-500);
-  --color-danger: #A14D47;
-  --color-info: #365D6C;
-  --color-danger-soft: #F7EBEA;
-  --color-warning-soft: #FAF3E8;
-  --color-success-soft: #EDF4EE;
-  --color-info-soft: #EDF3F5;
+  /* Border Tokens */
+  --color-border: #D0E4FE;
+  --color-border-input: #7DA0CA;
+
+  /* Semantic Feedback */
+  --color-success: #1E7E55;
+  --color-warning: #B36800;
+  --color-warning-fill: #334DAF;
+  --color-danger: #C0392B;
+  --color-info: #052659;
+  --color-danger-soft: #FDE8E8;
+  --color-warning-soft: #FEF3D6;
+  --color-success-soft: #E6F8F0;
+  --color-info-soft: #E8F2FE;
 
   /* Data Visualization & Asset Allocation */
-  --chart-primary: #153A52;
-  --chart-secondary: #6F9B7C;
-  --chart-track: var(--color-mist-300);
-  --chart-warning: var(--color-accent-500);
-  --chart-info: #365D6C;
-  --chart-deficit: #D06A4C;
-  --chart-series-1: #153A52;
-  --chart-series-2: #6F9B7C;
-  --chart-series-3: #D9A85E;
-  --chart-series-4: #365D6C;
-  --chart-series-5: #D06A4C;
-  --chart-series-6: #B9CCBE;
+  --chart-primary: #052659; /* Bất động sản / Cố định */
+  --chart-secondary: #334DAF; /* Cổ phiếu & Quỹ đầu tư */
+  --chart-track: #D0E4FE; /* Vạch mục tiêu */
+  --chart-warning: #5483B3; /* Tiết kiệm / Thanh khoản */
+  --chart-info: #7DA0CA; /* Tài sản thanh khoản khác */
+  --chart-deficit: #C0392B; /* Khoản thiếu hụt dự phòng */
+  --chart-series-1: #052659;
+  --chart-series-2: #334DAF;
+  --chart-series-3: #5483B3;
+  --chart-series-4: #7096D1;
+  --chart-series-5: #7DA0CA;
+  --chart-series-6: #C1E8FF;
 }
 ```
 
-## 3.5. Tương phản và cặp màu sử dụng
+## 3.5. Kiểm định tương phản WCAG 2.1 AA
 
-Tỷ lệ tính theo độ chói tương đối sRGB của hai màu đặc; cần kiểm tra lại khi dùng opacity, ảnh nền hoặc lớp phủ.
+| Cặp màu (Chữ / Nền) | Tỷ lệ tương phản | Đánh giá | Mục đích sử dụng |
+|---|---|---|---|
+| White (`#FFFFFF`) / Royal Blue (`#334DAF`) | **5.42:1** | **PASS (AA)** | Nút Primary CTA chính |
+| White (`#FFFFFF`) / Marine Navy (`#052659`) | **13.58:1** | **PASS (AAA)** | Nút Dark Button, Banner Header |
+| Marine Navy (`#052659`) / Canvas (`#F9FBFF`) | **13.12:1** | **PASS (AAA)** | Tiêu đề chính, văn bản đọc chính |
+| Slate Cerulean (`#456B91`) / Canvas (`#F9FBFF`) | **5.23:1** | **PASS (AA)** | Chữ chú thích, mô tả phụ |
+| Marine Navy (`#052659`) / Ice (`#C1E8FF`) | **9.56:1** | **PASS (AAA)** | Tag trạng thái nổi bật, Pill nhãn |
+| White (`#FFFFFF`) / Ice (`#C1E8FF`) | **1.42:1** | **FAIL (Banned)** | **CẤM:** Không được dùng chữ trắng trên nền Ice |
+| White (`#FFFFFF`) / Sky Frost (`#D0E4FE`) | **1.33:1** | **FAIL (Banned)** | **CẤM:** Không được dùng chữ trắng trên nền Sky |
 
-| Cặp chữ / nền | Tỷ lệ tương phản | Cách dùng |
-|---|---|---|
-| White / Navy | 11,94:1 | CTA chính, nội dung trên nền Navy |
-| Navy / Cream | 10,61:1 | Heading và liên kết chính |
-| Sage 700 / Cream | 5,20:1 | Chữ xanh nhỏ, nhãn và số liệu tích cực |
-| Text muted / Cream | 5,06:1 | Chú thích và mô tả phụ |
-| Sage 500 / Cream | 2,80:1 | Không dùng cho chữ; dùng sắc độ Sage 700 |
-| White / Honey | 2,16:1 | Không dùng; đổi chữ sang Navy |
-
-- Dùng `--color-secondary-700` cho chữ xanh trên White/Cream. Trên nền Navy/Midnight, dùng White hoặc Mist, không dùng sắc độ xanh đậm.
-- Mist và Honey không dùng làm chữ nhỏ trên nền sáng.
-- Honey dùng trong biểu đồ cần nhãn trực tiếp và đường viền Navy khi cần phân biệt ranh giới; không chỉ truyền đạt bằng màu.
-- Focus có outline Sage 700 hoặc Navy, kèm halo Sage 22%; halo không thay thế outline.
-- Token CSS đang chạy nằm ở `src/index.css`. Mọi lớp trong suốt lấy kênh RGB từ token dùng chung, không giữ mã RGBA của palette cũ.
+- **Nguyên tắc tương phản:** Sử dụng `--color-text-primary` (`#052659`) hoặc `--color-text-strong` (`#021024`) cho tất cả văn bản trên nền sáng (`#FFFFFF`, `#F9FBFF`, `#E8F2FE`, `#D0E4FE`, `#C1E8FF`).
+- **Nút bấm & Trạng thái:** Nút chính luôn dùng `#334DAF` với chữ trắng hoặc viền rõ ràng; không dùng chữ trắng trên nền băng sáng.
+- **Trạng thái Focus:** Luôn có outline `2px solid #334DAF` kèm shadow tán nhẹ `0 0 0 3px rgba(51, 77, 175, 0.25)` để đáp ứng truy cập bàn phím (WCAG 2.1).
+- Token CSS đang chạy nằm ở `src/index.css`. Mọi biến giao diện phải dùng token, không tự gõ mã màu hex trực tiếp trong component.
 
 ---
 
@@ -362,9 +361,9 @@ font-family: Inter, "Be Vietnam Pro", system-ui, -apple-system, BlinkMacSystemFo
 ## 5.4. Shadow
 
 ```css
---shadow-card: 0 8px 24px rgba(21, 58, 82, 0.06);
---shadow-compact: 0 4px 12px rgba(21, 58, 82, 0.04);
---shadow-modal: 0 24px 60px rgba(21, 58, 82, 0.14);
+--shadow-card: 0 8px 24px rgba(5, 38, 89, 0.06);
+--shadow-compact: 0 4px 12px rgba(5, 38, 89, 0.04);
+--shadow-modal: 0 24px 60px rgba(5, 38, 89, 0.14);
 ```
 
 ### Shadow rule

@@ -4,14 +4,15 @@ import { dateSchema, monthSchema } from "../../common/calendar";
 import { digest } from "../../common/digest";
 import { moneySchema } from "../../common/http";
 import { actualPayloadSchema } from "../actuals/schema";
+import { reconcile } from "../actuals/reconcile";
 import { DebtDecimal as D } from "./loan";
-import { loanAllocationSchema, loanContractV2Schema, loanEvidenceSchema, type LoanComponents } from "./revision-schema";
+import { loanAllocationSchema, loanBalanceBasisSchema, loanContractV2Schema, loanEvidenceSchema, type LoanComponents } from "./revision-schema";
 
 export const loanActualEvidenceSchema = z.object({ period: monthSchema, revision: z.number().int().positive(),
   status: z.literal("RECONCILED"), data: actualPayloadSchema }).strict();
 export const loanBalanceChangeSchema = z.object({ changeId: z.string().uuid(), bookedOn: dateSchema, amount: moneySchema,
   kind: z.literal("CONFIRMED_PRINCIPAL_ADVANCE"), evidence: z.array(loanEvidenceSchema).min(1).max(20) }).strict();
-export const loanReconciliationSchema = z.object({ previous: loanContractV2Schema, next: loanContractV2Schema,
+export const loanReconciliationSchema = z.object({ previous: z.union([loanContractV2Schema, loanBalanceBasisSchema]), next: loanContractV2Schema,
   allocations: z.array(loanAllocationSchema).max(500), principalAdvances: z.array(loanBalanceChangeSchema).max(100) }).strict();
 export type LoanReconciliation = z.infer<typeof loanReconciliationSchema>;
 export type LoanActualEvidence = z.infer<typeof loanActualEvidenceSchema>;
@@ -27,6 +28,7 @@ export function reconcileLoanRevision(value: LoanReconciliation, actualValues: L
   if (next.balanceScope !== previous.balanceScope || next.balanceAsOf < previous.balanceAsOf || next.knownOn < previous.knownOn ||
     next.signedOn !== previous.signedOn || (previous.amendedOn && (!next.amendedOn || next.amendedOn < previous.amendedOn))) fail("LOAN_REVISION_LINEAGE_INVALID");
   const actuals = actualValues.map(a => loanActualEvidenceSchema.parse(a));
+  if (actuals.some(a => reconcile(a.data).reconciliation !== "MATCHED")) fail("LOAN_ACTUAL_UNRECONCILED");
   const byPeriod = new Map(actuals.map(a => [a.period, a]));
   if (byPeriod.size !== actuals.length) fail("LOAN_ACTUAL_PERIOD_DUPLICATE");
   const events = new Map<string, { actual: LoanActualEvidence; entry: LoanActualEvidence["data"]["entries"][number] }>();
@@ -67,6 +69,23 @@ export function reconcileLoanRevision(value: LoanReconciliation, actualValues: L
   }
   const closing = new D(previous.principalBalance).minus(principalPaid).plus(advance);
   if (closing.lt(0) || !closing.eq(next.principalBalance)) fail("DEBT_BALANCE_MISMATCH");
+  // A later advance cannot retrospectively fund an earlier principal payment.
+  // Date-only evidence cannot establish ordering when both occur on one date.
+  const days = new Map<string, { paid: InstanceType<typeof D>; advanced: InstanceType<typeof D> }>();
+  for (const a of input.allocations) {
+    const day = days.get(a.bookedOn) ?? { paid: new D(0), advanced: new D(0) };
+    day.paid = day.paid.plus(a.contractComponents.principal); days.set(a.bookedOn, day);
+  }
+  for (const a of input.principalAdvances) {
+    const day = days.get(a.bookedOn) ?? { paid: new D(0), advanced: new D(0) };
+    day.advanced = day.advanced.plus(a.amount); days.set(a.bookedOn, day);
+  }
+  let running = new D(previous.principalBalance);
+  for (const [, day] of [...days].sort(([a], [b]) => a.localeCompare(b))) {
+    if (day.paid.gt(0) && day.advanced.gt(0)) fail("LOAN_POSTING_ORDER_REQUIRED");
+    running = running.plus(day.advanced).minus(day.paid);
+    if (running.lt(0)) fail("LOAN_PRINCIPAL_PAYMENT_EXCEEDS_BALANCE");
+  }
   if (previous.responsibility.kind !== next.responsibility.kind) fail("LOAN_RESPONSIBILITY_REVIEW_REQUIRED");
   if (previous.responsibility.kind === "CAPPED" && next.responsibility.kind === "CAPPED") {
     if (!new D(previous.responsibility.limit).eq(next.responsibility.limit) ||

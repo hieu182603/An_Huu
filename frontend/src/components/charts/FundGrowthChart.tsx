@@ -12,25 +12,12 @@ import {
 import type { FinancialProfile } from "../../context/FinancialProfileContext";
 import { calculateRetirement, inputFromProfile } from "../../domain/retirementCalculator";
 import { useI18n } from "../../i18n";
+import { formatCompactVND, formatFullVND } from "../../utils/currency";
 
 interface FundGrowthChartProps {
   view: "milestone" | "annual";
   profile: FinancialProfile;
 }
-
-const formatVND = (value: number, isVi: boolean) => {
-  if (value >= 1_000_000_000) {
-    return isVi ? `${(value / 1_000_000_000).toFixed(1)} tỷ` : `${(value / 1_000_000_000).toFixed(1)}B ₫`;
-  }
-  if (value >= 1_000_000) {
-    return isVi ? `${Math.round(value / 1_000_000)} tr` : `${Math.round(value / 1_000_000)}M ₫`;
-  }
-  return `${value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫`;
-};
-
-const formatFullVND = (value: number, isVi: boolean) => {
-  return `${value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫`;
-};
 
 const CustomTooltip = ({ active, payload, isVi }: any) => {
   if (!active || !payload || !payload.length) return null;
@@ -39,7 +26,7 @@ const CustomTooltip = ({ active, payload, isVi }: any) => {
   return (
     <div
       style={{
-        background: "rgba(15, 38, 54, 0.95)",
+        background: "rgba(5, 38, 89, 0.95)",
         backdropFilter: "blur(12px)",
         border: "1px solid rgba(255, 255, 255, 0.15)",
         borderRadius: "10px",
@@ -53,31 +40,31 @@ const CustomTooltip = ({ active, payload, isVi }: any) => {
     >
       <div
         style={{
-          borderBottom: "1px solid rgba(255, 255, 255, 0.12)",
+          borderBottom: "1px solid rgba(208, 228, 254, 0.25)",
           paddingBottom: "6px",
           marginBottom: "8px",
           fontWeight: 700,
-          color: "#E2E8F0",
+          color: "#F9FBFF",
           display: "flex",
           justifyContent: "space-between",
         }}
       >
         <span>{isVi ? `Năm ${data.year}` : `Year ${data.year}`}</span>
-        <span style={{ color: "#6F9B7C" }}>{isVi ? `${data.age} tuổi` : `${data.age} yrs`}</span>
+        <span style={{ color: "#C1E8FF" }}>{isVi ? `${data.age} tuổi` : `${data.age} yrs`}</span>
       </div>
 
       <div style={{ display: "grid", gap: "6px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-          <span style={{ color: "#6F9B7C", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#6F9B7C", display: "inline-block" }} />
+          <span style={{ color: "#7096D1", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#334DAF", display: "inline-block" }} />
             {isVi ? "Mục tiêu cần có:" : "Target required:"}
           </span>
           <strong style={{ color: "#ffffff" }}>{formatFullVND(data.target, isVi)}</strong>
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-          <span style={{ color: "#93C5FD", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#3B82F6", display: "inline-block" }} />
+          <span style={{ color: "#C1E8FF", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#052659", border: "1px solid #7DA0CA", display: "inline-block" }} />
             {isVi ? "Tài sản dự phóng:" : "Projected wealth:"}
           </span>
           <strong style={{ color: "#ffffff" }}>{formatFullVND(data.current, isVi)}</strong>
@@ -167,7 +154,7 @@ export function FundGrowthChart({ view, profile }: FundGrowthChartProps) {
             fontSize={11}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => formatVND(v, isVi)}
+            tickFormatter={(v) => formatCompactVND(v, isVi)}
             domain={[0, "auto"]}
           />
 

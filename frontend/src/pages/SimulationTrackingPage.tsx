@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { Alert, Badge, Button, Card, Icon, IconButton, Modal, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
@@ -70,7 +70,9 @@ export default function SimulationTrackingPage() {
   const { activePlan, currentVersion, savePlanVersion, applyVersion } = useRetirementPlan();
 
   // Top level active tab: T08 (What-If & Compare) vs T09 (Actual Ledger & Reforecast)
-  const [activeTab, setActiveTab] = useState<"what-if" | "actuals">("what-if");
+  const [params, setParams] = useSearchParams();
+  const activeTab = params.get("tab") === "actuals" ? "actuals" : "what-if";
+  const setActiveTab = (tab: "what-if" | "actuals") => setParams(prev => { const next = new URLSearchParams(prev); next.set("tab", tab); return next; });
 
   // ==========================================
   // TAB 1: WHAT-IF & COMPARE (FE-T08) STATE
@@ -79,9 +81,9 @@ export default function SimulationTrackingPage() {
   const [scenario, setScenario] = useState<"BASE" | "ADVERSE" | "FAVORABLE">("BASE");
 
   const [simRetireAge, setSimRetireAge] = useState(profile.goal.targetRetireAge || 60);
-  const [simMonthlySave, setSimMonthlySave] = useState(profile.plan.monthlySavings || 5000000);
+  const [simMonthlySave, setSimMonthlySave] = useState(Math.max(0, profile.plan.monthlySavings));
   const [simExpense, setSimExpense] = useState(
-    profile.goal.monthlyExpenseInRetirement || profile.expenses.essentialExpense + profile.expenses.lifestyleExpense || 20000000
+    profile.goal.monthlyExpenseInRetirement || profile.expenses.essentialExpense + profile.expenses.lifestyleExpense
   );
 
   // Hypothetical asset overrides for what-if
@@ -94,6 +96,7 @@ export default function SimulationTrackingPage() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
 
+  const [confirmApply, setConfirmApply] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applyNotice, setApplyNotice] = useState<{ tone: "success" | "danger"; message: string } | null>(null);
 
@@ -124,8 +127,9 @@ export default function SimulationTrackingPage() {
 
   const defaultEndMonth = useMemo(() => {
     const lifeExp = profile.goal.lifeExpectancy || 85;
-    return `${birthYear + lifeExp}-12`;
-  }, [birthYear, profile.goal.lifeExpectancy]);
+    const birthMonth = v2Profile?.personal.birthMonth;
+    return `${birthYear + lifeExp}-${birthMonth?.status === "KNOWN" ? birthMonth.value.slice(5, 7) : "12"}`;
+  }, [birthYear, profile.goal.lifeExpectancy, policyDetail]);
 
   const netWorth = useMemo(() => {
     const totalAssets =
@@ -146,6 +150,8 @@ export default function SimulationTrackingPage() {
     let active = true;
     setIsSimulating(true);
     setSimError(null);
+    setSimResult(null);
+    setComparisonDelta(null);
 
     // Reuse existing selection answers if version exists; do not auto-select choices[0]
     const baselineAnswers = currentVersion?.preview.selection.answers;
@@ -197,18 +203,8 @@ export default function SimulationTrackingPage() {
           setComparisonDelta(res);
           setSimResult(res.candidate);
         })
-        .catch(() => {
-          // Fallback to standalone preview
-          previewMonthlyRetirement(payload)
-            .then((res) => {
-              if (!active) return;
-              setSimResult(res);
-              setComparisonDelta(null);
-            })
-            .catch((err) => {
-              if (!active) return;
-              setSimError(err instanceof Error ? err.message : (language === "en" ? "Unable to run simulation." : "Không thể chạy mô phỏng."));
-            });
+        .catch((err) => {
+          if (active) setSimError(err instanceof Error ? err.message : "Không thể so sánh với kế hoạch hiện tại. Hãy thử lại.");
         })
         .finally(() => {
           if (active) setIsSimulating(false);
@@ -250,7 +246,7 @@ export default function SimulationTrackingPage() {
     language,
   ]);
 
-  const simSummary = simResult?.calculation?.summary;
+  const simSummary = !isSimulating && !simError && simResult?.status === "READY" ? simResult.calculation?.summary : null;
   const currentSummary = currentVersion?.preview.calculation?.summary;
 
   const simTargetFund = simSummary ? parseFloat(simSummary.atRetirement.requiredFund) : 0;
@@ -262,8 +258,8 @@ export default function SimulationTrackingPage() {
 
   const resetToBaseline = () => {
     setSimRetireAge(profile.goal.targetRetireAge || 60);
-    setSimMonthlySave(profile.plan.monthlySavings || 5000000);
-    setSimExpense(profile.goal.monthlyExpenseInRetirement || profile.expenses.essentialExpense + profile.expenses.lifestyleExpense || 20000000);
+    setSimMonthlySave(Math.max(0, profile.plan.monthlySavings));
+    setSimExpense(profile.goal.monthlyExpenseInRetirement || profile.expenses.essentialExpense + profile.expenses.lifestyleExpense);
     setOverrideCash("");
     setOverrideRealEstate("");
     setOverrideStock("");
@@ -275,7 +271,7 @@ export default function SimulationTrackingPage() {
   };
 
   const handleApplyScenario = async () => {
-    if (!simResult || !simResult.inputHash || !simResult.selection) {
+    if (applying || isSimulating || !simSummary || !simResult || !simResult.inputHash || !simResult.selection) {
       notify.error(
         language === "en" ? "Cannot Apply" : "Chưa thể áp dụng",
         language === "en" ? "Simulation data calculation not completed." : "Dữ liệu mô phỏng chưa hoàn tất tính toán."
@@ -760,7 +756,7 @@ export default function SimulationTrackingPage() {
                 <div>
                   <div className="live-update">
                     <Icon name={isSimulating ? "sparkles" : "circle-check"} />
-                    <span>{isSimulating ? (language === "en" ? "Running T08 projection..." : "Đang chạy dự phóng T08...") : (language === "en" ? "Exact server-side projection" : "Dự phóng chuẩn xác từ server")}</span>
+                    <span>{isSimulating ? (language === "en" ? "Calculating projection..." : "Đang tính dự phóng...") : (simSummary ? (language === "en" ? "Projection calculated" : "Đã tính dự phóng") : (language === "en" ? "Awaiting valid projection" : "Chờ dự phóng hợp lệ"))}</span>
                   </div>
                   <h2>{language === "en" ? "Scenario Simulation Results" : "Kết quả mô phỏng kịch bản"}</h2>
                 </div>
@@ -770,9 +766,9 @@ export default function SimulationTrackingPage() {
                       {WARNING_MESSAGES.HYPOTHETICAL_VALUES_PROFILE_UNCHANGED}
                     </Badge>
                   )}
-                  <Badge tone={simGap <= 0 ? "success" : "warning"}>
+                  {simSummary && <Badge tone={simGap <= 0 ? "success" : "warning"}>
                     {simGap <= 0 ? (language === "en" ? "GOAL SURPLUS" : "DƯ THỪA MỤC TIÊU") : (language === "en" ? "FUNDING SHORTFALL" : "CÒN THIẾU HỤT")}
-                  </Badge>
+                  </Badge>}
                 </div>
               </header>
 
@@ -784,6 +780,11 @@ export default function SimulationTrackingPage() {
                 </div>
               )}
 
+              {!simSummary && !simError && <Alert tone="info" title={language === "en" ? "Projection not ready" : "Chưa có dự phóng hợp lệ"}>
+                {isSimulating ? (language === "en" ? "Calculating the scenario…" : "Đang tính kịch bản…") : (language === "en" ? "Complete your profile and preview a plan first. Missing data cannot be treated as a zero balance." : "Hãy hoàn thiện hồ sơ và xem trước kế hoạch. Dữ liệu chưa đủ không được xem là số dư 0 hoặc đã đạt mục tiêu.")}
+                <Link className="button button-secondary" to="/user/plan">{language === "en" ? "Review plan inputs" : "Kiểm tra đầu vào kế hoạch"}</Link>
+              </Alert>}
+              {simSummary && <>
               <div className="simulation-primary-result">
                 <div>
                   <span>{language === "en" ? "PROJECTED RETIREMENT FUND (A)" : "QUỸ HƯU DỰ KIẾN TÍCH LŨY (A)"}</span>
@@ -905,7 +906,7 @@ export default function SimulationTrackingPage() {
               <div className="simulation-insight" style={{ marginTop: "20px" }}>
                 <span><Icon name="sparkles" size="large" /></span>
                 <div>
-                  <h2>{language === "en" ? "Insights from T08 Retirement Engine" : "Nhận định từ động cơ tính toán hưu trí T08"}</h2>
+                  <h2>{language === "en" ? "Scenario summary" : "Tóm tắt kịch bản"}</h2>
                   <p>
                     {simGap <= 0
                       ? (language === "en"
@@ -924,9 +925,9 @@ export default function SimulationTrackingPage() {
 
                 <Button
                   variant="primary"
-                  onClick={handleApplyScenario}
+                  onClick={() => setConfirmApply(true)}
                   loading={applying}
-                  disabled={isSimulating || !simResult}
+                  disabled={applying || isSimulating || !simSummary}
                 >
                   {language === "en" ? "Apply this scenario" : "Áp dụng kịch bản này"} <Icon name="check" />
                 </Button>
@@ -939,6 +940,7 @@ export default function SimulationTrackingPage() {
                   </Alert>
                 </div>
               )}
+              </>}
             </Card>
           </div>
         </div>
@@ -1430,6 +1432,10 @@ export default function SimulationTrackingPage() {
           )}
         </div>
       )}
+      <Modal open={confirmApply} title={language === "en" ? "Apply this scenario?" : "Áp dụng kịch bản này?"} onClose={() => { if (!applying) setConfirmApply(false); }}>
+        <p>{language === "en" ? "This preview will be saved as a version and become the official baseline for your dashboard and tracking." : "Bản xem trước này sẽ được lưu thành phiên bản và trở thành mốc chính thức cho trang tổng quan và theo dõi."}</p>
+        <div className="account-save-row"><Button variant="secondary" disabled={applying} onClick={() => setConfirmApply(false)}>{language === "en" ? "Cancel" : "Hủy"}</Button><Button loading={applying} disabled={applying || isSimulating || !simSummary} onClick={async () => { await handleApplyScenario(); setConfirmApply(false); }}>{language === "en" ? "Confirm application" : "Xác nhận áp dụng"}</Button></div>
+      </Modal>
     </>
   );
 }

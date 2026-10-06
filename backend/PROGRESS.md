@@ -1,5 +1,29 @@
 # Tiến độ triển khai backend An Hưu
 
+## Hiện hành — 06/10/2026: API cập nhật khoản vay đã nối
+
+Đã nối loanRevisions (tối đa30/batch) vào source-reforecasts preview/save; apply/read/replay/report/CSV dùng v4 có lịch nợ mới. loanRevisionOptions trả hash/revision từ server để UI không tự băm. legacy-basis.ts chuyển cơ sở số dư từ v1: ngày ký/sửa/hiệu lực/chứng từ do người dùng xác nhận, tiền và tỷ lệ lấy từ profile pin; kiểm lịch cũ và hash import legacy, không bịa lịch v2 lịch sử. Có CAPPED basis tổng payments được xác nhận rõ, mang phần đã trả; đổi trần/loại còn cần xử lý riêng.
+
+Service lấy actual thuộc chủ từ lineage và toàn bộ allocation đã tiêu thụ, chặn trùng/vượt event kể cả nhiều khoản vay cùng batch. Snapshot pin loanSources; reader kiểm liên kết về profile/contract trước, consumed prefix, actual revisions và tái lập lịch. Actual sửa làm save/apply stale nhưng replay lịch sử giữ nguyên. Chuẩn hóa proof theo JSON trước hash để optional undefined không làm sai sau lưu JSONB. Không sửa Contractv1/v2-v3 replay hoặc database; không provider/email/frontend.
+
+Kiểm chứng: toàn bộ **444tests/39files PASS**, source/test typechecks PASS, TypeScript emit PASS, startup thiếu secrets từ chối an toàn; production và expansion OpenAPI PASS. Sau thêm ca đẩy cutoff sang tháng sau, **32focusedtests/2files PASS** (24core +8public). Test typecheck cuối PASS sau khi khôi phục import type LoanContractV2; không còn tiến trình kiểm thử chạy. Luồng public gồm v1→preview/save/apply/read/replay/report, HTTP/schema, owner/hash/legacy metadata, stale actual, idempotency, multi-loan over-allocation, cap carry, cùng cutoff/đẩy cutoff và mất proof. Memory DB không chứng minh PostgreSQL/races.
+
+Đã mở rộng verifier có sẵn: verify-source-reforecast-db.cjs --loan chuẩn bị19checks HTTP/DB rollback, syntax PASS, **chưa chạy**. Không retry/bypass lần automatic approval review usage-limit thất bại trước; không có DB write hay migration trong đợt. Docs LOAN_REVISIONS_V2/SOURCE_COMMANDS_V4/ADR/task và FE-T15-LOAN-V2-API đã cập nhật, supersede ghi chú core-only.
+
+Tiếp theo: refinance atomic đóng vay cũ/tạo vay mới, giải ngân–tất toán–phí có chứng từ; T16-02 tài sản/vốn/vay mới; còn các nhánh BHXH lịch sử/CREDITED/tự nguyện/đặc thù, T17 realDB/races/UI và vận hành/backup/P36. Không thu hẹp mục tiêu hoặc đánh dấu T15/backend xong. Không tiến trình DB/worker được khởi động.
+
+## Hiện hành — 06/10/2026: core khoản vay v2 và revision nguồn
+
+Đã bổ sung revision-schema/revision-engine/reconciliation/source-candidate trong debts. Lịch giảm tiền/giảm kỳ/lịch ngân hàng/cơ cấu, lãi theo từng kỳ hoặc ngày, ân hạn gốc, balloon rõ ràng, phí/lãi riêng không vốn hóa. Không bỏ phí sau hết gốc. Phân biệt toàn hợp đồng/phần user, CAPPED tổng gốc+lãi+phí và mang phần đã trả sang revision. Contractv1 giữ nguyên.
+
+Đối soát actual DEBT_PAYMENT theo event/revision/date, kiểm lại số dư tháng; 12tr trả gồm10tr gốc chỉ giảm10tr gốc. Tổng allocation không vượt event, không reuse ID kể cả khác khoản vay; không suy phần đồng vay theo share. Tăng gốc cần chứng từ và đúng thứ tự ngày, không lấy giải ngân sau bù cho số gốc trả vượt trước đó. Cùng ngày tăng/giảm cần thứ tự ghi sổ, hiện trả lỗi. WITHDRAWAL đã trong actual không bị trừ thêm (fundAdjustment=0).
+
+Builder nội bộ nối basisv2 đã kiểm vào registryDEBT: CAS source/hash/contract, confirmed cutoff cuối tháng, thay từ tháng kế, bảo toàn lịch cũ/anchor, chặn legacy aggregate. Pin command/basis/actuals/consumed và replay bằng registry tiền nhiệm; sửa cùng cutoff không dùng lại actual. CHƯA nối API public/save/apply/snapshot reader, CHƯA bridge Contractv1 hoặc refinance atomic; không đánh dấu T15 hoàn tất. docs/LOAN_REVISIONS_V2.md và FE-T15-LOAN-V2-CORE đã ghi; không sửa frontend/schema/migration, không gọi provider/email hoặc DB.
+
+Kiểm chứng: toàn bộ436tests/38files PASS. Sau bổ sung guard thứ tự ghi sổ,57focusedtests/3files PASS (24tests khoản vay mới); source typecheck PASS trước thay đổi cuối; test typecheck cuối (bao gồm source) PASS. Không còn tiến trình kiểm thử chạy. Không chạy lại toàn suite khi không có thay đổi phần khác. Source builder còn nội bộ nên chưa có bằng chứng HTTP/DB/race cho T15. DB verifier v4/corpus vẫn chưa có lượt thành công mới; lỗi approval usage limit lần trước không được coi là kết luận unsafe hay bằng chứng DB.
+
+Bước tiếp cụ thể: chuẩn hóa basis số dư từ Contractv1 có chứng từ (không bịa ngày ký hoặc lãi giữa kỳ), nối command/evidence vào public source-reforecasts/save/apply/reader + OpenAPI; refinance atomic và T16-02 assets/newloan. Phần BHXH còn thiếu, T17/DB/races, UI và vận hành vẫn thuộc mục tiêu đầy đủ, chưa hoàn tất.
+
 ## Hiện hành — 05/10/2026: public nguồn v4 và estimate→candidate
 
 Đã nối `POST plans/{id}/source-reforecasts/preview` và save riêng `POST .../source-reforecasts`. CREATE/REVISE/END thu/chi/pension danh nghĩa VND, ONCE/MONTHLY; owner/plan/profile/source revisions/snapshot hash, actual anchor và idempotency. Cho sửa lại cùng cutoff/cùng tháng bắt đầu nếu chưa nằm trong actual, giữ chuỗi revision; không hồi sinh lịch cũ sau khoảng thay thế. Legacy tổng override được kiểm trên toàn phần lịch bị tác động. Chưa nhận tài sản/vốn/vay mới, T15/T16-02 còn mở.

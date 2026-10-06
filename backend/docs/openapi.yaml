@@ -9005,15 +9005,13 @@ paths:
         - name: planId
           in: path
           required: true
-          schema:
+          schema: &a1
             type: string
             format: uuid
         - name: Idempotency-Key
           in: header
           required: true
-          schema:
-            type: string
-            format: uuid
+          schema: *a1
       description: USER only. See PLANS.md. Saving never applies. Apply requires
         current plan/profile revisions and explicit confirmation. Immutable
         snapshot reads/replay do not use newer configuration.

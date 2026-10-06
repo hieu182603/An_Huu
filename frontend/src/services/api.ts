@@ -8,6 +8,7 @@ let refreshPromise: Promise<Session> | null = null;
 export type ApiUser = { id: string; email: string; fullName: string; role: "USER" | "ADMIN"; status: string; phone: string | null; city: string | null; avatarUrl: string | null; revision: number; emailVerifiedAt?: string | null };
 export type Session = { accessToken: string; user: ApiUser };
 export function clearAccessToken() { accessToken = null; accessTokenExpiresAt = 0; }
+export function getAccessToken(): string | null { return accessToken; }
 export function sessionRefreshDelay(): number | null {
   return accessToken ? Math.max(0, accessTokenExpiresAt - Date.now() - 60000) : null;
 }

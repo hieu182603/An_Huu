@@ -131,34 +131,31 @@ export default function RetirementGoalPage() {
       : new Date().getFullYear() - currentAge;
     const computedRetireMonth = `${birthYear + targetAge}-12`;
 
+    if (v2Profile && currentAge !== profile.personal.age) {
+      setValidationError(language === "en" ? "Update your birth month in Financial Profile before changing your age." : "Hãy cập nhật tháng sinh trong Hồ sơ tài chính nếu tuổi hiện tại chưa đúng.");
+      return false;
+    }
+    // Persist only the field covered by the profile contract. Goal assumptions
+    // remain a session preview until the user saves a plan version.
+    const retirementMonth = `${birthYear + targetAge}-${birthMonthStr?.slice(5, 7) || "12"}`;
+    if (v2Profile) {
+      const saved = await updateProfileV2({
+        personal: { ...v2Profile.personal, desiredRetirementMonth: { status: "KNOWN", value: retirementMonth } },
+      });
+      if (!saved) {
+        setValidationError(language === "en" ? "Could not save retirement date. Your inputs are unchanged; please retry." : "Chưa lưu được thời điểm nghỉ hưu. Dữ liệu nhập vẫn được giữ; hãy thử lại.");
+        return false;
+      }
+    }
     updateProfileLocal({
       personal: { ...profile.personal, age: currentAge },
-      goal: {
-        ...profile.goal,
-        targetRetireAge: targetAge,
-        lifeExpectancy,
-        lifestyle,
-        monthlyExpenseInRetirement,
-        inflationRate: inflationNum,
-        investmentReturn: returnNum,
-      },
+      goal: { ...profile.goal, targetRetireAge: targetAge, lifeExpectancy, lifestyle, monthlyExpenseInRetirement, inflationRate: inflationNum, investmentReturn: returnNum },
     });
 
-    if (v2Profile) {
-      await updateProfileV2({
-        personal: {
-          ...v2Profile.personal,
-          desiredRetirementMonth: { status: "KNOWN", value: computedRetireMonth },
-        },
-      });
-    }
-
     setSaveNotice(true);
-    notify.success(
-      language === "en" ? "Retirement Goal Updated" : "Đã cập nhật mục tiêu hưu trí",
-      language === "en"
-        ? `Retirement date (${computedRetireMonth}) and target expenses have been saved.`
-        : `Thời điểm nghỉ hưu (${computedRetireMonth}) và mức chi tiêu mục tiêu đã được lưu vào hồ sơ để tính toán kế hoạch.`
+    notify.info(
+      language === "en" ? "Ready to preview" : "Đã chuẩn bị đầu vào xem trước",
+      language === "en" ? "Save a plan version on the next screen to keep these assumptions in your account." : "Chi tiêu và tuổi thọ đang dùng để thử trong phiên này. Hãy lưu phiên bản ở trang Kế hoạch để giữ các giả định trong tài khoản."
     );
     setTimeout(() => setSaveNotice(false), 4000);
     return true;
@@ -183,11 +180,11 @@ export default function RetirementGoalPage() {
         <div className="header-quick-stats">
           <div className="header-quick-stat-item">
             <span className="stat-label">{language === "en" ? "Target Retirement Age" : "Tuổi nghỉ hưu mục tiêu"}</span>
-            <span className="stat-value">{profile.goal.targetRetireAge} {language === "en" ? "years" : "tuổi"}</span>
+            <span className="stat-value">{targetAge} {language === "en" ? "years" : "tuổi"}</span>
           </div>
           <div className="header-quick-stat-item">
             <span className="stat-label">{language === "en" ? "Retirement Duration" : "Thời gian hưu dự kiến"}</span>
-            <span className="stat-value">{profile.goal.lifeExpectancy - profile.goal.targetRetireAge} {language === "en" ? "years" : "năm"}</span>
+            <span className="stat-value">{retirementDuration} {language === "en" ? "years" : "năm"}</span>
           </div>
         </div>
       </div>
@@ -373,7 +370,7 @@ export default function RetirementGoalPage() {
                   <>
                     <button
                       type="button"
-                      className={lifestyle === "standard" ? "is-selected" : ""}
+                      className={lifestyle === "standard" ? "is-selected" : ""} aria-pressed={lifestyle === "standard"}
                       onClick={() => {
                         setLifestyle("standard");
                         setMonthlyExpenseInRetirement(Math.round((baseExp * 0.75) / 1000000) * 1000000);
@@ -391,7 +388,7 @@ export default function RetirementGoalPage() {
 
                     <button
                       type="button"
-                      className={lifestyle === "comfortable" ? "is-selected" : ""}
+                      className={lifestyle === "comfortable" ? "is-selected" : ""} aria-pressed={lifestyle === "comfortable"}
                       onClick={() => {
                         setLifestyle("comfortable");
                         setMonthlyExpenseInRetirement(baseExp);
@@ -409,7 +406,7 @@ export default function RetirementGoalPage() {
 
                     <button
                       type="button"
-                      className={lifestyle === "affluent" ? "is-selected" : ""}
+                      className={lifestyle === "affluent" ? "is-selected" : ""} aria-pressed={lifestyle === "affluent"}
                       onClick={() => {
                         setLifestyle("affluent");
                         setMonthlyExpenseInRetirement(Math.round((baseExp * 1.4) / 1000000) * 1000000);
@@ -432,6 +429,27 @@ export default function RetirementGoalPage() {
             <div className="goal-spending-field">
               <Input
                 label={language === "en" ? "Projected monthly retirement expense (at today's price)" : "Mức chi tiêu dự kiến mỗi tháng (theo thời giá hiện tại)"}
+                labelAction={
+                  <Tooltip content={language === "en" ? "System automatically compounds annual future inflation into fund calculations." : "Hệ thống tự động cộng dồn lạm phát tương lai theo năm vào công thức tính quỹ."}>
+                    <span
+                      className="field-help-icon"
+                      style={{
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 22,
+                        height: 22,
+                        borderRadius: "50%",
+                        background: "rgba(5, 38, 89, 0.08)",
+                        color: "var(--color-primary-700)",
+                      }}
+                      aria-label="Thông tin bổ sung về lạm phát chi tiêu"
+                    >
+                      <Icon name="info" size="small" />
+                    </span>
+                  </Tooltip>
+                }
                 type="text"
                 inputMode="numeric"
                 value={new Intl.NumberFormat("vi-VN").format(monthlyExpenseInRetirement)}
@@ -439,49 +457,13 @@ export default function RetirementGoalPage() {
                   const clean = v.replace(/\D/g, "");
                   setMonthlyExpenseInRetirement(clean ? parseInt(clean, 10) : 0);
                 }}
-                suffix={language === "en" ? "VND / month" : "VND / tháng"}
+                suffix={language === "en" ? "VND / month" : "đ / tháng"}
                 helper={language === "en" ? "Average monthly amount desired to cover all living costs in old age." : "Số tiền trung bình bạn muốn có mỗi tháng để chi trả toàn bộ chi phí cuộc sống tuổi già."}
               />
-              <div className="tooltip-wrap">
-                <Tooltip content={language === "en" ? "System automatically compounds annual future inflation into fund calculations." : "Hệ thống tự động cộng dồn lạm phát tương lai theo năm vào công thức tính quỹ."}>
-                  <span className="field-help-icon"><Icon name="info" size="small" /></span>
-                </Tooltip>
-              </div>
             </div>
 
-            {/* Giá trị thời gian của mức sống (P08) */}
-            {(() => {
-              const yearsLeft = Math.max(0, targetAge - (currentAge || profile.personal.age || 30));
-              const futureMonthlyExpense = Math.round(monthlyExpenseInRetirement * Math.pow(1 + inflationNum / 100, yearsLeft));
-              return (
-                <div style={{ marginTop: "var(--space-3)", padding: "var(--space-3)", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)", border: "1px solid var(--color-border-subtle)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-2)" }}>
-                    <div>
-                      <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", display: "block" }}>
-                        {language === "en"
-                          ? `EQUIVALENT SPENDING AT RETIREMENT (AFTER ${yearsLeft} YEARS OF ${inflationNum}%/YR INFLATION)`
-                          : `CHI TIÊU TƯƠNG ĐƯƠNG TẠI THỜI ĐIỂM NGHỈ HƯU (SAU ${yearsLeft} NĂM LẠM PHÁT ${inflationNum}%/NĂM)`}
-                      </span>
-                      <strong style={{ fontSize: "var(--text-base)", color: "var(--color-primary-700)" }}>
-                        {formatVND(futureMonthlyExpense)} {language === "en" ? "/ month" : "/ tháng"}
-                      </strong>
-                    </div>
-                    <Badge tone="soft">{language === "en" ? "Rule P08" : "Quy tắc P08"}</Badge>
-                  </div>
-                  <p style={{ margin: "var(--space-2) 0 0", fontSize: "var(--text-xs)", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-                    {language === "en" ? (
-                      <>
-                        To preserve purchasing power equal to <b>{formatVND(monthlyExpenseInRetirement)}/month</b> today, you will need approx <b>{formatVND(futureMonthlyExpense)}/month</b> at age {targetAge}. This is one month's spending, not the total fund.
-                      </>
-                    ) : (
-                      <>
-                        Để giữ được mức sống tương đương <b>{formatVND(monthlyExpenseInRetirement)}/tháng</b> của hôm nay, bạn sẽ cần khoảng <b>{formatVND(futureMonthlyExpense)}/tháng</b> ở tuổi {targetAge}. Đây là chi tiêu của một tháng, không phải toàn bộ số quỹ hưu trí cần chuẩn bị.
-                      </>
-                    )}
-                  </p>
-                </div>
-              );
-            })()}
+            <p className="flow-note">{language === "en" ? "Future purchasing power is calculated using the published annual assumption series on the Plan screen." : "Chi tiêu tương lai được tính theo chuỗi giả định từng năm tại trang Kế hoạch; không dùng tỷ lệ 0% thay cho dữ liệu chưa tải."}</p>
+
           </Card>
 
           {/* Section 3: Assumptions */}
@@ -520,13 +502,13 @@ export default function RetirementGoalPage() {
                     </span>
                   </div>
                   <div className="assumption-metric-value">
-                    <span className="rate-num">{inflationNum.toFixed(1)}%</span>
+                    <span className="rate-num">{language === "en" ? "By year" : "Theo từng năm"}</span>
                     <span className="rate-unit">{language === "en" ? "/ year" : "/ năm"}</span>
                   </div>
                   <p className="assumption-metric-desc">
                     {language === "en"
-                      ? "Long-term inflation target aligned with macro management policy (3.5% to 4.5%)."
-                      : "Mục tiêu kiểm soát lạm phát dài hạn theo định hướng điều hành vĩ mô (3.5% đến 4.5%)."}
+                      ? "Uses the published annual assumptions; see the Plan screen for the calculation."
+                      : "Dùng chuỗi giả định đã công bố; xem kết quả tính tại trang Kế hoạch."}
                   </p>
                 </div>
 
@@ -540,7 +522,7 @@ export default function RetirementGoalPage() {
                     </span>
                   </div>
                   <div className="assumption-metric-value">
-                    <span className="rate-num rate-green">{returnNum.toFixed(1)}%</span>
+                    <span className="rate-num rate-green">{language === "en" ? "By portfolio" : "Theo danh mục"}</span>
                     <span className="rate-unit">{language === "en" ? "/ year" : "/ năm"}</span>
                   </div>
                   <p className="assumption-metric-desc">
@@ -705,15 +687,15 @@ export default function RetirementGoalPage() {
               </div>
               <div>
                 <span>{language === "en" ? "Retirement Expense (FV):" : "Chi tiêu lúc hưu (FV):"}</span>
-                <strong style={{ color: "var(--color-primary-700)" }} className="font-mono">
+                <strong className="font-mono">
                   {planSummary?.futureMonthlyExpense ? formatVND(Number(planSummary.futureMonthlyExpense)) : (language === "en" ? "Awaiting projection" : "Chờ dự phóng")}
                 </strong>
               </div>
             </div>
 
             <div className="goal-estimate">
-              <span>{language === "en" ? "Recommended Savings Rate:" : "Mức tích lũy khuyến nghị:"}</span>
-              <strong className="font-mono">{formatVND(estimatedMonthlySave)} {language === "en" ? "/ month" : "/ tháng"}</strong>
+              <span>{language === "en" ? "Current monthly surplus:" : "Dòng tiền có thể tích lũy hiện tại:"}</span>
+              <strong className="font-mono">{formatVND(profile.plan.monthlySavings)} {language === "en" ? "/ month" : "/ tháng"}</strong>
               <small>
                 {planSummary
                   ? (language === "en" ? `Accurately calculated from server as of valuation date ${planSummary.valuationDate}.` : `Tính toán chuẩn xác từ máy chủ theo ngày định giá ${planSummary.valuationDate}.`)
@@ -721,24 +703,29 @@ export default function RetirementGoalPage() {
               </small>
             </div>
 
+            <p className="goal-draft-note">{language === "en" ? "These inputs are for this session. Save a version on the Plan screen to keep your goal; applying it requires confirmation." : "Đầu vào thử trong phiên. Lưu phiên bản tại trang Kế hoạch để giữ mục tiêu; chỉ trở thành kế hoạch chính thức sau khi bạn xác nhận áp dụng."}</p>
             {validationError && <Alert tone="danger" title={language === "en" ? "Invalid Information" : "Thông tin chưa hợp lệ"}>{validationError}</Alert>}
 
-            <Button
-              variant="secondary"
-              size="medium"
-              onClick={handleSaveGoal}
-              className="goal-save-btn"
-              loading={saveStatus === "saving"}
-            >
-              <Icon name="check" size="small" /> {language === "en" ? "Save Goal" : "Lưu mục tiêu"}
-            </Button>
-            <Button
-              variant="primary"
-              size="large"
-              onClick={handleProceedToPlan}
-            >
-              {language === "en" ? "View Detailed Action Plan" : "Xem kế hoạch hành động chi tiết"} <Icon name="arrow-right" />
-            </Button>
+            <div className="goal-summary-actions">
+              <Button
+                variant="secondary"
+                size="medium"
+                onClick={handleSaveGoal}
+                className="goal-save-btn"
+                loading={saveStatus === "saving"}
+              >
+                <Icon name="check" size="small" /> {language === "en" ? "Use for this preview" : "Giữ để thử trong phiên"}
+              </Button>
+              <Button
+                variant="primary"
+                size="large"
+                onClick={handleProceedToPlan}
+                className="goal-proceed-btn"
+                disabled={saveStatus === "saving"}
+              >
+                {language === "en" ? "Preview retirement plan" : "Xem trước kế hoạch"} <Icon name="arrow-right" />
+              </Button>
+            </div>
           </Card>
         </motion.aside>
       </div>

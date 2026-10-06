@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
   await installFinancialProfileRoutes(page);
 });
 
-const routes = ["/", "/demo", "/login", "/register", "/forgot-password", "/reset-password", "/verify", "/onboarding", "/user/dashboard", "/user/goal", "/user/plan", "/user/simulation", "/user/assistant", "/user/explore", "/user/account", "/admin/dashboard", "/admin/users", "/admin/users/USR-1082", "/admin/content", "/admin/partners", "/admin/ai", "/admin/financial-config", "/admin/support", "/admin/reports", "/admin/settings/general", "/admin/settings/integrations", "/admin/settings/notifications", "/admin/settings/privacy", "/admin/settings/audit-log"];
+const routes = ["/", "/cach-hoat-dong", "/mo-phong", "/tro-ly-ai", "/kien-thuc", "/kien-thuc/missing", "/login", "/register", "/forgot-password", "/reset-password", "/verify", "/onboarding", "/user/dashboard", "/user/goal", "/user/plan", "/user/simulation", "/user/debts", "/user/risk-portfolio", "/user/support", "/user/notifications", "/user/assistant", "/user/explore", "/user/account", "/admin/dashboard", "/admin/users", "/admin/users/USR-1082", "/admin/content", "/admin/partners", "/admin/ai", "/admin/financial-config", "/admin/support", "/admin/reports", "/admin/operations", "/admin/settings/general", "/admin/settings/integrations", "/admin/settings/notifications", "/admin/settings/privacy", "/admin/settings/audit-log"];
 
 async function expectReflow(page: Page) {
   const issues = await page.evaluate(() => {
@@ -28,7 +28,7 @@ async function expectReflow(page: Page) {
   expect(issues, page.url()).toEqual([]);
 }
 
-for (const [width, height] of [[320, 740], [390, 844], [768, 1024], [844, 390], [1024, 768], [1280, 900], [1440, 1000], [1920, 1080]]) {
+for (const [width, height] of [[320, 740], [375, 812], [390, 844], [430, 932], [768, 1024], [844, 390], [1024, 768], [1280, 900], [1440, 1000], [1920, 1080]]) {
   test(`all routes reflow at ${width} × ${height}`, async ({ page }) => {
     test.setTimeout(120_000);
     await page.setViewportSize({ width, height });
@@ -50,7 +50,7 @@ test("mobile navigation exposes every user module and traps focus", async ({ pag
   await trigger.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('a[href^="/user/"]')).toHaveCount(8);
+  await expect(dialog.locator('a[href^="/user/"]')).toHaveCount(11);
   await expectReflow(page);
   await page.keyboard.press("Shift+Tab");
   await expect(dialog.getByRole("link", { name: "Hồ sơ tài chính" })).toBeFocused();
@@ -65,7 +65,7 @@ test("mobile navigation exposes every user module and traps focus", async ({ pag
   await page.getByRole("button", { name: "Theo dõi tiến độ", exact: true }).click();
   await expectReflow(page);
   await page.getByRole("button", { name: "Mở menu tài khoản" }).click();
-  await dialog.getByRole("link", { name: "Kiến thức & Giải pháp" }).click();
+  await dialog.getByRole("link", { name: "Đối tác & Giải pháp" }).click();
   await expect(page).toHaveURL(/\/user\/explore$/);
 });
 

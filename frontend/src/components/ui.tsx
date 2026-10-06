@@ -512,7 +512,7 @@ export function Alert({
       description={children}
       onClose={onClose}
       action={action}
-      className={className}
+      className={`inline-alert ${className || ""}`}
     />
   );
 }

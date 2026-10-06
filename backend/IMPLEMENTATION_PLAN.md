@@ -1,5 +1,9 @@
 # An Hưu — Kế hoạch code backend
 
+**06/10 — T15 public:** đã nối chuyển basis v1, loanRevisions v2, đối soát và proof vào preview/save/apply/read/replay; options hash server và OpenAPI/UI handoff đầy đủ.444tests +32focused sau ca đẩy cutoff đạt; verifierDB --loan mới chuẩn bị, chưa chạy. Refinance/tài sản-vay mới và các nhánhBHXH/T17/vận hành tiếp tục, không đánh dấu toàn bộ hoàn tất.
+
+**06/10 — T15 core:** đã có lịch vay v2/đối soát gốc-lãi-phí/CAPPED và builder nguồn/replay nội bộ;436tests toàn bộ +57focused sau guard ngày đạt. Chưa nối API/save/apply, chuyển v1 có chứng từ hay refinance. Xem LOAN_REVISIONS_V2.md/PROGRESS.md và FE-T15-LOAN-V2-CORE; giữ T15 mở, tiếp các phần tích hợp và mục tiêu backend đầy đủ.
+
 **05/10 — public nguồn v4:** đã nối preview/save/apply/read/replay/report/CSV/AI và actual forecast; CREATE/REVISE/END nguồn thu/chi/pension, chọn estimate BHXH vào candidate có evidence đầy đủ. Có sửa cùng cutoff, kiểm stale estimate còn dùng trong tương lai, không tự góp trợ cấp/tiền dư. Contract SOURCE_COMMANDS_V4.md; UI FE-T16-SOURCE-V4. PostgreSQL/race mới chưa được kiểm do automatic approval review hết hạn mức, script chưa chạy. T15/T16-02, các nhánh BHXH và vận hành còn mở, không migration/frontend.
 
 **05/10 — corpus và nguồn BHXH:** hai bản nháp có nguồn/hash/tái lập offline đã tạo; chưa công bố. Nối nội bộ estimate→candidate nguồn pension với owner/CAS/lineage/replay, không tự góp trợ cấp; API T16 và lưu evidence trong plan còn làm.404tests và29focused sau sửa cuối đạt; OpenAPI/corpuscheck đạt. DB lượt mới lỗi kết nối preflight, không ghi dữ liệu. Xem checkpoint PROGRESS và README legal-2026; FE-T14-CORPUS-SOURCE.

@@ -45,7 +45,7 @@ export function NotificationIcon({ tone }: { tone: NotificationTone }) {
     case "warning":
       return (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" fill="#D9A85E" />
+          <circle cx="12" cy="12" r="10" fill="var(--color-warning, #B36800)" />
           <path
             d="M12 7.5V12.5"
             stroke="#FFFFFF"

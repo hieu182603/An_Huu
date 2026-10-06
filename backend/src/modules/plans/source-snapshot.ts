@@ -8,6 +8,9 @@ import { readPensionSourceEvidence, pensionSourceSelectionSchema } from "../pens
 import { addMonths } from "../../common/calendar";
 import { flowSourceCommandSchema } from "./source-schema";
 import { sourceRegistrySchema } from "../retirement/sources";
+import { loanSourceEvidenceSchema, replayLoanSourceEvidence } from "../debts/source-candidate";
+import type { LoanConsumedAllocation } from "../debts/reconciliation";
+import { loanCreationEvidenceSchema, replayLoanCreation } from "../debts/source-create";
 
 export type SourceSnapshot = { format: typeof SOURCE_SNAPSHOT_FORMAT;
   capture: Awaited<ReturnType<RetirementService["capture"]>>; preview: SourceRetirementResult; integrityHash: string };
@@ -51,6 +54,40 @@ export function readSourceSnapshot(value: unknown): SourceSnapshot {
       selection.estimateId !== evidence.estimateId || selection.expectedEstimateIntegrityHash !== evidence.estimateIntegrityHash ||
       selection.sourceId !== revision.sourceId || selection.commandId !== revision.commandId || digest(schedule) !== digest(revision.schedule)) evidenceError();
     evidenced.add(selection.commandId);
+  }
+  const consumed: LoanConsumedAllocation[] = [];
+  const priorContracts = new Map<string, { sourceHash: string; contract: unknown }>();
+  const agreements = new Set<string>();
+  for (const source of stored.preview.newLoanSources ?? []) {
+    const evidence = loanCreationEvidenceSchema.parse(source.evidence), command = evidence.command;
+    const reference = command.agreementReference.toUpperCase();
+    if (evidenced.has(command.commandId) || agreements.has(reference) || priorContracts.has(command.sourceId)) evidenceError();
+    replayLoanCreation(stored.preview.replayInput.sourceRegistry, source.sourceHash, evidence);
+    agreements.add(reference); evidenced.add(command.commandId);
+    priorContracts.set(command.sourceId, { sourceHash: source.sourceHash, contract: command.contract });
+  }
+  let priorIndex = -1;
+  for (const source of stored.preview.loanSources ?? []) {
+    const evidence = loanSourceEvidenceSchema.parse(source.evidence), command = evidence.command;
+    const index = revisions.findIndex(r => r.sourceHash === source.sourceHash);
+    if (index <= priorIndex || evidenced.has(command.commandId) || digest(evidence.consumed) !== digest(consumed)) evidenceError();
+    priorIndex = index;
+    const prior = priorContracts.get(command.sourceId);
+    if ("contract" in evidence.basis) {
+      if (!prior || prior.sourceHash !== evidence.basis.sourceHash || digest(prior.contract) !== digest(evidence.basis.contract)) evidenceError();
+    } else {
+      const debt = stored.capture.profile.debts.status === "KNOWN" ? stored.capture.profile.debts.entries.find(d => `profile:debt:${d.id}` === command.sourceId) : undefined;
+      const stress = stored.preview.selection.debtStress.filter(s => s.loanId === debt?.id);
+      if (prior || !debt || digest(debt) !== digest(evidence.basis.legacy.debt) || digest(stress) !== digest(evidence.basis.legacy.stress)) evidenceError();
+    }
+    for (const actual of evidence.actuals) {
+      const pinned = stored.preview.reforecast?.actualRevisions.find(a => a.period === actual.period);
+      if (!pinned || pinned.revision !== actual.revision || pinned.closingBalance !== actual.data.closingBalance) evidenceError();
+    }
+    replayLoanSourceEvidence(stored.preview.replayInput.sourceRegistry, source.sourceHash, evidence);
+    consumed.push(...command.allocations.map(allocation => ({ sourceId: command.sourceId, allocation })));
+    priorContracts.set(command.sourceId, { sourceHash: source.sourceHash, contract: command.contract });
+    evidenced.add(command.commandId);
   }
   // Imported profile/legacy commands have namespaced IDs. Every new public
   // UUID command must retain its evidence even after its source ends.

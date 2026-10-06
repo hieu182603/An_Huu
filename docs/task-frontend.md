@@ -568,3 +568,29 @@ Ngày05/10/2026, thay thông tin “chỉ core” phía trên đối với nhóm
 - Nguồn pháp lý có thể dẫn tới bản ký trên `xdcs.cdnchinhphu.vn`; hiển thị tên văn bản/điều khoản và liên kết do API trả, không tự đổi URL hoặc bỏ hash. Không gắn nhãn đã xác thực chữ ký chỉ dựa vào URL.
 - Đã chuẩn bị builder nội bộ chọn estimate vào nguồn pension; **chưa mở endpoint T16**, chưa nối nút thành công giả. Khi API được bàn giao: gửi estimateId/hash, revision nguồn/registry và khoảng tháng; chỉ phần sau cutoff, cần chọn thay nguồn pension cũ để tránh cộng trùng.
 - Kết quả ước tính đưa vào nguồn phải mang nhãn dự kiến; giữ số danh nghĩa cố định khi chọn FIXED_NOMINAL, không âm thầm áp lịch tăng của pension cũ. Trợ cấp một lần hiển thị riêng, không tự cộng vào quỹ. Lịch đóng hoặc luật thay đổi trước save phải yêu cầu xem trước lại. Backend chưa sửa frontend trong đợt này.
+
+## FE-T15-LOAN-V2-CORE — 06/10/2026: chuẩn bị màn cập nhật khoản vay
+
+Backend đã có core lịch/đối soát/revision nguồn; **chưa có API T15 public**. Chưa bật nút lưu/apply tính năng này hoặc gửi Contractv2 vào API Contractv1. Chi tiết: [LOAN_REVISIONS_V2.md](../backend/docs/LOAN_REVISIONS_V2.md).
+
+- Form cần tách dư gốc và ngày xác nhận; toàn hợp đồng/phần người dùng; tỷ lệ trả; ngày ký/sửa/hiệu lực; chứng từ. Hiển thị rõ phương án giả định và lịch được ngân hàng xác nhận.
+- Tiền thực trả tách gốc, lãi, phí trả trước, phí khác; chọn giao dịch DEBT_PAYMENT và phiên bản tháng. Cho thấy phần còn chưa phân bổ; không lấy toàn bộ tiền trả làm tiền giảm gốc, không suy phần đồng vay từ tỷ lệ.
+- Chọn giữ hạn/giảm khoản trả, giữ khoản trả/giảm hạn, lịch ngân hàng hoặc cơ cấu. Lịch cần thể hiện gốc/lãi/phí/dư cuối từng kỳ; ân hạn gốc vẫn có thể trả lãi. Không đưa refinance vào trạng thái đã hỗ trợ.
+- Với kỳ giữa tháng cần ngày bắt đầu/kết thúc và cách tính lãi theo ngày; lãi thả nổi khai từng kỳ. Kỳ cuối phải chỉ rõ balloon nếu có. Tiền phí/lãi sau khi hết gốc vẫn có thể phải trả.
+- CAPPED hiện là trần tổng nghĩa vụ người dùng, gồm gốc/lãi/phí; hiển thị đã trả và còn lại. Không đặt lại trần về số ban đầu mỗi khi sửa lịch.
+- REVIEW_REQUIRED không phải kết quả hoàn chỉnh để lưu/apply. Các lỗi số dư không khớp, event stale/đã phân bổ, sửa trước cutoff, thiếu thứ tự ghi sổ cùng ngày cần giữ dữ liệu nhập và hướng dẫn đối soát.
+- Ví dụ nghiệm thu: gốc100tr, trả12tr gồm gốc10+lãi1+phí1 → gốc90tr. WITHDRAWAL12tr đã chốt không bị trừ lại khi phân bổ DEBT_PAYMENT. Sửa lịch chỉ tác động sau cutoff, không đổi số dư quỹ thực tế.
+- Chờ handoff API tiếp theo để nối endpoint, hash/revisions/idempotency và luồng save/apply. Backend chưa sửa mã frontend trong đợt này.
+
+## FE-T15-LOAN-V2-API — 06/10/2026: đã nối luồng cập nhật khoản vay
+
+Thay ghi chú “chưa có API” tại FE-T15-LOAN-V2-CORE. Backend đã nhận `loanRevisions` ở preview/save nguồn v4, chuyển cơ sở số dư v1, giữ evidence trong snapshot, kiểm stale actual khi apply. Không có refinance/new loan trong đợt này. [Contract đầy đủ](../backend/docs/LOAN_REVISIONS_V2.md).
+
+1. Gửi preview nguồn với các mảng lệnh rỗng để nhận `loanRevisionOptions`. Dùng sourceId/sourceRevision/sourceHash/contractHash server trả; không tự băm JSON. Nếu legacyOpeningRequired, lấy thông tin ngày ký/sửa/hiệu lực và chứng từ từ người dùng; không tự đặt ngày. CAPPED phải xác nhận capBasis=TOTAL_USER_PAYMENTS và phần đã thực hiện trước số dư gốc; loại khác previouslyPaid=0.
+2. Gửi tối đa30 loanRevisions; mỗi khoản vay một commandId UUID mới và operation=REVISE, expectedSourceRevision/expectedSourceHash/expectedContractHash/confirm=true. Có thể kèm flow/pension khác nhưng không trùng nguồn hoặc commandId. Contractv2 phải có số dư ngày cuối throughMonth và đầy đủ lịch sau đó, không chỉ những tháng đang hiển thị trên biểu đồ.
+3. Chọn actual DEBT_PAYMENT của đúng tài khoản, gửi allocationId/eventId/actualRevision/bookedOn/scope và bốn thành phần gốc/lãi/phí trả trước/phí khác. components là tiền người dùng; contractComponents là phần hợp đồng có chứng từ. Không tự chia tiền theo share để suy phần người khác. Chỉ gửi allocations mới trong revision này; backend tự giữ phần đã phân bổ.
+4. Preview READY trả candidate và inputHash; lưu đúng body đó + expectedInputHash qua endpoint source-reforecasts có Idempotency-Key. Apply riêng với revision mới. Không gửi actuals/consumed/basis hoặc tự chỉnh anchor. Xem lại loanSources để hiển thị lịch/chứng cứ đã pin của bản đã lưu.
+5. Sau409 giữ bản nhập nhưng phải tải lại nguồn/actual và preview mới; không lặp apply với hash cũ. Khi actual bị sửa, đọc/replay lịch sử vẫn được nhưng save/apply từ nguồn stale bị chặn. Sửa tiếp cùng cutoff bỏ legacyOpening và dùng hash hợp đồng v2 mới từ options; sang tháng tiếp theo chỉ phân bổ giao dịch mới.
+6. Nghiệm thu: v1→trả một phần→preview→save→apply→reload/report/CSV; sửa kỳ hạn tại cùng cutoff; thêm tháng thực tế; hai khoản vay dùng chung một event không được vượt tổng; CAPPED không reset; bản v1/v3 lịch sử giữ nguyên; tiền WITHDRAWAL không bị trừ thêm.
+
+Backend đã kiểm bằng service/HTTP và response schema; PostgreSQL/races, browser/UI và đối chiếu ngân hàng vẫn chưa nghiệm thu. Không sửa mã frontend trong đợt backend này.

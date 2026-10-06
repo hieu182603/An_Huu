@@ -79,12 +79,12 @@ it("captures an owned estimate into an immutable source candidate, with explicit
   const f = await fixture(), preview = await f.estimates.preview("owner", f.input);
   const saved = await f.estimates.save("owner", { preview: f.input, expectedInputHash: preview.inputHash }, randomUUID());
   const evidence = await f.estimates.captureForSource("owner", saved.id, saved.integrityHash);
-  const registry = sealSourceRegistry({ schemaVersion: 1, startMonth: "2026-07", endMonth: "2027-12", knowledgeAsOf: "2026-10-05",
+  const registry = sealSourceRegistry({ schemaVersion: 1, startMonth: "2026-07", endMonth: "2027-12", knowledgeAsOf: evidence.capture.assessedOn,
     originHash: digest("parent plan"), revisions: [] });
   const selection: PensionSourceSelection = { estimateId: saved.id, expectedEstimateIntegrityHash: saved.integrityHash,
     expectedRegistryHash: registry.registryHash, commandId: randomUUID(), sourceId: "pension:selected", operation: "CREATE", expectedSourceRevision: 0,
     effectiveFromMonth: "2026-11", effectiveToMonth: "2027-12", amountPolicy: "FIXED_NOMINAL", confirm: true };
-  const build = (input = selection, proof = evidence, source = registry) => pensionSourceCandidate(source, input, proof, "owner", "2026-10", "2026-10-05");
+  const build = (input = selection, proof = evidence, source = registry) => pensionSourceCandidate(source, input, proof, "owner", "2026-10", proof.capture.assessedOn);
   const candidate = build(), rows = composeSourceMonths(candidate.registry).rows;
   expect(rows.filter(r => r.month <= "2026-10").every(r => r.pension === "0")).toBe(true);
   expect(rows.filter(r => r.month > "2026-10").every(r => r.pension === saved.assessment.monthlyPension)).toBe(true);
@@ -112,25 +112,25 @@ it("requires replacement of an existing pension and keeps prior months; does not
   const saved = await f.estimates.save("owner", { preview: f.input, expectedInputHash: preview.inputHash }, randomUUID());
   const evidence = await f.estimates.captureForSource("owner", saved.id, saved.integrityHash);
   const previous = sealSourceRevision({ sourceId: "profile:pension", revision: 1, previousHash: null, scope: "PLAN_VERSION", origin: "PINNED_PROFILE",
-    kind: "PENSION", effectiveFromMonth: "2026-07", effectiveToMonth: "2027-12", knownOn: "2026-10-05", evidenceHash: digest("profile"),
+    kind: "PENSION", effectiveFromMonth: "2026-07", effectiveToMonth: "2027-12", knownOn: evidence.capture.assessedOn, evidenceHash: digest("profile"),
     commandId: "profile-command", confirmation: "USER_CONFIRMED", operation: "CREATE",
     schedule: [{ month: "2026-10", metric: "pension", amount: "3000000" }, { month: "2026-11", metric: "pension", amount: "3000000" }] });
-  const registry = sealSourceRegistry({ schemaVersion: 1, startMonth: "2026-07", endMonth: "2027-12", knowledgeAsOf: "2026-10-05", originHash: digest("plan"), revisions: [previous] });
+  const registry = sealSourceRegistry({ schemaVersion: 1, startMonth: "2026-07", endMonth: "2027-12", knowledgeAsOf: evidence.capture.assessedOn, originHash: digest("plan"), revisions: [previous] });
   const selection: PensionSourceSelection = { estimateId: saved.id, expectedEstimateIntegrityHash: saved.integrityHash, expectedRegistryHash: registry.registryHash,
     commandId: randomUUID(), sourceId: previous.sourceId, operation: "REVISE", expectedSourceRevision: 1, effectiveFromMonth: "2026-11", effectiveToMonth: "2027-12", amountPolicy: "FIXED_NOMINAL", confirm: true };
-  const candidate = pensionSourceCandidate(registry, selection, evidence, "owner", "2026-10", "2026-10-05");
+  const candidate = pensionSourceCandidate(registry, selection, evidence, "owner", "2026-10", evidence.capture.assessedOn);
   const rows = composeSourceMonths(candidate.registry).rows;
   expect(rows.find(r => r.month === "2026-10")!.pension).toBe("3000000");
   expect(rows.find(r => r.month === "2026-11")!.pension).toBe(saved.assessment.monthlyPension);
   expect(Number(candidate.excludedLumpSum)).toBeGreaterThan(0);
   expect(rows.every(r => r.capitalInjection === "0")).toBe(true);
-  expect(() => pensionSourceCandidate(registry, { ...selection, sourceId: "duplicate", operation: "CREATE", expectedSourceRevision: 0 }, evidence, "owner", "2026-10", "2026-10-05"))
+  expect(() => pensionSourceCandidate(registry, { ...selection, sourceId: "duplicate", operation: "CREATE", expectedSourceRevision: 0 }, evidence, "owner", "2026-10", evidence.capture.assessedOn))
     .toThrowError(expect.objectContaining({ code: "PENSION_SOURCE_OVERLAP" }));
   const ended = sealSourceRevision({ ...previous, revision: 2, previousHash: previous.sourceHash, operation: "END", commandId: "end-future",
     effectiveFromMonth: "2027-01", schedule: [] });
   const futureEndRegistry = sealSourceRegistry({ ...registry, revisions: [previous, ended] });
   expect(() => pensionSourceCandidate(futureEndRegistry, { ...selection, expectedRegistryHash: futureEndRegistry.registryHash,
-    sourceId: "duplicate", operation: "CREATE", expectedSourceRevision: 0 }, evidence, "owner", "2026-10", "2026-10-05"))
+    sourceId: "duplicate", operation: "CREATE", expectedSourceRevision: 0 }, evidence, "owner", "2026-10", evidence.capture.assessedOn))
     .toThrowError(expect.objectContaining({ code: "PENSION_SOURCE_OVERLAP" }));
   await f.publish(f.rule.id);
   await expect(f.estimates.captureForSource("owner", saved.id, saved.integrityHash)).rejects.toMatchObject({ code: "RULE_VERSION_SUPERSEDED" });

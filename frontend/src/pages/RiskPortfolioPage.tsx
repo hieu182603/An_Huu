@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Alert, Badge, Button, Card, Icon, Input, Select, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import {
@@ -9,6 +9,9 @@ import {
   type PortfolioPreviewResult,
   type PortfolioAnswerItem,
 } from "../services/portfolios";
+import { Link } from "react-router";
+import { useAuth } from "../context/AuthContext";
+import { readRiskDraft, writeRiskDraft } from "../services/riskDraft";
 import { useI18n } from "../i18n";
 
 const getDimensionLabel = (dimension: string, language: "vi" | "en") => {
@@ -32,6 +35,8 @@ const getDimensionLabel = (dimension: string, language: "vi" | "en") => {
 };
 
 export default function RiskPortfolioPage() {
+  const { user } = useAuth();
+  const requestSeq = useRef(0);
   const { language } = useI18n();
   const { v2Profile } = useFinancialProfile();
   const { notify } = useNotification();
@@ -62,8 +67,7 @@ export default function RiskPortfolioPage() {
           const detail = await fetchUserPortfolioPolicyDetail(res.items[0].id);
           if (active) {
             setPolicyDetail(detail);
-            // Require explicit answers; do not auto-select choices[0]
-            setAnswers({});
+            if (user) setAnswers(readRiskDraft(user.id, detail.id, detail.data.questions));
           }
         }
       })
@@ -75,6 +79,7 @@ export default function RiskPortfolioPage() {
       });
 
     return () => {
+      requestSeq.current++;
       active = false;
     };
   }, []);
@@ -84,11 +89,12 @@ export default function RiskPortfolioPage() {
   }, [v2Profile]);
 
   const questions = policyDetail?.data.questions || [];
-  const allAnswered = questions.length > 0 && questions.every((q) => Boolean(answers[q.id]));
+  const allAnswered = questions.length > 0 && questions.every((q) => q.choices.some(c => c.id === answers[q.id]));
 
   const runPreview = async (overrideTemplateId?: string) => {
     if (!policyDetail || !allAnswered) return;
 
+    const seq = ++requestSeq.current;
     setIsCalculating(true);
     setCalculationError(null);
 
@@ -108,14 +114,16 @@ export default function RiskPortfolioPage() {
         templateId: activeTemplate || undefined,
         answers: answerArray,
       });
+      if (seq !== requestSeq.current) return;
       setPreviewResult(res);
       if (res.assessment.selectedTemplateId && !activeTemplate) {
         setSelectedTemplateId(res.assessment.selectedTemplateId);
       }
     } catch (e) {
+      if (seq !== requestSeq.current) return;
       setCalculationError(e instanceof Error ? e.message : (language === "en" ? "Could not analyze portfolio." : "Chưa thể phân tích danh mục."));
     } finally {
-      setIsCalculating(false);
+      if (seq === requestSeq.current) setIsCalculating(false);
     }
   };
 
@@ -126,7 +134,14 @@ export default function RiskPortfolioPage() {
   }, [policyDetail, answers, horizonMonths, liquidityNeedMonths]);
 
   const handleSelectChoice = (questionId: string, choiceId: string) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: choiceId }));
+    setAnswers((prev) => {
+      const next = { ...prev, [questionId]: choiceId };
+      if (user && policyDetail) writeRiskDraft(user.id, policyDetail.id, next);
+      requestSeq.current++;
+      setPreviewResult(null);
+      setSelectedTemplateId("");
+      return next;
+    });
   };
 
   const handleTemplateChange = (templateId: string) => {
@@ -147,6 +162,7 @@ export default function RiskPortfolioPage() {
 
   return (
     <div className="phase-page risk-portfolio-page" style={{ padding: "var(--space-6) var(--space-4)", maxWidth: "1200px", margin: "0 auto" }}>
+      {allAnswered && <p className="flow-note">{language === "en" ? "Answers are saved on this browser for your account. Continue to preview a retirement plan." : "Câu trả lời được giữ trên trình duyệt này theo tài khoản. Tiếp tục để xem trước kế hoạch hưu trí."} <Link className="button button-primary" to="/user/plan">{language === "en" ? "Preview plan" : "Xem trước kế hoạch"}</Link></p>}
       {/* Header */}
       <header style={{ marginBottom: "var(--space-6)" }}>
         <span className="section-eyebrow" style={{ color: "var(--color-primary)", fontWeight: 600, fontSize: "var(--text-xs)", letterSpacing: "0.08em" }}>

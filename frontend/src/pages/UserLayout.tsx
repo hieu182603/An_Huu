@@ -9,6 +9,7 @@ import AppLoader from "../components/AppLoader";
 import PageTransition from "../components/PageTransition";
 import { routeIntent } from "../services/routePreload";
 import LanguageSwitcher from "../components/LanguageSwitcher";
+import { NotificationDropdown } from "../components/NotificationDropdown";
 import { useI18n } from "../i18n";
 
 export type UserNavItem = {
@@ -46,13 +47,9 @@ export default function UserLayout() {
   ];
 
   const drawerNavItems: UserNavItem[] = [
-    { path: "/user/dashboard", label: t("nav.dashboard"), icon: "home" },
-    { path: "/user/goal", label: t("nav.goal"), icon: "target" },
-    { path: "/user/plan", label: t("nav.plan"), icon: "compass" },
-    { path: "/user/simulation", label: t("nav.simulation"), icon: "chart" },
-    { path: "/user/debts", label: t("nav.debts"), icon: "wallet" },
-    { path: "/user/assistant", label: t("nav.assistant"), icon: "sparkles", badge: "AI" },
-    { path: "/user/explore", label: language === "en" ? "Knowledge & Solutions" : "Kiến thức & Giải pháp", icon: "briefcase" },
+    ...userNavItems,
+    { path: "/user/support", label: language === "en" ? "Support" : "Hỗ trợ", icon: "life-buoy" },
+    { path: "/user/notifications", label: language === "en" ? "Notifications" : "Thông báo", icon: "bell" },
     { path: "/user/account", label: language === "en" ? "Financial Profile" : "Hồ sơ tài chính", icon: "settings" },
   ];
 
@@ -228,17 +225,7 @@ export default function UserLayout() {
                 <Icon name="life-buoy" />
               </button>
             </Tooltip>
-            <Tooltip content={unread ? `${unread} ${t("topbar.notifications").toLowerCase()}` : t("topbar.notifications")}>
-              <button
-                type="button"
-                className="topbar-action-btn"
-                onClick={() => navigate("/user/notifications")}
-                aria-label={t("topbar.notifications")}
-              >
-                <Icon name="bell" />
-                {unread > 0 && <span className="topbar-badge-dot" />}
-              </button>
-            </Tooltip>
+            <NotificationDropdown />
 
             <div className="topbar-divider-line" />
 

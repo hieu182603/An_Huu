@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { motion } from "motion/react";
-import { Badge, Icon } from "../components/ui";
-import { AssetDonutChart } from "../components/charts";
+import { Alert, Badge, Button, Card, Icon } from "../components/ui";
+import { AssetDonutChart, ProjectionWealthChart, type ChartPeriod } from "../components/charts";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { useAuth } from "../context/AuthContext";
@@ -12,11 +12,12 @@ import { useEffect, useState } from "react";
 export default function UserDashboard() {
   const { user } = useAuth();
   const { profile, v2Profile, completenessPercentage } = useFinancialProfile();
-  const { activePlan, currentVersion } = useRetirementPlan();
+  const { activePlan, currentVersion, loadingPlans, plansError, refreshPlans } = useRetirementPlan();
   const { t, language, formatCurrency, formatDate: i18nFormatDate, formatPercent } = useI18n();
 
   const [report, setReport] = useState<PlanReport | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("retire");
 
   useEffect(() => {
     if (!activePlan?.id) {
@@ -111,7 +112,21 @@ export default function UserDashboard() {
         </motion.div>
 
         {/* 2. Official Plan Snapshot OR Plan Invitation */}
-        {planSummary ? (
+        {loadingPlans || loadingReport ? (
+          <Card style={{ padding: "var(--space-6)", textAlign: "center", border: "1px solid var(--color-border)" }}>
+            <p role="status" style={{ color: "var(--color-text-muted)", margin: 0 }}>
+              {language === "en" ? "Loading your retirement plan…" : "Đang tải dữ liệu kế hoạch hưu trí của bạn…"}
+            </p>
+          </Card>
+        ) : plansError ? (
+          <Alert
+            tone="danger"
+            title={language === "en" ? "Could not load plan" : "Chưa tải được kế hoạch"}
+            action={<Button onClick={() => void refreshPlans()}>{language === "en" ? "Retry" : "Thử lại"}</Button>}
+          >
+            {plansError}
+          </Alert>
+        ) : planSummary ? (
           <motion.div
             className="user-plan-card"
             initial={{ opacity: 0, y: 10 }}
@@ -395,62 +410,65 @@ export default function UserDashboard() {
               <h2 className="card-title">{language === "en" ? "Retirement Capital Projection" : "Đường đi dự phóng quỹ hưu trí"}</h2>
               <p className="card-desc">{language === "en" ? "Trajectory benchmarked against target retirement fund" : "Lộ trình đối chiếu giữa mức tích lũy hiện tại và mục tiêu hưu trí"}</p>
             </div>
-            <span className="wealth-total-badge font-mono">
-              {language === "en" ? "Target: 8.5B ₫" : "Mục tiêu: 8.5 tỷ ₫"}
-            </span>
+            {planSummary?.atRetirement?.requiredFund ? (
+              <span className="wealth-total-badge font-mono">
+                {language === "en"
+                  ? `Target: ${formatCurrency(parseFloat(planSummary.atRetirement.requiredFund))}`
+                  : `Mục tiêu: ${formatCurrency(parseFloat(planSummary.atRetirement.requiredFund))}`}
+              </span>
+            ) : profile.plan?.targetFund ? (
+              <span className="wealth-total-badge font-mono">
+                {language === "en"
+                  ? `Target: ${formatCurrency(profile.plan.targetFund)}`
+                  : `Mục tiêu: ${formatCurrency(profile.plan.targetFund)}`}
+              </span>
+            ) : profile.goal.monthlyExpenseInRetirement > 0 ? (
+              <span className="wealth-total-badge font-mono">
+                {language === "en"
+                  ? `Target Expense: ${formatCurrency(profile.goal.monthlyExpenseInRetirement)}/mo`
+                  : `Chi tiêu hưu: ${formatCurrency(profile.goal.monthlyExpenseInRetirement)}/th`}
+              </span>
+            ) : (
+              <span className="wealth-total-badge font-mono">
+                {language === "en" ? `Retire age: ${profile.goal.targetRetireAge}` : `Tuổi nghỉ hưu: ${profile.goal.targetRetireAge}`}
+              </span>
+            )}
           </div>
-          <p className="horizontal-scroll-hint">{language === "en" ? "Scroll horizontally to view full chart." : "Vuốt ngang để xem đầy đủ số liệu."}</p>
-          <div className="projection-chart-area" tabIndex={0} role="region" aria-label={language === "en" ? "Retirement wealth projection chart" : "Biểu đồ dự phóng tài sản"}>
-            <div className="dashboard-chart-axis">
-              <span>9 tỷ</span>
-              <span>6.7 tỷ</span>
-              <span>4.5 tỷ</span>
-              <span>2.2 tỷ</span>
-              <span>0 đ</span>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginTop: "16px", marginBottom: "12px" }}>
+            <div className="chart-period">
+              {(["5y", "10y", "retire", "lifetime"] as ChartPeriod[]).map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  className={chartPeriod === period ? "is-active" : ""}
+                  onClick={() => setChartPeriod(period)}
+                >
+                  {period === "5y"
+                    ? (language === "en" ? "5 Years" : "5 năm")
+                    : period === "10y"
+                    ? (language === "en" ? "10 Years" : "10 năm")
+                    : period === "retire"
+                    ? (language === "en" ? "To Retirement" : "Đến nghỉ hưu")
+                    : (language === "en" ? "Lifetime" : "Trọn đời")}
+                </button>
+              ))}
             </div>
 
-            <svg viewBox="0 0 650 300" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="targetGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#334DAF" stopOpacity="0.22" />
-                  <stop offset="100%" stopColor="#334DAF" stopOpacity="0.0" />
-                </linearGradient>
-                <linearGradient id="projectedGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#052659" stopOpacity="0.18" />
-                  <stop offset="100%" stopColor="#052659" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="50" x2="650" y2="50" className="dashboard-grid-lines" />
-              <line x1="0" y1="110" x2="650" y2="110" className="dashboard-grid-lines" />
-              <line x1="0" y1="170" x2="650" y2="170" className="dashboard-grid-lines" />
-              <line x1="0" y1="230" x2="650" y2="230" className="dashboard-grid-lines" />
+            {planSummary?.atRetirement?.projectedFund && (
+              <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
+                <span>
+                  {language === "en" ? "Plan Projection:" : "Dự phóng kế hoạch:"}{" "}
+                  <strong style={{ color: "var(--color-primary-700)" }} className="font-mono">
+                    {formatCurrency(parseFloat(planSummary.atRetirement.projectedFund))}
+                  </strong>
+                </span>
+              </div>
+            )}
+          </div>
 
-              <path d="M 30 260 C 180 240, 360 170, 620 40 L 620 260 Z" fill="url(#targetGradient)" />
-              <path d="M 30 260 C 180 240, 360 170, 620 40" className="target-projection-line" />
-              <path d="M 30 260 C 180 245, 380 190, 620 95 L 620 260 Z" fill="url(#projectedGradient)" />
-              <path d="M 30 260 C 180 245, 380 190, 620 95" className="current-projection-line" />
-              <line x1="620" y1="40" x2="620" y2="95" className="projection-gap" />
-              <circle cx="30" cy="260" r="5" className="current-point" />
-              <circle cx="620" cy="40" r="6" className="target-point" />
-              <circle cx="620" cy="95" r="5" className="projected-point" />
-            </svg>
-
-            <div className="chart-end-label goal-label">
-              <span>{language === "en" ? "Target:" : "Mục tiêu:"}</span>
-              <strong>8.50 tỷ đ</strong>
-            </div>
-
-            <div className="chart-end-label projected-label">
-              <span>{language === "en" ? "Projected:" : "Dự phóng:"}</span>
-              <strong>6.12 tỷ đ</strong>
-            </div>
-
-            <div className="dashboard-chart-labels">
-              <span>{language === "en" ? "Year 2026 (Current)" : "Năm 2026 (Hiện tại)"}</span>
-              <span>{language === "en" ? "Year 2036" : "Năm 2036"}</span>
-              <span>{language === "en" ? "Year 2046" : "Năm 2046"}</span>
-              <span>{language === "en" ? "Retirement (60 yrs)" : "Nghỉ hưu (60 tuổi)"}</span>
-            </div>
+          <div style={{ width: "100%", minHeight: 320 }}>
+            <ProjectionWealthChart period={chartPeriod} profile={profile} />
           </div>
         </div>
 

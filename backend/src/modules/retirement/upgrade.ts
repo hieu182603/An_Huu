@@ -7,6 +7,8 @@ import { importLegacySourceChanges } from "./source-legacy";
 import { projectSources, SOURCE_MODEL, type SourceProjectionInput } from "./engine-v4";
 import type { PensionSourceEvidence, PensionSourceSelection } from "../pensions/source-candidate";
 import type { FlowSourceCommand } from "../plans/source-schema";
+import type { LoanSourceEvidence } from "../debts/source-candidate";
+import type { LoanCreationEvidence } from "../debts/source-create";
 
 export type SourceRetirementResult = Omit<RetirementResult, "modelVersion" | "replayInput" | "calculation" | "status"> & {
   status: "READY";
@@ -15,6 +17,8 @@ export type SourceRetirementResult = Omit<RetirementResult, "modelVersion" | "re
   calculation: NonNullable<RetirementResult["calculation"]> & ReturnType<typeof projectSources>;
   sourceCommands?: FlowSourceCommand[];
   pensionSources?: Array<{ sourceHash: string; selection: PensionSourceSelection; evidence: PensionSourceEvidence }>;
+  loanSources?: Array<{ sourceHash: string; evidence: LoanSourceEvidence }>;
+  newLoanSources?: Array<{ sourceHash: string; evidence: LoanCreationEvidence }>;
 };
 export type PlanPreview = RetirementResult | SourceRetirementResult;
 

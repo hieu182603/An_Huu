@@ -11,26 +11,13 @@ import {
 } from "recharts";
 import { projectBalanceAtAge, type RetirementCalculationInput } from "../../domain/retirementCalculator";
 import { useI18n } from "../../i18n";
+import { formatCompactVND, formatFullVND } from "../../utils/currency";
 
 interface SimulationComparisonChartProps {
   baseInput: RetirementCalculationInput;
   scenarioInput: RetirementCalculationInput;
   simFundTarget: number;
 }
-
-const formatVND = (value: number, isVi: boolean) => {
-  if (value >= 1_000_000_000) {
-    return isVi ? `${(value / 1_000_000_000).toFixed(1)} tỷ` : `${(value / 1_000_000_000).toFixed(1)}B ₫`;
-  }
-  if (value >= 1_000_000) {
-    return isVi ? `${Math.round(value / 1_000_000)} tr` : `${Math.round(value / 1_000_000)}M ₫`;
-  }
-  return `${value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫`;
-};
-
-const formatFullVND = (value: number, isVi: boolean) => {
-  return `${value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫`;
-};
 
 const CustomTooltip = ({ active, payload, isVi }: any) => {
   if (!active || !payload || !payload.length) return null;
@@ -39,13 +26,13 @@ const CustomTooltip = ({ active, payload, isVi }: any) => {
   return (
     <div
       style={{
-        background: "rgba(16, 45, 61, 0.96)",
+        background: "rgba(5, 38, 89, 0.95)",
         backdropFilter: "blur(12px)",
-        border: "1px solid rgba(185, 204, 190, 0.22)",
+        border: "1px solid rgba(208, 228, 254, 0.25)",
         borderRadius: "10px",
         padding: "12px 16px",
-        color: "#F6F1E8",
-        boxShadow: "0 10px 25px -5px rgba(16, 45, 61, 0.5)",
+        color: "#F9FBFF",
+        boxShadow: "0 10px 25px -5px rgba(2, 16, 36, 0.5)",
         fontSize: "12.5px",
         minWidth: "230px",
         pointerEvents: "none",
@@ -53,17 +40,17 @@ const CustomTooltip = ({ active, payload, isVi }: any) => {
     >
       <div
         style={{
-          borderBottom: "1px solid rgba(185, 204, 190, 0.2)",
+          borderBottom: "1px solid rgba(208, 228, 254, 0.25)",
           paddingBottom: "6px",
           marginBottom: "8px",
           fontWeight: 700,
-          color: "#F6F1E8",
+          color: "#F9FBFF",
           display: "flex",
           justifyContent: "space-between",
         }}
       >
         <span>{isVi ? `Năm ${data.year}` : `Year ${data.year}`}</span>
-        <span style={{ color: "#6F9B7C" }}>{isVi ? `${data.age} tuổi` : `${data.age} yrs`}</span>
+        <span style={{ color: "#C1E8FF" }}>{isVi ? `${data.age} tuổi` : `${data.age} yrs`}</span>
       </div>
 
       <div style={{ display: "grid", gap: "6px" }}>
@@ -87,10 +74,10 @@ const CustomTooltip = ({ active, payload, isVi }: any) => {
           style={{
             marginTop: "4px",
             paddingTop: "6px",
-            borderTop: "1px dashed rgba(185, 204, 190, 0.2)",
+            borderTop: "1px dashed rgba(208, 228, 254, 0.25)",
             display: "flex",
             justifyContent: "space-between",
-            color: data.simulated >= data.base ? "var(--color-success, #486D53)" : "var(--color-danger, #A14D47)",
+            color: data.simulated >= data.base ? "var(--color-success, #1E7E55)" : "var(--color-danger, #C0392B)",
             fontWeight: 600,
           }}
         >
@@ -175,7 +162,7 @@ export function SimulationComparisonChart({
             fontSize={11}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => formatVND(v, isVi)}
+            tickFormatter={(v) => formatCompactVND(v, isVi)}
             domain={[0, "auto"]}
           />
 
@@ -187,7 +174,7 @@ export function SimulationComparisonChart({
             stroke="var(--color-secondary-500, #334DAF)"
             strokeDasharray="4 4"
             label={{
-              value: isVi ? `Mục tiêu (${formatVND(simFundTarget, isVi)})` : `Target (${formatVND(simFundTarget, isVi)})`,
+              value: isVi ? `Mục tiêu (${formatCompactVND(simFundTarget, isVi)})` : `Target (${formatCompactVND(simFundTarget, isVi)})`,
               position: "top",
               fill: "#334DAF",
               fontSize: 11,

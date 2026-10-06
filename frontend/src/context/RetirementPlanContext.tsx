@@ -44,6 +44,7 @@ interface RetirementPlanContextValue {
   planVersions: PlanHistoryItem[];
   currentVersion: PlanVersion | null;
   loadingPlans: boolean;
+  plansError: string | null;
   previewData: RetirementPreviewResult | null;
   previewStatus: PreviewStatus;
   previewIssues: RetirementIssue[];
@@ -70,6 +71,7 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   const [activePlan, setActivePlan] = useState<PlanDetail | null>(null);
   const [planVersions, setPlanVersions] = useState<PlanHistoryItem[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
+  const [plansError, setPlansError] = useState<string | null>(null);
 
   // Preview state
   const [previewData, setPreviewData] = useState<RetirementPreviewResult | null>(null);
@@ -83,6 +85,7 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   // Monotonic sequence counters to reject out-of-order responses
   const previewSeq = useRef(0);
   const planLoadSeq = useRef(0);
+  const planListSeq = useRef(0);
   const activeUserIdRef = useRef<string | null>(null);
 
   // Pending operations tracking for strict idempotency (key + body)
@@ -94,10 +97,10 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
     const currentSeq = ++planLoadSeq.current;
     try {
       const detail = await getPlanDetail(planId);
-      if (currentSeq !== planLoadSeq.current || user?.id !== targetUserId) return;
+      if (currentSeq !== planLoadSeq.current || activeUserIdRef.current !== targetUserId) return;
       setActivePlan(detail);
       const versionsRes = await listPlanVersions(planId, 1, 50);
-      if (currentSeq !== planLoadSeq.current || user?.id !== targetUserId) return;
+      if (currentSeq !== planLoadSeq.current || activeUserIdRef.current !== targetUserId) return;
       setPlanVersions(versionsRes.items);
       // If active plan has a current version and no manual preview has been set, initialize preview with it
       if (detail.current) {
@@ -107,19 +110,21 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
         setLastPreviewInput((prev) => prev ?? detail.current?.preview.selection ?? null);
       }
     } catch {
-      if (currentSeq !== planLoadSeq.current || user?.id !== targetUserId) return;
+      if (currentSeq !== planLoadSeq.current || activeUserIdRef.current !== targetUserId) return;
       setActivePlan(null);
+      setPlansError("Không thể tải chi tiết kế hoạch. Hãy thử lại.");
     }
   }, [user?.id]);
 
   const refreshPlans = useCallback(async (expectedUserId?: string) => {
     const targetUserId = expectedUserId ?? user?.id;
     if (user?.role !== "user" || !targetUserId) return;
-    const currentSeq = ++planLoadSeq.current;
+    const currentSeq = ++planListSeq.current;
     setLoadingPlans(true);
+    setPlansError(null);
     try {
       const res = await listRetirementPlans(1, 50);
-      if (currentSeq !== planLoadSeq.current || user?.id !== targetUserId) return;
+      if (currentSeq !== planListSeq.current || activeUserIdRef.current !== targetUserId) return;
       setPlans(res.items);
       if (res.items.length > 0) {
         const targetId = activePlanId && res.items.some((p) => p.id === activePlanId)
@@ -136,16 +141,16 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       // Clear plans on network error to prevent showing stale or another account's state
-      if (currentSeq !== planLoadSeq.current || user?.id !== targetUserId) return;
+      if (currentSeq !== planListSeq.current || activeUserIdRef.current !== targetUserId) return;
       setPlans([]);
       setActivePlanId(null);
       setActivePlan(null);
       setPlanVersions([]);
       setPreviewData(null);
       setPreviewStatus("error");
-      setPreviewError("Không thể tải danh sách kế hoạch hưu trí.");
+      setPlansError("Không thể tải danh sách kế hoạch hưu trí. Hãy thử lại.");
     } finally {
-      if (currentSeq === planLoadSeq.current && user?.id === targetUserId) {
+      if (currentSeq === planListSeq.current && activeUserIdRef.current === targetUserId) {
         setLoadingPlans(false);
       }
     }
@@ -159,6 +164,9 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
       // Invalidate sequences and pending requests
       previewSeq.current++;
       planLoadSeq.current++;
+      planListSeq.current++;
+      setPlansError(null);
+      setLoadingPlans(false);
       pendingSave.current = null;
       pendingApply.current = null;
 
@@ -198,7 +206,7 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
 
     try {
       const res = await previewMonthlyRetirement(input);
-      if (currentSeq !== previewSeq.current || user?.id !== targetUserId) return null;
+      if (currentSeq !== previewSeq.current || activeUserIdRef.current !== targetUserId) return null;
 
       setPreviewData(res);
       setPreviewIssues(res.issues || []);
@@ -212,7 +220,7 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
       }
       return res;
     } catch (e) {
-      if (currentSeq !== previewSeq.current || user?.id !== targetUserId) return null;
+      if (currentSeq !== previewSeq.current || activeUserIdRef.current !== targetUserId) return null;
       const message = e instanceof Error ? e.message : "Không thể tính toán dự phóng. Vui lòng thử lại.";
       setPreviewError(message);
       setPreviewStatus("error");
@@ -346,6 +354,7 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
     planVersions,
     currentVersion: activePlan?.current ?? null,
     loadingPlans,
+    plansError,
     previewData,
     previewStatus,
     previewIssues,

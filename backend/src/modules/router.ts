@@ -20,6 +20,7 @@ import { catalogRouter } from "./catalog/router";
 import { notificationSettingsInput } from "./catalog/schema";
 import { consultationLimiter } from "../middlewares/rateLimiter";
 import { OperationsService, auditQuery } from "./operations/service";
+import { SocketService } from "../services/socketService";
 
 import { ProfileService } from "./profiles/service";
 import { DebtService } from "./debts/service";
@@ -79,6 +80,12 @@ export function createApiRouter(services: Services, config: AppConfig) {
   }
   router.get("/admin/operations", ...authenticated, requireRole("ADMIN"), asyncHandler(async (_req, res) => sendData(res, await services.operations!.overview())));
   router.get("/admin/audit-logs", ...authenticated, requireRole("ADMIN"), asyncHandler(async (req, res) => sendData(res, await services.operations!.audit(auditQuery.parse(req.query)))));
+  router.post("/admin/notifications/broadcast", ...authenticated, requireRole("ADMIN"), asyncHandler(async (req: AuthenticatedRequest, res) => {
+    const title = typeof req.body?.title === "string" && req.body.title.trim() ? req.body.title.trim() : "Thông báo toàn hệ thống (Broadcast)";
+    const message = typeof req.body?.message === "string" && req.body.message.trim() ? req.body.message.trim() : "Quản trị viên đã phát đi bản tin cập nhật tham số vận hành.";
+    SocketService.broadcast("notification:broadcast", { title, message, timestamp: new Date().toISOString() });
+    sendData(res, { broadcasted: true, title, message });
+  }));
   const uuidParam = (id: unknown) => z.string().uuid().parse(id);
   const listParams = (query: unknown) => listQuery.parse(query);
   router.use("/admin/support", ...authenticated, requireRole("ADMIN"));

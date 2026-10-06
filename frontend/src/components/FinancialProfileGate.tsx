@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { Alert, Button, Card } from "./ui";
 import { useI18n } from "../i18n";
 
 export default function FinancialProfileGate({ children, onboarding = false }: { children: ReactNode; onboarding?: boolean }) {
-  const { loading, loadError, hasProfile, reloadProfile } = useFinancialProfile();
+  const location = useLocation();
+  const { onboardingDraft, loading, loadError, hasProfile, reloadProfile } = useFinancialProfile();
   const { language } = useI18n();
   const isEn = language === "en";
 
@@ -38,8 +39,8 @@ export default function FinancialProfileGate({ children, onboarding = false }: {
             ? "You do not have a profile yet. Provide your financial baseline to view your net worth, income, and expense breakdown."
             : "Bạn chưa có hồ sơ. Hãy khai báo thông tin để xem tổng quan thu nhập, chi tiêu và tài sản."}
         </p>
-        <Link className="button button-primary" to="/onboarding">
-          {isEn ? "Complete Profile" : "Khai báo hồ sơ"}
+        <Link className="button button-primary" to="/onboarding" state={{ from: location.pathname + location.search + location.hash }}>
+          {onboardingDraft.step !== "welcome" ? (isEn ? "Continue saved draft" : "Tiếp tục bản nháp") : (isEn ? "Complete Profile" : "Khai báo hồ sơ")}
         </Link>
       </Card>
     );
