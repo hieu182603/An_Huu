@@ -68,6 +68,68 @@ async function fixture(twoLoans = false, capped = false) {
   return { ...f, saved, command, actuals, actual, allocation, baseline };
 }
 
+it("amends a cap, preserves paid history through uncapped terms and prevents resetting it on re-entry", async () => {
+  const f = await fixture(false, true), c = f.command.loanRevisions![0];
+  c.responsibilityAmendment = { effectiveOn: c.contract.effectiveOn, openingUserPaid: "30", confirm: true, evidence };
+  c.contract.userPaidToDate = "150";
+  if (c.contract.responsibility.kind !== "CAPPED") throw new Error("fixture");
+  c.contract.responsibility.limit = "250";
+  const p = await f.plans.previewSources(f.owner, f.saved.planId, f.command);
+  expect(p.candidate!.calculation.rows[0].openingBalance).toBe("880");
+  expect(p.candidate!.calculation.attribution.filter(a => a.sourceId === c.sourceId).reduce((sum, a) => sum + Number(a.amount), 0)).toBe(100);
+  const first = await f.plans.saveSources(f.owner, f.saved.planId, { preview: f.command, expectedInputHash: p.inputHash!, confirm: true }, randomUUID());
+  async function revise(parent: typeof first, revision: number, capped: boolean) {
+    const input = sourceReforecastSchema.parse({ versionId: parent.saved.id, expectedSnapshotHash: parent.saved.snapshotHash,
+      expectedRevision: revision, expectedProfileRevision: 1, throughMonth: "2026-10", sourceCommands: [] });
+    const ready = await f.plans.previewSources(f.owner, first.planId, input), option = ready.loanRevisionOptions.find(s => s.sourceId === c.sourceId)!;
+    const next = structuredClone(c); delete next.legacyOpening;
+    Object.assign(next, { commandId: randomUUID(), expectedSourceRevision: option.sourceRevision, expectedSourceHash: option.sourceHash, expectedContractHash: option.contractHash, allocations: [] });
+    next.responsibilityAmendment!.openingUserPaid = "150";
+    next.contract.responsibility = capped ? { kind: "CAPPED", capBasis: "TOTAL_USER_PAYMENTS", limit: "200", previouslyPaid: "150", evidence } : { kind: "ALLOCATED_SHARE" };
+    input.loanRevisions = [next];
+    return input;
+  }
+  const uncapped = await revise(first, 2, false), up = await f.plans.previewSources(f.owner, first.planId, uncapped);
+  const second = await f.plans.saveSources(f.owner, first.planId, { preview: uncapped, expectedInputHash: up.inputHash!, confirm: true }, randomUUID());
+  const recapped = await revise(second, 3, true);
+  const drop = structuredClone(recapped); delete drop.loanRevisions![0].responsibilityAmendment; delete drop.loanRevisions![0].contract.userPaidToDate;
+  await expect(f.plans.previewSources(f.owner, first.planId, drop)).rejects.toMatchObject({ code: "LOAN_RESPONSIBILITY_REVIEW_REQUIRED" });
+  const reset = structuredClone(recapped);
+  reset.loanRevisions![0].responsibilityAmendment!.openingUserPaid = "0";
+  reset.loanRevisions![0].contract.userPaidToDate = "0";
+  const responsibility = reset.loanRevisions![0].contract.responsibility;
+  if (responsibility.kind === "CAPPED") responsibility.previouslyPaid = "0";
+  await expect(f.plans.previewSources(f.owner, first.planId, reset)).rejects.toMatchObject({ code: "LOAN_CAP_CARRY_MISMATCH" });
+  const rp = await f.plans.previewSources(f.owner, first.planId, recapped);
+  expect(rp.candidate!.calculation.attribution.filter(a => a.sourceId === c.sourceId).reduce((sum, a) => sum + Number(a.amount), 0)).toBe(50);
+  const third = await f.plans.saveSources(f.owner, first.planId, { preview: recapped, expectedInputHash: rp.inputHash!, confirm: true }, randomUUID());
+  await f.plans.apply(f.owner, first.planId, { versionId: third.saved.id, expectedRevision: 4, expectedProfileRevision: 1, confirm: true }, randomUUID());
+  for (const saved of [f.saved, first, second, third]) {
+    const read = await f.plans.version(f.owner, first.planId, saved.saved.id, true);
+    expect("replay" in read && read.replay.matched).toBe(true);
+  }
+  const proof = structuredClone(rp.candidate!); delete proof.loanSources!.at(-1)!.evidence.command.responsibilityAmendment;
+  expect(() => readSourceSnapshot(proof)).toThrow();
+});
+
+it("requires an explicit paid opening when adding a cap to a legacy allocated-share loan", async () => {
+  const f = await fixture(), c = f.command.loanRevisions![0];
+  c.contract.responsibility = { kind: "CAPPED", capBasis: "TOTAL_USER_PAYMENTS", limit: "300", previouslyPaid: "170", evidence };
+  c.contract.userPaidToDate = "170";
+  await expect(f.plans.previewSources(f.owner, f.saved.planId, f.command)).rejects.toMatchObject({ code: "LOAN_RESPONSIBILITY_REVIEW_REQUIRED" });
+  c.responsibilityAmendment = { effectiveOn: c.contract.effectiveOn, openingUserPaid: "50", confirm: true, evidence };
+  const p = await f.plans.previewSources(f.owner, f.saved.planId, f.command);
+  expect(p.candidate!.calculation.attribution.filter(a => a.sourceId === c.sourceId).reduce((sum, a) => sum + Number(a.amount), 0)).toBe(130);
+  for (const field of ["userPaidToDate", "openingUserPaid", "effectiveOn", "evidence"] as const) {
+    const bad = structuredClone(f.command), revision = bad.loanRevisions![0];
+    if (field === "userPaidToDate") delete revision.contract.userPaidToDate;
+    else if (field === "openingUserPaid") revision.responsibilityAmendment!.openingUserPaid = "40";
+    else if (field === "effectiveOn") revision.responsibilityAmendment!.effectiveOn = "2026-10-01";
+    else revision.responsibilityAmendment!.evidence[0].confirmedOn = "2026-10-01";
+    await expect(f.plans.previewSources(f.owner, f.saved.planId, bad)).rejects.toMatchObject({ status: 409 });
+  }
+});
+
 it("upgrades only the confirmed opening basis of v1, then saves/applies/replays revised debt via public plan service", async () => {
   const f = await fixture(), before = JSON.stringify([f.rows("financialProfile"), f.rows("actualMonth")]);
   const preview = await f.plans.previewSources(f.owner, f.saved.planId, f.command);
@@ -166,14 +228,16 @@ it("advances the actual cutoff with a second repayment while retaining all prior
   expect((await f.plans.version(f.owner, saved.planId, updated.saved.id, true)).preview).toEqual(next.candidate);
 });
 
-it("serves loan revision preview/save/replay through HTTP with the production response schema", async () => {
-  const f = await fixture(), auth = new AuthService(f.db, config);
+it.each([false, true])("serves loan revision/repaid replacement through HTTP with the production response schema (%s)", async repaid => {
+  const f = repaid ? await repaidReplacementFixture() : await fixture(), auth = new AuthService(f.db, config);
   vi.spyOn(auth, "validateSession").mockResolvedValue({ id: f.owner, role: "USER" } as never);
   const app = createApp({ config, services: { auth, profiles: f.profiles, plans: f.plans, actuals: f.actuals } });
   const root = "/api/v1/me/retirement/plans/" + f.saved.planId;
   const preview = await request(app).post(root + "/source-reforecasts/preview").set("Authorization", "Bearer " + token()).send(f.command);
   expect(preview.status, JSON.stringify(preview.body)).toBe(200);
   const spec = await SwaggerParser.dereference("docs/openapi.yaml") as any, ajv = new Ajv({ strict: false, formats: { uuid: true, date: true, "date-time": true, uri: true } });
+  const checkInput = ajv.compile(spec.paths["/api/v1/me/retirement/plans/{planId}/source-reforecasts/preview"].post.requestBody.content["application/json"].schema);
+  expect(checkInput(f.command), JSON.stringify(checkInput.errors)).toBe(true);
   const check = ajv.compile(spec.components.schemas.PlanSourcePreviewEnvelope);
   expect(check(preview.body), JSON.stringify(check.errors)).toBe(true);
   const saved = await request(app).post(root + "/source-reforecasts").set("Authorization", "Bearer " + token()).set("Idempotency-Key", randomUUID())
@@ -186,7 +250,7 @@ it("serves loan revision preview/save/replay through HTTP with the production re
   expect(apply.status, JSON.stringify(apply.body)).toBe(200);
   const report = await request(app).get(root + "/report").set("Authorization", "Bearer " + token());
   expect(report.status).toBe(200);
-  expect(JSON.stringify(report.body)).toContain("profile:debt:loan-a");
+  expect(JSON.stringify(report.body)).toContain(repaid ? f.command.loanCreations![0].sourceId : "profile:debt:loan-a");
 });
 
 function plannedLoan() {
@@ -279,6 +343,142 @@ async function refinanceFixture() {
     fundingScope: "FULL_CONTRACT", grossDisbursement: "900", withheldFees: "0", externalTopUp: "120", unusedProceeds: "0", confirm: true, evidence }];
   return { ...f, command, replacement };
 }
+
+async function repaidReplacementFixture(capped = false) {
+  const f = await refinanceFixture(), actual = structuredClone(f.actual), eventId = randomUUID();
+  actual.entries[0].amount = "1020";
+  actual.entries.push({ eventId, date: "2026-10-30", kind: "DEBT_PAYMENT", amount: "110" },
+    { eventId: randomUUID(), date: "2026-10-30", kind: "WITHDRAWAL", amount: "110" });
+  actual.closingBalance = "770";
+  await f.actuals.write(f.owner, "2026-10", { expectedRevision: 2, data: actual }, randomUUID());
+  f.command.loanRevisions![0].allocations[0].actualRevision = 3;
+  const components = { principal: "100", interest: "10", prepaymentFee: "0", otherFee: "0" };
+  f.replacement.funding = { kind: "DISBURSED_BALANCE", notAlreadyInSources: true, disbursedOn: "2026-10-28", grossPrincipal: "1000", openingUserPaid: capped ? "20" : "0", evidence,
+    allocations: [{ allocationId: randomUUID(), eventId, actualRevision: 3, bookedOn: "2026-10-30", scope: "FULL_CONTRACT", components, contractComponents: components,
+      paymentStatus: "CURRENT", allocationBasis: "BANK_STATEMENT", evidence }], principalAdvances: [] };
+  if (capped) f.replacement.contract.responsibility = { kind: "CAPPED", capBasis: "TOTAL_USER_PAYMENTS", limit: "1000", previouslyPaid: "130", evidence };
+  f.command.refinances![0].grossDisbursement = "1000"; f.command.refinances![0].unusedProceeds = "100";
+  return { ...f, actual };
+}
+
+it.each([false, true])("uses remaining disbursement cash on a later settlement date, interim loan payment before settlement=%s", async interimPayment => {
+  const f = await repaidReplacementFixture(), funding = f.replacement.funding;
+  if (funding.kind !== "DISBURSED_BALANCE") throw Error("fixture");
+  funding.disbursedOn = "2026-10-20"; f.replacement.contract.effectiveOn = "2026-10-20";
+  let actualRevision = 3;
+  if (interimPayment) {
+    f.actual.entries.filter(e => e.date === "2026-10-30").forEach(e => { e.date = "2026-10-25"; });
+    await f.actuals.write(f.owner, "2026-10", { expectedRevision: 3, data: f.actual }, randomUUID());
+    actualRevision = 4; funding.allocations[0].bookedOn = "2026-10-25"; funding.allocations[0].actualRevision = 4;
+    f.command.loanRevisions![0].allocations[0].actualRevision = 4;
+  }
+  const refinance = f.command.refinances![0];
+  refinance.proceedsAtSettlement = { availableAmount: "900", confirm: true, evidence,
+    usesBeforeSettlement: [{ useId: randomUUID(), bookedOn: "2026-10-25", amount: "100", description: "Confirmed use from external proceeds account", evidence }] };
+  refinance.unusedProceeds = "0";
+  const preview = await f.plans.previewSources(f.owner, f.saved.planId, f.command), candidate = preview.candidate!;
+  expect(candidate.refinances![0].settlementAmount).toBe("1020"); // 900 remaining + 120 top-up
+  expect(candidate.calculation.rows[0].openingBalance).toBe("770");
+  expect(candidate.calculation.rows.every(r => r.capitalInjection === "0")).toBe(true);
+  const body = { preview: f.command, expectedInputHash: preview.inputHash!, confirm: true as const }, key = randomUUID();
+  const saved = await f.plans.saveSources(f.owner, f.saved.planId, body, key);
+  expect(await f.plans.saveSources(f.owner, f.saved.planId, body, key)).toEqual(saved);
+  await f.plans.apply(f.owner, saved.planId, { versionId: saved.saved.id, expectedRevision: 2, expectedProfileRevision: 1, confirm: true }, randomUUID());
+  expect((await f.plans.version(f.owner, saved.planId, saved.saved.id, true)).preview).toEqual(candidate);
+  const csv = await f.plans.exportCsv(f.owner, saved.planId, saved.saved.id);
+  expect(csv.content).toContain(f.replacement.sourceId);
+  const tampered = structuredClone(candidate); delete tampered.refinances![0].command.proceedsAtSettlement;
+  expect(() => readSourceSnapshot(tampered)).toThrow();
+  await f.actuals.write(f.owner, "2026-10", { expectedRevision: actualRevision, data: { ...f.actual, correctionReason: "Amended bank reference" } }, randomUUID());
+  await expect(f.plans.apply(f.owner, saved.planId, { versionId: saved.saved.id, expectedRevision: 3, expectedProfileRevision: 1, confirm: true }, randomUUID())).rejects.toMatchObject({ code: "ACTUAL_SOURCE_CHANGED" });
+  expect((await f.plans.version(f.owner, saved.planId, saved.saved.id, true)).preview).toEqual(candidate);
+});
+
+it("requires dated and balanced proceeds confirmation for earlier disbursement", async () => {
+  const f = await repaidReplacementFixture(), funding = f.replacement.funding;
+  if (funding.kind !== "DISBURSED_BALANCE") throw Error("fixture");
+  funding.disbursedOn = "2026-10-20"; f.replacement.contract.effectiveOn = "2026-10-20";
+  await expect(f.plans.previewSources(f.owner, f.saved.planId, f.command)).rejects.toMatchObject({ code: "REFINANCE_FUNDING_MISMATCH" });
+  f.command.refinances![0].proceedsAtSettlement = { availableAmount: "1000", confirm: true, usesBeforeSettlement: [], evidence };
+  expect((await f.plans.previewSources(f.owner, f.saved.planId, f.command)).status).toBe("READY");
+  for (const kind of ["amount", "duplicate", "early", "sameDay", "evidence", "afterSettlement"] as const) {
+    const bad = structuredClone(f.command), r = bad.refinances![0], p = r.proceedsAtSettlement!;
+    if (kind === "amount") p.availableAmount = "999";
+    else if (kind === "evidence") p.evidence[0].confirmedOn = "2026-10-27";
+    else if (kind === "afterSettlement") {
+      const loan = bad.loanCreations![0]; if (loan.funding.kind === "DISBURSED_BALANCE") loan.funding.disbursedOn = "2026-10-29";
+    } else {
+      p.availableAmount = "900"; r.unusedProceeds = "0";
+      const use = { useId: randomUUID(), bookedOn: kind === "early" ? "2026-10-19" : kind === "sameDay" ? "2026-10-28" : "2026-10-25", amount: "100", description: "Prior cash use", evidence };
+      p.usesBeforeSettlement = kind === "duplicate" ? [{ ...use, amount: "50" }, { ...use, amount: "50" }] : [use];
+    }
+    await expect(f.plans.previewSources(f.owner, f.saved.planId, bad)).rejects.toMatchObject({ code: "REFINANCE_FUNDING_MISMATCH" });
+  }
+  expect(f.rows("planVersion")).toHaveLength(1);
+});
+
+it.each([false, true])("reconciles a replacement paid down between refinancing and cutoff, including opening cap carry (%s)", async capped => {
+  const f = await repaidReplacementFixture(capped), before = digest(f.rows("actualMonth"));
+  const preview = await f.plans.previewSources(f.owner, f.saved.planId, f.command), candidate = preview.candidate!;
+  expect(candidate.calculation.rows[0].openingBalance).toBe("770");
+  expect(candidate.calculation.rows.every(r => r.capitalInjection === "0")).toBe(true);
+  expect(candidate.newLoanSources![0].evidence.command.contract.principalBalance).toBe("900");
+  expect(candidate.loanSources![0].evidence.consumed).toHaveLength(1);
+  expect(candidate.refinances![0].settlementAmount).toBe("1020");
+  const cmd = { preview: f.command, expectedInputHash: preview.inputHash!, confirm: true as const }, key = randomUUID();
+  const saved = await f.plans.saveSources(f.owner, f.saved.planId, cmd, key);
+  expect(await f.plans.saveSources(f.owner, f.saved.planId, cmd, key)).toEqual(saved);
+  expect((await f.plans.version(f.owner, saved.planId, saved.saved.id, true)).preview).toEqual(candidate);
+  const missingProof = structuredClone(f.rows("planVersion").at(-1)!.inputSnapshot) as any;
+  delete missingProof.preview.newLoanSources[0].evidence.reconciliation;
+  const { integrityHash: ignored, ...payload } = missingProof; missingProof.integrityHash = digest(payload);
+  expect(() => readSourceSnapshot(missingProof)).toThrow();
+  await f.plans.apply(f.owner, saved.planId, { versionId: saved.saved.id, expectedRevision: 2, expectedProfileRevision: 1, confirm: true }, randomUUID());
+  expect(digest(f.rows("actualMonth"))).toBe(before);
+  const changed = { ...f.actual, correctionReason: "Corrected bank reference" };
+  await f.actuals.write(f.owner, "2026-10", { expectedRevision: 3, data: changed }, randomUUID());
+  await expect(f.plans.apply(f.owner, saved.planId, { versionId: saved.saved.id, expectedRevision: 3, expectedProfileRevision: 1, confirm: true }, randomUUID())).rejects.toMatchObject({ code: "ACTUAL_SOURCE_CHANGED" });
+  expect((await f.plans.version(f.owner, saved.planId, saved.saved.id, true)).preview).toEqual(candidate);
+});
+
+it("carries new-loan allocations through later creation/revision and rejects reusing payments", async () => {
+  const f = await repaidReplacementFixture(), preview = await f.plans.previewSources(f.owner, f.saved.planId, f.command);
+  const saved = await f.plans.saveSources(f.owner, f.saved.planId, { preview: f.command, expectedInputHash: preview.inputHash!, confirm: true }, randomUUID());
+  const command = sourceReforecastSchema.parse({ ...f.command, versionId: saved.saved.id, expectedSnapshotHash: saved.saved.snapshotHash, expectedRevision: 2,
+    loanRevisions: [], loanCreations: [], refinances: [] });
+  const option = preview.loanRevisionOptions.find(o => o.sourceId === f.replacement.sourceId)!;
+  command.loanRevisions = [loanSourceRevisionSchema.parse({ commandId: randomUUID(), sourceId: option.sourceId, operation: "REVISE", confirm: true,
+    expectedSourceRevision: option.sourceRevision, expectedSourceHash: option.sourceHash, expectedContractHash: option.contractHash,
+    contract: f.replacement.contract, allocations: [], principalAdvances: [] })];
+  const next = await f.plans.previewSources(f.owner, saved.planId, command);
+  expect(next.candidate!.loanSources!.at(-1)!.evidence.consumed).toHaveLength(2);
+  const savedNext = await f.plans.saveSources(f.owner, saved.planId, { preview: command, expectedInputHash: next.inputHash!, confirm: true }, randomUUID());
+  expect((await f.plans.version(f.owner, saved.planId, savedNext.saved.id, true)).preview).toEqual(next.candidate);
+  const funding = f.replacement.funding; if (funding.kind !== "DISBURSED_BALANCE") throw Error("fixture");
+  command.expectedRevision = 3; command.loanRevisions![0].allocations = funding.allocations;
+  await expect(f.plans.previewSources(f.owner, saved.planId, command)).rejects.toMatchObject({ code: "LOAN_ALLOCATION_REUSED" });
+  command.loanRevisions = [];
+  const duplicate = structuredClone(f.replacement); duplicate.commandId = randomUUID(); duplicate.sourceId = "plan:" + randomUUID();
+  duplicate.agreementReference = "Different new debt"; delete duplicate.refinanceCommandId;
+  if (duplicate.funding.kind !== "DISBURSED_BALANCE") throw Error("fixture");
+  duplicate.funding.allocations[0].allocationId = randomUUID(); command.loanCreations = [duplicate];
+  await expect(f.plans.previewSources(f.owner, saved.planId, command)).rejects.toMatchObject({ code: "LOAN_EVENT_OVERALLOCATED" });
+});
+
+it("rejects wrong opening principal, stale allocation and mismatched disbursement date without partial writes", async () => {
+  for (const kind of ["balance", "revision", "date", "cap"] as const) {
+    const f = await repaidReplacementFixture(kind === "cap"), funding = f.replacement.funding;
+    if (funding.kind !== "DISBURSED_BALANCE") throw Error("fixture");
+    if (kind === "balance") funding.grossPrincipal = "999";
+    if (kind === "revision") funding.allocations[0].actualRevision = 2;
+    if (kind === "date") funding.disbursedOn = "2026-10-29";
+    if (kind === "cap") funding.openingUserPaid = "0";
+    await expect(f.plans.previewSources(f.owner, f.saved.planId, f.command)).rejects.toMatchObject({ code: {
+      balance: "DEBT_BALANCE_MISMATCH", revision: "LOAN_ACTUAL_STALE_OR_MISSING", date: "REFINANCE_FUNDING_MISMATCH", cap: "LOAN_CAP_CARRY_MISMATCH",
+    }[kind] });
+    expect(f.rows("planVersion")).toHaveLength(1);
+  }
+});
 
 it("atomically closes an actual settled loan and creates its refinancing replacement with balanced funding", async () => {
   const f = await refinanceFixture(), preview = await f.plans.previewSources(f.owner, f.saved.planId, f.command);

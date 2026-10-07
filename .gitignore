@@ -27,7 +27,6 @@ responsive-audit/
 screenshots/
 
 # Temporary, OS and local artifacts
-.claude/
 .DS_Store
 Thumbs.db
 .tmp/
@@ -70,4 +69,9 @@ artifacts/
 # Local AI / Agent skills & tools
 .agents/
 agent/
-skills-lock.json
+.agent/
+.skills-lock.json
+.claude/
+
+# Intro video & media generation artifacts
+an-huu-intro*

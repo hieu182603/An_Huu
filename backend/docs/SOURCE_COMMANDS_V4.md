@@ -1,5 +1,7 @@
 # Nguồn trong dự báo v4
 
+**Cập nhật07/10:** body nhận thêm `loanCreations`, `refinances`, `assetCommands` (mỗi mảng tối đa30); snapshot giữ newLoanSources/refinances/assetSources và kiểm lại proof khi đọc. Loan revision/actual refinance đã kiểm DB rollback 19/20 ca. Tài sản/vốn: [ASSET_SOURCES_V4.md](ASSET_SOURCES_V4.md). Response thêm assetRevisionOptions bên cạnh loanRevisionOptions; dùng hash server, không băm phía client. Các ghi chú chưa có vay mới/refinance phía dưới là checkpoint cũ; refinance tương lai, RENT→SALE và các giới hạn trong contract vẫn chưa hỗ trợ.
+
 API USER, triển khai 05/10/2026. Không migration mới; snapshot nằm trong `plan_versions`. `retirement-plan-snapshot-v2` / `retirement-monthly-v4` phân biệt với snapshot v1 / model v2–v3. Luồng v3 cũ vẫn giữ nguyên body, kết quả và replay; khi cập nhật nguồn từ v3, backend dựng registry và kiểm no-op trước khi áp thay đổi. V2 đọc/replay được, chưa nâng trực tiếp qua API nguồn.
 
 ## API
@@ -11,9 +13,9 @@ API USER, triển khai 05/10/2026. Không migration mới; snapshot nằm trong 
 | Áp dụng riêng, như trước | `POST /apply` |
 | Đọc/replay/report/compare/CSV | Các endpoint phiên bản hiện có nhận cả v3 và v4 |
 
-Body preview: `versionId`, `expectedSnapshotHash`, `expectedRevision` của plan, `expectedProfileRevision`, `throughMonth`, `sourceCommands` (tối đa 100), `pensionSelections` (tối đa 1, mặc định rỗng), `loanRevisions` (tùy chọn, tối đa30). Preview kiểm owner, plan/snapshot/profile, actual đã đóng và MATCHED, chuỗi số dư và actual revisions của các bản trước. Không nhận số dư anchor, lãi suất đầu tư hoặc kết quả tính từ client; lãi khoản vay được khai theo chứng từ hợp đồng.
+Body preview: `versionId`, `expectedSnapshotHash`, `expectedRevision` của plan, `expectedProfileRevision`, `throughMonth`, `sourceCommands` (tối đa 100), `pensionSelections` (tối đa 1, mặc định rỗng), `loanRevisions`, `loanCreations`, `refinances`, `assetCommands` (tùy chọn, mỗi mảng tối đa30). Preview kiểm owner, plan/snapshot/profile, actual đã đóng và MATCHED, chuỗi số dư và actual revisions của các bản trước. Không nhận số dư anchor, lãi suất đầu tư hoặc kết quả tính từ client; lãi khoản vay được khai theo chứng từ hợp đồng.
 
-Response `{status, issues, inputHash, candidate, loanRevisionOptions, saved:false, applied:false}`. BLOCKED/HORIZON_COMPLETE có candidate và hash null, options rỗng. READY chứa v4, replayInput.sourceRegistry, sourceBudget, calculation.attribution và các căn cứ đã pin. Có thể gửi các mảng lệnh rỗng để xem registry/bản no-op và hash hợp đồng trước khi chọn sửa nguồn. `knownOn` lấy ngày Việt Nam; qua ngày mới cần xem trước lại. Khoản vay xem [LOAN_REVISIONS_V2.md](LOAN_REVISIONS_V2.md); có chuyển basis v1, allocation gốc/lãi/phí, lịch v2, lưu proof và stale checks; chưa refinance.
+Response `{status, issues, inputHash, candidate, loanRevisionOptions, assetRevisionOptions, saved:false, applied:false}`. BLOCKED/HORIZON_COMPLETE có candidate và hash null, options rỗng. READY chứa v4, replayInput.sourceRegistry, sourceBudget, calculation.attribution và các căn cứ đã pin. Có thể gửi các mảng lệnh rỗng để xem registry/bản no-op và hash hợp đồng trước khi chọn sửa nguồn. `knownOn` lấy ngày Việt Nam; qua ngày mới cần xem trước lại. Khoản vay xem [LOAN_REVISIONS_V2.md](LOAN_REVISIONS_V2.md); có chuyển basis v1, allocation gốc/lãi/phí, lịch v2, vay mới/refinance thực tế, lưu proof và stale checks.
 
 Body save: `{preview: <đúng body preview>, expectedInputHash, confirm:true}`. Save đọc/tính lại trong transaction Serializable, kiểm hash trước lưu. Không áp dụng, không sửa profile/actual. Retry cùng key/body trả cùng version; key khác nhưng plan revision cũ trả409. Apply cần expectedRevision mới nhất và expectedProfileRevision như trước, kiểm actual cùng các estimate còn đóng góp vào lịch tương lai.
 
@@ -47,6 +49,6 @@ AI dùng summary đúng model; provenance trả sourceRegistry hash/attribution 
 
 ## Trạng thái nghiệm thu
 
-HTTP trong memory DB và contract tests đã chạy cho preview/save/read/replay/report/compare/CSV/actual/AI và luồng BHXH→candidate, stale history/actual, ownership, idempotency, thay nguồn/END, một lần, FX, tamper evidence. Kiểm PostgreSQL/race độc lập vẫn cần chạy. Script `scripts/verify-source-reforecast-db.cjs` dùng dữ liệu giới hạn trong transaction rollback; chưa chạy được vì automatic approval review hết hạn mức. Không coi memory DB là bằng chứng race PostgreSQL.
+HTTP trong memory DB và contract tests đã chạy cho preview/save/read/replay/report/compare/CSV/actual/AI và luồng BHXH→candidate, stale history/actual, ownership, idempotency, thay nguồn/END, một lần, FX, tamper evidence. Script `scripts/verify-source-reforecast-db.cjs` đã chạy thành công qua cổng duyệt: --loan19/--refinance20/--assets20 checks, rollback dữ liệu. Ghi chú hạn mức cũ đã hết hiệu lực. Kiểm race PostgreSQL nhiều kết nối vẫn còn; không dùng rollback một transaction để thay bằng chứng race.
 
-Chưa triển khai qua API này: tài sản/vốn/vay mới và refinance T15/T16-02; các nhóm BHXH chưa hỗ trợ vẫn theo T14. Allocation trả nợ/cơ cấu đã nối ngày06/10, nhưng kiểm PostgreSQL/race riêng còn chờ. Chưa nghiệm thu UI/browser. Không coi phạm vi hiện có là toàn bộ backend hoàn thành.
+Chưa hỗ trợ các biến thể refinance tương lai, chuyển RENT sang bán, nhiều đợt góp từ cùng tài sản hoặc dời khoản góp dự kiến đã qua cutoff mà thiếu đối soát. Các nhóm BHXH chưa hỗ trợ vẫn theo T14. Race nhiều kết nối và UI/browser chưa nghiệm thu. Không coi phạm vi hiện có là toàn bộ backend hoàn thành.

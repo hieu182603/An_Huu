@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { Alert, Button, Icon, SearchField } from "../components/ui";
+import { Alert, Button, Icon, Pagination, SearchField } from "../components/ui";
 import { ApiError, apiRequest } from "../services/api";
 import type { ContentItem, ContentPage } from "../services/content";
 import MarketingLayout, { FinalCTA, PageIntro } from "./MarketingLayout";
@@ -37,7 +37,16 @@ function ReferenceContent({ kind }: { kind: "GLOSSARY" | "FAQ" }) {
     {error ? <ContentError error={error} retry={retry} /> : !data ? <p role="status">Đang tải…</p> : <>
       {data.items.map(item => <details key={item.id}><summary>{item.title}<Icon name="plus" /></summary><p style={{ whiteSpace: "pre-wrap" }}>{item.content}</p></details>)}
       {!data.items.length && <p>Chưa có nội dung được xuất bản.</p>}
-      {data.total > data.limit && <div className="account-save-row"><Button disabled={page === 1} onClick={() => setPage(p => p - 1)}>Trang trước</Button><span>Trang {page}</span><Button disabled={page * data.limit >= data.total} onClick={() => setPage(p => p + 1)}>Trang sau</Button></div>}
+      {data.total > data.limit && (
+        <Pagination
+          page={page}
+          totalPages={Math.max(1, Math.ceil(data.total / data.limit))}
+          totalItems={data.total}
+          pageSize={data.limit}
+          onPageChange={setPage}
+          showRowsPerPage={false}
+        />
+      )}
     </>}
   </section>;
 }
@@ -47,7 +56,21 @@ export function KnowledgePage() {
   const { data, error, retry } = useContent("ARTICLE", "all", search, page, 12);
   return <MarketingLayout><PageIntro eyebrow="KIẾN THỨC HƯU TRÍ" title="Hiểu hôm nay. Vững bước ngày mai.">Khám phá bài viết, thuật ngữ và hướng dẫn từ thư viện An Hưu.</PageIntro>
     <section className="mk-container mk-knowledge"><SearchField label="Tìm kiếm bài viết" value={input} onChange={setInput} placeholder="Nhập chủ đề bạn quan tâm…" />
-      {error ? <ContentError error={error} retry={retry} /> : !data ? <p role="status">Đang tải thư viện…</p> : <><div className="mk-knowledge-header"><h2>Tất cả chuyên đề</h2><span>{data.total} bài viết</span></div><ContentCards items={data.items} />{!data.items.length && <p>Chưa có bài viết phù hợp.</p>}<div className="account-save-row"><Button disabled={page === 1} onClick={() => setPage(p => p - 1)}>Trang trước</Button><span>Trang {page} / {Math.max(1, Math.ceil(data.total / data.limit))}</span><Button disabled={page * data.limit >= data.total} onClick={() => setPage(p => p + 1)}>Trang sau</Button></div></>}
+      {error ? <ContentError error={error} retry={retry} /> : !data ? <p role="status">Đang tải thư viện…</p> : <>
+        <div className="mk-knowledge-header"><h2>Tất cả chuyên đề</h2><span>{data.total} bài viết</span></div>
+        <ContentCards items={data.items} />
+        {!data.items.length && <p>Chưa có bài viết phù hợp.</p>}
+        {data.total > data.limit && (
+          <Pagination
+            page={page}
+            totalPages={Math.max(1, Math.ceil(data.total / data.limit))}
+            totalItems={data.total}
+            pageSize={data.limit}
+            onPageChange={setPage}
+            showRowsPerPage={false}
+          />
+        )}
+      </>}
     </section><ReferenceContent kind="GLOSSARY" /><ReferenceContent kind="FAQ" /><FinalCTA /></MarketingLayout>;
 }
 export function ArticlePage() {

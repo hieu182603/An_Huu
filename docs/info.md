@@ -1,5 +1,44 @@
 # AN HƯU — PRODUCT INFORMATION
 
+**07/10 — mô phỏng refinance tương lai:** mới có bộ tính nội bộ cho dư gốc dự kiến, báo giá tất toán, trần/phần trả và tiền bù;608tests cùng8focused/typechecks cuối đạt. Chưa có API/save/apply cho tính năng này; còn vòng đời sửa/hủy/đối soát cặp nguồn. Tài liệu backend/docs/PLANNED_REFINANCE.md và FE-T15-PLANNED-REFINANCE ghi rõ giới hạn. Không coi backend đã hoàn tất.
+
+
+**07/10 — refinance giải ngân sớm:** khoản vay thay thế nhận tiền trước tất toán được đối soát tiền còn khả dụng, không lấy dư gốc làm số tiền sẵn có và không cộng tiền vay vào quỹ.600tests và24HTTP/DBchecks rollback41bảng đạt. UI FE-T15-EARLY-DISBURSEMENT; mô phỏng refinance tương lai và các nhánh T14/T15/T17/vận hành còn mở.
+
+
+**07/10 — sửa trần trả nợ:** backend nhận thay đổi loại nghĩa vụ/CAPPED có ngày/chứng từ và giữ tổng tiền đã trả qua các lần sửa, không đặt lại0 khi bật trần trở lại.597tests và lượt cuối21HTTP/DBchecks rollback41bảng đạt; chi tiết lượt kiểm đầu khác fingerprint ở PROGRESS. OpenAPI/FE-T15-RESPONSIBILITY-AMENDMENT đã bàn giao, chưa nghiệm thu browser/ngân hàng. Các nhánh T14/T15/T17/vận hành còn tiếp tục.
+
+
+**07/10 — kiểm cập nhật đồng thời:** changeset sửa vay và góp tài sản STAGED đã đạt3race trên hai kết nối PostgreSQL độc lập. Chặn ghi đè cùng revision, xử lý retry cùng key và stale khi sửa actual; lịch sử v3/v4 giữ nguyên. Fixture đã dọn,41bảng giữ fingerprint. Không đổi giao diện/API; FE-T17-LOAN-ASSET-RACES ghi ca browser còn cần nghiệm thu. Backend chưa hoàn tất các nhánh T14/T15 và vận hành còn mở.
+
+
+**07/10 — góp tiếp tài sản từ kế hoạch v3:** ASSET_REALIZED được chuyển STAGED trên cùng nguồn, số đã góp lấy từ giao dịch cũ và chỉ thêm phần người dùng xác nhận. Không cộng quỹ hai lần hoặc khôi phục tiền thuê đã dừng. 593tests/51files và19HTTP/DBchecks rollback41bảng đạt; UI FE-T16-LEGACY-CAPITAL, chi tiết PROGRESS/ASSET_SOURCES_V4. Đây là hoàn thành nhánh tương thích, chưa nghiệm thu toàn bộ backend/UI/pháp lý/vận hành.
+
+
+**07/10 — T17/migration0013:** clean12 phát hiện thiếu2index đã có trong schema/DBthật; bổ sung0013 IFNOTEXISTS. Khôi phục0002–0011 về đúng LF khớp checksumDB (không đổi SQL), giữbaselineCRLF, .gitattributes cố định. Clean13/upgrade4→13/10integration/restore41bảng đạt; rehearsalrollback40 vàapply0013 DBthật đạt. Audit13/13checksum, không pending, diff rỗng,40model/41bảng. Không thay bằng chứng backup/scheduler production hoặc UI/races xuyên nhánh. Chi tiết PROGRESS.
+
+
+**07/10 — availability nhiều đợt:** funding STAGED có releases theo ngày/tiền ròng thuộc nguồn, actual chỉ dùng CONFIRMED đã về trước ngày góp, dự kiến theo prefix cuối tháng; release quá cutoff phải xác nhận hoặc dời lịch. Khoản CONFIRMED giữ bất biến, không bỏ ledger ở revision sau. Full588tests/50files,12focused/typechecks/emit và29HTTP/DBrollback41bảng đạt. UI FE-T16-AVAILABILITY, contract ASSET_SOURCES_V4. Không tự đưa tiền nhận vào quỹ/thu nhập/vay. T17 clean/upgrade12 đang được kiểm lại riêng trên Docker tạm; xem PROGRESS.
+
+
+**07/10 — góp nhiều đợt:** funding STAGED đã nối CREATE/REVISE/preview/save/apply/replay; priorRealized server lấy theo cùng nguồn, tổng lũy kế gồm đã góp và tương lai không vượt net. Có đối soát từng tháng đến hạn, nhận một phần/bù muộn, hủy phần còn lại và chuyển REALIZED v4 sang STAGED để góp thêm phần chưa dùng. UI FE-T16-STAGED. Kết quả cuối ở PROGRESS; không đóng toàn bộ T16/T14/T15/T17/vận hành. Nhận tiền bán/giải ngân nhiều đợt với hạn mức thanh khoản tăng dần cần phần tiếp theo, STAGED hiện có một availableOn cho tiền ròng.
+
+
+**Backend 07/10 — RENT→SALE:** chuyển cùng nguồn giữ thuê đến tháng xác nhận và chỉ góp tiền bán đã chọn; nhận tiền thật không cộng quỹ lại.575tests và27HTTP/DBrollback41bảng đạt, contract/FE-T16-RENTAL-SALE đã ghi. Góp nhiều đợt và các nhánh còn lại chưa hoàn thành.
+
+
+**Backend 07/10 — T16:** đã hỗ trợ xác nhận khoản góp dự kiến chưa thực hiện và dời lịch qua missedContribution; giữ nguyên actual, replay và yêu cầu xác nhận từng lần lỡ hạn.568tests và28HTTP/DBrollback41bảng đạt. UI FE-T16-MISSED-CONTRIBUTION; RENT→SALE/góp nhiều đợt cùng phần còn lại chưa hoàn thành.
+
+
+**Backend 07/10 — T15:** vay thay thế đã trả gốc trước cutoff có DISBURSED_BALANCE, proof actual/ledger/CAPPED và replay bất biến;563tests +20focused cuối,22HTTP/DBrollback41bảng đạt. Không tự cộng giải ngân vào quỹ; không migration/frontend. Các nhánh còn lại và nghiệm thu vẫn mở theo task.md/PROGRESS.md.
+
+
+> **07/10 — đóng trước BHXH:** nhánh estimate nghỉ hưu trong kỳ3/6/12tháng và2–5năm đã nối, khoản hoàn còn lại tách riêng/thiếu hỗ trợ thì chưa xác định. Full558tests/48files,18HTTP/DBrollback41bảng đạt; chưa công bố quy định thật hoặc nghiệm thu UI. Handoff FE-T14-PREPAID; T14–T17/vận hành còn mở.
+
+> **07/10 — BHXH đóng bù:** đã nối nhánh estimate riêng cho đóng thiếu tối đa60tháng để đủ180, lịch và thanh toán tách biệt, năm đóng/hưởng2026. Full544tests,18HTTP/DBrollback giữ41bảng đạt. Corpus còn là draft, chưa phê duyệt/công bố thật; đóng trước/hoàn trả/chuyển tiếp/đặc thù và các task mở rộng/vận hành khác còn việc. UI xem FE-T14-TOP-UP.
+
+> **07/10 — vay mới và tài sản trong dự báo:** backend đã có thêm khoản vay, tái cấp vốn đã xảy ra và thêm/sửa/dừng vốn góp từ tài sản. Chỉ góp số xác nhận sau phí/thuế/phần sở hữu; tiền đã góp lấy từ sổ thực tế không cộng lại. Kiểm DB rollback loan19/refinance20/asset20 ca đạt. UI nhận FE-T15-T16-NEW-LOAN-REFINANCE và FE-T16-ASSET-CAPITAL. Backend vẫn còn nhánh BHXH/lifecycle nguồn/races/vận hành; xem PROGRESS.md.
+
 > **06/10 — cập nhật khoản vay qua API:** đã có chuyển basis v1, phân bổ tiền trả theo gốc/lãi/phí và lịch vay v2 trong dự báo nguồn, lưu/áp dụng riêng, giữ lịch sử. Trần nghĩa vụ không reset; tiền đã rút ở actual không trừ lại. UI FE-T15-LOAN-V2-API. Refinance/vay-tài sản mới, kiểm DB/races/UI và các nhánh BHXH còn tiếp tục; chi tiết LOAN_REVISIONS_V2.md/PROGRESS.md.
 
 > **05/10 — nguồn dự báo v4 đã có API:** thêm/sửa/dừng thu, chi, pension và đưa estimate BHXH vào candidate; lưu và áp dụng riêng, giữ replay bản cũ. Báo cáo/CSV/AI theo nguồn đã nối. UI nhận FE-T16-SOURCE-V4; PostgreSQL/race/browser chưa nghiệm thu, tài sản/vay mới và các nhánh BHXH còn tiếp tục. Chi tiết SOURCE_COMMANDS_V4.md và PROGRESS.md; thông tin “chưa mở API nguồn” bên dưới là checkpoint cũ.

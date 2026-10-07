@@ -2,10 +2,12 @@
 // --apply additionally requires current clean/upgrade/integration evidence.
 require('dotenv').config();
 const fs=require('node:fs'),path=require('node:path'),{createHash}=require('node:crypto'),{spawnSync}=require('node:child_process'),{PrismaClient}=require('@prisma/client');
-const db=new PrismaClient({log:[]}),target='202610050011_pension_rules_history',root=path.resolve('prisma/migrations');
+const queryIndexes=process.argv.includes('--query-indexes');
+const db=new PrismaClient({log:[]}),target=queryIndexes?'202610070013_complete_query_indexes':'202610050011_pension_rules_history',root=path.resolve('prisma/migrations');
 const sha=v=>createHash('sha256').update(v).digest('hex'),fail=code=>{throw Object.assign(new Error(code),{code});};
-const fingerprint=async tx=>{const tables=await tx.$queryRaw`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('_prisma_migrations','legal_rule_set_versions','social_insurance_history_versions','pension_estimates') ORDER BY tablename`,result={};
- for(const {tablename} of tables){if(!/^[a-z_]+$/.test(tablename))fail('UNEXPECTED_TABLE_NAME');result[tablename]=await tx.$queryRawUnsafe(`SELECT COUNT(*)::int AS count,md5(COALESCE(string_agg(t::text,'|' ORDER BY t::text),'')) AS digest FROM "${tablename}" t`);}return result;};
+const fingerprint=async tx=>{const tables=await tx.$queryRaw`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations' ORDER BY tablename`,result={};
+ for(const {tablename} of tables){if(!queryIndexes&&['legal_rule_set_versions','social_insurance_history_versions','pension_estimates'].includes(tablename))continue;
+  if(!/^[a-z_]+$/.test(tablename))fail('UNEXPECTED_TABLE_NAME');result[tablename]=await tx.$queryRawUnsafe(`SELECT COUNT(*)::int AS count,md5(COALESCE(string_agg(t::text,'|' ORDER BY t::text),'')) AS digest FROM "${tablename}" t`);}return result;};
 (async()=>{
  const local=fs.readdirSync(root,{withFileTypes:true}).filter(d=>d.isDirectory()).map(d=>d.name).sort();
  const hashes=Object.fromEntries(local.map(n=>[n,sha(fs.readFileSync(path.join(root,n,'migration.sql')))]));
@@ -13,9 +15,11 @@ const fingerprint=async tx=>{const tables=await tx.$queryRaw`SELECT tablename FR
  for(const row of applied)if(!row.finished_at||row.rolled_back_at||hashes[row.migration_name]!==row.checksum)fail('MIGRATION_HISTORY_REVIEW_REQUIRED');
  const pending=local.filter(n=>!applied.some(r=>r.migration_name===n));
  if(!pending.length&&applied.some(r=>r.migration_name===target)){console.log(JSON.stringify({migration:target,status:'ALREADY_APPLIED_CHECKSUM_VERIFIED'}));return;}
- if(pending.length!==1||pending[0]!==target)fail('EXPECTED_ONLY_PENSION_MIGRATION');
+ if(pending.length!==1||pending[0]!==target)fail('EXPECTED_ONLY_TARGET_MIGRATION');
  const sql=fs.readFileSync(path.join(root,target,'migration.sql'),'utf8');
  if(/\b(DROP|TRUNCATE|INSERT\s+INTO|DELETE\s+FROM)\b/i.test(sql))fail('NON_ADDITIVE_MIGRATION_REVIEW_REQUIRED');
+ if(queryIndexes){const statements=sql.replace(/--[^\n]*/g,'').split(';').map(s=>s.trim().replace(/\s+/g,' ')).filter(Boolean);
+  if(JSON.stringify(statements)!==JSON.stringify(['CREATE INDEX IF NOT EXISTS "articles_kind_status_idx" ON "articles"("kind", "status")','CREATE INDEX IF NOT EXISTS "simulation_scenarios_userId_idx" ON "simulation_scenarios"("userId")']))fail('EXPECTED_ONLY_TWO_QUERY_INDEXES');}
  const rollback=new Error('EXPECTED_ROLLBACK');let tableCount=0;
  try{await db.$transaction(async tx=>{await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '3s'");const before=await fingerprint(tx);tableCount=Object.keys(before).length;
   for(const statement of sql.split('-- statement-break').map(s=>s.trim()).filter(Boolean))await tx.$executeRawUnsafe(statement);

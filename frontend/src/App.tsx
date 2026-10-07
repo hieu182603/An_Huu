@@ -1,22 +1,24 @@
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 const AdminLayout = lazy(() => import("./AdminApp"));
-const AuditLog = lazy(() => import("./pages/admin/AdminOperationsPage").then(module => ({ default: module.AdminAuditPage })));
-const AdminOperationsPage = lazy(() => import("./pages/admin/AdminOperationsPage"));
-const GeneralSettings = lazy(() => import("./AdminApp").then(module => ({ default: module.GeneralSettings })));
-const IntegrationSettings = lazy(() => import("./AdminApp").then(module => ({ default: module.IntegrationSettings })));
-const NotificationSettings = lazy(() => import("./AdminApp").then(module => ({ default: module.NotificationSettings })));
-const PrivacySettings = lazy(() => import("./AdminApp").then(module => ({ default: module.PrivacySettings })));
-const ReportsPage = lazy(() => import("./pages/admin/AdminOverviewApi").then(module => ({ default: module.AdminReportsPage })));
-const SettingsPage = lazy(() => import("./AdminApp").then(module => ({ default: module.SettingsPage })));
+const GeneralSettings = lazy(() => import("./pages/admin/settings/GeneralSettingsPage"));
+const SecuritySettings = lazy(() => import("./pages/admin/settings/SecuritySettingsPage"));
+const NotificationSettings = lazy(() => import("./pages/admin/settings/NotificationSettingsPage"));
+const SystemLogs = lazy(() => import("./pages/admin/settings/SystemLogsPage"));
+const SettingsPage = lazy(() => import("./pages/admin/settings/SystemSettingsLayout"));
+const ReportsPage = lazy(() => import("./pages/admin/AdminReportsPage"));
 const SupportPage = lazy(() => import("./pages/SupportPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 import AppLoader from "./components/AppLoader";
 import FinancialProfileGate from "./components/FinancialProfileGate";
 import NotFoundView from "./components/NotFoundView";
 import { I18nProvider } from "./i18n";
-import LandingPage from "./pages/LandingPage";
-import { ArticlePage, AssistantPage, HowItWorksPage, KnowledgePage, SimulationPage } from './marketing/MarketingPages';
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const HowItWorksPage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.HowItWorksPage })));
+const SimulationPage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.SimulationPage })));
+const AssistantPage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.AssistantPage })));
+const KnowledgePage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.KnowledgePage })));
+const ArticlePage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.ArticlePage })));
 import { applyPageSeo } from './marketing/seo';
 import { initGoogleAnalytics, trackPageView } from "./services/googleAnalytics";
 const ForgotPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.ForgotPage })));
@@ -35,7 +37,7 @@ const DebtAnalysisPage = lazy(() => import("./pages/DebtAnalysisPage"));
 const RiskPortfolioPage = lazy(() => import("./pages/RiskPortfolioPage"));
 const ExplorePage = lazy(() => import("./pages/ExplorePage"));
 const AccountPage = lazy(() => import("./pages/AccountPage"));
-const AdminDashboardPage = lazy(() => import("./pages/admin/AdminOverviewApi").then(module => ({ default: module.AdminDashboardPage })));
+const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersApi").then(module => ({ default: module.AdminUsersPage })));
 const AdminUserDetailPage = lazy(() => import("./pages/admin/AdminUsersApi").then(module => ({ default: module.AdminUserDetailPage })));
 const AdminContentPage = lazy(() => import("./pages/admin/AdminContentApi"));
@@ -132,15 +134,17 @@ export default function App() {
           <Route path="ai" element={<AdminAIManagementPage />} />
           <Route path="financial-config" element={<AdminFinancialConfigPage />} />
           <Route path="support" element={<SupportPage admin />} />
-          <Route path="operations" element={<AdminOperationsPage />} />
+          <Route path="operations" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />}>
             <Route index element={<Navigate to="general" replace />} />
             <Route path="general" element={<GeneralSettings />} />
-            <Route path="integrations" element={<IntegrationSettings />} />
+            <Route path="security" element={<SecuritySettings />} />
             <Route path="notifications" element={<NotificationSettings />} />
-            <Route path="privacy" element={<PrivacySettings />} />
-            <Route path="audit-log" element={<AuditLog />} />
+            <Route path="logs" element={<SystemLogs />} />
+            <Route path="audit-log" element={<Navigate to="/admin/settings/logs" replace />} />
+            <Route path="integrations" element={<Navigate to="/admin/settings/general" replace />} />
+            <Route path="privacy" element={<Navigate to="/admin/settings/general" replace />} />
           </Route>
         </Route>
         <Route path="*" element={<NotFound />} />

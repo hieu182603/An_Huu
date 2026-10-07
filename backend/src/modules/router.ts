@@ -44,9 +44,11 @@ import { AssumptionsService } from "./assumptions/service";
 import { assumptionsRouter } from "./assumptions/router";
 import { PortfoliosService } from "./portfolios/service";
 import { portfoliosRouter } from "./portfolios/router";
+import type { SystemSettingsService } from "./settings/service";
+import { settingsRouter } from "./settings/router";
 import { patchAccountSchema, patchProfileSchema, draftSchema, completeSchema } from "./profiles/schema";
 
-export type Services = { auth: AuthService; profiles: ProfileService; pensionEstimates?: PensionEstimateService; insuranceHistory?: InsuranceHistoryService; legalRules?: LegalRulesService; catalog?: CatalogService; ai?: AiService; knowledge?: KnowledgeService; actuals?: ActualsService; plans?: PlansService; debts?: DebtService; pensions?: PensionsService; retirement?: RetirementService; assumptions?: AssumptionsService; portfolios?: PortfoliosService; users?: UsersService; content?: ContentService; community?: CommunityService; operations?: OperationsService };
+export type Services = { auth: AuthService; profiles: ProfileService; pensionEstimates?: PensionEstimateService; insuranceHistory?: InsuranceHistoryService; legalRules?: LegalRulesService; catalog?: CatalogService; ai?: AiService; knowledge?: KnowledgeService; actuals?: ActualsService; plans?: PlansService; debts?: DebtService; pensions?: PensionsService; retirement?: RetirementService; assumptions?: AssumptionsService; portfolios?: PortfoliosService; users?: UsersService; content?: ContentService; community?: CommunityService; operations?: OperationsService; settings?: SystemSettingsService };
 export function sessionGuard(auth: AuthService): RequestHandler {
   return asyncHandler(async (req: AuthenticatedRequest, res, next) => {
     if (!req.user) throw new AppError(401, "UNAUTHENTICATED", "Yêu cầu đăng nhập.");
@@ -79,7 +81,16 @@ export function createApiRouter(services: Services, config: AppConfig) {
     router.use("/me/assumptions", ...authenticated, requireRole("USER"), assumptionsRouter(services.assumptions, false));
   }
   router.get("/admin/operations", ...authenticated, requireRole("ADMIN"), asyncHandler(async (_req, res) => sendData(res, await services.operations!.overview())));
-  router.get("/admin/audit-logs", ...authenticated, requireRole("ADMIN"), asyncHandler(async (req, res) => sendData(res, await services.operations!.audit(auditQuery.parse(req.query)))));
+  router.get("/admin/audit-logs", ...authenticated, requireRole("ADMIN"), asyncHandler(async (req, res) => {
+    if (services.settings) {
+      sendData(res, await services.settings.listAuditLogs(auditQuery.parse(req.query)));
+    } else {
+      sendData(res, await services.operations!.audit(auditQuery.parse(req.query)));
+    }
+  }));
+  if (services.settings) {
+    router.use("/admin/settings", ...authenticated, requireRole("ADMIN"), settingsRouter(services.settings));
+  }
   router.post("/admin/notifications/broadcast", ...authenticated, requireRole("ADMIN"), asyncHandler(async (req: AuthenticatedRequest, res) => {
     const title = typeof req.body?.title === "string" && req.body.title.trim() ? req.body.title.trim() : "Thông báo toàn hệ thống (Broadcast)";
     const message = typeof req.body?.message === "string" && req.body.message.trim() ? req.body.message.trim() : "Quản trị viên đã phát đi bản tin cập nhật tham số vận hành.";
@@ -133,7 +144,7 @@ export function createApiRouter(services: Services, config: AppConfig) {
   router.post("/auth/resend-verification", authLimiter, validate(emailRequestSchema), accountLimiter, asyncHandler(async (req, res) => sendData(res, await auth.requestEmail(req.body.email, "EMAIL_VERIFICATION"), 202)));
   router.post("/auth/forgot-password", authLimiter, validate(emailRequestSchema), accountLimiter, asyncHandler(async (req, res) => sendData(res, await auth.requestEmail(req.body.email, "PASSWORD_RESET"), 202)));
   router.post("/auth/reset-password", authLimiter, validate(resetSchema), asyncHandler(async (req, res) => sendData(res, await auth.resetPassword(req.body.token, req.body.password))));
-  router.post("/auth/login", authLimiter, validate(loginSchema), accountLimiter, asyncHandler(async (req, res) => sendSession(res, await auth.login(req.body))));
+  router.post("/auth/login", authLimiter, validate(loginSchema), accountLimiter, asyncHandler(async (req, res) => sendSession(res, await auth.login(req.body, { ipAddress: req.ip, userAgent: req.get("user-agent") }))));
   router.post("/auth/google", authLimiter, validate(googleAuthSchema), asyncHandler(async (req, res) => sendSession(res, await auth.googleLogin(req.body.credential))));
   router.post("/auth/refresh", cookieCsrf, validate(emptySchema), asyncHandler(async (req, res) => {
     try { sendSession(res, await auth.refresh(refreshCookie(req))); }

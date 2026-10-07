@@ -15,11 +15,14 @@ module.exports=async function runFixture(name,work){
    stage="fixture-login"; for(const id of ids){await tx.user.create({data:{id,email:`${name.toLowerCase()}-${id}@example.invalid`,fullName:name+' rollback fixture',passwordHash,role:id===admin?'ADMIN':'USER',status:'ACTIVE',emailVerifiedAt:new Date()}});
     const r=await request(app).post('/api/v1/auth/login').send({email:`${name.toLowerCase()}-${id}@example.invalid`,password,remember:false});assert.equal(r.status,200);tokens.push(r.body.data.accessToken);}
    const api=(method,path,body,access=tokens[0],key=randomUUID())=>{const r=request(app)[method]('/api/v1'+path).set('Authorization','Bearer '+access).set('Idempotency-Key',key);return body===undefined?r:r.send(body);};
-   await work({tx,db:scoped,s,app,api,owner,other,admin,tokens,check:()=>checks++,stage:value=>{stage=value;}});
+   await work({tx,db:scoped,s,config,app,api,owner,other,admin,tokens,check:()=>checks++,stage:value=>{stage=value;}});
    assert.equal(await tx.outboxEvent.count({where:{entityId:{in:ids},type:{startsWith:'auth.'}}}),0);
    throw rollback;
   },{isolationLevel:'Serializable',timeout:180000});}catch(e){if(e!==rollback)throw e;}
-  stage='rollback';assert.deepEqual(await fingerprint(db),before);assert.equal(await db.user.count({where:{id:{in:ids}}}),0);
+  stage='rollback';const after=await fingerprint(db),remainingFixtures=await db.user.count({where:{id:{in:ids}}});
+  const changedTables=[...new Set([...Object.keys(before),...Object.keys(after)])].filter(table=>JSON.stringify(before[table])!==JSON.stringify(after[table]));
+  if(changedTables.length||remainingFixtures)error(JSON.stringify({suite:name,stage:'rollback-differences',changedTables,remainingFixtures}));
+  assert.deepEqual(after,before);assert.equal(remainingFixtures,0);
   console.log(JSON.stringify({suite:name,checks,rollbackVerified:true,tablesPreserved:Object.keys(before).length,noEmailsQueued:true,noExternalCalls:true}));
  }catch(e){error(JSON.stringify({suite:name,stage,checks,code:e.code??e.errorCode??'VERIFY_FAILED',type:e.name,location:e.stack?.split('\n').find(l=>l.includes('verify-'))}));process.exitCode=1;}
  finally{console.info=info;console.error=error;await db.$disconnect();}

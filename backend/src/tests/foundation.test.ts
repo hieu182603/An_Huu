@@ -11,6 +11,9 @@ import { asyncHandler, validate, sendData, paginationSchema, moneySchema } from 
 import { createAuthenticate, requireRole } from "../middlewares/authMiddleware";
 import { createLimiter } from "../middlewares/rateLimiter";
 import { config, testEnv, token } from "./helpers";
+import { createServices } from "../modules/services";
+import { memoryDb } from "./memory-db";
+import { prisma } from "../config/prisma";
 
 beforeEach(() => { vi.spyOn(console, "info").mockImplementation(() => {}); vi.spyOn(console, "error").mockImplementation(() => {}); });
 const errorShape = z.object({
@@ -50,6 +53,21 @@ describe("environment", () => {
   });
 });
 describe("HTTP foundation", () => {
+  it("writes safe error metadata through the injected store and never the global connection", async () => {
+    const f = memoryDb(), services = createServices(f.db, config), router = Router();
+    const globalWrite = vi.spyOn(prisma.systemLog, "create").mockRejectedValue(new Error("GLOBAL_DATABASE_MUST_NOT_BE_USED"));
+    router.get("/failure/:id", asyncHandler(async () => { throw new Error("password=do-not-retain account=private-record"); }));
+    const app = createApp({ config, apiRouter: router, services });
+    const response = await request(app).get("/api/v1/failure/private-id?token=do-not-retain");
+    expect(response.status).toBe(500); expect(globalWrite).not.toHaveBeenCalled();
+    const logs = f.rows("systemLog"); expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ source: "API", level: "ERROR", path: "/failure/:id", details: { code: "INTERNAL_ERROR", method: "GET" } });
+    expect(JSON.stringify(logs)).not.toMatch(/do-not-retain|private-record|private-id|password|token/);
+    const isolated = await request(createApp({ config, apiRouter: router })).get("/api/v1/failure/private-id");
+    expect(isolated.status).toBe(500); expect(globalWrite).not.toHaveBeenCalled();
+    vi.spyOn(services.settings, "recordSystemLog").mockRejectedValue(new Error("logging unavailable"));
+    expect((await request(app).get("/api/v1/failure/private-id")).status).toBe(500);
+  });
   it("keeps health endpoints, request IDs and security headers", async () => {
     const app = fixture();
     for (const path of ["/health", "/api/health", "/health/live", "/health/ready"]) {

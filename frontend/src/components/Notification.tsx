@@ -122,7 +122,7 @@ export function NotificationCard({
       {/* Nội dung thông báo */}
       <div className="ah-notification-body">
         <h4 className="ah-notification-title">{title}</h4>
-        {content && <p className="ah-notification-description">{content}</p>}
+        {content && <div className="ah-notification-description">{content}</div>}
         {action && <div className="ah-notification-action">{action}</div>}
       </div>
 
@@ -154,17 +154,24 @@ interface ToastItem {
   tone: NotificationTone;
   title: string;
   description?: ReactNode;
+  action?: ReactNode;
   duration?: number;
 }
 
 interface NotificationContextValue {
-  showToast: (props: { tone: NotificationTone; title: string; description?: ReactNode; duration?: number }) => void;
+  showToast: (props: {
+    tone: NotificationTone;
+    title: string;
+    description?: ReactNode;
+    action?: ReactNode;
+    duration?: number;
+  }) => void;
   removeToast: (id: string) => void;
   notify: {
-    error: (title: string, description?: ReactNode, duration?: number) => void;
-    warning: (title: string, description?: ReactNode, duration?: number) => void;
-    success: (title: string, description?: ReactNode, duration?: number) => void;
-    info: (title: string, description?: ReactNode, duration?: number) => void;
+    error: (title: string, description?: ReactNode, duration?: number, action?: ReactNode) => void;
+    warning: (title: string, description?: ReactNode, duration?: number, action?: ReactNode) => void;
+    success: (title: string, description?: ReactNode, duration?: number, action?: ReactNode) => void;
+    info: (title: string, description?: ReactNode, duration?: number, action?: ReactNode) => void;
   };
 }
 
@@ -182,15 +189,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       tone,
       title,
       description,
+      action,
       duration = 5000,
     }: {
       tone: NotificationTone;
       title: string;
       description?: ReactNode;
+      action?: ReactNode;
       duration?: number;
     }) => {
       const id = "toast-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7);
-      const newToast: ToastItem = { id, tone, title, description, duration };
+      const newToast: ToastItem = { id, tone, title, description, action, duration };
 
       setToasts((prev) => [...prev, newToast]);
 
@@ -204,14 +213,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   );
 
   const notify = {
-    error: (title: string, description?: ReactNode, duration?: number) =>
-      showToast({ tone: "error", title, description, duration }),
-    warning: (title: string, description?: ReactNode, duration?: number) =>
-      showToast({ tone: "warning", title, description, duration }),
-    success: (title: string, description?: ReactNode, duration?: number) =>
-      showToast({ tone: "success", title, description, duration }),
-    info: (title: string, description?: ReactNode, duration?: number) =>
-      showToast({ tone: "info", title, description, duration }),
+    error: (title: string, description?: ReactNode, duration?: number, action?: ReactNode) =>
+      showToast({ tone: "error", title, description, action, duration }),
+    warning: (title: string, description?: ReactNode, duration?: number, action?: ReactNode) =>
+      showToast({ tone: "warning", title, description, action, duration }),
+    success: (title: string, description?: ReactNode, duration?: number, action?: ReactNode) =>
+      showToast({ tone: "success", title, description, action, duration }),
+    info: (title: string, description?: ReactNode, duration?: number, action?: ReactNode) =>
+      showToast({ tone: "info", title, description, action, duration }),
   };
 
   return (
@@ -227,6 +236,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
               tone={toast.tone}
               title={toast.title}
               description={toast.description}
+              action={toast.action}
               onClose={() => removeToast(toast.id)}
               className="ah-toast-item"
             />

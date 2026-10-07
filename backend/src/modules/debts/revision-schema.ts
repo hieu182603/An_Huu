@@ -22,6 +22,7 @@ export const loanContractV2Schema = z.object({ contractVersion: z.literal(2), cu
   balanceAsOf: dateSchema, principalBalance: moneySchema, balanceScope: z.enum(["FULL_CONTRACT", "USER_SHARE"]),
   balanceNature: z.enum(["CONFIRMED_BALANCE", "PROJECTED_DISBURSEMENT"]).optional(),
   paymentShare: z.string().regex(/^(0(\.\d{1,8})?|1(\.0{1,8})?)$/),
+  userPaidToDate: moneySchema.optional(),
   responsibility: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("ALLOCATED_SHARE") }).strict(),
     z.object({ kind: z.literal("CAPPED"), capBasis: z.literal("TOTAL_USER_PAYMENTS"), limit: moneySchema, previouslyPaid: moneySchema, evidence }).strict(),
@@ -38,6 +39,7 @@ export const loanContractV2Schema = z.object({ contractVersion: z.literal(2), cu
   if (v.balanceNature === "PROJECTED_DISBURSEMENT" && v.confirmation !== "HYPOTHETICAL") error("Giải ngân dự kiến chưa là số dư thực tế ngân hàng.");
   if (v.balanceScope === "USER_SHARE" && !new D(v.paymentShare).eq(1)) error("Số dư phần người dùng không nhân tỷ lệ lần nữa.");
   if (v.responsibility.kind === "CAPPED" && new D(v.responsibility.previouslyPaid).gt(v.responsibility.limit)) error("Số đã thực hiện vượt trần nghĩa vụ.");
+  if (v.userPaidToDate !== undefined && v.responsibility.kind === "CAPPED" && !new D(v.userPaidToDate).eq(v.responsibility.previouslyPaid)) error("Tổng đã trả phải khớp số đã thực hiện theo trần.");
   if (v.evidence.some(e => e.confirmedOn > v.knownOn) || (v.responsibility.kind === "CAPPED" && v.responsibility.evidence.some(e => e.confirmedOn > v.knownOn))) error("Chứng từ được xác nhận sau ngày ghi nhận.");
   if (v.periods.length ? v.periods.at(-1)?.dueDate !== v.maturityDate :
     !new D(v.principalBalance).isZero() || v.maturityDate !== v.balanceAsOf || v.mode !== "BANK_SCHEDULE") error("Lịch phải kết thúc tại đáo hạn; lịch rỗng chỉ dành cho khoản đã tất toán.");
@@ -65,7 +67,7 @@ export type LoanContractV2 = z.infer<typeof loanContractV2Schema>;
 // schedule. Its original schedule stays pinned unchanged in the source registry.
 export const loanBalanceBasisSchema = loanContractV2Schema.innerType().pick({ currency: true, signedOn: true, amendedOn: true,
   effectiveOn: true, knownOn: true, evidence: true, balanceAsOf: true, principalBalance: true, balanceScope: true,
-  paymentShare: true, responsibility: true }).extend({ basisVersion: z.literal(1) }).strict();
+  paymentShare: true, responsibility: true, userPaidToDate: true }).extend({ basisVersion: z.literal(1) }).strict();
 export type LoanBalanceBasis = z.infer<typeof loanBalanceBasisSchema>;
 export type LoanAllocation = z.infer<typeof loanAllocationSchema>;
 export type LoanComponents = z.infer<typeof loanComponentsSchema>;

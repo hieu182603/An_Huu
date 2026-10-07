@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Alert, Badge, Button, Card, Drawer, Icon, IconButton, Modal, useNotification } from "../components/ui";
+import { Alert, Badge, Button, Card, Drawer, Icon, IconButton, Modal, NotificationCard, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import {
@@ -50,6 +50,18 @@ export default function AIAssistantPage() {
   const [railOpen, setRailOpen] = useState(() => window.innerWidth >= 1024);
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Floating pop-up dismissal state
+  const [dismissedPlanNotice, setDismissedPlanNotice] = useState(false);
+  const [dismissedPrivacyError, setDismissedPrivacyError] = useState(false);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(Math.max(textareaRef.current.scrollHeight, 44), 180)}px`;
+    }
+  }, [inputPrompt]);
 
   // Privacy & Consent state
   const [privacyError, setPrivacyError] = useState(false);
@@ -284,7 +296,7 @@ export default function AIAssistantPage() {
     const question = (textToSend || inputPrompt).trim();
     if (!question || isTyping) return;
 
-    if (!privacy?.processing) {
+    if (privacy && !privacy.processing) {
       setConsentModalOpen(true);
       return;
     }
@@ -297,7 +309,12 @@ export default function AIAssistantPage() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    if (!textToSend) setInputPrompt("");
+    if (!textToSend) {
+      setInputPrompt("");
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "44px";
+      }
+    }
     setIsTyping(true);
 
     try {
@@ -305,8 +322,8 @@ export default function AIAssistantPage() {
         question,
         planId: activePlan?.id,
         versionId: currentVersion?.id,
-        conversationId: privacy.saveHistory && currentConversationId ? currentConversationId : undefined,
-        expectedRevision: privacy.saveHistory && currentConversationId ? conversationRevision : undefined,
+        conversationId: privacy?.saveHistory && currentConversationId ? currentConversationId : undefined,
+        expectedRevision: privacy?.saveHistory && currentConversationId ? conversationRevision : undefined,
       });
 
       if (res.conversationId && res.revision !== null) {
@@ -386,8 +403,54 @@ export default function AIAssistantPage() {
 
   return (
     <div className="codex-work-workspace">
-        {privacyError && <Alert tone="danger" title={language === "en" ? "Unable to load AI preferences" : "Không thể tải tùy chọn AI"} action={<Button onClick={loadPrivacy}>{language === "en" ? "Retry" : "Thử lại"}</Button>} />}
-      {!currentVersion && <Alert tone="info" title={language === "en" ? "No applied plan" : "Chưa có kế hoạch được áp dụng"}>{language === "en" ? "Apply a plan to ask questions about its figures." : "Áp dụng kế hoạch để trợ lý có số liệu giải thích chính xác."}<Link className="button button-secondary" to="/user/plan">{language === "en" ? "Open plan" : "Đến kế hoạch"}</Link></Alert>}
+      {/* Floating Pop-up Notifications */}
+      {!currentVersion && !dismissedPlanNotice && (
+        <aside className="codex-floating-popup" aria-label={language === "en" ? "Plan notification" : "Thông báo kế hoạch"}>
+          <NotificationCard
+            tone="info"
+            title={language === "en" ? "No applied plan" : "Chưa có kế hoạch được áp dụng"}
+            description={
+              language === "en"
+                ? "Apply a plan to ask questions about its figures."
+                : "Áp dụng kế hoạch để trợ lý có số liệu giải thích chính xác."
+            }
+            action={
+              <Link
+                className="button button-secondary button-small"
+                to="/user/plan"
+                style={{ textDecoration: "none" }}
+              >
+                {language === "en" ? "Open plan" : "Đến kế hoạch"}
+              </Link>
+            }
+            onClose={() => setDismissedPlanNotice(true)}
+          />
+        </aside>
+      )}
+
+      {privacyError && !dismissedPrivacyError && (
+        <aside
+          className="codex-floating-popup"
+          style={{ top: !currentVersion && !dismissedPlanNotice ? "190px" : "76px" }}
+          aria-label={language === "en" ? "AI preferences error" : "Lỗi tùy chọn AI"}
+        >
+          <NotificationCard
+            tone="danger"
+            title={language === "en" ? "Unable to load AI preferences" : "Không thể tải tùy chọn AI"}
+            description={
+              language === "en"
+                ? "Could not connect to AI service. Please retry."
+                : "Chưa thể kết nối dịch vụ tùy chọn AI. Vui lòng thử lại."
+            }
+            action={
+              <Button variant="secondary" size="small" onClick={loadPrivacy}>
+                {language === "en" ? "Retry" : "Thử lại"}
+              </Button>
+            }
+            onClose={() => setDismissedPrivacyError(true)}
+          />
+        </aside>
+      )}
       {/* Top Header Bar */}
       <header className="codex-topbar">
       <div className="codex-title-wrap">
@@ -645,34 +708,86 @@ export default function AIAssistantPage() {
                 handleSend();
               }}
             >
-              <textarea
-                aria-label={language === "en" ? "Question for AI assistant" : "Câu hỏi dành cho trợ lý AI"}
-                placeholder={t("ai.input_placeholder")}
-                value={inputPrompt}
-                onChange={(e) => setInputPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                rows={2}
-                disabled={isTyping}
-              />
-              <div className="composer-actions-bar">
+              <div className="composer-input-row">
+                <textarea
+                  ref={textareaRef}
+                  aria-label={language === "en" ? "Question for AI assistant" : "Câu hỏi dành cho trợ lý AI"}
+                  placeholder={t("ai.input_placeholder")}
+                  value={inputPrompt}
+                  onChange={(e) => setInputPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  rows={1}
+                  disabled={isTyping}
+                />
+                {inputPrompt.trim().length > 0 && !isTyping && (
+                  <button
+                    type="button"
+                    className="composer-clear-btn"
+                    onClick={() => {
+                      setInputPrompt("");
+                      if (textareaRef.current) {
+                        textareaRef.current.style.height = "44px";
+                        textareaRef.current.focus();
+                      }
+                    }}
+                    title={language === "en" ? "Clear input" : "Xóa câu hỏi"}
+                    aria-label={language === "en" ? "Clear input" : "Xóa câu hỏi"}
+                  >
+                    <Icon name="x" size="small" />
+                  </button>
+                )}
+              </div>
+
+              <div className="composer-bottom-bar">
                 <div className="composer-left-actions">
-                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                    {language === "en" ? "Press Enter to send, Shift+Enter for new line" : "Nhấn Enter để gửi, Shift+Enter để xuống dòng"}
-                  </span>
+                  <div
+                    className="composer-context-badge"
+                    title={language === "en" ? "Grounded on active retirement plan" : "Được tham chiếu từ kế hoạch hưu trí chính thức"}
+                  >
+                    <span className="composer-badge-dot" />
+                    <Icon name="shield" size="small" />
+                    <span className="composer-badge-text">
+                      {currentVersion
+                        ? (language === "en" ? `Plan v${currentVersion.version}` : `Kế hoạch v${currentVersion.version}`)
+                        : (language === "en" ? "Plan Grounded" : "Chuẩn mực An Hưu")}
+                    </span>
+                  </div>
+
+                  <div className="composer-shortcut-hint">
+                    <span className="shortcut-label">{language === "en" ? "Press" : "Nhấn"}</span>
+                    <kbd className="composer-kbd">↵ Enter</kbd>
+                    <span className="shortcut-label">{language === "en" ? "to send" : "để gửi"}</span>
+                    <span className="shortcut-sep">•</span>
+                    <kbd className="composer-kbd">Shift + ↵</kbd>
+                    <span className="shortcut-label">{language === "en" ? "new line" : "xuống dòng"}</span>
+                  </div>
                 </div>
-                <Button
-                  variant="primary"
-                  size="small"
-                  type="submit"
-                  disabled={!inputPrompt.trim() || isTyping}
-                >
-                  <Icon name="arrow-right" size="small" /> {t("ai.send")}
-                </Button>
+
+                <div className="composer-right-actions">
+                  <button
+                    type="submit"
+                    className={`composer-send-button ${inputPrompt.trim() && !isTyping ? "is-ready" : ""}`}
+                    disabled={!inputPrompt.trim() || isTyping}
+                    aria-label={t("ai.send")}
+                  >
+                    {isTyping ? (
+                      <>
+                        <span className="composer-spin-loader" />
+                        <span className="send-btn-label">{language === "en" ? "Thinking..." : "Đang xử lý..."}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="send-btn-label">{t("ai.send")}</span>
+                        <Icon name="arrow-right" size="small" />
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

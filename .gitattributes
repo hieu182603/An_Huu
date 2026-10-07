@@ -1,2 +1,5 @@
 * text=auto
 backend/seed-data/** -text
+# Preserve the byte representation recorded by Prisma on the existing DB.
+backend/prisma/migrations/**/migration.sql text eol=lf
+backend/prisma/migrations/202610020001_baseline/migration.sql text eol=crlf

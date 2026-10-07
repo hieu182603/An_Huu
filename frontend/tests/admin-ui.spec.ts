@@ -99,17 +99,16 @@ test.describe("Admin Layout & Styling Verification", () => {
     });
 
     // 11. Navigate to Settings page and screenshot
-    await page.locator('.admin-nav a[href="/admin/settings"]').click();
-    await page.waitForSelector(".settings-section-nav", { state: "visible" });
+    await page.locator('.admin-nav a[href="/admin/settings/general"]').first().click();
     await page.waitForSelector(".system-setting-card", { state: "visible" });
-    await expect(page.locator("h1")).toContainText("Cấu hình hệ thống");
+    await expect(page.locator("h1")).toContainText("Cài đặt chung");
     await page.screenshot({
       path: testInfo.outputPath("admin_settings_redesigned.png"),
       fullPage: false,
     });
 
-    // 12. Navigate to Audit Log tab and screenshot
-    await page.locator('.settings-section-nav a[href="/admin/settings/audit-log"]').click();
+    // 12. Navigate to System Logs sub-item and screenshot
+    await page.locator('.admin-nav a[href="/admin/settings/logs"]').click();
     await page.waitForSelector(".audit-log-card", { state: "visible" });
     await page.waitForSelector(".audit-table", { state: "visible" });
     await page.screenshot({

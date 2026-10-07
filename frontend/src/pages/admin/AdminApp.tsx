@@ -1,4 +1,3 @@
-import SupportApiPage from "../SupportPage";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 import { adminNavigation, settingsNavigation } from "../../routes";
@@ -33,34 +32,6 @@ import { NotificationDropdown } from "../../components/NotificationDropdown";
 import { authenticatedRequest } from "../../services/api";
 import { useRealtimeNotifications } from "../../services/socket";
 
-const ADMIN_SETTINGS_KEY = "anhuu_demo_admin_settings";
-const ADMIN_AUDIT_KEY = "anhuu_demo_admin_audit";
-type AdminSettings = {
-  systemName: string; language: string; timezone: string; supportEmail: string; maintenance: boolean;
-  integrations: boolean[]; digest: string; notificationEmail: string; emailEnabled: boolean; inApp: boolean; critical: boolean;
-  profileRetention: string; auditRetention: string; analytics: boolean; exportApproval: boolean;
-};
-const defaultAdminSettings: AdminSettings = {
-  systemName: "An Hưu", language: "Tiếng Việt", timezone: "GMT+7 · Việt Nam", supportEmail: "hotro@anhuu.vn", maintenance: false,
-  integrations: [false, false, false], digest: "Hàng ngày", notificationEmail: "operations@anhuu.vn", emailEnabled: false, inApp: true, critical: true,
-  profileRetention: "5 năm", auditRetention: "3 năm", analytics: true, exportApproval: true,
-};
-type AuditEntry = { actor: string; action: string; target: string; time: string; result: string; category: string; before?: string; after?: string };
-
-function loadAdminSettings(): AdminSettings {
-  try { return { ...defaultAdminSettings, ...JSON.parse(localStorage.getItem(ADMIN_SETTINGS_KEY) || "{}") }; } catch { return defaultAdminSettings; }
-}
-function recordAudit(entry: Omit<AuditEntry, "time">) {
-  try {
-    const previous = JSON.parse(localStorage.getItem(ADMIN_AUDIT_KEY) || "[]") as AuditEntry[];
-    localStorage.setItem(ADMIN_AUDIT_KEY, JSON.stringify([{ ...entry, time: new Date().toLocaleString("vi-VN") }, ...previous].slice(0, 100)));
-  } catch {}
-}
-function persistAdminSettings(settings: AdminSettings, target: string) {
-  const before = loadAdminSettings();
-  localStorage.setItem(ADMIN_SETTINGS_KEY, JSON.stringify(settings));
-  recordAudit({ actor: "Lê Lan Anh", action: "Cập nhật cấu hình", target, result: "Thành công", category: "Cấu hình", before: JSON.stringify(before), after: JSON.stringify(settings) });
-}
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`dashboard-brand ${compact ? "is-compact" : ""}`}>
@@ -71,12 +42,13 @@ function Brand({ compact = false }: { compact?: boolean }) {
 
 function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const { t } = useI18n();
+  const { pathname } = useLocation();
+  const [manualExpanded, setManualExpanded] = useState<Record<string, boolean>>({});
 
   const getNavLabel = (path: string, fallback: string) => {
     switch (path) {
       case "/admin/dashboard": return t("admin_nav.dashboard");
       case "/admin/users": return t("admin_nav.users");
-      case "/admin/operations": return t("admin_nav.operations");
       case "/admin/support": return t("admin_nav.support");
       case "/admin/partners": return t("admin_nav.partners");
       case "/admin/financial-config": return t("admin_nav.financial_config");
@@ -84,6 +56,10 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
       case "/admin/ai": return t("admin_nav.ai");
       case "/admin/reports": return t("admin_nav.reports");
       case "/admin/settings": return t("admin_nav.settings");
+      case "/admin/settings/general": return t("admin_nav.settings_general");
+      case "/admin/settings/security": return t("admin_nav.settings_security");
+      case "/admin/settings/notifications": return t("admin_nav.settings_notifications");
+      case "/admin/settings/logs": return t("admin_nav.settings_logs");
       default: return fallback;
     }
   };
@@ -93,9 +69,87 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
       {!collapsed && <div className="sidebar-label">{t("admin_nav.system_ops")}</div>}
       {adminNavigation.map((item) => {
         const label = getNavLabel(item.path, item.label);
+        const hasChildren = Boolean(item.children && item.children.length > 0);
+        const isParentActive = hasChildren
+          ? pathname.startsWith(item.path)
+          : pathname === item.path;
+
+        if (hasChildren && item.children) {
+          const isExpanded = manualExpanded[item.path] ?? isParentActive;
+
+          return (
+            <div className="admin-nav-group" key={item.path}>
+              <NavLink
+                to={item.children[0]?.path || item.path}
+                className={() =>
+                  `admin-nav-parent-btn ${isParentActive ? "is-parent-active" : ""}`
+                }
+                onClick={(e) => {
+                  if (collapsed) {
+                    onNavigate?.();
+                    return;
+                  }
+                  if (isParentActive) {
+                    e.preventDefault();
+                    setManualExpanded((prev) => ({ ...prev, [item.path]: !isExpanded }));
+                  } else {
+                    setManualExpanded((prev) => ({ ...prev, [item.path]: true }));
+                    onNavigate?.();
+                  }
+                }}
+                aria-expanded={isExpanded}
+                aria-label={label}
+                title={label}
+              >
+                <Icon name={item.icon} />
+                {!collapsed && <span>{label}</span>}
+                {!collapsed && (
+                  <span
+                    className={`admin-nav-chevron ${isExpanded ? "is-expanded" : ""}`}
+                    aria-hidden="true"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setManualExpanded((prev) => ({ ...prev, [item.path]: !isExpanded }));
+                    }}
+                  >
+                    <Icon name="chevron-down" size="small" />
+                  </span>
+                )}
+              </NavLink>
+
+              {!collapsed && (
+                <div
+                  className={`admin-nav-submenu ${isExpanded ? "is-open" : "is-closed"}`}
+                  role="group"
+                  aria-label={label}
+                >
+                  {item.children.map((child) => {
+                    const childLabel = getNavLabel(child.path, child.label);
+                    return (
+                      <NavLink
+                        key={child.path}
+                        to={child.path}
+                        className={({ isActive }) =>
+                          `admin-nav-subitem ${isActive ? "is-active" : ""}`
+                        }
+                        onClick={onNavigate}
+                        aria-label={childLabel}
+                        title={childLabel}
+                      >
+                        <span>{childLabel}</span>
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        }
+
         return (
           <NavLink
-            className={({ isActive }) => isActive ? "is-active" : ""}
+            className={({ isActive }) => (isActive ? "is-active" : "")}
             key={item.path}
             to={item.path}
             {...routeIntent(item.path)}
@@ -143,533 +197,10 @@ function AdminHeader({ title, description, children }: { title: string; descript
   return <header className="admin-page-header"><div><span>ADMIN AREA</span><h1>{title}</h1><p>{description}</p></div>{children}</header>;
 }
 
-export { AdminReportsPage as ReportsPage } from "./AdminOverviewApi";
-export function SupportPage() { return <SupportApiPage admin />; }
-
-function SettingNav() {
-  const { t } = useI18n();
-  const getSettingLabel = (path: string, fallback: string) => {
-    switch (path) {
-      case "/admin/settings/general": return t("admin_nav.settings_general");
-      case "/admin/settings/integrations": return t("admin_nav.settings_integrations");
-      case "/admin/settings/notifications": return t("admin_nav.settings_notifications");
-      case "/admin/settings/privacy": return t("admin_nav.settings_privacy");
-      case "/admin/settings/audit-log": return t("admin_nav.settings_audit");
-      default: return fallback;
-    }
-  };
-
-  return (
-    <nav className="settings-section-nav" aria-label={t("admin_nav.settings")}>
-      {settingsNavigation.map(({ label: fallback, icon, path }) => {
-        const label = getSettingLabel(path, fallback);
-        return (
-          <NavLink
-            className={({ isActive }) => (isActive ? "is-active" : "")}
-            key={path}
-            to={path}
-          >
-            <span className="settings-nav-icon"><Icon name={icon} /></span>
-            <span className="settings-nav-label">{label}</span>
-            <Icon name="chevron-right" size="small" />
-          </NavLink>
-        );
-      })}
-    </nav>
-  );
-}
-
-function SettingsCard({
-  title,
-  description,
-  saved,
-  onSave,
-  children,
-}: {
-  title: string;
-  description: string;
-  saved: boolean | null;
-  onSave: () => void;
-  children: React.ReactNode;
-}) {
-  const { t } = useI18n();
-  const { notify } = useNotification();
-  const handleSave = () => {
-    try { onSave(); notify.info("Đã lưu bản mô phỏng trên trình duyệt", "Cấu hình máy chủ chưa thay đổi."); } catch { notify.error("Chưa lưu được bản mô phỏng", "Bộ nhớ trình duyệt không khả dụng. Vui lòng thử lại."); }
-  };
-  return (
-    <Card className="system-setting-card">
-      <header>
-        <div>
-          <h2>{title}</h2>
-          <p>{description}</p>
-        </div>
-        {saved === true && <Badge tone="success">Đã lưu trên trình duyệt</Badge>}
-        {saved === false && <Badge tone="warning">{t("admin_topbar.unsaved_badge")}</Badge>}
-      </header>
-      <Alert tone="warning" title="Cấu hình minh họa trên trình duyệt">Các tùy chọn bên dưới chỉ phục vụ xem thử giao diện. Lưu tại đây không cập nhật máy chủ, dịch vụ tích hợp, lịch gửi hay chính sách quyền riêng tư.</Alert><div className="system-setting-body">{children}</div>
-      <footer>
-        <span>
-          <Icon name="info" size="small" /> Nhật ký máy chủ không ghi nhận các thay đổi minh họa này.
-        </span>
-        <Button variant="primary" onClick={handleSave}>
-          Lưu bản mô phỏng
-        </Button>
-      </footer>
-    </Card>
-  );
-}
-
-export function GeneralSettings() {
-  const { language, setLanguage } = useI18n();
-  const isEn = language === "en";
-  const [saved, setSaved] = useState<boolean | null>(null);
-  const [settings, setSettings] = useState(loadAdminSettings);
-  const change = (updates: Partial<AdminSettings>) => {
-    setSettings((value) => ({ ...value, ...updates }));
-    setSaved(false);
-  };
-  return (
-    <SettingsCard
-      title={isEn ? "General Settings" : "Cài đặt chung"}
-      description={
-        isEn
-          ? "Brand identity display information and general operational behavior of the system."
-          : "Thông tin hiển thị nhận diện thương hiệu và hành vi vận hành chung của hệ thống."
-      }
-      saved={saved}
-      onSave={() => {
-        persistAdminSettings(settings, isEn ? "General Settings" : "Cài đặt chung");
-        setSaved(true);
-      }}
-    >
-      <div className="settings-form-grid">
-        <Input
-          label={isEn ? "System Name" : "Tên hệ thống"}
-          value={settings.systemName}
-          onChange={(value) => change({ systemName: value })}
-        />
-        <Select
-          label={isEn ? "Default Language" : "Ngôn ngữ mặc định"}
-          options={["Tiếng Việt", "English"]}
-          value={language === "en" ? "English" : "Tiếng Việt"}
-          onChange={(value) => {
-            const nextLang = value === "English" ? "en" : "vi";
-            setLanguage(nextLang);
-            change({ language: value });
-          }}
-        />
-        <Select
-          label={isEn ? "Operating Timezone" : "Múi giờ vận hành"}
-          options={isEn ? ["GMT+7 (Vietnam)", "GMT+8", "GMT+9"] : ["GMT+7 (Việt Nam)", "GMT+8", "GMT+9"]}
-          value={settings.timezone}
-          onChange={(value) => change({ timezone: value })}
-        />
-        <Input
-          label={isEn ? "Member Support Email" : "Email hỗ trợ hội viên"}
-          value={settings.supportEmail}
-          onChange={(value) => change({ supportEmail: value })}
-          type="email"
-        />
-      </div>
-
-      <div className="setting-toggle-row">
-        <div>
-          <strong>{isEn ? "System Maintenance Mode" : "Chế độ bảo trì hệ thống"}</strong>
-          <small>
-            {isEn
-              ? "Temporarily suspend new member sessions and display scheduled maintenance notice."
-              : "Tạm dừng tiếp nhận phiên truy cập mới từ hội viên và hiển thị thông báo bảo trì theo lịch."}
-          </small>
-        </div>
-        <Switch
-          checked={settings.maintenance}
-          label={settings.maintenance ? (isEn ? "Enabled" : "Đang bật") : (isEn ? "Disabled" : "Đang tắt")}
-          onChange={(value) => change({ maintenance: value })}
-        />
-      </div>
-
-      {settings.maintenance && (
-        <Alert tone="warning" title={isEn ? "Maintenance Mode Active" : "Đang xem thử chế độ bảo trì"}>
-          {isEn
-            ? "The system is temporarily unavailable for regular members. Only administrators can perform actions."
-            : "Đây là bản mô phỏng. Quyền truy cập của người dùng thực tế không thay đổi."}
-        </Alert>
-      )}
-    </SettingsCard>
-  );
-}
-
-export function IntegrationSettings() {
-  const { language } = useI18n();
-  const isEn = language === "en";
-  const [saved, setSaved] = useState<boolean | null>(null);
-  const [settings, setSettings] = useState(loadAdminSettings);
-  const items = isEn
-    ? [
-        ["Transactional Email Service (SMTP / Resend)", "Send verification emails, OTP, and periodic reports to members."],
-        ["Secure Document Storage (S3 / Cloud Storage)", "Store exported report files and encrypted financial documents."],
-        ["Financial Partners & Social Insurance Sync", "Update retirement product catalog data and fund interest rates."],
-      ]
-    : [
-        ["Dịch vụ Email giao dịch (SMTP / Resend)", "Gửi email xác thực, OTP và báo cáo định kỳ cho hội viên."],
-        ["Kho lưu trữ tài liệu bảo mật (S3 / Cloud Storage)", "Lưu trữ các tệp xuất báo cáo và chứng từ tài chính mã hóa."],
-        ["Đồng bộ đối tác tài chính & BHXH", "Cập nhật dữ liệu danh mục sản phẩm hưu trí và lãi suất quỹ."],
-      ];
-
-  return (
-    <SettingsCard
-      title={isEn ? "Service Integrations" : "Tích hợp dịch vụ"}
-      description={
-        isEn
-          ? "Manage external API connections, mail service, and data synchronization."
-          : "Quản lý cổng kết nối API bên ngoài, dịch vụ gửi thư và đồng bộ dữ liệu."
-      }
-      saved={saved}
-      onSave={() => {
-        persistAdminSettings(settings, isEn ? "Integrations" : "Tích hợp");
-        setSaved(true);
-      }}
-    >
-      <div className="integration-list">
-        {items.map(([name, detail], index) => {
-          const isEnabled = settings.integrations[index];
-          return (
-            <div key={name}>
-              <span className="integration-icon">
-                <Icon name={index === 0 ? "message" : index === 1 ? "file-text" : "briefcase"} />
-              </span>
-              <div>
-                <strong>{name}</strong>
-                <small>{detail}</small>
-              </div>
-              <Badge tone={isEnabled ? "success" : "neutral"}>
-                {isEnabled ? (isEn ? "Connected" : "Đang kết nối") : (isEn ? "Inactive" : "Chưa kích hoạt")}
-              </Badge>
-              <Switch
-                checked={isEnabled}
-                label={isEnabled ? (isEn ? "Enabled" : "Đang bật") : (isEn ? "Disabled" : "Đang tắt")}
-                onChange={(value) => {
-                  setSettings((current) => ({
-                    ...current,
-                    integrations: current.integrations.map((item, itemIndex) =>
-                      itemIndex === index ? value : item
-                    ),
-                  }));
-                  setSaved(false);
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
-    </SettingsCard>
-  );
-}
-
-export function NotificationSettings() {
-  const { language } = useI18n();
-  const isEn = language === "en";
-  const [saved, setSaved] = useState<boolean | null>(null);
-  const [settings, setSettings] = useState(loadAdminSettings);
-  const change = (updates: Partial<AdminSettings>) => {
-    setSettings((value) => ({ ...value, ...updates }));
-    setSaved(false);
-  };
-
-  const { isConnected } = useRealtimeNotifications();
-  const [broadcastTitle, setBroadcastTitle] = useState(
-    isEn ? "System Maintenance & Parameter Update" : "Thông báo bảo trì hệ thống & Cập nhật tham số"
-  );
-  const [broadcastMessage, setBroadcastMessage] = useState(
-    isEn
-      ? "Macroeconomic rules updated with new interest and inflation assumptions."
-      : "Tham số an toàn tài chính và tỷ lệ lạm phát mục tiêu đã được cập nhật thành công."
-  );
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const [broadcastSuccess, setBroadcastSuccess] = useState<string | null>(null);
-
-  const handleSendBroadcast = async () => {
-    try {
-      setIsBroadcasting(true);
-      setBroadcastSuccess(null);
-      await authenticatedRequest("/admin/notifications/broadcast", {
-        title: broadcastTitle,
-        message: broadcastMessage,
-      });
-      setBroadcastSuccess(
-        isEn
-          ? "WebSocket broadcast dispatched instantly to all active sockets."
-          : "Đã phát sóng thông báo thời gian thực tới tất cả kết nối WebSocket."
-      );
-      setTimeout(() => setBroadcastSuccess(null), 4000);
-    } catch {
-      setBroadcastSuccess(
-        isEn
-          ? "Failed to dispatch broadcast. Please try again."
-          : "Không thể phát thông báo. Vui lòng thử lại."
-      );
-      setTimeout(() => setBroadcastSuccess(null), 4000);
-    } finally {
-      setIsBroadcasting(false);
-    }
-  };
-
-  return (
-    <SettingsCard
-      title={isEn ? "System Notifications & Socket.IO Telemetry" : "Thông báo hệ thống & Giám sát Socket.IO"}
-      description={
-        isEn
-          ? "Configure multi-channel communications, monitor real-time WebSocket telemetry, and broadcast live alerts."
-          : "Cấu hình kênh truyền thông đa tầng, giám sát WebSocket thời gian thực và phát thông báo khẩn cấp."
-      }
-      saved={saved}
-      onSave={() => {
-        persistAdminSettings(settings, isEn ? "Notifications" : "Thông báo");
-        setSaved(true);
-      }}
-    >
-      {/* Real-time Socket.IO Telemetry Banner */}
-      <div className="admin-telemetry-banner">
-        <div className="admin-telemetry-head">
-          <h3>
-            <Icon name="sparkles" size="small" />
-            <span>{isEn ? "Socket.IO Real-time Engine Telemetry" : "Hạ tầng WebSocket & Giám sát Socket.IO"}</span>
-          </h3>
-          <span className="notif-socket-status is-online" style={{ color: "#ffffff", borderColor: "rgba(255,255,255,0.2)" }}>
-            <span className="status-dot" />
-            <span>{isConnected ? "Connected (Live)" : "Standby (Active)"}</span>
-          </span>
-        </div>
-        <div className="admin-telemetry-grid">
-          <div className="admin-telemetry-item">
-            <span className="label">{isEn ? "Engine Version" : "Phiên bản Engine"}</span>
-            <span className="val">Socket.IO 4.8.4</span>
-          </div>
-          <div className="admin-telemetry-item">
-            <span className="label">{isEn ? "Gateway Route" : "Tuyến kết nối"}</span>
-            <span className="val">ws://127.0.0.1:5000/socket.io</span>
-          </div>
-          <div className="admin-telemetry-item">
-            <span className="label">{isEn ? "Transport Mode" : "Phương thức truyền"}</span>
-            <span className="val green">WebSocket (Upgraded)</span>
-          </div>
-          <div className="admin-telemetry-item">
-            <span className="label">{isEn ? "Admin Room" : "Phòng phát sóng"}</span>
-            <span className="val">room:admins</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Live Broadcast & Simulation Console */}
-      <div className="admin-broadcast-box">
-        <h4>{isEn ? "Live WebSocket Broadcast Console" : "Bảng điều khiển phát sóng WebSocket tức thời"}</h4>
-        <p>
-          {isEn
-            ? "Send an instant push notification to all online users or active administrator sessions via Socket.IO."
-            : "Phát thông báo đẩy tức thời tới người dùng hoặc quản trị viên đang trực tuyến mà không cần người dùng tải lại trang."}
-        </p>
-        <div className="settings-form-grid" style={{ marginBottom: "12px" }}>
-          <Input
-            label={isEn ? "Notification Title" : "Tiêu đề thông báo"}
-            value={broadcastTitle}
-            onChange={(val) => setBroadcastTitle(val)}
-          />
-          <Input
-            label={isEn ? "Notification Body" : "Nội dung thông báo"}
-            value={broadcastMessage}
-            onChange={(val) => setBroadcastMessage(val)}
-          />
-        </div>
-        <div className="broadcast-actions-row">
-          <Button
-            variant="primary"
-            loading={isBroadcasting}
-            onClick={() => void handleSendBroadcast()}
-          >
-            <Icon name="sparkles" size="small" />
-            <span>{isEn ? "Broadcast via Socket.IO" : "Phát thông báo Socket.IO ngay"}</span>
-          </Button>
-          {broadcastSuccess && (
-            <span style={{ fontSize: "12px", color: "#059669", fontWeight: 600 }}>
-              ✓ {broadcastSuccess}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div style={{ margin: "24px 0 16px", borderTop: "1px solid rgba(5,38,89,0.08)" }} />
-
-      <h4 style={{ margin: "0 0 14px", fontSize: "14px", fontWeight: 700, color: "#021024" }}>
-        {isEn ? "Communication Channels & Alert Routing" : "Kênh truyền thông & Cấu hình cảnh báo"}
-      </h4>
-
-      <div className="settings-form-grid">
-        <Input
-          label={isEn ? "Technical alert notification email" : "Email tiếp nhận cảnh báo kỹ thuật"}
-          value={settings.notificationEmail}
-          onChange={(value) => change({ notificationEmail: value })}
-          type="email"
-        />
-        <Select
-          label={isEn ? "Digest report frequency" : "Tần suất báo cáo tổng hợp"}
-          options={
-            isEn
-              ? ["Daily (08:00 AM)", "Weekly (Monday)", "Do not send digest"]
-              : ["Hàng ngày (08:00 AM)", "Hàng tuần (Thứ Hai)", "Không gửi tổng hợp"]
-          }
-          value={settings.digest}
-          onChange={(value) => change({ digest: value })}
-        />
-      </div>
-
-      <div className="setting-toggle-list">
-        <div>
-          <span>
-            <strong>{isEn ? "Transactional Email & Account Verification" : "Email giao dịch & Xác thực tài khoản"}</strong>
-            <small>
-              {isEn
-                ? "Send notifications when users register, recover password, or change email."
-                : "Gửi thông báo khi người dùng đăng ký, khôi phục mật khẩu hoặc đổi email."}
-            </small>
-          </span>
-          <Switch
-            checked={settings.emailEnabled}
-            label={settings.emailEnabled ? (isEn ? "Enabled" : "Đang bật") : (isEn ? "Disabled" : "Đang tắt")}
-            onChange={(value) => change({ emailEnabled: value })}
-          />
-        </div>
-        <div>
-          <span>
-            <strong>{isEn ? "In-app Real-time Push (Socket.IO)" : "Thông báo đẩy thời gian thực (Socket.IO & Dropdown)"}</strong>
-            <small>
-              {isEn
-                ? "Deliver instant notifications to topbar dropdown without page refresh."
-                : "Đồng bộ chuông thông báo và dropdown tức thời không cần tải lại trang."}
-            </small>
-          </span>
-          <Switch
-            checked={settings.inApp}
-            label={settings.inApp ? (isEn ? "Enabled" : "Đang bật") : (isEn ? "Disabled" : "Đang tắt")}
-            onChange={(value) => change({ inApp: value })}
-          />
-        </div>
-        <div>
-          <span>
-            <strong>{isEn ? "Operational Alerts & Critical Security" : "Cảnh báo vận hành & Bảo mật khẩn cấp"}</strong>
-            <small>
-              {isEn
-                ? "Trigger immediate alerts upon unusual login detection or system errors."
-                : "Kích hoạt thông báo tức thời khi phát hiện đăng nhập bất thường hoặc lỗi hệ thống."}
-            </small>
-          </span>
-          <Switch
-            checked={settings.critical}
-            label={settings.critical ? (isEn ? "Enabled" : "Đang bật") : (isEn ? "Disabled" : "Đang tắt")}
-            onChange={(value) => change({ critical: value })}
-          />
-        </div>
-      </div>
-    </SettingsCard>
-  );
-}
-
-export function PrivacySettings() {
-  const { language } = useI18n();
-  const isEn = language === "en";
-  const [saved, setSaved] = useState<boolean | null>(null);
-  const [settings, setSettings] = useState(loadAdminSettings);
-  const change = (updates: Partial<AdminSettings>) => {
-    setSettings((value) => ({ ...value, ...updates }));
-    setSaved(false);
-  };
-
-  return (
-    <SettingsCard
-      title={isEn ? "Privacy & Data Security" : "Quyền riêng tư & Bảo mật dữ liệu"}
-      description={
-        isEn
-          ? "Manage retention policy for member records and control data exports."
-          : "Quản lý chính sách thời gian lưu trữ dữ liệu hội viên và kiểm soát xuất dữ liệu."
-      }
-      saved={saved}
-      onSave={() => {
-        persistAdminSettings(settings, isEn ? "Privacy" : "Quyền riêng tư");
-        setSaved(true);
-      }}
-    >
-      <div className="settings-form-grid">
-        <Select
-          label={isEn ? "Closed record retention duration" : "Thời gian lưu trữ hồ sơ đã đóng"}
-          options={isEn ? ["3 years", "5 years", "7 years", "10 years"] : ["3 năm", "5 năm", "7 năm", "10 năm"]}
-          value={settings.profileRetention}
-          onChange={(value) => change({ profileRetention: value })}
-        />
-        <Select
-          label={isEn ? "Audit log retention duration" : "Thời gian lưu trữ nhật ký kiểm toán"}
-          options={isEn ? ["1 year", "3 years", "5 years", "Permanent"] : ["1 năm", "3 năm", "5 năm", "Vĩnh viễn"]}
-          value={settings.auditRetention}
-          onChange={(value) => change({ auditRetention: value })}
-        />
-      </div>
-
-      <div className="setting-toggle-list">
-        <div>
-          <span>
-            <strong>{isEn ? "Anonymous Data Analytics (Telemetry)" : "Phân tích dữ liệu ẩn danh (Telemetry)"}</strong>
-            <small>
-              {isEn
-                ? "Use de-identified behavioral telemetry to optimize retirement calculation algorithms."
-                : "Sử dụng dữ liệu hành vi đã khử định danh để tối ưu thuật toán tính toán hưu trí."}
-            </small>
-          </span>
-          <Switch
-            checked={settings.analytics}
-            label={settings.analytics ? (isEn ? "Enabled" : "Đang bật") : (isEn ? "Disabled" : "Đang tắt")}
-            onChange={(value) => change({ analytics: value })}
-          />
-        </div>
-        <div>
-          <span>
-            <strong>{isEn ? "Two-Factor Approval for User Data Export" : "Xác thực hai lớp khi xuất dữ liệu người dùng"}</strong>
-            <small>
-              {isEn
-                ? "Require a second administrator approval or OTP before downloading records."
-                : "Yêu cầu quản trị viên thứ hai ký duyệt hoặc mã OTP trước khi tải xuống danh sách."}
-            </small>
-          </span>
-          <Switch
-            checked={settings.exportApproval}
-            label={settings.exportApproval ? (isEn ? "Mandatory" : "Bắt buộc") : (isEn ? "Optional" : "Không bắt buộc")}
-            onChange={(value) => change({ exportApproval: value })}
-          />
-        </div>
-      </div>
-    </SettingsCard>
-  );
-}
-
-export { AdminAuditPage as AuditLog } from "./AdminOperationsPage";
-
 export function SettingsPage() {
-  const { language } = useI18n();
-  const isEn = language === "en";
   return (
-    <div className="admin-page settings-page">
-      <AdminHeader
-        title={isEn ? "System Settings" : "Cấu hình hệ thống"}
-        description={
-          isEn
-            ? "Manage operation settings, service integration, and data privacy."
-            : "Quản lý từng nhóm thiết lập vận hành, tích hợp cổng dịch vụ và quyền riêng tư dữ liệu."
-        }
-      />
-      <div className="settings-layout">
-        <SettingNav />
-        <div className="settings-content">
-          <Outlet />
-        </div>
-      </div>
+    <div className="admin-page settings-page-full">
+      <Outlet />
     </div>
   );
 }
@@ -682,7 +213,28 @@ function AdminTopbar({ onMenu }: { onMenu: () => void }) {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFeedback, setSearchFeedback] = useState("");
+  const [openTicketsCount, setOpenTicketsCount] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    const fetchOpenTickets = async () => {
+      try {
+        const res = await authenticatedRequest<{ total: number }>("/admin/support?status=OPEN&limit=1");
+        if (active && typeof res?.total === "number") {
+          setOpenTicketsCount(res.total);
+        }
+      } catch {
+        // Silent fallback for non-admin or offline
+      }
+    };
+    fetchOpenTickets();
+    const interval = setInterval(fetchOpenTickets, 60000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [pathname]);
 
   // Global shortcut: Ctrl+K or Cmd+K to focus search
   useEffect(() => {
@@ -709,7 +261,10 @@ function AdminTopbar({ onMenu }: { onMenu: () => void }) {
   const submitSearch = (event: React.FormEvent) => {
     event.preventDefault();
     const query = searchQuery.trim().toLocaleLowerCase();
-    const match = [...adminNavigation, ...settingsNavigation].find((item) =>
+    const flattenedNav = adminNavigation.flatMap((item) =>
+      item.children ? [item, ...item.children] : [item]
+    );
+    const match = flattenedNav.find((item) =>
       item.label.toLocaleLowerCase().includes(query)
     );
     if (!query || !match) {
@@ -751,10 +306,28 @@ function AdminTopbar({ onMenu }: { onMenu: () => void }) {
       <div className="admin-topbar-actions">
         <LanguageSwitcher variant="topbar" />
 
-        <Tooltip content={t("admin_topbar.urgent_tickets")}>
-          <Link to="/admin/support" className="topbar-action-btn" aria-label={t("admin_topbar.urgent_tickets")}>
+        <Tooltip
+          content={
+            openTicketsCount === null
+              ? t("admin_topbar.urgent_tickets")
+              : openTicketsCount > 0
+              ? `${openTicketsCount} ${t("admin_topbar.urgent_tickets")}`
+              : t("admin_topbar.no_urgent_tickets")
+          }
+        >
+          <Link
+            to="/admin/support"
+            className="topbar-action-btn"
+            aria-label={
+              openTicketsCount && openTicketsCount > 0
+                ? `${openTicketsCount} ${t("admin_topbar.urgent_tickets")}`
+                : t("admin_topbar.urgent_tickets")
+            }
+          >
             <Icon name="alert" />
-            <span className="topbar-badge-dot" />
+            {openTicketsCount !== null && openTicketsCount > 0 ? (
+              <span className="topbar-badge-count">{openTicketsCount > 99 ? "99+" : openTicketsCount}</span>
+            ) : null}
           </Link>
         </Tooltip>
 
@@ -763,15 +336,14 @@ function AdminTopbar({ onMenu }: { onMenu: () => void }) {
         <div className="topbar-divider-line" />
 
         <Avatar
-          initials={user?.initials || "LA"}
-          name={user?.name || "Lê Lan Anh"}
+          initials={user?.initials || (language === "en" ? "AD" : "QT")}
+          name={user?.name || (language === "en" ? "Administrator" : "Quản trị viên")}
           detail={user?.detail || (language === "en" ? "Administrator" : "Quản trị viên")}
           avatarUrl={user?.avatarUrl}
           onLogout={handleLogout}
           menuItems={[
-            { label: t("admin_nav.settings"), icon: "settings", onClick: () => navigate("/admin/settings") },
-            { label: t("admin_nav.settings_audit"), icon: "file-text", onClick: () => navigate("/admin/settings/audit-log") },
-            { label: t("admin_nav.settings_privacy"), icon: "info", onClick: () => navigate("/admin/settings/privacy") },
+            { label: t("admin_nav.settings"), icon: "settings", onClick: () => navigate("/admin/settings/general") },
+            { label: t("admin_nav.settings_logs"), icon: "file-text", onClick: () => navigate("/admin/settings/logs") },
           ]}
         />
       </div>

@@ -254,7 +254,21 @@ export default function AccountPage() {
           {/* TAB 3: REPORTS / EXPORT */}
           {activeTab === "reports" && (
             <div style={{ display: "grid", gap: "16px" }}>
-              {!activePlan?.currentVersionId && <Alert tone="info" title={language === "en" ? "No official plan yet" : "Chưa có kế hoạch chính thức"}>{language === "en" ? "Apply a version before exporting its figures." : "Áp dụng một phiên bản trước khi xuất số liệu chính thức."}<Link to="/user/plan">{language === "en" ? "Open plan" : "Đến kế hoạch"}</Link></Alert>}
+              {!activePlan?.currentVersionId && (
+                <Alert
+                  tone="info"
+                  title={language === "en" ? "No official plan yet" : "Chưa có kế hoạch chính thức"}
+                  action={
+                    <Link to="/user/plan">
+                      {language === "en" ? "Open plan" : "Đến kế hoạch"}
+                    </Link>
+                  }
+                >
+                  {language === "en"
+                    ? "Apply a version before exporting its figures."
+                    : "Áp dụng một phiên bản trước khi xuất số liệu chính thức."}
+                </Alert>
+              )}
               <Card className="report-card">
                 <div>
                   <span className="report-icon"><Icon name="file-text" size="large" /></span>

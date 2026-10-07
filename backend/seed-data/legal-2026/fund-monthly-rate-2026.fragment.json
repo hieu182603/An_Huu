@@ -1,0 +1,22 @@
+{
+  "status": "DRAFT_FRAGMENT_NOT_PUBLISHABLE",
+  "paymentYear": 2026,
+  "rateUnit": "PERCENT_PER_MONTH",
+  "citation": {
+    "id": "CV151_FUND_RATE_2026",
+    "instrument": "Công văn151/BHXH-ĐTQ ngày14/01/2026",
+    "locator": "Trang1: lãi suất bình quân tháng năm2025 dùng cho năm đóng2026",
+    "url": "https://baohiemxahoi.gov.vn:4545/File_Server_BHXH/documents/BHXHVN_151(kem%20theo%20CV09).pdf",
+    "contentHash": "9239d7ca5e0c867c8b2c3a4a1966ddb6caa8b74866a9dc0c116e4a2a259191e9",
+    "effectiveFrom": "2026-01-01",
+    "effectiveTo": "2027-01-01"
+  },
+  "table": {
+    "kind": "FUND_MONTHLY_RATE",
+    "key": "2026",
+    "value": "0.31",
+    "citationId": "CV151_FUND_RATE_2026",
+    "effectiveFrom": "2026-01-01",
+    "effectiveTo": "2027-01-01"
+  }
+}

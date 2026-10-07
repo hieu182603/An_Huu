@@ -536,16 +536,83 @@ export default function RetirementGoalPage() {
               {/* Life Expectancy Row / Card */}
               <div className="life-expectancy-card">
                 <div className="life-expectancy-input-side">
-                  <Input
-                    label={language === "en" ? "Average Life Expectancy Expectation" : "Kỳ vọng tuổi thọ trung bình"}
-                    type="number"
-                    value={String(lifeExpectancy)}
-                    onChange={(v) => setLifeExpectancy(Number(v) || 80)}
-                    suffix={language === "en" ? "years" : "tuổi"}
-                    helper={language === "en"
+                  <div className="life-expectancy-header">
+                    <span className="life-expectancy-title">
+                      {language === "en" ? "Average Life Expectancy Expectation" : "Kỳ vọng tuổi thọ trung bình"}
+                    </span>
+                  </div>
+
+                  <div className="life-expectancy-controls-row">
+                    <div className="life-expectancy-stepper-wrap">
+                      <button
+                        type="button"
+                        className="life-stepper-btn"
+                        aria-label={language === "en" ? "Decrease life expectancy" : "Giảm 1 tuổi thọ"}
+                        disabled={lifeExpectancy <= targetAge + 1}
+                        onClick={() => setLifeExpectancy((prev) => Math.max(targetAge + 1, prev - 1))}
+                      >
+                        <Icon name="chevron-left" />
+                      </button>
+
+                      <div className="life-stepper-display">
+                        <input
+                          type="number"
+                          min={targetAge + 1}
+                          max={110}
+                          value={lifeExpectancy || ""}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (!isNaN(val)) {
+                              setLifeExpectancy(Math.max(targetAge + 1, Math.min(110, val)));
+                            }
+                          }}
+                          onBlur={() => {
+                            if (!lifeExpectancy || lifeExpectancy <= targetAge) {
+                              setLifeExpectancy(Math.max(80, targetAge + 15));
+                            }
+                          }}
+                          className="life-stepper-input"
+                          aria-label={language === "en" ? "Average life expectancy" : "Kỳ vọng tuổi thọ trung bình"}
+                          title={language === "en" ? "Click to enter age directly" : "Bấm để nhập số tuổi trực tiếp"}
+                        />
+                        <span className="life-stepper-unit">{language === "en" ? "years" : "tuổi"}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="life-stepper-btn"
+                        aria-label={language === "en" ? "Increase life expectancy" : "Tăng 1 tuổi thọ"}
+                        disabled={lifeExpectancy >= 110}
+                        onClick={() => setLifeExpectancy((prev) => Math.min(110, prev + 1))}
+                      >
+                        <Icon name="chevron-right" />
+                      </button>
+                    </div>
+
+                    <div className="life-expectancy-presets">
+                      {[75, 80, 85, 90].map((presetAge) => {
+                        if (presetAge <= targetAge) return null;
+                        const isActive = lifeExpectancy === presetAge;
+                        return (
+                          <button
+                            key={presetAge}
+                            type="button"
+                            className={`life-preset-chip ${isActive ? "is-active" : ""}`}
+                            onClick={() => setLifeExpectancy(presetAge)}
+                            aria-pressed={isActive}
+                          >
+                            {presetAge} {language === "en" ? "yrs" : "tuổi"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <p className="life-expectancy-helper">
+                    {language === "en"
                       ? `Projected retirement income stream needed across ${retirementDuration} years.`
                       : `Dự kiến bạn sẽ cần nguồn thu nhập hưu trí trong suốt ${retirementDuration} năm.`}
-                  />
+                  </p>
                 </div>
                 <div className="life-expectancy-pill-metric">
                   <div className="pill-metric-icon">

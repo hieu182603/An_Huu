@@ -52,12 +52,19 @@ export function AdminPartnersPage() {
   const { language } = useI18n();
   const isEn = language === "en";
 
+  const PAGE_SIZE = 10;
   const [activeTabKey, setActiveTabKey] = useState<"products" | "partners">("products");
   const tabProductsLabel = isEn ? "Financial Products" : "Sản phẩm tài chính";
   const tabPartnersLabel = isEn ? "Partner Organizations" : "Tổ chức đối tác";
 
   const [products, setProducts] = useState<FinancialProduct[]>([]);
+  const [productsPage, setProductsPage] = useState(1);
+  const [productsTotal, setProductsTotal] = useState(0);
+
   const [partners, setPartners] = useState<PartnerOrg[]>([]);
+  const [partnersPage, setPartnersPage] = useState(1);
+  const [partnersTotal, setPartnersTotal] = useState(0);
+
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
@@ -78,80 +85,95 @@ export function AdminPartnersPage() {
 
   // Stats
   const stats = useMemo(() => {
-    const totalPartners = partners.length;
-    const totalProducts = products.length;
+    const totalPartners = partnersTotal;
+    const totalProducts = productsTotal;
     const activeProducts = products.filter((p) => p.isVisible && p.status === "Đang phân phối").length;
     const pausedProducts = products.filter((p) => p.status === "Tạm dừng").length;
     return { totalPartners, totalProducts, activeProducts, pausedProducts };
-  }, [partners, products]);
+  }, [partnersTotal, productsTotal, products]);
 
-  // Filter products
+  // Filter products by risk tier on current page
   const filteredProducts = useMemo(() => {
-    return products.filter((item) => {
-      const matchSearch =
-        search === "" ||
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.partnerName.toLowerCase().includes(search.toLowerCase());
-      const matchRisk = riskFilterKey === "ALL" || item.riskTier === riskFilterKey;
-      return matchSearch && matchRisk;
-    });
-  }, [products, search, riskFilterKey]);
+    if (riskFilterKey === "ALL") return products;
+    return products.filter((item) => item.riskTier === riskFilterKey);
+  }, [products, riskFilterKey]);
 
   // Filter partners
-  const filteredPartners = useMemo(() => {
-    return partners.filter((item) => {
-      return (
-        search === "" ||
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.contactPerson.toLowerCase().includes(search.toLowerCase())
-      );
-    });
-  }, [partners, search]);
+  const filteredPartners = partners;
 
   const rawProductsRef = useRef<Map<string, ProductItem>>(new Map());
 
+  // Initial load for overview stats
+  useEffect(() => {
+    let active = true;
+    Promise.all([listAdminPartners(1, 1), listAdminProducts(1, 1)])
+      .then(([partnersRes, productsRes]) => {
+        if (!active) return;
+        if (typeof partnersRes.total === "number") setPartnersTotal(partnersRes.total);
+        if (typeof productsRes.total === "number") setProductsTotal(productsRes.total);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [reload]);
+
+  // Paginated fetching based on active tab and search
   useEffect(() => {
     let active = true;
     setLoading(true);
     setLoadError("");
-    Promise.all([listAdminPartners(1, 50), listAdminProducts(1, 50)])
-      .then(([partnersRes, productsRes]) => {
-        if (!active) return;
-        if (partnersRes.items) {
-          setPartners(partnersRes.items.map(p => ({
-            id: p.id,
-            name: p.name,
-            type: p.type === "BANK" ? "Ngân hàng thương mại" : p.type === "INSURANCE" ? "Công ty Bảo hiểm Nhân thọ" : "Công ty Quản lý Quỹ",
-            productsCount: productsRes.items.filter(item => item.partnerId === p.id).length,
-            contactPerson: p.contactEmail || "Đang cập nhật",
-            contactEmail: p.contactEmail || "Chưa công bố",
-            status: p.isVisible ? "Đang hợp tác" : "Đang rà soát hợp đồng",
-            rating: "Chưa công bố",
-          })));
+    const timer = setTimeout(async () => {
+      try {
+        if (activeTabKey === "products") {
+          const productsRes = await listAdminProducts(productsPage, PAGE_SIZE, search.trim());
+          if (!active) return;
+          if (typeof productsRes.total === "number") setProductsTotal(productsRes.total);
+          if (productsRes.items) {
+            const map = new Map<string, ProductItem>();
+            productsRes.items.forEach(item => map.set(item.id, item));
+            rawProductsRef.current = map;
+            setProducts(productsRes.items.map(item => ({
+              id: item.id,
+              name: item.name,
+              partnerName: item.partner?.name || (isEn ? "Affiliate Partner" : "Đối tác liên kết"),
+              partnerType: item.partner?.type === "BANK" ? "Ngân hàng thương mại" : item.partner?.type === "INSURANCE" ? "Công ty Bảo hiểm Nhân thọ" : "Công ty Quản lý Quỹ",
+              category: item.category as FinancialProduct["category"] || "Quỹ mở cổ phiếu/trái phiếu",
+              riskTier: item.riskLevel === "LOW" ? "Rủi ro thấp" : item.riskLevel === "HIGH" ? "Rủi ro cao" : "Rủi ro trung bình",
+              annualFee: item.annualFee || (isEn ? "Per published fee" : "Theo biểu phí niêm yết"),
+              conditions: item.conditions || item.description || "",
+              disclosure: item.disclosure || (isEn ? "Not disclosed" : "Chưa công bố"),
+              isVisible: item.isVisible,
+              status: item.isVisible ? "Đang phân phối" : "Tạm dừng",
+            })));
+          }
+        } else {
+          const partnersRes = await listAdminPartners(partnersPage, PAGE_SIZE, search.trim());
+          if (!active) return;
+          if (typeof partnersRes.total === "number") setPartnersTotal(partnersRes.total);
+          if (partnersRes.items) {
+            setPartners(partnersRes.items.map(p => ({
+              id: p.id,
+              name: p.name,
+              type: p.type === "BANK" ? "Ngân hàng thương mại" : p.type === "INSURANCE" ? "Công ty Bảo hiểm Nhân thọ" : "Công ty Quản lý Quỹ",
+              productsCount: 0,
+              contactPerson: p.contactEmail || (isEn ? "Updating" : "Đang cập nhật"),
+              contactEmail: p.contactEmail || (isEn ? "Unpublished" : "Chưa công bố"),
+              status: p.isVisible ? "Đang hợp tác" : "Đang rà soát hợp đồng",
+              rating: isEn ? "Unrated" : "Chưa công bố",
+            })));
+          }
         }
-        if (productsRes.items) {
-          const map = new Map<string, ProductItem>();
-          productsRes.items.forEach(item => map.set(item.id, item));
-          rawProductsRef.current = map;
-          setProducts(productsRes.items.map(item => ({
-            id: item.id,
-            name: item.name,
-            partnerName: item.partner?.name || "Đối tác liên kết",
-            partnerType: item.partner?.type === "BANK" ? "Ngân hàng thương mại" : item.partner?.type === "INSURANCE" ? "Công ty Bảo hiểm Nhân thọ" : "Công ty Quản lý Quỹ",
-            category: item.category as FinancialProduct["category"] || "Quỹ mở cổ phiếu/trái phiếu",
-            riskTier: item.riskLevel === "LOW" ? "Rủi ro thấp" : item.riskLevel === "HIGH" ? "Rủi ro cao" : "Rủi ro trung bình",
-            annualFee: item.annualFee || "Theo biểu phí niêm yết",
-            conditions: item.conditions || item.description || "",
-            disclosure: item.disclosure || "Chưa công bố",
-            isVisible: item.isVisible,
-            status: item.isVisible ? "Đang phân phối" : "Tạm dừng",
-          })));
-        }
-      })
-      .catch(() => { if (active) setLoadError(isEn ? "Unable to load catalog." : "Không thể tải danh mục đối tác."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [reload, isEn]);
+      } catch {
+        if (active) setLoadError(isEn ? "Unable to load catalog." : "Không thể tải danh mục đối tác.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 200);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [activeTabKey, productsPage, partnersPage, search, reload, isEn]);
 
   const handleToggleProductVisibility = async (id: string) => {
     const raw = rawProductsRef.current.get(id);
@@ -234,7 +256,6 @@ export function AdminPartnersPage() {
     <div className="admin-page business-page">
       {loading && <p role="status">{isEn ? "Loading catalog…" : "Đang tải danh mục…"}</p>}
       {loadError && <Alert tone="danger" title={loadError} action={<Button onClick={() => setReload(n => n + 1)}>{isEn ? "Retry" : "Thử lại"}</Button>} />}
-      <p className="catalog-scope">{isEn ? "Showing up to 50 records returned by the service." : "Hiển thị tối đa 50 bản ghi do dịch vụ trả về."}</p>
       <header className="admin-page-header">
         <div>
           <span>{isEn ? "PARTNERS & SOLUTIONS" : "ĐỐI TÁC VÀ GIẢI PHÁP"}</span>
@@ -297,7 +318,12 @@ export function AdminPartnersPage() {
           <Tabs
             active={activeTabKey === "products" ? tabProductsLabel : tabPartnersLabel}
             items={[tabProductsLabel, tabPartnersLabel]}
-            onChange={(item) => setActiveTabKey(item === tabProductsLabel ? "products" : "partners")}
+            onChange={(item) => {
+              setActiveTabKey(item === tabProductsLabel ? "products" : "partners");
+              setSearch("");
+              setProductsPage(1);
+              setPartnersPage(1);
+            }}
           />
         </div>
 
@@ -316,7 +342,11 @@ export function AdminPartnersPage() {
                     : "Tìm tên tổ chức, đại diện liên hệ..."
                 }
                 value={search}
-                onChange={setSearch}
+                onChange={(val) => {
+                  setSearch(val);
+                  if (activeTabKey === "products") setProductsPage(1);
+                  else setPartnersPage(1);
+                }}
               />
             </div>
             {activeTabKey === "products" && (
@@ -517,11 +547,15 @@ export function AdminPartnersPage() {
         )}
 
         <Pagination
-          page={1}
-          totalPages={1}
-          totalItems={activeTabKey === "products" ? filteredProducts.length : filteredPartners.length}
-          pageSize={10}
+          page={activeTabKey === "products" ? productsPage : partnersPage}
+          totalPages={Math.max(1, Math.ceil((activeTabKey === "products" ? productsTotal : partnersTotal) / PAGE_SIZE))}
+          totalItems={activeTabKey === "products" ? productsTotal : partnersTotal}
+          pageSize={PAGE_SIZE}
           showRowsPerPage={false}
+          onPageChange={(p) => {
+            if (activeTabKey === "products") setProductsPage(p);
+            else setPartnersPage(p);
+          }}
         />
       </Card>
 

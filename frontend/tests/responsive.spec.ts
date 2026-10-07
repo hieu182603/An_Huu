@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
   await installFinancialProfileRoutes(page);
 });
 
-const routes = ["/", "/cach-hoat-dong", "/mo-phong", "/tro-ly-ai", "/kien-thuc", "/kien-thuc/missing", "/login", "/register", "/forgot-password", "/reset-password", "/verify", "/onboarding", "/user/dashboard", "/user/goal", "/user/plan", "/user/simulation", "/user/debts", "/user/risk-portfolio", "/user/support", "/user/notifications", "/user/assistant", "/user/explore", "/user/account", "/admin/dashboard", "/admin/users", "/admin/users/USR-1082", "/admin/content", "/admin/partners", "/admin/ai", "/admin/financial-config", "/admin/support", "/admin/reports", "/admin/operations", "/admin/settings/general", "/admin/settings/integrations", "/admin/settings/notifications", "/admin/settings/privacy", "/admin/settings/audit-log"];
+const routes = ["/", "/cach-hoat-dong", "/mo-phong", "/tro-ly-ai", "/kien-thuc", "/kien-thuc/missing", "/login", "/register", "/forgot-password", "/reset-password", "/verify", "/onboarding", "/user/dashboard", "/user/goal", "/user/plan", "/user/simulation", "/user/debts", "/user/risk-portfolio", "/user/support", "/user/notifications", "/user/assistant", "/user/explore", "/user/account", "/admin/dashboard", "/admin/users", "/admin/users/USR-1082", "/admin/content", "/admin/partners", "/admin/ai", "/admin/financial-config", "/admin/support", "/admin/reports", "/admin/settings/general", "/admin/settings/security", "/admin/settings/notifications", "/admin/settings/logs", "/admin/settings/audit-log"];
 
 async function expectReflow(page: Page) {
   const issues = await page.evaluate(() => {

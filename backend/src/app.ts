@@ -1,7 +1,7 @@
 import express, { type Express, type Router } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import { errorHandler } from "./middlewares/errorHandler";
+import { createErrorHandler } from "./middlewares/errorHandler";
 import { generalLimiter } from "./middlewares/rateLimiter";
 import { loadEnv, type AppConfig } from "./config/env";
 import { corsOptions } from "./config/cors";
@@ -36,8 +36,10 @@ export function createApp(options: AppOptions = {}): Express {
   app.get("/health", (_req, res) => res.json({ status: "healthy", service: "An Huu Financial Planning Backend API", timestamp: new Date().toISOString(), uptime: process.uptime() }));
   app.get("/api/health", (_req, res) => res.json({ status: "ok", version: "1.0.0", realtime: "Socket.IO enabled", environment: config.NODE_ENV }));
   app.use("/api", generalLimiter);
-  app.use("/api/v1", options.apiRouter ?? createApiRouter(options.services ?? createServices(prisma, config), config));
-  app.use(notFound, errorHandler);
+  const services = options.services ?? (options.apiRouter ? undefined : createServices(prisma, config));
+  app.use("/api/v1", options.apiRouter ?? createApiRouter(services!, config));
+  const settings = services?.settings;
+  app.use(notFound, createErrorHandler(settings ? data => settings.recordSystemLog(data) : undefined));
   return app;
 }
 export { authLimiter, aiLimiter, uploadLimiter, consultationLimiter } from "./middlewares/rateLimiter";

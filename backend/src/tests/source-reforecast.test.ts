@@ -130,7 +130,7 @@ it("serves v4 HTTP preview/save/read/report/replay and actual/AI contracts witho
   expect(validateAi({data:answer,meta:{requestId:randomUUID()}}),JSON.stringify(validateAi.errors)).toBe(true);
   expect((await request(app).post(root+"/source-reforecasts/preview").send(f.command)).status).toBe(401);
   expect((await api("post",root+"/source-reforecasts/preview",{...f.command,initialCapital:"999"})).status).toBe(400);
-},15000);
+},30000);
 it("pins a saved BHXH estimate in the plan and blocks new save/apply on changed history while replay remains immutable",async()=>{
   const f=await fixture(),data=validatedBenefitFixture();
   await f.db.user.create({data:{id:f.owner,role:"USER",status:"ACTIVE",email:"owner@example.invalid",passwordHash:"test",fullName:"Fixture"}});

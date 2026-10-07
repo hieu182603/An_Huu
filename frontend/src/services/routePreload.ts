@@ -9,12 +9,18 @@ const routes: Record<string, () => Promise<unknown>> = {
   "/user/account": () => import("../pages/AccountPage"),
   "/user/support": () => import("../pages/SupportPage"),
   "/user/notifications": () => import("../pages/NotificationsPage"),
-  "/admin/dashboard": () => import("../pages/admin/AdminOverviewApi"),
-  "/admin/reports": () => import("../pages/admin/AdminOverviewApi"),
+  "/admin/dashboard": () => import("../pages/admin/AdminDashboardPage"),
+  "/admin/reports": () => import("../pages/admin/AdminReportsPage"),
   "/admin/users": () => import("../pages/admin/AdminUsersApi"),
   "/admin/content": () => import("../pages/admin/AdminContentApi"),
   "/admin/support": () => import("../pages/SupportPage"),
-  "/admin/operations": () => import("../pages/admin/AdminOperationsPage"),
+  "/admin/partners": () => import("../pages/admin/AdminBusinessPages"),
+  "/admin/ai": () => import("../pages/admin/AdminAIConfigPages"),
+  "/admin/financial-config": () => import("../pages/admin/AdminFinancialConfigPage"),
+  "/admin/settings/general": () => import("../pages/admin/settings/GeneralSettingsPage"),
+  "/admin/settings/security": () => import("../pages/admin/settings/SecuritySettingsPage"),
+  "/admin/settings/notifications": () => import("../pages/admin/settings/NotificationSettingsPage"),
+  "/admin/settings/logs": () => import("../pages/admin/settings/SystemLogsPage"),
 };
 const requested = new Set<string>();
 export function preloadRoute(path: string) {

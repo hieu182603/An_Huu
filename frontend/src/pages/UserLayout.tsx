@@ -232,7 +232,7 @@ export default function UserLayout() {
 
             <Avatar
               initials={user?.initials || "NA"}
-              name={user?.name || "Nguyễn Minh An"}
+              name={user?.name || "An Huu User"}
               detail={user?.role === "admin" ? (language === "en" ? "Administrator" : "Quản trị viên") : (language === "en" ? "An Huu Account" : "Tài khoản An Hưu")}
               avatarUrl={user?.avatarUrl}
               onLogout={handleLogout}

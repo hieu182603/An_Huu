@@ -21,12 +21,15 @@ import { CatalogService } from "./catalog/service";
 import { InsuranceHistoryService } from "./pensions/history-service";
 import { LegalRulesService } from "./pensions/legal-service";
 import { PensionEstimateService } from "./pensions/estimate-service";
+import { SystemSettingsService } from "./settings/service";
 export function createServices(db: PrismaClient, config: AppConfig) {
+  const settings = new SystemSettingsService(db);
   return {
     catalog: new CatalogService(db),
+    settings,
     auth: new AuthService(db, config, id => {
       try { getIO().in("user:" + id).disconnectSockets(true); } catch { /* No socket server in HTTP-only jobs/tests. */ }
-    }),
+    }, settings),
     profiles: new ProfileService(db),
     debts: new DebtService(db),
     assumptions: new AssumptionsService(db),

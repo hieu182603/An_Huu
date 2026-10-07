@@ -1,5 +1,11 @@
 # T12 — Bằng chứng nghiệm thu nội bộ, 05/10/2026
 
+**07/10 — T17 service/DB race vay + tài sản:** `node scripts/verify-reforecast-concurrency-db.cjs --loan-assets` đạt3race với hai PostgreSQL PID độc lập (same key/same revision/actual edit vs apply). Hai bản lưu giữ đủ loan revision + STAGED asset; actual không bị trừ/góp lặp, v3/v4 replay đạt sau sửa actual. Fixture commit riêng SUSPENDED/configDRAFT đã dọn đúng ID, fingerprint41bảng nguyên; không email/provider. Không là HTTP/browser race hoặc nghiệm thu mọi nhánh. UI còn FE-T17-LOAN-ASSET-RACES; chi tiết PROGRESS.
+
+
+**07/10 — T17/migration0013:** clean12 phát hiện thiếu2index đã có trong schema/DBthật; bổ sung0013 IFNOTEXISTS. Khôi phục0002–0011 về đúng LF khớp checksumDB (không đổi SQL), giữbaselineCRLF, .gitattributes cố định. Clean13/upgrade4→13/10integration/restore41bảng đạt; rehearsalrollback40 vàapply0013 DBthật đạt. Audit13/13checksum, không pending, diff rỗng,40model/41bảng. Không thay bằng chứng backup/scheduler production hoặc UI/races xuyên nhánh. Chi tiết PROGRESS.
+
+
 ## Bằng chứng mới nhất: Gemini và vận hành retention
 
 Mốc này thay trạng thái chưa chọn provider/chưa có retention độc lập ở các bằng chứng lịch sử dưới. P13/P15/sourceChanges đã triển khai theo PROGRESS; UI/browser vẫn chưa nghiệm thu.

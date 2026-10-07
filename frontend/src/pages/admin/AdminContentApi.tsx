@@ -548,6 +548,7 @@ export default function AdminContentPage() {
                   <img
                     src={form.thumbnail}
                     alt="Thumbnail preview"
+                    loading="lazy"
                     style={{ maxWidth: "100%", maxHeight: "240px", objectFit: "cover", borderRadius: "8px", margin: "var(--space-3) 0" }}
                   />
                 )}

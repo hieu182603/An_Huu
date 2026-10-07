@@ -1,5 +1,25 @@
 # ADR-001 — Phiên bản luật, lịch BHXH và nguồn trong kế hoạch
 
+**07/10 — early disbursement refinance:** DISBURSED_BALANCE giải ngân trước settledOn dùng proceedsAtSettlement có xác nhận số tiền còn khả dụng/danh sách đã dùng. Đối soát net−used=available rồi available+topup=settlement+unused; không suy từ dư gốc hoặc allocations trả vay. Pin optional field trong refinance proof, không default snapshot cũ, không tạo fund movement/migration. Giải ngân sau tất toán và sử dụng khác cùng ngày cần luồng/thứ tự riêng; chưa hỗ trợ. Contract LOAN_REVISIONS_V2.
+
+
+**07/10 — responsibility amendment:** loanRevisions nhận metadata sửa nghĩa vụ có ngày/chứng từ/openingUserPaid; contract.userPaidToDate giữ tổng đã thực trả kể cả ALLOCATED_SHARE để không reset khi quay lại CAPPED. Khi đã có ledger, mỗi revision phải mang tiếp và cộng allocations mới; CAPPED previouslyPaid phải khớp. Pin trong proof JSONB hiện có, không default vào bản cũ, không migration hoặc thay loan v1. Chỉ lịch sau cutoff đổi, không thêm debit/refund. Contract LOAN_REVISIONS_V2.md và FE-T15-RESPONSIBILITY-AMENDMENT; không đồng nghĩa xác nhận pháp lý/ngân hàng trực tuyến.
+
+
+**07/10 — capital availability:** optional releases trong STAGED, không default vào snapshot cũ. Ledger ngoài quỹ có CONFIRMED/EXPECTED và chứng từ, tổng <= net source share; actual dùng prefix CONFIRMED theo ngày, forecast dùng prefix theo cuối tháng. CONFIRMED bất biến qua revision, không bỏ ledger; EXPECTED quá cutoff phải xử lý. Source proof hiện có pin/replay toàn bộ metadata; không thêm bảng hoặc cộng tiền nhận vào anchor.
+
+
+**07/10 — STAGED:** nhiều đợt góp cùng nguồn dùng tổng lũy kế; allocations mỗi command là delta, priorRealized server tổng hợp theo sourceId và pin vào proof chỉ cho STAGED. Reader kiểm ledger toàn nguồn và lịch sử riêng, trường thiếu bị từ chối; không default vào snapshot cũ. Số nhận không cộng lại anchor. Sau STAGED tiếp tục cùng chế độ hoặc END; REALIZED v4 có thể nâng sang STAGED với khoản cũ trong hạn mức. Không migration.
+
+
+**07/10 — rental lifecycle:** giữ cùng ASSET_CAPITAL sourceId khi RENT→SALE; revision chứa phần thuê còn lại và khoản góp bán, rentalExit pin cùng assetSources. Không tạo nguồn thứ hai cùng tài sản; income linked không tái sinh. Chỉ sửa tương lai, tháng kết thúc đã qua cutoff bất biến trong revision sau; actual riêng. Không migration/profile mutation. Contract ASSET_SOURCES_V4.md.
+
+
+**07/10 — missedContribution:** thêm metadata tùy chọn trên asset REVISE, không default cho snapshot cũ. Lịch gần nhất + actual revision + chứng từ được pin cùng assetSources; candidate chỉ sửa tương lai, không sửa anchor hoặc dữ liệu hồ sơ. Lịch cũ giữ để replay. Chỉ toàn bộ chưa góp, partial/multiple contributions còn mở. Không migration. Contract ASSET_SOURCES_V4.md.
+
+
+**07/10 runtime:** loanCreations/refinances thực tế và assetCommands đã nối cùng API source-reforecasts; evidence giữ newLoanSources/refinances/assetSources trong JSONB PlanVersion, không thêm bảng. Loan19/refinance20/asset20 HTTP/DB rollback đạt; cổng duyệt cũ đã phục hồi, không còn chặn các lượt này. Refinance tương lai, RENT→SALE, các nhánh BHXH/race/UI/vận hành còn mở. Contracts ASSET_SOURCES_V4.md/LOAN_REVISIONS_V2.md thay mô tả chưa mở chức năng trong checkpoint cũ.
+
 **06/10 — T15 public:** `loanRevisions` đã nối vào cùng API source-reforecasts, tối đa30/batch, save/apply tách riêng. Chuyển v1 chỉ xác nhận basis số dư bằng `legacyOpening` và giữ lịch gốc, không giả lập lịch v2 lịch sử. V2 giữ trong `loanSources` của snapshot cùng toàn bộ actual/consumed server lấy theo chủ; reader kiểm chain/proof/lịch, apply kiểm revision actual. Preview trả `loanRevisionOptions` để UI dùng hash server. CAPPED phải xác nhận trần tổng payments và mang phần đã trả; không tự đổi trần hoặc loại. [LOAN_REVISIONS_V2.md](LOAN_REVISIONS_V2.md) là contract hiện hành. Refinance/tài sản/vay mới và PostgreSQL/races vẫn còn làm; các ghi chú chưa mở T15 bên dưới là lịch sử.
 
 **Cập nhật runtime05/10 — v4:** đã mở preview/save tại `plans/{planId}/source-reforecasts`, reader/apply/report/CSV/AI và actual forecast nhận snapshot v4. Phạm vi CREATE/REVISE/END thu/chi/pension, chọn estimate BHXH; tài sản/vốn/vay mới chưa mở. Contract cụ thể [SOURCE_COMMANDS_V4.md](SOURCE_COMMANDS_V4.md) thay đường dẫn v4 dự kiến bên dưới. CAS dùng expectedSnapshotHash + plan/source revisions (snapshot đã pin sourceHash); sourceId mới có tiền tố `plan:`; giới hạn batch100flow+1estimate. Dòng tiền là VND danh nghĩa mỗi tháng, chưa có FX/price-basis khác. Cho revision cùng tháng bắt đầu khi sau cutoff. Evidence estimate/command lưu trong preview của snapshot và được kiểm lại khi đọc/replay. Các câu “v4 nội bộ/chưa mở” dưới đây là lịch sử thiết kế, không là trạng thái runtime hiện hành. PostgreSQL/race còn chờ kiểm chứng.

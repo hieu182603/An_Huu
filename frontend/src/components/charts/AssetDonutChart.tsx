@@ -54,15 +54,15 @@ export function AssetDonutChart({ assets }: { assets: AssetProfile }) {
   if (!totalValue) return <p>{isVi ? "Chưa có tài sản được khai báo." : "No assets declared yet."}</p>;
 
   return (
-    <div style={{ width: "100%", height: 180, position: "relative" }}>
+    <div style={{ width: "100%", height: 260, position: "relative" }}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={assetData}
             cx="50%"
             cy="50%"
-            innerRadius={48}
-            outerRadius={72}
+            innerRadius={72}
+            outerRadius={108}
             paddingAngle={3}
             dataKey="value"
             onMouseEnter={(_, index) => setActiveIndex(index)}
@@ -97,10 +97,10 @@ export function AssetDonutChart({ assets }: { assets: AssetProfile }) {
           pointerEvents: "none",
         }}
       >
-        <span style={{ fontSize: "10px", color: "#7B8F9D", textTransform: "uppercase", letterSpacing: "0.5px", display: "block" }}>
+        <span style={{ fontSize: "11px", color: "#7B8F9D", textTransform: "uppercase", letterSpacing: "0.6px", display: "block", fontWeight: 600 }}>
           {isVi ? "Tổng tài sản" : "Total Assets"}
         </span>
-        <strong style={{ fontSize: "14px", color: "var(--color-primary-700, #052659)", fontWeight: 800, display: "block", marginTop: "1px" }}>
+        <strong style={{ fontSize: "20px", color: "var(--color-primary-700, #052659)", fontWeight: 800, display: "block", marginTop: "2px" }}>
           {new Intl.NumberFormat(isVi ? "vi-VN" : "en-US", { notation: "compact", maximumFractionDigits: 1 }).format(totalValue)} ₫
         </strong>
       </div>

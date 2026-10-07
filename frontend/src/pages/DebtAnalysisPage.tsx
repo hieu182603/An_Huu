@@ -379,15 +379,15 @@ export default function DebtAnalysisPage() {
         <Alert
           tone="warning"
           title={language === "en" ? "Financial profile requires upgrade to version 2" : "Hồ sơ tài chính cần nâng cấp lên phiên bản 2"}
+          action={
+            <Button variant="primary" size="small" onClick={handleUpgrade} loading={isUpgrading}>
+              {language === "en" ? "Upgrade to v2 now" : "Nâng cấp hồ sơ sang bản v2 ngay"}
+            </Button>
+          }
         >
           {language === "en"
             ? "Detailed debt payoff analysis requires profile version 2 to accurately determine personal debt obligations, maturity schedules, and early payoff terms."
             : "Hệ thống phân tích trả nợ chi tiết (T02) yêu cầu hồ sơ tài chính phiên bản 2 để xác định chính xác nghĩa vụ trả nợ cá nhân, lịch đáo hạn và điều khoản trả nợ trước hạn."}
-          <div style={{ marginTop: "var(--space-3)" }}>
-            <Button variant="primary" onClick={handleUpgrade} loading={isUpgrading}>
-              {language === "en" ? "Upgrade to v2 now" : "Nâng cấp hồ sơ sang bản v2 ngay"}
-            </Button>
-          </div>
         </Alert>
       )}
 

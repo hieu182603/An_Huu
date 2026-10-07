@@ -15,9 +15,11 @@ async function start() {
   const server = http.createServer(app);
   const io = initSocket(server, config, claims => services.auth.validateSession(claims));
   let stopping = false;
+  let stopWorker = () => {};
   async function shutdown() {
     if (stopping) return;
     stopping = true;
+    stopWorker();
     app.locals.draining = true;
     log("info", "server.stopping");
     const deadline = setTimeout(() => process.exit(1), 10000);
@@ -34,6 +36,36 @@ async function start() {
   }
   process.once("SIGTERM", shutdown);
   process.once("SIGINT", shutdown);
+  if (config.JOB_TRANSPORT === "inline" && config.OUTBOX_ENCRYPTION_KEY) {
+    try {
+      const [{ OutboxProcessor }, { createEventHandler }, { createMailSender }] = await Promise.all([
+        import("./jobs/processor"), import("./jobs/handlers"), import("./jobs/mail"),
+      ]);
+      const processor = new OutboxProcessor(prisma, createEventHandler(prisma, config, createMailSender()));
+      let workerStopped = false;
+      stopWorker = () => { workerStopped = true; };
+      const runPoll = async () => {
+        while (!workerStopped && !stopping) {
+          try {
+            const pending = await processor.pending();
+            for (const event of pending) {
+              if (workerStopped || stopping) break;
+              await processor.process(event.id);
+            }
+          } catch {
+            // ignore background poll errors
+          }
+          if (!workerStopped && !stopping) {
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
+      };
+      void runPoll();
+      log("info", "worker.started");
+    } catch {
+      log("error", "worker.error", { code: "INLINE_INIT_FAILED" });
+    }
+  }
   try {
     await prisma.$connect();
     await new Promise<void>((resolve, reject) => {
@@ -42,6 +74,7 @@ async function start() {
     });
     log("info", "server.started");
   } catch (error) {
+    stopWorker();
     await new Promise<void>(resolve => io.close(() => resolve()));
     await prisma.$disconnect();
     throw error;

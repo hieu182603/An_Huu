@@ -1,5 +1,8 @@
 # Kiểm tra lại T00, frontend T06–T10, T10 và Q13/Q15
 
+**07/10 — T17/migration0013:** clean12 phát hiện thiếu2index đã có trong schema/DBthật; bổ sung0013 IFNOTEXISTS. Khôi phục0002–0011 về đúng LF khớp checksumDB (không đổi SQL), giữbaselineCRLF, .gitattributes cố định. Clean13/upgrade4→13/10integration/restore41bảng đạt; rehearsalrollback40 vàapply0013 DBthật đạt. Audit13/13checksum, không pending, diff rỗng,40model/41bảng. Không thay bằng chứng backup/scheduler production hoặc UI/races xuyên nhánh. Chi tiết PROGRESS.
+
+
 > Cập nhật sau báo cáo này: ngày05/10/2026 chủ dự án đã xác nhận hướng P13/P15 và tiền dư chỉ góp số người dùng xác nhận. Trạng thái “chưa có quyết định” bên dưới ghi lại thời điểm kiểm tra trước xác nhận; kế hoạch hiện hành là `task.md` mục5/7.1. Chưa có code hoặc kết quả kiểm thử mới cho phần bổ sung.
 
 Ngày 05/10/2026, theo bốn nhóm trong ảnh chủ dự án gửi. Đây là kiểm tra kỹ thuật; chưa xác nhận nghiệm thu toàn sản phẩm. Không sửa frontend trong đợt này; việc UI được giao ở mục **FE-RECHECK-20261005** trong [task-frontend.md](task-frontend.md).

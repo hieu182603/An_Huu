@@ -1164,6 +1164,295 @@ EstimateInput:
           - contributionBase
           - evidence
       maxItems: 1200
+    voluntaryCase:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - NORMAL_VOLUNTARY
+        paymentMethod:
+          type: string
+          enum:
+            - REGULAR_ONLY
+        ageRule:
+          type: string
+          enum:
+            - NORMAL
+        benefitStart:
+          type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum: &a8
+                - ELIGIBILITY
+                - CONTINUED_CONTRIBUTIONS
+            month:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            confirmation:
+              type: string
+              enum: &a9
+                - DOCUMENTED
+                - HYPOTHETICAL
+            evidence:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  reference:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  contentHash:
+                    type: string
+                    pattern: ^[a-f0-9]{64}$
+                  confirmedOn:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                required:
+                  - reference
+                  - contentHash
+                  - confirmedOn
+              minItems: 1
+              maxItems: 20
+          required:
+            - kind
+            - month
+            - confirmation
+            - evidence
+      required:
+        - kind
+        - paymentMethod
+        - ageRule
+        - benefitStart
+    voluntaryTopUp:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - MISSING_YEARS_TOP_UP
+        ageRule:
+          type: string
+          enum:
+            - NORMAL
+        historyTreatment:
+          type: string
+          enum:
+            - REGULAR_ONLY
+        paymentOn:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        missingMonths:
+          type: integer
+          minimum: 1
+          maximum: 60
+        monthlyIncome:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        confirmation:
+          type: string
+          enum: &a10
+            - DOCUMENTED_FULLY_PAID
+            - HYPOTHETICAL
+        evidence:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              reference:
+                type: string
+                minLength: 1
+                maxLength: 300
+              contentHash:
+                type: string
+                pattern: ^[a-f0-9]{64}$
+              confirmedOn:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            required:
+              - reference
+              - contentHash
+              - confirmedOn
+          minItems: 1
+          maxItems: 20
+      required:
+        - kind
+        - ageRule
+        - historyTreatment
+        - paymentOn
+        - missingMonths
+        - monthlyIncome
+        - confirmation
+        - evidence
+    voluntaryPrepaid:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - PREPAID_REQUEST
+        ageRule:
+          type: string
+          enum:
+            - NORMAL
+        historyTreatment:
+          type: string
+          enum:
+            - NO_OTHER_ACTIVE_PREPAYMENT_OR_TOP_UP
+        periodStartMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        periodMonths:
+          anyOf:
+            - type: integer
+              enum:
+                - 3
+            - type: integer
+              enum:
+                - 6
+            - type: integer
+              enum:
+                - 12
+            - type: integer
+              enum:
+                - 24
+            - type: integer
+              enum:
+                - 36
+            - type: integer
+              enum:
+                - 48
+            - type: integer
+              enum:
+                - 60
+        registeredOn:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        paymentOn:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        monthlyIncome:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        confirmation:
+          type: string
+          enum: &a11
+            - DOCUMENTED_FULLY_PAID
+            - HYPOTHETICAL
+        evidence:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              reference:
+                type: string
+                minLength: 1
+                maxLength: 300
+              contentHash:
+                type: string
+                pattern: ^[a-f0-9]{64}$
+              confirmedOn:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            required:
+              - reference
+              - contentHash
+              - confirmedOn
+          minItems: 1
+          maxItems: 20
+        benefitRequest:
+          type: object
+          additionalProperties: false
+          properties:
+            confirmation:
+              type: string
+              enum: &a12
+                - DOCUMENTED
+                - HYPOTHETICAL
+            evidence:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  reference:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  contentHash:
+                    type: string
+                    pattern: ^[a-f0-9]{64}$
+                  confirmedOn:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                required:
+                  - reference
+                  - contentHash
+                  - confirmedOn
+              minItems: 1
+              maxItems: 20
+          required:
+            - confirmation
+            - evidence
+        refundSupport:
+          anyOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                stateSupportToExclude:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                evidence:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      reference:
+                        type: string
+                        minLength: 1
+                        maxLength: 300
+                      contentHash:
+                        type: string
+                        pattern: ^[a-f0-9]{64}$
+                      confirmedOn:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    required:
+                      - reference
+                      - contentHash
+                      - confirmedOn
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - stateSupportToExclude
+                - evidence
+            - type: object
+              nullable: true
+              enum:
+                - null
+      required:
+        - kind
+        - ageRule
+        - historyTreatment
+        - periodStartMonth
+        - periodMonths
+        - registeredOn
+        - paymentOn
+        - monthlyIncome
+        - confirmation
+        - evidence
+        - benefitRequest
+        - refundSupport
     caseDetails:
       type: object
       additionalProperties: false
@@ -1174,7 +1463,7 @@ EstimateInput:
             - NORMAL_EMPLOYEE
         participationAtRetirement:
           type: string
-          enum: &a8
+          enum: &a13
             - ACTIVE_COMPULSORY
             - PRESERVED
         benefitStart:
@@ -1183,7 +1472,7 @@ EstimateInput:
           properties:
             kind:
               type: string
-              enum: &a9
+              enum: &a14
                 - EMPLOYER_NOTICE
                 - PERSON_REQUEST
                 - HYPOTHETICAL
@@ -1251,7 +1540,7 @@ EstimateInput:
           maxItems: 20
         salaryTreatment:
           type: string
-          enum: &a10
+          enum: &a15
             - ORDINARY
             - HAZARDOUS_TRANSFER
             - MILITARY_TRANSFER
@@ -1436,6 +1725,285 @@ EstimateSaveInput:
               - contributionBase
               - evidence
           maxItems: 1200
+        voluntaryCase:
+          type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - NORMAL_VOLUNTARY
+            paymentMethod:
+              type: string
+              enum:
+                - REGULAR_ONLY
+            ageRule:
+              type: string
+              enum:
+                - NORMAL
+            benefitStart:
+              type: object
+              additionalProperties: false
+              properties:
+                kind:
+                  type: string
+                  enum: *a8
+                month:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                confirmation:
+                  type: string
+                  enum: *a9
+                evidence:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      reference:
+                        type: string
+                        minLength: 1
+                        maxLength: 300
+                      contentHash:
+                        type: string
+                        pattern: ^[a-f0-9]{64}$
+                      confirmedOn:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    required:
+                      - reference
+                      - contentHash
+                      - confirmedOn
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - kind
+                - month
+                - confirmation
+                - evidence
+          required:
+            - kind
+            - paymentMethod
+            - ageRule
+            - benefitStart
+        voluntaryTopUp:
+          type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - MISSING_YEARS_TOP_UP
+            ageRule:
+              type: string
+              enum:
+                - NORMAL
+            historyTreatment:
+              type: string
+              enum:
+                - REGULAR_ONLY
+            paymentOn:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            missingMonths:
+              type: integer
+              minimum: 1
+              maximum: 60
+            monthlyIncome:
+              type: string
+              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+            confirmation:
+              type: string
+              enum: *a10
+            evidence:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  reference:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  contentHash:
+                    type: string
+                    pattern: ^[a-f0-9]{64}$
+                  confirmedOn:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                required:
+                  - reference
+                  - contentHash
+                  - confirmedOn
+              minItems: 1
+              maxItems: 20
+          required:
+            - kind
+            - ageRule
+            - historyTreatment
+            - paymentOn
+            - missingMonths
+            - monthlyIncome
+            - confirmation
+            - evidence
+        voluntaryPrepaid:
+          type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - PREPAID_REQUEST
+            ageRule:
+              type: string
+              enum:
+                - NORMAL
+            historyTreatment:
+              type: string
+              enum:
+                - NO_OTHER_ACTIVE_PREPAYMENT_OR_TOP_UP
+            periodStartMonth:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            periodMonths:
+              anyOf:
+                - type: integer
+                  enum:
+                    - 3
+                - type: integer
+                  enum:
+                    - 6
+                - type: integer
+                  enum:
+                    - 12
+                - type: integer
+                  enum:
+                    - 24
+                - type: integer
+                  enum:
+                    - 36
+                - type: integer
+                  enum:
+                    - 48
+                - type: integer
+                  enum:
+                    - 60
+            registeredOn:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            paymentOn:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            monthlyIncome:
+              type: string
+              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+            confirmation:
+              type: string
+              enum: *a11
+            evidence:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  reference:
+                    type: string
+                    minLength: 1
+                    maxLength: 300
+                  contentHash:
+                    type: string
+                    pattern: ^[a-f0-9]{64}$
+                  confirmedOn:
+                    type: string
+                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                required:
+                  - reference
+                  - contentHash
+                  - confirmedOn
+              minItems: 1
+              maxItems: 20
+            benefitRequest:
+              type: object
+              additionalProperties: false
+              properties:
+                confirmation:
+                  type: string
+                  enum: *a12
+                evidence:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      reference:
+                        type: string
+                        minLength: 1
+                        maxLength: 300
+                      contentHash:
+                        type: string
+                        pattern: ^[a-f0-9]{64}$
+                      confirmedOn:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    required:
+                      - reference
+                      - contentHash
+                      - confirmedOn
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - confirmation
+                - evidence
+            refundSupport:
+              anyOf:
+                - type: object
+                  additionalProperties: false
+                  properties:
+                    stateSupportToExclude:
+                      type: string
+                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                    evidence:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          reference:
+                            type: string
+                            minLength: 1
+                            maxLength: 300
+                          contentHash:
+                            type: string
+                            pattern: ^[a-f0-9]{64}$
+                          confirmedOn:
+                            type: string
+                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                        required:
+                          - reference
+                          - contentHash
+                          - confirmedOn
+                      minItems: 1
+                      maxItems: 20
+                  required:
+                    - stateSupportToExclude
+                    - evidence
+                - type: object
+                  nullable: true
+                  enum:
+                    - null
+          required:
+            - kind
+            - ageRule
+            - historyTreatment
+            - periodStartMonth
+            - periodMonths
+            - registeredOn
+            - paymentOn
+            - monthlyIncome
+            - confirmation
+            - evidence
+            - benefitRequest
+            - refundSupport
         caseDetails:
           type: object
           additionalProperties: false
@@ -1446,14 +2014,14 @@ EstimateSaveInput:
                 - NORMAL_EMPLOYEE
             participationAtRetirement:
               type: string
-              enum: *a8
+              enum: *a13
             benefitStart:
               type: object
               additionalProperties: false
               properties:
                 kind:
                   type: string
-                  enum: *a9
+                  enum: *a14
                 month:
                   type: string
                   pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
@@ -1518,7 +2086,7 @@ EstimateSaveInput:
               maxItems: 20
             salaryTreatment:
               type: string
-              enum: *a10
+              enum: *a15
             treatmentEvidence:
               type: array
               items:
@@ -1568,9 +2136,9 @@ Issue:
     - path
     - code
   properties:
-    path: &a11
+    path: &a16
       type: string
-    code: *a11
+    code: *a16
 HistoryPreview:
   type: object
   additionalProperties: false
@@ -1586,7 +2154,7 @@ HistoryPreview:
         - READY
         - INCOMPLETE
         - INVALID
-    inputHash: &a12
+    inputHash: &a17
       type: string
       pattern: ^[a-f0-9]{64}$
     issues:
@@ -1607,10 +2175,10 @@ History:
     - recordedAt
     - document
   properties:
-    id: &a14
+    id: &a19
       type: string
       format: uuid
-    revision: &a15
+    revision: &a20
       type: integer
     parentVersionId:
       type: string
@@ -1620,7 +2188,7 @@ History:
       type: string
       pattern: ^[a-f0-9]{64}$
       nullable: true
-    documentHash: *a12
+    documentHash: *a17
     recordedAt:
       type: string
       format: date-time
@@ -1637,15 +2205,15 @@ Validation:
     - validationHash
     - coverage
   properties:
-    valid: &a13
+    valid: &a18
       type: boolean
-    documentHash: *a12
-    engineCode: *a11
+    documentHash: *a17
+    engineCode: *a16
     issues:
       type: array
       items:
         $ref: "#/Issue"
-    validationHash: *a12
+    validationHash: *a17
     coverage:
       type: array
       items:
@@ -1657,8 +2225,8 @@ Validation:
           - fixtureSuiteHash
           - cases
         properties:
-          branch: *a11
-          supported: *a13
+          branch: *a16
+          supported: *a18
           fixtureSuiteHash:
             type: string
             pattern: ^[a-f0-9]{64}$
@@ -1674,10 +2242,10 @@ Validation:
                 - expectedHash
                 - actualHash
               properties:
-                id: *a11
-                passed: *a13
-                expectedHash: *a12
-                actualHash: *a12
+                id: *a16
+                passed: *a18
+                expectedHash: *a17
+                actualHash: *a17
 Review:
   type: object
   additionalProperties: false
@@ -1689,14 +2257,14 @@ Review:
     - draftHash
     - reviewHash
   properties:
-    actor: *a11
+    actor: *a16
     reviewedAt:
       type: string
       format: date-time
-    reviewNote: *a11
-    validationHash: *a12
-    draftHash: *a12
-    reviewHash: *a12
+    reviewNote: *a16
+    validationHash: *a17
+    draftHash: *a17
+    reviewHash: *a17
 Rule:
   type: object
   additionalProperties: false
@@ -1712,9 +2280,9 @@ Rule:
     - validation
     - review
   properties:
-    id: *a14
-    revision: *a15
-    version: *a15
+    id: *a19
+    revision: *a20
+    version: *a20
     status:
       type: string
       enum:
@@ -1722,7 +2290,7 @@ Rule:
         - VALIDATED
         - REVIEWED
         - PUBLISHED
-    documentHash: *a12
+    documentHash: *a17
     knowledgeAsOf:
       type: string
       format: date-time
@@ -1785,9 +2353,9 @@ BenefitAssessment:
       enum:
         - CURRENT_RULE_ESTIMATE
         - PROJECTED_SCENARIO
-    inputHash: *a12
-    historyHash: *a12
-    ruleHash: *a12
+    inputHash: *a17
+    historyHash: *a17
+    ruleHash: *a17
     countedMonths:
       type: integer
       nullable: true
@@ -1815,7 +2383,7 @@ BenefitAssessment:
           - unit
           - citationIds
         properties:
-          code: *a11
+          code: *a16
           value:
             type: string
             nullable: true
@@ -1830,8 +2398,8 @@ BenefitAssessment:
               - CODE
           citationIds:
             type: array
-            items: *a11
-    citations: &a18
+            items: *a16
+    citations: &a23
       type: array
       items:
         type: object
@@ -1890,16 +2458,16 @@ EstimatePreview:
     - legalRuleVersion
     - assessment
   properties:
-    inputHash: *a12
-    engineCode: *a11
-    assessedOn: &a16
+    inputHash: *a17
+    engineCode: *a16
+    assessedOn: &a21
       type: string
       format: date
-    historyVersionId: *a14
-    historyRevision: *a15
-    legalRuleSetVersionId: *a14
-    legalRuleVersion: *a15
-    assessment: &a17
+    historyVersionId: *a19
+    historyRevision: *a20
+    legalRuleSetVersionId: *a19
+    legalRuleVersion: *a20
+    assessment: &a22
       $ref: "#/BenefitAssessment"
 Estimate:
   type: object
@@ -1917,19 +2485,19 @@ Estimate:
     - legalRuleVersion
     - assessment
   properties:
-    id: *a14
+    id: *a19
     createdAt:
       type: string
       format: date-time
-    integrityHash: *a12
-    inputHash: *a12
-    engineCode: *a11
-    assessedOn: *a16
-    historyVersionId: *a14
-    historyRevision: *a15
-    legalRuleSetVersionId: *a14
-    legalRuleVersion: *a15
-    assessment: *a17
+    integrityHash: *a17
+    inputHash: *a17
+    engineCode: *a16
+    assessedOn: *a21
+    historyVersionId: *a19
+    historyRevision: *a20
+    legalRuleSetVersionId: *a19
+    legalRuleVersion: *a20
+    assessment: *a22
 EstimateList:
   type: object
   additionalProperties: false
@@ -1962,9 +2530,9 @@ PublishedRuleList:
           - coverage
           - citations
         properties:
-          id: *a14
-          code: *a11
-          version: *a15
+          id: *a19
+          code: *a16
+          version: *a20
           effectiveFrom:
             type: string
             format: date
@@ -1972,7 +2540,7 @@ PublishedRuleList:
             type: string
             format: date
             nullable: true
-          documentHash: *a12
+          documentHash: *a17
           knowledgeAsOf:
             type: string
             format: date-time
@@ -2012,7 +2580,7 @@ PublishedRuleList:
                 - requiredTableKeys
             minItems: 1
             maxItems: 100
-          citations: *a18
+          citations: *a23
 HistoryPreviewEnvelope:
   type: object
   additionalProperties: false
@@ -2028,7 +2596,7 @@ HistoryPreviewEnvelope:
       required:
         - requestId
       properties:
-        requestId: *a14
+        requestId: *a19
 HistoryEnvelope:
   type: object
   additionalProperties: false
@@ -2044,7 +2612,7 @@ HistoryEnvelope:
       required:
         - requestId
       properties:
-        requestId: *a14
+        requestId: *a19
 RuleEnvelope:
   type: object
   additionalProperties: false
@@ -2060,7 +2628,7 @@ RuleEnvelope:
       required:
         - requestId
       properties:
-        requestId: *a14
+        requestId: *a19
 RuleListEnvelope:
   type: object
   additionalProperties: false
@@ -2076,7 +2644,7 @@ RuleListEnvelope:
       required:
         - requestId
       properties:
-        requestId: *a14
+        requestId: *a19
 EstimatePreviewEnvelope:
   type: object
   additionalProperties: false
@@ -2092,7 +2660,7 @@ EstimatePreviewEnvelope:
       required:
         - requestId
       properties:
-        requestId: *a14
+        requestId: *a19
 EstimateEnvelope:
   type: object
   additionalProperties: false
@@ -2108,7 +2676,7 @@ EstimateEnvelope:
       required:
         - requestId
       properties:
-        requestId: *a14
+        requestId: *a19
 EstimateListEnvelope:
   type: object
   additionalProperties: false
@@ -2124,7 +2692,7 @@ EstimateListEnvelope:
       required:
         - requestId
       properties:
-        requestId: *a14
+        requestId: *a19
 PublishedRuleListEnvelope:
   type: object
   additionalProperties: false
@@ -2140,7 +2708,7 @@ PublishedRuleListEnvelope:
       required:
         - requestId
       properties:
-        requestId: *a14
+        requestId: *a19
 LatestHistoryEnvelope:
   type: object
   additionalProperties: false
@@ -2161,4 +2729,4 @@ LatestHistoryEnvelope:
       required:
         - requestId
       properties:
-        requestId: *a14
+        requestId: *a19
