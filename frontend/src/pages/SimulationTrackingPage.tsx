@@ -24,6 +24,16 @@ import {
   type FlowSourceCommand,
   type SourceReforecastPreviewResponse,
   type PensionSourceSelection,
+  type LoanSourceRevisionCommand,
+  type LoanCreation,
+  type LoanContractV2,
+  type RefinanceCommand,
+  type PlannedPairCommand,
+  type AssetSourceCommand,
+  type AssetCapital,
+  type AssetPlannedContribution,
+  type AssetAvailabilityRelease,
+  generateContractPeriods,
 } from "../services/plans";
 import { Decimal } from "../utils/decimal";
 import { listPensionEstimates, type PensionEstimateRecord } from "../services/insurance";
@@ -540,6 +550,131 @@ export default function SimulationTrackingPage() {
   const [v4ToMonth, setV4ToMonth] = useState<string>("");
   const [v4Document, setV4Document] = useState<string>("");
 
+  // V4 Loan revisions & creations state (FE-07 & FE-08)
+  const [loanRevisions, setLoanRevisions] = useState<LoanSourceRevisionCommand[]>([]);
+  const [loanCreations, setLoanCreations] = useState<LoanCreation[]>([]);
+  const [refinances, setRefinances] = useState<RefinanceCommand[]>([]);
+  const [plannedRefinances, setPlannedRefinances] = useState<PlannedPairCommand[]>([]);
+  const [loanTab, setLoanTab] = useState<"revise" | "create" | "refinance" | "plannedRefinance">("revise");
+
+  // Form state for revising loan
+  const [selectedLoanOptionSourceId, setSelectedLoanOptionSourceId] = useState<string>("");
+  const [lrOperation, setLrOperation] = useState<"REVISE" | "END">("REVISE");
+  const [lrPrincipal, setLrPrincipal] = useState<string>("");
+  const [lrMaturityMonths, setLrMaturityMonths] = useState<number>(36);
+  const [lrRatePercent, setLrRatePercent] = useState<string>("8.5");
+  const [lrMode, setLrMode] = useState<"REDUCE_PAYMENT_KEEP_TERM" | "REDUCE_TERM_KEEP_PAYMENT" | "BANK_SCHEDULE" | "RESTRUCTURED">("REDUCE_PAYMENT_KEEP_TERM");
+  const [lrFixedPayment, setLrFixedPayment] = useState<string>("");
+  const [lrPaymentShare, setLrPaymentShare] = useState<string>("1");
+  const [lrBalanceScope, setLrBalanceScope] = useState<"FULL_CONTRACT" | "USER_SHARE">("FULL_CONTRACT");
+  const [lrResponsibilityKind, setLrResponsibilityKind] = useState<"ALLOCATED_SHARE" | "CAPPED">("ALLOCATED_SHARE");
+  const [lrCapLimit, setLrCapLimit] = useState<string>("");
+  const [lrCapPreviouslyPaid, setLrCapPreviouslyPaid] = useState<string>("");
+  const [lrDocument, setLrDocument] = useState<string>("");
+  // Legacy opening form
+  const [lrLegacySignedOn, setLrLegacySignedOn] = useState<string>("2024-01-01");
+  const [lrLegacyEffectiveOn, setLrLegacyEffectiveOn] = useState<string>("2024-01-01");
+  const [lrLegacyPreviouslyPaid, setLrLegacyPreviouslyPaid] = useState<string>("0");
+  const [lrLegacyDoc, setLrLegacyDoc] = useState<string>("");
+  // Responsibility amendment
+  const [lrHasAmendment, setLrHasAmendment] = useState<boolean>(false);
+  const [lrAmendmentOpeningUserPaid, setLrAmendmentOpeningUserPaid] = useState<string>("0");
+
+  // Form state for creating loan
+  const [lcAgreementRef, setLcAgreementRef] = useState<string>("");
+  const [lcFundingKind, setLcFundingKind] = useState<"EXISTING_BALANCE" | "PLANNED_DISBURSEMENT" | "DISBURSED_BALANCE">("PLANNED_DISBURSEMENT");
+  const [lcPrincipal, setLcPrincipal] = useState<string>("");
+  const [lcMaturityMonths, setLcMaturityMonths] = useState<number>(36);
+  const [lcRatePercent, setLcRatePercent] = useState<string>("8.5");
+  const [lcMode, setLcMode] = useState<"REDUCE_PAYMENT_KEEP_TERM" | "REDUCE_TERM_KEEP_PAYMENT" | "BANK_SCHEDULE" | "RESTRUCTURED">("REDUCE_PAYMENT_KEEP_TERM");
+  const [lcFixedPayment, setLcFixedPayment] = useState<string>("");
+  const [lcPaymentShare, setLcPaymentShare] = useState<string>("1");
+  const [lcBalanceScope, setLcBalanceScope] = useState<"FULL_CONTRACT" | "USER_SHARE">("FULL_CONTRACT");
+  const [lcResponsibilityKind, setLcResponsibilityKind] = useState<"ALLOCATED_SHARE" | "CAPPED">("ALLOCATED_SHARE");
+  const [lcCapLimit, setLcCapLimit] = useState<string>("");
+  const [lcCapPreviouslyPaid, setLcCapPreviouslyPaid] = useState<string>("");
+  const [lcDocRef, setLcDocRef] = useState<string>("");
+  const [lcWithheldFees, setLcWithheldFees] = useState<string>("0");
+  const [lcDisbursedOn, setLcDisbursedOn] = useState<string>("");
+  const [lcOpeningUserPaid, setLcOpeningUserPaid] = useState<string>("0");
+
+  // Form state for actual refinance (FE-08)
+  const [refiClosingSourceId, setRefiClosingSourceId] = useState<string>("");
+  const [refiNewAgreementRef, setRefiNewAgreementRef] = useState<string>("");
+  const [refiGrossDisbursement, setRefiGrossDisbursement] = useState<string>("500000000");
+  const [refiWithheldFees, setRefiWithheldFees] = useState<string>("5000000");
+  const [refiExternalTopUp, setRefiExternalTopUp] = useState<string>("0");
+  const [refiUnusedProceeds, setRefiUnusedProceeds] = useState<string>("0");
+  const [refiSettledOn, setRefiSettledOn] = useState<string>("");
+  const [refiFundingScope, setRefiFundingScope] = useState<"FULL_CONTRACT" | "USER_SHARE">("USER_SHARE");
+  const [refiRatePercent, setRefiRatePercent] = useState<string>("8.0");
+  const [refiMaturityMonths, setRefiMaturityMonths] = useState<number>(60);
+  const [refiHasProceedsEarly, setRefiHasProceedsEarly] = useState<boolean>(false);
+  const [refiAvailableAmount, setRefiAvailableAmount] = useState<string>("495000000");
+  const [refiUsedAmount, setRefiUsedAmount] = useState<string>("0");
+  const [refiDisbursedOn, setRefiDisbursedOn] = useState<string>("");
+
+  // Form state for planned refinance (FE-08)
+  const [prOperation, setPrOperation] = useState<"CREATE" | "REVISE" | "CANCEL">("CREATE");
+  const [prSelectedEligibleSourceId, setPrSelectedEligibleSourceId] = useState<string>("");
+  const [prSelectedActivePairId, setPrSelectedActivePairId] = useState<string>("");
+  const [prSettledOn, setPrSettledOn] = useState<string>("");
+  const [prSameDayOrder, setPrSameDayOrder] = useState<"BEFORE_SCHEDULED_PAYMENT" | "AFTER_SCHEDULED_PAYMENT">("AFTER_SCHEDULED_PAYMENT");
+  const [prQuotePrincipal, setPrQuotePrincipal] = useState<string>("300000000");
+  const [prQuoteInterest, setPrQuoteInterest] = useState<string>("5000000");
+  const [prQuoteCarriedInterest, setPrQuoteCarriedInterest] = useState<string>("0");
+  const [prQuotePrepaymentFee, setPrQuotePrepaymentFee] = useState<string>("1000000");
+  const [prQuoteOtherFee, setPrQuoteOtherFee] = useState<string>("0");
+  const [prFundingScope, setPrFundingScope] = useState<"FULL_CONTRACT" | "USER_SHARE">("USER_SHARE");
+  const [prExternalTopUp, setPrExternalTopUp] = useState<string>("6000000");
+  const [prUserTopUp, setPrUserTopUp] = useState<string>("6000000");
+  const [prUserFinancedAmount, setPrUserFinancedAmount] = useState<string>("300000000");
+  const [prUnusedProceeds, setPrUnusedProceeds] = useState<string>("0");
+  const [prNewAgreementRef, setPrNewAgreementRef] = useState<string>("");
+  const [prNewGross, setPrNewGross] = useState<string>("300000000");
+  const [prNewFees, setPrNewFees] = useState<string>("0");
+  const [prNewRatePercent, setPrNewRatePercent] = useState<string>("7.5");
+  const [prNewMonths, setPrNewMonths] = useState<number>(60);
+  const [prCancelReason, setPrCancelReason] = useState<string>("Thay đổi kế hoạch tài chính");
+
+  // V4 Asset commands state (FE-09 & FE-10)
+  const [assetCommands, setAssetCommands] = useState<AssetSourceCommand[]>([]);
+  const [assetTab, setAssetTab] = useState<"create" | "revise" | "end">("create");
+  const [selectedAssetOptionSourceId, setSelectedAssetOptionSourceId] = useState<string>("");
+  const [assetRef, setAssetRef] = useState<string>("");
+  const [assetKind, setAssetKind] = useState<"ASSET_SALE" | "LIQUID_CAPITAL">("ASSET_SALE");
+  const [assetAmountScope, setAssetAmountScope] = useState<"WHOLE_ASSET" | "USER_SHARE">("WHOLE_ASSET");
+  const [assetOwnershipShare, setAssetOwnershipShare] = useState<string>("1");
+  const [assetRetirementShare, setAssetRetirementShare] = useState<string>("1");
+  const [assetGrossAmount, setAssetGrossAmount] = useState<string>("1000000000");
+  const [assetFees, setAssetFees] = useState<string>("50000000");
+  const [assetTaxes, setAssetTaxes] = useState<string>("50000000");
+  const [assetSecuredDebt, setAssetSecuredDebt] = useState<string>("100000000");
+  const [assetAvailableOn, setAssetAvailableOn] = useState<string>("");
+  const [assetConfirmedContribution, setAssetConfirmedContribution] = useState<string>("150000000");
+  const [assetFundingStatus, setAssetFundingStatus] = useState<"PLANNED" | "REALIZED" | "STAGED">("PLANNED");
+  const [assetContributionMonth, setAssetContributionMonth] = useState<string>("");
+  const [assetDocRef, setAssetDocRef] = useState<string>("");
+  // Rental exit
+  const [assetHasRentalExit, setAssetHasRentalExit] = useState<boolean>(false);
+  const [assetRentEndsOn, setAssetRentEndsOn] = useState<string>("");
+  const [assetFinalMonthIncome, setAssetFinalMonthIncome] = useState<string>("0");
+  // Missed contribution
+  const [assetHasMissedContribution, setAssetHasMissedContribution] = useState<boolean>(false);
+  const [assetMissedScheduledMonth, setAssetMissedScheduledMonth] = useState<string>("");
+  const [assetMissedAmount, setAssetMissedAmount] = useState<string>("");
+  const [assetMissedReason, setAssetMissedReason] = useState<string>("");
+  // End reason
+  const [assetEndReason, setAssetEndReason] = useState<string>("");
+  // Staged planning & availability (FE-10)
+  const [stagedInstallmentMonth, setStagedInstallmentMonth] = useState<string>("");
+  const [stagedInstallmentAmount, setStagedInstallmentAmount] = useState<string>("");
+  const [stagedPlannedContributions, setStagedPlannedContributions] = useState<AssetPlannedContribution[]>([]);
+  const [stagedReleaseDate, setStagedReleaseDate] = useState<string>("");
+  const [stagedReleaseAmount, setStagedReleaseAmount] = useState<string>("");
+  const [stagedReleaseStatus, setStagedReleaseStatus] = useState<"CONFIRMED" | "EXPECTED">("CONFIRMED");
+  const [stagedReleases, setStagedReleases] = useState<AssetAvailabilityRelease[]>([]);
+
   useEffect(() => {
     if (selectedPeriod && /^\d{4}-\d{2}$/.test(selectedPeriod)) {
       const [y, m] = selectedPeriod.split("-").map(Number);
@@ -607,6 +742,20 @@ export default function SimulationTrackingPage() {
       setSelectedSourceId(activeSources[0].sourceId);
     }
   }, [activeSources, selectedSourceId]);
+
+  useEffect(() => {
+    const opts = v4Candidate?.loanRevisionOptions || [];
+    if (opts.length > 0 && (!selectedLoanOptionSourceId || !opts.some((o) => o.sourceId === selectedLoanOptionSourceId))) {
+      setSelectedLoanOptionSourceId(opts[0].sourceId);
+    }
+  }, [v4Candidate?.loanRevisionOptions, selectedLoanOptionSourceId]);
+
+  useEffect(() => {
+    const opts = v4Candidate?.assetRevisionOptions || [];
+    if (opts.length > 0 && (!selectedAssetOptionSourceId || !opts.some((o) => o.sourceId === selectedAssetOptionSourceId))) {
+      setSelectedAssetOptionSourceId(opts[0].sourceId);
+    }
+  }, [v4Candidate?.assetRevisionOptions, selectedAssetOptionSourceId]);
 
   const handleAddFutureChange = () => {
     if (!fcAmount || isNaN(Number(fcAmount)) || Number(fcAmount) < 0) {
@@ -851,6 +1000,816 @@ export default function SimulationTrackingPage() {
     setPensionSelections([]);
   };
 
+  const handleAddLoanRevision = () => {
+    const option = (v4Candidate?.loanRevisionOptions || []).find(o => o.sourceId === selectedLoanOptionSourceId);
+    if (!option) {
+      notify.error(language === "en" ? "Select Loan" : "Chọn khoản vay", language === "en" ? "Please select a loan to revise from options." : "Vui lòng chọn một khoản vay từ danh sách.");
+      return;
+    }
+    const [y, m] = selectedPeriod.split("-").map(Number);
+    const nextMonthStr = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+    const cutoffDate = new Date(Date.parse(`${nextMonthStr}-01T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const knownOn = todayStr < cutoffDate ? cutoffDate : todayStr;
+    const evidenceHash = "a".repeat(64);
+    const docRef = lrDocument.trim() || (language === "en" ? "Loan agreement verified" : "Chứng từ hợp đồng vay đã xác nhận");
+
+    const periods = lrOperation === "END"
+      ? []
+      : generateContractPeriods(cutoffDate, lrMaturityMonths, lrRatePercent);
+    const maturityDate = lrOperation === "END" ? cutoffDate : (periods.at(-1)?.dueDate || cutoffDate);
+
+    const contract: LoanContractV2 = {
+      contractVersion: 2,
+      currency: "VND",
+      signedOn: option.legacyOpeningRequired ? lrLegacySignedOn : (lrLegacySignedOn <= cutoffDate ? lrLegacySignedOn : cutoffDate),
+      amendedOn: cutoffDate,
+      effectiveOn: cutoffDate,
+      knownOn,
+      confirmation: "BANK_CONFIRMED",
+      evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+      balanceAsOf: cutoffDate,
+      principalBalance: lrOperation === "END" ? "0" : (lrPrincipal ? lrPrincipal.trim() : "0"),
+      balanceScope: lrBalanceScope,
+      paymentShare: lrBalanceScope === "USER_SHARE" ? "1" : lrPaymentShare,
+      responsibility: lrResponsibilityKind === "CAPPED"
+        ? {
+            kind: "CAPPED",
+            capBasis: "TOTAL_USER_PAYMENTS",
+            limit: lrCapLimit || "500000000",
+            previouslyPaid: lrCapPreviouslyPaid || "0",
+            evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+          }
+        : { kind: "ALLOCATED_SHARE" },
+      interestBasis: "REDUCING_BALANCE",
+      rounding: "CENT_HALF_UP",
+      mode: lrOperation === "END" ? "BANK_SCHEDULE" : lrMode,
+      fixedPayment: lrMode === "REDUCE_TERM_KEEP_PAYMENT" ? (lrFixedPayment || null) : null,
+      finalPayment: lrMode === "REDUCE_PAYMENT_KEEP_TERM" ? "ADJUST_FINAL_PAYMENT" : "NO_BALLOON",
+      maturityDate,
+      periods,
+    };
+
+    const cmd: LoanSourceRevisionCommand = {
+      commandId: crypto.randomUUID(),
+      sourceId: option.sourceId,
+      operation: lrOperation,
+      expectedSourceRevision: option.sourceRevision,
+      expectedSourceHash: option.sourceHash,
+      expectedContractHash: option.contractHash,
+      confirm: true,
+      contract,
+      allocations: [],
+      principalAdvances: [],
+    };
+
+    if (option.legacyOpeningRequired) {
+      cmd.legacyOpening = {
+        signedOn: lrLegacySignedOn <= cutoffDate ? lrLegacySignedOn : cutoffDate,
+        amendedOn: null,
+        effectiveOn: lrLegacyEffectiveOn <= cutoffDate ? lrLegacyEffectiveOn : cutoffDate,
+        knownOn,
+        previouslyPaid: lrLegacyPreviouslyPaid.trim() || "0",
+        ...(lrResponsibilityKind === "CAPPED" ? { capBasis: "TOTAL_USER_PAYMENTS" as const } : {}),
+        evidence: [{ reference: lrLegacyDoc.trim() || docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+      };
+    }
+
+    if (lrHasAmendment) {
+      cmd.responsibilityAmendment = {
+        effectiveOn: cutoffDate,
+        openingUserPaid: lrAmendmentOpeningUserPaid.trim() || "0",
+        confirm: true,
+        evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+      };
+    }
+
+    setLoanRevisions(prev => [...prev.filter(c => c.sourceId !== option.sourceId), cmd]);
+    notify.success(
+      language === "en" ? "Loan Revision Added" : "Đã thêm lệnh sửa khoản vay",
+      `${option.sourceId} (${lrOperation})`
+    );
+  };
+
+  const handleRemoveLoanRevision = (sourceId: string) => {
+    setLoanRevisions(prev => prev.filter(c => c.sourceId !== sourceId));
+  };
+
+  const handleAddLoanCreation = () => {
+    const agreementRef = lcAgreementRef.trim();
+    if (!agreementRef) {
+      notify.error(language === "en" ? "Agreement Reference" : "Mã hợp đồng", language === "en" ? "Please provide agreement reference." : "Vui lòng nhập mã hợp đồng vay.");
+      return;
+    }
+    const [y, m] = selectedPeriod.split("-").map(Number);
+    const nextMonthStr = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+    const cutoffDate = new Date(Date.parse(`${nextMonthStr}-01T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const knownOn = todayStr < cutoffDate ? cutoffDate : todayStr;
+    const evidenceHash = "b".repeat(64);
+    const docRef = lcDocRef.trim() || (language === "en" ? "Verified loan contract document" : "Chứng từ hợp đồng vay mới");
+
+    const isPlanned = lcFundingKind === "PLANNED_DISBURSEMENT";
+    const balanceAsOf = isPlanned ? `${nextMonthStr}-01` : cutoffDate;
+    const effectiveOn = isPlanned ? `${nextMonthStr}-01` : cutoffDate;
+    const periods = generateContractPeriods(balanceAsOf, lcMaturityMonths, lcRatePercent);
+    const maturityDate = periods.at(-1)?.dueDate || balanceAsOf;
+    const principal = lcPrincipal.trim() || "100000000";
+
+    const contract: LoanContractV2 = {
+      contractVersion: 2,
+      currency: "VND",
+      signedOn: cutoffDate,
+      amendedOn: null,
+      effectiveOn,
+      knownOn,
+      confirmation: isPlanned ? "HYPOTHETICAL" : "BANK_CONFIRMED",
+      evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+      balanceAsOf,
+      principalBalance: principal,
+      balanceScope: lcBalanceScope,
+      balanceNature: isPlanned ? "PROJECTED_DISBURSEMENT" : undefined,
+      paymentShare: lcBalanceScope === "USER_SHARE" ? "1" : lcPaymentShare,
+      responsibility: lcResponsibilityKind === "CAPPED"
+        ? {
+            kind: "CAPPED",
+            capBasis: "TOTAL_USER_PAYMENTS",
+            limit: lcCapLimit || "500000000",
+            previouslyPaid: lcCapPreviouslyPaid || "0",
+            evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+          }
+        : { kind: "ALLOCATED_SHARE" },
+      interestBasis: "REDUCING_BALANCE",
+      rounding: "CENT_HALF_UP",
+      mode: lcMode,
+      fixedPayment: lcMode === "REDUCE_TERM_KEEP_PAYMENT" ? (lcFixedPayment || null) : null,
+      finalPayment: lcMode === "REDUCE_PAYMENT_KEEP_TERM" ? "ADJUST_FINAL_PAYMENT" : "NO_BALLOON",
+      maturityDate,
+      periods,
+    };
+
+    let funding: LoanCreation["funding"];
+    if (lcFundingKind === "EXISTING_BALANCE") {
+      funding = {
+        kind: "EXISTING_BALANCE",
+        notAlreadyInSources: true,
+        evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+      };
+    } else if (lcFundingKind === "PLANNED_DISBURSEMENT") {
+      const gross = principal;
+      const fees = lcWithheldFees.trim() || "0";
+      const net = Decimal.max("0", new Decimal(gross).minus(fees)).toString();
+      funding = {
+        kind: "PLANNED_DISBURSEMENT",
+        grossPrincipal: gross,
+        withheldFees: fees,
+        netDisbursement: net,
+        destination: "EXTERNAL_ACCOUNT",
+        evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+      };
+    } else {
+      funding = {
+        kind: "DISBURSED_BALANCE",
+        notAlreadyInSources: true,
+        disbursedOn: lcDisbursedOn || cutoffDate,
+        grossPrincipal: principal,
+        openingUserPaid: lcOpeningUserPaid.trim() || "0",
+        evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+        allocations: [],
+        principalAdvances: [],
+      };
+    }
+
+    const creation: LoanCreation = {
+      commandId: crypto.randomUUID(),
+      sourceId: `plan:${crypto.randomUUID()}`,
+      operation: "CREATE",
+      expectedSourceRevision: 0,
+      confirm: true,
+      agreementReference: agreementRef,
+      contract,
+      funding,
+    };
+
+    setLoanCreations(prev => [...prev, creation]);
+    setLcAgreementRef("");
+    setLcPrincipal("");
+    notify.success(
+      language === "en" ? "New Loan Created" : "Đã tạo khoản vay mới",
+      `${agreementRef} (${lcFundingKind})`
+    );
+  };
+
+  const handleRemoveLoanCreation = (cmdId: string) => {
+    setLoanCreations(prev => prev.filter(c => c.commandId !== cmdId));
+  };
+
+  const handleAddRefinance = () => {
+    const closingOption = (v4Candidate?.loanRevisionOptions || []).find(o => o.sourceId === refiClosingSourceId);
+    if (!closingOption) {
+      notify.error(language === "en" ? "Select Closing Loan" : "Chọn khoản vay tất toán", language === "en" ? "Please select an existing loan to close." : "Vui lòng chọn khoản vay hiện hữu cần tất toán.");
+      return;
+    }
+    const agreementRef = refiNewAgreementRef.trim();
+    if (!agreementRef) {
+      notify.error(language === "en" ? "Agreement Reference" : "Mã hợp đồng", language === "en" ? "Please enter new loan agreement reference." : "Vui lòng nhập mã hợp đồng vay mới.");
+      return;
+    }
+    const [y, m] = selectedPeriod.split("-").map(Number);
+    const nextMonthStr = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+    const cutoffDate = new Date(Date.parse(`${nextMonthStr}-01T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const knownOn = todayStr < cutoffDate ? cutoffDate : todayStr;
+    const settledOn = refiSettledOn || cutoffDate;
+    const evidenceHash = "c".repeat(64);
+    const docRef = language === "en" ? "Refinance verified document" : "Chứng từ tái cấp vốn đã xác nhận";
+
+    const gross = refiGrossDisbursement.trim() || "500000000";
+    const withheld = refiWithheldFees.trim() || "0";
+    const net = Decimal.max("0", new Decimal(gross).minus(withheld)).toString();
+    const available = refiHasProceedsEarly ? (refiAvailableAmount.trim() || net) : net;
+    const externalTopUp = refiExternalTopUp.trim() || "0";
+    const unused = refiUnusedProceeds.trim() || "0";
+
+    const settlementAmount = Decimal.max("0", new Decimal(available).plus(externalTopUp).minus(unused)).toString();
+
+    const refinanceCommandId = crypto.randomUUID();
+    const closingCommandId = crypto.randomUUID();
+    const newLoanCommandId = crypto.randomUUID();
+
+    // 1. Linked Closing Loan Revision Command (END)
+    const closingCmd: LoanSourceRevisionCommand = {
+      commandId: closingCommandId,
+      sourceId: closingOption.sourceId,
+      operation: "END",
+      expectedSourceRevision: closingOption.sourceRevision,
+      expectedSourceHash: closingOption.sourceHash,
+      expectedContractHash: closingOption.contractHash,
+      refinanceCommandId,
+      confirm: true,
+      contract: {
+        contractVersion: 2,
+        currency: "VND",
+        signedOn: cutoffDate,
+        amendedOn: cutoffDate,
+        effectiveOn: cutoffDate,
+        knownOn,
+        confirmation: "BANK_CONFIRMED",
+        evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+        balanceAsOf: cutoffDate,
+        principalBalance: "0",
+        balanceScope: refiFundingScope,
+        paymentShare: refiFundingScope === "USER_SHARE" ? "1" : "0.5",
+        responsibility: { kind: "ALLOCATED_SHARE" },
+        interestBasis: "REDUCING_BALANCE",
+        rounding: "CENT_HALF_UP",
+        mode: "BANK_SCHEDULE",
+        fixedPayment: null,
+        finalPayment: "ADJUST_FINAL_PAYMENT",
+        maturityDate: cutoffDate,
+        periods: [],
+      },
+      allocations: [
+        {
+          allocationId: crypto.randomUUID(),
+          eventId: crypto.randomUUID(),
+          actualRevision: 1,
+          bookedOn: settledOn,
+          scope: refiFundingScope,
+          components: {
+            principal: settlementAmount,
+            interest: "0",
+            prepaymentFee: "0",
+            otherFee: "0",
+          },
+          contractComponents: {
+            principal: settlementAmount,
+            interest: "0",
+            prepaymentFee: "0",
+            otherFee: "0",
+          },
+          paymentStatus: "CURRENT",
+          allocationBasis: "BANK_STATEMENT",
+          evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+        },
+      ],
+      principalAdvances: [],
+    };
+
+    // 2. Linked New Loan Creation Command
+    const newPeriods = generateContractPeriods(cutoffDate, refiMaturityMonths, refiRatePercent);
+    const newLoanCmd: LoanCreation = {
+      commandId: newLoanCommandId,
+      sourceId: `plan:${crypto.randomUUID()}`,
+      operation: "CREATE",
+      expectedSourceRevision: 0,
+      refinanceCommandId,
+      agreementReference: agreementRef,
+      confirm: true,
+      contract: {
+        contractVersion: 2,
+        currency: "VND",
+        signedOn: cutoffDate,
+        amendedOn: null,
+        effectiveOn: cutoffDate,
+        knownOn,
+        confirmation: "BANK_CONFIRMED",
+        evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+        balanceAsOf: cutoffDate,
+        principalBalance: gross,
+        balanceScope: refiFundingScope,
+        paymentShare: refiFundingScope === "USER_SHARE" ? "1" : "0.5",
+        responsibility: { kind: "ALLOCATED_SHARE" },
+        interestBasis: "REDUCING_BALANCE",
+        rounding: "CENT_HALF_UP",
+        mode: "REDUCE_PAYMENT_KEEP_TERM",
+        fixedPayment: null,
+        finalPayment: "ADJUST_FINAL_PAYMENT",
+        maturityDate: newPeriods.at(-1)?.dueDate || cutoffDate,
+        periods: newPeriods,
+      },
+      funding: refiHasProceedsEarly
+        ? {
+            kind: "DISBURSED_BALANCE",
+            notAlreadyInSources: true,
+            disbursedOn: refiDisbursedOn || cutoffDate,
+            grossPrincipal: gross,
+            openingUserPaid: "0",
+            evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+            allocations: [],
+            principalAdvances: [],
+          }
+        : {
+            kind: "EXISTING_BALANCE",
+            notAlreadyInSources: true,
+            evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+          },
+    };
+
+    // 3. Refinance Command
+    const refiCmd: RefinanceCommand = {
+      commandId: refinanceCommandId,
+      closingCommandId,
+      newLoanCommandId,
+      settledOn,
+      fundingScope: refiFundingScope,
+      grossDisbursement: gross,
+      withheldFees: withheld,
+      externalTopUp,
+      unusedProceeds: unused,
+      confirm: true,
+      evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+      ...(refiHasProceedsEarly
+        ? {
+            proceedsAtSettlement: {
+              availableAmount: available,
+              confirm: true,
+              usesBeforeSettlement: refiUsedAmount && Number(refiUsedAmount) > 0
+                ? [
+                    {
+                      useId: crypto.randomUUID(),
+                      bookedOn: refiDisbursedOn || cutoffDate,
+                      amount: refiUsedAmount,
+                      description: language === "en" ? "Used before settlement" : "Đã dùng trước tất toán",
+                      evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+                    },
+                  ]
+                : [],
+              evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+            },
+          }
+        : {}),
+    };
+
+    setLoanRevisions(prev => [...prev.filter(c => c.sourceId !== closingOption.sourceId), closingCmd]);
+    setLoanCreations(prev => [...prev, newLoanCmd]);
+    setRefinances(prev => [...prev, refiCmd]);
+    notify.success(
+      language === "en" ? "Refinance Added" : "Đã thêm lệnh tái cấp vốn",
+      `${closingOption.sourceId} ➔ ${agreementRef}`
+    );
+  };
+
+  const handleRemoveRefinance = (refiCmdId: string) => {
+    const refi = refinances.find(r => r.commandId === refiCmdId);
+    if (refi) {
+      setLoanRevisions(prev => prev.filter(c => c.commandId !== refi.closingCommandId));
+      setLoanCreations(prev => prev.filter(c => c.commandId !== refi.newLoanCommandId));
+    }
+    setRefinances(prev => prev.filter(r => r.commandId !== refiCmdId));
+  };
+
+  const handleAddPlannedRefinance = () => {
+    const [y, m] = selectedPeriod.split("-").map(Number);
+    const nextMonthStr = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+    const cutoffDate = new Date(Date.parse(`${nextMonthStr}-01T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const knownOn = todayStr < cutoffDate ? cutoffDate : todayStr;
+    const evidenceHash = "d".repeat(64);
+    const docRef = language === "en" ? "Planned refinance quote document" : "Chứng từ báo giá tái cấp vốn dự kiến";
+
+    if (prOperation === "CANCEL") {
+      const activePair = (v4Candidate?.plannedRefinanceOptions?.activePairs || []).find(p => p.pairId === prSelectedActivePairId);
+      if (!activePair) {
+        notify.error(language === "en" ? "Select Active Pair" : "Chọn cặp đang hoạt động", language === "en" ? "Please select an active pair to cancel." : "Vui lòng chọn cặp tái cấp vốn đang hoạt động cần hủy.");
+        return;
+      }
+      const cancelCmd: PlannedPairCommand = {
+        operation: "CANCEL",
+        commandId: crypto.randomUUID(),
+        replacementCommandId: crypto.randomUUID(),
+        pairId: activePair.pairId,
+        oldSource: { sourceId: activePair.oldSource.sourceId, revision: activePair.oldSource.revision, sourceHash: activePair.oldSource.sourceHash },
+        newSource: { sourceId: activePair.newSource.sourceId, revision: activePair.newSource.revision, sourceHash: activePair.newSource.sourceHash },
+        expectedContractHash: activePair.contractHash,
+        expectedPairHash: activePair.pairHash,
+        reason: prCancelReason.trim() || (language === "en" ? "User cancelled refinance" : "Người dùng hủy phương án tái cấp vốn"),
+        confirm: true,
+      };
+      setPlannedRefinances(prev => [...prev.filter(p => p.pairId !== activePair.pairId), cancelCmd]);
+      notify.success(language === "en" ? "Planned Refinance Cancelled" : "Đã thêm lệnh hủy cặp dự kiến", activePair.pairId);
+      return;
+    }
+
+    if (prOperation === "CREATE") {
+      const eligible = (v4Candidate?.plannedRefinanceOptions?.eligibleLoans || []).find(l => l.sourceId === prSelectedEligibleSourceId);
+      if (!eligible) {
+        notify.error(language === "en" ? "Select Eligible Loan" : "Chọn khoản vay hợp lệ", language === "en" ? "Please select an eligible loan from options." : "Vui lòng chọn khoản vay đủ điều kiện từ danh sách.");
+        return;
+      }
+      const settledOn = prSettledOn || `${nextMonthStr}-15`;
+      const gross = prNewGross.trim() || "300000000";
+      const fees = prNewFees.trim() || "0";
+      const net = Decimal.max("0", new Decimal(gross).minus(fees)).toString();
+      const periods = generateContractPeriods(settledOn, prNewMonths, prNewRatePercent);
+      const newSourceId = `plan:${crypto.randomUUID()}`;
+      const newLoanCommandId = crypto.randomUUID();
+
+      const replacementLoan: LoanCreation = {
+        commandId: newLoanCommandId,
+        sourceId: newSourceId,
+        operation: "CREATE",
+        expectedSourceRevision: 0,
+        agreementReference: prNewAgreementRef.trim() || `PLANNED-REFI-${Date.now()}`,
+        confirm: true,
+        contract: {
+          contractVersion: 2,
+          currency: "VND",
+          signedOn: cutoffDate,
+          amendedOn: null,
+          effectiveOn: settledOn,
+          knownOn,
+          confirmation: "HYPOTHETICAL",
+          evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+          balanceAsOf: settledOn,
+          principalBalance: gross,
+          balanceNature: "PROJECTED_DISBURSEMENT",
+          balanceScope: prFundingScope,
+          paymentShare: prFundingScope === "USER_SHARE" ? "1" : "0.5",
+          responsibility: { kind: "ALLOCATED_SHARE" },
+          interestBasis: "REDUCING_BALANCE",
+          rounding: "CENT_HALF_UP",
+          mode: "REDUCE_PAYMENT_KEEP_TERM",
+          fixedPayment: null,
+          finalPayment: "ADJUST_FINAL_PAYMENT",
+          maturityDate: periods.at(-1)?.dueDate || settledOn,
+          periods,
+        },
+        funding: {
+          kind: "PLANNED_DISBURSEMENT",
+          grossPrincipal: gross,
+          withheldFees: fees,
+          netDisbursement: net,
+          destination: "EXTERNAL_ACCOUNT",
+          evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+        },
+      };
+
+      const plannedCmd: PlannedPairCommand = {
+        operation: "CREATE",
+        commandId: crypto.randomUUID(),
+        replacementCommandId: newLoanCommandId,
+        pairId: crypto.randomUUID(),
+        oldSource: { sourceId: eligible.sourceId, revision: eligible.sourceRevision, sourceHash: eligible.sourceHash },
+        newSource: { sourceId: newSourceId, revision: 0, sourceHash: null },
+        expectedContractHash: eligible.contractHash,
+        expectedPairHash: null,
+        confirm: true,
+        terms: {
+          replacement: replacementLoan,
+          settledOn,
+          sameDayOrder: prSameDayOrder,
+          payoffQuote: {
+            principal: prQuotePrincipal.trim() || "300000000",
+            interest: prQuoteInterest.trim() || "0",
+            carriedInterest: prQuoteCarriedInterest.trim() || "0",
+            prepaymentFee: prQuotePrepaymentFee.trim() || "0",
+            otherFee: prQuoteOtherFee.trim() || "0",
+            allRemainingChargesIncluded: true,
+            valueKind: "HYPOTHETICAL_QUOTE",
+            evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+          },
+          funding: {
+            scope: prFundingScope,
+            externalTopUp: prExternalTopUp.trim() || "0",
+            userTopUp: prUserTopUp.trim() || "0",
+            userFinancedAmount: prUserFinancedAmount.trim() || gross,
+            unusedProceeds: prUnusedProceeds.trim() || "0",
+            unusedProceedsNotContributed: true,
+            evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+          },
+        },
+      };
+
+      setPlannedRefinances(prev => [...prev, plannedCmd]);
+      notify.success(language === "en" ? "Planned Refinance Created" : "Đã tạo cặp tái cấp vốn dự kiến", eligible.sourceId);
+    } else {
+      // REVISE
+      const activePair = (v4Candidate?.plannedRefinanceOptions?.activePairs || []).find(p => p.pairId === prSelectedActivePairId);
+      if (!activePair || !activePair.reviseAllowed) {
+        notify.error(language === "en" ? "Revise Not Allowed" : "Không thể sửa", language === "en" ? "Selected pair does not allow revision or is not found." : "Cặp được chọn không cho phép chỉnh sửa.");
+        return;
+      }
+      const settledOn = prSettledOn || activePair.settledOn;
+      const gross = prNewGross.trim() || "300000000";
+      const fees = prNewFees.trim() || "0";
+      const net = Decimal.max("0", new Decimal(gross).minus(fees)).toString();
+      const periods = generateContractPeriods(settledOn, prNewMonths, prNewRatePercent);
+      const newLoanCommandId = crypto.randomUUID();
+
+      const replacementLoan: LoanCreation = {
+        commandId: newLoanCommandId,
+        sourceId: activePair.newSource.sourceId,
+        operation: "CREATE",
+        expectedSourceRevision: 0,
+        agreementReference: prNewAgreementRef.trim() || `PLANNED-REFI-${activePair.pairId.slice(0, 8)}`,
+        confirm: true,
+        contract: {
+          contractVersion: 2,
+          currency: "VND",
+          signedOn: cutoffDate,
+          amendedOn: null,
+          effectiveOn: settledOn,
+          knownOn,
+          confirmation: "HYPOTHETICAL",
+          evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+          balanceAsOf: settledOn,
+          principalBalance: gross,
+          balanceNature: "PROJECTED_DISBURSEMENT",
+          balanceScope: prFundingScope,
+          paymentShare: prFundingScope === "USER_SHARE" ? "1" : "0.5",
+          responsibility: { kind: "ALLOCATED_SHARE" },
+          interestBasis: "REDUCING_BALANCE",
+          rounding: "CENT_HALF_UP",
+          mode: "REDUCE_PAYMENT_KEEP_TERM",
+          fixedPayment: null,
+          finalPayment: "ADJUST_FINAL_PAYMENT",
+          maturityDate: periods.at(-1)?.dueDate || settledOn,
+          periods,
+        },
+        funding: {
+          kind: "PLANNED_DISBURSEMENT",
+          grossPrincipal: gross,
+          withheldFees: fees,
+          netDisbursement: net,
+          destination: "EXTERNAL_ACCOUNT",
+          evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+        },
+      };
+
+      const plannedCmd: PlannedPairCommand = {
+        operation: "REVISE",
+        commandId: crypto.randomUUID(),
+        replacementCommandId: newLoanCommandId,
+        pairId: activePair.pairId,
+        oldSource: { sourceId: activePair.oldSource.sourceId, revision: activePair.oldSource.revision, sourceHash: activePair.oldSource.sourceHash },
+        newSource: { sourceId: activePair.newSource.sourceId, revision: activePair.newSource.revision, sourceHash: activePair.newSource.sourceHash },
+        expectedContractHash: activePair.contractHash,
+        expectedPairHash: activePair.pairHash,
+        confirm: true,
+        terms: {
+          replacement: replacementLoan,
+          settledOn,
+          sameDayOrder: prSameDayOrder,
+          payoffQuote: {
+            principal: prQuotePrincipal.trim() || "300000000",
+            interest: prQuoteInterest.trim() || "0",
+            carriedInterest: prQuoteCarriedInterest.trim() || "0",
+            prepaymentFee: prQuotePrepaymentFee.trim() || "0",
+            otherFee: prQuoteOtherFee.trim() || "0",
+            allRemainingChargesIncluded: true,
+            valueKind: "HYPOTHETICAL_QUOTE",
+            evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+          },
+          funding: {
+            scope: prFundingScope,
+            externalTopUp: prExternalTopUp.trim() || "0",
+            userTopUp: prUserTopUp.trim() || "0",
+            userFinancedAmount: prUserFinancedAmount.trim() || gross,
+            unusedProceeds: prUnusedProceeds.trim() || "0",
+            unusedProceedsNotContributed: true,
+            evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+          },
+        },
+      };
+
+      setPlannedRefinances(prev => [...prev.filter(p => p.pairId !== activePair.pairId), plannedCmd]);
+      notify.success(language === "en" ? "Planned Refinance Revised" : "Đã sửa cặp tái cấp vốn dự kiến", activePair.pairId);
+    }
+  };
+
+  const handleRemovePlannedRefinance = (pairId: string) => {
+    setPlannedRefinances(prev => prev.filter(p => p.pairId !== pairId));
+  };
+
+  const handleAddStagedInstallment = () => {
+    if (!stagedInstallmentMonth || !stagedInstallmentAmount || Number(stagedInstallmentAmount) <= 0) return;
+    setStagedPlannedContributions(prev => [
+      ...prev,
+      {
+        installmentId: crypto.randomUUID(),
+        month: stagedInstallmentMonth,
+        amount: stagedInstallmentAmount,
+        timing: "END_OF_MONTH",
+      },
+    ]);
+    setStagedInstallmentAmount("");
+  };
+
+  const handleRemoveStagedInstallment = (installmentId: string) => {
+    setStagedPlannedContributions(prev => prev.filter(i => i.installmentId !== installmentId));
+  };
+
+  const handleAddStagedRelease = () => {
+    if (!stagedReleaseDate || !stagedReleaseAmount || Number(stagedReleaseAmount) <= 0) return;
+    setStagedReleases(prev => [
+      ...prev,
+      {
+        releaseId: crypto.randomUUID(),
+        availableOn: stagedReleaseDate,
+        amount: stagedReleaseAmount,
+        status: stagedReleaseStatus,
+        evidence: [{ reference: assetDocRef || "Release evidence", contentHash: "e".repeat(64), confirmedOn: stagedReleaseDate }],
+      },
+    ]);
+    setStagedReleaseAmount("");
+  };
+
+  const handleRemoveStagedRelease = (releaseId: string) => {
+    setStagedReleases(prev => prev.filter(r => r.releaseId !== releaseId));
+  };
+
+  const handleAddAssetCommand = () => {
+    const [y, m] = selectedPeriod.split("-").map(Number);
+    const nextMonthStr = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+    const cutoffDate = new Date(Date.parse(`${nextMonthStr}-01T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const knownOn = todayStr < cutoffDate ? cutoffDate : todayStr;
+    const evidenceHash = "a".repeat(64);
+    const docRef = assetDocRef.trim() || (language === "en" ? "Verified asset capital evidence" : "Chứng từ tài sản và vốn xác nhận");
+
+    if (assetTab === "end") {
+      const option = (v4Candidate?.assetRevisionOptions || []).find(o => o.sourceId === selectedAssetOptionSourceId);
+      if (!option) {
+        notify.error(language === "en" ? "Select Asset" : "Chọn tài sản", language === "en" ? "Please select an asset to end." : "Vui lòng chọn tài sản để dừng.");
+        return;
+      }
+      const endCmd: AssetSourceCommand = {
+        commandId: crypto.randomUUID(),
+        sourceId: option.sourceId,
+        operation: "END",
+        expectedSourceRevision: option.sourceRevision,
+        expectedSourceHash: option.sourceHash,
+        reason: assetEndReason.trim() || (language === "en" ? "Terminated by user" : "Người dùng dừng nguồn vốn"),
+        confirm: true,
+        evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+      };
+      setAssetCommands(prev => [...prev.filter(c => c.sourceId !== option.sourceId), endCmd]);
+      notify.success(language === "en" ? "Asset Terminated" : "Đã thêm lệnh dừng tài sản", option.sourceId);
+      return;
+    }
+
+    const gross = assetGrossAmount.trim() || "0";
+    const fees = assetFees.trim() || "0";
+    const taxes = assetTaxes.trim() || "0";
+    const debt = assetSecuredDebt.trim() || "0";
+    const net = Decimal.max("0", new Decimal(gross).minus(fees).minus(taxes).minus(debt)).toString();
+    const availableOn = assetAvailableOn || cutoffDate;
+    const confirmedContribution = assetConfirmedContribution.trim() || "0";
+
+    let funding: AssetCapital["funding"];
+    if (assetFundingStatus === "PLANNED") {
+      funding = {
+        status: "PLANNED",
+        liquidity: "AVAILABLE",
+        notIncludedInFund: true,
+        contributionMonth: assetContributionMonth || nextMonthStr,
+        contributionTiming: "END_OF_MONTH",
+      };
+    } else if (assetFundingStatus === "REALIZED") {
+      funding = {
+        status: "REALIZED",
+        allocations: [],
+      };
+    } else {
+      funding = {
+        status: "STAGED",
+        liquidity: stagedReleases.some(r => r.status === "EXPECTED") ? "PLANNED_RELEASE" : "AVAILABLE",
+        plannedNotIncludedInFund: true,
+        allocations: [],
+        plannedContributions: stagedPlannedContributions,
+        reconciliations: [],
+        ...(stagedReleases.length > 0
+          ? {
+              availability: {
+                amountScope: "NET_SOURCE_SHARE",
+                releases: stagedReleases,
+              },
+            }
+          : {}),
+      };
+    }
+
+    const capital: AssetCapital = {
+      reference: assetRef.trim() || `ASSET-${Date.now()}`,
+      kind: assetKind,
+      currency: "VND",
+      priceBasis: "NOMINAL_AT_AVAILABILITY",
+      amountScope: assetAmountScope,
+      ownershipShare: assetAmountScope === "USER_SHARE" ? "1" : assetOwnershipShare,
+      retirementShare: assetRetirementShare,
+      grossAmount: gross,
+      fees,
+      taxes,
+      securedDebtSettlement: debt,
+      netAmount: net,
+      availableOn,
+      confirmedContributionAmount: confirmedContribution,
+      funding,
+    };
+
+    if (assetTab === "create") {
+      const createCmd: AssetSourceCommand = {
+        commandId: crypto.randomUUID(),
+        sourceId: `plan:${crypto.randomUUID()}`,
+        operation: "CREATE",
+        expectedSourceRevision: 0,
+        expectedSourceHash: null,
+        notAlreadyInSources: true,
+        confirm: true,
+        evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+        capital,
+      };
+      setAssetCommands(prev => [...prev, createCmd]);
+      notify.success(language === "en" ? "Asset Command Added" : "Đã tạo nguồn tài sản mới", capital.reference);
+      setAssetRef("");
+    } else {
+      const option = (v4Candidate?.assetRevisionOptions || []).find(o => o.sourceId === selectedAssetOptionSourceId);
+      if (!option) {
+        notify.error(language === "en" ? "Select Asset" : "Chọn tài sản", language === "en" ? "Please select an asset to revise." : "Vui lòng chọn tài sản để điều chỉnh.");
+        return;
+      }
+      const reviseCmd: AssetSourceCommand = {
+        commandId: crypto.randomUUID(),
+        sourceId: option.sourceId,
+        operation: "REVISE",
+        expectedSourceRevision: option.sourceRevision,
+        expectedSourceHash: option.sourceHash,
+        confirm: true,
+        evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
+        capital,
+        ...(assetHasRentalExit
+          ? {
+              rentalExit: {
+                rentEndsOn: assetRentEndsOn || cutoffDate,
+                finalMonthIncome: assetFinalMonthIncome.trim() || "0",
+                amountScope: "SOURCE_SHARE",
+                confirm: true,
+              },
+            }
+          : {}),
+        ...(assetHasMissedContribution
+          ? {
+              missedContribution: {
+                scheduledMonth: assetMissedScheduledMonth || selectedPeriod,
+                actualRevision: 1,
+                amountNotContributed: assetMissedAmount.trim() || "0",
+                confirmedOn: knownOn,
+                reason: assetMissedReason.trim() || "Chưa nộp khoản dự kiến",
+                confirmNotContributed: true,
+              },
+            }
+          : {}),
+      };
+      setAssetCommands(prev => [...prev.filter(c => c.sourceId !== option.sourceId), reviseCmd]);
+      notify.success(language === "en" ? "Asset Revised" : "Đã sửa nguồn tài sản", option.sourceId);
+    }
+  };
+
+  const handleRemoveAssetCommand = (commandId: string) => {
+    setAssetCommands(prev => prev.filter(c => c.commandId !== commandId));
+  };
+
   const handlePreviewV4 = async () => {
     if (!activePlan?.id || !currentVersion?.id) return;
     setPreviewingV4(true);
@@ -865,6 +1824,11 @@ export default function SimulationTrackingPage() {
         throughMonth: selectedPeriod,
         sourceCommands: sourceCommands.length > 0 ? sourceCommands : [],
         pensionSelections: pensionSelections.length > 0 ? pensionSelections : [],
+        loanRevisions: loanRevisions.length > 0 ? loanRevisions : [],
+        loanCreations: loanCreations.length > 0 ? loanCreations : [],
+        refinances: refinances.length > 0 ? refinances : [],
+        assetCommands: assetCommands.length > 0 ? assetCommands : [],
+        plannedRefinances: plannedRefinances.length > 0 ? plannedRefinances : [],
       });
       setV4Candidate(res);
       if (res.status === "READY") {
@@ -899,6 +1863,11 @@ export default function SimulationTrackingPage() {
         throughMonth: selectedPeriod,
         sourceCommands: sourceCommands.length > 0 ? sourceCommands : [],
         pensionSelections: pensionSelections.length > 0 ? pensionSelections : [],
+        loanRevisions: loanRevisions.length > 0 ? loanRevisions : [],
+        loanCreations: loanCreations.length > 0 ? loanCreations : [],
+        refinances: refinances.length > 0 ? refinances : [],
+        assetCommands: assetCommands.length > 0 ? assetCommands : [],
+        plannedRefinances: plannedRefinances.length > 0 ? plannedRefinances : [],
       };
       const bodyStr = JSON.stringify({
         expectedInputHash: v4Candidate.inputHash,
@@ -2440,6 +3409,1596 @@ export default function SimulationTrackingPage() {
                     </table>
                   </div>
                 )}
+
+                {/* 3. Quản lý điều chỉnh & tạo khoản vay V2 (FE-07) */}
+                <div style={{ background: "var(--color-surface-subtle)", padding: "16px", borderRadius: "var(--radius-md)", marginBottom: "16px", border: "1px solid var(--color-primary-200)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: "13px", color: "var(--color-primary-800)" }}>
+                        {language === "en" ? "Manage Loans & Debts V2 (FE-07)" : "Quản lý điều chỉnh & tạo khoản vay V2 (FE-07)"}
+                      </h4>
+                      <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)" }}>
+                        {language === "en"
+                          ? "Adjust loan terms, legacy opening basis, CAPPED liability, or register new loans."
+                          : "Điều chỉnh nợ, xác nhận căn cứ mở đầu V1, trách nhiệm CAPPED hoặc tạo khoản vay mới."}
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className={`button button-small ${loanTab === "revise" ? "button-primary" : "button-ghost"}`}
+                        onClick={() => setLoanTab("revise")}
+                      >
+                        {language === "en" ? "Revise Existing" : "Sửa khoản vay"}
+                      </button>
+                      <button
+                        type="button"
+                        className={`button button-small ${loanTab === "create" ? "button-primary" : "button-ghost"}`}
+                        onClick={() => setLoanTab("create")}
+                      >
+                        {language === "en" ? "Create New" : "Tạo khoản vay"}
+                      </button>
+                      <button
+                        type="button"
+                        className={`button button-small ${loanTab === "refinance" ? "button-primary" : "button-ghost"}`}
+                        onClick={() => setLoanTab("refinance")}
+                      >
+                        {language === "en" ? "Actual Refinance" : "Tái cấp vốn thực tế"}
+                      </button>
+                      <button
+                        type="button"
+                        className={`button button-small ${loanTab === "plannedRefinance" ? "button-primary" : "button-ghost"}`}
+                        onClick={() => setLoanTab("plannedRefinance")}
+                      >
+                        {language === "en" ? "Planned Refinance" : "Tái cấp vốn dự kiến"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {loanTab === "revise" ? (
+                    <div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
+                        <div style={{ gridColumn: "span 2" }}>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Select Loan from Options *" : "Chọn khoản vay từ danh mục *"}
+                          </label>
+                          <select
+                            className="input"
+                            value={selectedLoanOptionSourceId}
+                            onChange={(e) => setSelectedLoanOptionSourceId(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            {(v4Candidate?.loanRevisionOptions || []).length === 0 ? (
+                              <option value="">{language === "en" ? "No loan options available (run preview first)" : "Chưa có danh mục khoản vay (vui lòng bấm xem trước)"}</option>
+                            ) : (
+                              (v4Candidate?.loanRevisionOptions || []).map((o) => (
+                                <option key={o.sourceId} value={o.sourceId}>
+                                  {o.sourceId} (r{o.sourceRevision}) {o.legacyOpeningRequired ? (language === "en" ? "• [Legacy V1 Opening Basis Required]" : "• [Cần căn cứ mở đầu V1]") : ""}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Operation" : "Thao tác"}
+                          </label>
+                          <select
+                            className="input"
+                            value={lrOperation}
+                            onChange={(e) => setLrOperation(e.target.value as "REVISE" | "END")}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="REVISE">{language === "en" ? "REVISE (Update Terms)" : "REVISE (Cập nhật điều khoản)"}</option>
+                            <option value="END">{language === "en" ? "END (Close / Paid off)" : "END (Tất toán / Đóng)"}</option>
+                          </select>
+                        </div>
+
+                        {lrOperation === "REVISE" && (
+                          <>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Cutoff Balance (VND) *" : "Dư nợ gốc cuối kỳ đối soát (VND) *"}
+                              </label>
+                              <input
+                                type="number"
+                                placeholder="VD: 500000000"
+                                className="input"
+                                value={lrPrincipal}
+                                onChange={(e) => setLrPrincipal(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Remaining Term (Months)" : "Thời hạn còn lại (tháng)"}
+                              </label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={lrMaturityMonths}
+                                onChange={(e) => setLrMaturityMonths(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Annual Rate (%/year)" : "Lãi suất (%/năm)"}
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="8.5"
+                                className="input"
+                                value={lrRatePercent}
+                                onChange={(e) => setLrRatePercent(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Amortization Mode" : "Phương thức trả nợ"}
+                              </label>
+                              <select
+                                className="input"
+                                value={lrMode}
+                                onChange={(e) => setLrMode(e.target.value as any)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              >
+                                <option value="REDUCE_PAYMENT_KEEP_TERM">{language === "en" ? "Keep Term (Reduce payment)" : "Giữ thời hạn (Giảm tiền góp)"}</option>
+                                <option value="REDUCE_TERM_KEEP_PAYMENT">{language === "en" ? "Keep Payment (Reduce term)" : "Giữ mức góp (Rút ngắn hạn)"}</option>
+                                <option value="BANK_SCHEDULE">{language === "en" ? "Bank Schedule" : "Lịch theo ngân hàng"}</option>
+                                <option value="RESTRUCTURED">{language === "en" ? "Restructured" : "Cơ cấu lại nợ"}</option>
+                              </select>
+                            </div>
+
+                            {lrMode === "REDUCE_TERM_KEEP_PAYMENT" && (
+                              <div>
+                                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                  {language === "en" ? "Fixed Payment (VND) *" : "Khoản trả cố định (VND) *"}
+                                </label>
+                                <input
+                                  type="number"
+                                  placeholder="VD: 15000000"
+                                  className="input"
+                                  value={lrFixedPayment}
+                                  onChange={(e) => setLrFixedPayment(e.target.value)}
+                                  style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                                />
+                              </div>
+                            )}
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Balance Scope" : "Phạm vi số dư"}
+                              </label>
+                              <select
+                                className="input"
+                                value={lrBalanceScope}
+                                onChange={(e) => setLrBalanceScope(e.target.value as any)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              >
+                                <option value="FULL_CONTRACT">{language === "en" ? "Full Contract" : "Toàn hợp đồng"}</option>
+                                <option value="USER_SHARE">{language === "en" ? "User Share (100%)" : "Chỉ phần người dùng"}</option>
+                              </select>
+                            </div>
+
+                            {lrBalanceScope === "FULL_CONTRACT" && (
+                              <div>
+                                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                  {language === "en" ? "Payment Share (0..1)" : "Tỷ lệ trả của bạn (0..1)"}
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="1"
+                                  className="input"
+                                  value={lrPaymentShare}
+                                  onChange={(e) => setLrPaymentShare(e.target.value)}
+                                  style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                                />
+                              </div>
+                            )}
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Responsibility Kind" : "Trách nhiệm nghĩa vụ"}
+                              </label>
+                              <select
+                                className="input"
+                                value={lrResponsibilityKind}
+                                onChange={(e) => setLrResponsibilityKind(e.target.value as any)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              >
+                                <option value="ALLOCATED_SHARE">{language === "en" ? "Allocated Share" : "Theo tỷ lệ phân bổ"}</option>
+                                <option value="CAPPED">{language === "en" ? "Capped (Limited liability)" : "Có trần giới hạn (CAPPED)"}</option>
+                              </select>
+                            </div>
+
+                            {lrResponsibilityKind === "CAPPED" && (
+                              <>
+                                <div>
+                                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                    {language === "en" ? "Cap Limit (VND) *" : "Mức trần nghĩa vụ (VND) *"}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    placeholder="VD: 500000000"
+                                    className="input"
+                                    value={lrCapLimit}
+                                    onChange={(e) => setLrCapLimit(e.target.value)}
+                                    style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                    {language === "en" ? "Previously Paid (VND)" : "Số đã trả theo trần (VND)"}
+                                  </label>
+                                  <input
+                                    type="number"
+                                    placeholder="0"
+                                    className="input"
+                                    value={lrCapPreviouslyPaid}
+                                    onChange={(e) => setLrCapPreviouslyPaid(e.target.value)}
+                                    style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                                  />
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {/* Legacy Opening Basis fields if required */}
+                      {Boolean((v4Candidate?.loanRevisionOptions || []).find(o => o.sourceId === selectedLoanOptionSourceId)?.legacyOpeningRequired) && (
+                        <div style={{ marginTop: "12px", padding: "12px", background: "var(--color-surface)", borderRadius: "var(--radius-sm)", border: "1px dashed var(--color-warning-border)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+                            <Badge tone="warning">{language === "en" ? "LEGACY V1 OPENING BASIS REQUIRED" : "BẮT BUỘC KHAI BÁO CĂN CỨ MỞ ĐẦU V1"}</Badge>
+                            <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
+                              {language === "en" ? "Khoản vay kế thừa từ hồ sơ V1 cần xác nhận số dư ban đầu." : "Khoản vay kế thừa từ hồ sơ V1 cần xác nhận số dư ban đầu theo chứng từ."}
+                            </span>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "10px" }}>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Signed Date" : "Ngày ký hợp đồng"}
+                              </label>
+                              <input
+                                type="date"
+                                className="input"
+                                value={lrLegacySignedOn}
+                                onChange={(e) => setLrLegacySignedOn(e.target.value)}
+                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Effective Date" : "Ngày hiệu lực"}
+                              </label>
+                              <input
+                                type="date"
+                                className="input"
+                                value={lrLegacyEffectiveOn}
+                                onChange={(e) => setLrLegacyEffectiveOn(e.target.value)}
+                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Previously Paid (VND)" : "Đã thanh toán trước đó (VND)"}
+                              </label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={lrLegacyPreviouslyPaid}
+                                onChange={(e) => setLrLegacyPreviouslyPaid(e.target.value)}
+                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Legacy Opening Evidence" : "Chứng từ căn cứ mở đầu"}
+                              </label>
+                              <input
+                                type="text"
+                                placeholder={language === "en" ? "Bank statement reference" : "Số sao kê ngân hàng xác nhận"}
+                                className="input"
+                                value={lrLegacyDoc}
+                                onChange={(e) => setLrLegacyDoc(e.target.value)}
+                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ marginTop: "12px", display: "flex", gap: "12px", alignItems: "flex-end" }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Loan Revision Document / Verification Note *" : "Chứng từ sửa đổi hợp đồng vay *"}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={language === "en" ? "E.g. Bank loan statement or repayment receipt" : "VD: Sao kê số dư nợ ngân hàng hoặc biên nhận thanh toán"}
+                            className="input"
+                            value={lrDocument}
+                            onChange={(e) => setLrDocument(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+                        <Button variant="secondary" onClick={handleAddLoanRevision}>
+                          <Icon name="plus" size="small" /> {language === "en" ? "Add Loan Revision" : "Thêm lệnh sửa khoản vay"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : loanTab === "create" ? (
+                    <div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Agreement Reference *" : "Mã hợp đồng vay duy nhất *"}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="VD: HDBANK-2026-09"
+                            className="input"
+                            value={lcAgreementRef}
+                            onChange={(e) => setLcAgreementRef(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Funding Kind" : "Cơ sở nguồn vốn"}
+                          </label>
+                          <select
+                            className="input"
+                            value={lcFundingKind}
+                            onChange={(e) => setLcFundingKind(e.target.value as any)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="PLANNED_DISBURSEMENT">{language === "en" ? "PLANNED (Future Disbursement)" : "Dự kiến giải ngân sau cutoff"}</option>
+                            <option value="EXISTING_BALANCE">{language === "en" ? "EXISTING (Confirmed Balance)" : "Khoản vay hiện hữu chốt cuối kỳ"}</option>
+                            <option value="DISBURSED_BALANCE">{language === "en" ? "DISBURSED (Paid Down Principal)" : "Đã giải ngân và trả bớt gốc"}</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Principal Amount (VND) *" : "Số tiền gốc vay (VND) *"}
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="VD: 200000000"
+                            className="input"
+                            value={lcPrincipal}
+                            onChange={(e) => setLcPrincipal(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Loan Term (Months)" : "Thời hạn vay (tháng)"}
+                          </label>
+                          <input
+                            type="number"
+                            className="input"
+                            value={lcMaturityMonths}
+                            onChange={(e) => setLcMaturityMonths(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Annual Rate (%/year)" : "Lãi suất (%/năm)"}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="8.5"
+                            className="input"
+                            value={lcRatePercent}
+                            onChange={(e) => setLcRatePercent(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Amortization Mode" : "Phương thức trả nợ"}
+                          </label>
+                          <select
+                            className="input"
+                            value={lcMode}
+                            onChange={(e) => setLcMode(e.target.value as any)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="REDUCE_PAYMENT_KEEP_TERM">{language === "en" ? "Keep Term (Reduce payment)" : "Giữ thời hạn (Giảm tiền góp)"}</option>
+                            <option value="REDUCE_TERM_KEEP_PAYMENT">{language === "en" ? "Keep Payment (Reduce term)" : "Giữ mức góp (Rút ngắn hạn)"}</option>
+                            <option value="BANK_SCHEDULE">{language === "en" ? "Bank Schedule" : "Lịch theo ngân hàng"}</option>
+                          </select>
+                        </div>
+
+                        {lcFundingKind === "PLANNED_DISBURSEMENT" && (
+                          <div>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                              {language === "en" ? "Withheld Fees (VND)" : "Phí giữ lại khi giải ngân (VND)"}
+                            </label>
+                            <input
+                              type="number"
+                              placeholder="0"
+                              className="input"
+                              value={lcWithheldFees}
+                              onChange={(e) => setLcWithheldFees(e.target.value)}
+                              style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                            />
+                          </div>
+                        )}
+
+                        {lcFundingKind === "DISBURSED_BALANCE" && (
+                          <>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Disbursed Date" : "Ngày giải ngân"}
+                              </label>
+                              <input
+                                type="date"
+                                className="input"
+                                value={lcDisbursedOn}
+                                onChange={(e) => setLcDisbursedOn(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Opening User Paid (VND)" : "Số đã trả tại giải ngân (VND)"}
+                              </label>
+                              <input
+                                type="number"
+                                placeholder="0"
+                                className="input"
+                                value={lcOpeningUserPaid}
+                                onChange={(e) => setLcOpeningUserPaid(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <div style={{ marginTop: "12px", display: "flex", gap: "12px", alignItems: "flex-end" }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Document Verification Note *" : "Chứng từ hợp đồng vay mới *"}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={language === "en" ? "E.g. Bank credit contract or disbursement confirmation" : "VD: Hợp đồng tín dụng ngân hàng hoặc thông báo giải ngân"}
+                            className="input"
+                            value={lcDocRef}
+                            onChange={(e) => setLcDocRef(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+                        <Button variant="secondary" onClick={handleAddLoanCreation}>
+                          <Icon name="plus" size="small" /> {language === "en" ? "Create Loan" : "Tạo khoản vay mới"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : loanTab === "refinance" ? (
+                    <div>
+                      {/* Actual Refinance Form */}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
+                        <div style={{ gridColumn: "span 2" }}>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Closing Existing Loan *" : "Khoản vay hiện hữu cần tất toán (END) *"}
+                          </label>
+                          <select
+                            className="input"
+                            value={refiClosingSourceId}
+                            onChange={(e) => setRefiClosingSourceId(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="">{language === "en" ? "-- Select loan to pay off --" : "-- Chọn khoản vay cần tất toán --"}</option>
+                            {(v4Candidate?.loanRevisionOptions || []).map((o) => (
+                              <option key={o.sourceId} value={o.sourceId}>
+                                {o.sourceId} (r{o.sourceRevision})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "New Loan Agreement Ref *" : "Mã hợp đồng khoản vay mới *"}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="VD: REFI-NEW-2026"
+                            className="input"
+                            value={refiNewAgreementRef}
+                            onChange={(e) => setRefiNewAgreementRef(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Gross Disbursement (VND) *" : "Tổng tiền giải ngân mới (VND) *"}
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="500000000"
+                            className="input"
+                            value={refiGrossDisbursement}
+                            onChange={(e) => setRefiGrossDisbursement(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Withheld Fees (VND)" : "Phí giữ lại khi giải ngân (VND)"}
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="0"
+                            className="input"
+                            value={refiWithheldFees}
+                            onChange={(e) => setRefiWithheldFees(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "External Top-Up (VND)" : "Tiền tự bù thêm (VND)"}
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="0"
+                            className="input"
+                            value={refiExternalTopUp}
+                            onChange={(e) => setRefiExternalTopUp(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Unused Proceeds (VND)" : "Tiền giải ngân còn dư (VND)"}
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="0"
+                            className="input"
+                            value={refiUnusedProceeds}
+                            onChange={(e) => setRefiUnusedProceeds(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Settlement Date" : "Ngày tất toán"}
+                          </label>
+                          <input
+                            type="date"
+                            className="input"
+                            value={refiSettledOn}
+                            onChange={(e) => setRefiSettledOn(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Funding Scope" : "Phạm vi nguồn vốn"}
+                          </label>
+                          <select
+                            className="input"
+                            value={refiFundingScope}
+                            onChange={(e) => setRefiFundingScope(e.target.value as any)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="USER_SHARE">{language === "en" ? "User Share (Phần người dùng)" : "Chỉ phần người dùng"}</option>
+                            <option value="FULL_CONTRACT">{language === "en" ? "Full Contract (Toàn hợp đồng)" : "Toàn hợp đồng"}</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Annual Rate (%/year)" : "Lãi suất (%/năm)"}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="8.0"
+                            className="input"
+                            value={refiRatePercent}
+                            onChange={(e) => setRefiRatePercent(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Maturity (Months)" : "Kỳ hạn vay (tháng)"}
+                          </label>
+                          <input
+                            type="number"
+                            className="input"
+                            value={refiMaturityMonths}
+                            onChange={(e) => setRefiMaturityMonths(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: "12px", padding: "10px", background: "var(--color-surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={refiHasProceedsEarly}
+                            onChange={(e) => setRefiHasProceedsEarly(e.target.checked)}
+                          />
+                          <span style={{ fontWeight: 600 }}>
+                            {language === "en" ? "Disbursed before settlement day (Proceeds at Settlement)" : "Giải ngân trước ngày tất toán (Khai báo tiền khả dụng lúc tất toán)"}
+                          </span>
+                        </label>
+
+                        {refiHasProceedsEarly && (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", marginTop: "10px" }}>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Disbursed Date" : "Ngày giải ngân"}
+                              </label>
+                              <input
+                                type="date"
+                                className="input"
+                                value={refiDisbursedOn}
+                                onChange={(e) => setRefiDisbursedOn(e.target.value)}
+                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Available Amount at Settlement (VND) *" : "Tiền còn sẵn có lúc tất toán (VND) *"}
+                              </label>
+                              <input
+                                type="number"
+                                placeholder="495000000"
+                                className="input"
+                                value={refiAvailableAmount}
+                                onChange={(e) => setRefiAvailableAmount(e.target.value)}
+                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Used Before Settlement (VND)" : "Tiền đã sử dụng trước tất toán (VND)"}
+                              </label>
+                              <input
+                                type="number"
+                                placeholder="0"
+                                className="input"
+                                value={refiUsedAmount}
+                                onChange={(e) => setRefiUsedAmount(e.target.value)}
+                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
+                        <Button variant="secondary" onClick={handleAddRefinance}>
+                          <Icon name="plus" size="small" /> {language === "en" ? "Add Refinance Batch" : "Thêm lệnh tái cấp vốn"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      {/* Planned Refinance Form */}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Pair Operation" : "Thao tác cặp dự kiến"}
+                          </label>
+                          <select
+                            className="input"
+                            value={prOperation}
+                            onChange={(e) => setPrOperation(e.target.value as any)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="CREATE">{language === "en" ? "CREATE (New Pair)" : "CREATE (Lập cặp mới)"}</option>
+                            <option value="REVISE">{language === "en" ? "REVISE (Update Active Pair)" : "REVISE (Sửa cặp đang hoạt động)"}</option>
+                            <option value="CANCEL">{language === "en" ? "CANCEL (Cancel Pair)" : "CANCEL (Hủy cặp dự kiến)"}</option>
+                          </select>
+                        </div>
+
+                        {prOperation === "CREATE" ? (
+                          <div style={{ gridColumn: "span 2" }}>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                              {language === "en" ? "Select Eligible Loan *" : "Chọn khoản vay đủ điều kiện *"}
+                            </label>
+                            <select
+                              className="input"
+                              value={prSelectedEligibleSourceId}
+                              onChange={(e) => setPrSelectedEligibleSourceId(e.target.value)}
+                              style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                            >
+                              <option value="">{language === "en" ? "-- Select eligible loan --" : "-- Chọn khoản vay từ danh mục đủ điều kiện --"}</option>
+                              {(v4Candidate?.plannedRefinanceOptions?.eligibleLoans || []).map((l) => (
+                                <option key={l.sourceId} value={l.sourceId}>
+                                  {l.sourceId} (r{l.sourceRevision}) • Dư nợ: {formatVND(Number(l.principalBalance || 0))}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <div style={{ gridColumn: "span 2" }}>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                              {language === "en" ? "Select Active Pair *" : "Chọn cặp đang hoạt động *"}
+                            </label>
+                            <select
+                              className="input"
+                              value={prSelectedActivePairId}
+                              onChange={(e) => setPrSelectedActivePairId(e.target.value)}
+                              style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                            >
+                              <option value="">{language === "en" ? "-- Select active pair --" : "-- Chọn cặp đang hoạt động --"}</option>
+                              {(v4Candidate?.plannedRefinanceOptions?.activePairs || []).map((p) => (
+                                <option key={p.pairId} value={p.pairId}>
+                                  {p.pairId.slice(0, 8)}... ({p.oldSource.sourceId} ➔ {p.newSource.sourceId}) • {p.settledOn} {p.reviseAllowed ? "" : "[Khóa sửa]"}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {prOperation !== "CANCEL" ? (
+                          <>
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Settled On Date *" : "Ngày tất toán dự kiến *"}
+                              </label>
+                              <input
+                                type="date"
+                                className="input"
+                                value={prSettledOn}
+                                onChange={(e) => setPrSettledOn(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Same Day Payment Order" : "Thứ tự trả nợ cùng ngày"}
+                              </label>
+                              <select
+                                className="input"
+                                value={prSameDayOrder}
+                                onChange={(e) => setPrSameDayOrder(e.target.value as any)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              >
+                                <option value="AFTER_SCHEDULED_PAYMENT">{language === "en" ? "After Scheduled Payment" : "Sau kỳ trả cùng ngày"}</option>
+                                <option value="BEFORE_SCHEDULED_PAYMENT">{language === "en" ? "Before Scheduled Payment" : "Trước kỳ trả cùng ngày"}</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Payoff Principal Quote (VND) *" : "Báo giá dư gốc tất toán (VND) *"}
+                              </label>
+                              <input
+                                type="number"
+                                placeholder="300000000"
+                                className="input"
+                                value={prQuotePrincipal}
+                                onChange={(e) => setPrQuotePrincipal(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Payoff Interest Quote (VND)" : "Báo giá lãi tất toán (VND)"}
+                              </label>
+                              <input
+                                type="number"
+                                placeholder="5000000"
+                                className="input"
+                                value={prQuoteInterest}
+                                onChange={(e) => setPrQuoteInterest(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "Prepayment Fee (VND)" : "Phí trả nợ trước hạn (VND)"}
+                              </label>
+                              <input
+                                type="number"
+                                placeholder="1000000"
+                                className="input"
+                                value={prQuotePrepaymentFee}
+                                onChange={(e) => setPrQuotePrepaymentFee(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "New Loan Principal (VND) *" : "Dư nợ khoản vay mới (VND) *"}
+                              </label>
+                              <input
+                                type="number"
+                                placeholder="300000000"
+                                className="input"
+                                value={prNewGross}
+                                onChange={(e) => setPrNewGross(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "User Top-Up Amount (VND)" : "Tiền người dùng tự bù (VND)"}
+                              </label>
+                              <input
+                                type="number"
+                                placeholder="6000000"
+                                className="input"
+                                value={prUserTopUp}
+                                onChange={(e) => setPrUserTopUp(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "New Loan Rate (%/year)" : "Lãi suất vay mới (%/năm)"}
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="7.5"
+                                className="input"
+                                value={prNewRatePercent}
+                                onChange={(e) => setPrNewRatePercent(e.target.value)}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                                {language === "en" ? "New Loan Months" : "Thời hạn vay mới (tháng)"}
+                              </label>
+                              <input
+                                type="number"
+                                className="input"
+                                value={prNewMonths}
+                                onChange={(e) => setPrNewMonths(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ gridColumn: "span 2" }}>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                              {language === "en" ? "Cancellation Reason *" : "Lý do hủy phương án dự kiến *"}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="VD: Đổi kế hoạch tài chính hoặc hủy vay"
+                              className="input"
+                              value={prCancelReason}
+                              onChange={(e) => setPrCancelReason(e.target.value)}
+                              style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
+                        <Button variant="secondary" onClick={handleAddPlannedRefinance}>
+                          <Icon name="plus" size="small" /> {language === "en" ? "Add Planned Command" : "Thêm lệnh cặp dự kiến"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bảng danh sách các lệnh khoản vay đã thêm */}
+                  {(loanRevisions.length > 0 || loanCreations.length > 0) && (
+                    <div style={{ marginTop: "16px", overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                        <thead>
+                          <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Type" : "Loại lệnh"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Reference / Source ID" : "Mã nguồn / Hợp đồng"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Mode" : "Chế độ"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Principal Balance" : "Dư nợ gốc"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Maturity" : "Đáo hạn"}</th>
+                            <th style={{ padding: "6px 10px", width: "40px" }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {loanRevisions.map((lr) => (
+                            <tr key={lr.commandId} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                              <td style={{ padding: "6px 10px" }}><Badge tone={lr.operation === "END" ? "danger" : "soft"}>{lr.operation}</Badge></td>
+                              <td style={{ padding: "6px 10px", fontWeight: 600 }} className="font-mono">{lr.sourceId}</td>
+                              <td style={{ padding: "6px 10px" }}>{lr.contract.mode}</td>
+                              <td style={{ padding: "6px 10px", fontWeight: 600, color: "var(--color-danger-700)" }} className="font-mono">
+                                {formatVND(Number(lr.contract.principalBalance || 0))}
+                              </td>
+                              <td style={{ padding: "6px 10px" }} className="font-mono">{lr.contract.maturityDate}</td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <IconButton icon="trash" label="Xóa" onClick={() => handleRemoveLoanRevision(lr.sourceId)} />
+                              </td>
+                            </tr>
+                          ))}
+                          {loanCreations.map((lc) => (
+                            <tr key={lc.commandId} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                              <td style={{ padding: "6px 10px" }}><Badge tone="success">CREATE ({lc.funding.kind})</Badge></td>
+                              <td style={{ padding: "6px 10px", fontWeight: 600 }}>{lc.agreementReference}</td>
+                              <td style={{ padding: "6px 10px" }}>{lc.contract.mode}</td>
+                              <td style={{ padding: "6px 10px", fontWeight: 600, color: "var(--color-danger-700)" }} className="font-mono">
+                                {formatVND(Number(lc.contract.principalBalance || 0))}
+                              </td>
+                              <td style={{ padding: "6px 10px" }} className="font-mono">{lc.contract.maturityDate}</td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <IconButton icon="trash" label="Xóa" onClick={() => handleRemoveLoanCreation(lc.commandId)} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Bảng danh sách các lệnh Tái cấp vốn thực tế */}
+                  {refinances.length > 0 && (
+                    <div style={{ marginTop: "16px", overflowX: "auto" }}>
+                      <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-primary-800)", marginBottom: "6px" }}>
+                        {language === "en" ? "Actual Refinance Batches" : "Các gói tái cấp vốn thực tế"}
+                      </div>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                        <thead>
+                          <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Settled On" : "Ngày tất toán"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Gross Disbursement" : "Giải ngân mới"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Top-Up" : "Tiền tự bù"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Unused" : "Tiền dư"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Early Disbursed" : "Giải ngân sớm"}</th>
+                            <th style={{ padding: "6px 10px", width: "40px" }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {refinances.map((rf) => (
+                            <tr key={rf.commandId} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                              <td style={{ padding: "6px 10px" }} className="font-mono">{rf.settledOn}</td>
+                              <td style={{ padding: "6px 10px", fontWeight: 600, color: "var(--color-primary-700)" }} className="font-mono">{formatVND(Number(rf.grossDisbursement || 0))}</td>
+                              <td style={{ padding: "6px 10px" }} className="font-mono">{formatVND(Number(rf.externalTopUp || 0))}</td>
+                              <td style={{ padding: "6px 10px" }} className="font-mono">{formatVND(Number(rf.unusedProceeds || 0))}</td>
+                              <td style={{ padding: "6px 10px" }}>
+                                {rf.proceedsAtSettlement ? <Badge tone="info">PROCEEDS</Badge> : <Badge tone="neutral">SAME_DAY</Badge>}
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <IconButton icon="trash" label="Xóa" onClick={() => handleRemoveRefinance(rf.commandId)} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Bảng danh sách các cặp Tái cấp vốn dự kiến */}
+                  {plannedRefinances.length > 0 && (
+                    <div style={{ marginTop: "16px", overflowX: "auto" }}>
+                      <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-primary-800)", marginBottom: "6px" }}>
+                        {language === "en" ? "Planned Refinance Pairs" : "Các cặp tái cấp vốn dự kiến"}
+                      </div>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                        <thead>
+                          <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Op" : "Thao tác"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Old Source" : "Khoản vay cũ"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Settled On" : "Ngày dự kiến"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Quote / Reason" : "Báo giá / Lý do"}</th>
+                            <th style={{ padding: "6px 10px", width: "40px" }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {plannedRefinances.map((pr) => (
+                            <tr key={pr.commandId} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                              <td style={{ padding: "6px 10px" }}><Badge tone={pr.operation === "CANCEL" ? "danger" : pr.operation === "REVISE" ? "warning" : "info"}>{pr.operation}</Badge></td>
+                              <td style={{ padding: "6px 10px", fontWeight: 600 }} className="font-mono">{pr.oldSource.sourceId}</td>
+                              <td style={{ padding: "6px 10px" }} className="font-mono">{pr.operation === "CANCEL" ? "N/A" : pr.terms.settledOn}</td>
+                              <td style={{ padding: "6px 10px" }}>
+                                {pr.operation === "CANCEL" ? (
+                                  <span style={{ color: "var(--color-danger-700)" }}>{pr.reason}</span>
+                                ) : (
+                                  <span className="font-mono">{formatVND(Number(pr.terms.payoffQuote.principal || 0))}</span>
+                                )}
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <IconButton icon="trash" label="Xóa" onClick={() => handleRemovePlannedRefinance(pr.pairId)} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Quản lý tài sản và vốn một lần V4 (FE-09 & FE-10) */}
+                <div style={{ marginTop: "20px", padding: "16px", background: "var(--color-surface-subtle)", borderRadius: "8px", border: "1px solid var(--color-border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "var(--color-text-main)" }}>
+                        {language === "en" ? "4. Asset & Capital Management V4 (FE-09 & FE-10)" : "4. Quản lý tài sản và vốn một lần V4 (FE-09 & FE-10)"}
+                      </h4>
+                      <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)" }}>
+                        {language === "en"
+                          ? "Asset sale, liquid capital, single or staged contribution, rental-to-sale transition."
+                          : "Bán tài sản, vốn thanh khoản, góp một lần hoặc nhiều đợt (STAGED), chuyển thuê sang bán (rentalExit)."}
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        className={`button button-small ${assetTab === "create" ? "button-primary" : "button-ghost"}`}
+                        onClick={() => setAssetTab("create")}
+                      >
+                        {language === "en" ? "Create Asset" : "Tạo nguồn tài sản"}
+                      </button>
+                      <button
+                        type="button"
+                        className={`button button-small ${assetTab === "revise" ? "button-primary" : "button-ghost"}`}
+                        onClick={() => setAssetTab("revise")}
+                      >
+                        {language === "en" ? "Revise Asset" : "Sửa nguồn tài sản"}
+                      </button>
+                      <button
+                        type="button"
+                        className={`button button-small ${assetTab === "end" ? "button-primary" : "button-ghost"}`}
+                        onClick={() => setAssetTab("end")}
+                      >
+                        {language === "en" ? "Terminate Asset" : "Dừng nguồn tài sản"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {assetTab === "end" ? (
+                    <div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginTop: "12px" }}>
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Select Asset to Terminate *" : "Chọn tài sản cần dừng *"}
+                          </label>
+                          <select
+                            className="input"
+                            value={selectedAssetOptionSourceId}
+                            onChange={(e) => setSelectedAssetOptionSourceId(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            {(v4Candidate?.assetRevisionOptions || []).map((opt) => (
+                              <option key={opt.sourceId} value={opt.sourceId}>
+                                {opt.sourceId} (rev {opt.sourceRevision})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Termination Reason *" : "Lý do dừng nguồn *"}
+                          </label>
+                          <input
+                            type="text"
+                            className="input"
+                            value={assetEndReason}
+                            onChange={(e) => setAssetEndReason(e.target.value)}
+                            placeholder={language === "en" ? "Reason for termination" : "Lý do hủy nguồn vốn tương lai"}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "12px" }}>
+                        <Button variant="danger" size="small" onClick={handleAddAssetCommand}>
+                          <Icon name="trash" size="small" /> {language === "en" ? "Add End Command" : "Thêm lệnh dừng nguồn"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
+                        {assetTab === "revise" ? (
+                          <div style={{ gridColumn: "span 2" }}>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                              {language === "en" ? "Select Asset from Options *" : "Chọn tài sản từ danh mục *"}
+                            </label>
+                            <select
+                              className="input"
+                              value={selectedAssetOptionSourceId}
+                              onChange={(e) => setSelectedAssetOptionSourceId(e.target.value)}
+                              style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                            >
+                              {(v4Candidate?.assetRevisionOptions || []).map((opt) => (
+                                <option key={opt.sourceId} value={opt.sourceId}>
+                                  {opt.sourceId} (rev {opt.sourceRevision})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <div>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                              {language === "en" ? "Asset Reference *" : "Mã định danh tài sản *"}
+                            </label>
+                            <input
+                              type="text"
+                              className="input"
+                              value={assetRef}
+                              onChange={(e) => setAssetRef(e.target.value)}
+                              placeholder="Vd: Bds-Nha-Pho-01"
+                              style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                            />
+                          </div>
+                        )}
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Asset Kind" : "Loại tài sản"}
+                          </label>
+                          <select
+                            className="input"
+                            value={assetKind}
+                            onChange={(e) => setAssetKind(e.target.value as any)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="ASSET_SALE">{language === "en" ? "Asset Sale" : "Bán tài sản (ASSET_SALE)"}</option>
+                            <option value="LIQUID_CAPITAL">{language === "en" ? "Liquid Capital" : "Vốn thanh khoản (LIQUID_CAPITAL)"}</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Amount Scope" : "Phạm vi số tiền"}
+                          </label>
+                          <select
+                            className="input"
+                            value={assetAmountScope}
+                            onChange={(e) => setAssetAmountScope(e.target.value as any)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="WHOLE_ASSET">{language === "en" ? "Whole Asset" : "Toàn bộ tài sản (WHOLE_ASSET)"}</option>
+                            <option value="USER_SHARE">{language === "en" ? "User Share Only" : "Phần của người dùng (USER_SHARE)"}</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Gross Proceeds (VND)" : "Tổng tiền thu được (gross)"}
+                          </label>
+                          <input
+                            type="number"
+                            className="input"
+                            value={assetGrossAmount}
+                            onChange={(e) => setAssetGrossAmount(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Fees (VND)" : "Phí chuyển nhượng"}
+                          </label>
+                          <input
+                            type="number"
+                            className="input"
+                            value={assetFees}
+                            onChange={(e) => setAssetFees(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Taxes (VND)" : "Thuế phải nộp"}
+                          </label>
+                          <input
+                            type="number"
+                            className="input"
+                            value={assetTaxes}
+                            onChange={(e) => setAssetTaxes(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Secured Debt Settlement" : "Tất toán nợ bảo đảm"}
+                          </label>
+                          <input
+                            type="number"
+                            className="input"
+                            value={assetSecuredDebt}
+                            onChange={(e) => setAssetSecuredDebt(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        {assetAmountScope === "WHOLE_ASSET" && (
+                          <div>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                              {language === "en" ? "Ownership Share (0 - 1)" : "Tỷ lệ sở hữu (0 - 1)"}
+                            </label>
+                            <input
+                              type="text"
+                              className="input"
+                              value={assetOwnershipShare}
+                              onChange={(e) => setAssetOwnershipShare(e.target.value)}
+                              style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                            />
+                          </div>
+                        )}
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Retirement Share (0 - 1)" : "Tỷ lệ dành cho hưu trí (0 - 1)"}
+                          </label>
+                          <input
+                            type="text"
+                            className="input"
+                            value={assetRetirementShare}
+                            onChange={(e) => setAssetRetirementShare(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Available On" : "Ngày tiền sẵn có"}
+                          </label>
+                          <input
+                            type="date"
+                            className="input"
+                            value={assetAvailableOn}
+                            onChange={(e) => setAssetAvailableOn(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Confirmed Contribution (VND)" : "Số tiền xác nhận góp vào quỹ"}
+                          </label>
+                          <input
+                            type="number"
+                            className="input"
+                            value={assetConfirmedContribution}
+                            onChange={(e) => setAssetConfirmedContribution(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Funding Status" : "Hình thức góp vốn"}
+                          </label>
+                          <select
+                            className="input"
+                            value={assetFundingStatus}
+                            onChange={(e) => setAssetFundingStatus(e.target.value as any)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="PLANNED">{language === "en" ? "Planned (Future month)" : "Dự kiến góp (PLANNED)"}</option>
+                            <option value="REALIZED">{language === "en" ? "Realized (Past cutoff)" : "Đã góp vào quỹ (REALIZED)"}</option>
+                            <option value="STAGED">{language === "en" ? "Staged (Multi-installment)" : "Nhiều đợt (STAGED)"}</option>
+                          </select>
+                        </div>
+
+                        {assetFundingStatus === "PLANNED" && (
+                          <div>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                              {language === "en" ? "Contribution Month" : "Tháng góp (sau cutoff)"}
+                            </label>
+                            <input
+                              type="month"
+                              className="input"
+                              value={assetContributionMonth}
+                              onChange={(e) => setAssetContributionMonth(e.target.value)}
+                              style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Calculated Equation Box */}
+                      {(() => {
+                        const netVal = Decimal.max("0", new Decimal(assetGrossAmount || "0").minus(assetFees || "0").minus(assetTaxes || "0").minus(assetSecuredDebt || "0")).toString();
+                        const limitVal = (assetAmountScope === "WHOLE_ASSET"
+                          ? new Decimal(netVal).mul(assetOwnershipShare || "1")
+                          : new Decimal(netVal)).mul(assetRetirementShare || "1").toString();
+                        return (
+                          <div style={{ marginTop: "12px", padding: "10px", background: "var(--color-surface)", borderRadius: "6px", border: "1px solid var(--color-border)", fontSize: "11px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                              <span>{language === "en" ? "Net proceeds: " : "Tiền ròng sau khấu trừ: "} <strong>{formatVND(Number(netVal))}</strong></span>
+                              <span>{language === "en" ? "Max contribution limit: " : "Hạn mức góp tối đa: "} <strong style={{ color: "var(--color-primary-600)" }}>{formatVND(Number(limitVal))}</strong></span>
+                              <span>{language === "en" ? "Chosen contribution: " : "Số dự định góp: "} <strong>{formatVND(Number(assetConfirmedContribution || 0))}</strong></span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Staged Installments and Releases Planner (FE-10) */}
+                      {assetFundingStatus === "STAGED" && (
+                        <div style={{ marginTop: "14px", padding: "12px", background: "var(--color-surface)", borderRadius: "6px", border: "1px dashed var(--color-border)" }}>
+                          <h5 style={{ margin: "0 0 8px", fontSize: "12px", fontWeight: 600 }}>
+                            {language === "en" ? "Staged Funding Planner (FE-10)" : "Kế hoạch góp nhiều đợt và giải ngân ngoài quỹ (FE-10)"}
+                          </h5>
+
+                          {/* Planned Contributions */}
+                          <div style={{ marginBottom: "12px" }}>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                              {language === "en" ? "Add Planned Contribution (Month & Amount)" : "Thêm đợt góp dự kiến (Tháng & Số tiền)"}
+                            </label>
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                              <input
+                                type="month"
+                                className="input"
+                                value={stagedInstallmentMonth}
+                                onChange={(e) => setStagedInstallmentMonth(e.target.value)}
+                                style={{ width: "140px", height: "30px", fontSize: "11px" }}
+                              />
+                              <input
+                                type="number"
+                                className="input"
+                                value={stagedInstallmentAmount}
+                                onChange={(e) => setStagedInstallmentAmount(e.target.value)}
+                                placeholder="Số tiền (VND)"
+                                style={{ width: "160px", height: "30px", fontSize: "11px" }}
+                              />
+                              <Button variant="ghost" size="small" onClick={handleAddStagedInstallment}>
+                                <Icon name="plus" size="small" /> {language === "en" ? "Add Installment" : "Thêm đợt góp"}
+                              </Button>
+                            </div>
+                            {stagedPlannedContributions.length > 0 && (
+                              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "6px" }}>
+                                {stagedPlannedContributions.map((inst) => (
+                                  <Badge key={inst.installmentId} tone="info">
+                                    {inst.month}: {formatVND(Number(inst.amount))}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveStagedInstallment(inst.installmentId)}
+                                      style={{ marginLeft: "4px", background: "none", border: "none", cursor: "pointer", color: "inherit" }}
+                                    >
+                                      ×
+                                    </button>
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Outside Fund Releases */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                              {language === "en" ? "Add Cash Availability Release (Outside Fund)" : "Đợt tiền sẵn có ngoài quỹ (availability.releases)"}
+                            </label>
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                              <input
+                                type="date"
+                                className="input"
+                                value={stagedReleaseDate}
+                                onChange={(e) => setStagedReleaseDate(e.target.value)}
+                                style={{ width: "150px", height: "30px", fontSize: "11px" }}
+                              />
+                              <input
+                                type="number"
+                                className="input"
+                                value={stagedReleaseAmount}
+                                onChange={(e) => setStagedReleaseAmount(e.target.value)}
+                                placeholder="Số tiền (VND)"
+                                style={{ width: "160px", height: "30px", fontSize: "11px" }}
+                              />
+                              <select
+                                className="input"
+                                value={stagedReleaseStatus}
+                                onChange={(e) => setStagedReleaseStatus(e.target.value as any)}
+                                style={{ width: "140px", height: "30px", fontSize: "11px" }}
+                              >
+                                <option value="CONFIRMED">CONFIRMED (Đã có)</option>
+                                <option value="EXPECTED">EXPECTED (Dự kiến)</option>
+                              </select>
+                              <Button variant="ghost" size="small" onClick={handleAddStagedRelease}>
+                                <Icon name="plus" size="small" /> {language === "en" ? "Add Release" : "Thêm đợt giải ngân"}
+                              </Button>
+                            </div>
+                            {stagedReleases.length > 0 && (
+                              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "6px" }}>
+                                {stagedReleases.map((rel) => (
+                                  <Badge key={rel.releaseId} tone={rel.status === "CONFIRMED" ? "success" : "warning"}>
+                                    {rel.availableOn} ({rel.status}): {formatVND(Number(rel.amount))}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveStagedRelease(rel.releaseId)}
+                                      style={{ marginLeft: "4px", background: "none", border: "none", cursor: "pointer", color: "inherit" }}
+                                    >
+                                      ×
+                                    </button>
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rental Exit Form (FE-09) */}
+                      {assetTab === "revise" && (
+                        <div style={{ marginTop: "12px", padding: "10px", background: "var(--color-surface)", borderRadius: "6px", border: "1px solid var(--color-border)" }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={assetHasRentalExit}
+                              onChange={(e) => setAssetHasRentalExit(e.target.checked)}
+                            />
+                            {language === "en"
+                              ? "Transition from Rental to Sale (rentalExit)"
+                              : "Chuyển từ tài sản đang cho thuê sang bán (rentalExit)"}
+                          </label>
+                          {assetHasRentalExit && (
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", marginTop: "8px" }}>
+                              <div>
+                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }}>
+                                  {language === "en" ? "Rent Ends On *" : "Ngày kết thúc thuê *"}
+                                </label>
+                                <input
+                                  type="date"
+                                  className="input"
+                                  value={assetRentEndsOn}
+                                  onChange={(e) => setAssetRentEndsOn(e.target.value)}
+                                  style={{ width: "100%", height: "30px", fontSize: "11px" }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }}>
+                                  {language === "en" ? "Final Month Net Rent (SOURCE_SHARE) *" : "Thu nhập thuê tháng cuối (phần nguồn) *"}
+                                </label>
+                                <input
+                                  type="number"
+                                  className="input"
+                                  value={assetFinalMonthIncome}
+                                  onChange={(e) => setAssetFinalMonthIncome(e.target.value)}
+                                  style={{ width: "100%", height: "30px", fontSize: "11px" }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Missed Contribution Form (FE-09) */}
+                      {assetTab === "revise" && (
+                        <div style={{ marginTop: "8px", padding: "10px", background: "var(--color-surface)", borderRadius: "6px", border: "1px solid var(--color-border)" }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={assetHasMissedContribution}
+                              onChange={(e) => setAssetHasMissedContribution(e.target.checked)}
+                            />
+                            {language === "en"
+                              ? "Reconcile Delayed/Missed Past Planned Contribution"
+                              : "Khai báo hoãn khoản góp dự kiến quá hạn (missedContribution)"}
+                          </label>
+                          {assetHasMissedContribution && (
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "10px", marginTop: "8px" }}>
+                              <div>
+                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }}>
+                                  {language === "en" ? "Scheduled Month *" : "Tháng đã lỡ hẹn *"}
+                                </label>
+                                <input
+                                  type="month"
+                                  className="input"
+                                  value={assetMissedScheduledMonth}
+                                  onChange={(e) => setAssetMissedScheduledMonth(e.target.value)}
+                                  style={{ width: "100%", height: "30px", fontSize: "11px" }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }}>
+                                  {language === "en" ? "Amount Not Contributed *" : "Số tiền chưa góp *"}
+                                </label>
+                                <input
+                                  type="number"
+                                  className="input"
+                                  value={assetMissedAmount}
+                                  onChange={(e) => setAssetMissedAmount(e.target.value)}
+                                  style={{ width: "100%", height: "30px", fontSize: "11px" }}
+                                />
+                              </div>
+                              <div style={{ gridColumn: "span 2" }}>
+                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }}>
+                                  {language === "en" ? "Reason *" : "Lý do chưa góp *"}
+                                </label>
+                                <input
+                                  type="text"
+                                  className="input"
+                                  value={assetMissedReason}
+                                  onChange={(e) => setAssetMissedReason(e.target.value)}
+                                  placeholder="Vd: Giao dịch bán hoãn do chờ thủ tục"
+                                  style={{ width: "100%", height: "30px", fontSize: "11px" }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "12px" }}>
+                        <Button variant="primary" size="small" onClick={handleAddAssetCommand}>
+                          <Icon name="plus" size="small" /> {assetTab === "create" ? (language === "en" ? "Add Asset Creation" : "Thêm lệnh tạo tài sản") : (language === "en" ? "Add Asset Revision" : "Thêm lệnh sửa tài sản")}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Summary Table of Asset Commands */}
+                  {assetCommands.length > 0 && (
+                    <div style={{ marginTop: "16px", borderTop: "1px solid var(--color-border)", paddingTop: "12px" }}>
+                      <h5 style={{ margin: "0 0 8px", fontSize: "12px", fontWeight: 600 }}>
+                        {language === "en" ? "Pending Asset Commands:" : "Các lệnh tài sản chờ xem trước / lưu:"}
+                      </h5>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+                        <thead>
+                          <tr style={{ background: "var(--color-surface)", textAlign: "left" }}>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Op" : "Thao tác"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Source / Ref" : "Mã nguồn / Tham chiếu"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Status" : "Trạng thái"}</th>
+                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Net / Contribution" : "Tiền ròng / Góp"}</th>
+                            <th style={{ padding: "6px 10px", width: "40px" }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {assetCommands.map((ac) => (
+                            <tr key={ac.commandId} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                              <td style={{ padding: "6px 10px" }}>
+                                <Badge tone={ac.operation === "END" ? "danger" : ac.operation === "REVISE" ? "warning" : "success"}>
+                                  {ac.operation}
+                                </Badge>
+                              </td>
+                              <td style={{ padding: "6px 10px", fontWeight: 600 }} className="font-mono">
+                                {ac.operation === "END" ? ac.sourceId : `${ac.capital.reference} (${ac.sourceId})`}
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                {ac.operation === "END" ? (
+                                  <span style={{ color: "var(--color-danger-700)" }}>{ac.reason}</span>
+                                ) : (
+                                  <Badge tone="info">{ac.capital.funding.status}</Badge>
+                                )}
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                {ac.operation === "END" ? "N/A" : (
+                                  <span>{formatVND(Number(ac.capital.netAmount))} ➔ {formatVND(Number(ac.capital.confirmedContributionAmount))}</span>
+                                )}
+                              </td>
+                              <td style={{ padding: "6px 10px" }}>
+                                <IconButton icon="trash" label="Xóa" onClick={() => handleRemoveAssetCommand(ac.commandId)} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
 
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "16px" }}>
                   <Button

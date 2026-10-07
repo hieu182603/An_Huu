@@ -349,6 +349,407 @@ export interface PensionSourceSelection {
   confirm: true;
 }
 
+export interface LoanEvidence {
+  reference: string;
+  contentHash: string;
+  confirmedOn: string;
+}
+
+export interface LoanComponents {
+  principal: string;
+  interest: string;
+  prepaymentFee: string;
+  otherFee: string;
+}
+
+export interface LoanAllocation {
+  allocationId: string;
+  eventId: string;
+  actualRevision: number;
+  bookedOn: string;
+  scope: "FULL_CONTRACT" | "USER_SHARE";
+  components: LoanComponents;
+  contractComponents: LoanComponents;
+  paymentStatus: "CURRENT" | "OVERDUE" | "MIXED";
+  allocationBasis: "BANK_STATEMENT" | "AGREEMENT_COMPONENTS";
+  evidence: LoanEvidence[];
+}
+
+export interface LoanBalanceChange {
+  changeId: string;
+  bookedOn: string;
+  amount: string;
+  kind: "CONFIRMED_PRINCIPAL_ADVANCE";
+  evidence: LoanEvidence[];
+}
+
+export interface LoanResponsibilityAmendment {
+  effectiveOn: string;
+  openingUserPaid: string;
+  confirm: true;
+  evidence: LoanEvidence[];
+}
+
+export interface LoanOriginalTerms {
+  signedOn: string;
+  amendedOn: string | null;
+  effectiveOn: string;
+  balanceScope: "FULL_CONTRACT" | "USER_SHARE";
+  paymentShare: string;
+  responsibility:
+    | { kind: "ALLOCATED_SHARE" }
+    | { kind: "CAPPED"; capBasis: "TOTAL_USER_PAYMENTS"; limit: string; previouslyPaid: string; evidence: LoanEvidence[] };
+  evidence: LoanEvidence[];
+  confirm: true;
+}
+
+export interface LoanScopeChange {
+  openingPrincipal: string;
+  evidence: LoanEvidence[];
+  confirm: true;
+}
+
+export interface LoanContractPeriod {
+  accrualFrom: string;
+  dueDate: string;
+  rate: {
+    kind: "FIXED_ANNUAL" | "FLOATING_ANNUAL" | "SIMPLE_ANNUAL_DAILY";
+    annualRate: string;
+    days?: number;
+    marginRate?: string;
+    indexRate?: string;
+  };
+  fee: string;
+  carriedInterest: string;
+  gracePrincipal: boolean;
+  bankPayment: { principal: string; interest: string } | null;
+}
+
+export interface LoanContractV2 {
+  contractVersion: 2;
+  currency: "VND";
+  signedOn: string;
+  amendedOn: string | null;
+  effectiveOn: string;
+  knownOn: string;
+  confirmation: "HYPOTHETICAL" | "BANK_CONFIRMED";
+  evidence: LoanEvidence[];
+  balanceAsOf: string;
+  principalBalance: string;
+  balanceScope: "FULL_CONTRACT" | "USER_SHARE";
+  balanceNature?: "CONFIRMED_BALANCE" | "PROJECTED_DISBURSEMENT";
+  paymentShare: string;
+  userPaidToDate?: string;
+  responsibility:
+    | { kind: "ALLOCATED_SHARE" }
+    | { kind: "CAPPED"; capBasis: "TOTAL_USER_PAYMENTS"; limit: string; previouslyPaid: string; evidence: LoanEvidence[] };
+  interestBasis: "REDUCING_BALANCE";
+  rounding: "EXACT" | "CENT_HALF_UP";
+  mode: "REDUCE_PAYMENT_KEEP_TERM" | "REDUCE_TERM_KEEP_PAYMENT" | "BANK_SCHEDULE" | "RESTRUCTURED";
+  fixedPayment: string | null;
+  finalPayment: "ADJUST_FINAL_PAYMENT" | "BALLOON_CONFIRMED" | "NO_BALLOON";
+  maturityDate: string;
+  periods: LoanContractPeriod[];
+}
+
+export interface LoanLegacyOpening {
+  signedOn: string;
+  amendedOn: string | null;
+  effectiveOn: string;
+  knownOn: string;
+  previouslyPaid: string;
+  capBasis?: "TOTAL_USER_PAYMENTS";
+  evidence: LoanEvidence[];
+}
+
+export interface LoanSourceRevisionCommand {
+  commandId: string;
+  sourceId: string;
+  operation: "REVISE" | "END";
+  expectedSourceRevision: number;
+  expectedSourceHash: string;
+  expectedContractHash: string;
+  refinanceCommandId?: string;
+  confirm: true;
+  contract: LoanContractV2;
+  legacyOpening?: LoanLegacyOpening;
+  responsibilityAmendment?: LoanResponsibilityAmendment;
+  allocations: LoanAllocation[];
+  principalAdvances: LoanBalanceChange[];
+}
+
+export interface LoanCreation {
+  commandId: string;
+  sourceId: string;
+  operation: "CREATE";
+  expectedSourceRevision: 0;
+  confirm: true;
+  refinanceCommandId?: string;
+  agreementReference: string;
+  contract: LoanContractV2;
+  funding:
+    | { kind: "EXISTING_BALANCE"; notAlreadyInSources: true; evidence: LoanEvidence[] }
+    | {
+        kind: "DISBURSED_BALANCE";
+        notAlreadyInSources: true;
+        disbursedOn: string;
+        grossPrincipal: string;
+        openingUserPaid: string;
+        evidence: LoanEvidence[];
+        allocations: LoanAllocation[];
+        principalAdvances: LoanBalanceChange[];
+        originalTerms?: LoanOriginalTerms;
+        scopeChange?: LoanScopeChange;
+        responsibilityAmendment?: LoanResponsibilityAmendment;
+      }
+    | {
+        kind: "PLANNED_DISBURSEMENT";
+        grossPrincipal: string;
+        withheldFees: string;
+        netDisbursement: string;
+        destination: "EXTERNAL_ACCOUNT";
+        evidence: LoanEvidence[];
+      };
+}
+
+export interface RefinanceProceedsUse {
+  useId: string;
+  bookedOn: string;
+  amount: string;
+  description: string;
+  evidence: LoanEvidence[];
+}
+
+export interface RefinanceProceedsAtSettlement {
+  availableAmount: string;
+  confirm: true;
+  usesBeforeSettlement: RefinanceProceedsUse[];
+  evidence: LoanEvidence[];
+}
+
+export interface RefinanceCommand {
+  commandId: string;
+  closingCommandId: string;
+  newLoanCommandId: string;
+  settledOn: string;
+  fundingScope: "FULL_CONTRACT" | "USER_SHARE";
+  grossDisbursement: string;
+  withheldFees: string;
+  externalTopUp: string;
+  unusedProceeds: string;
+  confirm: true;
+  evidence: LoanEvidence[];
+  proceedsAtSettlement?: RefinanceProceedsAtSettlement;
+}
+
+export interface PlannedRefinancePayoffQuote {
+  principal: string;
+  interest: string;
+  carriedInterest: string;
+  prepaymentFee: string;
+  otherFee: string;
+  allRemainingChargesIncluded: true;
+  valueKind: "HYPOTHETICAL_QUOTE";
+  evidence: LoanEvidence[];
+}
+
+export interface PlannedRefinanceFunding {
+  scope: "FULL_CONTRACT" | "USER_SHARE";
+  externalTopUp: string;
+  userTopUp: string;
+  userFinancedAmount: string;
+  unusedProceeds: string;
+  unusedProceedsNotContributed: true;
+  evidence: LoanEvidence[];
+}
+
+export interface PlannedRefinanceTerms {
+  replacement: LoanCreation;
+  settledOn: string;
+  sameDayOrder: "BEFORE_SCHEDULED_PAYMENT" | "AFTER_SCHEDULED_PAYMENT";
+  payoffQuote: PlannedRefinancePayoffQuote;
+  funding: PlannedRefinanceFunding;
+}
+
+export interface PlannedPairTarget {
+  sourceId: string;
+  revision: number;
+  sourceHash: string | null;
+}
+
+export type PlannedPairCommand =
+  | {
+      operation: "CREATE";
+      commandId: string;
+      replacementCommandId: string;
+      pairId: string;
+      oldSource: PlannedPairTarget;
+      newSource: PlannedPairTarget;
+      expectedContractHash: string;
+      expectedPairHash: null;
+      confirm: true;
+      terms: PlannedRefinanceTerms;
+    }
+  | {
+      operation: "REVISE";
+      commandId: string;
+      replacementCommandId: string;
+      pairId: string;
+      oldSource: PlannedPairTarget;
+      newSource: PlannedPairTarget;
+      expectedContractHash: string;
+      expectedPairHash: string;
+      confirm: true;
+      terms: PlannedRefinanceTerms;
+    }
+  | {
+      operation: "CANCEL";
+      commandId: string;
+      replacementCommandId: string;
+      pairId: string;
+      oldSource: PlannedPairTarget;
+      newSource: PlannedPairTarget;
+      expectedContractHash: string;
+      expectedPairHash: string;
+      reason: string;
+      confirm: true;
+    };
+
+export interface AssetEvidence {
+  reference: string;
+  contentHash: string;
+  confirmedOn: string;
+}
+
+export interface AssetAllocation {
+  allocationId: string;
+  eventId: string;
+  actualRevision: number;
+  bookedOn: string;
+  amount: string;
+}
+
+export interface AssetRentalExit {
+  rentEndsOn: string;
+  finalMonthIncome: string;
+  amountScope: "SOURCE_SHARE";
+  confirm: true;
+}
+
+export interface AssetMissedContribution {
+  scheduledMonth: string;
+  actualRevision: number;
+  amountNotContributed: string;
+  confirmedOn: string;
+  reason: string;
+  confirmNotContributed: true;
+}
+
+export interface AssetAvailabilityRelease {
+  releaseId: string;
+  availableOn: string;
+  amount: string;
+  status: "CONFIRMED" | "EXPECTED";
+  evidence: AssetEvidence[];
+}
+
+export interface AssetCapitalAvailability {
+  amountScope: "NET_SOURCE_SHARE";
+  releases: AssetAvailabilityRelease[];
+}
+
+export interface AssetPlannedContribution {
+  installmentId: string;
+  month: string;
+  amount: string;
+  timing: "END_OF_MONTH";
+}
+
+export interface AssetInstallmentReconciliation {
+  scheduledMonth: string;
+  actualRevision: number;
+  receivedAllocationIds: string[];
+  amountNotContributed: string;
+  confirmedOn: string;
+  reason: string;
+  confirm: true;
+}
+
+export type AssetCapitalFunding =
+  | {
+      status: "PLANNED";
+      liquidity: "AVAILABLE" | "PLANNED_RELEASE";
+      notIncludedInFund: true;
+      contributionMonth: string;
+      contributionTiming: "END_OF_MONTH";
+    }
+  | {
+      status: "REALIZED";
+      allocations: AssetAllocation[];
+    }
+  | {
+      status: "STAGED";
+      liquidity: "AVAILABLE" | "PLANNED_RELEASE";
+      plannedNotIncludedInFund: true;
+      availability?: AssetCapitalAvailability;
+      allocations: AssetAllocation[];
+      plannedContributions: AssetPlannedContribution[];
+      reconciliations: AssetInstallmentReconciliation[];
+    };
+
+export interface AssetCapital {
+  reference: string;
+  kind: "ASSET_SALE" | "LIQUID_CAPITAL";
+  currency: "VND";
+  priceBasis: "NOMINAL_AT_AVAILABILITY";
+  amountScope: "WHOLE_ASSET" | "USER_SHARE";
+  ownershipShare: string;
+  retirementShare: string;
+  grossAmount: string;
+  fees: string;
+  taxes: string;
+  securedDebtSettlement: string;
+  netAmount: string;
+  availableOn: string;
+  confirmedContributionAmount: string;
+  funding: AssetCapitalFunding;
+}
+
+export type AssetSourceCommand =
+  | {
+      commandId: string;
+      sourceId: string;
+      operation: "CREATE";
+      expectedSourceRevision: 0;
+      expectedSourceHash: null;
+      notAlreadyInSources: true;
+      confirm: true;
+      evidence: AssetEvidence[];
+      capital: AssetCapital;
+    }
+  | {
+      commandId: string;
+      sourceId: string;
+      operation: "REVISE";
+      expectedSourceRevision: number;
+      expectedSourceHash: string;
+      confirm: true;
+      evidence: AssetEvidence[];
+      capital: AssetCapital;
+      rentalExit?: AssetRentalExit;
+      missedContribution?: AssetMissedContribution;
+    }
+  | {
+      commandId: string;
+      sourceId: string;
+      operation: "END";
+      expectedSourceRevision: number;
+      expectedSourceHash: string;
+      reason: string;
+      confirm: true;
+      evidence: AssetEvidence[];
+    };
+
 export interface SourceReforecastPreviewInput {
   versionId: string;
   expectedSnapshotHash: string;
@@ -357,11 +758,11 @@ export interface SourceReforecastPreviewInput {
   throughMonth: string;
   sourceCommands?: FlowSourceCommand[];
   pensionSelections?: PensionSourceSelection[];
-  loanRevisions?: any[];
-  loanCreations?: any[];
-  refinances?: any[];
-  assetCommands?: any[];
-  plannedRefinances?: any[];
+  loanRevisions?: LoanSourceRevisionCommand[];
+  loanCreations?: LoanCreation[];
+  refinances?: RefinanceCommand[];
+  assetCommands?: AssetSourceCommand[];
+  plannedRefinances?: PlannedPairCommand[];
 }
 
 export interface SourceReforecastPreviewResponse {
@@ -377,8 +778,23 @@ export interface SourceReforecastPreviewResponse {
     legacyOpeningRequired: boolean;
   }>;
   plannedRefinanceOptions: {
-    eligibleLoans: any[];
-    activePairs: any[];
+    eligibleLoans: Array<{
+      sourceId: string;
+      sourceRevision: number;
+      sourceHash: string;
+      contractHash: string;
+      balanceAsOf?: string;
+      principalBalance?: string;
+    }>;
+    activePairs: Array<{
+      pairId: string;
+      pairHash: string;
+      oldSource: { sourceId: string; revision: number; sourceHash: string };
+      newSource: { sourceId: string; revision: number; sourceHash: string };
+      contractHash: string;
+      settledOn: string;
+      reviseAllowed: boolean;
+    }>;
   };
   assetRevisionOptions: Array<{
     sourceId: string;
@@ -393,6 +809,34 @@ export interface SaveSourceReforecastInput {
   preview: SourceReforecastPreviewInput;
   expectedInputHash: string;
   confirm: true;
+}
+
+export function generateContractPeriods(
+  balanceAsOf: string,
+  months: number,
+  annualRatePercent: string = "0"
+): LoanContractPeriod[] {
+  let prev = balanceAsOf;
+  const count = Math.max(1, Math.min(600, months));
+  const rateVal = String(Number(annualRatePercent) || 0);
+  const periods: LoanContractPeriod[] = [];
+  const [startYear, startMonth] = balanceAsOf.slice(0, 7).split("-").map(Number);
+  for (let i = 1; i <= count; i++) {
+    const targetDate = new Date(Date.UTC(startYear, startMonth - 1 + i + 1, 0));
+    const dueDate = targetDate.toISOString().slice(0, 10);
+    const days = Math.max(1, Math.round((new Date(dueDate).getTime() - new Date(prev).getTime()) / 86400000));
+    periods.push({
+      accrualFrom: prev,
+      dueDate,
+      rate: { kind: "SIMPLE_ANNUAL_DAILY", percent: rateVal, days, yearDays: 365 } as any,
+      fee: "0",
+      carriedInterest: "0",
+      gracePrincipal: false,
+      bankPayment: null,
+    });
+    prev = dueDate;
+  }
+  return periods;
 }
 
 export async function previewSourceReforecast(
