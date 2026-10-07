@@ -743,6 +743,7 @@ Nghiệm thu: SRC-G01–05; chỉ góp số xác nhận, không cộng lại ti�
 
 T17 — Nghiệm thu phần mở rộng
 
+Checkpoint07/10 BHXH races: `scripts/verify-pension-races-db.cjs` trên PostgreSQL Docker tạm (luật PUBLISHED không xóa được nên không commit lên DB thật) đạt6race hai PID độc lập: estimate cùng key, nguồn chọn estimate cùng revision, apply/lưu nguồn/lưu estimate cạnh thêm lịch đóng, hai append cùng revision. Bản ghim lịch đóng cũ luôn bị chặn apply; replay giữ nguyên. Không phải HTTP/browser.
 Checkpoint07/10 mixed races: `--loan-assets` đạt3races độc lập (hai PostgreSQL PID): same key, same revision và sửa actual cạnh apply, cùng changeset vayv2+asset STAGED. Bản lưu chứa đủ hai nguồn, anchor940/injection140 đúng mẫu; v3/v4 replay giữ nguyên. Fixture commit riêng được dọn đúng ID, fingerprint41bảng khớp. Đây là service/DB race, không phải HTTP/browser; chưa thay nghiệm thu các nhánh BHXH/refinance hoặc toàn bộ T17. Handoff FE-T17-LOAN-ASSET-RACES, bằng chứng PROGRESS.
 
 

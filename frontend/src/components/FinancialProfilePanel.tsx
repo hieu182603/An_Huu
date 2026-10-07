@@ -16,6 +16,7 @@ import {
 } from "../services/pensions";
 import { Alert, Badge, Button, Card, Checkbox, Icon, Input, Select, useNotification } from "./ui";
 import { useI18n } from "../i18n";
+import { SocialInsuranceModal } from "./SocialInsuranceModal";
 
 const PENSION_ISSUE_LABELS: Record<string, { vi: string; en: string }> = {
   PENSION_NOT_INCLUDED: {
@@ -86,6 +87,7 @@ export default function FinancialProfilePanel() {
   const [pensionPreview, setPensionPreview] = useState<PensionPreviewResponse | null>(null);
   const [loadingPensionPreview, setLoadingPensionPreview] = useState(false);
   const [pensionPreviewError, setPensionPreviewError] = useState("");
+  const [showInsuranceModal, setShowInsuranceModal] = useState(false);
 
   const updatePensionKnown = (
     updater: (prev: Extract<PensionDeclaration, { status: "KNOWN" }>) => Extract<PensionDeclaration, { status: "KNOWN" }>
@@ -1667,10 +1669,16 @@ export default function FinancialProfilePanel() {
                     <Card className="summary-metric-card">
                       <small>{isVi ? "Tháng nhận theo luật định" : "Statutory Pension Start Month"}</small>
                       <strong style={{ fontSize: "var(--text-lg)", color: "var(--color-primary-700)" }}>
-                        {pensionPreview.legalRetirementAge.pensionStartMonth || (isVi ? "Chưa xác định" : "Unspecified")}
+                        {pensionPreview.legalRetirementAge.pensionStartMonth
+                          ? pensionPreview.legalRetirementAge.pensionStartMonth
+                          : pensionPreview.legalRetirementAge.pensionStartStatus === "REQUIRES_BENEFIT_ASSESSMENT"
+                          ? (isVi ? "Cần xét điều kiện hưởng" : "Requires benefit assessment")
+                          : (isVi ? "Chưa xác định" : "Unspecified")}
                       </strong>
                       <small style={{ color: "var(--color-text-muted)" }}>
-                        {isVi ? "Đầu tháng kế tiếp tháng nghỉ" : "Start of month following retirement"}
+                        {pensionPreview.legalRetirementAge.referenceFollowingMonth
+                          ? `${isVi ? "Tháng kế tiếp mốc tuổi:" : "Month after age benchmark:"} ${pensionPreview.legalRetirementAge.referenceFollowingMonth}`
+                          : (isVi ? "Đầu tháng kế tiếp tháng nghỉ" : "Start of month following retirement")}
                       </small>
                     </Card>
 
@@ -1695,6 +1703,13 @@ export default function FinancialProfilePanel() {
                         {isVi ? "Mục tiêu lập kế hoạch riêng" : "Custom planning milestone target"}
                       </small>
                     </Card>
+                  </div>
+
+                  <div style={{ marginTop: "var(--space-3)", display: "flex", justifyContent: "flex-end" }}>
+                    <Button variant="secondary" onClick={() => setShowInsuranceModal(true)}>
+                      <Icon name="sparkles" size="small" />{" "}
+                      {isVi ? "Thẩm định quá trình & Ước tính lương hưu BHXH" : "Assess Insurance History & Estimate Pension"}
+                    </Button>
                   </div>
 
                   {/* Cashflow projection */}
@@ -1755,6 +1770,17 @@ export default function FinancialProfilePanel() {
           </fieldset>
         </form>
       )}
+
+      <SocialInsuranceModal
+        open={showInsuranceModal}
+        onClose={() => setShowInsuranceModal(false)}
+        language={isVi ? "vi" : "en"}
+        initialBenefitDate={
+          v2Form?.personal?.pensionStartMonth?.status === "KNOWN" && v2Form?.personal?.pensionStartMonth?.value
+            ? `${v2Form.personal.pensionStartMonth.value}-01`
+            : undefined
+        }
+      />
     </Card>
   );
 }

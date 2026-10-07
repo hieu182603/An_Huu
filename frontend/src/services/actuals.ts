@@ -1,6 +1,6 @@
-import { authenticatedRequest } from "./api";
-import type { RetirementCalculation } from "./retirement";
-import { Decimal } from "../utils/decimal";
+import { authenticatedRequest } from "./api.ts";
+import type { RetirementCalculation } from "./retirement.ts";
+import { Decimal } from "../utils/decimal.ts";
 
 export type ActualKind =
   | "INCOME"
@@ -65,6 +65,9 @@ export interface ActualMonthReconciliation {
   householdSurplus: string;
   cashflowState: "SURPLUS" | "DEFICIT" | "BALANCED";
   actualContribution: string;
+  confirmedContribution?: string;
+  uninvestedSurplus?: string;
+  budgetShortfall?: string;
   calculatedClosingBalance: string;
   discrepancy: string;
   reconciliation: "MATCHED" | "UNRECONCILED";
@@ -174,6 +177,11 @@ export function calculateLocalReconciliation(payload: ActualPayload): ActualMont
 
   const discrepancy = closing.minus(calculatedClosing);
 
+  const availableSurplus = surplus.gt(0) ? surplus : new Decimal(0);
+  const uninvested = Decimal.max(0, availableSurplus.minus(totals.CONTRIBUTION));
+  const shortfall = Decimal.max(0, totals.CONTRIBUTION.minus(availableSurplus));
+  const confirmed = Decimal.min(totals.CONTRIBUTION, availableSurplus);
+
   const totalsFormatted = Object.fromEntries(
     Object.entries(totals).map(([k, v]) => [k, v.toFixed()])
   ) as Record<ActualKind, string>;
@@ -183,6 +191,9 @@ export function calculateLocalReconciliation(payload: ActualPayload): ActualMont
     householdSurplus: surplus.toFixed(),
     cashflowState: surplus.gt(0) ? "SURPLUS" : surplus.lt(0) ? "DEFICIT" : "BALANCED",
     actualContribution: totals.CONTRIBUTION.toFixed(),
+    confirmedContribution: confirmed.toFixed(),
+    uninvestedSurplus: uninvested.toFixed(),
+    budgetShortfall: shortfall.toFixed(),
     calculatedClosingBalance: calculatedClosing.toFixed(),
     discrepancy: discrepancy.toFixed(),
     reconciliation: discrepancy.isZero() ? "MATCHED" : "UNRECONCILED",
@@ -236,3 +247,106 @@ export async function reforecastPlan(
     "POST"
   );
 }
+
+export type FutureChangeField = "income" | "livingExpense" | "additionalExpense" | "plannedContribution";
+
+export interface FutureChange {
+  id: string;
+  field: FutureChangeField;
+  operation: "REPLACE_MONTHLY_TOTAL";
+  amount: string;
+  startMonth: string;
+  endMonth: string;
+  reason: string;
+}
+
+export type SourceChange =
+  | {
+      id: string;
+      kind: "DEBT_SETTLED";
+      sourceId: string;
+      actual: { period: string; eventId: string };
+      remainingObligation: "0";
+      confirmed: true;
+      document: string;
+    }
+  | {
+      id: string;
+      kind: "ASSET_REALIZED";
+      sourceId: string;
+      actual: { period: string; eventId: string };
+      confirmed: true;
+      document: string;
+    }
+  | {
+      id: string;
+      kind: "PENSION_REPLACE";
+      sourceId: "pension";
+      startMonth: string;
+      endMonth: string;
+      monthlyAmount: string;
+      priceBasis: "NOMINAL_MONTHLY";
+      confirmed: true;
+      document: string;
+    }
+  | {
+      id: string;
+      kind: "FLOW_REPLACE";
+      sourceType: "INCOME" | "EXPENSE";
+      sourceId: string;
+      startMonth: string;
+      endMonth: string;
+      monthlyAmount: string;
+      confirmed: true;
+      document: string;
+    };
+
+export interface ReforecastPreviewCommand {
+  planId: string;
+  versionId: string;
+  throughMonth: string;
+  expectedProfileRevision: number;
+  futureChanges?: FutureChange[];
+  sourceChanges?: SourceChange[];
+}
+
+export interface ReforecastPreviewResponse {
+  status: "READY" | "BLOCKED" | "HORIZON_COMPLETE";
+  issues: ActualForecastIssue[];
+  inputHash: string | null;
+  candidate: any | null;
+  beforeChanges: RetirementCalculation | null;
+  saved: boolean;
+  applied: boolean;
+}
+
+export interface SaveReforecastCommand {
+  expectedRevision: number;
+  expectedInputHash: string;
+  preview: ReforecastPreviewCommand;
+}
+
+export async function previewReforecast(
+  command: ReforecastPreviewCommand
+): Promise<ReforecastPreviewResponse> {
+  return authenticatedRequest<ReforecastPreviewResponse>(
+    "/me/retirement/actuals/reforecast/preview",
+    command,
+    "POST"
+  );
+}
+
+export async function saveReforecast(
+  planId: string,
+  command: SaveReforecastCommand,
+  idempotencyKey?: string
+): Promise<{ planId: string; planRevision: number; version: number; versionId: string }> {
+  const key = idempotencyKey || crypto.randomUUID();
+  return authenticatedRequest<{ planId: string; planRevision: number; version: number; versionId: string }>(
+    `/me/retirement/plans/${encodeURIComponent(planId)}/reforecasts`,
+    command,
+    "POST",
+    { "Idempotency-Key": key }
+  );
+}
+

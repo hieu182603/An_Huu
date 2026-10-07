@@ -20,6 +20,7 @@ export const adminNavigation: NavigationItem[] = [
   { path: "/admin/support", label: "Hỗ trợ & Ticket", icon: "life-buoy" },
   { path: "/admin/partners", label: "Đối tác & Sản phẩm", icon: "briefcase" },
   { path: "/admin/financial-config", label: "Cấu hình tài chính", icon: "target" },
+  { path: "/admin/legal-rules", label: "Quản trị luật BHXH", icon: "shield" },
   { path: "/admin/content", label: "Quản lý nội dung", icon: "file-text" },
   { path: "/admin/ai", label: "Trợ lý AI & Tri thức", icon: "sparkles" },
   { path: "/admin/reports", label: "Báo cáo", icon: "chart" },

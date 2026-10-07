@@ -1,7 +1,7 @@
 import { authenticatedRequest } from "./api";
 import type { SimulatePlanResponse } from "./plans";
 
-export const AI_POLICY_VERSION = "ai-explanation-2026-10-v1";
+export const AI_POLICY_VERSION = "ai-explanation-gemini-2026-10-v2";
 export const AI_RETENTION_DAYS = 30;
 
 export interface AiPrivacyResponse {
@@ -16,6 +16,9 @@ export interface AiPrivacyResponse {
   excludedData: string[];
   historyPolicy: string;
   providerConfigured: boolean;
+  provider: string | null;
+  processingNotice?: string;
+  reconsentRequired?: boolean;
 }
 
 export interface AiCitation {

@@ -1,64 +1,43 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Decimal } from "../src/utils/decimal.ts";
+import {
+  calculateLocalReconciliation,
+  previewReforecast,
+  saveReforecast,
+} from "../src/services/actuals.ts";
+import {
+  previewSourceReforecast,
+  saveSourceReforecast,
+} from "../src/services/plans.ts";
+import { ApiError, invalidateApiCache } from "../src/services/api.ts";
+
+function mockFetch(handler) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    return await handler(url.toString(), options);
+  };
+  return () => {
+    globalThis.fetch = originalFetch;
+    invalidateApiCache();
+  };
+}
+
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify({ data }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function errorResponse(status, code, message, fieldErrors) {
+  return new Response(JSON.stringify({ error: { code, message, fieldErrors } }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 test("calculateLocalReconciliation correctly balances cashflows and reconciles closing balances", () => {
-  const calculateLocalReconciliation = (payload) => {
-    const kinds = [
-      "INCOME",
-      "EXPENSE",
-      "DEBT_PAYMENT",
-      "CONTRIBUTION",
-      "WITHDRAWAL",
-      "INVESTMENT_INCOME",
-      "FEE",
-      "MARKET_CHANGE",
-      "INTERNAL_TRANSFER",
-      "BALANCE_ADJUSTMENT",
-    ];
-
-    const totals = kinds.reduce((acc, k) => {
-      acc[k] = new Decimal(0);
-      return acc;
-    }, {});
-
-    for (const entry of payload.entries) {
-      if (totals[entry.kind]) {
-        totals[entry.kind] = totals[entry.kind].plus(entry.amount || "0");
-      }
-    }
-
-    const surplus = totals.INCOME.minus(totals.EXPENSE).minus(totals.DEBT_PAYMENT);
-    const opening = new Decimal(payload.openingBalance || "0");
-    const closing = new Decimal(payload.closingBalance || "0");
-
-    const calculatedClosing = opening
-      .plus(totals.CONTRIBUTION)
-      .minus(totals.WITHDRAWAL)
-      .plus(totals.INVESTMENT_INCOME)
-      .plus(totals.MARKET_CHANGE)
-      .minus(totals.FEE)
-      .plus(totals.BALANCE_ADJUSTMENT);
-
-    const discrepancy = closing.minus(calculatedClosing);
-
-    const totalsFormatted = Object.fromEntries(
-      Object.entries(totals).map(([k, v]) => [k, v.toFixed()])
-    );
-
-    return {
-      totals: totalsFormatted,
-      householdSurplus: surplus.toFixed(),
-      cashflowState: surplus.gt(0) ? "SURPLUS" : surplus.lt(0) ? "DEFICIT" : "BALANCED",
-      actualContribution: totals.CONTRIBUTION.toFixed(),
-      calculatedClosingBalance: calculatedClosing.toFixed(),
-      discrepancy: discrepancy.toFixed(),
-      reconciliation: discrepancy.isZero() ? "MATCHED" : "UNRECONCILED",
-      hasAdjustments: payload.entries.some((e) => e.kind === "BALANCE_ADJUSTMENT"),
-      conventions: "ONE_CONSOLIDATED_RETIREMENT_FUND_EXTERNAL_FLOWS_ONLY",
-    };
-  };
-
   // Case 1: Balanced surplus and matched closing balance
   const result1 = calculateLocalReconciliation({
     currency: "VND",
@@ -76,6 +55,9 @@ test("calculateLocalReconciliation correctly balances cashflows and reconciles c
   assert.equal(result1.householdSurplus, "10000000");
   assert.equal(result1.cashflowState, "SURPLUS");
   assert.equal(result1.actualContribution, "5000000");
+  assert.equal(result1.confirmedContribution, "5000000");
+  assert.equal(result1.uninvestedSurplus, "5000000");
+  assert.equal(result1.budgetShortfall, "0");
   assert.equal(result1.calculatedClosingBalance, "105000000");
   assert.equal(result1.discrepancy, "0");
   assert.equal(result1.reconciliation, "MATCHED");
@@ -107,7 +89,7 @@ test("calculateLocalReconciliation correctly balances cashflows and reconciles c
     openingBalance: "100000000",
     closingBalance: "110000000", // Actual bank statement has 110M
     entries: [
-      { eventId: "10", date: "2026-10-05", kind: "CONTRIBUTION", amount: "5000000" }, // Calculated is only 105M
+      { eventId: "10", date: "2026-10-05", kind: "CONTRIBUTION", amount: "5000000" },
     ],
     correctionReason: "Discrepancy test",
   });
@@ -131,6 +113,301 @@ test("calculateLocalReconciliation correctly balances cashflows and reconciles c
   assert.equal(result4.calculatedClosingBalance, "9007199254740993.26");
   assert.equal(result4.discrepancy, "0");
   assert.equal(result4.reconciliation, "MATCHED");
+});
+
+test("FE-03 Contract: surplus 5 with contributions 0, 2, 5, 6 and deficit/balanced cashflow", () => {
+  // Scenario: Income 10, Expense 5 => surplus = 5
+  const baseEntries = [
+    { eventId: "inc", date: "2026-10-01", kind: "INCOME", amount: "5000000" },
+    { eventId: "inc2", date: "2026-10-01", kind: "INCOME", amount: "5000000" },
+    { eventId: "exp", date: "2026-10-02", kind: "EXPENSE", amount: "5000000" },
+  ];
+
+  // 1. Contribution = 0 => confirmed = 0, uninvested = 5, shortfall = 0
+  const r0 = calculateLocalReconciliation({
+    currency: "VND",
+    openingBalance: "0",
+    closingBalance: "0",
+    entries: baseEntries,
+  });
+  assert.equal(r0.householdSurplus, "5000000");
+  assert.equal(r0.actualContribution, "0");
+  assert.equal(r0.confirmedContribution, "0");
+  assert.equal(r0.uninvestedSurplus, "5000000");
+  assert.equal(r0.budgetShortfall, "0");
+
+  // 2. Contribution = 2 => confirmed = 2, uninvested = 3, shortfall = 0
+  const r2 = calculateLocalReconciliation({
+    currency: "VND",
+    openingBalance: "0",
+    closingBalance: "2000000",
+    entries: [
+      ...baseEntries,
+      { eventId: "c2", date: "2026-10-05", kind: "CONTRIBUTION", amount: "2000000" },
+    ],
+  });
+  assert.equal(r2.householdSurplus, "5000000");
+  assert.equal(r2.actualContribution, "2000000");
+  assert.equal(r2.confirmedContribution, "2000000");
+  assert.equal(r2.uninvestedSurplus, "3000000");
+  assert.equal(r2.budgetShortfall, "0");
+
+  // 3. Contribution = 5 => confirmed = 5, uninvested = 0, shortfall = 0
+  const r5 = calculateLocalReconciliation({
+    currency: "VND",
+    openingBalance: "0",
+    closingBalance: "5000000",
+    entries: [
+      ...baseEntries,
+      { eventId: "c5", date: "2026-10-05", kind: "CONTRIBUTION", amount: "5000000" },
+    ],
+  });
+  assert.equal(r5.householdSurplus, "5000000");
+  assert.equal(r5.actualContribution, "5000000");
+  assert.equal(r5.confirmedContribution, "5000000");
+  assert.equal(r5.uninvestedSurplus, "0");
+  assert.equal(r5.budgetShortfall, "0");
+
+  // 4. Contribution = 6 => confirmed = 5, uninvested = 0, shortfall = 1 (capped at surplus)
+  const r6 = calculateLocalReconciliation({
+    currency: "VND",
+    openingBalance: "0",
+    closingBalance: "6000000",
+    entries: [
+      ...baseEntries,
+      { eventId: "c6", date: "2026-10-05", kind: "CONTRIBUTION", amount: "6000000" },
+    ],
+  });
+  assert.equal(r6.householdSurplus, "5000000");
+  assert.equal(r6.actualContribution, "6000000");
+  assert.equal(r6.confirmedContribution, "5000000");
+  assert.equal(r6.uninvestedSurplus, "0");
+  assert.equal(r6.budgetShortfall, "1000000");
+
+  // 5. Income == Expense (thu bằng chi, surplus = 0)
+  const rBalanced = calculateLocalReconciliation({
+    currency: "VND",
+    openingBalance: "0",
+    closingBalance: "2000000",
+    entries: [
+      { eventId: "i", date: "2026-10-01", kind: "INCOME", amount: "5000000" },
+      { eventId: "e", date: "2026-10-02", kind: "EXPENSE", amount: "5000000" },
+      { eventId: "c", date: "2026-10-05", kind: "CONTRIBUTION", amount: "2000000" },
+    ],
+  });
+  assert.equal(rBalanced.householdSurplus, "0");
+  assert.equal(rBalanced.cashflowState, "BALANCED");
+  assert.equal(rBalanced.confirmedContribution, "0");
+  assert.equal(rBalanced.uninvestedSurplus, "0");
+  assert.equal(rBalanced.budgetShortfall, "2000000");
+
+  // 6. Income < Expense (thu thấp hơn chi, surplus = -1M)
+  const rDeficit = calculateLocalReconciliation({
+    currency: "VND",
+    openingBalance: "0",
+    closingBalance: "2000000",
+    entries: [
+      { eventId: "i", date: "2026-10-01", kind: "INCOME", amount: "4000000" },
+      { eventId: "e", date: "2026-10-02", kind: "EXPENSE", amount: "5000000" },
+      { eventId: "c", date: "2026-10-05", kind: "CONTRIBUTION", amount: "2000000" },
+    ],
+  });
+  assert.equal(rDeficit.householdSurplus, "-1000000");
+  assert.equal(rDeficit.cashflowState, "DEFICIT");
+  assert.equal(rDeficit.confirmedContribution, "0");
+  assert.equal(rDeficit.uninvestedSurplus, "0");
+  assert.equal(rDeficit.budgetShortfall, "2000000");
+});
+
+test("FE-03 & FE-04: Wire tests for previewReforecast and saveReforecast with idempotency", async () => {
+  let capturedPreviewReq = null;
+  let capturedSaveReq = null;
+
+  const restore = mockFetch(async (url, options) => {
+    if (url.includes("/reforecast/preview") && options.method === "POST") {
+      capturedPreviewReq = { url, options, body: JSON.parse(options.body) };
+      return jsonResponse({
+        status: "READY",
+        issues: [],
+        inputHash: "input-hash-ref-1",
+        candidate: { replayInput: { sources: [] } },
+        beforeChanges: null,
+        saved: false,
+        applied: false,
+      });
+    }
+
+    if (url.includes("/reforecasts") && options.method === "POST") {
+      capturedSaveReq = { url, options, body: JSON.parse(options.body) };
+      return jsonResponse({
+        planId: "p1",
+        planRevision: 2,
+        version: 2,
+        versionId: "v2",
+      });
+    }
+
+    return errorResponse(404, "NOT_FOUND", "Not found");
+  });
+
+  try {
+    const previewRes = await previewReforecast({
+      planId: "p1",
+      versionId: "v1",
+      throughMonth: "2026-09",
+      expectedProfileRevision: 1,
+      futureChanges: [
+        {
+          id: "fc-1",
+          field: "plannedContribution",
+          operation: "REPLACE_MONTHLY_TOTAL",
+          amount: "10000000",
+          startMonth: "2026-10",
+          endMonth: "2026-12",
+          reason: "Bonus raise",
+        },
+      ],
+    });
+
+    assert.equal(previewRes.status, "READY");
+    assert.equal(capturedPreviewReq.body.throughMonth, "2026-09");
+    assert.equal(capturedPreviewReq.body.futureChanges.length, 1);
+    assert.equal(capturedPreviewReq.body.futureChanges[0].amount, "10000000");
+
+    const saveRes = await saveReforecast(
+      "p1",
+      {
+        expectedRevision: 1,
+        expectedInputHash: "input-hash-ref-1",
+        preview: capturedPreviewReq.body,
+      },
+      "custom-idem-key-123"
+    );
+
+    assert.equal(saveRes.planRevision, 2);
+    assert.equal(capturedSaveReq.options.headers["Idempotency-Key"], "custom-idem-key-123");
+    assert.equal(capturedSaveReq.body.expectedInputHash, "input-hash-ref-1");
+  } finally {
+    restore();
+  }
+});
+
+test("FE-04 & FE-05: previewSourceReforecast and saveSourceReforecast strictly validate V4 commands and pensionSelections", async () => {
+  let capturedPreviewReq = null;
+  let capturedSaveReq = null;
+
+  const restore = mockFetch(async (url, options) => {
+    if (url.includes("/source-reforecasts/preview") && options.method === "POST") {
+      capturedPreviewReq = { url, options, body: JSON.parse(options.body) };
+      return jsonResponse({
+        status: "READY",
+        issues: [],
+        inputHash: "v4-input-hash-abc",
+        candidate: { replayInput: { sourceRegistry: { revisions: [] } } },
+        loanRevisionOptions: [],
+        plannedRefinanceOptions: { eligibleLoans: [], activePairs: [] },
+        assetRevisionOptions: [],
+        saved: false,
+        applied: false,
+      });
+    }
+
+    if (url.includes("/source-reforecasts") && options.method === "POST") {
+      capturedSaveReq = { url, options, body: JSON.parse(options.body) };
+      return jsonResponse({
+        planId: "p1",
+        revision: 3,
+        currentVersionId: "v3",
+        baselineVersionId: "v2",
+        saved: { id: "v3", version: 3 },
+      });
+    }
+
+    return errorResponse(404, "NOT_FOUND", "Not found");
+  });
+
+  try {
+    // 1. Flow commands: CREATE, REVISE, and strict END
+    const endCommand = {
+      commandId: "cmd-end-1",
+      sourceId: "plan:src-existing-1",
+      expectedSourceRevision: 2,
+      effectiveFromMonth: "2026-11",
+      effectiveToMonth: "2026-11",
+      confirm: true,
+      document: "doc-end-proof",
+      operation: "END",
+    };
+    // Ensure END command does not include metric, amount, currency, or frequency
+    assert.equal("metric" in endCommand, false);
+    assert.equal("amount" in endCommand, false);
+    assert.equal("currency" in endCommand, false);
+    assert.equal("frequency" in endCommand, false);
+
+    const createCommand = {
+      commandId: "cmd-create-1",
+      sourceId: "plan:src-new-uuid",
+      expectedSourceRevision: 0,
+      effectiveFromMonth: "2026-10",
+      effectiveToMonth: "2030-12",
+      confirm: true,
+      document: "doc-raise",
+      operation: "CREATE",
+      metric: "income",
+      frequency: "MONTHLY",
+      amount: "15000000",
+      currency: "VND",
+      confirmation: "USER_CONFIRMED",
+    };
+
+    // 2. Pension Selection (FE-05)
+    const pensionSelection = {
+      estimateId: "est-pension-123",
+      expectedEstimateIntegrityHash: "sha256-estimate-integrity",
+      expectedRegistryHash: "sha256-registry-hash",
+      commandId: "cmd-pen-1",
+      sourceId: "plan:pension-source-1",
+      operation: "CREATE",
+      expectedSourceRevision: 0,
+      effectiveFromMonth: "2045-02",
+      effectiveToMonth: "2065-12",
+      amountPolicy: "FIXED_NOMINAL",
+      confirm: true,
+    };
+
+    const previewRes = await previewSourceReforecast("p1", {
+      versionId: "v2",
+      expectedSnapshotHash: "snap-hash-v2",
+      expectedRevision: 2,
+      expectedProfileRevision: 1,
+      throughMonth: "2026-09",
+      sourceCommands: [createCommand, endCommand],
+      pensionSelections: [pensionSelection],
+    });
+
+    assert.equal(previewRes.status, "READY");
+    assert.equal(previewRes.inputHash, "v4-input-hash-abc");
+    assert.equal(capturedPreviewReq.body.sourceCommands.length, 2);
+    assert.equal(capturedPreviewReq.body.pensionSelections.length, 1);
+    assert.equal(capturedPreviewReq.body.pensionSelections[0].amountPolicy, "FIXED_NOMINAL");
+
+    // Save with idempotency key
+    const saveRes = await saveSourceReforecast(
+      "p1",
+      {
+        preview: capturedPreviewReq.body,
+        expectedInputHash: "v4-input-hash-abc",
+        confirm: true,
+      },
+      "v4-idem-key-888"
+    );
+
+    assert.equal(saveRes.revision, 3);
+    assert.equal(capturedSaveReq.options.headers["Idempotency-Key"], "v4-idem-key-888");
+    assert.equal(capturedSaveReq.body.expectedInputHash, "v4-input-hash-abc");
+  } finally {
+    restore();
+  }
 });
 
 test("anti-slop and terminology integrity: no em-dashes in actual labels and AI policies", () => {

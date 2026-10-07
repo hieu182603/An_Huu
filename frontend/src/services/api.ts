@@ -1,7 +1,15 @@
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string, public fieldErrors?: Record<string, string[]>) { super(message); }
+  status: number;
+  code: string;
+  fieldErrors?: Record<string, string[]>;
+  constructor(status: number, code: string, message: string, fieldErrors?: Record<string, string[]>) {
+    super(message);
+    this.status = status;
+    this.code = code;
+    this.fieldErrors = fieldErrors;
+  }
 }
-const baseUrl = (import.meta.env.VITE_API_URL || "/api/v1").replace(/\/$/, "");
+const baseUrl = ((typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) || "/api/v1").replace(/\/$/, "");
 let accessToken: string | null = null;
 let accessTokenExpiresAt = 0;
 let refreshPromise: Promise<Session> | null = null;
@@ -22,7 +30,7 @@ function acceptAccessToken(token: string) {
   } catch { accessTokenExpiresAt = Date.now() + 60000; }
 }
 async function withSessionLock<T>(action: () => Promise<T>): Promise<T> {
-  if (!navigator.locks) return action();
+  if (typeof navigator === "undefined" || !navigator.locks) return action();
   try {
     return await navigator.locks.request("anhuu-auth-cookie", { signal: AbortSignal.timeout(20000) }, action);
   } catch (error) {

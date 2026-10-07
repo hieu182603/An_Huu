@@ -5,6 +5,7 @@ import { Alert, Badge, Button, Card, Icon, Modal, useNotification } from "../com
 import { MonthlyRetirementChart } from "../components/charts";
 import { MonthlyCashflowTable } from "../components/retirement/MonthlyCashflowTable";
 import { PlanVersionDrawer } from "../components/retirement/PlanVersionDrawer";
+import { SocialInsuranceModal } from "../components/SocialInsuranceModal";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import {
@@ -48,10 +49,14 @@ export default function RetirementPlanPage() {
   const [policyDetail, setPolicyDetail] = useState<PortfolioPolicyDetail | null>(null);
   const [loadingPolicy, setLoadingPolicy] = useState(true);
   const [scenario, setScenario] = useState<"BASE" | "ADVERSE" | "FAVORABLE">("BASE");
+  const [contributionTiming, setContributionTiming] = useState<"END_OF_MONTH" | "START_OF_MONTH">("END_OF_MONTH");
+  const [startOfMonthAvailable, setStartOfMonthAvailable] = useState<string>("");
+  const [startOfMonthConfirmed, setStartOfMonthConfirmed] = useState<boolean>(false);
   const [isVersionDrawerOpen, setIsVersionDrawerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [showApplyConfirm, setShowApplyConfirm] = useState(false);
+  const [showInsuranceModal, setShowInsuranceModal] = useState(false);
 
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -215,9 +220,28 @@ export default function RetirementPlanPage() {
       debtStress: [],
       housing,
       scenario,
+      contributionTiming,
+      surplusPolicy: "EXPLICIT_DEPOSITS_ONLY" as const,
+      startOfMonthFunding: contributionTiming === "START_OF_MONTH" ? {
+        confirmed: startOfMonthConfirmed,
+        source: "CURRENT_MONTH_DISPOSABLE_CASH_AVAILABLE_AT_START" as const,
+        monthlyAvailable: startOfMonthAvailable.trim() || "0",
+      } : undefined,
       whatIf: retirementMonth ? { retirementMonth } : undefined,
     };
-  }, [policyDetail, profile, v2Profile, profileRevision, defaultEndMonth, scenario, currentVersion, effectiveAnswers]);
+  }, [
+    policyDetail,
+    profile,
+    v2Profile,
+    profileRevision,
+    defaultEndMonth,
+    scenario,
+    currentVersion,
+    effectiveAnswers,
+    contributionTiming,
+    startOfMonthAvailable,
+    startOfMonthConfirmed,
+  ]);
 
   // Trigger calculation when payload is ready
   useEffect(() => {
@@ -439,15 +463,118 @@ export default function RetirementPlanPage() {
         </div>
       )}
 
-      {activePlan?.stale && (
+      {Boolean(activePlan?.actualSourceChanged) && (
         <div style={{ marginBottom: "20px" }}>
-          <Alert tone="warning" title={language === "en" ? "Profile or assumptions updated" : "Hồ sơ hoặc giả định đã có cập nhật mới"}>
+          <Alert
+            tone="danger"
+            title={language === "en" ? "Actual Source Changed" : "Dữ liệu thực tế nguồn đã bị thay đổi"}
+          >
             {language === "en"
-              ? "Your financial profile or portfolio policy recently changed. We recommend re-running projection and saving a new version."
-              : "Hồ sơ tài chính của bạn hoặc chính sách danh mục vừa có cập nhật mới. Bạn nên chạy lại dự phóng và lưu phiên bản mới."}
+              ? "Actual transactions linked to this plan version have been modified. Please reconcile actuals and run a reforecast."
+              : "Bút toán thực tế liên kết với phiên bản kế hoạch này đã bị sửa đổi. Vui lòng đối soát lại sổ thực tế và lập dự báo mới."}
           </Alert>
         </div>
       )}
+
+      {/* Contribution Timing Configuration Panel (P13/P15) */}
+      <Card style={{ marginBottom: "20px", padding: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "12px" }}>
+          <div>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-primary-700)", textTransform: "uppercase" }}>
+              {language === "en" ? "CONTRIBUTION TIMING POLICY" : "CHÍNH SÁCH ĐÓNG GÓP ĐỊNH KỲ (P13/P15)"}
+            </span>
+            <h3 style={{ margin: "2px 0 0", fontSize: "15px" }}>
+              {language === "en" ? "Periodic Contribution Timing" : "Thời điểm tích lũy vào quỹ"}
+            </h3>
+          </div>
+
+          <div style={{ display: "flex", gap: "8px" }}>
+            <Button
+              variant={contributionTiming === "END_OF_MONTH" ? "primary" : "secondary"}
+              size="small"
+              onClick={() => setContributionTiming("END_OF_MONTH")}
+            >
+              {language === "en" ? "End of Month (Default)" : "Cuối mỗi tháng (Mặc định)"}
+            </Button>
+            <Button
+              variant={contributionTiming === "START_OF_MONTH" ? "primary" : "secondary"}
+              size="small"
+              onClick={() => setContributionTiming("START_OF_MONTH")}
+            >
+              {language === "en" ? "Start of Month" : "Đầu mỗi tháng"}
+            </Button>
+          </div>
+        </div>
+
+        {contributionTiming === "START_OF_MONTH" && (
+          <div style={{ background: "var(--color-surface-subtle)", padding: "12px", borderRadius: "var(--radius-md)", display: "grid", gap: "10px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                  {language === "en" ? "Available Disposable Cash at Start (VND) *" : "Thu nhập khả dụng sẵn có đầu tháng để tích lũy (VND) *"}
+                </label>
+                <input
+                  type="number"
+                  placeholder="VD: 5000000"
+                  className="input"
+                  value={startOfMonthAvailable}
+                  onChange={(e) => setStartOfMonthAvailable(e.target.value)}
+                  style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", cursor: "pointer", fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={startOfMonthConfirmed}
+                    onChange={(e) => setStartOfMonthConfirmed(e.target.checked)}
+                  />
+                  {language === "en"
+                    ? "I confirm this disposable cash is available at the start of each month (not drawn from fund balance)."
+                    : "Tôi xác nhận nguồn tiền này đã sẵn có vào đầu mỗi tháng để đóng góp (không trích từ số dư quỹ hưu trí)."}
+                </label>
+              </div>
+            </div>
+            {!startOfMonthConfirmed && (
+              <span style={{ fontSize: "11.5px", color: "var(--color-warning-800)" }}>
+                {language === "en"
+                  ? "Start-of-month timing requires explicit user confirmation of disposable funds available at month start."
+                  : "Đóng góp đầu tháng yêu cầu xác nhận rõ ràng nguồn tiền khả dụng đã sẵn có đầu tháng."}
+              </span>
+            )}
+          </div>
+        )}
+
+        {previewData?.replayInput?.contributionStartMonth && (
+          <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--color-text-muted)" }}>
+            <Icon name="compass" size="small" />{" "}
+            {language === "en"
+              ? `Contribution calculation begins from: ${previewData.replayInput.contributionStartMonth}`
+              : `Kỳ bắt đầu tính toán đóng góp: Tháng ${previewData.replayInput.contributionStartMonth}`}
+          </div>
+        )}
+
+        {summary?.savingsStatus === "EARLY_FUNDING_REQUIRED" && (
+          <div style={{ marginTop: "8px" }}>
+            <Alert tone="warning" title={language === "en" ? "Early Funding Required" : "Yêu cầu nguồn vốn đầu kỳ (EARLY_FUNDING_REQUIRED)"}>
+              {language === "en"
+                ? "Additional disposable funds are required before the eligible contribution window opens."
+                : "Cần bổ sung nguồn vốn khả dụng trước khi kỳ đóng góp đủ điều kiện bắt đầu."}
+            </Alert>
+          </div>
+        )}
+
+        {summary?.savingsStatus === "NO_ELIGIBLE_CONTRIBUTION_PERIOD" && (
+          <div style={{ marginTop: "8px" }}>
+            <Alert tone="warning" title={language === "en" ? "No Eligible Contribution Period" : "Không có kỳ đóng góp đủ điều kiện (NO_ELIGIBLE_CONTRIBUTION_PERIOD)"}>
+              {language === "en"
+                ? "An accumulation phase exists, but no eligible contribution months were found within the planning horizon."
+                : "Tồn tại giai đoạn tích lũy nhưng không tìm thấy kỳ đóng góp đủ điều kiện nào trong chân trời kế hoạch."}
+            </Alert>
+          </div>
+        )}
+      </Card>
 
       {/* Primary Result Hero */}
       <motion.div
@@ -533,6 +660,14 @@ export default function RetirementPlanPage() {
               onClick={() => setIsVersionDrawerOpen(true)}
             >
               <Icon name="file-text" /> {language === "en" ? `View history (${planVersions.length} versions)` : `Xem lịch sử (${planVersions.length} bản)`}
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="medium"
+              onClick={() => setShowInsuranceModal(true)}
+            >
+              <Icon name="sparkles" /> {language === "en" ? "Social Insurance (BHXH)" : "Thẩm định & Ước tính BHXH"}
             </Button>
           </div>
         </div>
@@ -812,6 +947,17 @@ export default function RetirementPlanPage() {
               </Button>
             </div>
       </Modal>
+
+      <SocialInsuranceModal
+        open={showInsuranceModal}
+        onClose={() => setShowInsuranceModal(false)}
+        language={language === "en" ? "en" : "vi"}
+        initialBenefitDate={
+          v2Profile?.personal?.pensionStartMonth?.status === "KNOWN" && v2Profile.personal.pensionStartMonth.value
+            ? `${v2Profile.personal.pensionStartMonth.value}-01`
+            : undefined
+        }
+      />
     </>
   );
 }

@@ -44,6 +44,7 @@ export type LegalRetirementAgeResult = {
     verifiedOn: string;
     source: string;
     effectiveFrom: string;
+    scope?: string;
   };
   eligibility: "NOT_ASSESSED";
   desiredRetirementMonth: string | null;
@@ -51,8 +52,11 @@ export type LegalRetirementAgeResult = {
   issue: string | null;
   ageMonths: number | null;
   retirementMonth: string | null;
+  referenceFollowingMonth?: string | null;
   pensionStartMonth: string | null;
+  pensionStartStatus?: string | null;
   conditionBasis: string;
+  relatedSources?: Array<{ title?: string; url?: string }>;
 };
 
 export type PensionPreviewRow = {
