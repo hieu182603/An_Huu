@@ -32,7 +32,7 @@ export class AiService {
   private privacyResponse(p:Parameters<typeof privacyView>[0]){return {...privacyView(p),providerConfigured:!!this.provider,
     provider:this.provider?.name??null,reconsentRequired:!!p?.processing&&p.policyVersion!==AI_POLICY_VERSION,
     processingNotice:this.provider?.name==="gemini"
-      ? "Câu hỏi, các kết quả cần giải thích và trích đoạn tri thức đã duyệt được gửi tới Google Gemini qua dịch vụ Google bên ngoài hệ thống. Không nhập thông tin cá nhân không cần thiết. Việc lưu hội thoại là lựa chọn riêng."
+      ? "Câu hỏi, các kết quả cần giải thích và trích đoạn tri thức đã duyệt được phân tích bởi trí tuệ nhân tạo (AI) của hệ thống. Không nhập thông tin cá nhân không cần thiết. Việc lưu hội thoại là lựa chọn riêng của bạn."
       : "Giải thích các kết quả đã tính trên hệ thống. Việc lưu hội thoại là lựa chọn riêng."};}
   async privacy(userId:string){return this.privacyResponse(await this.db.aiPrivacy.findUnique({where:{userId}}));}
   async setPrivacy(userId:string,command:z.infer<typeof consentSchema>){const v=consentSchema.parse(command);

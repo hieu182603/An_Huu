@@ -17,6 +17,7 @@ import { loanSourceCandidate, type LoanSourceBasis } from "../debts/source-candi
 import { loanActualEvidenceSchema } from "../debts/reconciliation";
 import { createLoanSource, loanCreationAllocations } from "../debts/source-create";
 import { reconcileRefinance } from "../debts/refinance";
+import { plannedPairCandidate } from "../debts/planned-refinance-source";
 import { assetSourceCandidate, assertAssetCommandHistory, assetAllocations, capitalActualEvidenceSchema, legacyCapitalAllocations, priorCapitalAllocations } from "../capital/source-candidate";
 
 export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.TransactionClient, userId: string, planId: string, input: SourceReforecastCommand) {
@@ -34,7 +35,7 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
     calculation: version.preview.calculation, originalRetirementMonth: version.preview.reforecast!.originalRetirementMonth, actuals: [] }
     : await new ActualsService(db).forecast(userId, { planId, versionId: version.id, throughMonth: input.throughMonth }, tx);
   if (forecast.status !== "READY" || !forecast.anchor || !forecast.calculation)
-    return { status: forecast.status, issues: forecast.issues, inputHash: null, candidate: null, loanRevisionOptions: [], assetRevisionOptions: [], saved: false, applied: false };
+    return { status: forecast.status, issues: forecast.issues, inputHash: null, candidate: null, loanRevisionOptions: [], plannedRefinanceOptions: { eligibleLoans: [], activePairs: [] }, assetRevisionOptions: [], saved: false, applied: false };
   const knownOn = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
   const original = version.preview;
   const upgraded = original.modelVersion === SOURCE_MODEL ? original : upgradeSourcePreview(capture, original, version.snapshotHash, knownOn);
@@ -47,9 +48,37 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
   const newLoanSources = [...(upgraded.newLoanSources ?? [])];
   const refinances = [...(upgraded.refinances ?? [])];
   const assetSources = [...(upgraded.assetSources ?? [])];
-  const newCommandIds = [...input.sourceCommands, ...input.pensionSelections, ...(input.loanRevisions ?? []), ...(input.loanCreations ?? []), ...(input.refinances ?? []), ...(input.assetCommands ?? [])].map(c => c.commandId);
-  if (newCommandIds.some(id => refinances.some(r => r.command.commandId === id)) || (input.refinances ?? []).some(c => registry.revisions.some(r => r.commandId === c.commandId)))
+  const plannedRefinances = [...(upgraded.plannedRefinances ?? [])];
+  const pairCommands = input.plannedRefinances ?? [];
+  const pairCommandIds = pairCommands.flatMap(c => [c.commandId, c.replacementCommandId]);
+  const newCommandIds = [...[...input.sourceCommands, ...input.pensionSelections, ...(input.loanRevisions ?? []), ...(input.loanCreations ?? []), ...(input.refinances ?? []), ...(input.assetCommands ?? [])].map(c => c.commandId), ...pairCommandIds];
+  if (newCommandIds.some(id => refinances.some(r => r.command.commandId === id)) ||
+    [...(input.refinances ?? []).map(c => c.commandId), ...pairCommandIds].some(id => registry.revisions.some(r => r.commandId === id)))
     throw new AppError(409, "SOURCE_COMMAND_REUSED", "Mã thao tác đã được dùng trong lịch sử phương án.");
+  const cutoffDate = new Date(Date.parse(addMonths(input.throughMonth, 1) + "-01T00:00:00Z") - 86400000).toISOString().slice(0, 10);
+  const latestPairs = () => new Map(plannedRefinances.map(p => [p.evidence.command.pairId, p]));
+  const activePairs = () => [...latestPairs().values()].flatMap(p => p.evidence.command.operation === "CANCEL" ? [] : [{ proof: p, command: p.evidence.command }]);
+  const lockedSourceIds = () => new Set(activePairs().flatMap(p => [p.command.oldSource.sourceId, p.command.newSource.sourceId]));
+  // A cancelled pair revision carries the pinned contract schedule, so it is a
+  // valid v2 basis for a later loan revision or a new pair.
+  const loanContractOf = (sourceHash: string) => loanSources.find(s => s.sourceHash === sourceHash)?.evidence.command.contract ??
+    newLoanSources.find(s => s.sourceHash === sourceHash)?.evidence.command.contract ??
+    plannedRefinances.find(p => p.evidence.command.operation === "CANCEL" && p.oldSourceHash === sourceHash)?.evidence.basis.contract;
+  const applyPair = (command: (typeof pairCommands)[number]) => {
+    const prior = latestPairs().get(command.pairId);
+    let basis;
+    if (command.operation === "CREATE") {
+      const latest = registry.revisions.filter(r => r.sourceId === command.oldSource.sourceId).at(-1);
+      const contract = latest && loanContractOf(latest.sourceHash);
+      if (!latest || !contract) throw new AppError(422, "PLANNED_REFINANCE_V2_BASIS_REQUIRED", "Cần cập nhật hợp đồng khoản vay đến tháng đối soát trước khi lập phương án tái cấp vốn.");
+      basis = { source: latest, contract };
+    } else {
+      if (!prior) throw new AppError(409, "PLANNED_PAIR_REVISION_CONFLICT", "Không tìm thấy phương án tái cấp vốn dự kiến.");
+      basis = prior.evidence.basis;
+    }
+    const result = plannedPairCandidate(registry, command, basis, plannedRefinances, input.throughMonth, knownOn);
+    registry = result.registry; plannedRefinances.push(result.proof);
+  };
   for (const command of input.sourceCommands) registry = applyFlowSourceCommand(registry, command, input.throughMonth, knownOn);
   for (const selection of input.pensionSelections) {
     const evidence = await pensions.captureForSource(userId, selection.estimateId, selection.expectedEstimateIntegrityHash, tx);
@@ -61,6 +90,14 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
     const result = pensionSourceCandidate(registry, selected, evidence, userId, input.throughMonth, knownOn);
     registry = result.registry; pensionSources.push({ sourceHash: result.sourceHash, selection: selected, evidence });
   }
+  // Fixed order: CANCEL pairs → actual loan commands → CREATE/REVISE pairs, so
+  // one batch can unwind a projection, reconcile the old loan and re-plan it.
+  for (const command of pairCommands) if (command.operation === "CANCEL") applyPair(command);
+  if (activePairs().some(p => p.command.terms.settledOn <= cutoffDate))
+    throw new AppError(409, "PLANNED_PAIR_RECONCILIATION_REQUIRED", "Ngày tái cấp vốn dự kiến đã qua tháng đối soát. Hãy hủy phương án dự kiến và khai báo khoản vay thực tế hoặc lập lại phương án.");
+  const locked = lockedSourceIds();
+  if ([...(input.loanRevisions ?? []), ...(input.loanCreations ?? [])].some(c => locked.has(c.sourceId)))
+    throw new AppError(409, "PLANNED_PAIR_SOURCE_LOCKED", "Khoản vay đang thuộc phương án tái cấp vốn dự kiến. Hãy sửa hoặc hủy cả cặp.");
   const loanActualRows = input.loanRevisions?.length || input.loanCreations?.some(c => c.funding.kind === "DISBURSED_BALANCE")
     ? await tx.actualMonth.findMany({ where: { userId, period: { in: lineage.actualRevisions.map(r => r.period) } }, orderBy: { period: "asc" } }) : [];
   const loanActuals = loanActualRows.map(row => loanActualEvidenceSchema.parse({ period: row.period, revision: row.revision, status: "RECONCILED", data: row.payload }));
@@ -81,9 +118,11 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
       const priorSource = registry.revisions.filter(r => r.sourceId === command.sourceId).at(-1);
       const priorLoan = priorSource && loanSources.find(s => s.sourceHash === priorSource.sourceHash);
       const createdLoan = priorSource && newLoanSources.find(s => s.sourceHash === priorSource.sourceHash);
+      const pinned = priorSource && loanContractOf(priorSource.sourceHash);
       let basis: LoanSourceBasis;
       if (priorLoan) basis = { sourceHash: priorLoan.sourceHash, contract: priorLoan.evidence.command.contract };
       else if (createdLoan) basis = { sourceHash: createdLoan.sourceHash, contract: createdLoan.evidence.command.contract };
+      else if (priorSource && pinned) basis = { sourceHash: priorSource.sourceHash, contract: pinned };
       else {
         const debt = capture.profile.debts.status === "KNOWN" ? capture.profile.debts.entries.find(d => `profile:debt:${d.id}` === command.sourceId) : undefined;
         if (!priorSource || !debt || !command.legacyOpening) throw new AppError(422, "LOAN_OPENING_CONFIRMATION_REQUIRED", "Cần xác nhận căn cứ số dư khoản vay cũ.");
@@ -100,6 +139,7 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
     if (!closing || !replacement) throw new AppError(422, "REFINANCE_COMMANDS_REQUIRED", "Thiếu cặp tất toán và khoản vay thay thế.");
     refinances.push(reconcileRefinance(command, closing, replacement));
   }
+  for (const command of pairCommands) if (command.operation !== "CANCEL") applyPair(command);
   if (input.assetCommands?.length) {
     const rows = await tx.actualMonth.findMany({ where: { userId, period: { in: lineage.actualRevisions.map(r => r.period) } }, orderBy: { period: "asc" } });
     const actuals = rows.map(row => capitalActualEvidenceSchema.parse({ period: row.period, revision: row.revision, data: row.payload }));
@@ -122,24 +162,37 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
     valuationDate: nextMonth + "-01", retirementMonth: forecast.originalRetirementMonth < nextMonth ? nextMonth : forecast.originalRetirementMonth,
     initialCapital: forecast.anchor.closingBalance, rows: remaining };
   replayInput.rows = rebuildSourceBudget(replayInput, future.rows);
-  const inputHash = digest({ input, knownOn, parentHash: version.snapshotHash, replayInput, lineage, pensionSources, loanSources, newLoanSources, refinances, assetSources });
+  const inputHash = digest({ input, knownOn, parentHash: version.snapshotHash, replayInput, lineage, pensionSources, loanSources, newLoanSources, refinances, plannedRefinances, assetSources });
   const candidate: SourceRetirementResult = { ...upgraded, valuationDate: replayInput.valuationDate, inputHash, replayInput, reforecast: lineage,
     sourceCommands: [...(upgraded.sourceCommands ?? []), ...input.sourceCommands], pensionSources,
     ...(loanSources.length ? { loanSources } : {}),
     ...(newLoanSources.length ? { newLoanSources } : {}),
     ...(refinances.length ? { refinances } : {}),
+    ...(plannedRefinances.length ? { plannedRefinances } : {}),
     ...(assetSources.length ? { assetSources } : {}),
     calculation: { ...upgraded.calculation, ...projectSources(replayInput), marketRows: upgraded.calculation.marketRows.filter(r => r.month >= nextMonth),
       limitations: [...new Set([...upgraded.calculation.limitations, "PLAN_SCOPED_SOURCES", "EXPLICIT_DEPOSITS_ONLY", "PENSION_ESTIMATE_NOT_OFFICIAL_AWARD", "PROFILE_NET_WORTH_AND_GOAL_SELECTION_RETAIN_ORIGINAL_BASIS"])] } };
   const latestSources = new Map(registry.revisions.map(s => [s.sourceId, s]));
-  const loanRevisionOptions = [...latestSources.values()].filter(s => s.kind === "DEBT" && s.operation !== "END").flatMap(source => {
-    const loan = loanSources.find(s => s.sourceHash === source.sourceHash) ?? newLoanSources.find(s => s.sourceHash === source.sourceHash);
+  const lockedAfter = lockedSourceIds();
+  const loanRevisionOptions = [...latestSources.values()].filter(s => s.kind === "DEBT" && s.operation !== "END" && !lockedAfter.has(s.sourceId)).flatMap(source => {
+    const contract = loanContractOf(source.sourceHash);
     const debt = capture.profile.debts.status === "KNOWN" ? capture.profile.debts.entries.find(d => `profile:debt:${d.id}` === source.sourceId) : undefined;
-    if (!loan && (!debt || source.revision !== 1)) return [];
+    if (!contract && (!debt || source.revision !== 1)) return [];
     return [{ sourceId: source.sourceId, sourceRevision: source.revision, sourceHash: source.sourceHash,
-      contractHash: digest(loan ? loan.evidence.command.contract : debt), legacyOpeningRequired: !loan }];
+      contractHash: digest(contract ?? debt), legacyOpeningRequired: !contract }];
   });
+  const plannedRefinanceOptions = {
+    eligibleLoans: loanRevisionOptions.filter(o => { const c = loanContractOf(o.sourceHash); return c && c.balanceAsOf === cutoffDate && c.balanceNature !== "PROJECTED_DISBURSEMENT"; })
+      .map(({ legacyOpeningRequired: _, ...o }) => o),
+    activePairs: activePairs().map(({ proof, command }) => {
+      const [oldSource, newSource] = [command.oldSource.sourceId, command.newSource.sourceId].map(id => latestSources.get(id)!);
+      return { pairId: command.pairId, pairHash: proof.pairHash, settledOn: command.terms.settledOn, contractHash: command.expectedContractHash,
+        oldSource: { sourceId: oldSource.sourceId, revision: oldSource.revision, sourceHash: oldSource.sourceHash },
+        newSource: { sourceId: newSource.sourceId, revision: newSource.revision, sourceHash: newSource.sourceHash },
+        reviseAllowed: proof.evidence.cutoff === input.throughMonth && command.terms.settledOn > knownOn };
+    }),
+  };
   const assetRevisionOptions = [...latestSources.values()].filter(s => s.kind === "ASSET_CAPITAL" && s.operation !== "END")
     .map(s => ({ sourceId: s.sourceId, sourceRevision: s.revision, sourceHash: s.sourceHash }));
-  return { status: "READY", issues: [], inputHash, candidate, loanRevisionOptions, assetRevisionOptions, saved: false, applied: false };
+  return { status: "READY", issues: [], inputHash, candidate, loanRevisionOptions, plannedRefinanceOptions, assetRevisionOptions, saved: false, applied: false };
 }

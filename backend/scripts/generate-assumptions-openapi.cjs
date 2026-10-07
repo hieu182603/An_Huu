@@ -39,6 +39,7 @@ function schema(z) {
     }
     case "ZodUnion": return { anyOf: d.options.map(schema) };
     case "ZodDiscriminatedUnion": return { oneOf: d.options.map(schema) };
+    case "ZodNull": return { type: "object", nullable: true, enum: [null] };
     default: throw new Error("Unsupported schema " + d.typeName);
   }
 }

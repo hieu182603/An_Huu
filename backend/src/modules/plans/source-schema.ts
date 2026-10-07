@@ -6,6 +6,7 @@ import { loanSourceRevisionSchema } from "../debts/source-candidate";
 import { loanCreationSchema } from "../debts/source-create";
 import { refinanceSchema } from "../debts/refinance";
 import { assetSourceCommandSchema } from "../capital/source-candidate";
+import { plannedPairCommandSchema } from "../debts/planned-refinance-source";
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const amount = z.string().max(160).regex(/^(0|[1-9]\d*)(\.\d+)?$/).refine(v => new D(v).lte("1e100"));
 const identity = { commandId: z.string().uuid(), sourceId: z.string().min(1).max(200), expectedSourceRevision: z.number().int().min(0),
@@ -24,10 +25,14 @@ export const sourceReforecastSchema = z.object({ versionId: z.string().uuid(), e
   loanCreations: z.array(loanCreationSchema).max(30).optional(),
   refinances: z.array(refinanceSchema).max(30).optional(),
   assetCommands: z.array(assetSourceCommandSchema).max(30).optional(),
+  plannedRefinances: z.array(plannedPairCommandSchema).max(10).optional(),
 }).strict().superRefine((v, ctx) => {
   const commands = [...v.sourceCommands, ...v.pensionSelections, ...(v.loanRevisions ?? []), ...(v.loanCreations ?? []), ...(v.assetCommands ?? [])];
-  const allIds = [...commands.map(c => c.commandId), ...(v.refinances ?? []).map(c => c.commandId)];
-  if (new Set(allIds).size !== allIds.length || new Set(commands.map(c => c.sourceId)).size !== commands.length)
+  const pairs = v.plannedRefinances ?? [];
+  const allIds = [...commands.map(c => c.commandId), ...(v.refinances ?? []).map(c => c.commandId),
+    ...pairs.flatMap(c => [c.commandId, c.replacementCommandId])];
+  if (new Set(allIds).size !== allIds.length || new Set(commands.map(c => c.sourceId)).size !== commands.length ||
+    new Set(pairs.map(c => c.pairId)).size !== pairs.length)
     ctx.addIssue({ code: "custom", message: "Mỗi nguồn và mã thao tác chỉ được dùng một lần trong một lần xem trước." });
   const linked = new Set<string>();
   for (const refi of v.refinances ?? []) {

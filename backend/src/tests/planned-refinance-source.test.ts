@@ -90,6 +90,20 @@ it("requires actual reconciliation when cutoff advances or the planned date arri
   }
 });
 
+it("allows CANCEL after the cutoff advances or the planned date passes, restoring the pinned schedule from the new cutoff", () => {
+  const f = fixture(), first = plannedPairCandidate(f.registry, f.command, f.basis, [], "2026-10", "2026-11-05");
+  for (const [cutoff, knownOn, expected] of [["2026-11", "2026-12-01", ["300", "300", "300"]], ["2026-12", "2027-01-02", ["300", "300"]]] as const) {
+    const { terms: _, ...base } = revision(first, f.command) as Extract<PlannedPairCommand, { operation: "REVISE" }>;
+    const cancelled = plannedPairCandidate(first.registry, { ...base, operation: "CANCEL", reason: "Reconcile actual" }, f.basis, [first.proof], cutoff, knownOn);
+    const from = cancelled.registry.revisions.at(-2)!;
+    expect(from.effectiveFromMonth).toBe(cutoff === "2026-11" ? "2026-12" : "2027-01");
+    expect(from.schedule.map(c => c.amount)).toEqual([...expected].slice(0, from.schedule.length));
+    expect(composeSourceMonths(cancelled.registry, from.effectiveFromMonth).rows.map(r => r.debtPayment))
+      .toEqual(composeSourceMonths(f.registry, from.effectiveFromMonth).rows.map(r => r.debtPayment));
+    expect(replayPlannedPairs(cancelled.registry, [first.proof, cancelled.proof]).matched).toBe(true);
+  }
+});
+
 it("rejects substitute basis, overlapping aggregate debt and another active pair on the same source", () => {
   const f = fixture(), badBasis = structuredClone(f.basis); badBasis.contract.periods[0].fee = "1";
   expect(() => plannedPairCandidate(f.registry, { ...f.command, expectedContractHash: digest(badBasis.contract) }, badBasis, [], "2026-10", "2026-11-05"))

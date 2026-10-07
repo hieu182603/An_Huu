@@ -51,14 +51,14 @@ Registry:
               - PLAN_VERSION
           origin:
             type: string
-            enum:
+            enum: &a24
               - PINNED_PROFILE
               - PLAN_CREATED
               - LEGACY_AGGREGATE
               - PLAN_ASSUMPTION
           kind:
             type: string
-            enum:
+            enum: &a25
               - INCOME
               - EXPENSE
               - PENSION
@@ -83,13 +83,13 @@ Registry:
             maxLength: 200
           confirmation:
             type: string
-            enum:
+            enum: &a26
               - USER_CONFIRMED
               - HYPOTHETICAL
               - BANK_CONFIRMED
           operation:
             type: string
-            enum:
+            enum: &a27
               - CREATE
               - REVISE
               - END
@@ -104,7 +104,7 @@ Registry:
                   pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
                 metric:
                   type: string
-                  enum: &a5
+                  enum: &a6
                     - income
                     - pension
                     - livingExpense
@@ -269,6 +269,7 @@ PensionSourceEvidence:
             - vn-pension-benefit-v1
             - vn-pension-benefit-v2
             - vn-pension-state-v1
+            - vn-pension-state-v2
             - vn-pension-voluntary-v1
             - vn-pension-voluntary-state-v1
             - vn-pension-voluntary-top-up-v1
@@ -399,6 +400,41 @@ PensionSourceEvidence:
                             - confirmedOn
                         minItems: 1
                         maxItems: 20
+                      pre2004Conversion:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          scale:
+                            type: string
+                            enum: &a5
+                              - ND204_PUBLIC
+                              - ND204_ARMED_FORCES
+                              - ND205_ENTERPRISE
+                          evidence:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              properties:
+                                reference:
+                                  type: string
+                                  minLength: 1
+                                  maxLength: 300
+                                contentHash:
+                                  type: string
+                                  pattern: ^[a-f0-9]{64}$
+                                confirmedOn:
+                                  type: string
+                                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                              required:
+                                - reference
+                                - contentHash
+                                - confirmedOn
+                            minItems: 1
+                            maxItems: 20
+                        required:
+                          - scale
+                          - evidence
                     required:
                       - kind
                       - totalContributionCoefficient
@@ -840,6 +876,9 @@ PensionSourceEvidence:
                       - confirmedOn
                   minItems: 1
                   maxItems: 20
+                transferMonth:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
               required:
                 - firstParticipationMonth
                 - firstParticipationEvidence
@@ -974,6 +1013,38 @@ PensionSourceEvidence:
                                 - confirmedOn
                             minItems: 1
                             maxItems: 20
+                          pre2004Conversion:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              scale:
+                                type: string
+                                enum: *a5
+                              evidence:
+                                type: array
+                                items:
+                                  type: object
+                                  additionalProperties: false
+                                  properties:
+                                    reference:
+                                      type: string
+                                      minLength: 1
+                                      maxLength: 300
+                                    contentHash:
+                                      type: string
+                                      pattern: ^[a-f0-9]{64}$
+                                    confirmedOn:
+                                      type: string
+                                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                  required:
+                                    - reference
+                                    - contentHash
+                                    - confirmedOn
+                                minItems: 1
+                                maxItems: 20
+                            required:
+                              - scale
+                              - evidence
                         required:
                           - kind
                           - totalContributionCoefficient
@@ -1316,7 +1387,7 @@ Attribution:
       pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
     metric:
       type: string
-      enum: *a5
+      enum: *a6
     amount:
       type: string
       maxLength: 160
@@ -2207,6 +2278,10 @@ Preview:
             type: string
           proofHash:
             type: string
+    plannedRefinances:
+      type: array
+      items:
+        $ref: "#/PlannedPairProof"
   required:
     - status
     - issues
@@ -2291,7 +2366,7 @@ LoanSourceEvidence:
               pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
             confirmation:
               type: string
-              enum: &a6
+              enum: &a7
                 - HYPOTHETICAL
                 - BANK_CONFIRMED
             evidence:
@@ -2324,12 +2399,12 @@ LoanSourceEvidence:
               pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
             balanceScope:
               type: string
-              enum: &a7
+              enum: &a8
                 - FULL_CONTRACT
                 - USER_SHARE
             balanceNature:
               type: string
-              enum: &a8
+              enum: &a9
                 - CONFIRMED_BALANCE
                 - PROJECTED_DISBURSEMENT
             paymentShare:
@@ -2400,12 +2475,12 @@ LoanSourceEvidence:
                 - REDUCING_BALANCE
             rounding:
               type: string
-              enum: &a9
+              enum: &a10
                 - EXACT
                 - CENT_HALF_UP
             mode:
               type: string
-              enum: &a10
+              enum: &a11
                 - REDUCE_PAYMENT_KEEP_TERM
                 - REDUCE_TERM_KEEP_PAYMENT
                 - BANK_SCHEDULE
@@ -2420,7 +2495,7 @@ LoanSourceEvidence:
                     - null
             finalPayment:
               type: string
-              enum: &a11
+              enum: &a12
                 - ADJUST_FINAL_PAYMENT
                 - BALLOON_CONFIRMED
                 - NO_BALLOON
@@ -2684,7 +2759,7 @@ LoanSourceEvidence:
                 pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
               scope:
                 type: string
-                enum: &a12
+                enum: &a13
                   - FULL_CONTRACT
                   - USER_SHARE
               components:
@@ -2731,13 +2806,13 @@ LoanSourceEvidence:
                   - otherFee
               paymentStatus:
                 type: string
-                enum: &a13
+                enum: &a14
                   - CURRENT
                   - OVERDUE
                   - MIXED
               allocationBasis:
                 type: string
-                enum: &a14
+                enum: &a15
                   - BANK_STATEMENT
                   - AGREEMENT_COMPONENTS
               evidence:
@@ -2872,7 +2947,7 @@ LoanSourceEvidence:
                   pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
                 confirmation:
                   type: string
-                  enum: *a6
+                  enum: *a7
                 evidence:
                   type: array
                   items:
@@ -2903,10 +2978,10 @@ LoanSourceEvidence:
                   pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
                 balanceScope:
                   type: string
-                  enum: *a7
+                  enum: *a8
                 balanceNature:
                   type: string
-                  enum: *a8
+                  enum: *a9
                 paymentShare:
                   type: string
                   pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
@@ -2975,10 +3050,10 @@ LoanSourceEvidence:
                     - REDUCING_BALANCE
                 rounding:
                   type: string
-                  enum: *a9
+                  enum: *a10
                 mode:
                   type: string
-                  enum: *a10
+                  enum: *a11
                 fixedPayment:
                   anyOf:
                     - type: string
@@ -2989,7 +3064,7 @@ LoanSourceEvidence:
                         - null
                 finalPayment:
                   type: string
-                  enum: *a11
+                  enum: *a12
                 maturityDate:
                   type: string
                   pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
@@ -3799,7 +3874,7 @@ LoanSourceEvidence:
                       pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
                     kind:
                       type: string
-                      enum: &a20
+                      enum: &a21
                         - INCOME
                         - EXPENSE
                         - DEBT_PAYMENT
@@ -3864,7 +3939,7 @@ LoanSourceEvidence:
                 pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
               scope:
                 type: string
-                enum: *a12
+                enum: *a13
               components:
                 type: object
                 additionalProperties: false
@@ -3909,10 +3984,10 @@ LoanSourceEvidence:
                   - otherFee
               paymentStatus:
                 type: string
-                enum: *a13
+                enum: *a14
               allocationBasis:
                 type: string
-                enum: *a14
+                enum: *a15
               evidence:
                 type: array
                 items:
@@ -4037,7 +4112,7 @@ AssetSourceEvidence:
                   maxLength: 200
                 kind:
                   type: string
-                  enum: &a15
+                  enum: &a16
                     - ASSET_SALE
                     - LIQUID_CAPITAL
                 currency:
@@ -4050,7 +4125,7 @@ AssetSourceEvidence:
                     - NOMINAL_AT_AVAILABILITY
                 amountScope:
                   type: string
-                  enum: &a16
+                  enum: &a17
                     - WHOLE_ASSET
                     - USER_SHARE
                 ownershipShare:
@@ -4091,7 +4166,7 @@ AssetSourceEvidence:
                             - PLANNED
                         liquidity:
                           type: string
-                          enum: &a17
+                          enum: &a18
                             - AVAILABLE
                             - PLANNED_RELEASE
                         notIncludedInFund:
@@ -4158,7 +4233,7 @@ AssetSourceEvidence:
                             - STAGED
                         liquidity:
                           type: string
-                          enum: &a18
+                          enum: &a19
                             - AVAILABLE
                             - PLANNED_RELEASE
                         availability:
@@ -4186,7 +4261,7 @@ AssetSourceEvidence:
                                     pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
                                   status:
                                     type: string
-                                    enum: &a19
+                                    enum: &a20
                                       - CONFIRMED
                                       - EXPECTED
                                   evidence:
@@ -4414,7 +4489,7 @@ AssetSourceEvidence:
                   maxLength: 200
                 kind:
                   type: string
-                  enum: *a15
+                  enum: *a16
                 currency:
                   type: string
                   enum:
@@ -4425,7 +4500,7 @@ AssetSourceEvidence:
                     - NOMINAL_AT_AVAILABILITY
                 amountScope:
                   type: string
-                  enum: *a16
+                  enum: *a17
                 ownershipShare:
                   type: string
                   pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
@@ -4464,7 +4539,7 @@ AssetSourceEvidence:
                             - PLANNED
                         liquidity:
                           type: string
-                          enum: *a17
+                          enum: *a18
                         notIncludedInFund:
                           type: boolean
                           enum:
@@ -4529,7 +4604,7 @@ AssetSourceEvidence:
                             - STAGED
                         liquidity:
                           type: string
-                          enum: *a18
+                          enum: *a19
                         availability:
                           type: object
                           additionalProperties: false
@@ -4555,7 +4630,7 @@ AssetSourceEvidence:
                                     pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
                                   status:
                                     type: string
-                                    enum: *a19
+                                    enum: *a20
                                   evidence:
                                     type: array
                                     items:
@@ -4883,7 +4958,7 @@ AssetSourceEvidence:
                       pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
                     kind:
                       type: string
-                      enum: *a20
+                      enum: *a21
                     amount:
                       type: string
                       pattern: ^-?(0|[1-9]\d{0,15})(\.\d{1,2})?$
@@ -5037,7 +5112,7 @@ LoanCreationEvidence:
               pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
             confirmation:
               type: string
-              enum: *a6
+              enum: *a7
             evidence:
               type: array
               items:
@@ -5068,10 +5143,10 @@ LoanCreationEvidence:
               pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
             balanceScope:
               type: string
-              enum: *a7
+              enum: *a8
             balanceNature:
               type: string
-              enum: *a8
+              enum: *a9
             paymentShare:
               type: string
               pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
@@ -5140,10 +5215,10 @@ LoanCreationEvidence:
                 - REDUCING_BALANCE
             rounding:
               type: string
-              enum: *a9
+              enum: *a10
             mode:
               type: string
-              enum: *a10
+              enum: *a11
             fixedPayment:
               anyOf:
                 - type: string
@@ -5154,7 +5229,7 @@ LoanCreationEvidence:
                     - null
             finalPayment:
               type: string
-              enum: *a11
+              enum: *a12
             maturityDate:
               type: string
               pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
@@ -5398,7 +5473,7 @@ LoanCreationEvidence:
                         pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
                       scope:
                         type: string
-                        enum: *a12
+                        enum: *a13
                       components:
                         type: object
                         additionalProperties: false
@@ -5443,10 +5518,10 @@ LoanCreationEvidence:
                           - otherFee
                       paymentStatus:
                         type: string
-                        enum: *a13
+                        enum: *a14
                       allocationBasis:
                         type: string
-                        enum: *a14
+                        enum: *a15
                       evidence:
                         type: array
                         items:
@@ -5529,6 +5604,199 @@ LoanCreationEvidence:
                       - kind
                       - evidence
                   maxItems: 100
+                originalTerms:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    signedOn:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    amendedOn:
+                      anyOf:
+                        - type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                        - type: object
+                          nullable: true
+                          enum:
+                            - null
+                    effectiveOn:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    balanceScope:
+                      type: string
+                      enum: *a8
+                    paymentShare:
+                      type: string
+                      pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                    responsibility:
+                      oneOf:
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            kind:
+                              type: string
+                              enum:
+                                - ALLOCATED_SHARE
+                          required:
+                            - kind
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            kind:
+                              type: string
+                              enum:
+                                - CAPPED
+                            capBasis:
+                              type: string
+                              enum:
+                                - TOTAL_USER_PAYMENTS
+                            limit:
+                              type: string
+                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                            previouslyPaid:
+                              type: string
+                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                            evidence:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                properties:
+                                  reference:
+                                    type: string
+                                    minLength: 1
+                                    maxLength: 1000
+                                  contentHash:
+                                    type: string
+                                    pattern: ^[a-f0-9]{64}$
+                                  confirmedOn:
+                                    type: string
+                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                required:
+                                  - reference
+                                  - contentHash
+                                  - confirmedOn
+                              minItems: 1
+                              maxItems: 20
+                          required:
+                            - kind
+                            - capBasis
+                            - limit
+                            - previouslyPaid
+                            - evidence
+                    evidence:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          reference:
+                            type: string
+                            minLength: 1
+                            maxLength: 1000
+                          contentHash:
+                            type: string
+                            pattern: ^[a-f0-9]{64}$
+                          confirmedOn:
+                            type: string
+                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                        required:
+                          - reference
+                          - contentHash
+                          - confirmedOn
+                      minItems: 1
+                      maxItems: 20
+                    confirm:
+                      type: boolean
+                      enum:
+                        - true
+                  required:
+                    - signedOn
+                    - amendedOn
+                    - effectiveOn
+                    - balanceScope
+                    - paymentShare
+                    - responsibility
+                    - evidence
+                    - confirm
+                scopeChange:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    openingPrincipal:
+                      type: string
+                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                    evidence:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          reference:
+                            type: string
+                            minLength: 1
+                            maxLength: 1000
+                          contentHash:
+                            type: string
+                            pattern: ^[a-f0-9]{64}$
+                          confirmedOn:
+                            type: string
+                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                        required:
+                          - reference
+                          - contentHash
+                          - confirmedOn
+                      minItems: 1
+                      maxItems: 20
+                    confirm:
+                      type: boolean
+                      enum:
+                        - true
+                  required:
+                    - openingPrincipal
+                    - evidence
+                    - confirm
+                responsibilityAmendment:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    effectiveOn:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    openingUserPaid:
+                      type: string
+                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                    confirm:
+                      type: boolean
+                      enum:
+                        - true
+                    evidence:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          reference:
+                            type: string
+                            minLength: 1
+                            maxLength: 1000
+                          contentHash:
+                            type: string
+                            pattern: ^[a-f0-9]{64}$
+                          confirmedOn:
+                            type: string
+                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                        required:
+                          - reference
+                          - contentHash
+                          - confirmedOn
+                      minItems: 1
+                      maxItems: 20
+                  required:
+                    - effectiveOn
+                    - openingUserPaid
+                    - confirm
+                    - evidence
               required:
                 - kind
                 - notAlreadyInSources
@@ -5650,7 +5918,7 @@ LoanCreationEvidence:
                           pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
                         kind:
                           type: string
-                          enum: *a20
+                          enum: *a21
                         amount:
                           type: string
                           pattern: ^-?(0|[1-9]\d{0,15})(\.\d{1,2})?$
@@ -5705,7 +5973,7 @@ LoanCreationEvidence:
                     pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
                   scope:
                     type: string
-                    enum: *a12
+                    enum: *a13
                   components:
                     type: object
                     additionalProperties: false
@@ -5750,10 +6018,10 @@ LoanCreationEvidence:
                       - otherFee
                   paymentStatus:
                     type: string
-                    enum: *a13
+                    enum: *a14
                   allocationBasis:
                     type: string
-                    enum: *a14
+                    enum: *a15
                   evidence:
                     type: array
                     items:
@@ -5798,3 +6066,2566 @@ LoanCreationEvidence:
     - command
     - cutoff
     - knownOn
+PlannedPairProof:
+  type: object
+  additionalProperties: false
+  properties:
+    evidence:
+      type: object
+      additionalProperties: false
+      properties:
+        command:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                commandId:
+                  type: string
+                  format: uuid
+                replacementCommandId:
+                  type: string
+                  format: uuid
+                pairId:
+                  type: string
+                  format: uuid
+                oldSource:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    sourceId:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    revision:
+                      type: integer
+                      minimum: 0
+                    sourceHash:
+                      anyOf:
+                        - type: string
+                          pattern: ^[a-f0-9]{64}$
+                        - type: object
+                          nullable: true
+                          enum:
+                            - null
+                  required:
+                    - sourceId
+                    - revision
+                    - sourceHash
+                newSource:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    sourceId:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    revision:
+                      type: integer
+                      minimum: 0
+                    sourceHash:
+                      anyOf:
+                        - type: string
+                          pattern: ^[a-f0-9]{64}$
+                        - type: object
+                          nullable: true
+                          enum:
+                            - null
+                  required:
+                    - sourceId
+                    - revision
+                    - sourceHash
+                expectedContractHash:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                confirm:
+                  type: boolean
+                  enum:
+                    - true
+                operation:
+                  type: string
+                  enum:
+                    - CREATE
+                expectedPairHash:
+                  type: object
+                  nullable: true
+                  enum:
+                    - null
+                terms:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    replacement:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        commandId:
+                          type: string
+                          format: uuid
+                        sourceId:
+                          type: string
+                          pattern: ^plan:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$
+                        operation:
+                          type: string
+                          enum:
+                            - CREATE
+                        expectedSourceRevision:
+                          type: integer
+                          enum:
+                            - 0
+                        confirm:
+                          type: boolean
+                          enum:
+                            - true
+                        refinanceCommandId:
+                          type: string
+                          format: uuid
+                        agreementReference:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                        contract:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            contractVersion:
+                              type: integer
+                              enum:
+                                - 2
+                            currency:
+                              type: string
+                              enum:
+                                - VND
+                            signedOn:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            amendedOn:
+                              anyOf:
+                                - type: string
+                                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                - type: object
+                                  nullable: true
+                                  enum:
+                                    - null
+                            effectiveOn:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            knownOn:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            confirmation:
+                              type: string
+                              enum: *a7
+                            evidence:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                properties:
+                                  reference:
+                                    type: string
+                                    minLength: 1
+                                    maxLength: 1000
+                                  contentHash:
+                                    type: string
+                                    pattern: ^[a-f0-9]{64}$
+                                  confirmedOn:
+                                    type: string
+                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                required:
+                                  - reference
+                                  - contentHash
+                                  - confirmedOn
+                              minItems: 1
+                              maxItems: 20
+                            balanceAsOf:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            principalBalance:
+                              type: string
+                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                            balanceScope:
+                              type: string
+                              enum: *a8
+                            balanceNature:
+                              type: string
+                              enum: *a9
+                            paymentShare:
+                              type: string
+                              pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                            userPaidToDate:
+                              type: string
+                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                            responsibility:
+                              oneOf:
+                                - type: object
+                                  additionalProperties: false
+                                  properties:
+                                    kind:
+                                      type: string
+                                      enum:
+                                        - ALLOCATED_SHARE
+                                  required:
+                                    - kind
+                                - type: object
+                                  additionalProperties: false
+                                  properties:
+                                    kind:
+                                      type: string
+                                      enum:
+                                        - CAPPED
+                                    capBasis:
+                                      type: string
+                                      enum:
+                                        - TOTAL_USER_PAYMENTS
+                                    limit:
+                                      type: string
+                                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                    previouslyPaid:
+                                      type: string
+                                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                    evidence:
+                                      type: array
+                                      items:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          reference:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 1000
+                                          contentHash:
+                                            type: string
+                                            pattern: ^[a-f0-9]{64}$
+                                          confirmedOn:
+                                            type: string
+                                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                        required:
+                                          - reference
+                                          - contentHash
+                                          - confirmedOn
+                                      minItems: 1
+                                      maxItems: 20
+                                  required:
+                                    - kind
+                                    - capBasis
+                                    - limit
+                                    - previouslyPaid
+                                    - evidence
+                            interestBasis:
+                              type: string
+                              enum:
+                                - REDUCING_BALANCE
+                            rounding:
+                              type: string
+                              enum: *a10
+                            mode:
+                              type: string
+                              enum: *a11
+                            fixedPayment:
+                              anyOf:
+                                - type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                - type: object
+                                  nullable: true
+                                  enum:
+                                    - null
+                            finalPayment:
+                              type: string
+                              enum: *a12
+                            maturityDate:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            periods:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                properties:
+                                  accrualFrom:
+                                    type: string
+                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                  dueDate:
+                                    type: string
+                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                  rate:
+                                    oneOf:
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - EFFECTIVE_ANNUAL
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - NOMINAL_ANNUAL_MONTHLY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - EFFECTIVE_MONTHLY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - SIMPLE_ANNUAL_DAILY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                          days:
+                                            type: integer
+                                            minimum: 1
+                                            maximum: 366
+                                          yearDays:
+                                            anyOf:
+                                              - type: integer
+                                                enum:
+                                                  - 360
+                                              - type: integer
+                                                enum:
+                                                  - 365
+                                              - type: integer
+                                                enum:
+                                                  - 366
+                                        required:
+                                          - kind
+                                          - percent
+                                          - days
+                                          - yearDays
+                                  fee:
+                                    type: string
+                                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                  carriedInterest:
+                                    type: string
+                                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                  gracePrincipal:
+                                    type: boolean
+                                  bankPayment:
+                                    anyOf:
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          principal:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          interest:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                        required:
+                                          - principal
+                                          - interest
+                                      - type: object
+                                        nullable: true
+                                        enum:
+                                          - null
+                                required:
+                                  - accrualFrom
+                                  - dueDate
+                                  - rate
+                                  - fee
+                                  - carriedInterest
+                                  - gracePrincipal
+                                  - bankPayment
+                              maxItems: 600
+                          required:
+                            - contractVersion
+                            - currency
+                            - signedOn
+                            - amendedOn
+                            - effectiveOn
+                            - knownOn
+                            - confirmation
+                            - evidence
+                            - balanceAsOf
+                            - principalBalance
+                            - balanceScope
+                            - paymentShare
+                            - responsibility
+                            - interestBasis
+                            - rounding
+                            - mode
+                            - fixedPayment
+                            - finalPayment
+                            - maturityDate
+                            - periods
+                        funding:
+                          oneOf:
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                kind:
+                                  type: string
+                                  enum:
+                                    - EXISTING_BALANCE
+                                notAlreadyInSources:
+                                  type: boolean
+                                  enum:
+                                    - true
+                                evidence:
+                                  type: array
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    properties:
+                                      reference:
+                                        type: string
+                                        minLength: 1
+                                        maxLength: 1000
+                                      contentHash:
+                                        type: string
+                                        pattern: ^[a-f0-9]{64}$
+                                      confirmedOn:
+                                        type: string
+                                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    required:
+                                      - reference
+                                      - contentHash
+                                      - confirmedOn
+                                  minItems: 1
+                                  maxItems: 20
+                              required:
+                                - kind
+                                - notAlreadyInSources
+                                - evidence
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                kind:
+                                  type: string
+                                  enum:
+                                    - DISBURSED_BALANCE
+                                notAlreadyInSources:
+                                  type: boolean
+                                  enum:
+                                    - true
+                                disbursedOn:
+                                  type: string
+                                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                grossPrincipal:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                openingUserPaid:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                evidence:
+                                  type: array
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    properties:
+                                      reference:
+                                        type: string
+                                        minLength: 1
+                                        maxLength: 1000
+                                      contentHash:
+                                        type: string
+                                        pattern: ^[a-f0-9]{64}$
+                                      confirmedOn:
+                                        type: string
+                                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    required:
+                                      - reference
+                                      - contentHash
+                                      - confirmedOn
+                                  minItems: 1
+                                  maxItems: 20
+                                allocations:
+                                  type: array
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    properties:
+                                      allocationId:
+                                        type: string
+                                        format: uuid
+                                      eventId:
+                                        type: string
+                                        format: uuid
+                                      actualRevision:
+                                        type: integer
+                                        minimum: 0
+                                      bookedOn:
+                                        type: string
+                                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                      scope:
+                                        type: string
+                                        enum: *a13
+                                      components:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          principal:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          interest:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          prepaymentFee:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          otherFee:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                        required:
+                                          - principal
+                                          - interest
+                                          - prepaymentFee
+                                          - otherFee
+                                      contractComponents:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          principal:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          interest:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          prepaymentFee:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          otherFee:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                        required:
+                                          - principal
+                                          - interest
+                                          - prepaymentFee
+                                          - otherFee
+                                      paymentStatus:
+                                        type: string
+                                        enum: *a14
+                                      allocationBasis:
+                                        type: string
+                                        enum: *a15
+                                      evidence:
+                                        type: array
+                                        items:
+                                          type: object
+                                          additionalProperties: false
+                                          properties:
+                                            reference:
+                                              type: string
+                                              minLength: 1
+                                              maxLength: 1000
+                                            contentHash:
+                                              type: string
+                                              pattern: ^[a-f0-9]{64}$
+                                            confirmedOn:
+                                              type: string
+                                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                          required:
+                                            - reference
+                                            - contentHash
+                                            - confirmedOn
+                                        minItems: 1
+                                        maxItems: 20
+                                    required:
+                                      - allocationId
+                                      - eventId
+                                      - actualRevision
+                                      - bookedOn
+                                      - scope
+                                      - components
+                                      - contractComponents
+                                      - paymentStatus
+                                      - allocationBasis
+                                      - evidence
+                                  maxItems: 500
+                                principalAdvances:
+                                  type: array
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    properties:
+                                      changeId:
+                                        type: string
+                                        format: uuid
+                                      bookedOn:
+                                        type: string
+                                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                      amount:
+                                        type: string
+                                        pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                      kind:
+                                        type: string
+                                        enum:
+                                          - CONFIRMED_PRINCIPAL_ADVANCE
+                                      evidence:
+                                        type: array
+                                        items:
+                                          type: object
+                                          additionalProperties: false
+                                          properties:
+                                            reference:
+                                              type: string
+                                              minLength: 1
+                                              maxLength: 1000
+                                            contentHash:
+                                              type: string
+                                              pattern: ^[a-f0-9]{64}$
+                                            confirmedOn:
+                                              type: string
+                                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                          required:
+                                            - reference
+                                            - contentHash
+                                            - confirmedOn
+                                        minItems: 1
+                                        maxItems: 20
+                                    required:
+                                      - changeId
+                                      - bookedOn
+                                      - amount
+                                      - kind
+                                      - evidence
+                                  maxItems: 100
+                                originalTerms:
+                                  type: object
+                                  additionalProperties: false
+                                  properties:
+                                    signedOn:
+                                      type: string
+                                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    amendedOn:
+                                      anyOf:
+                                        - type: string
+                                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                        - type: object
+                                          nullable: true
+                                          enum:
+                                            - null
+                                    effectiveOn:
+                                      type: string
+                                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    balanceScope:
+                                      type: string
+                                      enum: *a8
+                                    paymentShare:
+                                      type: string
+                                      pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                                    responsibility:
+                                      oneOf:
+                                        - type: object
+                                          additionalProperties: false
+                                          properties:
+                                            kind:
+                                              type: string
+                                              enum:
+                                                - ALLOCATED_SHARE
+                                          required:
+                                            - kind
+                                        - type: object
+                                          additionalProperties: false
+                                          properties:
+                                            kind:
+                                              type: string
+                                              enum:
+                                                - CAPPED
+                                            capBasis:
+                                              type: string
+                                              enum:
+                                                - TOTAL_USER_PAYMENTS
+                                            limit:
+                                              type: string
+                                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                            previouslyPaid:
+                                              type: string
+                                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                            evidence:
+                                              type: array
+                                              items:
+                                                type: object
+                                                additionalProperties: false
+                                                properties:
+                                                  reference:
+                                                    type: string
+                                                    minLength: 1
+                                                    maxLength: 1000
+                                                  contentHash:
+                                                    type: string
+                                                    pattern: ^[a-f0-9]{64}$
+                                                  confirmedOn:
+                                                    type: string
+                                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                                required:
+                                                  - reference
+                                                  - contentHash
+                                                  - confirmedOn
+                                              minItems: 1
+                                              maxItems: 20
+                                          required:
+                                            - kind
+                                            - capBasis
+                                            - limit
+                                            - previouslyPaid
+                                            - evidence
+                                    evidence:
+                                      type: array
+                                      items:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          reference:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 1000
+                                          contentHash:
+                                            type: string
+                                            pattern: ^[a-f0-9]{64}$
+                                          confirmedOn:
+                                            type: string
+                                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                        required:
+                                          - reference
+                                          - contentHash
+                                          - confirmedOn
+                                      minItems: 1
+                                      maxItems: 20
+                                    confirm:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - signedOn
+                                    - amendedOn
+                                    - effectiveOn
+                                    - balanceScope
+                                    - paymentShare
+                                    - responsibility
+                                    - evidence
+                                    - confirm
+                                scopeChange:
+                                  type: object
+                                  additionalProperties: false
+                                  properties:
+                                    openingPrincipal:
+                                      type: string
+                                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                    evidence:
+                                      type: array
+                                      items:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          reference:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 1000
+                                          contentHash:
+                                            type: string
+                                            pattern: ^[a-f0-9]{64}$
+                                          confirmedOn:
+                                            type: string
+                                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                        required:
+                                          - reference
+                                          - contentHash
+                                          - confirmedOn
+                                      minItems: 1
+                                      maxItems: 20
+                                    confirm:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - openingPrincipal
+                                    - evidence
+                                    - confirm
+                                responsibilityAmendment:
+                                  type: object
+                                  additionalProperties: false
+                                  properties:
+                                    effectiveOn:
+                                      type: string
+                                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    openingUserPaid:
+                                      type: string
+                                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                    confirm:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                    evidence:
+                                      type: array
+                                      items:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          reference:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 1000
+                                          contentHash:
+                                            type: string
+                                            pattern: ^[a-f0-9]{64}$
+                                          confirmedOn:
+                                            type: string
+                                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                        required:
+                                          - reference
+                                          - contentHash
+                                          - confirmedOn
+                                      minItems: 1
+                                      maxItems: 20
+                                  required:
+                                    - effectiveOn
+                                    - openingUserPaid
+                                    - confirm
+                                    - evidence
+                              required:
+                                - kind
+                                - notAlreadyInSources
+                                - disbursedOn
+                                - grossPrincipal
+                                - openingUserPaid
+                                - evidence
+                                - allocations
+                                - principalAdvances
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                kind:
+                                  type: string
+                                  enum:
+                                    - PLANNED_DISBURSEMENT
+                                grossPrincipal:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                withheldFees:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                netDisbursement:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                destination:
+                                  type: string
+                                  enum:
+                                    - EXTERNAL_ACCOUNT
+                                evidence:
+                                  type: array
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    properties:
+                                      reference:
+                                        type: string
+                                        minLength: 1
+                                        maxLength: 1000
+                                      contentHash:
+                                        type: string
+                                        pattern: ^[a-f0-9]{64}$
+                                      confirmedOn:
+                                        type: string
+                                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    required:
+                                      - reference
+                                      - contentHash
+                                      - confirmedOn
+                                  minItems: 1
+                                  maxItems: 20
+                              required:
+                                - kind
+                                - grossPrincipal
+                                - withheldFees
+                                - netDisbursement
+                                - destination
+                                - evidence
+                      required:
+                        - commandId
+                        - sourceId
+                        - operation
+                        - expectedSourceRevision
+                        - confirm
+                        - agreementReference
+                        - contract
+                        - funding
+                    settledOn:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    sameDayOrder:
+                      type: string
+                      enum: &a22
+                        - BEFORE_SCHEDULED_PAYMENT
+                        - AFTER_SCHEDULED_PAYMENT
+                    payoffQuote:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        principal:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        interest:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        carriedInterest:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        prepaymentFee:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        otherFee:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        allRemainingChargesIncluded:
+                          type: boolean
+                          enum:
+                            - true
+                        valueKind:
+                          type: string
+                          enum:
+                            - HYPOTHETICAL_QUOTE
+                        evidence:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              reference:
+                                type: string
+                                minLength: 1
+                                maxLength: 1000
+                              contentHash:
+                                type: string
+                                pattern: ^[a-f0-9]{64}$
+                              confirmedOn:
+                                type: string
+                                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            required:
+                              - reference
+                              - contentHash
+                              - confirmedOn
+                          minItems: 1
+                          maxItems: 20
+                      required:
+                        - principal
+                        - interest
+                        - carriedInterest
+                        - prepaymentFee
+                        - otherFee
+                        - allRemainingChargesIncluded
+                        - valueKind
+                        - evidence
+                    funding:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        scope:
+                          type: string
+                          enum: &a23
+                            - FULL_CONTRACT
+                            - USER_SHARE
+                        externalTopUp:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        userTopUp:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        userFinancedAmount:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        unusedProceeds:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        unusedProceedsNotContributed:
+                          type: boolean
+                          enum:
+                            - true
+                        evidence:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              reference:
+                                type: string
+                                minLength: 1
+                                maxLength: 1000
+                              contentHash:
+                                type: string
+                                pattern: ^[a-f0-9]{64}$
+                              confirmedOn:
+                                type: string
+                                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            required:
+                              - reference
+                              - contentHash
+                              - confirmedOn
+                          minItems: 1
+                          maxItems: 20
+                      required:
+                        - scope
+                        - externalTopUp
+                        - userTopUp
+                        - userFinancedAmount
+                        - unusedProceeds
+                        - unusedProceedsNotContributed
+                        - evidence
+                  required:
+                    - replacement
+                    - settledOn
+                    - sameDayOrder
+                    - payoffQuote
+                    - funding
+              required:
+                - commandId
+                - replacementCommandId
+                - pairId
+                - oldSource
+                - newSource
+                - expectedContractHash
+                - confirm
+                - operation
+                - expectedPairHash
+                - terms
+            - type: object
+              additionalProperties: false
+              properties:
+                commandId:
+                  type: string
+                  format: uuid
+                replacementCommandId:
+                  type: string
+                  format: uuid
+                pairId:
+                  type: string
+                  format: uuid
+                oldSource:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    sourceId:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    revision:
+                      type: integer
+                      minimum: 0
+                    sourceHash:
+                      anyOf:
+                        - type: string
+                          pattern: ^[a-f0-9]{64}$
+                        - type: object
+                          nullable: true
+                          enum:
+                            - null
+                  required:
+                    - sourceId
+                    - revision
+                    - sourceHash
+                newSource:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    sourceId:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    revision:
+                      type: integer
+                      minimum: 0
+                    sourceHash:
+                      anyOf:
+                        - type: string
+                          pattern: ^[a-f0-9]{64}$
+                        - type: object
+                          nullable: true
+                          enum:
+                            - null
+                  required:
+                    - sourceId
+                    - revision
+                    - sourceHash
+                expectedContractHash:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                confirm:
+                  type: boolean
+                  enum:
+                    - true
+                operation:
+                  type: string
+                  enum:
+                    - REVISE
+                expectedPairHash:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                terms:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    replacement:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        commandId:
+                          type: string
+                          format: uuid
+                        sourceId:
+                          type: string
+                          pattern: ^plan:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$
+                        operation:
+                          type: string
+                          enum:
+                            - CREATE
+                        expectedSourceRevision:
+                          type: integer
+                          enum:
+                            - 0
+                        confirm:
+                          type: boolean
+                          enum:
+                            - true
+                        refinanceCommandId:
+                          type: string
+                          format: uuid
+                        agreementReference:
+                          type: string
+                          minLength: 1
+                          maxLength: 200
+                        contract:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            contractVersion:
+                              type: integer
+                              enum:
+                                - 2
+                            currency:
+                              type: string
+                              enum:
+                                - VND
+                            signedOn:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            amendedOn:
+                              anyOf:
+                                - type: string
+                                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                - type: object
+                                  nullable: true
+                                  enum:
+                                    - null
+                            effectiveOn:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            knownOn:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            confirmation:
+                              type: string
+                              enum: *a7
+                            evidence:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                properties:
+                                  reference:
+                                    type: string
+                                    minLength: 1
+                                    maxLength: 1000
+                                  contentHash:
+                                    type: string
+                                    pattern: ^[a-f0-9]{64}$
+                                  confirmedOn:
+                                    type: string
+                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                required:
+                                  - reference
+                                  - contentHash
+                                  - confirmedOn
+                              minItems: 1
+                              maxItems: 20
+                            balanceAsOf:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            principalBalance:
+                              type: string
+                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                            balanceScope:
+                              type: string
+                              enum: *a8
+                            balanceNature:
+                              type: string
+                              enum: *a9
+                            paymentShare:
+                              type: string
+                              pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                            userPaidToDate:
+                              type: string
+                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                            responsibility:
+                              oneOf:
+                                - type: object
+                                  additionalProperties: false
+                                  properties:
+                                    kind:
+                                      type: string
+                                      enum:
+                                        - ALLOCATED_SHARE
+                                  required:
+                                    - kind
+                                - type: object
+                                  additionalProperties: false
+                                  properties:
+                                    kind:
+                                      type: string
+                                      enum:
+                                        - CAPPED
+                                    capBasis:
+                                      type: string
+                                      enum:
+                                        - TOTAL_USER_PAYMENTS
+                                    limit:
+                                      type: string
+                                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                    previouslyPaid:
+                                      type: string
+                                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                    evidence:
+                                      type: array
+                                      items:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          reference:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 1000
+                                          contentHash:
+                                            type: string
+                                            pattern: ^[a-f0-9]{64}$
+                                          confirmedOn:
+                                            type: string
+                                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                        required:
+                                          - reference
+                                          - contentHash
+                                          - confirmedOn
+                                      minItems: 1
+                                      maxItems: 20
+                                  required:
+                                    - kind
+                                    - capBasis
+                                    - limit
+                                    - previouslyPaid
+                                    - evidence
+                            interestBasis:
+                              type: string
+                              enum:
+                                - REDUCING_BALANCE
+                            rounding:
+                              type: string
+                              enum: *a10
+                            mode:
+                              type: string
+                              enum: *a11
+                            fixedPayment:
+                              anyOf:
+                                - type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                - type: object
+                                  nullable: true
+                                  enum:
+                                    - null
+                            finalPayment:
+                              type: string
+                              enum: *a12
+                            maturityDate:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            periods:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                properties:
+                                  accrualFrom:
+                                    type: string
+                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                  dueDate:
+                                    type: string
+                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                  rate:
+                                    oneOf:
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - EFFECTIVE_ANNUAL
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - NOMINAL_ANNUAL_MONTHLY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - EFFECTIVE_MONTHLY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - SIMPLE_ANNUAL_DAILY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                          days:
+                                            type: integer
+                                            minimum: 1
+                                            maximum: 366
+                                          yearDays:
+                                            anyOf:
+                                              - type: integer
+                                                enum:
+                                                  - 360
+                                              - type: integer
+                                                enum:
+                                                  - 365
+                                              - type: integer
+                                                enum:
+                                                  - 366
+                                        required:
+                                          - kind
+                                          - percent
+                                          - days
+                                          - yearDays
+                                  fee:
+                                    type: string
+                                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                  carriedInterest:
+                                    type: string
+                                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                  gracePrincipal:
+                                    type: boolean
+                                  bankPayment:
+                                    anyOf:
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          principal:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          interest:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                        required:
+                                          - principal
+                                          - interest
+                                      - type: object
+                                        nullable: true
+                                        enum:
+                                          - null
+                                required:
+                                  - accrualFrom
+                                  - dueDate
+                                  - rate
+                                  - fee
+                                  - carriedInterest
+                                  - gracePrincipal
+                                  - bankPayment
+                              maxItems: 600
+                          required:
+                            - contractVersion
+                            - currency
+                            - signedOn
+                            - amendedOn
+                            - effectiveOn
+                            - knownOn
+                            - confirmation
+                            - evidence
+                            - balanceAsOf
+                            - principalBalance
+                            - balanceScope
+                            - paymentShare
+                            - responsibility
+                            - interestBasis
+                            - rounding
+                            - mode
+                            - fixedPayment
+                            - finalPayment
+                            - maturityDate
+                            - periods
+                        funding:
+                          oneOf:
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                kind:
+                                  type: string
+                                  enum:
+                                    - EXISTING_BALANCE
+                                notAlreadyInSources:
+                                  type: boolean
+                                  enum:
+                                    - true
+                                evidence:
+                                  type: array
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    properties:
+                                      reference:
+                                        type: string
+                                        minLength: 1
+                                        maxLength: 1000
+                                      contentHash:
+                                        type: string
+                                        pattern: ^[a-f0-9]{64}$
+                                      confirmedOn:
+                                        type: string
+                                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    required:
+                                      - reference
+                                      - contentHash
+                                      - confirmedOn
+                                  minItems: 1
+                                  maxItems: 20
+                              required:
+                                - kind
+                                - notAlreadyInSources
+                                - evidence
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                kind:
+                                  type: string
+                                  enum:
+                                    - DISBURSED_BALANCE
+                                notAlreadyInSources:
+                                  type: boolean
+                                  enum:
+                                    - true
+                                disbursedOn:
+                                  type: string
+                                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                grossPrincipal:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                openingUserPaid:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                evidence:
+                                  type: array
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    properties:
+                                      reference:
+                                        type: string
+                                        minLength: 1
+                                        maxLength: 1000
+                                      contentHash:
+                                        type: string
+                                        pattern: ^[a-f0-9]{64}$
+                                      confirmedOn:
+                                        type: string
+                                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    required:
+                                      - reference
+                                      - contentHash
+                                      - confirmedOn
+                                  minItems: 1
+                                  maxItems: 20
+                                allocations:
+                                  type: array
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    properties:
+                                      allocationId:
+                                        type: string
+                                        format: uuid
+                                      eventId:
+                                        type: string
+                                        format: uuid
+                                      actualRevision:
+                                        type: integer
+                                        minimum: 0
+                                      bookedOn:
+                                        type: string
+                                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                      scope:
+                                        type: string
+                                        enum: *a13
+                                      components:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          principal:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          interest:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          prepaymentFee:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          otherFee:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                        required:
+                                          - principal
+                                          - interest
+                                          - prepaymentFee
+                                          - otherFee
+                                      contractComponents:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          principal:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          interest:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          prepaymentFee:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          otherFee:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                        required:
+                                          - principal
+                                          - interest
+                                          - prepaymentFee
+                                          - otherFee
+                                      paymentStatus:
+                                        type: string
+                                        enum: *a14
+                                      allocationBasis:
+                                        type: string
+                                        enum: *a15
+                                      evidence:
+                                        type: array
+                                        items:
+                                          type: object
+                                          additionalProperties: false
+                                          properties:
+                                            reference:
+                                              type: string
+                                              minLength: 1
+                                              maxLength: 1000
+                                            contentHash:
+                                              type: string
+                                              pattern: ^[a-f0-9]{64}$
+                                            confirmedOn:
+                                              type: string
+                                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                          required:
+                                            - reference
+                                            - contentHash
+                                            - confirmedOn
+                                        minItems: 1
+                                        maxItems: 20
+                                    required:
+                                      - allocationId
+                                      - eventId
+                                      - actualRevision
+                                      - bookedOn
+                                      - scope
+                                      - components
+                                      - contractComponents
+                                      - paymentStatus
+                                      - allocationBasis
+                                      - evidence
+                                  maxItems: 500
+                                principalAdvances:
+                                  type: array
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    properties:
+                                      changeId:
+                                        type: string
+                                        format: uuid
+                                      bookedOn:
+                                        type: string
+                                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                      amount:
+                                        type: string
+                                        pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                      kind:
+                                        type: string
+                                        enum:
+                                          - CONFIRMED_PRINCIPAL_ADVANCE
+                                      evidence:
+                                        type: array
+                                        items:
+                                          type: object
+                                          additionalProperties: false
+                                          properties:
+                                            reference:
+                                              type: string
+                                              minLength: 1
+                                              maxLength: 1000
+                                            contentHash:
+                                              type: string
+                                              pattern: ^[a-f0-9]{64}$
+                                            confirmedOn:
+                                              type: string
+                                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                          required:
+                                            - reference
+                                            - contentHash
+                                            - confirmedOn
+                                        minItems: 1
+                                        maxItems: 20
+                                    required:
+                                      - changeId
+                                      - bookedOn
+                                      - amount
+                                      - kind
+                                      - evidence
+                                  maxItems: 100
+                                originalTerms:
+                                  type: object
+                                  additionalProperties: false
+                                  properties:
+                                    signedOn:
+                                      type: string
+                                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    amendedOn:
+                                      anyOf:
+                                        - type: string
+                                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                        - type: object
+                                          nullable: true
+                                          enum:
+                                            - null
+                                    effectiveOn:
+                                      type: string
+                                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    balanceScope:
+                                      type: string
+                                      enum: *a8
+                                    paymentShare:
+                                      type: string
+                                      pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                                    responsibility:
+                                      oneOf:
+                                        - type: object
+                                          additionalProperties: false
+                                          properties:
+                                            kind:
+                                              type: string
+                                              enum:
+                                                - ALLOCATED_SHARE
+                                          required:
+                                            - kind
+                                        - type: object
+                                          additionalProperties: false
+                                          properties:
+                                            kind:
+                                              type: string
+                                              enum:
+                                                - CAPPED
+                                            capBasis:
+                                              type: string
+                                              enum:
+                                                - TOTAL_USER_PAYMENTS
+                                            limit:
+                                              type: string
+                                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                            previouslyPaid:
+                                              type: string
+                                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                            evidence:
+                                              type: array
+                                              items:
+                                                type: object
+                                                additionalProperties: false
+                                                properties:
+                                                  reference:
+                                                    type: string
+                                                    minLength: 1
+                                                    maxLength: 1000
+                                                  contentHash:
+                                                    type: string
+                                                    pattern: ^[a-f0-9]{64}$
+                                                  confirmedOn:
+                                                    type: string
+                                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                                required:
+                                                  - reference
+                                                  - contentHash
+                                                  - confirmedOn
+                                              minItems: 1
+                                              maxItems: 20
+                                          required:
+                                            - kind
+                                            - capBasis
+                                            - limit
+                                            - previouslyPaid
+                                            - evidence
+                                    evidence:
+                                      type: array
+                                      items:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          reference:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 1000
+                                          contentHash:
+                                            type: string
+                                            pattern: ^[a-f0-9]{64}$
+                                          confirmedOn:
+                                            type: string
+                                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                        required:
+                                          - reference
+                                          - contentHash
+                                          - confirmedOn
+                                      minItems: 1
+                                      maxItems: 20
+                                    confirm:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - signedOn
+                                    - amendedOn
+                                    - effectiveOn
+                                    - balanceScope
+                                    - paymentShare
+                                    - responsibility
+                                    - evidence
+                                    - confirm
+                                scopeChange:
+                                  type: object
+                                  additionalProperties: false
+                                  properties:
+                                    openingPrincipal:
+                                      type: string
+                                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                    evidence:
+                                      type: array
+                                      items:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          reference:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 1000
+                                          contentHash:
+                                            type: string
+                                            pattern: ^[a-f0-9]{64}$
+                                          confirmedOn:
+                                            type: string
+                                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                        required:
+                                          - reference
+                                          - contentHash
+                                          - confirmedOn
+                                      minItems: 1
+                                      maxItems: 20
+                                    confirm:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - openingPrincipal
+                                    - evidence
+                                    - confirm
+                                responsibilityAmendment:
+                                  type: object
+                                  additionalProperties: false
+                                  properties:
+                                    effectiveOn:
+                                      type: string
+                                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    openingUserPaid:
+                                      type: string
+                                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                    confirm:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                    evidence:
+                                      type: array
+                                      items:
+                                        type: object
+                                        additionalProperties: false
+                                        properties:
+                                          reference:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 1000
+                                          contentHash:
+                                            type: string
+                                            pattern: ^[a-f0-9]{64}$
+                                          confirmedOn:
+                                            type: string
+                                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                        required:
+                                          - reference
+                                          - contentHash
+                                          - confirmedOn
+                                      minItems: 1
+                                      maxItems: 20
+                                  required:
+                                    - effectiveOn
+                                    - openingUserPaid
+                                    - confirm
+                                    - evidence
+                              required:
+                                - kind
+                                - notAlreadyInSources
+                                - disbursedOn
+                                - grossPrincipal
+                                - openingUserPaid
+                                - evidence
+                                - allocations
+                                - principalAdvances
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                kind:
+                                  type: string
+                                  enum:
+                                    - PLANNED_DISBURSEMENT
+                                grossPrincipal:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                withheldFees:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                netDisbursement:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                destination:
+                                  type: string
+                                  enum:
+                                    - EXTERNAL_ACCOUNT
+                                evidence:
+                                  type: array
+                                  items:
+                                    type: object
+                                    additionalProperties: false
+                                    properties:
+                                      reference:
+                                        type: string
+                                        minLength: 1
+                                        maxLength: 1000
+                                      contentHash:
+                                        type: string
+                                        pattern: ^[a-f0-9]{64}$
+                                      confirmedOn:
+                                        type: string
+                                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                    required:
+                                      - reference
+                                      - contentHash
+                                      - confirmedOn
+                                  minItems: 1
+                                  maxItems: 20
+                              required:
+                                - kind
+                                - grossPrincipal
+                                - withheldFees
+                                - netDisbursement
+                                - destination
+                                - evidence
+                      required:
+                        - commandId
+                        - sourceId
+                        - operation
+                        - expectedSourceRevision
+                        - confirm
+                        - agreementReference
+                        - contract
+                        - funding
+                    settledOn:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    sameDayOrder:
+                      type: string
+                      enum: *a22
+                    payoffQuote:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        principal:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        interest:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        carriedInterest:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        prepaymentFee:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        otherFee:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        allRemainingChargesIncluded:
+                          type: boolean
+                          enum:
+                            - true
+                        valueKind:
+                          type: string
+                          enum:
+                            - HYPOTHETICAL_QUOTE
+                        evidence:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              reference:
+                                type: string
+                                minLength: 1
+                                maxLength: 1000
+                              contentHash:
+                                type: string
+                                pattern: ^[a-f0-9]{64}$
+                              confirmedOn:
+                                type: string
+                                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            required:
+                              - reference
+                              - contentHash
+                              - confirmedOn
+                          minItems: 1
+                          maxItems: 20
+                      required:
+                        - principal
+                        - interest
+                        - carriedInterest
+                        - prepaymentFee
+                        - otherFee
+                        - allRemainingChargesIncluded
+                        - valueKind
+                        - evidence
+                    funding:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        scope:
+                          type: string
+                          enum: *a23
+                        externalTopUp:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        userTopUp:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        userFinancedAmount:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        unusedProceeds:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        unusedProceedsNotContributed:
+                          type: boolean
+                          enum:
+                            - true
+                        evidence:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              reference:
+                                type: string
+                                minLength: 1
+                                maxLength: 1000
+                              contentHash:
+                                type: string
+                                pattern: ^[a-f0-9]{64}$
+                              confirmedOn:
+                                type: string
+                                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            required:
+                              - reference
+                              - contentHash
+                              - confirmedOn
+                          minItems: 1
+                          maxItems: 20
+                      required:
+                        - scope
+                        - externalTopUp
+                        - userTopUp
+                        - userFinancedAmount
+                        - unusedProceeds
+                        - unusedProceedsNotContributed
+                        - evidence
+                  required:
+                    - replacement
+                    - settledOn
+                    - sameDayOrder
+                    - payoffQuote
+                    - funding
+              required:
+                - commandId
+                - replacementCommandId
+                - pairId
+                - oldSource
+                - newSource
+                - expectedContractHash
+                - confirm
+                - operation
+                - expectedPairHash
+                - terms
+            - type: object
+              additionalProperties: false
+              properties:
+                commandId:
+                  type: string
+                  format: uuid
+                replacementCommandId:
+                  type: string
+                  format: uuid
+                pairId:
+                  type: string
+                  format: uuid
+                oldSource:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    sourceId:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    revision:
+                      type: integer
+                      minimum: 0
+                    sourceHash:
+                      anyOf:
+                        - type: string
+                          pattern: ^[a-f0-9]{64}$
+                        - type: object
+                          nullable: true
+                          enum:
+                            - null
+                  required:
+                    - sourceId
+                    - revision
+                    - sourceHash
+                newSource:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    sourceId:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    revision:
+                      type: integer
+                      minimum: 0
+                    sourceHash:
+                      anyOf:
+                        - type: string
+                          pattern: ^[a-f0-9]{64}$
+                        - type: object
+                          nullable: true
+                          enum:
+                            - null
+                  required:
+                    - sourceId
+                    - revision
+                    - sourceHash
+                expectedContractHash:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                confirm:
+                  type: boolean
+                  enum:
+                    - true
+                operation:
+                  type: string
+                  enum:
+                    - CANCEL
+                expectedPairHash:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+              required:
+                - commandId
+                - replacementCommandId
+                - pairId
+                - oldSource
+                - newSource
+                - expectedContractHash
+                - confirm
+                - operation
+                - expectedPairHash
+                - reason
+        basis:
+          type: object
+          additionalProperties: false
+          properties:
+            source:
+              type: object
+              additionalProperties: false
+              properties:
+                sourceId:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                revision:
+                  type: integer
+                  minimum: 1
+                previousHash:
+                  anyOf:
+                    - type: string
+                      pattern: ^[a-f0-9]{64}$
+                    - type: object
+                      nullable: true
+                      enum:
+                        - null
+                sourceHash:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                scope:
+                  type: string
+                  enum:
+                    - PLAN_VERSION
+                origin:
+                  type: string
+                  enum: *a24
+                kind:
+                  type: string
+                  enum: *a25
+                effectiveFromMonth:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                effectiveToMonth:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                knownOn:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                evidenceHash:
+                  type: string
+                  pattern: ^[a-f0-9]{64}$
+                commandId:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                confirmation:
+                  type: string
+                  enum: *a26
+                operation:
+                  type: string
+                  enum: *a27
+                schedule:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      month:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      metric:
+                        type: string
+                        enum: *a6
+                      amount:
+                        type: string
+                        maxLength: 160
+                        pattern: ^(0|[1-9]\d*)(\.\d+)?$
+                    required:
+                      - month
+                      - metric
+                      - amount
+                  maxItems: 7200
+              required:
+                - sourceId
+                - revision
+                - previousHash
+                - sourceHash
+                - scope
+                - origin
+                - kind
+                - effectiveFromMonth
+                - effectiveToMonth
+                - knownOn
+                - evidenceHash
+                - commandId
+                - confirmation
+                - operation
+                - schedule
+            contract:
+              type: object
+              additionalProperties: false
+              properties:
+                contractVersion:
+                  type: integer
+                  enum:
+                    - 2
+                currency:
+                  type: string
+                  enum:
+                    - VND
+                signedOn:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                amendedOn:
+                  anyOf:
+                    - type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    - type: object
+                      nullable: true
+                      enum:
+                        - null
+                effectiveOn:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                knownOn:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                confirmation:
+                  type: string
+                  enum: *a7
+                evidence:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      reference:
+                        type: string
+                        minLength: 1
+                        maxLength: 1000
+                      contentHash:
+                        type: string
+                        pattern: ^[a-f0-9]{64}$
+                      confirmedOn:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    required:
+                      - reference
+                      - contentHash
+                      - confirmedOn
+                  minItems: 1
+                  maxItems: 20
+                balanceAsOf:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                principalBalance:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                balanceScope:
+                  type: string
+                  enum: *a8
+                balanceNature:
+                  type: string
+                  enum: *a9
+                paymentShare:
+                  type: string
+                  pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                userPaidToDate:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                responsibility:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        kind:
+                          type: string
+                          enum:
+                            - ALLOCATED_SHARE
+                      required:
+                        - kind
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        kind:
+                          type: string
+                          enum:
+                            - CAPPED
+                        capBasis:
+                          type: string
+                          enum:
+                            - TOTAL_USER_PAYMENTS
+                        limit:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        previouslyPaid:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        evidence:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              reference:
+                                type: string
+                                minLength: 1
+                                maxLength: 1000
+                              contentHash:
+                                type: string
+                                pattern: ^[a-f0-9]{64}$
+                              confirmedOn:
+                                type: string
+                                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            required:
+                              - reference
+                              - contentHash
+                              - confirmedOn
+                          minItems: 1
+                          maxItems: 20
+                      required:
+                        - kind
+                        - capBasis
+                        - limit
+                        - previouslyPaid
+                        - evidence
+                interestBasis:
+                  type: string
+                  enum:
+                    - REDUCING_BALANCE
+                rounding:
+                  type: string
+                  enum: *a10
+                mode:
+                  type: string
+                  enum: *a11
+                fixedPayment:
+                  anyOf:
+                    - type: string
+                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                    - type: object
+                      nullable: true
+                      enum:
+                        - null
+                finalPayment:
+                  type: string
+                  enum: *a12
+                maturityDate:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                periods:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      accrualFrom:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      dueDate:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      rate:
+                        oneOf:
+                          - type: object
+                            additionalProperties: false
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - EFFECTIVE_ANNUAL
+                              percent:
+                                type: string
+                                pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                            required:
+                              - kind
+                              - percent
+                          - type: object
+                            additionalProperties: false
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - NOMINAL_ANNUAL_MONTHLY
+                              percent:
+                                type: string
+                                pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                            required:
+                              - kind
+                              - percent
+                          - type: object
+                            additionalProperties: false
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - EFFECTIVE_MONTHLY
+                              percent:
+                                type: string
+                                pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                            required:
+                              - kind
+                              - percent
+                          - type: object
+                            additionalProperties: false
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - SIMPLE_ANNUAL_DAILY
+                              percent:
+                                type: string
+                                pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                              days:
+                                type: integer
+                                minimum: 1
+                                maximum: 366
+                              yearDays:
+                                anyOf:
+                                  - type: integer
+                                    enum:
+                                      - 360
+                                  - type: integer
+                                    enum:
+                                      - 365
+                                  - type: integer
+                                    enum:
+                                      - 366
+                            required:
+                              - kind
+                              - percent
+                              - days
+                              - yearDays
+                      fee:
+                        type: string
+                        pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      carriedInterest:
+                        type: string
+                        pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      gracePrincipal:
+                        type: boolean
+                      bankPayment:
+                        anyOf:
+                          - type: object
+                            additionalProperties: false
+                            properties:
+                              principal:
+                                type: string
+                                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                              interest:
+                                type: string
+                                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                            required:
+                              - principal
+                              - interest
+                          - type: object
+                            nullable: true
+                            enum:
+                              - null
+                    required:
+                      - accrualFrom
+                      - dueDate
+                      - rate
+                      - fee
+                      - carriedInterest
+                      - gracePrincipal
+                      - bankPayment
+                  maxItems: 600
+              required:
+                - contractVersion
+                - currency
+                - signedOn
+                - amendedOn
+                - effectiveOn
+                - knownOn
+                - confirmation
+                - evidence
+                - balanceAsOf
+                - principalBalance
+                - balanceScope
+                - paymentShare
+                - responsibility
+                - interestBasis
+                - rounding
+                - mode
+                - fixedPayment
+                - finalPayment
+                - maturityDate
+                - periods
+          required:
+            - source
+            - contract
+        cutoff:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        knownOn:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+      required:
+        - command
+        - basis
+        - cutoff
+        - knownOn
+    oldSourceHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    newSourceHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+    pairHash:
+      type: string
+      pattern: ^[a-f0-9]{64}$
+  required:
+    - evidence
+    - oldSourceHash
+    - newSourceHash
+    - pairHash
+  description: Server-pinned future refinance pair (HYPOTHETICAL). Basis contract
+    comes from the owned snapshot, never from HTTP. See PLANNED_REFINANCE.md.

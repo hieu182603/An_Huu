@@ -199,7 +199,7 @@ function sourceFixture() {
   const basis = { sourceHash: source.sourceHash, contract: input.previous };
   const command: LoanSourceRevisionCommand = { commandId: randomUUID(), sourceId: source.sourceId, operation: "REVISE", expectedSourceRevision: 1,
     expectedSourceHash: source.sourceHash, expectedContractHash: digest(input.previous), confirm: true,
-    contract: input.next, allocations: input.allocations, principalAdvances: [] };
+    contract: input.next as LoanContractV2, allocations: input.allocations, principalAdvances: [] };
   return { registry, command, basis, actual };
 }
 

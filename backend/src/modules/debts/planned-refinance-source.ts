@@ -66,9 +66,9 @@ export function plannedPairCandidate(registry: SourceRegistry, value: PlannedPai
       prior.oldSourceHash !== old.sourceHash || prior.newSourceHash !== next?.sourceHash || digest(prior.evidence.basis) !== digest(basis) ||
       prior.evidence.command.oldSource.sourceId !== command.oldSource.sourceId || prior.evidence.command.newSource.sourceId !== command.newSource.sourceId)
       fail("PLANNED_PAIR_REVISION_CONFLICT");
-    // Advancing the actual cutoff requires re-anchoring both loans. Do not
-    // reinterpret previously projected instalments as actual paid principal.
-    if (prior.evidence.cutoff !== cutoff || prior.evidence.command.terms.settledOn <= knownOn)
+    // REVISE cannot reinterpret projected instalments as paid after the cutoff
+    // advances. CANCEL is the reconciliation exit: it restores the pinned contract.
+    if (command.operation === "REVISE" && (prior.evidence.cutoff !== cutoff || prior.evidence.command.terms.settledOn <= knownOn))
       fail("PLANNED_PAIR_RECONCILIATION_REQUIRED");
   }
   const aggregate = composeSourceMonths(registry, from, registry.endMonth).attribution.some(a => a.metric === "debtPayment" &&

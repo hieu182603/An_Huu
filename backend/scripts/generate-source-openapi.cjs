@@ -34,6 +34,10 @@ s.Preview.properties.newLoanSources={type:'array',items:{type:'object',additiona
 const refinancing=require('../src/modules/debts/refinance');
 s.Preview.properties.refinances={type:'array',items:{type:'object',additionalProperties:false,required:['command','closingSourceHash','newSourceHash','settlementAmount','proofHash'],properties:{
  command:schema(refinancing.refinanceSchema),closingSourceHash:{type:'string'},newSourceHash:{type:'string'},settlementAmount:{type:'string'},proofHash:{type:'string'}}}};
+const planned=require('../src/modules/debts/planned-refinance-source');
+s.PlannedPairProof=schema(planned.plannedPairProofSchema);
+s.PlannedPairProof.description='Server-pinned future refinance pair (HYPOTHETICAL). Basis contract comes from the owned snapshot, never from HTTP. See PLANNED_REFINANCE.md.';
+s.Preview.properties.plannedRefinances={type:'array',items:{$ref:'#/PlannedPairProof'}};
 fs.writeFileSync('docs/source-snapshot.openapi.yaml',stringify(s));
 const design=parseDocument(fs.readFileSync('docs/expansion.openapi.yaml','utf8'));
 design.setIn(['components','schemas','ReforecastCandidate'],{$ref:'./source-snapshot.openapi.yaml#/Preview'});

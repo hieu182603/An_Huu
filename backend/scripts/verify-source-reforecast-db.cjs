@@ -1,12 +1,14 @@
 const run=require('./rollback-fixture.cjs'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
 const {retirementProfile,retirementCommand,retirementConfiguration}=require('../src/tests/retirement-fixtures');
+const withPlanned=process.argv.includes('--planned-refinance');
 const withAmend=process.argv.includes('--loan-amendment');
 const withEarlyDisbursement=process.argv.includes('--refinance-early-disbursement');
-const withRepaid=withEarlyDisbursement||process.argv.includes('--refinance-repaid'),withRefinance=withRepaid||process.argv.includes('--refinance'),withLoan=withAmend||process.argv.includes('--loan')||withRefinance;
+const withDisbursedAmended=process.argv.includes('--disbursed-amended');
+const withRepaid=withDisbursedAmended||withEarlyDisbursement||process.argv.includes('--refinance-repaid'),withRefinance=withRepaid||process.argv.includes('--refinance'),withLoan=withPlanned||withAmend||process.argv.includes('--loan')||withRefinance;
 const withMissed=process.argv.includes('--assets-missed'),withAssets=withMissed||process.argv.includes('--assets');
 const withRental=process.argv.includes('--rental-sale');
 const withLegacy=process.argv.includes('--assets-legacy'),withReleases=process.argv.includes('--assets-releases'),withStaged=withLegacy||withReleases||process.argv.includes('--assets-staged');
-run(withEarlyDisbursement?'SOURCE_V4_REFINANCE_EARLY_DISBURSEMENT':withAmend?'SOURCE_V4_LOAN_AMENDMENT':withLegacy?'SOURCE_V4_LEGACY_CAPITAL':withReleases?'SOURCE_V4_ASSETS_RELEASES':withStaged?'SOURCE_V4_ASSETS_STAGED':withRental?'SOURCE_V4_RENTAL_SALE':withMissed?'SOURCE_V4_ASSETS_MISSED':withRepaid?'SOURCE_V4_REFINANCE_REPAID':withAssets?'SOURCE_V4_ASSETS':withRefinance?'SOURCE_V4_REFINANCE':withLoan?'SOURCE_V4_LOAN':'SOURCE_V4',async({api,owner,tokens,check,stage})=>{
+run(withPlanned?'SOURCE_V4_PLANNED_REFINANCE':withDisbursedAmended?'SOURCE_V4_DISBURSED_AMENDED':withEarlyDisbursement?'SOURCE_V4_REFINANCE_EARLY_DISBURSEMENT':withAmend?'SOURCE_V4_LOAN_AMENDMENT':withLegacy?'SOURCE_V4_LEGACY_CAPITAL':withReleases?'SOURCE_V4_ASSETS_RELEASES':withStaged?'SOURCE_V4_ASSETS_STAGED':withRental?'SOURCE_V4_RENTAL_SALE':withMissed?'SOURCE_V4_ASSETS_MISSED':withRepaid?'SOURCE_V4_REFINANCE_REPAID':withAssets?'SOURCE_V4_ASSETS':withRefinance?'SOURCE_V4_REFINANCE':withLoan?'SOURCE_V4_LOAN':'SOURCE_V4',async({api,owner,tokens,check,stage})=>{
  const [token,other,admin]=tokens;
  const ok=async(method,path,body,access=token,key=randomUUID(),status=200)=>{const r=await api(method,path,body,access,key);assert.equal(r.status,status,`${method} ${path}: ${r.body.error?.code}`);return r.body.data;};
  stage('profile');const profile=retirementProfile();profile.valuationDate='2026-08-01';
@@ -110,6 +112,18 @@ run(withEarlyDisbursement?'SOURCE_V4_REFINANCE_EARLY_DISBURSEMENT':withAmend?'SO
      allocations:[{allocationId:randomUUID(),eventId:actual.entries[2].eventId,actualRevision:1,bookedOn:'2026-08-30',scope:'FULL_CONTRACT',components:parts,contractComponents:parts,paymentStatus:'CURRENT',allocationBasis:'BANK_STATEMENT',evidence}],principalAdvances:[]};
    }
    command.loanCreations=[replacement];command.refinances=[{commandId:refinanceId,closingCommandId:closing.commandId,newLoanCommandId:replacement.commandId,settledOn:'2026-08-28',fundingScope:'FULL_CONTRACT',grossDisbursement:withRepaid?'1000':'900',withheldFees:'0',externalTopUp:'120',unusedProceeds:withRepaid?'100':'0',confirm:true,evidence}];
+   if(withDisbursedAmended){
+    // Bank amends the replacement the day after disbursement: FULL_CONTRACT → USER_SHARE.
+    const f=replacement.funding;f.originalTerms={signedOn:replacement.contract.signedOn,amendedOn:null,effectiveOn:'2026-08-28',balanceScope:'FULL_CONTRACT',paymentShare:'1',responsibility:{kind:'ALLOCATED_SHARE'},evidence,confirm:true};
+    replacement.contract={...replacement.contract,amendedOn:'2026-08-29',effectiveOn:'2026-08-29',balanceScope:'USER_SHARE',paymentShare:'1',principalBalance:'400'};
+    f.allocations[0].scope='USER_SHARE';f.scopeChange={openingPrincipal:'500',evidence,confirm:true};
+    const missing=JSON.parse(JSON.stringify(command));delete missing.loanCreations[0].funding.originalTerms;
+    const r1=await api('post',root+'/source-reforecasts/preview',missing);assert.equal(r1.status,422);assert.equal(r1.body.error.code,'LOAN_ORIGINAL_TERMS_REQUIRED');check();
+    const noScope=JSON.parse(JSON.stringify(command));delete noScope.loanCreations[0].funding.scopeChange;
+    const r2=await api('post',root+'/source-reforecasts/preview',noScope);assert.equal(r2.status,422);assert.equal(r2.body.error.code,'LOAN_SCOPE_CHANGE_REQUIRED');check();
+    const tooHigh=JSON.parse(JSON.stringify(command));tooHigh.loanCreations[0].funding.scopeChange.openingPrincipal='1001';
+    const r3=await api('post',root+'/source-reforecasts/preview',tooHigh);assert.equal(r3.status,422);assert.equal(r3.body.error.code,'LOAN_SCOPE_CHANGE_INVALID');check();
+   }
    if(withEarlyDisbursement){
     replacement.contract.effectiveOn='2026-08-20';replacement.funding.disbursedOn='2026-08-20';
     const r=command.refinances[0];r.unusedProceeds='0';r.proceedsAtSettlement={availableAmount:'900',confirm:true,evidence,
@@ -119,6 +133,70 @@ run(withEarlyDisbursement?'SOURCE_V4_REFINANCE_EARLY_DISBURSEMENT':withAmend?'SO
     const wrong=JSON.parse(JSON.stringify(command));wrong.refinances[0].proceedsAtSettlement.availableAmount='1000';
     const mismatch=await api('post',root+'/source-reforecasts/preview',wrong);assert.equal(mismatch.status,422);assert.equal(mismatch.body.error.code,'REFINANCE_FUNDING_MISMATCH');check();
    }
+  }
+  if(withPlanned){
+   stage('planned-basis');command.sourceCommands=[];
+   const loan='profile:debt:loan-a',sum=(p,id)=>p.candidate.calculation.attribution.filter(a=>a.sourceId===id).reduce((n,a)=>n+Number(a.amount),0);
+   const bp=await ok('post',root+'/source-reforecasts/preview',command);
+   let v=await ok('post',root+'/source-reforecasts',{preview:command,expectedInputHash:bp.inputHash,confirm:true},token,randomUUID(),201);check();
+   const at=(throughMonth,extra={})=>({versionId:v.saved.id,expectedSnapshotHash:v.saved.snapshotHash,expectedRevision:v.revision,expectedProfileRevision:1,throughMonth,sourceCommands:[],pensionSelections:[],...extra});
+   const save=async(input,preview)=>{const body={preview:input,expectedInputHash:preview.inputHash,confirm:true},key=randomUUID(),s=await ok('post',root+'/source-reforecasts',body,token,key,201);
+    assert.deepEqual(await ok('post',root+'/source-reforecasts',body,token,key,201),s);assert.equal((await ok('post',root+'/versions/'+s.saved.id+'/replay',{})).replay.matched,true);return s;};
+   stage('planned-create');const base=await ok('post',root+'/source-reforecasts/preview',at('2026-08')),eligible=base.plannedRefinanceOptions.eligibleLoans.find(o=>o.sourceId===loan);assert.ok(eligible);check();
+   // Retain Sep/Oct instalments → 700 principal; quote 700+20 fee; new loan 700 gross, 10 withheld; household top-up 30 in Nov.
+   const replacementCommandId=randomUUID(),newId='plan:'+randomUUID(),newPeriods=[];let from='2026-11-15';
+   for(const dueDate of ['2026-12-31','2027-02-28','2027-04-30','2027-06-30']){newPeriods.push({accrualFrom:from,dueDate,rate:{kind:'SIMPLE_ANNUAL_DAILY',percent:'0',days:(Date.parse(dueDate)-Date.parse(from))/86400000,yearDays:365},fee:'0',carriedInterest:'0',gracePrincipal:false,bankPayment:null});from=dueDate;}
+   const pair={commandId:randomUUID(),replacementCommandId,pairId:randomUUID(),operation:'CREATE',expectedPairHash:null,confirm:true,expectedContractHash:eligible.contractHash,
+    oldSource:{sourceId:loan,revision:eligible.sourceRevision,sourceHash:eligible.sourceHash},newSource:{sourceId:newId,revision:0,sourceHash:null},
+    terms:{settledOn:'2026-11-15',sameDayOrder:'BEFORE_SCHEDULED_PAYMENT',
+     payoffQuote:{principal:'700',interest:'0',carriedInterest:'0',prepaymentFee:'20',otherFee:'0',allRemainingChargesIncluded:true,valueKind:'HYPOTHETICAL_QUOTE',evidence},
+     funding:{scope:'FULL_CONTRACT',externalTopUp:'30',userTopUp:'30',userFinancedAmount:'690',unusedProceeds:'0',unusedProceedsNotContributed:true,evidence},
+     replacement:{commandId:replacementCommandId,sourceId:newId,operation:'CREATE',expectedSourceRevision:0,confirm:true,agreementReference:'Rollback planned refinance',
+      contract:{...command.loanRevisions[0].contract,confirmation:'HYPOTHETICAL',balanceNature:'PROJECTED_DISBURSEMENT',balanceAsOf:'2026-11-15',principalBalance:'700',maturityDate:'2027-06-30',periods:newPeriods},
+      funding:{kind:'PLANNED_DISBURSEMENT',grossPrincipal:'700',withheldFees:'10',netDisbursement:'690',destination:'EXTERNAL_ACCOUNT',evidence}}}};
+   const wrongPair=JSON.parse(JSON.stringify(pair));wrongPair.terms.funding.userTopUp='29';
+   const bad=await api('post',root+'/source-reforecasts/preview',at('2026-08',{plannedRefinances:[wrongPair]}));assert.equal(bad.status,422);assert.equal(bad.body.error.code,'PLANNED_REFINANCE_FUNDING_MISMATCH');check();
+   const createInput=at('2026-08',{plannedRefinances:[pair]}),created=await ok('post',root+'/source-reforecasts/preview',createInput);
+   assert.equal(created.candidate.calculation.rows[0].openingBalance,'880');assert.ok(created.candidate.calculation.rows.every(r=>r.capitalInjection==='0'));
+   assert.deepEqual(created.candidate.calculation.attribution.filter(a=>a.sourceId===loan).map(a=>[a.month,a.amount]),[['2026-09','100'],['2026-10','100'],['2026-11','30']]);
+   const newCells=created.candidate.calculation.attribution.filter(a=>a.sourceId===newId);assert.ok(newCells.length>0&&newCells.every(a=>a.amount==='175'&&a.confirmation==='HYPOTHETICAL'));
+   assert.ok(!created.loanRevisionOptions.some(o=>o.sourceId===loan));assert.equal(created.plannedRefinanceOptions.activePairs[0].reviseAllowed,true);check();
+   assert.equal((await api('post',root+'/source-reforecasts/preview',createInput,other)).status,404);check();
+   assert.equal((await api('post',root+'/source-reforecasts/preview',createInput,admin)).status,403);check();
+   v=await save(createInput,created);check();
+   const applied=await ok('post',root+'/apply',{versionId:v.saved.id,expectedRevision:v.revision,expectedProfileRevision:1,confirm:true});v={...v,revision:applied.revision};check();
+   assert.equal((await ok('get',root+'/report')).hypothetical,true);
+   const csv=await api('get',root+'/versions/'+v.saved.id+'/export.csv');assert.equal(csv.status,200);assert.ok(csv.text.includes(newId));check();
+   assert.deepEqual(await ok('get','/me/financial-profile'),profileBefore);check();
+   stage('planned-lock');const opened=await ok('post',root+'/source-reforecasts/preview',at('2026-08')),active=opened.plannedRefinanceOptions.activePairs[0];
+   const lock=JSON.parse(JSON.stringify(command.loanRevisions[0]));Object.assign(lock,{commandId:randomUUID(),expectedSourceRevision:active.oldSource.revision,expectedSourceHash:active.oldSource.sourceHash,expectedContractHash:active.contractHash,allocations:[]});delete lock.legacyOpening;
+   const locked=await api('post',root+'/source-reforecasts/preview',at('2026-08',{loanRevisions:[lock]}));assert.equal(locked.status,409);assert.equal(locked.body.error.code,'PLANNED_PAIR_SOURCE_LOCKED');check();
+   stage('planned-revise');const rid=randomUUID(),revise={...JSON.parse(JSON.stringify(pair)),commandId:randomUUID(),replacementCommandId:rid,operation:'REVISE',expectedPairHash:active.pairHash,oldSource:active.oldSource,newSource:active.newSource};
+   revise.terms.replacement.commandId=rid;revise.terms.payoffQuote.prepaymentFee='30';revise.terms.funding.externalTopUp=revise.terms.funding.userTopUp='40';
+   const reviseInput=at('2026-08',{plannedRefinances:[revise]}),revised=await ok('post',root+'/source-reforecasts/preview',reviseInput);
+   assert.equal(revised.candidate.calculation.attribution.find(a=>a.sourceId===loan&&a.month==='2026-11').amount,'40');check();
+   v=await save(reviseInput,revised);check();
+   stage('planned-cutoff-advance');
+   const sep={currency:'VND',openingBalance:'880',closingBalance:'780',correctionReason:'Fixture September statement',entries:[{eventId:randomUUID(),date:'2026-09-28',kind:'DEBT_PAYMENT',amount:'100'},{eventId:randomUUID(),date:'2026-09-28',kind:'WITHDRAWAL',amount:'100'}]};
+   await ok('put','/me/retirement/actuals/2026-09',{expectedRevision:0,data:sep});
+   const kept=await ok('post',root+'/source-reforecasts/preview',at('2026-09')),still=kept.plannedRefinanceOptions.activePairs[0];
+   assert.equal(still.reviseAllowed,false);assert.ok(kept.candidate.calculation.attribution.some(a=>a.sourceId===newId));check();
+   const late={...JSON.parse(JSON.stringify(revise)),commandId:randomUUID(),replacementCommandId:randomUUID(),expectedPairHash:still.pairHash,oldSource:still.oldSource,newSource:still.newSource};late.terms.replacement.commandId=late.replacementCommandId;
+   const blocked=await api('post',root+'/source-reforecasts/preview',at('2026-09',{plannedRefinances:[late]}));assert.equal(blocked.status,409);assert.equal(blocked.body.error.code,'PLANNED_PAIR_RECONCILIATION_REQUIRED');check();
+   stage('planned-cancel');
+   const cancel={commandId:randomUUID(),replacementCommandId:randomUUID(),pairId:pair.pairId,operation:'CANCEL',expectedPairHash:still.pairHash,oldSource:still.oldSource,newSource:still.newSource,expectedContractHash:still.contractHash,confirm:true,reason:'Rollback fixture cancellation'};
+   const cancelInput=at('2026-09',{plannedRefinances:[cancel]}),cancelled=await ok('post',root+'/source-reforecasts/preview',cancelInput);
+   assert.ok(!cancelled.candidate.calculation.attribution.some(a=>a.sourceId===newId));
+   assert.ok(cancelled.candidate.calculation.attribution.filter(a=>a.sourceId===loan).every(a=>a.amount==='100'));
+   assert.equal(cancelled.loanRevisionOptions.find(o=>o.sourceId===loan).contractHash,eligible.contractHash);assert.deepEqual(cancelled.plannedRefinanceOptions.activePairs,[]);check();
+   const final=await save(cancelInput,cancelled);check();
+   await ok('post',root+'/apply',{versionId:final.saved.id,expectedRevision:final.revision,expectedProfileRevision:1,confirm:true});check();
+   assert.deepEqual(await ok('get','/me/financial-profile'),profileBefore);check();
+   stage('planned-stale');await ok('put','/me/retirement/actuals/2026-08',{expectedRevision:1,data:{...actual,correctionReason:'Corrected August statement'}});
+   const stale=await api('post',root+'/apply',{versionId:v.saved.id,expectedRevision:final.revision+1,expectedProfileRevision:1,confirm:true});
+   assert.equal(stale.status,409);assert.equal(stale.body.error.code,'ACTUAL_SOURCE_CHANGED');check();
+   for(const s of [v,final]){assert.equal((await ok('post',root+'/versions/'+s.saved.id+'/replay',{})).replay.matched,true);check();}
+   return;
   }
  }
  if(withAssets){
@@ -167,11 +245,12 @@ run(withEarlyDisbursement?'SOURCE_V4_REFINANCE_EARLY_DISBURSEMENT':withAmend?'SO
  if(withLoan){assert.equal(preview.candidate.loanSources.length,1);const payments=preview.candidate.calculation.attribution.filter(a=>a.sourceId==='profile:debt:loan-a');
   if(withAmend)assert.equal(payments.reduce((n,a)=>n+Number(a.amount),0),130);else assert.ok(payments.every(a=>a.amount==='100'));check();}
  if(withRefinance){assert.equal(preview.candidate.refinances[0].settlementAmount,'1020');assert.equal(preview.candidate.calculation.attribution.filter(a=>a.sourceId==='profile:debt:loan-a').length,0);
-  assert.ok(preview.candidate.calculation.attribution.filter(a=>a.sourceId===command.loanCreations[0].sourceId).every(a=>a.amount==='100'));check();}
+  const replacementCells=preview.candidate.calculation.attribution.filter(a=>a.sourceId===command.loanCreations[0].sourceId);assert.ok(replacementCells.length>0);
+  if(withDisbursedAmended)assert.ok(replacementCells.reduce((n,a)=>n+Number(a.amount),0)<=400);else assert.ok(replacementCells.every(a=>a.amount==='100'));check();}
  if(withAssets){assert.equal(preview.candidate.assetSources.length,2);assert.equal(preview.candidate.calculation.rows[0].capitalInjection,'200');
   assert.ok(preview.candidate.calculation.rows.slice(1).every(r=>r.capitalInjection==='0'));assert.equal(preview.assetRevisionOptions.length,2);check();}
  if(withRepaid){
-  assert.equal(preview.candidate.newLoanSources[0].evidence.command.funding.grossPrincipal,'1000');assert.equal(preview.candidate.newLoanSources[0].evidence.command.contract.principalBalance,'900');
+  assert.equal(preview.candidate.newLoanSources[0].evidence.command.funding.grossPrincipal,'1000');assert.equal(preview.candidate.newLoanSources[0].evidence.command.contract.principalBalance,withDisbursedAmended?'400':'900');
   assert.equal(preview.candidate.loanSources[0].evidence.consumed.length,1);assert.ok(preview.candidate.calculation.rows.every(r=>r.capitalInjection==='0'));check();
   const invalid=JSON.parse(JSON.stringify(command));invalid.loanCreations[0].funding.allocations[0].actualRevision=2;
   const rejected=await api('post',root+'/source-reforecasts/preview',invalid);assert.equal(rejected.status,409);assert.equal(rejected.body.error.code,'LOAN_ACTUAL_STALE_OR_MISSING');check();

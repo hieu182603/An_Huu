@@ -14,7 +14,8 @@ const { ProfileService } = require("../src/modules/profiles/service");
 const { AssumptionsService } = require("../src/modules/assumptions/service");
 const { PortfoliosService } = require("../src/modules/portfolios/service");
 const { retirementProfile, retirementCommand, retirementConfiguration } = require("../src/tests/retirement-fixtures");
-const withLoanAssets = process.argv.includes("--loan-assets");
+const withPlanned = process.argv.includes("--planned-refinance");
+const withLoanAssets = withPlanned || process.argv.includes("--loan-assets");
 const withSources = withLoanAssets || process.argv.includes("--sources");
 const debtEventId = randomUUID(), contributionEventId = randomUUID();
 const mixedActual = {
@@ -175,6 +176,23 @@ async function cleanup() {
           allocations: [{ allocationId: randomUUID(), eventId: contributionEventId, actualRevision: 1, bookedOn: "2026-08-28", amount: "60" }],
           plannedContributions: [{ installmentId: randomUUID(), month: "2026-09", amount: "140", timing: "END_OF_MONTH" }], reconciliations: [],
           availability: { amountScope: "NET_SOURCE_SHARE", releases: [{ releaseId: randomUUID(), availableOn: "2026-08-20", amount: "200", status: "CONFIRMED", evidence }] } } });
+      if (withPlanned) {
+        // The revised loan hash is deterministic; read it from a pair-less preview of the same batch.
+        const eligible = (await plans.previewSources(owner, fixture.planId, sourceInput)).plannedRefinanceOptions.eligibleLoans.find(o => o.sourceId === loan.sourceId); assert.ok(eligible);
+        const replacementCommandId = randomUUID(), newId = "plan:" + randomUUID(), newPeriods = []; let from = "2026-11-15";
+        for (const dueDate of ["2026-12-31", "2027-02-28", "2027-04-30", "2027-06-30"]) {
+          newPeriods.push({ accrualFrom: from, dueDate, rate: { kind: "SIMPLE_ANNUAL_DAILY", percent: "0", days: (Date.parse(dueDate) - Date.parse(from)) / 86400000, yearDays: 365 }, fee: "0", carriedInterest: "0", gracePrincipal: false, bankPayment: null });
+          from = dueDate;
+        }
+        sourceInput.plannedRefinances = [{ commandId: randomUUID(), replacementCommandId, pairId: randomUUID(), operation: "CREATE", expectedPairHash: null, confirm: true, expectedContractHash: eligible.contractHash,
+          oldSource: { sourceId: eligible.sourceId, revision: eligible.sourceRevision, sourceHash: eligible.sourceHash }, newSource: { sourceId: newId, revision: 0, sourceHash: null },
+          terms: { settledOn: "2026-11-15", sameDayOrder: "BEFORE_SCHEDULED_PAYMENT",
+            payoffQuote: { principal: "700", interest: "0", carriedInterest: "0", prepaymentFee: "20", otherFee: "0", allRemainingChargesIncluded: true, valueKind: "HYPOTHETICAL_QUOTE", evidence },
+            funding: { scope: "FULL_CONTRACT", externalTopUp: "30", userTopUp: "30", userFinancedAmount: "690", unusedProceeds: "0", unusedProceedsNotContributed: true, evidence },
+            replacement: { commandId: replacementCommandId, sourceId: newId, operation: "CREATE", expectedSourceRevision: 0, confirm: true, agreementReference: "Private planned refinance",
+              contract: { ...sourceInput.loanRevisions[0].contract, confirmation: "HYPOTHETICAL", balanceNature: "PROJECTED_DISBURSEMENT", balanceAsOf: "2026-11-15", principalBalance: "700", maturityDate: "2027-06-30", periods: newPeriods },
+              funding: { kind: "PLANNED_DISBURSEMENT", grossPrincipal: "700", withheldFees: "10", netDisbursement: "690", destination: "EXTERNAL_ACCOUNT", evidence } } } }];
+      }
     }
     const sourcePreview = await plans.previewSources(owner, fixture.planId, sourceInput);
     if (withLoanAssets) {
@@ -182,6 +200,10 @@ async function cleanup() {
       assert.equal(sourcePreview.candidate.calculation.rows[0].capitalInjection, "140");
       assert.equal(sourcePreview.candidate.loanSources.length, 1);
       assert.equal(sourcePreview.candidate.assetSources.length, 1);
+      if (withPlanned) {
+        assert.equal(sourcePreview.candidate.plannedRefinances.length, 1);
+        assert.equal(sourcePreview.candidate.calculation.attribution.find(a => a.sourceId === "profile:debt:loan-a" && a.month === "2026-11").amount, "30");
+      }
     }
     command = { preview: sourceInput, expectedInputHash: sourcePreview.inputHash, confirm: true };
   }
@@ -211,6 +233,7 @@ async function cleanup() {
     for (const saved of [repeated[0], raced.find(r => r.status === "fulfilled").value]) {
       const version = await plans.version(owner, fixture.planId, saved.saved.id, true);
       assert.equal(version.preview.loanSources.length, 1); assert.equal(version.preview.assetSources.length, 1);
+      if (withPlanned) assert.equal(version.preview.plannedRefinances.length, 1);
       assert.equal(version.preview.calculation.rows[0].openingBalance, "940");
       assert.equal(version.preview.calculation.rows[0].capitalInjection, "140");
       assert.equal(version.replay.matched, true);
@@ -238,7 +261,7 @@ async function cleanup() {
   assert.equal(await db.user.count({ where: { id: { in: [owner, admin] } } }), 0);
   assert.equal(await db.idempotencyRecord.count({ where: { userId: { in: [owner, admin] } } }), 0);
   assert.deepEqual(await fingerprint(), before);
-  console.log(JSON.stringify({ suite: withLoanAssets ? "LOAN_ASSET_V4_CONCURRENCY" : withSources ? "SOURCE_V4_CONCURRENCY" : "REFORCAST_V3_CONCURRENCY", independentConnectionRaceChecks: checks, fixturesRemoved: true, existingDataUnchanged: true,
+  console.log(JSON.stringify({ suite: withPlanned ? "PLANNED_REFINANCE_V4_CONCURRENCY" : withLoanAssets ?"LOAN_ASSET_V4_CONCURRENCY" : withSources ? "SOURCE_V4_CONCURRENCY" : "REFORCAST_V3_CONCURRENCY", independentConnectionRaceChecks: checks, fixturesRemoved: true, existingDataUnchanged: true,
     tablesPreserved: Object.keys(before).length, distinctPostgresBackendsVerified: true, publishedFixtureConfigurationsExposed: false, emailsQueued: false }));
 })().catch(error => { console.error(JSON.stringify({ stage, code: error.code ?? "PLAN_CONCURRENCY_FAILED", type: error.name })); process.exitCode = 1; })
   .finally(async () => { if (barrier) clearTimeout(barrier.timer); try { await cleanup(); } catch (error) { console.error(JSON.stringify({ stage: "CLEANUP_REQUIRED", code: error.code ?? "CLEANUP_FAILED", fixtureOwner: owner, fixtureAdmin: admin, fixtureConfigIds: configIds })); process.exitCode = 1; } await Promise.all([...clients,db].map(client=>client.$disconnect())); });
