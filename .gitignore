@@ -74,4 +74,11 @@ agent/
 .claude/
 
 # Intro video & media generation artifacts
-an-huu-intro*
+an-huu-intro*
+*.mp4
+*.mp3
+*.wav
+*.mov
+*.avi
+*.mkv
+
