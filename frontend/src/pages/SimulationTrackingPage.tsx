@@ -19,12 +19,21 @@ import {
 import {
   simulatePlanVersion,
   type SimulatePlanResponse,
+  previewSourceReforecast,
+  saveSourceReforecast,
+  type FlowSourceCommand,
+  type SourceReforecastPreviewResponse,
+  type PensionSourceSelection,
 } from "../services/plans";
+import { Decimal } from "../utils/decimal";
+import { listPensionEstimates, type PensionEstimateRecord } from "../services/insurance";
 import {
   listActualMonths,
   getActualMonth,
   writeActualMonth,
   reforecastPlan,
+  previewReforecast,
+  saveReforecast,
   calculateLocalReconciliation,
   ACTUAL_KIND_LABELS,
   getActualKindLabel,
@@ -33,6 +42,10 @@ import {
   type ActualEntry,
   type ActualMonthDetail,
   type ActualForecastResult,
+  type FutureChange,
+  type FutureChangeField,
+  type SourceChange,
+  type ReforecastPreviewResponse,
 } from "../services/actuals";
 import { useI18n } from "../i18n";
 
@@ -250,7 +263,7 @@ export default function SimulationTrackingPage() {
     language,
   ]);
 
-  const simSummary = !isSimulating && !simError && simResult?.status === "READY" ? simResult.calculation?.summary : null;
+  const simSummary = !isSimulating && !simError && (simResult?.status === "READY" || (simResult as any)?.status === "CALCULATED" || Boolean(simResult?.calculation?.summary)) ? simResult?.calculation?.summary : null;
   const currentSummary = currentVersion?.preview.calculation?.summary;
 
   const simTargetFund = simSummary ? parseFloat(simSummary.atRetirement.requiredFund) : 0;
@@ -484,6 +497,459 @@ export default function SimulationTrackingPage() {
     }
   };
 
+  // Future & Source Changes (P13/P15 & Q15-03)
+  const [reforecastSubTab, setReforecastSubTab] = useState<"standard" | "future-changes" | "sources-v4">("standard");
+  const [futureChanges, setFutureChanges] = useState<FutureChange[]>([]);
+  const [sourceChanges, setSourceChanges] = useState<SourceChange[]>([]);
+  const [reforecastCandidate, setReforecastCandidate] = useState<ReforecastPreviewResponse | null>(null);
+  const [previewingCandidate, setPreviewingCandidate] = useState<boolean>(false);
+  const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [savingCandidate, setSavingCandidate] = useState<boolean>(false);
+  const [applyingCandidate, setApplyingCandidate] = useState<boolean>(false);
+  const [savedCandidateVersion, setSavedCandidateVersion] = useState<any | null>(null);
+
+  // Future Change form inputs
+  const [fcField, setFcField] = useState<FutureChangeField>("plannedContribution");
+  const [fcAmount, setFcAmount] = useState<string>("");
+  const [fcStartMonth, setFcStartMonth] = useState<string>("");
+  const [fcEndMonth, setFcEndMonth] = useState<string>("");
+  const [fcReason, setFcReason] = useState<string>("");
+
+  // Source commands v4 state
+  const [sourceCommands, setSourceCommands] = useState<FlowSourceCommand[]>([]);
+  const [v4Candidate, setV4Candidate] = useState<SourceReforecastPreviewResponse | null>(null);
+  const [previewingV4, setPreviewingV4] = useState<boolean>(false);
+  const [savingV4, setSavingV4] = useState<boolean>(false);
+  const [v4Error, setV4Error] = useState<string | null>(null);
+  const [savedV4Version, setSavedV4Version] = useState<any | null>(null);
+  const [savedV4PlanRevision, setSavedV4PlanRevision] = useState<number | null>(null);
+  const [applyingV4, setApplyingV4] = useState<boolean>(false);
+  const [selectedSourceId, setSelectedSourceId] = useState<string>("");
+  const [v4Idempotency, setV4Idempotency] = useState<{ key: string; bodyStr: string } | null>(null);
+  const [candidateIdempotency, setCandidateIdempotency] = useState<{ key: string; bodyStr: string } | null>(null);
+  const [eligibleEstimates, setEligibleEstimates] = useState<PensionEstimateRecord[]>([]);
+  const [selectedEstimateId, setSelectedEstimateId] = useState<string>("");
+  const [pensionSelections, setPensionSelections] = useState<PensionSourceSelection[]>([]);
+
+  // V4 flow form inputs
+  const [v4Operation, setV4Operation] = useState<"CREATE" | "REVISE" | "END">("CREATE");
+  const [v4Metric, setV4Metric] = useState<"income" | "livingExpense" | "additionalExpense" | "pension">("income");
+  const [v4Frequency, setV4Frequency] = useState<"MONTHLY" | "ONCE">("MONTHLY");
+  const [v4Amount, setV4Amount] = useState<string>("");
+  const [v4FromMonth, setV4FromMonth] = useState<string>("");
+  const [v4ToMonth, setV4ToMonth] = useState<string>("");
+  const [v4Document, setV4Document] = useState<string>("");
+
+  useEffect(() => {
+    if (selectedPeriod && /^\d{4}-\d{2}$/.test(selectedPeriod)) {
+      const [y, m] = selectedPeriod.split("-").map(Number);
+      const nextMonthDate = new Date(Date.UTC(y, m, 1));
+      const endMonthDate = new Date(Date.UTC(y, m + 2, 1));
+      const nextM = nextMonthDate.toISOString().slice(0, 7);
+      const endM = endMonthDate.toISOString().slice(0, 7);
+      if (!fcStartMonth) setFcStartMonth(nextM);
+      if (!fcEndMonth) setFcEndMonth(endM);
+      if (!v4FromMonth) setV4FromMonth(nextM);
+      if (!v4ToMonth) setV4ToMonth(endM);
+    }
+  }, [selectedPeriod]);
+
+  // Load eligible pension estimates (FE-05)
+  useEffect(() => {
+    let active = true;
+    listPensionEstimates()
+      .then((res) => {
+        if (!active) return;
+        const eligible = (res.items || []).filter(
+          (item) => item.assessment?.assessmentStatus === "ELIGIBLE" && Boolean(item.assessment?.monthlyPension)
+        );
+        setEligibleEstimates(eligible);
+        if (eligible.length > 0 && !selectedEstimateId) {
+          setSelectedEstimateId(eligible[0].id);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Compute active sources from registry (FE-04)
+  const activeSources = useMemo(() => {
+    const revisions = ((v4Candidate?.candidate?.replayInput?.sourceRegistry?.revisions
+      || (currentVersion?.preview as any)?.replayInput?.sourceRegistry?.revisions
+      || []) as any[]);
+    const map = new Map<string, {
+      sourceId: string;
+      revision: number;
+      kind: string;
+      operation: string;
+      effectiveFromMonth: string;
+      effectiveToMonth: string;
+    }>();
+    for (const r of revisions) {
+      if (r?.sourceId) {
+        map.set(r.sourceId, {
+          sourceId: r.sourceId,
+          revision: Number(r.revision) || 1,
+          kind: r.kind || "FLOW",
+          operation: r.operation || "CREATE",
+          effectiveFromMonth: r.effectiveFromMonth || "",
+          effectiveToMonth: r.effectiveToMonth || "",
+        });
+      }
+    }
+    return [...map.values()].filter((s) => s.operation !== "END");
+  }, [v4Candidate, currentVersion]);
+
+  useEffect(() => {
+    if (activeSources.length > 0 && (!selectedSourceId || !activeSources.some((s) => s.sourceId === selectedSourceId))) {
+      setSelectedSourceId(activeSources[0].sourceId);
+    }
+  }, [activeSources, selectedSourceId]);
+
+  const handleAddFutureChange = () => {
+    if (!fcAmount || isNaN(Number(fcAmount)) || Number(fcAmount) < 0) {
+      notify.error(language === "en" ? "Invalid Amount" : "Số tiền không hợp lệ", language === "en" ? "Please enter a valid non-negative amount." : "Vui lòng nhập số tiền hợp lệ không âm.");
+      return;
+    }
+    if (!fcStartMonth || !fcEndMonth || fcStartMonth > fcEndMonth) {
+      notify.error(language === "en" ? "Invalid Period" : "Khoảng tháng không hợp lệ", language === "en" ? "Start month must be less than or equal to end month." : "Tháng bắt đầu phải trước hoặc bằng tháng kết thúc.");
+      return;
+    }
+    const change: FutureChange = {
+      id: crypto.randomUUID(),
+      field: fcField,
+      operation: "REPLACE_MONTHLY_TOTAL",
+      amount: new Decimal(fcAmount).toFixed(),
+      startMonth: fcStartMonth,
+      endMonth: fcEndMonth,
+      reason: fcReason.trim() || (language === "en" ? "Monthly budget adjustment" : "Điều chỉnh ngân sách tháng"),
+    };
+    setFutureChanges(prev => [...prev, change]);
+    setFcAmount("");
+    setFcReason("");
+  };
+
+  const handleRemoveFutureChange = (id: string) => {
+    setFutureChanges(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handlePreviewCandidate = async () => {
+    if (!activePlan?.id || !currentVersion?.id) {
+      notify.error(language === "en" ? "No Active Plan" : "Chưa có kế hoạch", language === "en" ? "An active plan version is required." : "Cần một phiên bản kế hoạch chính thức.");
+      return;
+    }
+    setPreviewingCandidate(true);
+    setCandidateError(null);
+    setSavedCandidateVersion(null);
+    try {
+      const res = await previewReforecast({
+        planId: activePlan.id,
+        versionId: currentVersion.id,
+        throughMonth: selectedPeriod,
+        expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
+        futureChanges: futureChanges.length > 0 ? futureChanges : undefined,
+        sourceChanges: sourceChanges.length > 0 ? sourceChanges : undefined,
+      });
+      setReforecastCandidate(res);
+      if (res.status === "READY") {
+        notify.success(
+          language === "en" ? "Scenario Ready" : "Kịch bản sẵn sàng",
+          language === "en" ? "Reforecast candidate successfully calculated." : "Kịch bản điều chỉnh đã được tính toán thành công."
+        );
+      } else {
+        notify.warning(
+          language === "en" ? "Calculation Blocked" : "Dự báo chưa hoàn tất",
+          res.issues?.map(i => `${i.month}: ${i.code}`).join("; ") || (language === "en" ? "Issues encountered" : "Có vấn đề phát sinh")
+        );
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error previewing reforecast";
+      setCandidateError(msg);
+      notify.error(language === "en" ? "Preview Error" : "Lỗi xem trước", msg);
+    } finally {
+      setPreviewingCandidate(false);
+    }
+  };
+
+  const handleSaveCandidate = async () => {
+    if (!activePlan?.id || !currentVersion?.id || !reforecastCandidate?.inputHash || reforecastCandidate.status !== "READY") return;
+    setSavingCandidate(true);
+    try {
+      const previewPayload = {
+        planId: activePlan.id,
+        versionId: currentVersion.id,
+        throughMonth: selectedPeriod,
+        expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
+        futureChanges: futureChanges.length > 0 ? futureChanges : undefined,
+        sourceChanges: sourceChanges.length > 0 ? sourceChanges : undefined,
+      };
+      const bodyStr = JSON.stringify({
+        expectedRevision: activePlan.revision || 1,
+        expectedInputHash: reforecastCandidate.inputHash,
+        preview: previewPayload,
+      });
+      const key = candidateIdempotency && candidateIdempotency.bodyStr === bodyStr
+        ? candidateIdempotency.key
+        : crypto.randomUUID();
+      setCandidateIdempotency({ key, bodyStr });
+
+      const res = await saveReforecast(activePlan.id, {
+        expectedRevision: activePlan.revision || 1,
+        expectedInputHash: reforecastCandidate.inputHash,
+        preview: previewPayload,
+      }, key);
+      setSavedCandidateVersion(res);
+      notify.success(
+        language === "en" ? "New Plan Version Saved" : "Đã lưu phiên bản mới",
+        language === "en" ? `Saved plan version v${res.version}.` : `Đã lưu thành công phiên bản kế hoạch v${res.version}.`
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error saving candidate";
+      notify.error(language === "en" ? "Save Error" : "Lỗi lưu phiên bản", msg);
+    } finally {
+      setSavingCandidate(false);
+    }
+  };
+
+  const handleApplyCandidateVersion = async (v: any) => {
+    const versionId = v?.versionId || v?.id;
+    if (!activePlan?.id || !versionId) return;
+    setApplyingCandidate(true);
+    try {
+      const rev = profileRevision > 0 ? profileRevision : 1;
+      const success = await applyVersion(versionId, rev, v.planId || activePlan.id, v.planRevision || activePlan.revision);
+      if (success === false) throw new Error(language === "en" ? "Failed to apply version" : "Áp dụng phiên bản thất bại");
+      notify.success(
+        language === "en" ? "Plan Version Applied" : "Đã áp dụng phiên bản",
+        language === "en" ? `Version v${v.version} is now active.` : `Phiên bản v${v.version} đã trở thành kế hoạch chính thức.`
+      );
+      navigate("/user/plan");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error applying version";
+      notify.error(language === "en" ? "Apply Error" : "Lỗi áp dụng", msg);
+    } finally {
+      setApplyingCandidate(false);
+    }
+  };
+
+  const handleAddV4Command = () => {
+    if (v4Operation !== "END" && (!v4Amount || isNaN(Number(v4Amount)) || Number(v4Amount) < 0)) {
+      notify.error(language === "en" ? "Invalid Amount" : "Số tiền không hợp lệ", language === "en" ? "Please enter a valid amount." : "Vui lòng nhập số tiền hợp lệ.");
+      return;
+    }
+    if (!v4FromMonth || !v4ToMonth || v4FromMonth > v4ToMonth) {
+      notify.error(language === "en" ? "Invalid Period" : "Khoảng tháng không hợp lệ", language === "en" ? "Effective from must be before or equal to effective to." : "Tháng bắt đầu phải trước hoặc bằng tháng kết thúc.");
+      return;
+    }
+    if (!v4Document.trim()) {
+      notify.error(language === "en" ? "Missing Document" : "Thiếu chứng từ", language === "en" ? "Please enter a document verification note." : "Vui lòng nhập căn cứ/chứng từ xác nhận.");
+      return;
+    }
+
+    if (v4Operation === "CREATE") {
+      const cmd: FlowSourceCommand = {
+        commandId: crypto.randomUUID(),
+        sourceId: `plan:${crypto.randomUUID()}`,
+        expectedSourceRevision: 0,
+        effectiveFromMonth: v4FromMonth,
+        effectiveToMonth: v4ToMonth,
+        confirm: true,
+        document: v4Document.trim(),
+        operation: "CREATE",
+        metric: v4Metric,
+        frequency: v4Frequency,
+        amount: new Decimal(v4Amount).toFixed(),
+        currency: "VND",
+        confirmation: "USER_CONFIRMED",
+      };
+      setSourceCommands(prev => [...prev, cmd]);
+    } else {
+      const source = activeSources.find(s => s.sourceId === selectedSourceId);
+      if (!source) {
+        notify.error(language === "en" ? "Source Required" : "Chưa chọn nguồn", language === "en" ? "Please select an existing source to revise or end." : "Vui lòng chọn nguồn hiện có để điều chỉnh hoặc kết thúc.");
+        return;
+      }
+      if (v4Operation === "REVISE") {
+        const cmd: FlowSourceCommand = {
+          commandId: crypto.randomUUID(),
+          sourceId: source.sourceId,
+          expectedSourceRevision: source.revision,
+          effectiveFromMonth: v4FromMonth,
+          effectiveToMonth: v4ToMonth,
+          confirm: true,
+          document: v4Document.trim(),
+          operation: "REVISE",
+          metric: v4Metric,
+          frequency: v4Frequency,
+          amount: new Decimal(v4Amount).toFixed(),
+          currency: "VND",
+          confirmation: "USER_CONFIRMED",
+        };
+        setSourceCommands(prev => [...prev, cmd]);
+      } else {
+        // END operation - strict schema: only identity fields, no metric/amount/confirmation/frequency!
+        const cmd: FlowSourceCommand = {
+          commandId: crypto.randomUUID(),
+          sourceId: source.sourceId,
+          expectedSourceRevision: source.revision,
+          effectiveFromMonth: v4FromMonth,
+          effectiveToMonth: v4ToMonth,
+          confirm: true,
+          document: v4Document.trim(),
+          operation: "END",
+        };
+        setSourceCommands(prev => [...prev, cmd]);
+      }
+    }
+    setV4Amount("");
+    setV4Document("");
+  };
+
+  const handleRemoveV4Command = (cmdId: string) => {
+    setSourceCommands(prev => prev.filter(c => c.commandId !== cmdId));
+  };
+
+  const handleAddPensionSelection = () => {
+    const est = eligibleEstimates.find(e => e.id === selectedEstimateId);
+    if (!est) {
+      notify.error(language === "en" ? "Select Estimate" : "Chọn ước tính", language === "en" ? "Please select an eligible estimate." : "Vui lòng chọn kết quả ước tính hợp lệ.");
+      return;
+    }
+    const registryHash = v4Candidate?.candidate?.replayInput?.sourceRegistry?.registryHash
+      || (currentVersion?.preview as any)?.replayInput?.sourceRegistry?.registryHash
+      || "";
+    if (!registryHash) {
+      notify.error(language === "en" ? "Preview Required" : "Cần xem trước", language === "en" ? "Run preview first to establish source registry hash." : "Vui lòng bấm xem trước nguồn V4 để xác lập hash danh mục nguồn từ máy chủ.");
+      return;
+    }
+    const existingPension = activeSources.find(s => s.kind === "PENSION");
+    const startMonth = est.assessment.startMonth || v4FromMonth;
+    const endMonth = currentVersion?.preview?.calculation?.summary?.endMonth || currentVersion?.preview?.calculation?.summary?.retirementMonth || v4ToMonth || "2060-12";
+    const sel: PensionSourceSelection = {
+      estimateId: est.id,
+      expectedEstimateIntegrityHash: est.integrityHash,
+      expectedRegistryHash: registryHash,
+      commandId: crypto.randomUUID(),
+      sourceId: existingPension ? existingPension.sourceId : `plan:${crypto.randomUUID()}`,
+      operation: existingPension ? "REVISE" : "CREATE",
+      expectedSourceRevision: existingPension ? existingPension.revision : 0,
+      effectiveFromMonth: startMonth,
+      effectiveToMonth: endMonth,
+      amountPolicy: "FIXED_NOMINAL",
+      confirm: true,
+    };
+    setPensionSelections([sel]);
+    notify.success(
+      language === "en" ? "Pension Attached" : "Đã gắn nguồn lương hưu",
+      `${formatVND(Number(est.assessment.monthlyPension || 0))}/${language === "en" ? "mo from" : "tháng từ"} ${startMonth}`
+    );
+  };
+
+  const handleRemovePensionSelection = () => {
+    setPensionSelections([]);
+  };
+
+  const handlePreviewV4 = async () => {
+    if (!activePlan?.id || !currentVersion?.id) return;
+    setPreviewingV4(true);
+    setV4Error(null);
+    setSavedV4Version(null);
+    try {
+      const res = await previewSourceReforecast(activePlan.id, {
+        versionId: currentVersion.id,
+        expectedSnapshotHash: currentVersion.snapshotHash,
+        expectedRevision: activePlan.revision || 1,
+        expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
+        throughMonth: selectedPeriod,
+        sourceCommands: sourceCommands.length > 0 ? sourceCommands : [],
+        pensionSelections: pensionSelections.length > 0 ? pensionSelections : [],
+      });
+      setV4Candidate(res);
+      if (res.status === "READY") {
+        notify.success(
+          language === "en" ? "V4 Sources Ready" : "Nguồn v4 sẵn sàng",
+          language === "en" ? "Source reforecast preview calculated." : "Đã tính toán xem trước điều chỉnh nguồn thành công."
+        );
+      } else {
+        notify.warning(
+          language === "en" ? "Incomplete" : "Chưa hoàn tất",
+          res.issues?.map(i => i.message || i.code).join("; ") || (language === "en" ? "Issues found" : "Có vấn đề phát sinh")
+        );
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error previewing V4";
+      setV4Error(msg);
+      notify.error(language === "en" ? "V4 Error" : "Lỗi nguồn v4", msg);
+    } finally {
+      setPreviewingV4(false);
+    }
+  };
+
+  const handleSaveV4 = async () => {
+    if (!activePlan?.id || !currentVersion?.id || !v4Candidate?.inputHash || v4Candidate.status !== "READY") return;
+    setSavingV4(true);
+    try {
+      const previewPayload = {
+        versionId: currentVersion.id,
+        expectedSnapshotHash: currentVersion.snapshotHash,
+        expectedRevision: activePlan.revision || 1,
+        expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
+        throughMonth: selectedPeriod,
+        sourceCommands: sourceCommands.length > 0 ? sourceCommands : [],
+        pensionSelections: pensionSelections.length > 0 ? pensionSelections : [],
+      };
+      const bodyStr = JSON.stringify({
+        expectedInputHash: v4Candidate.inputHash,
+        confirm: true,
+        preview: previewPayload,
+      });
+      const key = v4Idempotency && v4Idempotency.bodyStr === bodyStr
+        ? v4Idempotency.key
+        : crypto.randomUUID();
+      setV4Idempotency({ key, bodyStr });
+
+      const res = await saveSourceReforecast(activePlan.id, {
+        expectedInputHash: v4Candidate.inputHash,
+        confirm: true,
+        preview: previewPayload,
+      }, key);
+      setSavedV4Version(res.saved);
+      setSavedV4PlanRevision(res.revision);
+      notify.success(
+        language === "en" ? "V4 Version Saved" : "Đã lưu phiên bản nguồn v4",
+        language === "en" ? `Saved plan version v${res.saved.version} (plan revision r${res.revision}).` : `Đã lưu phiên bản kế hoạch v${res.saved.version} (phiên bản r${res.revision}).`
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error saving V4";
+      notify.error(language === "en" ? "Save Error" : "Lỗi lưu phiên bản", msg);
+    } finally {
+      setSavingV4(false);
+    }
+  };
+
+  const handleApplyV4Version = async () => {
+    if (!activePlan?.id || !savedV4Version?.id) return;
+    setApplyingV4(true);
+    try {
+      const rev = profileRevision > 0 ? profileRevision : 1;
+      const planRev = savedV4PlanRevision ?? activePlan.revision;
+      const success = await applyVersion(savedV4Version.id, rev, activePlan.id, planRev);
+      if (success === false) throw new Error(language === "en" ? "Failed to apply version" : "Áp dụng phiên bản thất bại");
+      notify.success(
+        language === "en" ? "Plan Version Applied" : "Đã áp dụng phiên bản",
+        language === "en" ? `Version v${savedV4Version.version} is now active.` : `Phiên bản v${savedV4Version.version} đã trở thành kế hoạch chính thức.`
+      );
+      navigate("/user/plan");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error applying version";
+      notify.error(language === "en" ? "Apply Error" : "Lỗi áp dụng", msg);
+    } finally {
+      setApplyingV4(false);
+    }
+  };
+
   return (
     <>
       <div className="phase-page-header">
@@ -511,6 +977,19 @@ export default function SimulationTrackingPage() {
           </button>
         </div>
       </div>
+
+      {Boolean(activePlan?.actualSourceChanged) && (
+        <div style={{ marginBottom: "20px" }}>
+          <Alert
+            tone="danger"
+            title={language === "en" ? "Actual Source Changed" : "Dữ liệu thực tế nguồn đã bị thay đổi"}
+          >
+            {language === "en"
+              ? "Actual transactions linked to this plan version have been modified. Please reconcile actuals and run a reforecast."
+              : "Bút toán thực tế liên kết với phiên bản kế hoạch này đã bị sửa đổi. Vui lòng đối soát lại sổ thực tế và lập dự báo mới."}
+          </Alert>
+        </div>
+      )}
 
       {/* ========================================================= */}
       {/* TAB 1: THỬ NGHIỆM KỊCH BẢN & SO SÁNH (FE-T08)             */}
@@ -708,10 +1187,11 @@ export default function SimulationTrackingPage() {
                 </p>
                 <div style={{ display: "grid", gap: "8px" }}>
                   <div>
-                    <label style={{ fontSize: "11.5px", fontWeight: 600, color: "var(--color-text-muted)" }}>
+                    <label htmlFor="simulation-real-estate" style={{ fontSize: "11.5px", fontWeight: 600, color: "var(--color-text-muted)" }}>
                       {language === "en" ? "Real Estate" : "Bất động sản"} ({language === "en" ? "original" : "gốc"}: {formatVND(profile.assets.realEstateValue)})
                     </label>
                     <input
+                      id="simulation-real-estate"
                       type="text"
                       inputMode="numeric"
                       placeholder={language === "en" ? "Leave blank to keep original" : "Để trống nếu giữ nguyên"}
@@ -722,10 +1202,11 @@ export default function SimulationTrackingPage() {
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: "11.5px", fontWeight: 600, color: "var(--color-text-muted)" }}>
+                    <label htmlFor="simulation-stock-fund" style={{ fontSize: "11.5px", fontWeight: 600, color: "var(--color-text-muted)" }}>
                       {language === "en" ? "Stocks & Investment Funds" : "Cổ phiếu & Quỹ"} ({language === "en" ? "original" : "gốc"}: {formatVND(profile.assets.stockFundValue)})
                     </label>
                     <input
+                      id="simulation-stock-fund"
                       type="text"
                       inputMode="numeric"
                       placeholder={language === "en" ? "Leave blank to keep original" : "Để trống nếu giữ nguyên"}
@@ -940,7 +1421,7 @@ export default function SimulationTrackingPage() {
 
                 <Button
                   variant="primary"
-                  onClick={() => setConfirmApply(true)}
+                  onClick={handleApplyScenario}
                   loading={applying}
                   disabled={applying || isSimulating || !simSummary}
                 >
@@ -1096,10 +1577,11 @@ export default function SimulationTrackingPage() {
           </div>
 
           {/* Household Flow & Contribution Insights */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
+          {/* Household Flow & Contribution Insights (FE-03) */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--space-4)" }}>
             <Card style={{ padding: "var(--space-4)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-muted)" }}>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted)" }}>
                   {language === "en" ? "HOUSEHOLD CASHFLOW SURPLUS" : "THẶNG DƯ THU CHI GIA ĐÌNH"}
                 </span>
                 <Badge tone={localReconcile.cashflowState === "SURPLUS" ? "success" : localReconcile.cashflowState === "DEFICIT" ? "danger" : "soft"}>
@@ -1110,26 +1592,59 @@ export default function SimulationTrackingPage() {
                     : (language === "en" ? "BALANCED" : "CÂN BẰNG")}
                 </Badge>
               </div>
-              <strong className="font-mono" style={{ fontSize: "22px", display: "block", marginTop: "8px" }}>
+              <strong className="font-mono" style={{ fontSize: "20px", display: "block", marginTop: "8px" }}>
                 {formatVND(Number(localReconcile.householdSurplus))}
               </strong>
-              <p style={{ margin: "4px 0 0", fontSize: "11.5px", color: "var(--color-text-muted)" }}>
-                {language === "en" ? "Income" : "Thu nhập"} ({formatVND(Number(localReconcile.totals.INCOME))}) - {language === "en" ? "Expenses" : "Chi tiêu"} ({formatVND(Number(localReconcile.totals.EXPENSE))}) - {language === "en" ? "Debt" : "Trả nợ"} ({formatVND(Number(localReconcile.totals.DEBT_PAYMENT))})
+              <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)" }}>
+                {language === "en" ? "Income - Living - Debt" : "Thu nhập - Chi tiêu - Trả nợ"}
               </p>
             </Card>
 
             <Card style={{ padding: "var(--space-4)" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-muted)" }}>
-                {language === "en" ? "ACTUAL RETIREMENT CONTRIBUTIONS" : "TỔNG ĐÓNG GÓP THỰC TẾ VÀO QUỸ HƯU"}
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted)" }}>
+                {language === "en" ? "CONFIRMED FUND CONTRIBUTION" : "ĐÓNG GÓP ĐƯỢC XÁC NHẬN"}
               </span>
-              <strong className="font-mono" style={{ fontSize: "22px", display: "block", marginTop: "8px", color: "var(--color-primary-700)" }}>
+              <strong className="font-mono" style={{ fontSize: "20px", display: "block", marginTop: "8px", color: "var(--color-primary-700)" }}>
+                {formatVND(Number(localReconcile.confirmedContribution))}
+              </strong>
+              <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)" }}>
+                {language === "en" ? "Capped by household surplus" : "Tích lũy được đảm bảo bởi thặng dư"}
+              </p>
+            </Card>
+
+            <Card style={{ padding: "var(--space-4)" }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted)" }}>
+                {language === "en" ? "UNINVESTED CASH SURPLUS" : "THẶNG DƯ CÒN NGOÀI QUỸ"}
+              </span>
+              <strong className="font-mono" style={{ fontSize: "20px", display: "block", marginTop: "8px", color: "var(--color-secondary-700)" }}>
+                {formatVND(Number(localReconcile.uninvestedSurplus))}
+              </strong>
+              <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)" }}>
+                {language === "en" ? "Surplus outside retirement fund" : "Thặng dư khả dụng chưa tích lũy"}
+              </p>
+            </Card>
+
+            <Card style={{ padding: "var(--space-4)" }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted)" }}>
+                {language === "en" ? "BUDGET SHORTFALL / DEFICIT" : "THIẾU HỤT NGÂN SÁCH (NẾU CÓ)"}
+              </span>
+              <strong className="font-mono" style={{ fontSize: "20px", display: "block", marginTop: "8px", color: Number(localReconcile.budgetShortfall) > 0 ? "var(--color-danger)" : "var(--color-text-muted)" }}>
+                {formatVND(Number(localReconcile.budgetShortfall))}
+              </strong>
+              <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)" }}>
+                {language === "en" ? "Contribution exceeding available surplus" : "Góp vượt thặng dư (cần tài trợ ngoài)"}
+              </p>
+            </Card>
+
+            <Card style={{ padding: "var(--space-4)" }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted)" }}>
+                {language === "en" ? "TOTAL ACTUAL CONTRIBUTION" : "TỔNG ĐÓNG GÓP THỰC TẾ"}
+              </span>
+              <strong className="font-mono" style={{ fontSize: "20px", display: "block", marginTop: "8px", color: "var(--color-primary-700)" }}>
                 {formatVND(Number(localReconcile.actualContribution))}
               </strong>
-              <p style={{ margin: "4px 0 0", fontSize: "11.5px", color: "var(--color-text-muted)" }}>
-                {language === "en" ? "Plan target" : "Mục tiêu kế hoạch"}: {formatVND(profile.plan.monthlySavings)}/{language === "en" ? "mo" : "tháng"} • {language === "en" ? "Variance" : "Chênh lệch"}:{" "}
-                <span className="font-mono">
-                  {formatVND(Number(localReconcile.actualContribution) - profile.plan.monthlySavings)}
-                </span>
+              <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)" }}>
+                {language === "en" ? "Plan target" : "Mục tiêu"}: {formatVND(profile.plan.monthlySavings)}/{language === "en" ? "mo" : "tháng"}
               </p>
             </Card>
           </div>
@@ -1266,154 +1781,701 @@ export default function SimulationTrackingPage() {
 
           {/* Reforecast Section */}
           <Card style={{ padding: "var(--space-6)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "16px" }}>
               <div>
-                <Badge tone="soft">{language === "en" ? "T09 REFORECAST" : "T09 DỰ BÁO LẠI"}</Badge>
-                <h2>{language === "en" ? "Reforecast from Anchored Actual Balance" : "Dự báo lại từ mốc thực tế đã chốt"}</h2>
+                <Badge tone="soft">{language === "en" ? "REFORECAST & SOURCES" : "DỰ BÁO LẠI & ĐIỀU CHỈNH NGUỒN"}</Badge>
+                <h2>{language === "en" ? "Reforecast from Anchored Balance & Planned Adjustments" : "Dự báo lại từ mốc thực tế và điều chỉnh tương lai"}</h2>
                 <p style={{ margin: "4px 0 0", color: "var(--color-text-muted)", fontSize: "12.5px" }}>
                   {language === "en"
-                    ? `Anchor actual verified balance of ${selectedPeriod} to project future months.`
-                    : `Lấy số dư thực tế cuối tháng ${selectedPeriod} làm mốc neo để chiếu lại các tháng tương lai.`}
+                    ? `Anchor verified balance of ${selectedPeriod} to project future months or test scenario adjustments.`
+                    : `Lấy số dư thực tế tháng ${selectedPeriod} làm mốc neo để dự phóng lại hoặc thử nghiệm kịch bản điều chỉnh.`}
                 </p>
               </div>
-              <Button
-                variant="primary"
-                onClick={handleRunReforecast}
-                loading={reforecasting}
-                disabled={!activePlan?.id || !currentVersion?.id}
-              >
-                <Icon name="sparkles" size="small" /> {language === "en" ? "Run Plan Reforecast" : "Chạy dự báo lại kế hoạch"}
-              </Button>
+
+              {/* Sub-tab Switcher */}
+              <div style={{ display: "flex", gap: "6px", background: "var(--color-surface-subtle)", padding: "4px", borderRadius: "var(--radius-lg)" }}>
+                <button
+                  type="button"
+                  onClick={() => setReforecastSubTab("standard")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "var(--radius-md)",
+                    border: "none",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: reforecastSubTab === "standard" ? "var(--color-primary-700)" : "transparent",
+                    color: reforecastSubTab === "standard" ? "#ffffff" : "var(--color-text-muted)",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {language === "en" ? "Anchor Baseline" : "Neo số dư chuẩn"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReforecastSubTab("future-changes")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "var(--radius-md)",
+                    border: "none",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: reforecastSubTab === "future-changes" ? "var(--color-primary-700)" : "transparent",
+                    color: reforecastSubTab === "future-changes" ? "#ffffff" : "var(--color-text-muted)",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {language === "en" ? "Future Cash Flows" : "Dòng tiền tương lai"} {futureChanges.length > 0 ? `(${futureChanges.length})` : ""}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReforecastSubTab("sources-v4")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "var(--radius-md)",
+                    border: "none",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: reforecastSubTab === "sources-v4" ? "var(--color-primary-700)" : "transparent",
+                    color: reforecastSubTab === "sources-v4" ? "#ffffff" : "var(--color-text-muted)",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {language === "en" ? "Source Commands (V4)" : "Lệnh nguồn (V4)"} {sourceCommands.length > 0 ? `(${sourceCommands.length})` : ""}
+                </button>
+              </div>
             </div>
 
-            {reforecastError && (
-              <div style={{ marginTop: "16px" }}>
-                <Alert tone="danger" title={language === "en" ? "Reforecast Error" : "Lỗi dự báo lại"}>
-                  {reforecastError}
-                </Alert>
+            {/* ========================================================= */}
+            {/* SUBTAB 1: STANDARD ANCHOR REFORECAST                      */}
+            {/* ========================================================= */}
+            {reforecastSubTab === "standard" && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+                  <Button
+                    variant="primary"
+                    onClick={handleRunReforecast}
+                    loading={reforecasting}
+                    disabled={!activePlan?.id || !currentVersion?.id}
+                  >
+                    <Icon name="sparkles" size="small" /> {language === "en" ? "Run Standard Reforecast" : "Chạy dự báo neo số dư"}
+                  </Button>
+                </div>
+
+                {reforecastError && (
+                  <div style={{ marginTop: "16px" }}>
+                    <Alert tone="danger" title={language === "en" ? "Reforecast Error" : "Lỗi dự báo lại"}>
+                      {reforecastError}
+                    </Alert>
+                  </div>
+                )}
+
+                {reforecastResult?.status === "BLOCKED" && (
+                  <div style={{ marginTop: "16px" }}>
+                    <Alert tone="warning" title={language === "en" ? "Reforecast Blocked by Data Integrity" : "Dự báo bị chặn bởi tính toàn vẹn dữ liệu"}>
+                      <p style={{ margin: "0 0 8px" }}>
+                        {language === "en"
+                          ? "To guarantee algorithm reliability, the system requires a continuous, fully reconciled series without discrepancies:"
+                          : "Để đảm bảo độ tin cậy của thuật toán, hệ thống yêu cầu chuỗi đối soát liên tục và không có tháng lệch:"}
+                      </p>
+                      <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "12px" }}>
+                        {reforecastResult.issues.map((iss, i) => (
+                          <li key={i}>
+                            {language === "en" ? "Month" : "Tháng"} <span className="font-mono">{iss.month}</span>:{" "}
+                            {iss.code === "MISSING_MONTH" && (language === "en" ? "Unrecorded actual month" : "Chưa khai báo sổ thực tế")}
+                            {iss.code === "UNRECONCILED_MONTH" && (language === "en" ? "Month has unreconciled discrepancy (UNRECONCILED)" : "Sổ thực tế chưa khớp số dư đối soát (UNRECONCILED)")}
+                            {iss.code === "OPENING_BALANCE_MISMATCH" && (language === "en" ? "Opening balance does not match previous month's closing balance" : "Số dư đầu kỳ không khớp số dư cuối kỳ tháng trước")}
+                            {iss.code === "MONTH_NOT_CLOSED" && (language === "en" ? "Current month cycle is still ongoing" : "Tháng hiện tại chưa kết thúc chu kỳ")}
+                          </li>
+                        ))}
+                      </ul>
+                    </Alert>
+                  </div>
+                )}
+
+                {reforecastResult?.status === "HORIZON_COMPLETE" && (
+                  <div style={{ marginTop: "16px" }}>
+                    <Alert tone="info" title={language === "en" ? "Projection Horizon Completed" : "Hoàn thành chân trời dự phóng"}>
+                      {language === "en"
+                        ? "The entire projection horizon of this plan version has elapsed. Please create a new version for ongoing long-term planning."
+                        : "Toàn bộ kỳ dự báo của phiên bản kế hoạch đã qua. Hãy tạo phiên bản mới nếu bạn muốn lập kế hoạch dài hạn tiếp theo."}
+                    </Alert>
+                  </div>
+                )}
+
+                {reforecastResult?.status === "READY" && reforecastResult.calculation && (
+                  <div style={{ marginTop: "20px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
+                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
+                          {language === "en" ? "ACTUAL ANCHOR" : "MỐC NEO THỰC TẾ (ANCHOR)"}
+                        </span>
+                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px" }}>
+                          {reforecastResult.anchor?.period}: {formatVND(Number(reforecastResult.anchor?.closingBalance))}
+                        </strong>
+                      </div>
+                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
+                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
+                          {language === "en" ? "PROJECTED RETIREMENT FUND (REFORECAST)" : "QUỸ DỰ KIẾN HƯU (REFORECAST)"}
+                        </span>
+                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px", color: "var(--color-primary-700)" }}>
+                          {formatVND(Number(reforecastResult.calculation.summary.atRetirement.projectedFund))}
+                        </strong>
+                      </div>
+                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
+                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
+                          {language === "en" ? "REVISED COVERAGE RATIO" : "TỶ LỆ BAO PHỦ MỚI"}
+                        </span>
+                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px" }}>
+                          {reforecastResult.calculation.summary.atRetirement.coveragePercent}%
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* 3-Layer Comparison Table */}
+                    <h3>{language === "en" ? "3-Layer Comparison: Original Forecast / Actuals / Reforecast" : "Bảng đối chiếu 3 lớp: Dự báo gốc / Thực tế / Dự báo lại"}</h3>
+                    <div style={{ overflowX: "auto", marginTop: "12px" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                        <thead>
+                          <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
+                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Month" : "Tháng"}</th>
+                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Actual Balance" : "Số thực tế (Actual)"}</th>
+                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Original Forecast" : "Dự báo gốc (Forecast)"}</th>
+                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Variance (Delta)" : "Chênh lệch (Delta)"}</th>
+                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Actual Contribution" : "Tích lũy thực tế"}</th>
+                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Forecast Contribution" : "Tích lũy dự báo"}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {reforecastResult.comparison.map((row) => (
+                            <tr key={row.month} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                              <td style={{ padding: "8px 12px", fontWeight: 600 }} className="font-mono">{row.month}</td>
+                              <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.actualClosingBalance))}</td>
+                              <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.forecastClosingBalance))}</td>
+                              <td style={{ padding: "8px 12px", color: Number(row.closingBalanceDelta) >= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }} className="font-mono">
+                                {Number(row.closingBalanceDelta) >= 0 ? "+" : ""}{formatVND(Number(row.closingBalanceDelta))}
+                              </td>
+                              <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.actualContribution))}</td>
+                              <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.forecastContribution))}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {reforecastResult?.status === "BLOCKED" && (
-              <div style={{ marginTop: "16px" }}>
-                <Alert tone="warning" title={language === "en" ? "Reforecast Blocked by Data Integrity" : "Dự báo bị chặn bởi tính toàn vẹn dữ liệu"}>
-                  <p style={{ margin: "0 0 8px" }}>
+            {/* ========================================================= */}
+            {/* SUBTAB 2: FUTURE CASH FLOW ADJUSTMENTS (P13/P15 & Q15-03)   */}
+            {/* ========================================================= */}
+            {reforecastSubTab === "future-changes" && (
+              <div>
+                <div style={{ background: "var(--color-surface-subtle)", padding: "16px", borderRadius: "var(--radius-md)", marginBottom: "16px" }}>
+                  <h4 style={{ margin: "0 0 8px", fontSize: "13px", color: "var(--color-primary-800)" }}>
+                    {language === "en" ? "Configure Monthly Total Adjustments" : "Thiết lập điều chỉnh tổng dòng tiền theo tháng"}
+                  </h4>
+                  <p style={{ margin: "0 0 12px", fontSize: "12px", color: "var(--color-text-muted)" }}>
                     {language === "en"
-                      ? "To guarantee algorithm reliability, the system requires a continuous, fully reconciled series without discrepancies:"
-                      : "Để đảm bảo độ tin cậy của thuật toán, hệ thống yêu cầu chuỗi đối soát liên tục và không có tháng lệch:"}
+                      ? "Directly replace monthly aggregate totals for future periods. Surplus policy strictly respects confirmed deposits only."
+                      : "Thay thế trực tiếp tổng tháng cho thu nhập, sinh hoạt, chi bổ sung hoặc mức tích lũy trong các tháng tương lai. Chính sách quỹ chỉ nộp đúng số xác nhận."}
                   </p>
-                  <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "12px" }}>
-                    {reforecastResult.issues.map((iss, i) => (
-                      <li key={i}>
-                        {language === "en" ? "Month" : "Tháng"} <span className="font-mono">{iss.month}</span>:{" "}
-                        {iss.code === "MISSING_MONTH" && (language === "en" ? "Unrecorded actual month" : "Chưa khai báo sổ thực tế")}
-                        {iss.code === "UNRECONCILED_MONTH" && (language === "en" ? "Month has unreconciled discrepancy (UNRECONCILED)" : "Sổ thực tế chưa khớp số dư đối soát (UNRECONCILED)")}
-                        {iss.code === "OPENING_BALANCE_MISMATCH" && (language === "en" ? "Opening balance does not match previous month's closing balance" : "Số dư đầu kỳ không khớp số dư cuối kỳ tháng trước")}
-                        {iss.code === "MONTH_NOT_CLOSED" && (language === "en" ? "Current month cycle is still ongoing" : "Tháng hiện tại chưa kết thúc chu kỳ")}
-                      </li>
-                    ))}
-                  </ul>
-                </Alert>
-              </div>
-            )}
 
-            {reforecastResult?.status === "HORIZON_COMPLETE" && (
-              <div style={{ marginTop: "16px" }}>
-                <Alert tone="info" title={language === "en" ? "Projection Horizon Completed" : "Hoàn thành chân trời dự phóng"}>
-                  {language === "en"
-                    ? "The entire projection horizon of this plan version has elapsed. Please create a new version for ongoing long-term planning."
-                    : "Toàn bộ kỳ dự báo của phiên bản kế hoạch đã qua. Hãy tạo phiên bản mới nếu bạn muốn lập kế hoạch dài hạn tiếp theo."}
-                </Alert>
-              </div>
-            )}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "Field to Adjust" : "Hạng mục điều chỉnh"}
+                      </label>
+                      <select
+                        className="input"
+                        value={fcField}
+                        onChange={(e) => setFcField(e.target.value as FutureChangeField)}
+                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                      >
+                        <option value="plannedContribution">{language === "en" ? "Planned Contribution (Savings)" : "Đóng góp tích lũy (Quỹ hưu)"}</option>
+                        <option value="livingExpense">{language === "en" ? "Living Expense" : "Chi phí sinh hoạt"}</option>
+                        <option value="income">{language === "en" ? "Total Income" : "Tổng thu nhập"}</option>
+                        <option value="additionalExpense">{language === "en" ? "Additional Expense" : "Chi phí bổ sung"}</option>
+                      </select>
+                    </div>
 
-            {reforecastResult?.status === "READY" && reforecastResult.calculation && (
-              <div style={{ marginTop: "20px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginBottom: "16px" }}>
-                  <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                      {language === "en" ? "ACTUAL ANCHOR" : "MỐC NEO THỰC TẾ (ANCHOR)"}
-                    </span>
-                    <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px" }}>
-                      {reforecastResult.anchor?.period}: {formatVND(Number(reforecastResult.anchor?.closingBalance))}
-                    </strong>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "Start Month" : "Tháng bắt đầu"}
+                      </label>
+                      <input
+                        type="month"
+                        className="input"
+                        value={fcStartMonth}
+                        onChange={(e) => setFcStartMonth(e.target.value)}
+                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "End Month" : "Tháng kết thúc"}
+                      </label>
+                      <input
+                        type="month"
+                        className="input"
+                        value={fcEndMonth}
+                        onChange={(e) => setFcEndMonth(e.target.value)}
+                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "New Monthly Amount (VND)" : "Số tiền thay thế mỗi tháng (VND)"}
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="VD: 5000000"
+                        className="input"
+                        value={fcAmount}
+                        onChange={(e) => setFcAmount(e.target.value)}
+                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                      />
+                    </div>
                   </div>
-                  <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                      {language === "en" ? "PROJECTED RETIREMENT FUND (REFORECAST)" : "QUỸ DỰ KIẾN HƯU (REFORECAST)"}
-                    </span>
-                    <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px", color: "var(--color-primary-700)" }}>
-                      {formatVND(Number(reforecastResult.calculation.summary.atRetirement.projectedFund))}
-                    </strong>
-                  </div>
-                  <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                      {language === "en" ? "REVISED COVERAGE RATIO" : "TỶ LỆ BAO PHỦ MỚI"}
-                    </span>
-                    <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px" }}>
-                      {reforecastResult.calculation.summary.atRetirement.coveragePercent}%
-                    </strong>
+
+                  <div style={{ marginTop: "12px", display: "flex", gap: "12px", alignItems: "flex-end" }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "Reason / Document Reference" : "Lý do / Tham chiếu chứng từ"}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={language === "en" ? "E.g. Salary review or adjusted savings schedule" : "VD: Tăng lương hoặc điều chỉnh kế hoạch tích lũy"}
+                        className="input"
+                        value={fcReason}
+                        onChange={(e) => setFcReason(e.target.value)}
+                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                      />
+                    </div>
+                    <Button variant="secondary" onClick={handleAddFutureChange}>
+                      <Icon name="plus" size="small" /> {language === "en" ? "Add Adjustment" : "Thêm điều chỉnh"}
+                    </Button>
                   </div>
                 </div>
 
-                {/* 3-Layer Comparison Table: Forecast vs Actual vs Reforecast */}
-                <h3>{language === "en" ? "3-Layer Comparison: Original Forecast / Actuals / Reforecast" : "Bảng đối chiếu 3 lớp: Dự báo gốc / Thực tế / Dự báo lại"}</h3>
-                <div style={{ overflowX: "auto", marginTop: "12px" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-                    <thead>
-                      <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
-                        <th style={{ padding: "8px 12px" }}>{language === "en" ? "Month" : "Tháng"}</th>
-                        <th style={{ padding: "8px 12px" }}>{language === "en" ? "Actual Balance" : "Số thực tế (Actual)"}</th>
-                        <th style={{ padding: "8px 12px" }}>{language === "en" ? "Original Forecast" : "Dự báo gốc (Forecast)"}</th>
-                        <th style={{ padding: "8px 12px" }}>{language === "en" ? "Variance (Delta)" : "Chênh lệch (Delta)"}</th>
-                        <th style={{ padding: "8px 12px" }}>{language === "en" ? "Actual Contribution" : "Tích lũy thực tế"}</th>
-                        <th style={{ padding: "8px 12px" }}>{language === "en" ? "Forecast Contribution" : "Tích lũy dự báo"}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reforecastResult.comparison.map((row) => (
-                        <tr key={row.month} style={{ borderBottom: "1px solid var(--color-border)" }}>
-                          <td style={{ padding: "8px 12px", fontWeight: 600 }} className="font-mono">{row.month}</td>
-                          <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.actualClosingBalance))}</td>
-                          <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.forecastClosingBalance))}</td>
-                          <td style={{ padding: "8px 12px", color: Number(row.closingBalanceDelta) >= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }} className="font-mono">
-                            {Number(row.closingBalanceDelta) >= 0 ? "+" : ""}{formatVND(Number(row.closingBalanceDelta))}
-                          </td>
-                          <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.actualContribution))}</td>
-                          <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.forecastContribution))}</td>
+                {/* List of active future changes */}
+                {futureChanges.length > 0 && (
+                  <div style={{ marginBottom: "16px", overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
+                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Field" : "Hạng mục"}</th>
+                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Period" : "Khoảng thời gian"}</th>
+                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "New Amount" : "Số tiền thay thế"}</th>
+                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Reason" : "Lý do"}</th>
+                          <th style={{ padding: "6px 10px", width: "40px" }}></th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {futureChanges.map((c) => (
+                          <tr key={c.id} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                            <td style={{ padding: "6px 10px", fontWeight: 600 }}>
+                              {c.field === "plannedContribution" && (language === "en" ? "Savings" : "Đóng góp tích lũy")}
+                              {c.field === "livingExpense" && (language === "en" ? "Living" : "Sinh hoạt")}
+                              {c.field === "income" && (language === "en" ? "Income" : "Thu nhập")}
+                              {c.field === "additionalExpense" && (language === "en" ? "Additional" : "Chi bổ sung")}
+                            </td>
+                            <td style={{ padding: "6px 10px" }} className="font-mono">{c.startMonth} → {c.endMonth}</td>
+                            <td style={{ padding: "6px 10px", fontWeight: 600, color: "var(--color-primary-700)" }} className="font-mono">{formatVND(Number(c.amount))}</td>
+                            <td style={{ padding: "6px 10px", color: "var(--color-text-muted)" }}>{c.reason}</td>
+                            <td style={{ padding: "6px 10px" }}>
+                              <IconButton icon="trash" label="Xóa" onClick={() => handleRemoveFutureChange(c.id)} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "16px" }}>
+                  <Button
+                    variant="primary"
+                    onClick={handlePreviewCandidate}
+                    loading={previewingCandidate}
+                    disabled={!activePlan?.id || !currentVersion?.id}
+                  >
+                    <Icon name="sparkles" size="small" /> {language === "en" ? "Preview Scenario Candidate" : "Xem trước kịch bản điều chỉnh"}
+                  </Button>
                 </div>
 
-                <div style={{ marginTop: "16px", padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                  <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted)" }}>
-                    {language === "en" ? "REFORECAST CONVENTIONS & LIMITATIONS:" : "QUY ƯỚC DỰ BÁO LẠI (T09 LIMITATIONS):"}
-                  </span>
-                  <ul style={{ margin: "4px 0 0", paddingLeft: "20px", fontSize: "11px", color: "var(--color-text-muted)" }}>
-                    <li>
-                      {language === "en"
-                        ? "Reforecast preserves the return rates and future cash flows of the selected plan version."
-                        : "Dự báo lại giữ nguyên các tỷ suất sinh lời và dòng tiền tương lai của phiên bản kế hoạch được chọn."}
-                    </li>
-                    <li>
-                      {language === "en"
-                        ? "Past extraordinary one-off market fluctuations are not automatically projected into the future."
-                        : "Các khoản biến động bất thường thực tế trong quá khứ không tự động lặp lại trong tương lai."}
-                    </li>
-                    <li>
-                      {language === "en"
-                        ? "Household surplus is not automatically deposited into retirement fund unless user explicitly contributes it."
-                        : "Thặng dư thu chi gia đình không tự động nộp vào quỹ hưu trí trừ khi người dùng thực nộp."}
-                    </li>
-                    <li>
-                      {language === "en"
-                        ? "Reforecast is an on-the-fly advisory calculation, not automatically applied to the official plan."
-                        : "Dự báo lại là kết quả tính toán tức thời để tham khảo, không tự động lưu hoặc áp dụng vào kế hoạch chính thức."}
-                    </li>
-                  </ul>
+                {candidateError && (
+                  <div style={{ marginTop: "16px" }}>
+                    <Alert tone="danger" title={language === "en" ? "Preview Error" : "Lỗi xem trước"}>{candidateError}</Alert>
+                  </div>
+                )}
+
+                {/* Non-READY candidate warning banner (FE-03) */}
+                {reforecastCandidate && reforecastCandidate.status !== "READY" && (
+                  <div style={{ marginTop: "16px" }}>
+                    <Alert
+                      tone={reforecastCandidate.status === "BLOCKED" ? "danger" : "info"}
+                      title={reforecastCandidate.status === "BLOCKED" ? (language === "en" ? "Reforecast Blocked" : "Dự báo bị chặn") : (language === "en" ? "Horizon Complete" : "Đã hoàn thành chân trời")}
+                    >
+                      <p style={{ margin: 0, fontSize: "12px" }}>
+                        {reforecastCandidate.status === "BLOCKED"
+                          ? (language === "en" ? "Calculation blocked due to data integrity or validation issues:" : "Dự báo bị chặn do vi phạm tính toàn vẹn hoặc đối soát dữ liệu:")
+                          : (language === "en" ? "The full retirement projection horizon has already completed." : "Toàn bộ chân trời dự phóng đã hoàn thành.")}
+                      </p>
+                      {reforecastCandidate.issues && reforecastCandidate.issues.length > 0 && (
+                        <ul style={{ margin: "6px 0 0", paddingLeft: "20px", fontSize: "12px" }}>
+                          {reforecastCandidate.issues.map((iss: any, i: number) => (
+                            <li key={i}>{iss.month ? `[${iss.month}] ` : ""}{iss.message || iss.code}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </Alert>
+                  </div>
+                )}
+
+                {/* Candidate Result Card */}
+                {reforecastCandidate?.status === "READY" && reforecastCandidate.candidate && (
+                  <div style={{ marginTop: "20px", border: "1.5px solid var(--color-primary-200)", borderRadius: "var(--radius-lg)", padding: "16px", background: "var(--color-surface)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                      <div>
+                        <Badge tone="success">{language === "en" ? "CANDIDATE READY" : "KỊCH BẢN ĐÃ SẴN SÀNG"}</Badge>
+                        <h3 style={{ margin: "4px 0 0" }}>{language === "en" ? "Scenario Preview Comparison" : "So sánh trước và sau điều chỉnh"}</h3>
+                      </div>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <Button
+                          variant="secondary"
+                          onClick={handleSaveCandidate}
+                          loading={savingCandidate}
+                          disabled={!reforecastCandidate.inputHash}
+                        >
+                          <Icon name="check" size="small" /> {language === "en" ? "Save as New Version" : "Lưu thành phiên bản mới"}
+                        </Button>
+                        {savedCandidateVersion && (
+                          <Button
+                            variant="primary"
+                            onClick={() => handleApplyCandidateVersion(savedCandidateVersion)}
+                            loading={applyingCandidate}
+                          >
+                            <Icon name="compass" size="small" /> {language === "en" ? `Apply v${savedCandidateVersion.version}` : `Áp dụng bản v${savedCandidateVersion.version}`}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
+                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
+                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{language === "en" ? "BEFORE ADJUSTMENTS FUND" : "QUỸ TRƯỚC ĐIỀU CHỈNH"}</span>
+                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px" }}>
+                          {formatVND(Number(reforecastCandidate.beforeChanges?.summary.atRetirement.projectedFund || 0))}
+                        </strong>
+                      </div>
+                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
+                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{language === "en" ? "AFTER ADJUSTMENTS FUND" : "QUỸ SAU ĐIỀU CHỈNH"}</span>
+                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px", color: "var(--color-primary-700)" }}>
+                          {formatVND(Number(reforecastCandidate.candidate.calculation?.summary.atRetirement.projectedFund || 0))}
+                        </strong>
+                      </div>
+                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
+                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{language === "en" ? "COVERAGE RATIO" : "TỶ LỆ BAO PHỦ MỚI"}</span>
+                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px" }}>
+                          {reforecastCandidate.candidate.calculation?.summary.atRetirement.coveragePercent}%
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* SUBTAB 3: SOURCE COMMANDS V4 (FE-T16-SOURCE-V4)           */}
+            {/* ========================================================= */}
+            {reforecastSubTab === "sources-v4" && (
+              <div>
+                {/* 1. Gắn nguồn Lương hưu BHXH (FE-05) */}
+                <div style={{ background: "var(--color-surface-subtle)", padding: "16px", borderRadius: "var(--radius-md)", marginBottom: "16px", border: "1px solid var(--color-primary-200)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <h4 style={{ margin: 0, fontSize: "13px", color: "var(--color-primary-800)" }}>
+                      {language === "en" ? "Statutory Pension Source Selection (FE-05)" : "Gắn nguồn lương hưu từ kết quả BHXH đã lưu (FE-05)"}
+                    </h4>
+                    <Badge tone="soft">{language === "en" ? "FIXED NOMINAL" : "LƯƠNG HƯU DANH NGHĨA"}</Badge>
+                  </div>
+                  <p style={{ margin: "0 0 12px", fontSize: "12px", color: "var(--color-text-muted)" }}>
+                    {language === "en"
+                      ? "Select an eligible saved pension estimate to incorporate into this reforecast plan version with cryptographic integrity verification."
+                      : "Chọn kết quả ước tính hưu trí đủ điều kiện đã lưu để đưa vào phiên bản kế hoạch này với mã băm toàn vẹn (integrity hash)."}
+                  </p>
+
+                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "flex-end" }}>
+                    <div style={{ flex: 1, minWidth: "260px" }}>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "Eligible Saved Estimates" : "Kết quả ước tính hợp lệ đã lưu"}
+                      </label>
+                      <select
+                        className="input"
+                        value={selectedEstimateId}
+                        onChange={(e) => setSelectedEstimateId(e.target.value)}
+                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                      >
+                        {eligibleEstimates.length === 0 ? (
+                          <option value="">{language === "en" ? "No eligible saved estimates found" : "Chưa có kết quả ước tính hưu trí hợp lệ đã lưu"}</option>
+                        ) : (
+                          eligibleEstimates.map((est) => (
+                            <option key={est.id} value={est.id}>
+                              {formatVND(Number(est.assessment.monthlyPension || 0))}/tháng (từ {est.assessment.startMonth || "N/A"}) • Lưu ngày {new Date(est.createdAt).toLocaleDateString()}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+
+                    <Button
+                      variant="secondary"
+                      onClick={handleAddPensionSelection}
+                      disabled={eligibleEstimates.length === 0}
+                    >
+                      <Icon name="plus" size="small" /> {language === "en" ? "Attach Pension to Plan" : "Gắn vào kế hoạch"}
+                    </Button>
+                  </div>
+
+                  {pensionSelections.length > 0 && (
+                    <div style={{ marginTop: "12px", padding: "10px", background: "var(--color-surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <Badge tone="success">PENSION ATTACHED</Badge>
+                          <strong style={{ fontSize: "12px" }}>
+                            {pensionSelections[0].operation} • {pensionSelections[0].effectiveFromMonth} → {pensionSelections[0].effectiveToMonth}
+                          </strong>
+                        </div>
+                        <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }} className="font-mono">
+                          Source ID: {pensionSelections[0].sourceId} • Estimate ID: {pensionSelections[0].estimateId.slice(0, 8)}...
+                        </div>
+                      </div>
+                      <IconButton icon="trash" label="Bỏ gắn" onClick={handleRemovePensionSelection} />
+                    </div>
+                  )}
                 </div>
+
+                {/* 2. Quản lý lệnh nguồn danh nghĩa (V4) */}
+                <div style={{ background: "var(--color-surface-subtle)", padding: "16px", borderRadius: "var(--radius-md)", marginBottom: "16px" }}>
+                  <h4 style={{ margin: "0 0 8px", fontSize: "13px", color: "var(--color-primary-800)" }}>
+                    {language === "en" ? "Manage Nominal Source Commands (V4)" : "Quản lý lệnh nguồn danh nghĩa (V4)"}
+                  </h4>
+                  <p style={{ margin: "0 0 12px", fontSize: "12px", color: "var(--color-text-muted)" }}>
+                    {language === "en"
+                      ? "Create, revise, or end granular cash flow sources with explicit document verification."
+                      : "Thêm mới (CREATE), cập nhật (REVISE) hoặc kết thúc (END) từng nguồn thu chi chi tiết có chứng từ rõ ràng."}
+                  </p>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "Operation" : "Thao tác"}
+                      </label>
+                      <select
+                        className="input"
+                        value={v4Operation}
+                        onChange={(e) => setV4Operation(e.target.value as "CREATE" | "REVISE" | "END")}
+                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                      >
+                        <option value="CREATE">CREATE (Tạo mới)</option>
+                        <option value="REVISE">REVISE (Sửa đổi)</option>
+                        <option value="END">END (Kết thúc)</option>
+                      </select>
+                    </div>
+
+                    {v4Operation !== "CREATE" && (
+                      <div style={{ gridColumn: "span 2" }}>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                          {language === "en" ? "Existing Source *" : "Nguồn hiện hữu trong danh mục *"}
+                        </label>
+                        <select
+                          className="input"
+                          value={selectedSourceId}
+                          onChange={(e) => setSelectedSourceId(e.target.value)}
+                          style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                        >
+                          {activeSources.length === 0 ? (
+                            <option value="">{language === "en" ? "No active sources found (run preview first)" : "Chưa có nguồn nào (vui lòng bấm xem trước)"}</option>
+                          ) : (
+                            activeSources.map((s) => (
+                              <option key={s.sourceId} value={s.sourceId}>
+                                [{s.kind}] {s.sourceId} (r{s.revision}, {s.effectiveFromMonth} → {s.effectiveToMonth})
+                              </option>
+                            ))
+                          )}
+                        </select>
+                      </div>
+                    )}
+
+                    {v4Operation !== "END" && (
+                      <>
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Metric" : "Loại nguồn"}
+                          </label>
+                          <select
+                            className="input"
+                            value={v4Metric}
+                            onChange={(e) => setV4Metric(e.target.value as any)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="income">{language === "en" ? "Income" : "Thu nhập"}</option>
+                            <option value="livingExpense">{language === "en" ? "Living Expense" : "Chi sinh hoạt"}</option>
+                            <option value="additionalExpense">{language === "en" ? "Additional Expense" : "Chi bổ sung"}</option>
+                            <option value="pension">{language === "en" ? "Pension" : "Lương hưu"}</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Frequency" : "Tần suất"}
+                          </label>
+                          <select
+                            className="input"
+                            value={v4Frequency}
+                            onChange={(e) => setV4Frequency(e.target.value as "MONTHLY" | "ONCE")}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          >
+                            <option value="MONTHLY">{language === "en" ? "Monthly" : "Định kỳ tháng"}</option>
+                            <option value="ONCE">{language === "en" ? "Once (One-off)" : "Một lần"}</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            {language === "en" ? "Amount (VND)" : "Số tiền (VND)"}
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="VD: 10000000"
+                            className="input"
+                            value={v4Amount}
+                            onChange={(e) => setV4Amount(e.target.value)}
+                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "From Month" : "Từ tháng"}
+                      </label>
+                      <input
+                        type="month"
+                        className="input"
+                        value={v4FromMonth}
+                        onChange={(e) => setV4FromMonth(e.target.value)}
+                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "To Month" : "Đến tháng"}
+                      </label>
+                      <input
+                        type="month"
+                        className="input"
+                        value={v4ToMonth}
+                        onChange={(e) => setV4ToMonth(e.target.value)}
+                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "12px", display: "flex", gap: "12px", alignItems: "flex-end" }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "Document Verification Note *" : "Chứng từ xác nhận *"}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={language === "en" ? "E.g. Verified contract or salary amendment" : "VD: Hợp đồng lao động hoặc phụ lục nguồn thu"}
+                        className="input"
+                        value={v4Document}
+                        onChange={(e) => setV4Document(e.target.value)}
+                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
+                      />
+                    </div>
+                    <Button variant="secondary" onClick={handleAddV4Command}>
+                      <Icon name="plus" size="small" /> {language === "en" ? "Add Command" : "Thêm lệnh"}
+                    </Button>
+                  </div>
+                </div>
+
+                {sourceCommands.length > 0 && (
+                  <div style={{ marginBottom: "16px", overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
+                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Op" : "Thao tác"}</th>
+                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Metric" : "Hạng mục"}</th>
+                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Period" : "Khoảng thời gian"}</th>
+                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Amount" : "Số tiền"}</th>
+                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Document" : "Chứng từ"}</th>
+                          <th style={{ padding: "6px 10px", width: "40px" }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sourceCommands.map((c) => (
+                          <tr key={c.commandId} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                            <td style={{ padding: "6px 10px" }}><Badge tone="soft">{c.operation}</Badge></td>
+                            <td style={{ padding: "6px 10px", fontWeight: 600 }}>{c.metric}</td>
+                            <td style={{ padding: "6px 10px" }} className="font-mono">{c.effectiveFromMonth} → {c.effectiveToMonth}</td>
+                            <td style={{ padding: "6px 10px", fontWeight: 600, color: "var(--color-primary-700)" }} className="font-mono">{formatVND(Number(c.amount || 0))}</td>
+                            <td style={{ padding: "6px 10px", color: "var(--color-text-muted)" }}>{c.document}</td>
+                            <td style={{ padding: "6px 10px" }}>
+                              <IconButton icon="trash" label="Xóa" onClick={() => handleRemoveV4Command(c.commandId)} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "16px" }}>
+                  <Button
+                    variant="primary"
+                    onClick={handlePreviewV4}
+                    loading={previewingV4}
+                    disabled={!activePlan?.id || !currentVersion?.id}
+                  >
+                    <Icon name="sparkles" size="small" /> {language === "en" ? "Preview V4 Sources" : "Xem trước nguồn V4"}
+                  </Button>
+                  {v4Candidate?.status === "READY" && (
+                    <Button
+                      variant="secondary"
+                      onClick={handleSaveV4}
+                      loading={savingV4}
+                      disabled={!v4Candidate.inputHash}
+                    >
+                      <Icon name="check" size="small" /> {language === "en" ? "Save V4 Version" : "Lưu phiên bản V4"}
+                    </Button>
+                  )}
+                  {savedV4Version && (
+                    <Button
+                      variant="primary"
+                      onClick={handleApplyV4Version}
+                      loading={applyingV4}
+                    >
+                      <Icon name="compass" size="small" /> {language === "en" ? `Apply v${savedV4Version.version}` : `Áp dụng bản v${savedV4Version.version}`}
+                    </Button>
+                  )}
+                </div>
+
+                {v4Error && (
+                  <div style={{ marginTop: "16px" }}>
+                    <Alert tone="danger" title={language === "en" ? "V4 Error" : "Lỗi nguồn V4"}>{v4Error}</Alert>
+                  </div>
+                )}
               </div>
             )}
           </Card>

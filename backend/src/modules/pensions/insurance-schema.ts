@@ -12,6 +12,11 @@ export const contributionMonthSchema = z.object({
   stateSalary: z.object({ kind: z.literal("CURRENT_SCALE_COEFFICIENT"),
     totalContributionCoefficient: z.string().regex(/^(0|[1-9]\d{0,3})(\.\d{1,12})?$/),
     evidence: z.array(evidenceSchema).min(1).max(20),
+    // ND158 Art15(1)(a): pre-Oct-2004 state salary already converted (by BHXH) to the benefit-time scale.
+    pre2004Conversion: z.object({ scale: z.enum(["ND204_PUBLIC", "ND204_ARMED_FORCES", "ND205_ENTERPRISE"]),
+      evidence: z.array(evidenceSchema).min(1).max(20) }).strict().optional(),
+    // ND158 Art15(3): whether this month's contribution salary included the occupational seniority allowance.
+    includesSeniorityAllowance: z.boolean().optional(),
   }).strict().optional(),
   creditKind: z.string().trim().min(1).max(100).optional(), evidence: z.array(evidenceSchema).max(20),
 }).strict().superRefine((v, ctx) => {
@@ -23,6 +28,24 @@ export const contributionMonthSchema = z.object({
   if (v.status === "NOT_CONTRIBUTED" && v.contributionBase !== null) issue("contributionBase", "Tháng xác nhận không tham gia không có căn cứ đóng.");
   if (v.stateSalary && (v.salaryRegime !== "STATE" || !["PAID", "CREDITED"].includes(v.status))) issue("stateSalary", "Hệ số lương chỉ dùng cho tháng lương Nhà nước được tính đóng.");
 });
+/** Law Art53(8) (in force 2025-07): maternity leave months count as compulsory contribution time without
+ * payment. The salary base is the BHXH-recorded one; earlier months fall under the 2014 law (not archived). */
+export const MATERNITY_CREDIT_KIND = "MATERNITY_ART53_8";
+// Law 58/2014 Art39(2) (in force 2016-01-01 until 2025-06-30): >=14 working days of maternity leave in a month.
+export const MATERNITY_2014_CREDIT_KIND = "MATERNITY_LAW2014_ART39_2";
+// Law 71/2006 Art35(2) (in force 2007-01-01 until 2015-12-31): all maternity leave time, no 14-day threshold.
+export const MATERNITY_2006_CREDIT_KIND = "MATERNITY_LAW2006_ART35_2";
+/** Citation the rule set must carry for this maternity credit, or null if the row is not one. */
+export function maternityCreditCitation(row: { status: string; creditKind?: string; month: string; scheme: string }) {
+  if (row.status !== "CREDITED" || row.scheme !== "COMPULSORY") return null;
+  if (row.creditKind === MATERNITY_CREDIT_KIND && row.month >= "2025-07") return "LAW_ART53";
+  if (row.creditKind === MATERNITY_2014_CREDIT_KIND && row.month >= "2016-01" && row.month < "2025-07") return "LAW2014_ART39";
+  if (row.creditKind === MATERNITY_2006_CREDIT_KIND && row.month >= "2007-01" && row.month < "2016-01") return "LAW2006_ART35";
+  return null;
+}
+export function isMaternityCredit(row: { status: string; creditKind?: string; month: string; scheme: string }) {
+  return maternityCreditCitation(row) !== null;
+}
 const birthSchema = z.object({ precision: z.enum(["DAY", "MONTH", "YEAR", "UNKNOWN"]), declaredValue: z.string().max(10).nullable() }).strict()
   .superRefine((v, ctx) => {
     const valid = v.precision === "UNKNOWN" ? v.declaredValue === null : v.precision === "DAY" ? dateSchema.safeParse(v.declaredValue).success
@@ -69,8 +92,9 @@ export const legalRuleTransitionSchema = z.object({ action: z.enum(["VALIDATE", 
   expectedDocumentHash: insuranceHash, validationHash: insuranceHash.optional(), reviewHash: insuranceHash.optional(),
   reviewNote: z.string().trim().min(1).max(1000).optional(), confirm: z.literal(true),
 }).strict();
-export const voluntaryCaseSchema = z.object({ kind: z.literal("NORMAL_VOLUNTARY"), paymentMethod: z.literal("REGULAR_ONLY"), ageRule: z.literal("NORMAL"),
-  benefitStart: z.object({ kind: z.enum(["ELIGIBILITY", "CONTINUED_CONTRIBUTIONS"]), month: monthSchema,
+// ageRule LAW_ART141_9: pre-2021 voluntary participant with >=20 voluntary years may retire at 60/55 (Law Art141(9)).
+export const voluntaryCaseSchema = z.object({ kind: z.literal("NORMAL_VOLUNTARY"), paymentMethod: z.literal("REGULAR_ONLY"), ageRule: z.enum(["NORMAL", "LAW_ART141_9"]),
+  benefitStart: z.object({ kind: z.enum(["ELIGIBILITY", "CONTINUED_CONTRIBUTIONS", "TRANSITION_2025"]), month: monthSchema,
     confirmation: z.enum(["DOCUMENTED", "HYPOTHETICAL"]), evidence: z.array(evidenceSchema).min(1).max(20) }).strict(),
 }).strict();
 // A settlement is not a set of dated PAID months. Keep it separate in the
@@ -100,6 +124,10 @@ export const pensionEstimateInputSchema = z.object({ historyVersionId: z.string(
   stateSalaryCase: z.object({ firstParticipationMonth: monthSchema, firstParticipationEvidence: z.array(evidenceSchema).min(1).max(20),
     salaryTreatment: z.enum(["ORDINARY", "HAZARDOUS_TRANSFER", "MILITARY_TRANSFER", "SENIORITY_ALLOWANCE_TRANSFER", "UNKNOWN"]),
     treatmentEvidence: z.array(evidenceSchema).min(1).max(20),
+    transferMonth: monthSchema.optional(),
+    // ND158 Art15(2)(a): BHXH-confirmed hazardous-salary periods and the declared consecutive window to use.
+    hazardousPeriods: z.array(z.object({ fromMonth: monthSchema, toMonth: monthSchema, evidence: z.array(evidenceSchema).min(1).max(20) }).strict()).max(50).optional(),
+    hazardousWindowFrom: monthSchema.optional(),
   }).strict().optional(),
 }).strict();
 export const pensionEstimateSaveSchema = z.object({ preview: pensionEstimateInputSchema, expectedInputHash: insuranceHash }).strict();

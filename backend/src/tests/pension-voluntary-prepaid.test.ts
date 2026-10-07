@@ -16,7 +16,7 @@ const value = (r: ReturnType<typeof assess>, code: string) => r.breakdown.find(b
 
 it("validates all seven payment periods against independent pension and refund goldens", () => {
   const result = validateLegalDocument(corpus());
-  expect(result.issues).toEqual([]); expect(result.valid).toBe(true); expect(result.coverage[0].cases).toHaveLength(23);
+  expect(result.issues).toEqual([]); expect(result.valid).toBe(true); expect(result.coverage[0].cases).toHaveLength(24);
 });
 it("counts six covered months, leaves18 unused, keeps refunds separate and preserves history bytes", () => {
   const f = fixture(), hash = digest(f), r = assess(f);

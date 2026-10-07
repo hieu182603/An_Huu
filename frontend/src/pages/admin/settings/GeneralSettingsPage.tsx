@@ -41,6 +41,7 @@ export default function GeneralSettingsPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading || error || saving) return;
     setSaving(true);
     try {
       const updated = await authenticatedRequest<GeneralSettings>("/admin/settings/general", form, "PUT");
@@ -89,7 +90,7 @@ export default function GeneralSettingsPage() {
 
       {loading ? (
         <p style={{ padding: 20 }}>{isEn ? "Loading general settings..." : "Đang tải cấu hình..."}</p>
-      ) : (
+      ) : error ? null : (
         <Card className="system-settings-card">
           <form onSubmit={handleSubmit} className="system-settings-form">
             <div className="system-setting-item">

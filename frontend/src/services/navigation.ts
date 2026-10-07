@@ -5,6 +5,6 @@ export function resumeDestination(from: unknown, role: "user" | "admin", fallbac
   const path = from.split(/[?#]/)[0];
   const allowed = role === "user"
     ? /^\/(?:onboarding|user(?:\/(?:dashboard|goal|plan|simulation|debts|risk-portfolio|assistant|explore|account|support|notifications))?)$/
-    : /^\/admin(?:\/(?:dashboard|users(?:\/[^/]+)?|content|partners|ai|financial-config|support|operations|reports|settings(?:\/(?:general|integrations|notifications|privacy|audit-log))?))?$/;
+    : /^\/admin(?:\/(?:dashboard|users(?:\/[^/]+)?|content|partners|ai|financial-config|legal-rules|support|operations|reports|settings(?:\/(?:general|integrations|notifications|privacy|audit-log))?))?$/;
   return allowed.test(path) ? from : home;
 }

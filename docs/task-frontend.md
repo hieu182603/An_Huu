@@ -1,5 +1,253 @@
 # Task frontend — An Hưu
 
+## Kế hoạch thực thi frontend — rà lại ngày 07/10/2026
+
+**Đọc mục này trước khi code.** Đây là thứ tự triển khai và tiêu chí đóng việc mới nhất sau khi đối chiếu mã nguồn. Các phần bàn giao phía dưới giữ chi tiết nghiệp vụ; dấu `[x]` ở checkpoint cũ không chứng minh các yêu cầu bổ sung đã hoàn thành. Kế hoạch này không đánh dấu nghiệm thu thay người triển khai, không thay công thức hay quy tắc backend.
+
+### 1. Trạng thái đã xác minh và cách đọc tài liệu
+
+| Phạm vi | Trạng thái tại lần rà này | Việc tiếp theo |
+|---|---|---|
+| T01–T12 nền tảng | Có triển khai; các mục cũ ghi đã hoàn thành, chưa chạy lại toàn bộ browser trong lần rà | Giữ nguyên luồng đang hoạt động, kiểm hồi quy phần bị tác động |
+| P13/P15, Q15-03 | Có form reforecast và gọi preview/save; chưa thấy UI chọn contributionTiming | Hoàn thiện FE-03 và FE-04 dưới đây |
+| T13/T14 BHXH | Có SocialInsuranceModal và service mới; sai cấu trúc response, đầu vào tự gán và payload save | Sửa FE-01/02 trước khi mở rộng nhánh |
+| T15 khoản vay/refinance | Service mới có trường loanRevisions/loanCreations/refinances/plannedRefinances dạng any[]; chưa thấy form gửi chúng | FE-07 rồi FE-08 |
+| T16 nguồn | Có form nguồn cơ bản; REVISE/END vẫn tạo ID mới; pensionSelections luôn rỗng | FE-04/05 rồi FE-09/10 |
+| T17 nghiệm thu | Chưa thấy browser tests cho các luồng mở rộng trên | Viết kiểm thử theo từng bước; FE-11 nghiệm thu tổng hợp |
+
+Kiểm tra đã chạy trên workspace trong lần rà 07/10: `npm --prefix frontend run typecheck` đạt; `npm --prefix frontend run test:assets` đạt **32/32**; `npm --prefix frontend run build` đạt, prerender **5 trang** (còn cảnh báo bundle lớn). Đây là kiểm tra nền, không phải bằng chứng BHXH/vay/tài sản chạy đúng; chưa kiểm DB thật, browser mở rộng hoặc production. Build đầu bị quyền sandbox, chạy lại ngoài sandbox đã đạt.
+
+**Giải quyết ghi chú đã bị thay thế:**
+
+| Ghi chú cũ trong file hoặc contract tổng quan | Nguồn hiện hành cần dùng |
+|---|---|
+| FE-EXPANSION/T13 nói toàn bộ API mới chưa tồn tại | FE-T14-HISTORY-RULES, FE-T14-ESTIMATES và các bổ sung nhánh; đọc insurance.openapi.yaml và router hiện tại |
+| FE-T14-CORPUS-SOURCE nói chưa có endpoint chọn estimate | FE-T16-SOURCE-V4 và SOURCE_COMMANDS_V4.md: đã có pensionSelections |
+| FE-T16-SOURCE-V4 nói chưa có vay mới/tài sản/refinance | FE-T15-LOAN-V2-API, FE-T15-T16-NEW-LOAN-REFINANCE, FE-T16-ASSET-CAPITAL và các bổ sung 07/10 |
+| FE-T15-PLANNED-REFINANCE “chuẩn bị/chưa public” | FE-T15-PLANNED-REFINANCE-API: public API đã mở; giữ yêu cầu trình bày cũ, bỏ điều kiện chờ API |
+| Tài sản RENT chưa chuyển SALE; chỉ góp một lần/một ngày tiền về | FE-T16-RENTAL-SALE, STAGED, AVAILABILITY, LEGACY-CAPITAL và ASSET_SOURCES_V4.md tương ứng |
+| FE-T14-PAYMENTS-PENDING chưa mở đóng bù/đóng trước | FE-T14-TOP-UP và FE-T14-PREPAID trong phạm vi đã bàn giao |
+| T10 luôn ghi chưa có provider | FE-GEMINI; trạng thái và policy phải đọc API, không suy provider đang hoạt động từ tài liệu |
+
+Đọc contract chuyên biệt mới nhất cùng runtime schema/router trước mỗi bước. Nếu contract và runtime lệch nhau, ghi endpoint/field/lỗi tái hiện, chặn đúng thao tác phụ thuộc và tiếp tục việc độc lập; không sửa backend hoặc tự chế payload để vượt kiểm tra. Bộ luật có engine không đồng nghĩa đã PUBLISHED: lấy danh sách discovery từ server, không tự công bố corpus nháp.
+
+### 2. Quy tắc thực hiện chung
+
+- Phạm vi: frontend và bằng chứng kiểm thử/tài liệu liên quan. Kiểm tra `git status`/diff trước khi sửa; giữ thay đổi đang làm ở chat khác. Không reset DB, sửa snapshot, seed luật production, tự publish/deploy hoặc sửa backend để khớp form sai.
+- Giữ giao diện hiện hành; ưu tiên đúng dữ liệu và luồng. `frontend/src/App.tsx` là nguồn xác định route/quyền. Không tranh thủ redesign màn không liên quan hoặc viết engine tài chính khác phía client.
+- Chuỗi tiền giữ nguyên độ chính xác; dùng tiện ích Decimal hiện có khi cần đối soát. Không dùng `Math.round(Number(...))` tạo payload tiền, không đổi trống/null/UNKNOWN thành 0. Số 0 phải là lựa chọn có ý nghĩa của người dùng.
+- Bỏ chứng từ mẫu/hash toàn số 0, ngày sinh/giới tính/nhóm tham gia tự gán, cờ DOCUMENTED_FULLY_PAID tự bật. Chứng từ phải có nguồn nhập thực theo contract; thiếu thì báo thiếu hoặc dùng HYPOTHETICAL nếu đúng nhánh được hỗ trợ, không chế chứng từ để gọi API thành công.
+- Theo dõi rõ `draft → preview → saved → applied`; có loading/error/incomplete/stale riêng. Lưu chưa áp dụng. Thay bất cứ đầu vào/revision/version/cutoff nào phải làm preview hết hiệu lực. Chỉ lưu đúng body bất biến đã xem trước và hash server cấp.
+- Một thao tác lưu có key và body cố định khi retry mạng. Đổi nội dung là thao tác mới với key mới; không sinh key mới ở mỗi lần bấm thử lại. 409 giữ nháp, tải metadata mới và yêu cầu preview lại; không tự tăng revision rồi gửi lại dữ liệu cũ.
+- Apply dùng đúng plan ID/version ID/revision trả về sau lưu theo response contract, kiểm kết quả thất bại trước toast/đổi current. Sau apply đọc lại trạng thái server; actualSourceChanged phải yêu cầu đối soát, lịch sử cũ vẫn đọc/export được.
+- Đổi tài khoản/logout phải xóa lịch/chứng từ/preview và vô hiệu hóa response đến muộn, kể cả cache liên quan. Hiện loading/error/empty riêng, không `catch(() => {})` để giả thành không có dữ liệu.
+- Thay `any[]` ở các request/response mới bằng kiểu khớp OpenAPI/runtime, dùng union theo operation/kind. Chỉ tách form/helper khi có nhu cầu cụ thể; không tạo framework biểu mẫu tổng quát.
+- Mỗi bước dưới đây là một thay đổi độc lập có thể review: đọc contract → chỉnh service/types → chỉnh form/state → test biên API và browser liên quan → ghi bằng chứng. Không đánh dấu `[x]` chỉ vì đã tạo file, có nút hoặc build đạt.
+
+### 3. Thứ tự và điều kiện hoàn thành
+
+Thứ tự mặc định: **FE-00 → FE-01 → FE-02 → FE-03 → FE-04 → FE-05 → FE-06 → FE-07 → FE-08 → FE-09 → FE-10 → FE-11**. FE-06 quản trị luật có thể làm sau FE-01 nếu cần chuẩn bị UI vận hành; không tự duyệt/công bố luật thật để mở khóa test. Kiểm thử đi cùng từng bước, không dồn toàn bộ đến FE-11.
+
+#### FE-00 — Chốt cấu trúc API và fixture trước khi mở rộng (P0)
+
+**Đọc/sửa:** `frontend/src/services/insurance.ts`, `plans.ts`, `actuals.ts`, `retirement.ts`; đối chiếu `backend/docs/insurance.openapi.yaml`, `plans.openapi.yaml`, `actuals.openapi.yaml`, `retirement.openapi.yaml`, `backend/src/modules/pensions/estimate-service.ts`, `insurance-router.ts`, `insurance-schema.ts`, `backend/src/modules/plans/source-schema.ts`. Đường dẫn file dịch vụ frontend cùng nằm trong `frontend/src/services/`.
+
+- [x] Lập bảng request/response cho mỗi endpoint dùng trong phạm vi bước kế tiếp; giữ tên field, nullability, revision/hash, envelope và mã lỗi đúng server. `authenticatedRequest` đã bóc `data`, không bóc lần hai.
+- [x] Sửa list luật và list estimate: server trả `{ items: [...] }`, service hiện khai mảng trực tiếp. Preview estimate trả hash cấp ngoài và `assessment`; không đọc assessmentStatus/calculation giả định ở cấp ngoài. Bản lưu trả `id`, `integrityHash` và dữ liệu kết quả đã trải ra, không giả định `result` lồng như type hiện tại. Render theo các trường thật như `assessment.monthlyPension/startMonth` và schema tương ứng.
+- [x] Kiểm response source preview/save thực tế trước khi định kiểu registry/options/saved/revision. Không lấy cast TypeScript làm validation hoặc đổi fixture để khớp code sai.
+- [x] Thêm test gọi service production qua fetch/HTTP được kiểm soát: method/path/body/header thật; fixtures khớp response schema, có `{items:[]}`, null, 409 và 422. Không copy lại hàm production vào test. Kiểm thử transport không được ghi DB vận hành.
+
+**Đạt khi:** list/preview/detail hiển thị đúng fixture chuẩn server, không lỗi `.map`/mất field; payload từng loại được kiểm tại biên HTTP. Đây là điều kiện bắt đầu FE-01/02.
+
+#### FE-01 — Lịch đóng BHXH và dữ liệu người dùng (P0; cần FE-00)
+
+**Đọc/sửa:** `frontend/src/components/SocialInsuranceModal.tsx`, `FinancialProfilePanel.tsx`, `frontend/src/pages/RetirementPlanPage.tsx`, service insurance; FE-T14-HISTORY-RULES và INSURANCE_HISTORY_RULES.md.
+
+- [x] Form ngày sinh giữ DAY/MONTH/YEAR/UNKNOWN, giới tính pháp lý theo lựa chọn; bỏ fallback YEAR/1985 và MALE. Cho nhập coverage/confirmedThroughMonth đúng phạm vi; lịch tương lai đi qua futureContributions, không ghi thành đã xác nhận.
+- [x] Nhập/sửa tháng hoặc khoảng tháng với scheme/salaryRegime/status/participantCategory/căn cứ/evidence đúng contract. UNKNOWN khác NOT_CONTRIBUTED, CREDITED cần loại/căn cứ. Không tự gán ARTICLE_2_1_A hoặc thay tháng trùng một cách im lặng; hiển thị lỗi/ý định sửa rõ.
+- [x] Giữ specialPeriods và metadata của bản đang sửa; không gửi `specialPeriods: []` làm mất dữ liệu đã có. Chứng từ nhạy cảm không vào log/AI/localStorage.
+- [x] Tách import-preview khỏi nút lưu: hiển thị issues và tháng UNKNOWN bổ sung; INVALID chặn, INCOMPLETE cần xác nhận riêng. Lưu body gốc đã preview, không thay bằng normalized. Giữ key/body retry, append bản mới và đọc lại bản cũ.
+- [x] Reset theo userId, chống response cũ; đổi ngày hưởng không được tải đè nháp lịch chưa lưu. Lỗi tải phải có retry, không hiển thị như chưa có lịch.
+
+**Nghiệm thu:** lịch mới không tự có năm sinh/giới tính; thiếu tháng→INCOMPLETE→xác nhận→lưu; trùng tháng→INVALID; revision 1→2 vẫn đọc được 1; lỗi mạng retry không append hai lần; 409 giữ nháp; đổi tài khoản không thấy lịch/chứng từ cũ.
+
+#### FE-02 — Ước tính BHXH xem trước/lưu/đọc lại đúng (P0; cần FE-01)
+
+- [x] Tách mốc tuổi tham chiếu khỏi ngày hưởng khai báo. Rà `initialBenefitDate` tại FinancialProfilePanel: không biến retirementMonth tham chiếu thành ngày hưởng đã xác nhận; không tự gán 01/01 sau 10 năm. Giữ tháng hưởng theo khai báo/chứng từ/giả định được chọn rõ.
+- [x] Chọn luật từ discovery theo ngày hưởng; danh sách rỗng báo chưa có quy định phù hợp và giữ lựa chọn nhập hưu thủ công. Không tự seed/công bố luật. Tách status điều kiện, estimateKind và kết quả tiền nullable.
+- [x] Xây một body EstimateInput từ form, giữ body đó cùng preview response. Save phải gửi lại đầy đủ caseDetails/stateSalaryCase/voluntaryCase/voluntaryTopUp/voluntaryPrepaid đã preview, không tái dựng body thiếu như hiện tại. Dùng inputHash cấp ngoài; đổi form, lịch, luật hoặc ngày đánh giá thì xem trước lại.
+- [x] Làm lần lượt nhánh thông thường → Nhà nước/hỗn hợp → tự nguyện/hỗn hợp → đóng bù → đóng trước → STATE-V2. Mỗi nhánh dùng mục FE-T14 tương ứng bên dưới và runtime mới nhất; nhánh chưa đủ input hiển thị thiếu/rà soát, không giả là đã hoàn thiện. Bổ sung conversion/creditKind/transferMonth/hazardousPeriods/hazardousWindowFrom/includesSeniorityAllowance đúng nhánh STATE-V2 hiện hành. Bàn giao FE-T14-VOLUNTARY-TRANSITION bổ sung chuyển tiếp 2025/LAW_ART141_9: đọc VOLUNTARY_PENSION.md trước triển khai; thiếu bảng RULE_TABLE_REQUIRED phải hiện thiếu, không tự ước lượng hoặc chọn quyền hưởng thay người dùng.
+- [x] Cho nhập chứng từ, ngày đóng, trạng thái thực tế/giả định; không tự gắn DOCUMENTED_FULLY_PAID. Hiển thị breakdown, citations, thiếu dữ liệu, trợ cấp/hoàn trả riêng; không tự cộng khoản một lần vào quỹ.
+- [x] Bản lưu hiển thị ngày đánh giá, lịch/luật/version/hash và kết quả server; mở lại estimate cũ không tính lại bằng luật hiện tại. Lưu estimate không tự sửa hồ sơ hoặc apply kế hoạch.
+
+**Nghiệm thu:** luật rỗng; 179/180 tháng; UNKNOWN/NOT_CONTRIBUTED; null tiền; save giữ đúng toàn bộ body preview cho từng nhánh; stale history/rule/ngày→409; retry cùng key; đọc lại bản cũ; không có toast đủ điều kiện khi assessment yêu cầu rà soát. Nhánh STATE-V2 dùng fixture có ghi rõ là test nếu luật thật chưa công bố.
+
+#### FE-03 — Góp đầu/cuối kỳ và cập nhật dự báo từ actual (P1; cần FE-00)
+
+**Đọc/sửa:** RetirementGoalPage, RetirementPlanPage, SimulationTrackingPage trong `frontend/src/pages/`; FE-P13-P15, FE-Q15-03, CONTRIBUTIONS_REFORECAST.md, SOURCE_REFORECAST.md.
+
+- [x] Có lựa chọn contributionTiming; START_OF_MONTH cần khai/xác nhận startOfMonthFunding, không tự điền 0/true hoặc lấy số quỹ làm thu khả dụng. Hiện contributionStartMonth và trạng thái EARLY_FUNDING_REQUIRED/NO_ELIGIBLE_CONTRIBUTION_PERIOD.
+- [x] Tách thu trừ chi, góp được xác nhận, phần còn ngoài quỹ, phần bị giới hạn. futureChanges là thay tổng tháng; sourceChanges là thay riêng nguồn cũ theo contract v3. Không đưa source version v4 vào đường v3.
+- [x] Dùng beforeChanges/candidate cùng anchor để so; READY mới lưu, BLOCKED/HORIZON_COMPLETE hiện vấn đề. Giữ một preview body/key và apply riêng theo revision mới. Actual sửa giữ lịch sử, báo actualSourceChanged và yêu cầu xem lại.
+
+**Nghiệm thu:** dư 5, góp 0/2/5/6 cho kết quả 0/2/5/5; thu thấp hơn/bằng chi; timing→preview→save→apply→reload/CSV; actual sửa→409 giữ form; chọn bản cập nhật/cùng cutoff/tháng tiếp đúng contract; không coi null là đã đủ vốn.
+
+#### FE-04 — Sửa vòng đời nguồn v4 (P0; cần FE-00, FE-03)
+
+**Đọc/sửa:** `frontend/src/pages/SimulationTrackingPage.tsx`, `frontend/src/services/plans.ts`; SOURCE_COMMANDS_V4.md và source-schema.ts. Giữ service/form vừa làm, chỉ tách phần cần thiết để review được.
+
+- [x] Preview mảng rỗng lấy registry/options. CREATE tạo sourceId `plan:<uuid>` và revision ban đầu đúng schema; REVISE/END chọn source hiện hữu và dùng ID/revision server. Giữ hash snapshot/registry theo đúng trường của từng contract; flowSourceCommand hiện không có expectedSourceHash, không thêm trường lạ vào schema strict. Bỏ tạo ID mới/revision 0 cho mọi operation trong handleAddV4Command.
+- [x] Mỗi operation gửi đúng trường schema riêng, nhất là END; giữ Decimal, ONCE một tháng, lịch sau cutoff, lý do và xác nhận chủ động. Không tự chèn document thay người dùng hoặc tính lại registry hash.
+- [x] Sửa nguồn ở cùng cutoff/đẩy cutoff, không phục hồi lịch cũ sau khoảng REVISE. Preview stale khi form/nguồn đổi. Save giữ body/key; giữ cả metadata plan revision mới cho apply, không chỉ lưu phần version nếu làm mất revision.
+- [x] Report/compare/CSV theo bản chọn và attribution server; giữ bản cũ đọc/replay được. Không tự sửa profile khi thêm nguồn hoặc tự tăng mức góp từ phần thu thêm.
+
+**Nghiệm thu:** CREATE→save→apply→reload→REVISE đúng source→END; ONCE; stale actual/profile; mất mạng retry; hai tab; compare/CSV đúng version. Gửi sai revision phải hiện conflict và giữ nháp.
+
+#### FE-05 — Đưa estimate BHXH vào nguồn pension (P1; cần FE-02, FE-04)
+
+- [x] Thêm chọn estimate đã lưu đủ điều kiện theo contract; dùng integrityHash estimate và registry hash server, không băm client hoặc gửi tiền hưởng tự sửa.
+- [x] Tạo pensionSelections với CREATE/REVISE, ID/revision nguồn, khoảng tháng, FIXED_NOMINAL và xác nhận. Nếu có pension thì chọn thay thế rõ, không cộng thêm dòng PENSION trùng.
+- [x] Preview tác động→save→apply riêng. Luật/lịch đổi yêu cầu estimate mới hoặc dừng/thay nguồn đúng contract; không sửa estimate cũ. Trợ cấp một lần chỉ giải thích phần bị loại khỏi lịch pension, không tự tạo góp quỹ.
+
+**Nghiệm thu:** chọn estimate hợp lệ; thay pension cũ; lưu/áp dụng/reload; stale estimate bị chặn; bản lịch sử vẫn đọc được; payload không chứa toàn bộ lịch BHXH hoặc bằng chứng client tự dựng.
+
+#### FE-06 — Quản trị luật BHXH và rà phần cũ còn liên quan (P1; cần FE-00)
+
+- [x] Thêm UI admin riêng cho legal-rules, không gộp vào kho tri thức Gemini; nối GET/POST/PATCH/transitions theo FE-T14-HISTORY-RULES. Luồng DRAFT→VALIDATED→REVIEWED→PUBLISHED dùng hash/revision từ từng response; REVIEW cần ghi chú/người độc lập; bản công bố chỉ đọc hoặc tạo kế tiếp.
+- [x] Hiện coverage, thời hạn, supersedes, lỗi strategy/validation và trạng thái corpus; không ghi “sẵn sàng tính” chỉ vì tạo draft. USER không gọi admin API; ADMIN không được mở lịch riêng của USER.
+- [x] Rà FE-T13-REFERENCE, FE-GEMINI, FE-RETENTION theo API hiện tại: consent dùng policy/revision/processingNotice server; reconsent rõ; history hết hạn không phục hồi từ cache. Đã có triển khai thì kiểm và giữ, không viết lại vì checkbox cũ chưa cập nhật.
+
+**Nghiệm thu:** chuyển trạng thái với fixture đúng contract, lỗi quyền/409 giữ form; sửa draft mất duyệt; không tự duyệt bằng người soạn; policy đổi yêu cầu xác nhận lại. Không publish bộ luật thật trong bước kiểm UI.
+
+#### FE-07 — Cập nhật và tạo khoản vay (P1; cần FE-04)
+
+**Đọc:** LOAN_REVISIONS_V2.md; FE-T15-LOAN-V2-API, DISBURSED-BALANCE, RESPONSIBILITY-AMENDMENT, DISBURSED-AMENDED. Chọn vị trí form trong màn mô phỏng/nguồn hiện có; trang DebtAnalysis giữ chức năng phân tích hiện hành.
+
+- [ ] Chọn từ loanRevisionOptions, giữ source/contract hash/revision. Nhập opening, actual allocations tách gốc/lãi/phí/ngày/phạm vi, điều khoản ngân hàng và nhãn HYPOTHETICAL/BANK_CONFIRMED; không lấy tổng trả làm giảm gốc.
+- [ ] Hỗ trợ loanRevisions REVISE/END đúng schema; v1 cần khai opening trước khi lên v2. Trả từ quỹ qua WITHDRAWAL không bị trừ thêm khi phân bổ DEBT_PAYMENT.
+- [ ] Tạo loanCreations theo từng funding EXISTING_BALANCE/PLANNED_DISBURSEMENT/DISBURSED_BALANCE được contract hỗ trợ. Khoản mới ở bản tiếp theo dùng revision, không CREATE lại; tiền vay không tự cộng thu nhập/quỹ.
+- [ ] Sửa CAPPED/ALLOCATED_SHARE có responsibilityAmendment/userPaidToDate; giữ lịch trả lũy kế khi bỏ/bật trần. Hợp đồng sửa sau giải ngân khai originalTerms và scopeChange khi cần; không sao điều khoản hiện tại làm lịch sử.
+
+**Nghiệm thu:** v1→v2→trả một phần→save/apply/reload/CSV; tổng allocation không vượt event; CAPPED đã 30+trả 120=150, trần 250 còn 100, bỏ trần rồi trần 200 còn 50; đổi phạm vi/thiếu originalTerms bị chặn rõ; actual sửa→409. Không làm mới lịch sử v1/v3.
+
+#### FE-08 — Refinance thực tế và dự kiến (P1; cần FE-07)
+
+- [ ] Thực tế: một form và một batch END cũ + CREATE mới + refinances, đúng command liên kết; gross/phí/tiền bù/tất toán/tiền dư cùng phạm vi. Không lưu hai khoản bằng hai request độc lập.
+- [ ] Giải ngân trước ngày tất toán: proceedsAtSettlement với danh sách tiền đã dùng/xác nhận chưa dùng theo FE-T15-EARLY-DISBURSEMENT. Không dùng dư gốc thay tiền còn sẵn có; không cộng tiền dư vào quỹ.
+- [ ] Dự kiến: theo PLANNED_REFINANCE.md và FE-T15-PLANNED-REFINANCE-API; chọn eligibleLoans, CREATE/REVISE/CANCEL dùng activePairs/hash; chỉ reviseAllowed mới sửa; nguồn bị khóa không cho sửa riêng.
+- [ ] Có lựa chọn tất toán trước/sau kỳ trả cùng ngày; nhãn HYPOTHETICAL. Đến hạn cần đối soát: CANCEL + refinance thật hoặc CANCEL/cập nhật actual + CREATE cặp mới; không tự chuyển giả định thành đã xảy ra.
+
+**Nghiệm thu:** thực tế gross1000−đã dùng100=còn900, bù120=tất toán1020; khoản mới dư gốc900 được đối soát độc lập. Dự kiến tạo/sửa/hủy/đến hạn, hủy trả lịch gốc, lỗi batch không báo thành công một nửa; save/apply/reload/CSV giữ đúng phiên bản.
+
+#### FE-09 — Tài sản và vốn một lần (P1; cần FE-04)
+
+- [ ] Form assetCommands từ assetRevisionOptions theo ASSET_SOURCES_V4.md/FE-T16-ASSET-CAPITAL. Phân biệt amountScope WHOLE_ASSET/USER_SHARE, tiền gộp/phí/thuế/nợ bảo đảm/net, sở hữu/phần hưu; không nhân sở hữu hai lần.
+- [ ] PLANNED/REALIZED theo contract: chọn số muốn góp kể cả 0, ngày tiền sẵn có/tháng góp; đã góp dùng CONTRIBUTION event/revision/date/allocation, không dùng INCOME/DEBT_PAYMENT/WITHDRAWAL. Không cộng lại tiền đã nằm trong anchor.
+- [ ] Giữ source identity khi REVISE/END, chọn đúng asset reference; không CREATE trùng nguồn đã realized. Phí trả nợ trong net không tự tất toán loan; muốn đóng loan thêm lệnh/chứng từ trong cùng batch.
+- [ ] Nguồn RENT→SALE có rentalExit và số thuê cuối xác nhận; khoản dự kiến đã qua cutoff dùng đối soát theo FE-T16-MISSED-CONTRIBUTION, không âm thầm dời tháng.
+
+**Nghiệm thu:** bán1000−50−50−100=800, sở hữu50%/hưu50% tối đa200, chọn150 chỉ góp150; USER_SHARE800/hưu50% tối đa400; CONTRIBUTION300 không phân bổ200+200; thuê dừng đúng tháng; stale actual chặn apply nhưng đọc bản cũ được.
+
+#### FE-10 — Góp/nhận nhiều đợt và tương thích tài sản v3 (P1; cần FE-09)
+
+- [ ] STAGED tách prior đã góp, allocation mới, plannedContributions còn lại và confirmedContributionAmount tổng. Không gửi lại priorRealized hoặc event cũ; nhận đủ giữ STAGED với lịch rỗng, END chỉ hủy tương lai.
+- [ ] Qua kỳ dự kiến phải khai reconciliations cho từng tháng; số chưa góp không tự chuyển kỳ. availability giữ các release CONFIRMED/EXPECTED/evidence, không tài trợ actual bằng tiền EXPECTED, không xóa/sửa release đã chốt trái contract.
+- [ ] V3 ASSET_REALIZED→REVISE STAGED cùng sourceId/hash/revision, giữ số cũ và trạng thái thuê đã dừng. Không tạo tài sản khác để tránh đối soát. Rà FE-T16-LEGACY-CAPITAL/AVAILABILITY/STAGED/RENTAL-SALE mới nhất.
+
+**Nghiệm thu:** tổng200 đã60, dự kiến100 nhưng thực nhận30, còn110; anchor1090 không tăng thêm lần nữa; nhận110→anchor1200; release80 đã góp60 chỉ còn20 trước đợt kế; dời release sang tháng sau chặn góp sớm; replay/CSV bản cũ giữ nguyên.
+
+#### FE-11 — Nghiệm thu liên màn và cập nhật bằng chứng (P1; cần các bước liên quan)
+
+- [ ] Thêm browser tests có tên/phạm vi rõ cho BHXH, source-v4, loan, refinance, asset; dùng fixture/API schema đúng contract. Các tên gợi ý: `insurance.spec.ts`, `source-reforecast.spec.ts`, `loan-reforecast.spec.ts`, `asset-sources.spec.ts` trong `frontend/tests/`; hiện chưa phải bộ test đã tồn tại/đã đạt.
+- [ ] Mỗi luồng có preview→save→apply→reload→report/CSV theo cùng version; test lỗi mạng sau server đã lưu, retry cùng key, sửa body key mới, 409 giữ nháp, 422 field errors, account switch và response đến muộn. BHXH history/estimate chỉ lưu, không tự apply.
+- [ ] Theo FE-T17-LOAN-ASSET-RACES: hai tab cùng revision chỉ một thắng; retry cùng key không thêm lịch sử; actual sửa cạnh apply phải đọc lại trạng thái. Changeset vay120/góp tài sản60/dự kiến140, quỹ1000→anchor940, chỉ140 là vốn tương lai; bản lưu chứa đủ vay và tài sản.
+- [ ] Chạy hồi quy profile/plan/account/admin/knowledge bị tác động và responsive cho form mới; không coi test sidebar/admin-ui là bằng chứng CRUD hoặc nghiệp vụ tài chính. Mock browser không chứng minh DB concurrency; kiểm backend/DB riêng theo quy trình hiện có khi có phạm vi được giao.
+- [ ] Ghi rõ API thật/DB/provider/production nào chưa kiểm. Không đánh dấu luật đã vận hành chỉ bằng fixture PUBLISHED, không suy Gemini live từ response mock.
+
+### 4. Lệnh kiểm tra và cách đóng task
+
+Từ thư mục gốc dự án, sau thay đổi code chạy các kiểm tra phù hợp:
+
+```powershell
+npm --prefix frontend run typecheck
+npm --prefix frontend run test:assets
+npm --prefix frontend run build
+```
+
+Browser chạy từ `frontend`: dùng Playwright CLI đã cài (`node node_modules/@playwright/test/cli.js test <file.spec.ts>`) với test file thực có và build mới. `tests/setup-preview.ts` chặn API không mock bằng UNMOCKED_TEST_API; giữ chặn này, không bỏ để test chạm DB thật. Không chiếm/kill tiến trình giữ cổng8444 của chat khác; dùng runner sở hữu cổng riêng hoặc cấu hình baseURL phù hợp khi cần. `backend/scripts/verify-browser.cjs` là runner cổng động cho tập test nó cấu hình, không mặc nhiên bao phủ test mới.
+
+`backend/scripts/verify-frontend-wire.cjs` chạy từ `backend` và dùng DB memory/auth stub; hiện chỉ là probe transport/precision của tập API cũ, không thay kiểm thử BHXH/vay/tài sản. Khi thêm contract tests, phải assert cả body/response/error; không lấy exit0 hoặc HTTP400 nghiệp vụ làm bằng chứng happy path đã đạt. Không chạy lại toàn suite sau mỗi thay đổi tài liệu đơn thuần.
+
+Mỗi khi hoàn thành bước, thêm một dòng bằng chứng vào bảng dưới rồi mới đổi checkbox tương ứng. Nếu mới có UI hoặc chỉ đạt mock, ghi đúng mức độ; phần chưa nghiệm thu vẫn mở. Không lấy tỷ lệ checkbox toàn file làm phần trăm hoàn thành vì có yêu cầu trùng/thay thế.
+
+| Bước | Trạng thái | File/luồng đã sửa | Lệnh + kết quả + ngày | Mức kiểm chứng và phần còn thiếu |
+|---|---|---|---|---|
+| Rà nền 07/10 | Đã kiểm nền, chưa nghiệm thu mở rộng | Đối chiếu code với task; chưa sửa code trong lần lập kế hoạch | Typecheck đạt; tests32/32; build+5trang đạt | Chưa chạy browser mở rộng/DB thật/production |
+| FE-00 | Đã nghiệm thu | `services/insurance.ts`, `plans.ts`, `api.ts`, `scripts/insurance-services.test.mjs` | Typecheck đạt; tests:assets 42/42; 07/10/2026 | Unit & wire mock fetch đạt; bóc đúng envelope `{items:[]}`, assessment cấp ngoài |
+| FE-01 | Đã nghiệm thu | `SocialInsuranceModal.tsx`, `FinancialProfilePanel.tsx`, `RetirementPlanPage.tsx` | Typecheck đạt; tests:assets 44/44; 07/10/2026 | Unit & UI đạt: birth precision, legal sex, SHA-256 evidence, preview/save tách biệt |
+| FE-02 | Đã nghiệm thu | `FinancialProfilePanel.tsx`, `SocialInsuranceModal.tsx`, `insurance.ts` | Typecheck đạt; tests:assets 44/44; 07/10/2026 | Unit & UI đạt: tách mốc tuổi khỏi ngày hưởng, lưu toàn bộ preview body các nhánh |
+| FE-03 | Đã nghiệm thu | `utils/decimal.ts`, `services/actuals.ts`, `RetirementPlanPage.tsx`, `SimulationTrackingPage.tsx` | Typecheck đạt; tests:assets 47/47; 07/10/2026 | Unit & wire contract đạt: timing START/END_OF_MONTH, funding, 4 chỉ số dòng tiền, chặn save khi not READY |
+| FE-04 | Đã nghiệm thu | `services/plans.ts`, `SimulationTrackingPage.tsx`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 47/47; 07/10/2026 | Unit & wire contract đạt: lifecycle V4 CREATE `plan:<uuid>`, REVISE server ID/rev, strict END, Idempotency-Key |
+| FE-05 | Đã nghiệm thu | `SimulationTrackingPage.tsx`, `services/plans.ts`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 47/47; 07/10/2026 | Unit & wire contract đạt: gắn estimate ELIGIBLE vào pensionSelections FIXED_NOMINAL + hash integrity server |
+| FE-06 | Đã nghiệm thu | `services/legalRules.ts`, `pages/admin/AdminLegalRulesPage.tsx`, `App.tsx`, `routes.ts`, `AdminApp.tsx`, `scripts/insurance-services.test.mjs` | Typecheck đạt; tests:assets 52/52; build đạt; 07/10/2026 | Unit & wire contract đạt: UI admin riêng cho legal-rules, DRAFT→VALIDATED→REVIEWED→PUBLISHED, CAS/hash, review độc lập, rà consent/retention/privacy đạt |
+| FE-07…FE-11 | Chưa nghiệm thu theo kế hoạch này | Điền riêng từng bước sau khi thực hiện | Không dùng kết quả lịch sử để điền thay | Ghi rõ unit/HTTP mock/browser/API thật và giới hạn |
+
+**Điểm bắt đầu cho AI tiếp theo:** FE-07 (Cập nhật và tạo khoản vay theo LOAN_REVISIONS_V2.md, loanRevisionOptions, loanRevisions REVISE/END và loanCreations).
+
+---
+
+## Các bàn giao chi tiết và checkpoint lịch sử
+
+Các mục dưới đây giữ yêu cầu từng nhánh; khi có ghi chú cũ mâu thuẫn, dùng bảng thay thế và kế hoạch phía trên, rồi đối chiếu contract/runtime mới nhất. Nội dung đã có trong workspace được giữ để không mất bàn giao từ backend.
+
+## FE-T14-MATERNITY-CREDIT — tháng thai sản tính là thời gian đóng, 07/10/2026
+
+[Quy tắc](../backend/docs/INSURANCE_HISTORY_RULES.md) mục "Tháng thai sản được tính là thời gian đóng".
+- [ ] Nhập lịch sử: tháng nghỉ thai sản `status: CREDITED` với `creditKind` theo giai đoạn: `"MATERNITY_ART53_8"` từ 07/2025, `"MATERNITY_LAW2014_ART39_2"` từ 01/2016 đến 06/2025 (nghỉ ≥14 ngày làm việc trong tháng), `"MATERNITY_LAW2006_ART35_2"` từ 01/2007 đến 12/2015; UI tự chọn loại theo tháng, không cho người dùng chọn sai. **Nhập căn cứ đóng/hệ số BHXH ghi trên sổ** (không để trống). Trước 2007: báo cần rà soát.
+- [ ] Hiển thị breakdown MATERNITY_CREDITED_MONTHS; thông báo cho CREDITED_MONTH_ASSESSMENT_REQUIRED và POSITIVE_CONTRIBUTION_BASE_REQUIRED.
+
+## FE-T14-VOLUNTARY-TRANSITION — chuyển tiếp 2025 và tuổi 60/55 (Điều141(9)), 07/10/2026
+
+[Quy tắc](../backend/docs/VOLUNTARY_PENSION.md) mục "Chuyển tiếp 2025 và Luật Điều141(9)". Đã có draft corpus năm hưởng 2025 (`bh2-voluntary-transition-2025`) nhưng chưa được duyệt/công bố; khi bộ luật chưa công bố, hoặc với Điều141(9) (cần năm hưởng ≥2028), kết quả là thiếu bảng (RULE_TABLE_REQUIRED) — UI phải hiển thị đúng như vậy, không ước lượng thay. Khi hiển thị kết quả chuyển tiếp, ghi rõ hệ số lấy từ TT01/2025.
+
+- [ ] `benefitStart.kind: "TRANSITION_2025"` khi người dùng đủ tuổi + ≥15 năm trước 01/07/2025 và không đóng từ 07/2025; ngày hưởng cố định 2025-07. Khi backend trả VOLUNTARY_TRANSITION_ASSESSMENT_REQUIRED, gợi ý chọn trường hợp chuyển tiếp.
+- [ ] `ageRule: "LAW_ART141_9"` là lựa chọn của người dùng (giải thích có thể chọn hưởng theo tuổi thông thường Điều98). Chỉ gợi ý khi tham gia tự nguyện trước 2021 và có ≥20 năm tự nguyện.
+- [ ] Thông báo cho VOLUNTARY_TRANSITION_CONDITIONS_NOT_MET, LEGACY_AGE_RULE_REQUIRES_PRE_2021_VOLUNTARY, LEGACY_AGE_RULE_REQUIRES_240_VOLUNTARY_MONTHS, LEGACY_AGE_GRANT_REVIEW_REQUIRED, STATUTORY_CITATION_REQUIRED:LAW_ART141_9.
+
+## FE-T14-STATE-V2 — thời gian trước 1995, lương trước 2004, chuyển ngành, 07/10/2026
+
+[Quy tắc](../backend/docs/INSURANCE_HISTORY_RULES.md) mục "Engine vn-pension-state-v2". Engine chỉ chạy khi admin đã duyệt/công bố bộ luật `bh2-state-mixed-v2` (hiện là bản nháp, chưa có trên DB vận hành).
+
+- [ ] Nhập lịch sử: tháng CREDITED trước 1995 cho chọn `creditKind` = "Công tác khu vực Nhà nước trước 1995" (`PRE_1995_STATE_SECTOR`) hoặc "Sĩ quan/QNCN trước 1995" (`PRE_1995_ARMED_FORCES`), kèm chứng từ BHXH; không bắt nhập căn cứ đóng. Ghi rõ: chỉ khai khi BHXH đã xác nhận trên sổ/quá trình đóng.
+- [ ] Tháng lương Nhà nước trước 10/2004: nhập **hệ số đã chuyển đổi** + thang (`ND204_PUBLIC` / `ND205_ENTERPRISE` / `ND204_ARMED_FORCES`) + chứng từ. Không tự quy đổi từ hệ số cũ.
+- [ ] Trường hợp chuyển ngành từ quân đội/công an: chọn `salaryTreatment: MILITARY_TRANSFER` và nhập `transferMonth`; nhóm tham gia các tháng trước đó là điểm d.
+- [ ] Nghề nặng nhọc chuyển việc: `salaryTreatment: HAZARDOUS_TRANSFER`, `transferMonth`, danh sách `hazardousPeriods` (từ/đến tháng + chứng từ BHXH) và tháng bắt đầu cửa sổ `hazardousWindowFrom`; giải thích cửa sổ là N năm liền nhau BHXH xác nhận (N theo năm bắt đầu tham gia).
+- [ ] Phụ cấp thâm niên: `SENIORITY_ALLOWANCE_TRANSFER` + `transferMonth` + cờ `includesSeniorityAllowance` từng tháng; báo rõ hai trường hợp (a)/(c) cần rà soát thủ công.
+- [ ] Hiện breakdown mới: CREDITED_MONTHS, PRE_2004_CONVERTED_MONTHS, FINAL_WINDOW_AVERAGE / BEFORE_TRANSFER_AVERAGE / USED_BEFORE_TRANSFER_AVERAGE, HAZARDOUS_WINDOW_AVERAGE / USED_HAZARDOUS_WINDOW_AVERAGE.
+- [ ] Thông báo cho các mã: CREDITED_MONTH_ASSESSMENT_REQUIRED, PRE_2004_STATE_SALARY_CONVERSION_REQUIRED, PRE_2004_CONVERSION_SCALE_MISMATCH, TRANSFER_MONTH_REQUIRED/NOT_APPLICABLE/INCONSISTENT, TRANSFER_WINDOW_INCOMPLETE, MILITARY_TRANSFER_MIXED_REVIEW_REQUIRED, ARMED_FORCES_RETIREMENT_BRANCH_REQUIRED, HAZARDOUS_PERIODS_REQUIRED/INVALID, HAZARDOUS_FIFTEEN_YEARS_REQUIRED, HAZARDOUS_WINDOW_INVALID, HAZARDOUS_FIELDS_NOT_APPLICABLE, HAZARDOUS_TRANSFER_MIXED_REVIEW_REQUIRED, SENIORITY_FLAG_REQUIRED, SENIORITY_HISTORY_REQUIRED, SENIORITY_ALLOWANCE_ADDITION_REVIEW_REQUIRED, SENIORITY_MIXED_WINDOW_REVIEW_REQUIRED.
+
+## FE-T15-DISBURSED-AMENDED — khoản vay sửa sau giải ngân, 07/10/2026
+
+[Contract](../backend/docs/LOAN_REVISIONS_V2.md) mục "Hợp đồng sửa sau ngày giải ngân". Áp dụng cho `loanCreations[].funding` kind DISBURSED_BALANCE (cả khoản thay thế trong refinance).
+
+- [ ] Khi ngày hiệu lực hợp đồng sau ngày giải ngân, form phải hỏi **điều khoản lúc giải ngân** (`originalTerms`: ngày ký/sửa/hiệu lực, phạm vi số dư, tỷ lệ trả, nghĩa vụ, chứng từ). Không tự sao từ hợp đồng hiện tại. Khi hợp đồng không sửa sau giải ngân thì không gửi trường này (backend 422).
+- [ ] Nếu loại/trần nghĩa vụ đổi: hỏi thêm `responsibilityAmendment` (số đã trả tại giải ngân, chứng từ).
+- [ ] Nếu phạm vi số dư đổi (toàn hợp đồng ↔ phần của tôi): hỏi `scopeChange.openingPrincipal` = dư gốc phần mới tại cuối ngày sửa + chứng từ; giải thích quy ước "khoản trả đến hết ngày sửa thuộc phạm vi cũ". Mỗi allocation phải chọn đúng phạm vi theo ngày.
+- [ ] Hiển thị lỗi: `LOAN_ORIGINAL_TERMS_REQUIRED/INVALID`, `LOAN_SCOPE_CHANGE_REQUIRED/INVALID`, `LOAN_RESPONSIBILITY_REVIEW_REQUIRED` bằng câu hướng dẫn cụ thể.
+- [ ] Nghiệm thu browser: khai khoản đã sửa tỷ lệ trả, đổi phạm vi, đổi sang CAPPED → preview/lưu/apply/mở lại.
+
+## FE-T15-PLANNED-REFINANCE-API — public, 07/10/2026 (thay mục "chuẩn bị" bên dưới)
+
+Backend đã mở `plannedRefinances` trong `POST /me/retirement/plans/{planId}/source-reforecasts[/preview]` ([contract](../backend/docs/PLANNED_REFINANCE.md), schema `PlannedPairCommand` trong plans.openapi.yaml). Preview trả `plannedRefinanceOptions: { eligibleLoans, activePairs }`.
+
+- [ ] Nút "Lập phương án tái cấp vốn" chỉ hiện với khoản trong `eligibleLoans` (hợp đồng v2 chốt đúng tháng đối soát). Khoản v1/chưa cập nhật: hướng người dùng cập nhật khoản vay (`loanRevisions`) trước; có thể gửi cùng batch, backend xử lý theo thứ tự.
+- [ ] CREATE: `oldSource` lấy từ eligibleLoans (`revision=sourceRevision`), `newSource={sourceId:"plan:<uuid>",revision:0,sourceHash:null}`, `expectedPairHash:null`, `replacement.sourceId/commandId` phải trùng `newSource.sourceId/replacementCommandId`.
+- [ ] REVISE/CANCEL dùng nguyên `pairHash/oldSource/newSource/contractHash` trong `activePairs`. Chỉ cho REVISE khi `reviseAllowed=true`; ngược lại chỉ cho Hủy hoặc Hủy+lập lại.
+- [ ] Khoản trong cặp đang hoạt động không còn trong `loanRevisionOptions`; không cho sửa riêng từng khoản (backend trả 409 `PLANNED_PAIR_SOURCE_LOCKED`).
+- [ ] Khi preview trả 409 `PLANNED_PAIR_RECONCILIATION_REQUIRED`: hiện hộp đối soát. "Đã refinance thật" → gửi CANCEL + luồng refinance thực tế (END + DISBURSED_BALANCE). "Chưa/đổi ngày" → CANCEL (+ cập nhật khoản cũ bằng actual) rồi CREATE cặp mới với `pairId` mới và `sourceId` mới.
+- [ ] Mọi số liệu của cặp mang nhãn HYPOTHETICAL (attribution.confirmation), không phải ngân hàng chấp thuận; không cộng tiền giải ngân vào quỹ.
+- [ ] Nghiệm thu browser: tạo → lưu → apply → mở lại phiên bản (replay khớp); sửa trước ngày; hủy khôi phục lịch gốc; ca đến hạn bị chặn rồi xử lý được.
+
 ## FE-T15-PLANNED-REFINANCE — chuẩn bị luồng giả định, 07/10/2026
 
 **Chưa có public API.** Backend mới có [bộ tính và contract nội bộ](../backend/docs/PLANNED_REFINANCE.md); chưa ghép form này vào nút lưu/apply hoặc gắn nhãn tính năng đã xong. Các endpoint refinance thực tế hiện tại không nhận input này.
@@ -802,3 +1050,12 @@ Backend đã nhận assetCommands[] (tối đa30) và trả assetRevisionOptions
 7. Nghiệm thu: bán1000−phí50−thuế50−trả nợ100=800; sở hữu50%, phần hưu50% → tối đa200, góp150 thì chỉ150 vào quỹ. USER_SHARE800/phần hưu50% → tối đa400. Sửa tháng/mức góp rồi hủy không làm lịch cũ xuất hiện lại. Event CONTRIBUTION300 không được phân bổ200+200 cho hai tài sản. Sửa actual làm apply409 nhưng replay lịch sử giữ nguyên; chuyển dự kiến→đã góp không cộng lần hai.
 
 **Bổ sung T17 ngày07/10:** backend nguồn v4 đã kiểm race cùng key/cùng revision/actual sửa cạnh apply trên hai kết nối PostgreSQL độc lập. UI vẫn cần tự nghiệm thu đa tab: retry cùng key giữ cùng body; sau409 tải nguồn mới và preview lại; actual sửa sau apply phải hiện trạng thái cần tính lại, không che bằng thông báo áp dụng thành công cũ.
+
+## FE-T17-PENSION-RACES — nghiệm thu nhiều tab BHXH, 07/10/2026
+
+Backend đã kiểm6race service/DB độc lập cho lịch đóng, estimate và chọn lương hưu vào dự báo. Không đổi endpoint/schema.
+
+- [ ] Tab A thêm lịch đóng trong khi tab B lưu/áp dụng bản dự báo có lương hưu: tab B có thể nhận409 HISTORY_REVISION_CONFLICT → báo lịch đóng đã đổi, giữ nháp, hướng dẫn tính lại estimate rồi chọn lại; không tự gửi lại.
+- [ ] Bản dự báo đã lưu trước khi lịch đóng đổi vẫn xem/replay được nhưng nút Áp dụng phải xử lý409 HISTORY_REVISION_CONFLICT, không hiện “đã áp dụng”.
+- [ ] Estimate lưu ngay trước khi lịch đóng đổi vẫn hiển thị trong danh sách, nhưng chọn vào dự báo bị409; đánh dấu “cần tính lại theo lịch đóng mới”.
+- [ ] Hai tab cùng thêm lịch đóng từ cùng revision: chỉ một thắng; tab còn lại tải lại lịch đóng mới nhất trước khi sửa tiếp.

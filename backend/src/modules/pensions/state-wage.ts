@@ -21,6 +21,39 @@ function amount(value: string) {
   return new D(value);
 }
 
+/** ND158 Art15(2)(b): officers/professional soldiers/police officers who
+ * transferred into state-salary work. The higher of the last window before
+ * retirement and the last window before transfer; Art15(2)(c) all-time
+ * comparison does not apply. null = a window is incomplete (needs review). */
+export function militaryTransferAverage(firstParticipationMonth: string, transferMonth: string, months: AdjustedMonth[]) {
+  monthSchema.parse(transferMonth);
+  return alternativeWindowAverage(firstParticipationMonth, months, (sorted, window) => sorted.filter(m => m.month < transferMonth).slice(-window));
+}
+
+/** ND158 Art15(2)(a): the declared consecutive hazardous-salary window of N years. */
+export function hazardousTransferAverage(firstParticipationMonth: string, windowFrom: string, months: AdjustedMonth[]) {
+  monthSchema.parse(windowFrom);
+  return alternativeWindowAverage(firstParticipationMonth, months, (sorted, window) => {
+    const start = sorted.findIndex(m => m.month === windowFrom);
+    return start < 0 ? [] : sorted.slice(start, start + window);
+  });
+}
+
+/** max(last N state months, an alternative N-month window); never the all-time comparison of Art15(2)(c). */
+function alternativeWindowAverage(firstParticipationMonth: string, months: AdjustedMonth[], pick: (sorted: AdjustedMonth[], window: number) => AdjustedMonth[]) {
+  const window = stateAveragingWindow(firstParticipationMonth);
+  if (!months.length || months.length > 1200 || new Set(months.map(m => m.month)).size !== months.length || months.some(m => m.salaryRegime !== "STATE"))
+    throw new AppError(422, "INVALID_INSURANCE_MONTHS", "Chỉ áp dụng cho toàn bộ thời gian lương Nhà nước.");
+  const sorted = [...months].sort((a, b) => a.month.localeCompare(b.month));
+  if (window === null) return null;
+  const final = sorted.slice(-window), alternative = pick(sorted, window);
+  if (final.length < window || alternative.length < window) return null;
+  const avg = (rows: AdjustedMonth[]) => rows.reduce((t, r) => t.plus(amount(r.adjustedBase)), new D(0)).div(rows.length);
+  const finalAverage = avg(final), beforeTransferAverage = avg(alternative), average = D.max(finalAverage, beforeTransferAverage);
+  return { prescribedWindowMonths: window, finalAverage: finalAverage.toFixed(), beforeTransferAverage: beforeTransferAverage.toFixed(),
+    usedBeforeTransfer: beforeTransferAverage.gt(finalAverage), stateMonths: sorted.length, alternativeMonths: alternative.map(m => m.month), average: average.toFixed() };
+}
+
 /** Internal arithmetic for ordinary state/mixed salary. Caller must resolve
  * Art73 adjustments, pre-Oct2004 conversion and special-job/seniority rules
  * before invoking. This helper does not accept or publish a statutory case. */

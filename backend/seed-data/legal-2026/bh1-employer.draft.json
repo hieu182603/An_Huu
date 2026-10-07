@@ -29,7 +29,10 @@
           "TT12_ART15_16",
           "CV340_2026",
           "ND73_ART3",
-          "ND161_ART3"
+          "ND161_ART3",
+          "LAW_ART53",
+          "LAW2014_ART39",
+          "LAW2006_ART35"
         ],
         "requiredTableKeys": [
           "WAGE_FACTOR:2026:PRE_1995",
@@ -240,6 +243,33 @@
         "contentHash": "dbbc1c4793f801f925e28fe53252285b95727e793faf4e83640dcb7ded7444b8",
         "effectiveFrom": "2026-07-01",
         "effectiveTo": null
+      },
+      {
+        "id": "LAW_ART53",
+        "instrument": "Luật BHXH 41/2024/QH15, bản hợp nhất Công báo 133/2026",
+        "locator": "Điều 53 khoản 8: thời gian nghỉ hưởng thai sản được tính là thời gian đóng BHXH bắt buộc, không phải đóng",
+        "url": "https://congbaocdn.chinhphu.vn/180507251028987904/2026/3/5/468972-1772691642_v1_1772691941_signed.pdf",
+        "contentHash": "90cf1e79ba6e778fd1bb7702662167372c7f646622edf83efd9851035af642b7",
+        "effectiveFrom": "2025-07-01",
+        "effectiveTo": null
+      },
+      {
+        "id": "LAW2014_ART39",
+        "instrument": "Luật BHXH 58/2014/QH13 (bản ký gốc; hiệu lực 01/01/2016–30/06/2025)",
+        "locator": "Điều 39 khoản 2, PDF trang 17: nghỉ hưởng thai sản từ 14 ngày làm việc trong tháng được tính là thời gian đóng BHXH",
+        "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/12/58.signed.pdf",
+        "contentHash": "10dc17ba706c03f93a5b9f0aae492a3e637a09b480cbf01c7e12d6ffc547e64d",
+        "effectiveFrom": "2016-01-01",
+        "effectiveTo": "2025-07-01"
+      },
+      {
+        "id": "LAW2006_ART35",
+        "instrument": "Luật BHXH 71/2006/QH11 (toàn văn Cổng TTĐT Chính phủ; hiệu lực 01/01/2007–31/12/2015)",
+        "locator": "Điều 35 khoản 2: thời gian nghỉ hưởng chế độ thai sản được tính là thời gian đóng BHXH",
+        "url": "https://vanban.chinhphu.vn/default.aspx?pageid=27160&docid=28955",
+        "contentHash": "5b754491bf2985fe5025a97cd7b8e580d50041dd2cc7c3642c36e5f1ff5ee97c",
+        "effectiveFrom": "2007-01-01",
+        "effectiveTo": "2016-01-01"
       }
     ],
     "tables": [

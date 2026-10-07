@@ -42,6 +42,14 @@ export interface RetirementPreviewInput {
   retirementAdditionalExpenseIds?: string[];
   debtStress?: DebtStressItem[];
   housing?: HousingPlanItem[];
+  contributionTiming?: "END_OF_MONTH" | "START_OF_MONTH";
+  surplusPolicy?: "EXPLICIT_DEPOSITS_ONLY";
+  startOfMonthFunding?: {
+    confirmed: boolean;
+    source: "CURRENT_MONTH_DISPOSABLE_CASH_AVAILABLE_AT_START";
+    monthlyAvailable: string;
+    schedule?: Array<{ month: string; amount: string }>;
+  };
   whatIf?: {
     retirementMonth?: string;
     assetValues?: Array<{ assetId: string; value: string }>;
@@ -102,7 +110,13 @@ export interface RetirementSummary {
   plannedMonthlyContribution: string;
   requiredConstantMonthlyContribution: string | null;
   additionalMonthlyContribution: string | null;
-  savingsStatus: "NO_ACCUMULATION_PERIOD" | "NO_ADDITIONAL_CONTRIBUTION" | "ADDITIONAL_CONTRIBUTION_REQUIRED";
+  savingsStatus:
+    | "NO_ACCUMULATION_PERIOD"
+    | "NO_ADDITIONAL_CONTRIBUTION"
+    | "ADDITIONAL_CONTRIBUTION_REQUIRED"
+    | "EARLY_FUNDING_REQUIRED"
+    | "NO_ELIGIBLE_CONTRIBUTION_PERIOD"
+    | string;
   requiredContributionWithinCapacity: boolean | null;
   retirementFundingShortfall: string;
   excessAtRetirement: string;
@@ -116,7 +130,7 @@ export interface RetirementSummary {
 }
 
 export interface RetirementConventions {
-  contributionTiming: "END_OF_MONTH" | "START_OF_MONTH_RESEARCH";
+  contributionTiming: "END_OF_MONTH" | "START_OF_MONTH" | "START_OF_MONTH_RESEARCH" | string;
   withdrawalTiming: "END_OF_MONTH";
   capitalReleaseTiming: "END_OF_MONTH";
   surplusPolicy: string;

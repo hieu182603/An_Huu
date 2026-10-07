@@ -62,6 +62,18 @@ export class Decimal {
     return [aVal, bVal, maxScale];
   }
 
+  static max(a: Decimal | string | number, b: Decimal | string | number): Decimal {
+    const da = a instanceof Decimal ? a : new Decimal(a);
+    const db = b instanceof Decimal ? b : new Decimal(b);
+    return da.gt(db) ? da : db;
+  }
+
+  static min(a: Decimal | string | number, b: Decimal | string | number): Decimal {
+    const da = a instanceof Decimal ? a : new Decimal(a);
+    const db = b instanceof Decimal ? b : new Decimal(b);
+    return da.lt(db) ? da : db;
+  }
+
   plus(other: Decimal | string | number): Decimal {
     const b = other instanceof Decimal ? other : new Decimal(other);
     const [aVal, bVal, scale] = Decimal.align(this, b);

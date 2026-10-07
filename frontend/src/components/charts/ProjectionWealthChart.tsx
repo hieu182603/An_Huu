@@ -148,7 +148,7 @@ export function ProjectionWealthChart({ period, profile }: { period: ChartPeriod
   const chartData = useMemo(() => generateData(period, profile, isVi), [period, profile, isVi]);
 
   return (
-    <div style={{ width: "100%", height: 320, position: "relative" }}>
+    <div style={{ width: "100%", minWidth: 620, height: 320, position: "relative" }}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={chartData}

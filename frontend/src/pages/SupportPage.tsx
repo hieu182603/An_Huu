@@ -341,6 +341,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
             <input
               type="text"
               placeholder={isEn ? "Search by title, ticket code..." : "Tìm theo tiêu đề, mã ticket..."}
+              aria-label={isEn ? "Search support requests" : "Tìm yêu cầu hỗ trợ"}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -358,16 +359,19 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
 
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <Select
-              label=""
+              label={isEn ? "Request category" : "Nhóm yêu cầu"}
+              hideLabel
               value={categoryOptions.find((c) => c.key === categoryFilterKey)?.label || categoryOptions[0].label}
               options={categoryOptions.map((c) => c.label)}
               onChange={(v) => {
                 const found = categoryOptions.find((c) => c.label === v);
                 setCategoryFilterKey(found ? found.key : "ALL");
+                setPage(1);
               }}
             />
             <Select
-              label=""
+              label={isEn ? "Request status" : "Trạng thái yêu cầu"}
+              hideLabel
               value={statusFilterOptions.find((s) => s.key === statusFilterKey)?.label || statusFilterOptions[0].label}
               options={statusFilterOptions.map((s) => s.label)}
               onChange={(v) => {

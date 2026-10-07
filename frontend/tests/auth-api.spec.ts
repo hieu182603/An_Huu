@@ -18,14 +18,17 @@ test("register and verify call the API once with the correct email and phone", a
   await page.locator("#register-password").fill("  password-with-spaces-123  ");
   await page.getByLabel(/Tôi đồng ý/).check();
   await page.getByRole("button", { name: "Tạo tài khoản", exact: true }).click();
-  await expect(page).toHaveURL(/\/verify$/);
-  await expect(page.getByLabel("Email cần xác minh")).toHaveValue("minhan@anhuu.test");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByTestId("otp-email")).toHaveText("minhan@anhuu.test");
+  await expect(dialog.getByRole("button", { name: /Đổi email/ })).toHaveCount(0);
   expect(calls.filter(c => c.path.endsWith("/register"))).toHaveLength(1);
   expect(calls.find(c => c.path.endsWith("/register"))?.body).toEqual({ fullName: "Nguyễn Minh Anh", email: "minhan@anhuu.test", phone: "0912345678", password: "  password-with-spaces-123  " });
-  await page.getByLabel("Mã OTP 6 số").fill("000000");
+  await dialog.getByLabel("Số thứ 1").click();
+  await page.keyboard.type("000000");
   await page.getByRole("button", { name: "Xác nhận email & Đăng nhập" }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("không hợp lệ");
-  await page.getByLabel("Mã OTP 6 số").fill("123456");
+  await expect(dialog.getByRole("alert")).toContainText("không hợp lệ");
+  await dialog.getByLabel("Số thứ 1").click();
+  await page.keyboard.type("123456");
   await page.getByRole("button", { name: "Xác nhận email & Đăng nhập" }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(calls.filter(c => c.path.endsWith("/verify-email"))).toHaveLength(2);
@@ -77,22 +80,35 @@ test("forged stored role cannot grant access and network login errors are visibl
   await expect(page.getByRole("button", { name: "Đăng nhập vào tài khoản" })).toBeEnabled();
 });
 
-test("resending OTP validates email, calls API once and starts a cooldown", async ({ page }) => {
+test("OTP dialog counts down the 3-minute code lifetime and allows resend after 60 seconds", async ({ page }) => {
   let resends = 0;
+  await page.clock.install();
   await page.route("**/api/v1/auth/**", async route => {
-    const refresh = route.request().url().endsWith("/refresh");
-    if (route.request().url().endsWith("/resend-verification")) resends++;
-    await route.fulfill({ status: refresh ? 401 : 202, json: { data: { status: "ACCEPTED" } } });
+    const url = route.request().url();
+    if (url.endsWith("/resend-verification")) resends++;
+    await route.fulfill({ status: url.endsWith("/refresh") ? 401 : 202, json: { data: { status: "ACCEPTED" } } });
   });
-  await page.goto("/verify");
-  await page.getByRole("button", { name: /Gửi lại OTP/ }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("email hợp lệ");
-  expect(resends).toBe(0);
-  await page.getByLabel("Email cần xác minh").fill("otp@example.test");
-  await page.getByRole("button", { name: /Gửi lại OTP/ }).click();
-  await expect(page.getByRole("button", { name: /Gửi lại sau/ })).toBeDisabled();
-  await expect(page.getByRole("main").getByRole("status")).toContainText("mã mới");
+  await page.goto("/register");
+  await page.locator("#register-name").fill("Trần Quốc Bảo");
+  await page.locator("#register-email").fill("otp@example.test");
+  await page.locator("#register-password").fill("mat-khau-an-toan-2026");
+  await page.getByLabel(/Tôi đồng ý/).check();
+  await page.getByRole("button", { name: "Tạo tài khoản", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("timer")).toContainText("3:00");
+  await expect(dialog.getByRole("button", { name: "Gửi lại mã" })).toHaveCount(0);
+  await page.clock.fastForward(61_000);
+  await expect(dialog.getByRole("timer")).toContainText("1:59");
+  await dialog.getByRole("button", { name: "Gửi lại mã" }).click();
+  await expect(dialog.getByRole("status")).toContainText("mã mới");
+  await expect(dialog.getByRole("timer")).toContainText("3:00");
+  await expect(dialog.getByRole("button", { name: "Gửi lại mã" })).toHaveCount(0);
   expect(resends).toBe(1);
+  await page.clock.fastForward(181_000);
+  await expect(dialog.getByRole("timer")).toContainText("Mã đã hết hạn");
+  await expect(dialog.getByRole("button", { name: "Xác nhận email & Đăng nhập" })).toBeDisabled();
+  await page.goto("/verify");
+  await expect(page).toHaveURL(/\/register$/);
 });
 
 test("switching accounts and logout synchronize between tabs", async ({ context, page }) => {

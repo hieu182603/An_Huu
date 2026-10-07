@@ -52,6 +52,7 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
       case "/admin/support": return t("admin_nav.support");
       case "/admin/partners": return t("admin_nav.partners");
       case "/admin/financial-config": return t("admin_nav.financial_config");
+      case "/admin/legal-rules": return t("admin_nav.legal_rules");
       case "/admin/content": return t("admin_nav.content");
       case "/admin/ai": return t("admin_nav.ai");
       case "/admin/reports": return t("admin_nav.reports");

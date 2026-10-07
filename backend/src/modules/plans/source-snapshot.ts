@@ -12,6 +12,7 @@ import { loanSourceEvidenceSchema, replayLoanSourceEvidence } from "../debts/sou
 import type { LoanConsumedAllocation } from "../debts/reconciliation";
 import { loanCreationEvidenceSchema, replayLoanCreation, loanCreationAllocations } from "../debts/source-create";
 import { reconcileRefinance } from "../debts/refinance";
+import { plannedPairProofSchema, replayPlannedPairs } from "../debts/planned-refinance-source";
 import { assetSourceEvidenceSchema, replayAssetSource, assetAllocations, assertAssetCommandHistory, legacyCapitalAllocations, priorCapitalAllocations, type AssetSourceEvidence } from "../capital/source-candidate";
 
 export type SourceSnapshot = { format: typeof SOURCE_SNAPSHOT_FORMAT;
@@ -63,9 +64,11 @@ export function readSourceSnapshot(value: unknown): SourceSnapshot {
   // Replay in registry order so allocations consumed by newly created loans
   // also constrain later revisions and later source creations. Old evidence
   // without disbursement reconciliation keeps exactly the same empty ledger.
+  const pairs = (stored.preview.plannedRefinances ?? []).map(p => plannedPairProofSchema.parse(p));
   const debtProofs = [
     ...(stored.preview.newLoanSources ?? []).map(source => ({ kind: "CREATE" as const, source })),
     ...(stored.preview.loanSources ?? []).map(source => ({ kind: "REVISE" as const, source })),
+    ...pairs.map(pair => ({ kind: "PAIR" as const, pair, source: { sourceHash: pair.oldSourceHash } })),
   ].sort((a, b) => revisions.findIndex(r => r.sourceHash === a.source.sourceHash) - revisions.findIndex(r => r.sourceHash === b.source.sourceHash));
   const assertPinnedActuals = (actuals: Array<{ period: string; revision: number; data: { closingBalance: string } }>) => {
     for (const actual of actuals) {
@@ -78,6 +81,20 @@ export function readSourceSnapshot(value: unknown): SourceSnapshot {
     const index = revisions.findIndex(r => r.sourceHash === proof.source.sourceHash);
     if (index <= priorIndex) evidenceError();
     priorIndex = index;
+    if (proof.kind === "PAIR") {
+      const { command, basis } = proof.pair.evidence, oldId = command.oldSource.sourceId;
+      if (evidenced.has(command.commandId) || evidenced.has(command.replacementCommandId)) evidenceError();
+      // CREATE must start from the pinned v2 contract chain; REVISE/CANCEL
+      // basis equality with the prior pair is enforced by replayPlannedPairs.
+      if (command.operation === "CREATE") {
+        const prior = priorContracts.get(oldId);
+        if (!prior || prior.sourceHash !== basis.source.sourceHash || digest(prior.contract) !== digest(basis.contract)) evidenceError();
+      }
+      if (command.operation === "CANCEL") priorContracts.set(oldId, { sourceHash: proof.pair.oldSourceHash, contract: basis.contract });
+      else priorContracts.delete(oldId);
+      evidenced.add(command.commandId); evidenced.add(command.replacementCommandId);
+      continue;
+    }
     if (proof.kind === "CREATE") {
       const source = proof.source, evidence = loanCreationEvidenceSchema.parse(source.evidence), command = evidence.command;
       const reference = command.agreementReference.toUpperCase();
@@ -108,6 +125,7 @@ export function readSourceSnapshot(value: unknown): SourceSnapshot {
     priorContracts.set(command.sourceId, { sourceHash: source.sourceHash, contract: command.contract });
     evidenced.add(command.commandId);
   }
+  if (pairs.length) replayPlannedPairs(stored.preview.replayInput.sourceRegistry, pairs);
   const refinanceLinks = new Set<string>();
   for (const proof of stored.preview.refinances ?? []) {
     const closing = stored.preview.loanSources?.find(s => s.sourceHash === proof.closingSourceHash);

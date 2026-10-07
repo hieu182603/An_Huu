@@ -47,7 +47,18 @@ Lưu bằng hash preview và Idempotency-Key. Đọc lại dùng đúng engine/l
 ## Chưa hoàn tất
 
 - Nhóm bắt buộc ngoài a/b, CREDITED, chuyển lương trước10/2004 và các chế độ Nhà nước đặc thù.
-- Đóng trước nhiều kỳ/đóng bù phần thiếu, chuyển tiếp trước 2025 và nhánh tham gia tự nguyện trước 2021; helper tính một số thời điểm đã có nội bộ nhưng chưa mở các trường hợp này qua API.
+- Đóng trước/đóng bù đã có engine riêng (VOLUNTARY_PAYMENTS.md).
+
+## Chuyển tiếp 2025 và Luật Điều141(9) (07/10/2026)
+
+Căn cứ đã đọc: TT11/2025 Điều4–5 (R06, PDF trang2–3, bản scan đọc trực tiếp) và Luật BHXH Điều141(9) (R02). Không tạo engine version mới: hai giá trị input mới trước đây bị schema từ chối, input cũ đi đúng nhánh cũ (kể cả mã VOLUNTARY_TRANSITION_ASSESSMENT_REQUIRED), replay không đổi.
+
+- `voluntaryCase.benefitStart.kind: "TRANSITION_2025"` (TT11 Điều5(4)/(5)): đủ điều kiện trước 07/2025 và tháng đóng cuối trước 07/2025 → ngày hưởng 2025-07. Khai khi không đủ điều kiện → VOLUNTARY_TRANSITION_CONDITIONS_NOT_MET; không khai khi thuộc trường hợp này → giữ REVIEW cũ. Nhóm thực tế là khoản4: ≥15 năm (gộp bắt buộc + tự nguyện), đủ tuổi ND135 trước 07/2025 — trước đây không đủ 20 năm theo luật cũ.
+- `voluntaryCase.ageRule: "LAW_ART141_9"`: người dùng **chọn** lộ trình 60/55 (luật cho chọn Điều98 thay thế). Điều kiện: tháng tự nguyện đầu tiên trước 2021-01 và ≥240 tháng **tự nguyện**; không dùng bảng tuổi ND135 nên cũng không vướng đoàn hệ trước 1961/1966. Bộ luật phải có trích dẫn `LAW_ART141_9`; số tháng vượt ngưỡng trợ cấp một lần → LEGACY_AGE_GRANT_REVIEW_REQUIRED (Điều100 không nói mốc tuổi nào áp dụng).
+- Giới hạn thực tế: BHXH tự nguyện bắt đầu 2008-01 nên 240 tháng tự nguyện sớm nhất đủ ở 2027-12 → Điều141(9) có hiệu lực từ năm hưởng 2028; khoản5 TT11 hầu như không phát sinh theo lịch sử tháng.
+- **Năm hưởng 2025 (chuyển tiếp)**: draft `bh2-voluntary-transition-2025` (engine vn-pension-voluntary-v1, hiệu lực 2025-07-01→2026-01-01) dùng TT01/2025/TT-BLĐTBXH (nguồn FACTORS2025, datafiles.chinhphu.vn, SHA-256 b5657e5d…, đọc trực tiếp PDF trang 2–3: Bảng 1 lương, Bảng 2 thu nhập; phạm vi "hưởng từ 01/01 đến 31/12/2025") và mức tham chiếu 2.340.000 (NĐ73). **Điểm pháp lý cần người duyệt quyết định**: TT01 căn cứ NĐ115/NĐ134 (bị thay từ 01/07/2025); không tìm thấy văn bản xác nhận tiếp tục áp dụng sau 01/07/2025, cũng không có bảng thay thế cho nửa cuối 2025 (CV340 có dòng năm 2026=1,00, là bảng cho năm hưởng 2026). Số liệu cùng phương pháp CPI gốc 1994 như NĐ158 Điều16. Trích dẫn ghi rõ điều này; draft không được tự duyệt/công bố.
+- Golden chuyển tiếp với hệ số thật: nam sinh 1963-03, 96 tháng bắt buộc 2005–2012 + 96 tháng tự nguyện 2013–2020, căn cứ 5.000.000 → (18,09+9,98)×12×5.000.000/192 = 8.771.875 × 41% = **3.596.468,75**, hưởng 2025-07.
+- Điều141(9) vẫn cần bảng năm hưởng ≥2028 (chưa ban hành); test dùng bảng giả lập hệ số 1 (2.750.000 tính tay), không phải corpus pháp lý.
 - Nghỉ sớm/đặc thù, suy giảm, nhà giáo, quân đội, điều ước.
 - Đã tạo hai corpus tự nguyện doanh nghiệp/Nhà nước có nguồn/hash, mỗi bộ1.146dòng; **còn** rà soát độc lập, duyệt và công bố thực tế, nghiệm thu UI và hồ sơ đối chiếu chuyên môn.
 

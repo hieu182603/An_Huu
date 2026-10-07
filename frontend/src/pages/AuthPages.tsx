@@ -1,10 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, Fragment, type FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
 import ResponsiveDialog from "../components/ResponsiveDialog";
 import { Badge, BrandLogo, Button, Checkbox, GoogleIcon, Icon, Input, useNotification } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { resumeDestination } from "../services/navigation";
-import { apiRequest, forgetSession, validPassword } from "../services/api";
+import { ApiError, apiRequest, forgetSession, validPassword } from "../services/api";
 import { isGoogleAuthConfigured, triggerGoogleSignIn } from "../services/googleAuth";
 import { trackLoginEvent, trackSignUpEvent } from "../services/googleAnalytics";
 
@@ -142,6 +142,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string; sentAt: number } | null>(null);
 
   const handleGoogleAuth = async () => {
     setError("");
@@ -191,10 +192,20 @@ export function LoginPage() {
       );
       navigate(targetDestination, { replace: true });
     } catch (err) {
-      setError(getErrorMessage(err));
+      if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
+        // Issue a fresh code (the backend ignores requests within 60s of the last one).
+        await apiRequest("/auth/resend-verification", { email: cleanEmail }).catch(() => undefined);
+        setPendingVerification({ email: cleanEmail, password: cleanPassword, sentAt: Date.now() });
+      } else setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerified = async () => {
+    if (!pendingVerification) return;
+    const loggedUser = await login(pendingVerification.email, pendingVerification.password, remember);
+    navigate(resumeDestination(location.state?.from, loggedUser.role, "/onboarding"), { replace: true });
   };
 
   const handleSubmit = async (e?: FormEvent) => {
@@ -328,8 +339,264 @@ export function LoginPage() {
             </div>
           </form>
         </div>
+        {pendingVerification && (
+          <EmailOtpDialog
+            email={pendingVerification.email}
+            sentAt={pendingVerification.sentAt}
+            intro="Tài khoản chưa xác minh email. Mã mới đã được gửi tới hộp thư của bạn."
+            onClose={() => setPendingVerification(null)}
+            onVerified={handleVerified}
+          />
+        )}
       </main>
     </div>
+  );
+}
+
+function OtpSixDigitInput({
+  value,
+  onChange,
+  hasError,
+  autoFocus = true,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  hasError?: boolean;
+  autoFocus?: boolean;
+}) {
+  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+  const digits = Array.from({ length: 6 }, (_, i) => value[i] || "");
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
+      if (!digits[index] && index > 0) {
+        inputsRef.current[index - 1]?.focus();
+      }
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      inputsRef.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < 5) {
+      e.preventDefault();
+      inputsRef.current[index + 1]?.focus();
+    }
+  };
+
+  const handleInputChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value.replace(/\D/g, "");
+    if (!rawVal) {
+      const nextDigits = [...digits];
+      nextDigits[index] = "";
+      onChange(nextDigits.join(""));
+      return;
+    }
+
+    if (rawVal.length > 1) {
+      const pasted = rawVal.slice(0, 6);
+      onChange(pasted);
+      const nextFocus = Math.min(pasted.length, 5);
+      inputsRef.current[nextFocus]?.focus();
+      return;
+    }
+
+    const nextDigits = [...digits];
+    nextDigits[index] = rawVal[rawVal.length - 1];
+    const newCombined = nextDigits.join("");
+    onChange(newCombined);
+
+    if (index < 5) {
+      inputsRef.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasted) {
+      onChange(pasted);
+      const targetIndex = Math.min(pasted.length, 5);
+      inputsRef.current[targetIndex]?.focus();
+    }
+  };
+
+  return (
+    <div className="otp-boxes-container">
+      {/* Hidden input strictly for automation test locator and accessibility */}
+      <input
+        id="register-otp-input"
+        aria-label="Mã OTP 6 số"
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={6}
+        value={value}
+        onChange={(e) => {
+          const clean = e.target.value.replace(/\D/g, "").slice(0, 6);
+          onChange(clean);
+        }}
+        style={{
+          position: "absolute",
+          opacity: 0,
+          pointerEvents: "none",
+          width: 1,
+          height: 1,
+          margin: -1,
+          padding: 0,
+          border: 0,
+        }}
+        tabIndex={-1}
+      />
+      {digits.map((digit, idx) => (
+        <Fragment key={idx}>
+          {idx === 3 && <span className="otp-box-divider" aria-hidden="true" />}
+          <input
+            ref={(el) => { inputsRef.current[idx] = el; }}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
+            autoFocus={autoFocus && idx === 0}
+            className={`otp-digit-slot ${digit ? "is-filled" : ""} ${hasError ? "has-error" : ""}`}
+            value={digit}
+            onChange={(e) => handleInputChange(idx, e)}
+            onKeyDown={(e) => handleKeyDown(idx, e)}
+            onPaste={handlePaste}
+            onFocus={(e) => e.target.select()}
+            aria-label={`Số thứ ${idx + 1}`}
+          />
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+// Mirrors backend AuthService.issueVerification: EMAIL_VERIFICATION codes expire
+// after 3 minutes and a new code can be requested 60 seconds after the last one.
+const OTP_LIFETIME_SECONDS = 180;
+const OTP_RESEND_AFTER_SECONDS = 60;
+const formatClock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+
+function EmailOtpDialog({ email, sentAt: initialSentAt, onClose, onVerified, intro }: {
+  email: string;
+  sentAt: number;
+  onClose: () => void;
+  onVerified: () => Promise<void>;
+  intro?: string;
+}) {
+  const { notify } = useNotification();
+  const [sentAt, setSentAt] = useState(initialSentAt);
+  const [now, setNow] = useState(() => Date.now());
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState(intro ?? "Mã gồm 6 chữ số đã được gửi tới email của bạn.");
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const elapsed = Math.max(0, Math.floor((now - sentAt) / 1000));
+  const remaining = Math.max(0, OTP_LIFETIME_SECONDS - elapsed);
+  const expired = remaining === 0;
+  const canResend = elapsed >= OTP_RESEND_AFTER_SECONDS;
+
+  const resend = async () => {
+    if (resending || loading || !canResend) return;
+    setResending(true);
+    setError("");
+    try {
+      await apiRequest("/auth/resend-verification", { email });
+      setSentAt(Date.now());
+      setNow(Date.now());
+      setCode("");
+      setNotice("Đã gửi mã mới. Mã cũ không còn dùng được.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const verify = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(code)) {
+      setError("Mã OTP phải gồm đúng 6 chữ số.");
+      return;
+    }
+    if (expired) {
+      setError("Mã đã hết hạn. Hãy gửi mã mới.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await apiRequest("/auth/verify-email", { email, otp: code });
+      notify.success("Xác thực hoàn tất", "Tài khoản của bạn đã được kích hoạt.");
+      await onVerified();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <ResponsiveDialog open title="Xác minh email" onClose={onClose} className="otp-dialog-modal" hideHeader usePortal={false}>
+      <div className="otp-card-header">
+        <button type="button" className="otp-close-btn" aria-label="Đóng" onClick={onClose}>
+          <span aria-hidden="true">×</span>
+        </button>
+        <div className="otp-badge-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+        </div>
+        <h2 className="otp-title">Xác minh email</h2>
+        <p className="otp-subtitle">Nhập mã 6 chữ số đã gửi tới</p>
+        <p className="otp-email-value" data-testid="otp-email">{email}</p>
+      </div>
+
+      <form onSubmit={verify} noValidate>
+        <OtpSixDigitInput value={code} onChange={(next) => { setCode(next); setError(""); }} hasError={Boolean(error)} autoFocus />
+
+        <div className="otp-action-row">
+          <span className={`otp-timer${expired ? " is-expired" : remaining <= 30 ? " is-ending" : ""}`} role="timer">
+            {expired ? "Mã đã hết hạn" : <>Mã hết hạn sau <strong>{formatClock(remaining)}</strong></>}
+          </span>
+          {canResend && (
+            <button type="button" className="otp-resend-btn" onClick={resend} disabled={resending || loading}>
+              {resending ? "Đang gửi..." : "Gửi lại mã"}
+            </button>
+          )}
+        </div>
+
+        {error ? (
+          <div className="otp-alert otp-alert-error" role="alert">
+            <Icon name="alert" size="small" />
+            <span>{error}</span>
+          </div>
+        ) : notice ? (
+          <div className="otp-alert otp-alert-success" role="status">
+            <Icon name="circle-check" size="small" />
+            <span>{notice}</span>
+          </div>
+        ) : null}
+
+        <button type="submit" className="otp-submit-btn" disabled={loading || expired || code.length !== 6}>
+          {loading ? (
+            <><span className="spinner" aria-hidden="true" /><span>Đang kích hoạt tài khoản...</span></>
+          ) : (
+            <><span>Xác nhận email & Đăng nhập</span><Icon name="arrow-right" size="small" /></>
+          )}
+        </button>
+
+        <p className="otp-security-note">
+          Không thấy email? Kiểm tra mục Thư rác. Nhập sai email thì đóng hộp này và sửa ngay trong form.
+        </p>
+      </form>
+    </ResponsiveDialog>
   );
 }
 
@@ -348,22 +615,24 @@ export function RegisterPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // OTP Modal State
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [registeredEmail, setRegisteredEmail] = useState("");
-  const [registeredPassword, setRegisteredPassword] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [otpResending, setOtpResending] = useState(false);
-  const [otpCooldown, setOtpCooldown] = useState(0);
-  const [otpError, setOtpError] = useState("");
-  const [otpSuccessNotice, setOtpSuccessNotice] = useState("");
+  const registerSubmitRef = useRef<HTMLButtonElement>(null);
+  const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string; sentAt: number } | null>(null);
 
-  useEffect(() => {
-    if (!otpCooldown) return;
-    const timer = window.setTimeout(() => setOtpCooldown((value) => Math.max(0, value - 1)), 1000);
-    return () => window.clearTimeout(timer);
-  }, [otpCooldown]);
+  const closeOtpModal = () => {
+    setPendingVerification(null);
+    // Wrong email? The user edits the registration form and submits again.
+    requestAnimationFrame(() => document.getElementById("register-email")?.focus());
+  };
+
+  const handleVerified = async () => {
+    if (!pendingVerification) return;
+    try {
+      const loggedUser = await login(pendingVerification.email, pendingVerification.password, true);
+      navigate(resumeDestination(location.state?.from, loggedUser.role, "/onboarding"), { replace: true });
+    } catch {
+      navigate("/login", { replace: true, state: { from: location.state?.from || "/onboarding", isNewUser: true, email: pendingVerification.email } });
+    }
+  };
 
   const handleGoogleAuth = async () => {
     setError("");
@@ -428,69 +697,12 @@ export function RegisterPage() {
       }
       await apiRequest("/auth/register", { fullName: cleanName, email: cleanEmail, password: cleanPassword, ...(cleanPhone ? { phone: cleanPhone } : {}) });
       trackSignUpEvent("email");
-      setRegisteredEmail(cleanEmail);
-      setRegisteredPassword(cleanPassword);
-      setOtpCode("");
-      setOtpError("");
-      setOtpSuccessNotice("Mã xác thực gồm 6 chữ số đã được gửi tới email của bạn.");
-      setOtpCooldown(60);
-      setShowOtpModal(true);
+      setPendingVerification({ email: cleanEmail, password: cleanPassword, sentAt: Date.now() });
       notify.success("Đăng ký thành công", "Vui lòng nhập mã OTP để kích hoạt tài khoản.");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    if (otpResending || otpCooldown > 0 || otpLoading) return;
-    setOtpResending(true);
-    setOtpError("");
-    setOtpSuccessNotice("");
-    try {
-      await apiRequest("/auth/resend-verification", { email: registeredEmail });
-      setOtpCooldown(60);
-      setOtpSuccessNotice("Mã mới đã được gửi qua email. Hãy kiểm tra hộp thư của bạn.");
-      notify.success("Đã gửi mã xác minh", "Vui lòng kiểm tra hộp thư đến hoặc mục thư rác (Spam).");
-    } catch (err) {
-      setOtpError(getErrorMessage(err));
-    } finally {
-      setOtpResending(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: FormEvent) => {
-    e.preventDefault();
-    const cleanOtp = otpCode.trim();
-    if (!/^\d{6}$/.test(cleanOtp)) {
-      const msg = "Mã OTP phải gồm đúng 6 chữ số.";
-      setOtpError(msg);
-      notify.error("Mã OTP không hợp lệ", msg);
-      return;
-    }
-    setOtpLoading(true);
-    setOtpError("");
-    try {
-      await apiRequest("/auth/verify-email", { email: registeredEmail, otp: cleanOtp });
-      notify.success("Xác thực hoàn tất", "Tài khoản của bạn đã được kích hoạt thành công!");
-      try {
-        const loggedUser = await login(registeredEmail, registeredPassword, true);
-        navigate(resumeDestination(location.state?.from, loggedUser.role, "/onboarding"), { replace: true });
-      } catch {
-        navigate("/login", {
-          replace: true,
-          state: {
-            from: location.state?.from || "/onboarding",
-            isNewUser: true,
-            email: registeredEmail,
-          },
-        });
-      }
-    } catch (err) {
-      setOtpError(getErrorMessage(err));
-    } finally {
-      setOtpLoading(false);
     }
   };
 
@@ -643,6 +855,7 @@ export function RegisterPage() {
             )}
 
             <button
+              ref={registerSubmitRef}
               type="submit"
               className="auth-btn-primary"
               disabled={loading || initializing}
@@ -683,177 +896,13 @@ export function RegisterPage() {
           </form>
         </div>
 
-        {showOtpModal && (
-          <ResponsiveDialog
-            open={showOtpModal}
-            title="Xác minh email"
-            onClose={() => setShowOtpModal(false)}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-                  <Badge tone="info">BƯỚC CUỐI CÙNG</Badge>
-                </div>
-                <h3 style={{ margin: "0 0 6px", fontSize: "20px", color: "var(--color-primary-700)", fontWeight: 700 }}>
-                  Xác minh email
-                </h3>
-                <p style={{ margin: 0, fontSize: "14px", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-                  Nhập mã OTP gồm 6 chữ số được gửi tới hộp thư của bạn.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "12px 16px",
-                  background: "var(--color-bg)",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--color-border)",
-                  gap: "12px",
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: "11px", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>
-                    Email cần xác minh
-                  </div>
-                  <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-primary-700)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {registeredEmail}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowOtpModal(false)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--color-secondary-600)",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                    flexShrink: 0,
-                    padding: "4px 0",
-                  }}
-                >
-                  Đổi email khác? Quay lại
-                </button>
-              </div>
-
-              <form onSubmit={handleVerifyOtp} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                <div className="auth-field-item">
-                  <label className="auth-field-label" htmlFor="register-otp-input">
-                    <span>Mã OTP 6 số</span>
-                  </label>
-                  <div className="auth-input-wrapper">
-                    <input
-                      id="register-otp-input"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={6}
-                      autoComplete="one-time-code"
-                      autoFocus
-                      placeholder="682490"
-                      value={otpCode}
-                      onChange={(e) => {
-                        setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6));
-                        setOtpError("");
-                      }}
-                      style={{
-                        fontSize: "26px",
-                        fontWeight: 700,
-                        letterSpacing: "8px",
-                        textAlign: "center",
-                        height: "54px",
-                        fontFamily: "monospace, sans-serif",
-                      }}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <button
-                    type="button"
-                    onClick={handleResendOtp}
-                    disabled={otpResending || otpLoading || otpCooldown > 0}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      padding: 0,
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      color: otpCooldown > 0 ? "var(--color-text-muted)" : "var(--color-secondary-600)",
-                      cursor: otpCooldown > 0 ? "default" : "pointer",
-                    }}
-                  >
-                    {otpResending
-                      ? "Đang gửi lại mã..."
-                      : otpCooldown > 0
-                      ? `Gửi lại sau ${otpCooldown} giây`
-                      : "Chưa nhận được mã? Gửi lại OTP"}
-                  </button>
-                </div>
-
-                {otpSuccessNotice && (
-                  <p
-                    role="status"
-                    style={{
-                      color: "var(--color-success, #007A3D)",
-                      fontSize: "12px",
-                      margin: 0,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {otpSuccessNotice}
-                  </p>
-                )}
-
-                {otpError && (
-                  <div className="auth-error-banner" role="alert" style={{ margin: 0 }}>
-                    <Icon name="alert" size="small" />
-                    <span>{otpError}</span>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="auth-btn-primary"
-                  disabled={otpLoading || otpCode.trim().length !== 6}
-                  style={{ height: "48px", marginTop: "4px" }}
-                >
-                  {otpLoading ? (
-                    <>
-                      <span className="spinner" aria-hidden="true" />
-                      <span>Đang xác nhận mã...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Xác nhận email & Đăng nhập</span>
-                      <Icon name="arrow-right" size="small" />
-                    </>
-                  )}
-                </button>
-
-                <div
-                  className="auth-security"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    fontSize: "12px",
-                    color: "var(--color-text-muted)",
-                    marginTop: "4px",
-                  }}
-                >
-                  <Icon name="info" size="small" />
-                  <span>Mã xác thực có hiệu lực trong vòng 15 phút kể từ lúc gửi.</span>
-                </div>
-              </form>
-            </div>
-          </ResponsiveDialog>
+        {pendingVerification && (
+          <EmailOtpDialog
+            email={pendingVerification.email}
+            sentAt={pendingVerification.sentAt}
+            onClose={closeOtpModal}
+            onVerified={handleVerified}
+          />
         )}
       </main>
     </div>
@@ -1128,170 +1177,6 @@ export function ResetPage() {
               </Button>
             </div>
           )}
-        </div>
-      </main>
-    </div>
-  );
-}
-
-export function VerifyPage() {
-  const navigate = useNavigate();
-  const { notify } = useNotification();
-  const location = useLocation();
-
-  const [email, setEmail] = useState(() => (location.state as { email?: string } | null)?.email
-    || new URLSearchParams(window.location.hash.slice(1)).get("email") || "");
-  useEffect(() => { if (window.location.hash) window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search); }, []);
-  const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [resendNotice, setResendNotice] = useState("");
-  const [resendSuccess, setResendSuccess] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-
-  useEffect(() => {
-    if (!cooldown) return;
-    const timer = window.setTimeout(() => setCooldown((value) => Math.max(0, value - 1)), 1000);
-    return () => window.clearTimeout(timer);
-  }, [cooldown]);
-
-  const handleVerify = async (e: FormEvent) => {
-    e.preventDefault();
-    setResendSuccess(false);
-    if (!/^\d{6}$/.test(code.trim())) {
-      const msg = "Mã OTP phải gồm đúng 6 chữ số.";
-      setResendNotice(msg);
-      notify.error("Mã OTP không hợp lệ", msg);
-      return;
-    }
-    setLoading(true);
-    setResendNotice("");
-    try {
-      await apiRequest("/auth/verify-email", { email: email.trim(), otp: code.trim() });
-      notify.success(
-        "Xác thực hoàn tất",
-        "Tài khoản đã được kích hoạt. Vui lòng đăng nhập."
-      );
-      navigate("/login", {
-        replace: true,
-        state: {
-          from: (location.state as { from?: string } | null)?.from || "/onboarding",
-          isNewUser: (location.state as { isNewUser?: boolean } | null)?.isNewUser ?? true,
-        },
-      });
-    } catch (err) {
-      setResendNotice(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    if (resending || cooldown || loading) return;
-    setResendSuccess(false);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setResendNotice("Vui lòng nhập email hợp lệ để nhận mã xác minh.");
-      return;
-    }
-    setResending(true);
-    setResendNotice("");
-    try {
-      await apiRequest("/auth/resend-verification", { email: email.trim() });
-      setResendSuccess(true);
-      setCooldown(60);
-      setResendNotice(
-        "Nếu tài khoản phù hợp, mã mới sẽ được gửi qua email. Hãy chờ ít nhất 60 giây trước khi yêu cầu lại."
-      );
-    } catch (err) {
-      setResendNotice(getErrorMessage(err));
-    } finally {
-      setResending(false);
-    }
-  };
-
-  return (
-    <div className="auth-page">
-      <AuthStory
-        title="Xác thực danh tính tài khoản"
-        description="Nhập mã 6 chữ số được gửi đến email của bạn để kích hoạt tài khoản."
-        quote="Xác minh email giúp bảo vệ quyền truy cập vào tài khoản của bạn."
-      />
-
-      <main className="auth-form-panel" id="main-content">
-        <div className="auth-topbar">
-          <Link to="/" className="site-brand" aria-label="Trang chủ An Hưu">
-            <BrandLogo />
-          </Link>
-          <div className="auth-topbar-action">
-            <span>Đổi email khác?</span>
-            <Link to="/register" state={{ from: location.state?.from }} className="auth-switch-link">Quay lại</Link>
-          </div>
-        </div>
-
-        <div className="auth-form-wrap">
-          <div className="auth-heading">
-            <span>BƯỚC CUỐI CÙNG</span>
-            <h1>Xác minh email</h1>
-            <p>Nhập mã OTP gồm 6 chữ số được gửi tới hộp thư của bạn.</p>
-          </div>
-
-          <form className="auth-form" onSubmit={handleVerify}>
-            <Input
-              label="Email cần xác minh"
-              type="email"
-              value={email}
-              onChange={setEmail}
-              autoComplete="email"
-            />
-            <div className="verification-field">
-              <Input
-                label="Mã OTP 6 số"
-                placeholder="682490"
-                value={code}
-                onChange={setCode}
-                inputMode="numeric"
-              />
-              <button
-                type="button"
-                className="auth-text-action"
-                onClick={handleResend}
-                disabled={resending || loading || cooldown > 0}
-              >
-                {resending
-                  ? "Đang gửi lại mã..."
-                  : cooldown > 0
-                  ? `Gửi lại sau ${cooldown} giây`
-                  : "Chưa nhận được mã? Gửi lại OTP"}
-              </button>
-            </div>
-
-            {resendNotice && (
-              <p
-                role={resendSuccess ? "status" : "alert"}
-                style={{
-                  color: resendSuccess ? "var(--color-primary-700)" : "var(--color-danger)",
-                  fontSize: "12px",
-                  margin: 0,
-                }}
-              >
-                {resendNotice}
-              </p>
-            )}
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="large"
-              loading={loading}
-            >
-              Xác nhận email & Đăng nhập <Icon name="arrow-right" />
-            </Button>
-
-            <div className="auth-security">
-              <Icon name="info" size="small" />
-              <span>Mã xác thực có hiệu lực trong vòng 15 phút kể từ lúc gửi.</span>
-            </div>
-          </form>
         </div>
       </main>
     </div>

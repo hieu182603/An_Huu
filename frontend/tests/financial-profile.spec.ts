@@ -27,27 +27,19 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     await page.goto("/onboarding");
 
     // Welcome step -> Next
-    await page.getByRole("button", { name: /Tiếp tục bước tiếp theo/i }).click();
+    await page.getByRole("button", { name: /^(Tiếp tục|Bắt đầu khai báo)/i }).click();
 
     // Bước 1: Personal -> đổi tuổi từ 32 thành 45
     const ageField = page.getByLabel(/Tuổi hiện tại của bạn/i);
     await ageField.fill("45");
 
-    // Bấm Lưu nháp
-    const saveDraftBtn = page.getByRole("button", { name: /Lưu nháp/i });
-    await saveDraftBtn.click();
+    // "Tiếp tục" lưu nháp lên tài khoản trước khi sang bước sau
+    await page.getByRole("button", { name: /^Tiếp tục/i }).click();
+    await expect(page.getByRole("heading", { name: /Thu nhập/i }).first()).toBeVisible();
 
-    // Đợi toast lưu nháp thành công
-    await expect(page.locator(".save-toast")).toBeVisible({ timeout: 5000 });
-
-    // Tải lại trang (reload)
+    // Tải lại trang (reload): khôi phục ở bước Thu nhập, quay lại bước Cá nhân
     await page.reload();
-
-    // Nếu trang bắt đầu ở bước Khởi đầu, bấm Tiếp tục bước tiếp theo để vào bước Cá nhân
-    const nextBtnAfterReload = page.getByRole("button", { name: /Tiếp tục bước tiếp theo/i });
-    if (await nextBtnAfterReload.isVisible()) {
-      await nextBtnAfterReload.click();
-    }
+    await page.getByRole("button", { name: /Quay lại/i }).click();
 
     // Form khôi phục ngay bước Cá nhân với tuổi 45
     const ageAfterReload = page.getByLabel(/Tuổi hiện tại của bạn/i);
@@ -62,7 +54,7 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     await page.goto("/onboarding");
 
     // Step 0: Welcome
-    await page.getByRole("button", { name: /Tiếp tục bước tiếp theo/i }).click();
+    await page.getByRole("button", { name: /^(Tiếp tục|Bắt đầu khai báo)/i }).click();
 
     // Step 1: Personal -> nhập tuổi 45
     const ageField = page.getByLabel(/Tuổi hiện tại của bạn/i);
@@ -70,12 +62,12 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
 
     // Đi qua các bước
     for (let i = 0; i < 6; i++) {
-      await page.getByRole("button", { name: /Tiếp tục bước tiếp theo/i }).click();
+      await page.getByRole("button", { name: /^(Tiếp tục|Bắt đầu khai báo)/i }).click();
       await page.waitForTimeout(200);
     }
 
     // Step 7: Summary -> Hoàn tất hồ sơ
-    await page.getByRole("button", { name: /Hoàn tất hồ sơ & Nhận kế hoạch/i }).click();
+    await page.getByRole("button", { name: /Hoàn tất hồ sơ/i }).click();
 
     // Màn hình hoàn tất xuất hiện
     await expect(page.getByText(/HỒ SƠ TÀI CHÍNH HOÀN TẤT/i)).toBeVisible({ timeout: 5000 });

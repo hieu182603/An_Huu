@@ -65,6 +65,7 @@ export const vi = {
   "admin_nav.partners": "Đối tác & Sản phẩm",
   "admin_nav.ai": "Trợ lý AI & Tri thức",
   "admin_nav.financial_config": "Cấu hình tài chính",
+  "admin_nav.legal_rules": "Quản trị luật BHXH",
   "admin_nav.support": "Hỗ trợ & Ticket",
   "admin_nav.operations": "Tình trạng hệ thống",
   "admin_nav.reports": "Báo cáo",

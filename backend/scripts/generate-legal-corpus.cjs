@@ -57,6 +57,11 @@ function buildDrafts(directory = root) {
     citation('ND73_ART3', 'BASE2024', 'Nghị định 73/2024/NĐ-CP', 'Điều 3 khoản 2; PDF trang 3', '2024-07-01', '2026-07-01'),
     citation('ND161_ART3', 'BASE2026', 'Nghị định 161/2026/NĐ-CP', 'Điều 3 khoản 2; PDF trang 3', '2026-07-01'),
   ];
+  const art53 = citation('LAW_ART53', 'R02', 'Luật BHXH 41/2024/QH15, bản hợp nhất Công báo 133/2026', 'Điều 53 khoản 8: thời gian nghỉ hưởng thai sản được tính là thời gian đóng BHXH bắt buộc, không phải đóng', '2025-07-01');
+  // Original signed text (PDF p17, Art124 p51); later consolidations not separately compared for Art39(2).
+  const law2014Art39 = citation('LAW2014_ART39', 'LAW2014', 'Luật BHXH 58/2014/QH13 (bản ký gốc; hiệu lực 01/01/2016–30/06/2025)', 'Điều 39 khoản 2, PDF trang 17: nghỉ hưởng thai sản từ 14 ngày làm việc trong tháng được tính là thời gian đóng BHXH', '2016-01-01', '2025-07-01');
+  // Official full-text HTML snapshot (Cổng TTĐT Chính phủ); Art35(2) and Art140 read directly; not a signed PDF.
+  const law2006Art35 = citation('LAW2006_ART35', 'LAW2006', 'Luật BHXH 71/2006/QH11 (toàn văn Cổng TTĐT Chính phủ; hiệu lực 01/01/2007–31/12/2015)', 'Điều 35 khoản 2: thời gian nghỉ hưởng chế độ thai sản được tính là thời gian đóng BHXH', '2007-01-01', '2016-01-01');
   const table = (kind, key, value, citationId, effectiveFrom = '2026-01-01', effectiveTo = '2027-01-01') => ({ kind, key, value, citationId, effectiveFrom, effectiveTo });
   const tables = [];
   for (const [sex, blocks] of Object.entries(cohorts)) {
@@ -75,10 +80,23 @@ function buildDrafts(directory = root) {
   const drafts = [
     ['bh1-employer.draft.json','VN_BH1_EMPLOYER_2026','vn-pension-benefit-v2','BH1_COMPULSORY_EMPLOYER_NORMAL','vn-bh1-employer-2025-v2'],
     ['bh2-state-mixed.draft.json','VN_BH2_STATE_MIXED_2026','vn-pension-state-v1','BH2_COMPULSORY_STATE_MIXED_NORMAL','vn-bh2-state-mixed-2025-v1'],
-  ].map(([file, code, engineCode, branch, strategyCode]) => ({ file, draft: {
-    code, effectiveFrom: '2026-01-01', effectiveTo: '2027-01-01', supersedesId: null,
-    document: { schemaVersion: 1, engineCode, coverage: [{ branch, strategyCode, citationIds: citations.map(c => c.id), requiredTableKeys }], citations, tables },
-  } }));
+  ].map(([file, code, engineCode, branch, strategyCode]) => {
+    // Only BH1 gains LAW_ART53 (maternity credit); the v1 state draft keeps its exact bytes.
+    const docCitations = file === 'bh1-employer.draft.json' ? [...citations, art53, law2014Art39, law2006Art35] : citations;
+    return { file, draft: { code, effectiveFrom: '2026-01-01', effectiveTo: '2027-01-01', supersedesId: null,
+      document: { schemaVersion: 1, engineCode, coverage: [{ branch, strategyCode, citationIds: docCitations.map(c => c.id), requiredTableKeys }], citations: docCitations, tables } } };
+  });
+  // v2 citations are separate so the six earlier drafts keep their exact bytes.
+  const stateV2Citations = [...citations,
+    citation('LAW_ART2', 'R02', 'Luật BHXH 41/2024/QH15, bản hợp nhất Công báo 133/2026', 'Điều 2 khoản 1 điểm a, b, d, đ: nhóm tham gia (dân sự, sĩ quan/QNCN, hạ sĩ quan/binh sĩ)', '2025-07-01'),
+    art53, law2014Art39, law2006Art35,
+    citation('ND158_ART34', 'R03', 'Nghị định 158/2025/NĐ-CP', 'Điều 34 khoản 1–4: thời gian công tác trước 01/01/1995 được tính là thời gian đã đóng BHXH, do cơ quan BHXH quyết định', '2025-07-01')];
+  drafts.push({ file: 'bh2-state-mixed-v2.draft.json', draft: {
+    code: 'VN_BH2_STATE_MIXED_V2_2026', effectiveFrom: '2026-01-01', effectiveTo: '2027-01-01', supersedesId: null,
+    document: { schemaVersion: 1, engineCode: 'vn-pension-state-v2',
+      coverage: [{ branch: 'BH2_COMPULSORY_STATE_MIXED_NORMAL', strategyCode: 'vn-bh2-state-mixed-2025-v2', citationIds: stateV2Citations.map(c => c.id), requiredTableKeys }],
+      citations: stateV2Citations, tables },
+  } });
   const voluntaryCitations = [
     ...citations.filter(c => ['LAW_ART5','LAW_ART64','LAW_ART72','LAW_ART73','LAW_ART140_13','ND135_ANNEX_I','CV340_2026','ND73_ART3','ND161_ART3'].includes(c.id)),
     ...[98,99,100,101,104].map(article => citation('LAW_ART' + article, 'R02', 'Luật BHXH 41/2024/QH15, bản hợp nhất Công báo 133/2026', 'Điều ' + article + '; hưu trí tự nguyện thông thường', '2025-07-01')),
@@ -101,6 +119,30 @@ function buildDrafts(directory = root) {
       coverage: [{ branch: 'BH2_VOLUNTARY_STATE_MIXED_NORMAL', strategyCode: 'vn-voluntary-state-normal-2025-v1', citationIds: stateVoluntaryCitations.map(c => c.id),
         requiredTableKeys: [...new Set(voluntaryTables.filter(t => t.kind !== 'AGE_MONTHS').map(t => `${t.kind}:${t.key}`))] }],
       citations: stateVoluntaryCitations, tables: voluntaryTables },
+  } });
+  // Benefit year 2025 (TT11 Art5(4)(5) transition starts 2025-07). Signed TT01/2025 pages 2–3, visually transcribed.
+  // TT01 was issued under ND115/ND134 (replaced 01/07/2025); its stated scope is benefits 01/01–31/12/2025 and the
+  // values follow the same CPI-1994 method as ND158 Art16. No explicit post-07/2025 transitional confirmation found.
+  const wage2025 = ['5.63','4.78','4.51','4.37','4.06','3.89','3.95','3.97','3.82','3.70','3.43','3.17','2.95','2.72','2.21','2.07','1.90','1.60','1.47','1.37','1.32','1.31','1.28','1.23','1.19','1.16','1.12','1.10','1.07','1.04','1.00','1.00'];
+  const tt01 = (id, locator) => citation(id, 'FACTORS2025', 'Thông tư 01/2025/TT-BLĐTBXH (căn cứ NĐ115/2015, NĐ134/2015)', locator, '2025-01-01', '2026-01-01');
+  const transitionCitations = [
+    ...voluntaryCitations.filter(c => !['CV340_2026', 'CV340_INCOME_2026', 'ND161_ART3'].includes(c.id)),
+    tt01('TT01_2025_WAGE', 'Điều 2, Bảng 1, PDF trang 2: hưởng từ 01/01 đến 31/12/2025; chưa có xác nhận chuyển tiếp sau 01/07/2025'),
+    tt01('TT01_2025_INCOME', 'Điều 3, Bảng 2, PDF trang 3: hưởng từ 01/01 đến 31/12/2025; chưa có xác nhận chuyển tiếp sau 01/07/2025'),
+    citation('TT11_ART5_4_5', 'R06', 'Thông tư 11/2025/TT-BNV', 'Điều 5 khoản 4–5; PDF trang 3: thời điểm hưởng là ngày Luật có hiệu lực', '2025-07-01'),
+    citation('LAW_ART141_9', 'R02', 'Luật BHXH 41/2024/QH15, bản hợp nhất Công báo 133/2026', 'Điều 141 khoản 9: tham gia tự nguyện trước 01/01/2021, đủ 20 năm, hưởng ở tuổi 60/55', '2025-07-01')];
+  const t2025 = (kind, key, value, citationId) => table(kind, key, value, citationId, '2025-07-01', '2026-01-01');
+  const transitionTables = [
+    ...tables.filter(t => t.kind === 'AGE_MONTHS').map(t => ({ ...t, effectiveFrom: '2025-07-01', effectiveTo: '2026-01-01' })),
+    ...wage2025.map((value, i) => t2025('WAGE_FACTOR', `2025:${i === 0 ? 'PRE_1995' : 1994 + i}`, value, 'TT01_2025_WAGE')),
+    ...wage2025.slice(14).map((value, i) => t2025('INCOME_FACTOR', `2025:${2008 + i}`, value, 'TT01_2025_INCOME')),
+    t2025('REFERENCE_AMOUNT', 'GENERAL', '2340000', 'ND73_ART3')];
+  drafts.push({ file: 'bh2-voluntary-transition-2025.draft.json', draft: {
+    code: 'VN_BH2_VOLUNTARY_TRANSITION_2025', effectiveFrom: '2025-07-01', effectiveTo: '2026-01-01', supersedesId: null,
+    document: { schemaVersion: 1, engineCode: 'vn-pension-voluntary-v1',
+      coverage: [{ branch: 'BH2_VOLUNTARY_EMPLOYER_MIXED_NORMAL', strategyCode: 'vn-voluntary-employer-normal-2025-v1', citationIds: transitionCitations.map(c => c.id),
+        requiredTableKeys: [...new Set(transitionTables.filter(t => t.kind !== 'AGE_MONTHS').map(t => `${t.kind}:${t.key}`))] }],
+      citations: transitionCitations, tables: transitionTables },
   } });
   const rate = buildPaymentRateFragment(directory);
   const topUpCitations = [...stateVoluntaryCitations,

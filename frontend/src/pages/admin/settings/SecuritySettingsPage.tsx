@@ -45,6 +45,7 @@ export default function SecuritySettingsPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading || error || saving) return;
     setSaving(true);
     try {
       const updated = await authenticatedRequest<SecuritySettings>("/admin/settings/security", form, "PUT");
@@ -88,7 +89,7 @@ export default function SecuritySettingsPage() {
 
       {loading ? (
         <p style={{ padding: 20 }}>{isEn ? "Loading security settings..." : "Đang tải cấu hình bảo mật..."}</p>
-      ) : (
+      ) : error ? null : (
         <Card className="system-settings-card">
           <form onSubmit={handleSubmit} className="system-settings-form">
             <div className="system-setting-item">

@@ -3,7 +3,7 @@ import { RetirementDecimal as D } from "../retirement/engine";
 import { legalRuleDocumentSchema, type LegalRuleDocument } from "./insurance-schema";
 import { ordinaryBenefitStrategy } from "./benefit-validation";
 import { ordinaryBenefitStrategyV2 } from "./benefit-validation-v2";
-import { stateBenefitStrategy } from "./state-validation";
+import { stateBenefitStrategy, stateBenefitStrategyV2 } from "./state-validation";
 import { voluntaryBenefitStrategy, voluntaryStateBenefitStrategy } from "./voluntary-validation";
 import { voluntaryTopUpStrategy } from "./voluntary-top-up-validation";
 import { voluntaryPrepaidStrategy } from "./voluntary-prepaid-validation";
@@ -13,7 +13,7 @@ export type LegalStrategy = { engineCode: string; branch: string; strategyCode: 
   validate: (document: LegalRuleDocument) => { issues: Array<{ path: string; code: string }>; cases: LegalFixtureResult[] } };
 // Each server strategy carries independent statutory fixtures. Other branches
 // remain unregistered until their own source/coverage checks are implemented.
-export const legalStrategies: readonly LegalStrategy[] = [ordinaryBenefitStrategy, ordinaryBenefitStrategyV2, stateBenefitStrategy, voluntaryBenefitStrategy, voluntaryStateBenefitStrategy, voluntaryTopUpStrategy, voluntaryPrepaidStrategy];
+export const legalStrategies: readonly LegalStrategy[] = [ordinaryBenefitStrategy, ordinaryBenefitStrategyV2, stateBenefitStrategy, stateBenefitStrategyV2, voluntaryBenefitStrategy, voluntaryStateBenefitStrategy, voluntaryTopUpStrategy, voluntaryPrepaidStrategy];
 export function validateLegalDocument(value: LegalRuleDocument, strategies: readonly LegalStrategy[] = legalStrategies) {
   const document = legalRuleDocumentSchema.parse(value), issues: Array<{ path: string; code: string }> = [];
   const citations = new Set<string>(), branches = new Set<string>();

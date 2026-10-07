@@ -15,8 +15,8 @@ it.each([[120, 0, "3261866.67"], [60, 60, "3539200.00"], [179, 0, "4034400.00"]]
 });
 it("registers state/voluntary validation goldens without changing employer/voluntary coverage", () => {
   const r = validateLegalDocument(validatedVoluntaryStateFixture().rules);
-  expect(r.issues).toEqual([]); expect(r.valid).toBe(true); expect(r.coverage[0].cases).toHaveLength(14);
-  expect(validateLegalDocument(validatedVoluntaryFixture().rules).coverage[0].cases).toHaveLength(8);
+  expect(r.issues).toEqual([]); expect(r.valid).toBe(true); expect(r.coverage[0].cases).toHaveLength(15);
+  expect(validateLegalDocument(validatedVoluntaryFixture().rules).coverage[0].cases).toHaveLength(9);
 });
 it.each([[150, 0, "4317866.67"], [130, 30, "3813422.22"]] as const)("uses the state wage window and the appropriate all-time comparison (%i/%i)", (state, employer, expected) => {
   const f = validatedVoluntaryStateFixture(state, employer);

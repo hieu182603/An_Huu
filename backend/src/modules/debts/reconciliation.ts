@@ -14,7 +14,8 @@ export const loanBalanceChangeSchema = z.object({ changeId: z.string().uuid(), b
   kind: z.literal("CONFIRMED_PRINCIPAL_ADVANCE"), evidence: z.array(loanEvidenceSchema).min(1).max(20) }).strict();
 export const loanResponsibilityAmendmentSchema = z.object({ effectiveOn: dateSchema, openingUserPaid: moneySchema,
   confirm: z.literal(true), evidence: z.array(loanEvidenceSchema).min(1).max(20) }).strict();
-export const loanReconciliationSchema = z.object({ previous: z.union([loanContractV2Schema, loanBalanceBasisSchema]), next: loanContractV2Schema,
+// next may be an intermediate dated basis (e.g. a balance-scope change point).
+export const loanReconciliationSchema = z.object({ previous: z.union([loanContractV2Schema, loanBalanceBasisSchema]), next: z.union([loanContractV2Schema, loanBalanceBasisSchema]),
   allocations: z.array(loanAllocationSchema).max(500), principalAdvances: z.array(loanBalanceChangeSchema).max(100),
   responsibilityAmendment: loanResponsibilityAmendmentSchema.optional() }).strict();
 export type LoanReconciliation = z.infer<typeof loanReconciliationSchema>;

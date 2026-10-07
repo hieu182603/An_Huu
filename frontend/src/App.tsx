@@ -25,7 +25,6 @@ const ForgotPage = lazy(() => import("./pages/AuthPages").then(module => ({ defa
 const LoginPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.LoginPage })));
 const RegisterPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.RegisterPage })));
 const ResetPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.ResetPage })));
-const VerifyPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.VerifyPage })));
 const OnboardingPage = lazy(() => import("./pages/OnboardingPage"));
 const UserLayout = lazy(() => import("./pages/UserLayout"));
 const UserDashboard = lazy(() => import("./pages/UserDashboard"));
@@ -44,6 +43,7 @@ const AdminContentPage = lazy(() => import("./pages/admin/AdminContentApi"));
 const AdminPartnersPage = lazy(() => import("./pages/admin/AdminBusinessPages").then(module => ({ default: module.AdminPartnersPage })));
 const AdminAIManagementPage = lazy(() => import("./pages/admin/AdminAIConfigPages").then(module => ({ default: module.AdminAIManagementPage })));
 const AdminFinancialConfigPage = lazy(() => import("./pages/admin/AdminFinancialConfigPage"));
+const AdminLegalRulesPage = lazy(() => import("./pages/admin/AdminLegalRulesPage"));
 import { useAuth, type UserRole } from "./context/AuthContext";
 
 function RequireRole({ role, children }: { role: UserRole; children: ReactNode }) {
@@ -105,7 +105,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPage />} />
         <Route path="/reset-password" element={<ResetPage />} />
-        <Route path="/verify" element={<VerifyPage />} />
+        <Route path="/verify" element={<Navigate to="/register" replace />} />
         <Route path="/onboarding" element={<RequireRole role="user"><FinancialProfileGate onboarding><OnboardingPage /></FinancialProfileGate></RequireRole>} />
         
         {/* User Area Routes */}
@@ -133,6 +133,7 @@ export default function App() {
           <Route path="partners" element={<AdminPartnersPage />} />
           <Route path="ai" element={<AdminAIManagementPage />} />
           <Route path="financial-config" element={<AdminFinancialConfigPage />} />
+          <Route path="legal-rules" element={<AdminLegalRulesPage />} />
           <Route path="support" element={<SupportPage admin />} />
           <Route path="operations" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="reports" element={<ReportsPage />} />

@@ -6,7 +6,7 @@ import { assessBenefit } from "../modules/pensions/benefit-engine";
 it("validates the voluntary strategy with independent pension goldens and eligibility guards", () => {
   const r = validateLegalDocument(validatedVoluntaryFixture().rules);
   expect(r.issues).toEqual([]); expect(r.valid).toBe(true);
-  expect(r.coverage[0].cases).toHaveLength(8);
+  expect(r.coverage[0].cases).toHaveLength(9);
   expect(r.coverage[0].cases.every(c => c.passed)).toBe(true);
 });
 it("rejects altered income factors, unsupported years, missing authority and lookalike source hosts", () => {

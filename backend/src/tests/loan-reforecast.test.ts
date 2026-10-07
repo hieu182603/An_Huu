@@ -515,3 +515,75 @@ it("will not terminate a loan that still has principal or unpaid future charges"
   r.command.loanRevisions![0].contract.maturityDate = "2026-11-30";
   await expect(r.plans.previewSources(r.owner, r.saved.planId, r.command)).rejects.toMatchObject({ code: "LOAN_NOT_FULLY_SETTLED" });
 });
+
+/** Replacement disbursed 28/10 (= settlement), repaid 30/10; bank amends the contract on 29/10. */
+async function amendedReplacement() {
+  const f = await repaidReplacementFixture(), funding = f.replacement.funding;
+  if (funding.kind !== "DISBURSED_BALANCE") throw Error("fixture");
+  const original = { signedOn: "2026-10-01", amendedOn: null, effectiveOn: "2026-10-28", balanceScope: "FULL_CONTRACT" as const, paymentShare: "1",
+    responsibility: { kind: "ALLOCATED_SHARE" as const }, evidence, confirm: true as const };
+  f.replacement.contract = { ...f.replacement.contract, amendedOn: "2026-10-29", effectiveOn: "2026-10-29" };
+  return { ...f, funding, original };
+}
+
+it("reconciles a replacement amended after disbursement only from declared original terms", async () => {
+  const f = await amendedReplacement();
+  f.replacement.contract.paymentShare = "0.5";
+  await expect(f.plans.previewSources(f.owner, f.saved.planId, f.command)).rejects.toMatchObject({ code: "LOAN_ORIGINAL_TERMS_REQUIRED" });
+  f.funding.originalTerms = f.original;
+  const preview = await f.plans.previewSources(f.owner, f.saved.planId, f.command);
+  // Refinance is checked against the terms in force at settlement; future schedule uses the amended 50% share.
+  expect(preview.candidate!.refinances![0].settlementAmount).toBe("1020");
+  const halved = preview.candidate!.calculation.attribution.filter(a => a.sourceId === f.replacement.sourceId);
+  expect(halved.length).toBeGreaterThan(0); expect(halved.every(a => a.amount === "50")).toBe(true);
+  for (const bad of [{ effectiveOn: "2026-10-29" }, { signedOn: "2026-09-30" }, { evidence: [{ ...evidence[0], confirmedOn: "2026-12-06" }] }]) {
+    const command = structuredClone(f.command), loan = command.loanCreations![0];
+    if (loan.funding.kind !== "DISBURSED_BALANCE") throw Error("fixture");
+    Object.assign(loan.funding.originalTerms!, bad);
+    await expect(f.plans.previewSources(f.owner, f.saved.planId, command)).rejects.toMatchObject({ code: expect.stringMatching(/LOAN_(ORIGINAL_TERMS|DISBURSEMENT_EVIDENCE)_INVALID/) });
+  }
+  // Terms supplied for a contract that was not amended after disbursement are refused.
+  const unamended = structuredClone(f.command), loan = unamended.loanCreations![0];
+  loan.contract.effectiveOn = "2026-10-28"; loan.contract.amendedOn = null;
+  await expect(f.plans.previewSources(f.owner, f.saved.planId, unamended)).rejects.toMatchObject({ code: "LOAN_ORIGINAL_TERMS_INVALID" });
+  const saved = await f.plans.saveSources(f.owner, f.saved.planId, { preview: f.command, expectedInputHash: preview.inputHash!, confirm: true }, randomUUID());
+  expect((await f.plans.version(f.owner, saved.planId, saved.saved.id, true)).preview).toEqual(preview.candidate);
+});
+
+it("splits reconciliation at a FULL_CONTRACT → USER_SHARE scope change with a declared opening balance", async () => {
+  const f = await amendedReplacement(), allocation = f.funding.allocations[0];
+  f.funding.originalTerms = f.original;
+  f.replacement.contract = { ...f.replacement.contract, balanceScope: "USER_SHARE", paymentShare: "1", principalBalance: "400" };
+  allocation.scope = "USER_SHARE";
+  await expect(f.plans.previewSources(f.owner, f.saved.planId, f.command)).rejects.toMatchObject({ code: "LOAN_SCOPE_CHANGE_REQUIRED" });
+  f.funding.scopeChange = { openingPrincipal: "500", evidence, confirm: true };
+  const preview = await f.plans.previewSources(f.owner, f.saved.planId, f.command);
+  expect(preview.candidate!.calculation.rows[0].openingBalance).toBe("770");
+  expect(preview.candidate!.calculation.rows.every(r => r.capitalInjection === "0")).toBe(true);
+  const attributed = preview.candidate!.calculation.attribution.filter(a => a.sourceId === f.replacement.sourceId);
+  expect(attributed.length).toBeGreaterThan(0); expect(attributed.reduce((n, a) => n + Number(a.amount), 0)).toBeLessThanOrEqual(400);
+  for (const [mutate, code] of [
+    [(c: typeof f.command) => { const g = c.loanCreations![0].funding; if (g.kind === "DISBURSED_BALANCE") g.scopeChange!.openingPrincipal = "1001"; }, "LOAN_SCOPE_CHANGE_INVALID"],
+    [(c: typeof f.command) => { const g = c.loanCreations![0].funding; if (g.kind === "DISBURSED_BALANCE") g.scopeChange!.openingPrincipal = "450"; }, "DEBT_BALANCE_MISMATCH"],
+    [(c: typeof f.command) => { const g = c.loanCreations![0].funding; if (g.kind === "DISBURSED_BALANCE") g.allocations[0].scope = "FULL_CONTRACT"; }, "LOAN_ALLOCATION_BASIS_INVALID"],
+  ] as const) {
+    const bad = structuredClone(f.command); mutate(bad);
+    await expect(f.plans.previewSources(f.owner, f.saved.planId, bad)).rejects.toMatchObject({ code });
+  }
+  const saved = await f.plans.saveSources(f.owner, f.saved.planId, { preview: f.command, expectedInputHash: preview.inputHash!, confirm: true }, randomUUID());
+  expect((await f.plans.version(f.owner, saved.planId, saved.saved.id, true)).preview).toEqual(preview.candidate);
+  const snapshot = structuredClone(f.rows("planVersion").at(-1)!.inputSnapshot) as any;
+  snapshot.preview.newLoanSources[0].evidence.command.funding.scopeChange.openingPrincipal = "499";
+  const { integrityHash: _, ...payload } = snapshot; snapshot.integrityHash = digest(payload);
+  expect(() => readSourceSnapshot(snapshot)).toThrow();
+});
+
+it("requires a responsibility amendment when original terms differ in obligation kind", async () => {
+  const f = await amendedReplacement();
+  f.funding.originalTerms = f.original;
+  f.replacement.contract = { ...f.replacement.contract, userPaidToDate: "110",
+    responsibility: { kind: "CAPPED", capBasis: "TOTAL_USER_PAYMENTS", limit: "500", previouslyPaid: "110", evidence } };
+  await expect(f.plans.previewSources(f.owner, f.saved.planId, f.command)).rejects.toMatchObject({ code: "LOAN_RESPONSIBILITY_REVIEW_REQUIRED" });
+  f.funding.responsibilityAmendment = { effectiveOn: "2026-10-29", openingUserPaid: "0", confirm: true, evidence };
+  expect((await f.plans.previewSources(f.owner, f.saved.planId, f.command)).status).toBe("READY");
+});

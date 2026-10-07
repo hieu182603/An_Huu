@@ -1,6 +1,17 @@
 # T15 — Refinance giả định tương lai
 
-Trạng thái07/10/2026: **bộ tính nội bộ đã có; chưa là API công khai, chưa lưu/apply được phương án này**. Không gửi input dưới đây vào source-reforecasts hiện tại. Các nhánh refinance thực tế vẫn dùng [LOAN_REVISIONS_V2.md](LOAN_REVISIONS_V2.md).
+Trạng thái07/10/2026: **đã public qua `plannedRefinances` của source-reforecasts** (preview/save/apply/replay). Refinance thực tế vẫn dùng [LOAN_REVISIONS_V2.md](LOAN_REVISIONS_V2.md). Bước 1–6 bên dưới đã triển khai: unit/service test, `verify-source-reforecast-db.cjs --planned-refinance` (24 HTTP/DB checks, rollback) và `verify-reforecast-concurrency-db.cjs --planned-refinance` (3 race, hai PostgreSQL backend). Còn nghiệm thu browser (FE-T15-PLANNED-REFINANCE-API).
+
+## Contract public
+
+- Lệnh `PlannedPairCommand` (CREATE/REVISE/CANCEL) theo `pairId`. Basis hợp đồng **server lấy** từ snapshot: CREATE dùng hợp đồng v2 mới nhất của khoản cũ (loanSources/newLoanSources hoặc cặp đã hủy); REVISE/CANCEL dùng basis của proof trước. Không nhận hợp đồng cũ từ HTTP.
+- Thứ tự trong một batch: CANCEL cặp → loanCreations → loanRevisions → refinances → CREATE/REVISE cặp. Nhờ vậy một lần lưu có thể hủy, đối soát actual khoản cũ, rồi lập cặp mới.
+- Khoản thuộc cặp đang hoạt động bị khóa: `loanRevisions`/`loanCreations` vào nguồn đó → 409 `PLANNED_PAIR_SOURCE_LOCKED`.
+- Cutoff tiến nhưng **chưa** tới ngày dự kiến: cặp giữ nguyên (quyết định A, 07/10). REVISE chỉ được khi cùng cutoff và ngày dự kiến sau knownOn (`reviseAllowed`); nếu không thì hủy rồi lập lại.
+- Tháng đối soát đã qua `settledOn` mà cặp còn hoạt động → 409 `PLANNED_PAIR_RECONCILIATION_REQUIRED`. Cách giải duy nhất là CANCEL trong batch: CANCEL luôn được phép, khôi phục lịch hợp đồng đã pin từ `cutoff+1`; revision CANCEL là basis v2 hợp lệ cho loanRevisions tiếp theo. Refinance đã xảy ra thì khai báo bằng luồng refinance thực tế, không chuyển giả định thành actual.
+- Preview trả `plannedRefinanceOptions.eligibleLoans` (v2 chốt đúng cutoff, không bị khóa) và `activePairs` (pairHash, hai tham chiếu nguồn, settledOn, reviseAllowed). `loanRevisionOptions` loại nguồn bị khóa.
+- Snapshot lưu `plannedRefinances: PlannedPairProof[]`. Reader kiểm chuỗi basis theo thứ tự registry và replay toàn bộ cặp; thiếu/sửa proof → `SOURCE_EVIDENCE_MISMATCH`/`PLANNED_PAIR_EVIDENCE_MISMATCH`. Snapshot cũ không có trường này giữ nguyên.
+- Giới hạn: chặn đối soát dựa trên tháng actual đã chốt, không dựa trên ngày hôm nay; một sự kiện dự kiến đã qua ngày nhưng tháng chưa chốt vẫn hiển thị là giả định.
 
 ## Quy tắc đã triển khai
 

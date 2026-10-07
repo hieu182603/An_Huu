@@ -1,5 +1,67 @@
 # Tiến độ triển khai backend An Hưu
 
+## Hiện hành — 07/10/2026: T17 race xuyên nhánh BHXH (Docker tạm)
+
+Mới `scripts/verify-pension-races-db.cjs`: bộ quy định PUBLISHED bị trigger cấm sửa/xóa nên KHÔNG commit fixture lên DB thật; script chạy PostgreSQL pgvector Docker tạm (nhãn riêng, cổng 127.0.0.1), migrate deploy 0001–0013 qua prepare-test-db, không đọc .env; container bị xóa cuối lượt. Hai PrismaClient + barrier xác nhận hai pg_backend_pid khác nhau mỗi race.
+
+**6 race PASS, 2 lượt** (thứ tự xen kẽ khác nhau): lưu estimate cùng key → một bản ghi/cùng response; lưu nguồn v4 chọn estimate cùng revision → một thắng, bên kia409; apply bản có lương hưu ↔ thêm lịch đóng → append luôn thành công, apply hoặc commit trước hoặc409, apply lại sau đó HISTORY_REVISION_CONFLICT; lưu nguồn ↔ thêm lịch đóng → bản lưu (nếu thắng) ghim revision cũ và không apply được; lưu estimate ↔ thêm lịch đóng → cả hai nhánh đã quan sát (estimate ghim rev3 rồi captureForSource409, hoặc409); hai append cùng expectedRevision → một thắng, revision không trùng. Mọi bản lưu replay khớp. Không đổi runtime/schema/migration; không chạm DB thật/email/provider.
+
+T17-02 thêm phạm vi BHXH; còn HTTP/browser (T17-03, frontend) và vận hành/backup production/P36.
+
+## Hiện hành — 07/10/2026: T14 thai sản theo Luật 2006 (01/2007–12/2015)
+
+Nguyên tắc user (07/10): làm lần lượt theo văn bản đã công bố; giai đoạn tương lai tính theo văn bản mới nhất, có văn bản mới thì sửa sau. Luật 71/2006/QH11: Cổng chỉ có .doc → lưu snapshot toàn văn HTML (LAW2006.html.txt, SHA-256 5b754491bf2985fe5025a97cd7b8e580d50041dd2cc7c3642c36e5f1ff5ee97c), đọc trực tiếp Điều35(2) và Điều140. Thêm `MATERNITY_LAW2006_ART35_2` + trích dẫn LAW2006_ART35 vào draft BH1/Nhà nước v2. Thai sản nay phủ 2007→nay theo 3 luật.
+
+Kiểm chứng: typecheck PASS; full **666tests/57files PASS**; DB thật `--corpus --state-v2` PASS rollback41. User chốt 07/10: KHÔNG tạo bộ luật/bảng dự phóng; chỉ tuân thủ văn bản đang ban hành, dữ liệu đến năm 2026; năm tương lai theo luật hiện hành, có luật mới thì sửa dự án sau. Một bản sửa strategy dự phóng đã vô tình được áp dụng rồi gỡ hoàn toàn (benefit-validation về HEAD, voluntary-validation chỉ còn bảng TT01/2025); full 666 PASS sau khi gỡ.
+
+## Hiện hành — 07/10/2026: T14 thai sản theo Luật 2014 (01/2016–06/2025)
+
+Tìm và lưu Luật BHXH 58/2014/QH13 bản ký gốc (vanban.chinhphu.vn docid178127 → datafiles.chinhphu.vn/…/58.signed.pdf, 1.829.177 bytes, SHA-256 10dc17ba706c03f93a5b9f0aae492a3e637a09b480cbf01c7e12d6ffc547e64d), đọc trực tiếp Điều39(2) (trang17) và Điều124 (trang51, hiệu lực 01/01/2016). Thêm `MATERNITY_LAW2014_ART39_2` (2016-01..2025-06), engine kiểm trích dẫn theo luật của từng tháng (LAW_ART53 / LAW2014_ART39). Draft BH1 + Nhà nước v2 thêm LAW2014_ART39. Chưa đối chiếu văn bản hợp nhất cho riêng khoản này (ghi trong trích dẫn).
+
+Kiểm chứng: typecheck PASS; full **663tests/57files PASS** (thêm 5 test Luật 2014); DB thật `--corpus --state-v2` 18 PASS rollback41. Còn mở T14: thai sản trước 2016 (Luật 2006), đoàn hệ tuổi lịch sử, thâm niên (a)(c), xác nhận TT01 sau 07/2025, Điều141(9) cần bảng ≥2028, điều ước.
+
+## Hiện hành — 07/10/2026: T14 thai sản Điều53(8); bỏ qua đoàn hệ tuổi lịch sử vì văn bản chưa rõ
+
+User yêu cầu làm mục có căn cứ rõ trước. Kiểm NĐ135 (AGE, đọc trực tiếp trang1–3): chỉ quy định từ 2021 → đoàn hệ trước 1961/1966 KHÔNG làm (hai cách đọc cho mốc tuổi khác nhau). Thai sản: Luật Điều53(8) rõ về đếm tháng; TT12 không quy định căn cứ lương → dùng căn cứ BHXH ghi, thiếu thì báo thiếu. `MATERNITY_ART53_8` (≥2025-07, cần citation LAW_ART53) cho BH1 v2 (tiền xử lý trước v1, hash gốc) và Nhà nước v2. Kiểm chỉ đọc DB thật: 0 legalRuleSetVersion, 0 pensionEstimate → sửa engine tại chỗ không ảnh hưởng replay. Draft BH1 và Nhà nước v2 thêm LAW_ART53 (BH1 đổi byte; các draft khác giữ byte).
+
+Kiểm chứng: typecheck PASS; full **658tests/57files PASS** (5 test thai sản); DB thật `--corpus --state-v2` 18 PASS rollback41. Còn mở T14: thai sản trước 07/2025 (Luật 2014 chưa lưu), đoàn hệ tuổi lịch sử, thâm niên (a)(c), xác nhận TT01 sau 07/2025, Điều141(9) cần bảng ≥2028, điều ước.
+
+## Hiện hành — 07/10/2026: T14 corpus năm hưởng 2025 cho chuyển tiếp tự nguyện
+
+User cho phép tìm nguồn. Tìm và tải TT01/2025/TT-BLĐTBXH từ datafiles.chinhphu.vn (link từ vanban.chinhphu.vn docid212518), lưu FACTORS2025.pdf (2.417.192 bytes, SHA-256 b5657e5dfa0e59932efe25b582d41370e8cab962cc9da92d65b4e853864f24bf), đọc trực tiếp 3 trang. Đọc lại CV340 (trang 1–2): có dòng 2026=1,00, là bảng năm hưởng 2026, không phủ 07–12/2025. NĐ158 Điều16: hệ số = CPI năm liền trước năm hưởng / CPI năm t (gốc 1994), BHXH VN xác định. **Chưa tìm thấy** văn bản xác nhận TT01 (căn cứ NĐ115/134) còn áp dụng sau 01/07/2025 — ghi trong trích dẫn, để người duyệt quyết định. Draft thứ tám bh2-voluntary-transition-2025 (1.143 dòng); strategy tự nguyện chấp nhận năm hưởng 2025/2026 + golden VOL-TRANSITION-2025 (3.596.468,75 tính tay với hệ số thật). 7 draft cũ giữ byte. Không duyệt/công bố.
+
+Kiểm chứng: typecheck PASS; full **653tests/56files PASS** (cập nhật số ca strategy +1 ở 4 test cũ); DB thật `--corpus --transition` **18 checks PASS** rollback41; hồi quy `--corpus --prepaid` 18 PASS; `--corpus --voluntary` lần đầu P2034 (xung đột transaction Serializable, đã rollback, không ghi) — chạy lại **17 PASS**. Còn mở T14: xác nhận pháp lý TT01 sau 07/2025, Điều141(9) cần bảng ≥2028, thâm niên (a)(c), CREDITED loại khác, đoàn hệ tuổi lịch sử nhánh thông thường, điều ước; nghiệm thu browser.
+
+## Hiện hành — 07/10/2026: T14 tự nguyện — chuyển tiếp 2025 và Điều141(9)
+
+Đọc TT11 Điều4–5 (R06 scan, đọc trực tiếp trang2–3) và Luật Điều141(9). Mở `benefitStart.kind: TRANSITION_2025` (start 2025-07 khi đủ điều kiện và ngừng đóng trước 07/2025) và `ageRule: LAW_ART141_9` (chọn 60/55; tự nguyện đầu tiên <2021-01, ≥240 tháng tự nguyện, cần citation LAW_ART141_9; trợ cấp vượt ngưỡng → review). Không version engine mới: giá trị mới trước bị schema chặn, input cũ giữ nguyên mã REVIEW cũ. Phát hiện: tự nguyện bắt đầu 2008 → 141(9) chỉ thực tế từ năm hưởng 2028.
+
+Kiểm chứng: full **651tests/56files PASS**, typecheck PASS, corpus check byte không đổi; 9 test mới dùng bảng giả lập hệ số1 (2.050.000; 2.750.000 tính tay). **Không có DB verifier/golden corpus** vì chưa có bảng năm hưởng 2025 (cần văn bản hệ số 2025 — chưa tải, cần user cho phép tải nguồn chính thức) và 2028 (chưa ban hành). Còn mở T14: corpus năm hưởng 2025 cho chuyển tiếp, thâm niên (a)(c), CREDITED loại khác, đoàn hệ tuổi lịch sử nhánh thông thường, điều ước.
+
+## Hiện hành — 07/10/2026: T14 v2 thêm nghề nặng nhọc (15(2)(a)) và thâm niên (15(3)(b))
+
+Đọc TT12 Điều16: không có hướng dẫn chi tiết cho 15(2)(a)/(3). Nặng nhọc: user khai hazardousPeriods (≥180 tháng, BHXH xác nhận) + hazardousWindowFrom; engine kiểm cửa sổ N tháng trong một giai đoạn, max(cửa sổ cuối, cửa sổ khai báo). Thâm niên: chỉ (3)(b) tự động; (a),(c) REVIEW có mã riêng vì văn bản chưa xác định. state-wage tách alternativeWindowAverage dùng chung với chuyển ngành. v2 mở rộng tại chỗ (chưa từng công bố). Corpus check vẫn khớp (strategy thêm G4/G5 tính tay 8.602.000 / 4.958.800).
+
+Kiểm chứng: typecheck PASS; full **642tests/55files PASS**; 24 test v2; DB thật `--corpus --hazardous` 18 checks và `--corpus --state-v2` 18 checks PASS rollback41. Không migration/frontend/provider/email; không công bố corpus. Còn mở T14: thâm niên (a)(c), CREDITED loại khác (thai sản…), chuyển tiếp tự nguyện 2025, đoàn hệ tuổi lịch sử, điều ước; nghiệm thu browser.
+
+## Hiện hành — 07/10/2026: T14 engine vn-pension-state-v2 (CREDITED trước 1995, lương trước 2004, chuyển ngành)
+
+Đối chiếu văn bản đã lưu: NĐ158 Điều34 (BHXH quyết định thời gian trước 1995), Điều15(1)(a) (chuyển đổi lương trước 10/2004 sang thang tại thời điểm hưởng), Điều15(2)(b)(c); Luật Điều2(1) a/b/d/đ. User chọn B: làm cả lực lượng vũ trang. v2 nhận CREDITED `PRE_1995_STATE_SECTOR`/`PRE_1995_ARMED_FORCES` (nhóm d), hệ số đã chuyển đổi `pre2004Conversion`, `MILITARY_TRANSFER`+`transferMonth` (max cửa sổ cuối/trước chuyển ngành, không so toàn thời gian). Nhóm đ, loại credit khác, nghỉ hưu khi tại ngũ, chuyển ngành + lương doanh nghiệp vẫn REVIEW. v1 không đổi (cùng hàm, cờ v2 tắt). Draft corpus thứ bảy `bh2-state-mixed-v2` (6 draft cũ giữ byte), strategy 18 mẫu v1 + 3 golden tính tay. Không migration/frontend/provider/email; không duyệt/công bố corpus.
+
+Kiểm chứng: typecheck PASS; full **630tests/55files PASS**; 12 test v2; DB thật `verify-state-pension-db.cjs --corpus --state-v2` **18 checks PASS** rollback41, hồi quy `--corpus` v1 17 checks PASS. Lưu ý vận hành: `generate-pensions-openapi.cjs` lỗi thời so với pensions.openapi.yaml đã commit (thiếu LegacyAgeReference/scope/pensionStartMonth) — KHÔNG chạy lại; đã khôi phục file. Còn mở T14: nghề nặng nhọc/thâm niên (Điều15(2)(a),(3)), CREDITED loại khác (thai sản…), chuyển tiếp tự nguyện 2025, đoàn hệ tuổi lịch sử, điều ước; nghiệm thu browser FE-T14-STATE-V2. Không đóng T14/goal.
+
+## Hiện hành — 07/10/2026: T15 DISBURSED_BALANCE sửa sau giải ngân
+
+DISBURSED_BALANCE nhận `originalTerms` (bắt buộc khi contract.effectiveOn > disbursedOn, cấm khi không), `responsibilityAmendment` và `scopeChange` (user chọn phương án B: hỗ trợ đổi balanceScope). Basis đối soát dựng từ điều khoản gốc, không suy từ điều khoản mới. Đổi phạm vi có hiệu lực cuối ngày contract.effectiveOn; đối soát hai đoạn bằng reconcileLoanRevision có sẵn (next nay nhận basis trung gian), openingPrincipal do user khai kèm chứng từ, chỉ chặn chiều vô lý. Refinance kiểm fundingScope/effectiveOn theo điều khoản tại ngày tất toán. Không migration/frontend/provider/email; loan v1 không đổi; snapshot cũ không thêm mặc định.
+
+Kiểm chứng: typecheck nguồn+test PASS; full **618tests/54files PASS**; 3 test service mới (tỷ lệ trả sửa; FULL→USER_SHARE gồm thiếu/vượt/lệch số dư/sai phạm vi allocation/tamper snapshot; đổi sang CAPPED cần amendment). DB thật: `verify-source-reforecast-db.cjs --disbursed-amended` **25 HTTP/DB checks PASS** rollback41/no email/provider; hồi quy `--refinance-repaid` 22 checks PASS. Chưa: nghiệm thu browser FE-T15-DISBURSED-AMENDED; chiều USER→FULL chỉ có kiểm biên, chưa có ca service riêng. Bước tiếp theo hàng đợi: T16 giải phóng vốn nhiều ngày (đã có releases — rà lại phần còn thiếu), rồi T14 CREDITED/chuyển tiếp, T17 race xuyên nhánh. Không đóng T15/goal.
+
+## Hiện hành — 07/10/2026: T15 refinance tương lai đã public
+
+`plannedRefinances` (CREATE/REVISE/CANCEL theo pairId) nối vào source-reforecasts preview/save/apply/replay. Basis lấy từ snapshot của chủ tài khoản; thứ tự batch CANCEL → lệnh vay thực tế → CREATE/REVISE. Nguồn trong cặp bị khóa (`PLANNED_PAIR_SOURCE_LOCKED`); qua tháng chứa settledOn mà chưa hủy → `PLANNED_PAIR_RECONCILIATION_REQUIRED`. Người dùng chọn phương án A: cutoff tiến trước ngày dự kiến thì giữ nguyên cặp. Builder cho CANCEL sau khi cutoff tiến (trước đây cặp bị kẹt); revision CANCEL là basis v2 cho loanRevisions. Reader kiểm chuỗi basis + replayPlannedPairs. Options: `plannedRefinanceOptions{eligibleLoans,activePairs}`; loanRevisionOptions loại nguồn khóa. OpenAPI sinh lại (source-snapshot/plans); converter thêm ZodNull. Không migration/frontend/provider/email; loan v1 không đổi.
+
+Kiểm chứng: typecheck nguồn + test PASS; full **615tests/54files PASS**; test service mới chạy trọn vòng đời (tạo/khóa/giữ qua cutoff/chặn khi đến hạn/hủy + đối soát lại trong một batch/replay/tamper) và builder CANCEL sau cutoff. DB thật (user duyệt): `verify-source-reforecast-db.cjs --planned-refinance` lượt sandbox preflight0checks, lượt ngoài sandbox **24HTTP/DBchecks PASS** (create/funding sai/owner404/admin403/save+idempotency/replay/apply/report hypothetical/CSV/profile giữ nguyên/khóa nguồn/REVISE/cutoff tiến giữ cặp + REVISE bị chặn/CANCEL khôi phục lịch/ stale ACTUAL_SOURCE_CHANGED), rollbackVerified/tablesPreserved41/no email/provider. `verify-reforecast-concurrency-db.cjs --planned-refinance`: lượt đầu PrismaClientInitializationError preflight (chưa tạo fixture), lượt lại **3 independent-connection races PASS** (vay+tài sản STAGED+cặp refinance cùng changeset; cùng key/cùng revision/sửa actual cạnh apply), fixturesRemoved/existingDataUnchanged/tablesPreserved41/distinct backends. Ca "qua ngày dự kiến bị chặn" không dựng được trên DB thật (không ghi actual tháng tương lai) — chỉ có unit test thời gian giả. Bàn giao browser FE-T15-PLANNED-REFINANCE-API còn mở. Bước tiếp: T15 DISBURSED_BALANCE basis lịch sử khi hợp đồng sửa sau giải ngân. Không đóng T15/goal.
+
 ## Hiện hành — 07/10/2026: T15 bộ tính refinance tương lai (nội bộ)
 
 Thêm `planned-refinance.ts` với engine `planned-refinance-v1`, đầu vào v2 đã chốt cuối cutoff + PLANNED_DISBURSEMENT cùng ngày tất toán tương lai. Tính dư gốc sau các kỳ được giữ; sameDayOrder rõ trước/sau kỳ cùng ngày; lãi/phí tất toán là HYPOTHETICAL_QUOTE có xác nhận bao gồm mọi khoản còn lại. Kiểm phương trình net+topup=settlement+unused và phần userTopUp+userFinancedAmount=nghĩa vụ người dùng, có paymentShare/CAPPED carry. Chỉ userTopUp và các kỳ giữ lại thành lịch nguồn cũ; lịch mới riêng, không actual/fund injection. Trả proof inputHash và nhãn HYPOTHETICAL, không sửa input/loanv1.

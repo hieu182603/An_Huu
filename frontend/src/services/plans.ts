@@ -1,5 +1,5 @@
-import { authenticatedRequest, authenticatedBlobRequest } from "./api";
-import type { RetirementPreviewInput, RetirementPreviewResult, RetirementSummary, RetirementRow } from "./retirement";
+import { authenticatedRequest, authenticatedBlobRequest } from "./api.ts";
+import type { RetirementPreviewInput, RetirementPreviewResult, RetirementSummary, RetirementRow } from "./retirement.ts";
 
 export interface PlanHistoryItem {
   id: string;
@@ -51,6 +51,7 @@ export interface PlanDetail {
   baselineVersionId: string | null;
   revision: number;
   stale: boolean;
+  actualSourceChanged: boolean;
   createdAt: string;
   current: PlanVersion | null;
   profileChanged: boolean;
@@ -317,3 +318,116 @@ export async function exportPlanVersionCsv(planId: string, versionId: string): P
   window.URL.revokeObjectURL(url);
   return downloadName;
 }
+
+export interface FlowSourceCommand {
+  commandId: string;
+  sourceId: string;
+  expectedSourceRevision: number;
+  effectiveFromMonth: string;
+  effectiveToMonth: string;
+  confirm: true;
+  document: string;
+  operation: "CREATE" | "REVISE" | "END";
+  metric?: "income" | "livingExpense" | "additionalExpense" | "pension";
+  frequency?: "ONCE" | "MONTHLY";
+  amount?: string;
+  currency?: "VND";
+  confirmation?: "USER_CONFIRMED" | "HYPOTHETICAL";
+}
+
+export interface PensionSourceSelection {
+  estimateId: string;
+  expectedEstimateIntegrityHash: string;
+  expectedRegistryHash: string;
+  commandId: string;
+  sourceId: string;
+  operation: "CREATE" | "REVISE";
+  expectedSourceRevision: number;
+  effectiveFromMonth: string;
+  effectiveToMonth: string;
+  amountPolicy: "FIXED_NOMINAL";
+  confirm: true;
+}
+
+export interface SourceReforecastPreviewInput {
+  versionId: string;
+  expectedSnapshotHash: string;
+  expectedRevision: number;
+  expectedProfileRevision: number;
+  throughMonth: string;
+  sourceCommands?: FlowSourceCommand[];
+  pensionSelections?: PensionSourceSelection[];
+  loanRevisions?: any[];
+  loanCreations?: any[];
+  refinances?: any[];
+  assetCommands?: any[];
+  plannedRefinances?: any[];
+}
+
+export interface SourceReforecastPreviewResponse {
+  status: "READY" | "BLOCKED" | "HORIZON_COMPLETE";
+  issues: any[];
+  inputHash: string | null;
+  candidate: any | null;
+  loanRevisionOptions: Array<{
+    sourceId: string;
+    sourceRevision: number;
+    sourceHash: string;
+    contractHash: string;
+    legacyOpeningRequired: boolean;
+  }>;
+  plannedRefinanceOptions: {
+    eligibleLoans: any[];
+    activePairs: any[];
+  };
+  assetRevisionOptions: Array<{
+    sourceId: string;
+    sourceRevision: number;
+    sourceHash: string;
+  }>;
+  saved: false;
+  applied: false;
+}
+
+export interface SaveSourceReforecastInput {
+  preview: SourceReforecastPreviewInput;
+  expectedInputHash: string;
+  confirm: true;
+}
+
+export async function previewSourceReforecast(
+  planId: string,
+  input: SourceReforecastPreviewInput
+): Promise<SourceReforecastPreviewResponse> {
+  return await authenticatedRequest<SourceReforecastPreviewResponse>(
+    `/me/retirement/plans/${planId}/source-reforecasts/preview`,
+    input,
+    "POST"
+  );
+}
+
+export async function saveSourceReforecast(
+  planId: string,
+  input: SaveSourceReforecastInput,
+  idempotencyKey: string = crypto.randomUUID()
+): Promise<{
+  planId: string;
+  revision: number;
+  currentVersionId: string | null;
+  baselineVersionId: string | null;
+  saved: PlanVersion;
+}> {
+  return await authenticatedRequest<{
+    planId: string;
+    revision: number;
+    currentVersionId: string | null;
+    baselineVersionId: string | null;
+    saved: PlanVersion;
+  }>(
+    `/me/retirement/plans/${planId}/source-reforecasts`,
+    input,
+    "POST",
+    { "Idempotency-Key": idempotencyKey }
+  );
+}
+

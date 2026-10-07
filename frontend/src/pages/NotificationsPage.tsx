@@ -155,6 +155,7 @@ export default function NotificationsPage() {
           <input
             type="text"
             placeholder={isEn ? "Filter messages…" : "Lọc nội dung…"}
+            aria-label={isEn ? "Filter notifications" : "Lọc thông báo"}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />

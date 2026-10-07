@@ -376,7 +376,7 @@ export default function UserDashboard() {
                 </div>
               </div>
 
-              <div style={{ width: "100%", minHeight: 320 }}>
+              <div className="projection-chart-area" tabIndex={0} style={{ width: "100%", minHeight: 320, overflowX: "auto" }}>
                 <ProjectionWealthChart period={chartPeriod} profile={profile} />
               </div>
 

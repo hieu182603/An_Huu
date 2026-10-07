@@ -280,6 +280,9 @@ export default function AdminFinancialConfigPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <Badge tone="soft">{versions?.total || 0}</Badge>
+            <Button variant="secondary" size="small" onClick={openCreateModal}>
+              {isEn ? "Adjust parameters" : "Điều chỉnh tham số"}
+            </Button>
             <Button variant="primary" size="small" icon="plus" onClick={openCreateModal}>
               {isEn ? "New Version" : "Tạo phiên bản mới"}
             </Button>

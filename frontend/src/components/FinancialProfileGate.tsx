@@ -7,7 +7,7 @@ import { useI18n } from "../i18n";
 function getRouteContext(pathname: string, isEn: boolean) {
   if (pathname.includes("/user/goal")) {
     return {
-      badge: isEn ? "PROFILE REQUIRED · ~3 MINS" : "CẦN HỒ SƠ TÀI CHÍNH · ~3 PHÚT",
+      badge: isEn ? "PROFILE REQUIRED · ~5 MINS" : "CẦN HỒ SƠ TÀI CHÍNH · ~5 PHÚT",
       title: isEn ? "Set Accurate Retirement Goals" : "Thiết lập mục tiêu hưu trí chính xác",
       desc: isEn
         ? "To project the exact nest egg needed for a worry-free retirement, An Huu needs your basic income and spending baseline."
@@ -16,16 +16,16 @@ function getRouteContext(pathname: string, isEn: boolean) {
   }
   if (pathname.includes("/user/plan")) {
     return {
-      badge: isEn ? "DATA REQUIRED · ~3 MINS" : "CẦN DỮ LIỆU THỰC · ~3 PHÚT",
+      badge: isEn ? "DATA REQUIRED · ~5 MINS" : "CẦN DỮ LIỆU THỰC · ~5 PHÚT",
       title: isEn ? "Personalize Your Retirement Plan" : "Cá nhân hóa kế hoạch hưu trí",
       desc: isEn
-        ? "The plan is currently showing illustrative sample figures. Complete the 3-minute survey to get your real cashflow and asset allocation roadmap."
-        : "Kế hoạch hưu trí hiện đang hiển thị số liệu mẫu minh họa. Hãy làm khảo sát 3 phút để nhận bảng dòng tiền và chiến lược tích lũy thực tế.",
+        ? "The plan is currently showing illustrative sample figures. Complete the 5-minute survey to get your real cashflow and asset allocation roadmap."
+        : "Kế hoạch hưu trí hiện đang hiển thị số liệu mẫu minh họa. Hãy làm khảo sát khoảng 5 phút để nhận bảng dòng tiền và chiến lược tích lũy thực tế.",
     };
   }
   if (pathname.includes("/user/simulation")) {
     return {
-      badge: isEn ? "ACCURACY BOOST · ~3 MINS" : "MÔ PHỎNG CHÍNH XÁC · ~3 PHÚT",
+      badge: isEn ? "ACCURACY BOOST · ~5 MINS" : "MÔ PHỎNG CHÍNH XÁC · ~5 PHÚT",
       title: isEn ? "Real-Life Monte Carlo Simulation" : "Mô phỏng tài chính theo dữ liệu thực",
       desc: isEn
         ? "Monte Carlo simulations reflect your true retirement readiness when backed by your actual income, expenses, and asset portfolio."
@@ -34,7 +34,7 @@ function getRouteContext(pathname: string, isEn: boolean) {
   }
   if (pathname.includes("/user/debts")) {
     return {
-      badge: isEn ? "DEBT ANALYSIS · ~3 MINS" : "QUẢN LÝ DÒNG TIỀN · ~3 PHÚT",
+      badge: isEn ? "DEBT ANALYSIS · ~5 MINS" : "QUẢN LÝ DÒNG TIỀN · ~5 PHÚT",
       title: isEn ? "Debt Optimization & Cashflow" : "Phân tích và tối ưu hóa nợ",
       desc: isEn
         ? "Provide your current debt details to calculate debt-to-income ratios and generate an optimal payoff schedule for your cashflow."
@@ -43,7 +43,7 @@ function getRouteContext(pathname: string, isEn: boolean) {
   }
   if (pathname.includes("/user/risk-portfolio")) {
     return {
-      badge: isEn ? "PORTFOLIO FIT · ~3 MINS" : "DANH MỤC CÂN BẰNG · ~3 PHÚT",
+      badge: isEn ? "PORTFOLIO FIT · ~5 MINS" : "DANH MỤC CÂN BẰNG · ~5 PHÚT",
       title: isEn ? "Asset Allocation & Risk Profile" : "Khẩu vị rủi ro & Danh mục tài sản",
       desc: isEn
         ? "Complete the baseline survey to receive personalized investment portfolio allocations suited to your retirement horizon."
@@ -52,7 +52,7 @@ function getRouteContext(pathname: string, isEn: boolean) {
   }
   if (pathname.includes("/user/assistant")) {
     return {
-      badge: isEn ? "SMART ADVISOR · ~3 MINS" : "TƯ VẤN THÔNG MINH · ~3 PHÚT",
+      badge: isEn ? "SMART ADVISOR · ~5 MINS" : "TƯ VẤN THÔNG MINH · ~5 PHÚT",
       title: isEn ? "Empower Your AI Retirement Advisor" : "Trợ lý AI cần hồ sơ để tư vấn chuyên sâu",
       desc: isEn
         ? "Your AI retirement advisor gives the most actionable advice when it knows your age, current savings, and pension contributions."
@@ -60,11 +60,11 @@ function getRouteContext(pathname: string, isEn: boolean) {
     };
   }
   return {
-    badge: isEn ? "QUICK SETUP · ~3 MINUTES" : "KHỞI TẠO HỒ SƠ · KHOẢNG 3 PHÚT",
+    badge: isEn ? "QUICK SETUP · ~5 MINUTES" : "KHỞI TẠO HỒ SƠ · KHOẢNG 5 PHÚT",
     title: isEn ? "Unlock Your Personalized Retirement Plan" : "Khởi tạo hồ sơ tài chính ban đầu",
     desc: isEn
-      ? "You haven't completed your baseline financial survey yet. Spend ~3 minutes so An Huu can accurately calculate your net worth, pension, and AI recommendations."
-      : "Bạn chưa hoàn thành khảo sát hồ sơ tài chính ban đầu. Hãy dành khoảng 3 phút để An Hưu có thể tính toán chính xác tài sản ròng, lương hưu BHXH và Trợ lý AI có thể tư vấn riêng cho bạn.",
+      ? "You haven't completed your baseline financial survey yet. Spend ~5 minutes so An Huu can accurately calculate your net worth, pension, and AI recommendations."
+      : "Bạn chưa hoàn thành khảo sát hồ sơ tài chính ban đầu. Hãy dành khoảng 5 phút để An Hưu có thể tính toán chính xác tài sản ròng, lương hưu BHXH và Trợ lý AI có thể tư vấn riêng cho bạn.",
   };
 }
 
@@ -140,7 +140,15 @@ export default function FinancialProfileGate({
   }
 
   const routeContext = getRouteContext(location.pathname, isEn);
-  const showOnboardingPrompt = !loading && !hasProfile && !onboarding;
+  const isGatedPlanningRoute = [
+    "/user/goal",
+    "/user/plan",
+    "/user/simulation",
+    "/user/debts",
+    "/user/risk-portfolio",
+    "/user/assistant",
+  ].some((r) => location.pathname.startsWith(r));
+  const showOnboardingPrompt = !loading && !hasProfile && !onboarding && isGatedPlanningRoute;
 
   return (
     <>
@@ -193,28 +201,30 @@ export default function FinancialProfileGate({
             </div>
 
             <div className="onboarding-popup-actions">
+              <Link
+                to="/onboarding"
+                state={{ from: location.pathname + location.search + location.hash }}
+                className="button button-primary onboarding-popup-cta"
+                onClick={handleDismissThisPage}
+              >
+                <span>{isEn ? "Start the survey" : "Bắt đầu khảo sát"}</span>
+                <Icon name="arrow-right" size="small" />
+              </Link>
+              <Button variant="secondary" className="onboarding-popup-later" onClick={handleDismissThisPage}>
+                {isEn ? "Later" : "Để sau"}
+              </Button>
+            </div>
+
+            <div className="onboarding-popup-footer">
+              <span>{isEn ? "You can keep exploring with sample figures." : "Bạn vẫn xem được trang với số liệu minh họa."}</span>
               <button
                 type="button"
                 className="popup-silence-btn"
                 onClick={handleDismissAll}
                 title={isEn ? "Don't show on other pages during this session" : "Không hiển thị lại trên các trang khác trong phiên này"}
               >
-                {isEn ? "Don't remind again this session" : "Không nhắc lại trong phiên này"}
+                {isEn ? "Don't remind me this session" : "Không nhắc lại trong phiên này"}
               </button>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <Button variant="secondary" onClick={handleDismissThisPage}>
-                  {isEn ? "Skip for now" : "Để sau, xem trang trước"}
-                </Button>
-                <Link
-                  to="/onboarding"
-                  state={{ from: location.pathname + location.search + location.hash }}
-                  className="button button-primary onboarding-popup-cta"
-                  onClick={handleDismissThisPage}
-                >
-                  <span>{isEn ? "Start Survey (3 mins)" : "Làm khảo sát ngay (3 phút)"}</span>
-                  <Icon name="arrow-right" size="small" />
-                </Link>
-              </div>
             </div>
           </div>
         </Modal>
@@ -227,8 +237,8 @@ export default function FinancialProfileGate({
             <span className="reminder-pill">{isEn ? "SAMPLE DATA" : "DỮ LIỆU MINH HỌA"}</span>
             <span className="reminder-text">
               {isEn
-                ? "You are viewing sample figures. Complete your 3-minute survey to calculate your real plan."
-                : "Bạn đang xem số liệu minh họa. Hãy làm khảo sát hồ sơ (3 phút) để hệ thống tính toán kế hoạch thực của bạn."}
+                ? "You are viewing sample figures. Complete your 5-minute survey to calculate your real plan."
+                : "Bạn đang xem số liệu minh họa. Hãy làm khảo sát hồ sơ (khoảng 5 phút) để hệ thống tính toán kế hoạch thực của bạn."}
             </span>
           </div>
           <div className="onboarding-reminder-right">

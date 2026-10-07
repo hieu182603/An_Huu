@@ -10,6 +10,7 @@ const routes = ["/", "/cach-hoat-dong", "/mo-phong", "/tro-ly-ai", "/kien-thuc",
 
 async function expectReflow(page: Page) {
   const issues = await page.evaluate(() => {
+    window.scrollTo({ left: 0 });
     const issues: string[] = [];
     if (document.documentElement.scrollWidth > innerWidth + 2) issues.push(`Document: ${document.documentElement.scrollWidth}px > ${innerWidth}px`);
     for (const el of document.querySelectorAll<HTMLElement>("body *")) {
@@ -111,9 +112,10 @@ test("all onboarding steps and account panels reflow on mobile", async ({ page }
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto("/onboarding");
+  await expect(page.locator("#main-content")).toBeVisible();
   for (let step = 0; step < 8; step++) {
     await expectReflow(page);
-    const next = page.getByRole("button", { name: /Tiếp tục bước tiếp theo|Hoàn tất hồ sơ/ });
+    const next = page.getByRole("button", { name: /^(Tiếp tục|Bắt đầu khai báo|Hoàn tất hồ sơ)/ });
     await next.click();
   }
   await expectReflow(page);

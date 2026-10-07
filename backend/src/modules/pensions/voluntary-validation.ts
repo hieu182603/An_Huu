@@ -11,6 +11,26 @@ import type { LegalStrategy } from "./legal-validation";
 // CV340/BHXH-CSXH, signed03/02/2026, income column starts at2008.
 // Both signed pages were visually checked; do not infer earlier income factors.
 export const incomeFactors2026 = Object.freeze(Object.fromEntries(Object.entries(wageFactors2026).filter(([year]) => Number(year) >= 2008)));
+// TT01/2025/TT-BLĐTBXH signed pages 2–3 (Bảng 1 wage, Bảng 2 income), benefits 01/01–31/12/2025; visually transcribed.
+const wage2025 = ["5.63", "4.78", "4.51", "4.37", "4.06", "3.89", "3.95", "3.97", "3.82", "3.70", "3.43", "3.17", "2.95", "2.72", "2.21", "2.07", "1.90", "1.60", "1.47", "1.37", "1.32", "1.31", "1.28", "1.23", "1.19", "1.16", "1.12", "1.10", "1.07", "1.04", "1.00", "1.00"];
+export const wageFactors2025 = Object.freeze(Object.fromEntries(wage2025.map((v, i) => [i === 0 ? "PRE_1995" : String(1994 + i), v])));
+export const incomeFactors2025 = Object.freeze(Object.fromEntries(Object.entries(wageFactors2025).filter(([year]) => year !== "PRE_1995" && Number(year) >= 2008)));
+const benefitYearFactors: Record<string, { WAGE_FACTOR: Readonly<Record<string, string>>; INCOME_FACTOR: Readonly<Record<string, string>> }> = {
+  "2025": { WAGE_FACTOR: wageFactors2025, INCOME_FACTOR: incomeFactors2025 }, "2026": { WAGE_FACTOR: wageFactors2026, INCOME_FACTOR: incomeFactors2026 } };
+// TT11 Art5(4) transition: male born 1963-03 (age 729m → 2024-03), employer 2005–2012 + voluntary 2013–2020 at 5,000,000.
+// Hand sum with TT01 factors: (18.09 + 9.98) × 12 × 5,000,000 / 192 = 8,771,875 × 41% = 3,596,468.75; start 2025-07.
+export function voluntaryTransitionCase() {
+  const evidence = [{ reference: "SERVER_VALIDATION_FIXTURE", contentHash: digest("transition fixture"), confirmedOn: "2025-06-30" }];
+  const history = insuranceHistorySchema.parse({ schemaVersion: 1, birth: { precision: "MONTH", declaredValue: "1963-03" }, legalSex: "MALE",
+    coverageFrom: "2005-01", coverageThrough: "2020-12", confirmedThroughMonth: "2020-12", specialPeriods: [],
+    months: Array.from({ length: 192 }, (_, i) => ({ month: addMonths("2005-01", i), scheme: i < 96 ? "COMPULSORY" : "VOLUNTARY",
+      salaryRegime: i < 96 ? "EMPLOYER" : "VOLUNTARY_INCOME", status: "PAID", contributionBase: "5000000", evidence, ...(i < 96 ? { participantCategory: "ARTICLE_2_1_A" } : {}) })) });
+  const input = voluntaryEstimateInputSchema.parse({ historyVersionId: "00000000-0000-4000-8000-000000000001", expectedHistoryRevision: 1,
+    legalRuleSetVersionId: "00000000-0000-4000-8000-000000000002", intendedBenefitDate: "2025-07-01", employmentEndDate: "2012-12-31",
+    contributionStopMonth: "2020-12", benefitRequestDate: null, futureContributions: [], voluntaryCase: { kind: "NORMAL_VOLUNTARY", ageRule: "NORMAL", paymentMethod: "REGULAR_ONLY",
+      benefitStart: { kind: "TRANSITION_2025", month: "2025-07", confirmation: "DOCUMENTED", evidence } } });
+  return { history, input };
+}
 // Independently calculated with Python Decimal80 over180 explicit months.
 const goldens = [{ id: "VOL-MALE180", sex: "MALE" as const, compulsory: 0, expected: "4937333.33" },
   { id: "VOL-FEMALE180", sex: "FEMALE" as const, compulsory: 0, expected: "5554500.00" },
@@ -33,7 +53,7 @@ export function voluntaryValidationCase(sex: "MALE" | "FEMALE", compulsory: numb
 
 export const voluntaryBenefitStrategy: LegalStrategy = {
   engineCode: VOLUNTARY_ENGINE, branch: VOLUNTARY_BRANCH, strategyCode: VOLUNTARY_STRATEGY,
-  fixtureSuiteHash: digest({ version: "VOLUNTARY-MIXED-1", goldens, incomeFactors2026, guards: ["179", "UNKNOWN", "MISSING_FACTOR", "CREDITED", "CONTINUED"] }),
+  fixtureSuiteHash: digest({ version: "VOLUNTARY-MIXED-2", goldens, benefitYearFactors, transition: "3596468.75", guards: ["179", "UNKNOWN", "MISSING_FACTOR", "CREDITED", "CONTINUED"] }),
   validate(document) {
     const issues: Array<{ path: string; code: string }> = [], add = (path: string, code: string) => issues.push({ path, code });
     const coverage = document.coverage.find(c => c.branch === VOLUNTARY_BRANCH);
@@ -51,11 +71,12 @@ export const voluntaryBenefitStrategy: LegalStrategy = {
         const m = /^NORMAL:(MALE|FEMALE):((?:19|20|21)\d{2}-(?:0[1-9]|1[0-2]))$/.exec(t.key), age = m ? normalCohortAge(m[1] as "MALE" | "FEMALE", m[2]) : null;
         if (age === null || !new D(t.value).eq(age)) add(path, "UNVERIFIED_AGE_COHORT");
       } else if (t.kind === "WAGE_FACTOR" || t.kind === "INCOME_FACTOR") {
-        const [year, paidYear, extra] = t.key.split(":"), expected = (t.kind === "INCOME_FACTOR" ? incomeFactors2026 : wageFactors2026)[paidYear];
-        if (extra !== undefined || year !== "2026" || !expected || !new D(t.value).eq(expected) || t.effectiveFrom < "2026-01-01" || !t.effectiveTo || t.effectiveTo > "2027-01-01") add(path, "UNVERIFIED_BENEFIT_YEAR_COEFFICIENT");
+        const [year, paidYear, extra] = t.key.split(":"), expected = benefitYearFactors[year]?.[t.kind][paidYear];
+        if (extra !== undefined || !expected || !new D(t.value).eq(expected) || t.effectiveFrom < `${year}-01-01` || !t.effectiveTo || t.effectiveTo > `${Number(year) + 1}-01-01`) add(path, "UNVERIFIED_BENEFIT_YEAR_COEFFICIENT");
       } else if (t.kind === "REFERENCE_AMOUNT") {
         const first = t.effectiveFrom < "2026-07-01", expected = first ? "2340000" : "2530000", end = first ? "2026-07-01" : "2027-01-01";
-        if (t.key !== "GENERAL" || t.effectiveFrom < "2026-01-01" || t.effectiveFrom >= "2027-01-01" || !new D(t.value).eq(expected) || !t.effectiveTo || t.effectiveTo > end) add(path, "UNVERIFIED_REFERENCE_AMOUNT");
+        // ND73 (2,340,000) covers 2024-07..2026-06; ND161 (2,530,000) from 2026-07.
+        if (t.key !== "GENERAL" || t.effectiveFrom < "2025-01-01" || t.effectiveFrom >= "2027-01-01" || !new D(t.value).eq(expected) || !t.effectiveTo || t.effectiveTo > end) add(path, "UNVERIFIED_REFERENCE_AMOUNT");
       } else add(path, "TABLE_KIND_OUTSIDE_BRANCH");
     });
     const rules: LegalRuleDocument = { ...document, tables: [
@@ -69,6 +90,13 @@ export const voluntaryBenefitStrategy: LegalStrategy = {
       const f = voluntaryValidationCase(g.sex, g.compulsory), r = assessVoluntaryBenefit(f.history, f.input, rules, "2026-10-07");
       record(g.id, { status: r.assessmentStatus, pension: r.monthlyPension === null ? null : new D(r.monthlyPension).toFixed(2), start: r.startMonth }, { status: "ELIGIBLE", pension: g.expected, start: "2026-07" });
     }
+    const transitionRules: LegalRuleDocument = { ...document, tables: [
+      { kind: "AGE_MONTHS", key: "NORMAL:MALE:1963-03", value: String(normalCohortAge("MALE", "1963-03")), citationId: "ND135_ANNEX_I", effectiveFrom: "2025-07-01", effectiveTo: null },
+      ...Object.entries(incomeFactors2025).map(([year, value]) => ({ kind: "INCOME_FACTOR" as const, key: `2025:${year}`, value, citationId: "ND159_ART10", effectiveFrom: "2025-01-01", effectiveTo: "2026-01-01" })),
+      ...Object.entries(wageFactors2025).map(([year, value]) => ({ kind: "WAGE_FACTOR" as const, key: `2025:${year}`, value, citationId: "LAW_ART73", effectiveFrom: "2025-01-01", effectiveTo: "2026-01-01" })),
+    ] };
+    const t = voluntaryTransitionCase(), tr = assessVoluntaryBenefit(t.history, t.input, transitionRules, "2026-10-07");
+    record("VOL-TRANSITION-2025", { status: tr.assessmentStatus, pension: tr.monthlyPension === null ? null : new D(tr.monthlyPension).toFixed(2), start: tr.startMonth }, { status: "ELIGIBLE", pension: "3596468.75", start: "2025-07" });
     const f = voluntaryValidationCase("MALE", 0);
     const assessment = () => assessVoluntaryBenefit(f.history, f.input, rules, "2026-10-07");
     f.history.months[0].status = "NOT_CONTRIBUTED"; f.history.months[0].contributionBase = null;

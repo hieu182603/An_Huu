@@ -16,9 +16,10 @@ type AccountTab = "profile" | "settings" | "reports";
 
 export default function AccountPage() {
   const { language } = useI18n();
-  const [query, setQuery] = useSearchParams();
-  const activeTab: AccountTab = query.get("tab") === "settings" ? "settings" : query.get("tab") === "reports" ? "reports" : "profile";
-  const setActiveTab = (tab: AccountTab) => setQuery(prev => { prev.set("tab", tab); return prev; });
+  const [query] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<AccountTab>(() => (
+    query.get("tab") === "settings" ? "settings" : query.get("tab") === "reports" ? "reports" : "profile"
+  ));
   const { notify } = useNotification();
   const { profile } = useFinancialProfile();
   const { activePlan } = useRetirementPlan();

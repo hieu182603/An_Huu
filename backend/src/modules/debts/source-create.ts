@@ -4,11 +4,18 @@ import { addMonths, dateSchema, monthSchema } from "../../common/calendar";
 import { moneySchema } from "../../common/http";
 import { digest } from "../../common/digest";
 import { loanContractV2Schema, loanEvidenceSchema, loanAllocationSchema, loanBalanceBasisSchema } from "./revision-schema";
-import { loanActualEvidenceSchema, loanBalanceChangeSchema, reconcileLoanRevision, type LoanActualEvidence, type LoanConsumedAllocation } from "./reconciliation";
+import { loanActualEvidenceSchema, loanBalanceChangeSchema, loanResponsibilityAmendmentSchema, loanComponentsTotal, reconcileLoanRevision, type LoanActualEvidence, type LoanConsumedAllocation } from "./reconciliation";
 import { DebtDecimal as D } from "./loan";
 import { loanSourceSchedule } from "./source-candidate";
 import { assertSourceRegistry, composeSourceMonths, sealSourceRegistry, sealSourceRevision, type SourceRegistry } from "../retirement/sources";
 
+const terms = loanContractV2Schema.innerType().shape, evidence = z.array(loanEvidenceSchema).min(1).max(20);
+/** Terms in force at disbursement when the bank amended the contract later.
+ * Declared with evidence; never inferred from the amended terms. */
+export const loanOriginalTermsSchema = z.object({ signedOn: dateSchema, amendedOn: dateSchema.nullable(), effectiveOn: dateSchema,
+  balanceScope: terms.balanceScope, paymentShare: terms.paymentShare, responsibility: terms.responsibility, evidence, confirm: z.literal(true) }).strict();
+/** Balance in the NEW scope at end of contract.effectiveOn, from a bank/co-borrower document. */
+export const loanScopeChangeSchema = z.object({ openingPrincipal: moneySchema, evidence, confirm: z.literal(true) }).strict();
 export const loanCreationSchema = z.object({ commandId: z.string().uuid(), sourceId: z.string().regex(/^plan:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i),
   operation: z.literal("CREATE"), expectedSourceRevision: z.literal(0), confirm: z.literal(true),
   refinanceCommandId: z.string().uuid().optional(),
@@ -17,7 +24,9 @@ export const loanCreationSchema = z.object({ commandId: z.string().uuid(), sourc
     z.object({ kind: z.literal("EXISTING_BALANCE"), notAlreadyInSources: z.literal(true), evidence: z.array(loanEvidenceSchema).min(1).max(20) }).strict(),
     z.object({ kind: z.literal("DISBURSED_BALANCE"), notAlreadyInSources: z.literal(true), disbursedOn: dateSchema,
       grossPrincipal: moneySchema, openingUserPaid: moneySchema, evidence: z.array(loanEvidenceSchema).min(1).max(20),
-      allocations: z.array(loanAllocationSchema).max(500), principalAdvances: z.array(loanBalanceChangeSchema).max(100) }).strict(),
+      allocations: z.array(loanAllocationSchema).max(500), principalAdvances: z.array(loanBalanceChangeSchema).max(100),
+      originalTerms: loanOriginalTermsSchema.optional(), scopeChange: loanScopeChangeSchema.optional(),
+      responsibilityAmendment: loanResponsibilityAmendmentSchema.optional() }).strict(),
     z.object({ kind: z.literal("PLANNED_DISBURSEMENT"), grossPrincipal: moneySchema, withheldFees: moneySchema, netDisbursement: moneySchema,
       destination: z.literal("EXTERNAL_ACCOUNT"), evidence: z.array(loanEvidenceSchema).min(1).max(20) }).strict(),
   ]) }).strict();
@@ -43,17 +52,51 @@ export function createLoanSource(registry: SourceRegistry, commandValue: LoanCre
   if (command.funding.kind !== "PLANNED_DISBURSEMENT") {
     if (c.balanceAsOf !== lastDay || c.balanceNature === "PROJECTED_DISBURSEMENT" || c.confirmation !== "BANK_CONFIRMED") fail("LOAN_OPENING_BALANCE_REQUIRED");
     if (command.funding.kind === "DISBURSED_BALANCE") {
-      const f = command.funding;
-      if (f.disbursedOn < c.effectiveOn || f.disbursedOn > c.balanceAsOf || new D(f.grossPrincipal).lte(0) ||
+      const f = command.funding, o = f.originalTerms;
+      // Terms in force at disbursement: the current contract unless the bank amended it afterwards.
+      if ((c.effectiveOn > f.disbursedOn) !== Boolean(o)) fail(o ? "LOAN_ORIGINAL_TERMS_INVALID" : "LOAN_ORIGINAL_TERMS_REQUIRED");
+      const t = o ?? { signedOn: c.signedOn, amendedOn: c.amendedOn, effectiveOn: c.effectiveOn, balanceScope: c.balanceScope, paymentShare: c.paymentShare, responsibility: c.responsibility };
+      if (f.disbursedOn < t.effectiveOn || f.disbursedOn > c.balanceAsOf || new D(f.grossPrincipal).lte(0) ||
         f.evidence.some(e => e.confirmedOn < f.disbursedOn || e.confirmedOn > c.knownOn) || actuals.some(a => a.period > cutoff) ||
-        (c.responsibility.kind !== "CAPPED" && !new D(f.openingUserPaid).isZero())) fail("LOAN_DISBURSEMENT_EVIDENCE_INVALID");
-      const previous = loanBalanceBasisSchema.parse({ basisVersion: 1, currency: c.currency, signedOn: c.signedOn, amendedOn: c.amendedOn,
-        effectiveOn: c.effectiveOn, knownOn: c.knownOn, evidence: f.evidence, balanceAsOf: f.disbursedOn,
-        principalBalance: f.grossPrincipal, balanceScope: c.balanceScope, paymentShare: c.paymentShare,
-        ...(c.userPaidToDate !== undefined ? { userPaidToDate: f.openingUserPaid } : {}),
-        responsibility: c.responsibility.kind === "CAPPED" ? { ...c.responsibility, previouslyPaid: f.openingUserPaid } : c.responsibility });
+        (t.responsibility.kind !== "CAPPED" && !new D(f.openingUserPaid).isZero())) fail("LOAN_DISBURSEMENT_EVIDENCE_INVALID");
+      if (o && (o.signedOn !== c.signedOn || o.signedOn > o.effectiveOn || !c.amendedOn || c.amendedOn <= f.disbursedOn ||
+        (o.amendedOn && (o.amendedOn < o.signedOn || o.amendedOn > o.effectiveOn)) ||
+        (o.balanceScope === "USER_SHARE" && !new D(o.paymentShare).eq(1)) ||
+        (o.responsibility.kind === "CAPPED" && !new D(o.responsibility.previouslyPaid).eq(f.openingUserPaid)) ||
+        [...o.evidence, ...(o.responsibility.kind === "CAPPED" ? o.responsibility.evidence : [])].some(e => e.confirmedOn > c.knownOn)))
+        fail("LOAN_ORIGINAL_TERMS_INVALID");
+      if (f.responsibilityAmendment && !o) fail("LOAN_RESPONSIBILITY_AMENDMENT_INVALID");
+      const tracked = c.userPaidToDate !== undefined;
+      const basis = (scope: typeof c.balanceScope, share: string, asOf: string, principal: string, paid: string, proof: typeof f.evidence) =>
+        loanBalanceBasisSchema.parse({ basisVersion: 1, currency: c.currency, signedOn: t.signedOn, amendedOn: t.amendedOn,
+          effectiveOn: t.effectiveOn, knownOn: c.knownOn, evidence: proof, balanceAsOf: asOf, principalBalance: principal,
+          balanceScope: scope, paymentShare: share, ...(tracked ? { userPaidToDate: paid } : {}),
+          responsibility: t.responsibility.kind === "CAPPED" ? { ...t.responsibility, previouslyPaid: paid } : t.responsibility });
+      const previous = basis(t.balanceScope, t.paymentShare, f.disbursedOn, f.grossPrincipal, f.openingUserPaid, f.evidence);
       if (previous.responsibility.kind === "CAPPED" && new D(f.openingUserPaid).gt(previous.responsibility.limit)) fail("LOAN_CAP_CARRY_MISMATCH");
-      reconcileLoanRevision({ previous, next: c, allocations: f.allocations, principalAdvances: f.principalAdvances }, actuals, consumed);
+      const amendment = f.responsibilityAmendment ? { responsibilityAmendment: f.responsibilityAmendment } : {};
+      if (t.balanceScope === c.balanceScope) {
+        if (f.scopeChange) fail("LOAN_SCOPE_CHANGE_INVALID");
+        reconcileLoanRevision({ previous, next: c, allocations: f.allocations, principalAdvances: f.principalAdvances, ...amendment }, actuals, consumed);
+      } else {
+        // Scope changes at END of contract.effectiveOn: earlier-or-same-day postings are in the old scope.
+        const s = f.scopeChange, at = c.effectiveOn;
+        if (!s) return fail("LOAN_SCOPE_CHANGE_REQUIRED");
+        const before = f.allocations.filter(a => a.bookedOn <= at), after = f.allocations.filter(a => a.bookedOn > at);
+        const advancesBefore = f.principalAdvances.filter(a => a.bookedOn <= at), advancesAfter = f.principalAdvances.filter(a => a.bookedOn > at);
+        const closingOld = before.reduce((n, a) => n.minus(a.contractComponents.principal), new D(f.grossPrincipal))
+          .plus(advancesBefore.reduce((n, a) => n.plus(a.amount), new D(0)));
+        const paidOld = before.reduce((n, a) => n.plus(loanComponentsTotal(a.components)), new D(f.openingUserPaid)).toFixed();
+        const opening = new D(s.openingPrincipal);
+        // The bank's split cannot be derived; only reject impossible directions.
+        if (opening.lte(0) || (c.balanceScope === "USER_SHARE" ? opening.gt(closingOld) : opening.lt(closingOld)) ||
+          s.evidence.some(e => e.confirmedOn < at || e.confirmedOn > c.knownOn)) fail("LOAN_SCOPE_CHANGE_INVALID");
+        const oldClose = basis(t.balanceScope, t.paymentShare, at, closingOld.toFixed(), paidOld, s.evidence);
+        reconcileLoanRevision({ previous, next: oldClose, allocations: before, principalAdvances: advancesBefore }, actuals, consumed);
+        const newOpen = basis(c.balanceScope, c.paymentShare, at, s.openingPrincipal, paidOld, s.evidence);
+        reconcileLoanRevision({ previous: newOpen, next: c, allocations: after, principalAdvances: advancesAfter, ...amendment }, actuals,
+          [...consumed, ...before.map(allocation => ({ sourceId: command.sourceId, allocation }))]);
+      }
     }
   } else {
     const f = command.funding;

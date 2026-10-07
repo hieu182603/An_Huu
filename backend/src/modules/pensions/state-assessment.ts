@@ -2,15 +2,23 @@ import { z } from "zod";
 import { addMonths, dateSchema, monthSchema } from "../../common/calendar";
 import { digest } from "../../common/digest";
 import { RetirementDecimal as D } from "../retirement/engine";
-import { insuranceHistorySchema, legalRuleDocumentSchema, pensionEstimateInputSchema, type LegalRuleDocument } from "./insurance-schema";
+import { insuranceHistorySchema, maternityCreditCitation, legalRuleDocumentSchema, pensionEstimateInputSchema, type LegalRuleDocument } from "./insurance-schema";
 import { benefitYears, ordinaryPensionRate } from "./benefit-math";
-import { ordinaryStateMixedAverage } from "./state-wage";
+import { hazardousTransferAverage, militaryTransferAverage, ordinaryStateMixedAverage, stateAveragingWindow } from "./state-wage";
 import { retirementLumpSum } from "./benefit-assessment-v2";
 
 export const STATE_BENEFIT_ENGINE = "vn-pension-state-v1";
 export const STATE_BRANCH = "BH2_COMPULSORY_STATE_MIXED_NORMAL";
 export const STATE_STRATEGY = "vn-bh2-state-mixed-2025-v1";
 export const STATE_CITATIONS = ["LAW_ART5", "LAW_ART31", "LAW_ART64", "LAW_ART66", "LAW_ART68", "LAW_ART69", "LAW_ART72", "LAW_ART73", "ND135_ANNEX_I", "ND158_ART12", "ND158_ART13", "ND158_ART15", "TT12_ART14", "TT12_ART15_16"];
+/** v2 adds BHXH-confirmed pre-1995 credited time (ND158 Art34), BHXH-converted
+ * pre-Oct-2004 state salary (Art15(1)(a)), armed-forces transfer (Art15(2)(b)),
+ * hazardous-occupation transfer (Art15(2)(a)) and seniority-allowance case (3)(b). */
+export const STATE_BENEFIT_ENGINE_V2 = "vn-pension-state-v2";
+export const STATE_STRATEGY_V2 = "vn-bh2-state-mixed-2025-v2";
+export const STATE_CITATIONS_V2 = [...STATE_CITATIONS, "LAW_ART2", "ND158_ART34"];
+const CIVIL = ["ARTICLE_2_1_A", "ARTICLE_2_1_B"];
+const CHANGE_TREATMENTS = ["MILITARY_TRANSFER", "HAZARDOUS_TRANSFER", "SENIORITY_ALLOWANCE_TRANSFER"];
 type Issue = { path: string; code: string };
 type AssessmentInput = z.infer<typeof pensionEstimateInputSchema>;
 type Breakdown = { code: string; value: string | null; unit: "VND" | "MONTHS" | "YEARS" | "PERCENT" | "DATE" | "CODE"; citationIds: string[] };
@@ -35,23 +43,39 @@ export function normalCohortAge(sex: "MALE" | "FEMALE", birthMonth: string): num
  * Service must authorize owner, verify publication/coverage/effective date and
  * pin the entire history/rule/input before calling this function or saving it. */
 export function assessStateBenefit(historyValue: unknown, inputValue: AssessmentInput, rulesValue: LegalRuleDocument, assessedOn: string): BenefitAssessment {
+  return assess(historyValue, inputValue, rulesValue, assessedOn, false);
+}
+export function assessStateBenefitV2(historyValue: unknown, inputValue: AssessmentInput, rulesValue: LegalRuleDocument, assessedOn: string): BenefitAssessment {
+  return assess(historyValue, inputValue, rulesValue, assessedOn, true);
+}
+function assess(historyValue: unknown, inputValue: AssessmentInput, rulesValue: LegalRuleDocument, assessedOn: string, v2: boolean): BenefitAssessment {
+  const engineCode = v2 ? STATE_BENEFIT_ENGINE_V2 : STATE_BENEFIT_ENGINE, strategyCode = v2 ? STATE_STRATEGY_V2 : STATE_STRATEGY;
   const history = insuranceHistorySchema.parse(historyValue), input = pensionEstimateInputSchema.parse(inputValue), rules = legalRuleDocumentSchema.parse(rulesValue);
   dateSchema.parse(assessedOn);
   const missing: Issue[] = [], review: Issue[] = [], breakdown: Breakdown[] = [];
   const historyHash = digest(history), ruleHash = digest(rules);
   const future = input.futureContributions, hypothetical = future.length > 0 || input.intendedBenefitDate > assessedOn || input.caseDetails?.benefitStart.kind === "HYPOTHETICAL";
   const base: BenefitAssessment = { assessmentStatus: "INSUFFICIENT_DATA", estimateKind: hypothetical ? "PROJECTED_SCENARIO" : "CURRENT_RULE_ESTIMATE",
-    inputHash: digest({ historyHash, ruleHash, input, assessedOn, engineCode: STATE_BENEFIT_ENGINE }), historyHash, ruleHash,
+    inputHash: digest({ historyHash, ruleHash, input, assessedOn, engineCode }), historyHash, ruleHash,
     countedMonths: null, monthlyPension: null, startMonth: null, lumpSum: null, missingFields: [], breakdown, citations: rules.citations };
   const finish = (status: BenefitAssessment["assessmentStatus"], fields: Partial<BenefitAssessment> = {}) => ({ ...base, ...fields, assessmentStatus: status, missingFields: [...missing, ...review], breakdown });
   const add = (path: string, code: string) => missing.push({ path, code });
-  if (rules.engineCode !== STATE_BENEFIT_ENGINE || !rules.coverage.some(c => c.branch === STATE_BRANCH && c.strategyCode === STATE_STRATEGY))
+  if (rules.engineCode !== engineCode || !rules.coverage.some(c => c.branch === STATE_BRANCH && c.strategyCode === strategyCode))
     review.push({ path: "legalRuleSetVersionId", code: "RULE_BRANCH_NOT_SUPPORTED" });
   const details = input.caseDetails;
   const stateCase = input.stateSalaryCase;
+  const transfer = v2 && stateCase?.salaryTreatment === "MILITARY_TRANSFER" ? stateCase.transferMonth ?? null : null;
+  const treatment = stateCase?.salaryTreatment, change = v2 && treatment && CHANGE_TREATMENTS.includes(treatment) ? stateCase!.transferMonth ?? null : null;
   if (!stateCase) add("stateSalaryCase", "STATE_SALARY_CASE_REQUIRED");
   else {
-    if (stateCase.salaryTreatment !== "ORDINARY") review.push({ path: "stateSalaryCase.salaryTreatment", code: "SPECIAL_STATE_SALARY_ASSESSMENT_REQUIRED" });
+    const changes = CHANGE_TREATMENTS.includes(stateCase.salaryTreatment), hazardous = stateCase.salaryTreatment === "HAZARDOUS_TRANSFER";
+    if (!(stateCase.salaryTreatment === "ORDINARY" || (v2 && changes)))
+      review.push({ path: "stateSalaryCase.salaryTreatment", code: "SPECIAL_STATE_SALARY_ASSESSMENT_REQUIRED" });
+    if (v2 && changes && !stateCase.transferMonth) add("stateSalaryCase.transferMonth", "TRANSFER_MONTH_REQUIRED");
+    if (v2 && !changes && stateCase.transferMonth) add("stateSalaryCase.transferMonth", "TRANSFER_MONTH_NOT_APPLICABLE");
+    if (v2 && !hazardous && (stateCase.hazardousPeriods || stateCase.hazardousWindowFrom)) add("stateSalaryCase.hazardousPeriods", "HAZARDOUS_FIELDS_NOT_APPLICABLE");
+    if (v2 && hazardous && (!stateCase.hazardousPeriods?.length || !stateCase.hazardousWindowFrom)) add("stateSalaryCase.hazardousPeriods", "HAZARDOUS_PERIODS_REQUIRED");
+    if (stateCase.hazardousPeriods?.some(p => p.evidence.some(e => e.confirmedOn > assessedOn))) add("stateSalaryCase.hazardousPeriods", "FUTURE_EVIDENCE_CONFIRMATION");
     if (stateCase.firstParticipationMonth < history.coverageFrom || stateCase.firstParticipationMonth > history.coverageThrough)
       add("stateSalaryCase.firstParticipationMonth", "FIRST_PARTICIPATION_OUTSIDE_HISTORY");
     if ([...stateCase.firstParticipationEvidence, ...stateCase.treatmentEvidence].some(e => e.confirmedOn > assessedOn)) add("stateSalaryCase", "FUTURE_EVIDENCE_CONFIRMATION");
@@ -97,13 +121,63 @@ export function assessStateBenefit(historyValue: unknown, inputValue: Assessment
     if (!row.evidence.length) add(path, "CONTRIBUTION_EVIDENCE_REQUIRED");
     if (["WITHDRAWN", "NOT_CONTRIBUTED"].includes(row.status)) continue;
     if (row.scheme !== "COMPULSORY" || !["EMPLOYER", "STATE"].includes(row.salaryRegime)) review.push({ path, code: "DIFFERENT_INSURANCE_BRANCH_REQUIRED" });
-    if (!row.participantCategory || row.participantCategory === "UNKNOWN") add(path, "PARTICIPANT_CATEGORY_REQUIRED");
-    else if (!["ARTICLE_2_1_A", "ARTICLE_2_1_B"].includes(row.participantCategory)) review.push({ path, code: "PARTICIPANT_BRANCH_REVIEW_REQUIRED" });
-    if (row.status === "CREDITED") review.push({ path, code: "CREDITED_MONTH_ASSESSMENT_REQUIRED" });
-    if (row.contributionBase === null || new D(row.contributionBase).lte(0)) add(path, "POSITIVE_CONTRIBUTION_BASE_REQUIRED");
+    const category = row.participantCategory ?? "UNKNOWN", credited = row.status === "CREDITED";
+    // ND158 Art34: only BHXH-confirmed pre-1995 state-sector or officer/professional-soldier time,
+    // carrying a converted salary coefficient. Conscript (Art2(1)(đ)) or other credit kinds stay in review.
+    const creditAccepted = v2 && credited && row.month < "1995-01" && row.salaryRegime === "STATE" && !!row.stateSalary &&
+      ((row.creditKind === "PRE_1995_STATE_SECTOR" && CIVIL.includes(category)) || (row.creditKind === "PRE_1995_ARMED_FORCES" && category === "ARTICLE_2_1_D"));
+    const armedForces = v2 && category === "ARTICLE_2_1_D" && row.salaryRegime === "STATE" &&
+      (credited ? creditAccepted : transfer !== null && row.month < transfer);
+    if (category === "UNKNOWN") add(path, "PARTICIPANT_CATEGORY_REQUIRED");
+    else if (!CIVIL.includes(category) && !armedForces) review.push({ path, code: "PARTICIPANT_BRANCH_REVIEW_REQUIRED" });
+    // Law 2024 Art53(8) / Law 2014 Art39(2): maternity counts like a contributed month with its BHXH-recorded base (checked below).
+    const maternityLaw = maternityCreditCitation(row);
+    const maternity = v2 && maternityLaw !== null && CIVIL.includes(category) && rules.citations.some(c => c.id === maternityLaw);
+    if (credited && !creditAccepted && !maternity) review.push({ path, code: "CREDITED_MONTH_ASSESSMENT_REQUIRED" });
+    // Credited time had no contribution; its salary comes from the converted coefficient.
+    if (!creditAccepted && (row.contributionBase === null || new D(row.contributionBase).lte(0))) add(path, "POSITIVE_CONTRIBUTION_BASE_REQUIRED");
     counted.push(row);
   }
   if (!counted.some(r => r.salaryRegime === "STATE")) add("months", "STATE_SALARY_MONTH_REQUIRED");
+  if (v2) {
+    // Retiring while still in the armed forces follows separate age rules (BH4).
+    if (counted.length && !CIVIL.includes(counted.at(-1)!.participantCategory ?? "")) review.push({ path: "months", code: "ARMED_FORCES_RETIREMENT_BRANCH_REQUIRED" });
+    if (transfer !== null) {
+      if (!counted.some(r => r.participantCategory === "ARTICLE_2_1_D" && r.status === "PAID" && r.month < transfer) || !counted.some(r => r.month >= transfer))
+        add("stateSalaryCase.transferMonth", "TRANSFER_MONTH_INCONSISTENT");
+      if (counted.some(r => r.salaryRegime === "EMPLOYER")) review.push({ path: "stateSalaryCase", code: "MILITARY_TRANSFER_MIXED_REVIEW_REQUIRED" });
+      if (stateCase!.treatmentEvidence.some(e => e.confirmedOn < transfer)) add("stateSalaryCase.treatmentEvidence", "TRANSFER_EVIDENCE_BEFORE_TRANSFER");
+    }
+    if (change !== null && treatment !== "MILITARY_TRANSFER") {
+      if (!counted.some(r => r.month < change) || !counted.some(r => r.month >= change)) add("stateSalaryCase.transferMonth", "TRANSFER_MONTH_INCONSISTENT");
+      if (counted.some(r => r.salaryRegime === "EMPLOYER"))
+        review.push({ path: "stateSalaryCase", code: treatment === "HAZARDOUS_TRANSFER" ? "HAZARDOUS_TRANSFER_MIXED_REVIEW_REQUIRED" : "SENIORITY_TRANSFER_MIXED_REVIEW_REQUIRED" });
+      if (stateCase!.treatmentEvidence.some(e => e.confirmedOn < change)) add("stateSalaryCase.treatmentEvidence", "TRANSFER_EVIDENCE_BEFORE_TRANSFER");
+    }
+    const window = stateCase ? stateAveragingWindow(stateCase.firstParticipationMonth) : null, state = counted.filter(r => r.salaryRegime === "STATE");
+    if (treatment === "HAZARDOUS_TRANSFER" && change !== null && stateCase!.hazardousPeriods?.length && stateCase!.hazardousWindowFrom) {
+      // Art15(2)(a): >=15 years at hazardous salary levels (BHXH-confirmed periods), then lower-paid other work.
+      const periods = [...stateCase!.hazardousPeriods].sort((a, b) => a.fromMonth.localeCompare(b.fromMonth)), byMonth = new Map(state.map(r => [r.month, r]));
+      let total = 0, ordered = true;
+      periods.forEach((p, i) => {
+        if (p.fromMonth > p.toMonth || p.toMonth >= change || (i && periods[i - 1].toMonth >= p.fromMonth)) ordered = false;
+        for (let m = p.fromMonth; m <= p.toMonth && ordered; m = addMonths(m, 1)) { if (byMonth.has(m)) total++; else ordered = false; }
+      });
+      if (!ordered) add("stateSalaryCase.hazardousPeriods", "HAZARDOUS_PERIODS_INVALID");
+      else if (total < 180) add("stateSalaryCase.hazardousPeriods", "HAZARDOUS_FIFTEEN_YEARS_REQUIRED");
+      const from = stateCase!.hazardousWindowFrom!;
+      if (window === null) review.push({ path: "stateSalaryCase.hazardousWindowFrom", code: "HAZARDOUS_WINDOW_REVIEW_REQUIRED" });
+      else if (!periods.some(p => p.fromMonth <= from && addMonths(from, window - 1) <= p.toMonth)) add("stateSalaryCase.hazardousWindowFrom", "HAZARDOUS_WINDOW_INVALID");
+    }
+    if (treatment === "SENIORITY_ALLOWANCE_TRANSFER" && change !== null) {
+      // Art15(3): only (b) - every month of the final window includes the allowance - is unambiguous.
+      const last = window === null ? state : state.slice(-window);
+      if (!state.some(r => r.month < change && r.stateSalary?.includesSeniorityAllowance === true)) add("months", "SENIORITY_HISTORY_REQUIRED");
+      if (last.some(r => r.stateSalary?.includesSeniorityAllowance === undefined)) add("months", "SENIORITY_FLAG_REQUIRED");
+      else if (last.every(r => !r.stateSalary!.includesSeniorityAllowance)) review.push({ path: "months", code: "SENIORITY_ALLOWANCE_ADDITION_REVIEW_REQUIRED" });
+      else if (last.some(r => !r.stateSalary!.includesSeniorityAllowance)) review.push({ path: "months", code: "SENIORITY_MIXED_WINDOW_REVIEW_REQUIRED" });
+    }
+  }
   if (stateCase && counted.some(r => r.month < stateCase.firstParticipationMonth)) add("stateSalaryCase.firstParticipationMonth", "CONTRIBUTION_BEFORE_DECLARED_FIRST_PARTICIPATION");
   if (stateCase && !history.months.some(r => r.month === stateCase.firstParticipationMonth && ["PAID", "CREDITED", "WITHDRAWN"].includes(r.status)))
     add("stateSalaryCase.firstParticipationMonth", "FIRST_PARTICIPATION_EVIDENCE_MONTH_REQUIRED");
@@ -130,9 +204,15 @@ export function assessStateBenefit(historyValue: unknown, inputValue: Assessment
   const earliest = [firstAgeMonth, addMonths(stop, 1), addMonths(input.employmentEndDate!.slice(0, 7), 1)].sort().at(-1)!;
   if (benefitMonth < earliest) { add("intendedBenefitDate", "BENEFIT_START_BEFORE_ELIGIBILITY"); return finish("NOT_YET_ELIGIBLE"); }
   const wageRows: Array<{ month: string; salaryRegime: "STATE" | "EMPLOYER"; adjustedBase: string }> = [];
+  let converted = 0;
   for (const row of counted) {
     if (row.salaryRegime === "STATE" && row.month < "2004-10") {
-      review.push({ path: `months.${row.month}`, code: "PRE_2004_STATE_SALARY_CONVERSION_REQUIRED" }); continue;
+      const conversion = v2 ? row.stateSalary?.pre2004Conversion : undefined;
+      if (!conversion) { review.push({ path: `months.${row.month}`, code: "PRE_2004_STATE_SALARY_CONVERSION_REQUIRED" }); continue; }
+      const armed = row.participantCategory === "ARTICLE_2_1_D";
+      if (armed !== (conversion.scale === "ND204_ARMED_FORCES")) { review.push({ path: `months.${row.month}.stateSalary`, code: "PRE_2004_CONVERSION_SCALE_MISMATCH" }); continue; }
+      if (conversion.evidence.some(e => e.confirmedOn > assessedOn)) { add(`months.${row.month}.stateSalary`, "FUTURE_EVIDENCE_CONFIRMATION"); continue; }
+      converted++;
     }
     if (row.salaryRegime === "STATE" && stateCase!.firstParticipationMonth < "2016-01") {
       if (!row.stateSalary) { add(`months.${row.month}.stateSalary`, "CONTRIBUTION_COEFFICIENT_REQUIRED"); continue; }
@@ -147,8 +227,23 @@ export function assessStateBenefit(historyValue: unknown, inputValue: Assessment
     }
   }
   if (missing.length || review.length) return finish(review.length ? "REVIEW_REQUIRED" : "INSUFFICIENT_DATA");
-  const wage = ordinaryStateMixedAverage(stateCase!.firstParticipationMonth, wageRows), average = wage.average, raw = new D(average).mul(rate).div(100);
-  breakdown.push({ code: "STATE_WAGE_WINDOW_MONTHS", value: wage.prescribedWindowMonths === null ? null : String(wage.prescribedWindowMonths), unit: "MONTHS", citationIds: ["LAW_ART72"] },
+  const wage = ordinaryStateMixedAverage(stateCase!.firstParticipationMonth, wageRows);
+  let average = wage.average;
+  const hazardousCase = v2 && treatment === "HAZARDOUS_TRANSFER";
+  const alternative = transfer !== null ? militaryTransferAverage(stateCase!.firstParticipationMonth, transfer, wageRows)
+    : hazardousCase ? hazardousTransferAverage(stateCase!.firstParticipationMonth, stateCase!.hazardousWindowFrom!, wageRows) : undefined;
+  if (alternative === null) { review.push({ path: "stateSalaryCase.transferMonth", code: "TRANSFER_WINDOW_INCOMPLETE" }); return finish("REVIEW_REQUIRED"); }
+  if (alternative) {
+    average = alternative.average;
+    const label = hazardousCase ? "HAZARDOUS_WINDOW" : "BEFORE_TRANSFER";
+    breakdown.push({ code: "FINAL_WINDOW_AVERAGE", value: alternative.finalAverage, unit: "VND", citationIds: ["LAW_ART72", "ND158_ART15"] },
+      { code: label + "_AVERAGE", value: alternative.beforeTransferAverage, unit: "VND", citationIds: ["ND158_ART15"] },
+      { code: "USED_" + label + "_AVERAGE", value: String(alternative.usedBeforeTransfer), unit: "CODE", citationIds: ["ND158_ART15"] });
+  }
+  if (v2) breakdown.push({ code: "CREDITED_MONTHS", value: String(counted.filter(r => r.status === "CREDITED").length), unit: "MONTHS", citationIds: ["ND158_ART34"] },
+    { code: "PRE_2004_CONVERTED_MONTHS", value: String(converted), unit: "MONTHS", citationIds: ["ND158_ART15"] });
+  const raw = new D(average).mul(rate).div(100);
+  if (alternative === undefined) breakdown.push({ code: "STATE_WAGE_WINDOW_MONTHS", value: wage.prescribedWindowMonths === null ? null : String(wage.prescribedWindowMonths), unit: "MONTHS", citationIds: ["LAW_ART72"] },
     { code: "STATE_ADJUSTMENT_METHOD", value: stateCase!.firstParticipationMonth < "2016-01" ? "REFERENCE_COEFFICIENT" : "BENEFIT_YEAR_CPI", unit: "CODE", citationIds: ["LAW_ART73"] },
     { code: "STATE_CONTRIBUTION_MONTHS", value: String(wage.stateMonths), unit: "MONTHS", citationIds: ["TT12_ART15_16"] },
     { code: "STATE_ADJUSTED_AVERAGE", value: wage.stateAverage, unit: "VND", citationIds: ["ND158_ART15", "LAW_ART73"] },
