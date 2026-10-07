@@ -2,18 +2,27 @@
  * Arbitrary precision decimal for financial calculations.
  * Avoids IEEE-754 precision loss and MAX_SAFE_INTEGER limits.
  */
+function isDecimal(val: unknown): val is Decimal {
+  return val instanceof Decimal || Boolean(val && typeof val === "object" && "bi" in val && "scale" in val);
+}
+
 export class Decimal {
   private bi: bigint;
   private scale: number;
 
   constructor(val: string | number | bigint | Decimal = 0) {
-    if (val instanceof Decimal) {
-      this.bi = val.bi;
-      this.scale = val.scale;
+    if (isDecimal(val)) {
+      this.bi = BigInt((val as any).bi);
+      this.scale = Number((val as any).scale);
       return;
     }
-    const str = typeof val === "number" ? (Number.isFinite(val) ? val.toString() : "0") : String(val).trim();
-    if (!str || str === "NaN" || str === "Infinity" || str === "-Infinity") {
+    if (typeof val === "object" && val !== null) {
+      this.bi = 0n;
+      this.scale = 0;
+      return;
+    }
+    const str = typeof val === "number" ? (Number.isFinite(val) ? val.toString() : "0") : String(val ?? "").trim();
+    if (!str || str === "NaN" || str === "Infinity" || str === "-Infinity" || !/^[+-]?\d*(?:\.\d*)?$/.test(str)) {
       this.bi = 0n;
       this.scale = 0;
       return;
@@ -63,19 +72,19 @@ export class Decimal {
   }
 
   static max(a: Decimal | string | number, b: Decimal | string | number): Decimal {
-    const da = a instanceof Decimal ? a : new Decimal(a);
-    const db = b instanceof Decimal ? b : new Decimal(b);
+    const da = isDecimal(a) ? a : new Decimal(a);
+    const db = isDecimal(b) ? b : new Decimal(b);
     return da.gt(db) ? da : db;
   }
 
   static min(a: Decimal | string | number, b: Decimal | string | number): Decimal {
-    const da = a instanceof Decimal ? a : new Decimal(a);
-    const db = b instanceof Decimal ? b : new Decimal(b);
+    const da = isDecimal(a) ? a : new Decimal(a);
+    const db = isDecimal(b) ? b : new Decimal(b);
     return da.lt(db) ? da : db;
   }
 
   plus(other: Decimal | string | number): Decimal {
-    const b = other instanceof Decimal ? other : new Decimal(other);
+    const b = isDecimal(other) ? other : new Decimal(other);
     const [aVal, bVal, scale] = Decimal.align(this, b);
     const res = new Decimal();
     res.bi = aVal + bVal;
@@ -85,11 +94,20 @@ export class Decimal {
   }
 
   minus(other: Decimal | string | number): Decimal {
-    const b = other instanceof Decimal ? other : new Decimal(other);
+    const b = isDecimal(other) ? other : new Decimal(other);
     const [aVal, bVal, scale] = Decimal.align(this, b);
     const res = new Decimal();
     res.bi = aVal - bVal;
     res.scale = scale;
+    res.normalize();
+    return res;
+  }
+
+  mul(other: Decimal | string | number): Decimal {
+    const b = isDecimal(other) ? other : new Decimal(other);
+    const res = new Decimal();
+    res.bi = this.bi * b.bi;
+    res.scale = this.scale + b.scale;
     res.normalize();
     return res;
   }
@@ -99,13 +117,13 @@ export class Decimal {
   }
 
   gt(other: Decimal | string | number): boolean {
-    const b = other instanceof Decimal ? other : new Decimal(other);
+    const b = isDecimal(other) ? other : new Decimal(other);
     const [aVal, bVal] = Decimal.align(this, b);
     return aVal > bVal;
   }
 
   lt(other: Decimal | string | number): boolean {
-    const b = other instanceof Decimal ? other : new Decimal(other);
+    const b = isDecimal(other) ? other : new Decimal(other);
     const [aVal, bVal] = Decimal.align(this, b);
     return aVal < bVal;
   }
@@ -125,5 +143,9 @@ export class Decimal {
       res = s.slice(0, split) + "." + s.slice(split);
     }
     return isNeg ? "-" + res : res;
+  }
+
+  toString(): string {
+    return this.toFixed();
   }
 }
