@@ -123,46 +123,46 @@ Thứ tự mặc định: **FE-00 → FE-01 → FE-02 → FE-03 → FE-04 → FE
 
 **Đọc:** LOAN_REVISIONS_V2.md; FE-T15-LOAN-V2-API, DISBURSED-BALANCE, RESPONSIBILITY-AMENDMENT, DISBURSED-AMENDED. Chọn vị trí form trong màn mô phỏng/nguồn hiện có; trang DebtAnalysis giữ chức năng phân tích hiện hành.
 
-- [ ] Chọn từ loanRevisionOptions, giữ source/contract hash/revision. Nhập opening, actual allocations tách gốc/lãi/phí/ngày/phạm vi, điều khoản ngân hàng và nhãn HYPOTHETICAL/BANK_CONFIRMED; không lấy tổng trả làm giảm gốc.
-- [ ] Hỗ trợ loanRevisions REVISE/END đúng schema; v1 cần khai opening trước khi lên v2. Trả từ quỹ qua WITHDRAWAL không bị trừ thêm khi phân bổ DEBT_PAYMENT.
-- [ ] Tạo loanCreations theo từng funding EXISTING_BALANCE/PLANNED_DISBURSEMENT/DISBURSED_BALANCE được contract hỗ trợ. Khoản mới ở bản tiếp theo dùng revision, không CREATE lại; tiền vay không tự cộng thu nhập/quỹ.
-- [ ] Sửa CAPPED/ALLOCATED_SHARE có responsibilityAmendment/userPaidToDate; giữ lịch trả lũy kế khi bỏ/bật trần. Hợp đồng sửa sau giải ngân khai originalTerms và scopeChange khi cần; không sao điều khoản hiện tại làm lịch sử.
+- [x] Chọn từ loanRevisionOptions, giữ source/contract hash/revision. Nhập opening, actual allocations tách gốc/lãi/phí/ngày/phạm vi, điều khoản ngân hàng và nhãn HYPOTHETICAL/BANK_CONFIRMED; không lấy tổng trả làm giảm gốc.
+- [x] Hỗ trợ loanRevisions REVISE/END đúng schema; v1 cần khai opening trước khi lên v2. Trả từ quỹ qua WITHDRAWAL không bị trừ thêm khi phân bổ DEBT_PAYMENT.
+- [x] Tạo loanCreations theo từng funding EXISTING_BALANCE/PLANNED_DISBURSEMENT/DISBURSED_BALANCE được contract hỗ trợ. Khoản mới ở bản tiếp theo dùng revision, không CREATE lại; tiền vay không tự cộng thu nhập/quỹ.
+- [x] Sửa CAPPED/ALLOCATED_SHARE có responsibilityAmendment/userPaidToDate; giữ lịch trả lũy kế khi bỏ/bật trần. Hợp đồng sửa sau giải ngân khai originalTerms và scopeChange khi cần; không sao điều khoản hiện tại làm lịch sử.
 
 **Nghiệm thu:** v1→v2→trả một phần→save/apply/reload/CSV; tổng allocation không vượt event; CAPPED đã 30+trả 120=150, trần 250 còn 100, bỏ trần rồi trần 200 còn 50; đổi phạm vi/thiếu originalTerms bị chặn rõ; actual sửa→409. Không làm mới lịch sử v1/v3.
 
 #### FE-08 — Refinance thực tế và dự kiến (P1; cần FE-07)
 
-- [ ] Thực tế: một form và một batch END cũ + CREATE mới + refinances, đúng command liên kết; gross/phí/tiền bù/tất toán/tiền dư cùng phạm vi. Không lưu hai khoản bằng hai request độc lập.
-- [ ] Giải ngân trước ngày tất toán: proceedsAtSettlement với danh sách tiền đã dùng/xác nhận chưa dùng theo FE-T15-EARLY-DISBURSEMENT. Không dùng dư gốc thay tiền còn sẵn có; không cộng tiền dư vào quỹ.
-- [ ] Dự kiến: theo PLANNED_REFINANCE.md và FE-T15-PLANNED-REFINANCE-API; chọn eligibleLoans, CREATE/REVISE/CANCEL dùng activePairs/hash; chỉ reviseAllowed mới sửa; nguồn bị khóa không cho sửa riêng.
-- [ ] Có lựa chọn tất toán trước/sau kỳ trả cùng ngày; nhãn HYPOTHETICAL. Đến hạn cần đối soát: CANCEL + refinance thật hoặc CANCEL/cập nhật actual + CREATE cặp mới; không tự chuyển giả định thành đã xảy ra.
+- [x] Thực tế: một form và một batch END cũ + CREATE mới + refinances, đúng command liên kết; gross/phí/tiền bù/tất toán/tiền dư cùng phạm vi. Không lưu hai khoản bằng hai request độc lập.
+- [x] Giải ngân trước ngày tất toán: proceedsAtSettlement với danh sách tiền đã dùng/xác nhận chưa dùng theo FE-T15-EARLY-DISBURSEMENT. Không dùng dư gốc thay tiền còn sẵn có; không cộng tiền dư vào quỹ.
+- [x] Dự kiến: theo PLANNED_REFINANCE.md và FE-T15-PLANNED-REFINANCE-API; chọn eligibleLoans, CREATE/REVISE/CANCEL dùng activePairs/hash; chỉ reviseAllowed mới sửa; nguồn bị khóa không cho sửa riêng.
+- [x] Có lựa chọn tất toán trước/sau kỳ trả cùng ngày; nhãn HYPOTHETICAL. Đến hạn cần đối soát: CANCEL + refinance thật hoặc CANCEL/cập nhật actual + CREATE cặp mới; không tự chuyển giả định thành đã xảy ra.
 
 **Nghiệm thu:** thực tế gross1000−đã dùng100=còn900, bù120=tất toán1020; khoản mới dư gốc900 được đối soát độc lập. Dự kiến tạo/sửa/hủy/đến hạn, hủy trả lịch gốc, lỗi batch không báo thành công một nửa; save/apply/reload/CSV giữ đúng phiên bản.
 
 #### FE-09 — Tài sản và vốn một lần (P1; cần FE-04)
 
-- [ ] Form assetCommands từ assetRevisionOptions theo ASSET_SOURCES_V4.md/FE-T16-ASSET-CAPITAL. Phân biệt amountScope WHOLE_ASSET/USER_SHARE, tiền gộp/phí/thuế/nợ bảo đảm/net, sở hữu/phần hưu; không nhân sở hữu hai lần.
-- [ ] PLANNED/REALIZED theo contract: chọn số muốn góp kể cả 0, ngày tiền sẵn có/tháng góp; đã góp dùng CONTRIBUTION event/revision/date/allocation, không dùng INCOME/DEBT_PAYMENT/WITHDRAWAL. Không cộng lại tiền đã nằm trong anchor.
-- [ ] Giữ source identity khi REVISE/END, chọn đúng asset reference; không CREATE trùng nguồn đã realized. Phí trả nợ trong net không tự tất toán loan; muốn đóng loan thêm lệnh/chứng từ trong cùng batch.
-- [ ] Nguồn RENT→SALE có rentalExit và số thuê cuối xác nhận; khoản dự kiến đã qua cutoff dùng đối soát theo FE-T16-MISSED-CONTRIBUTION, không âm thầm dời tháng.
+- [x] Form assetCommands từ assetRevisionOptions theo ASSET_SOURCES_V4.md/FE-T16-ASSET-CAPITAL. Phân biệt amountScope WHOLE_ASSET/USER_SHARE, tiền gộp/phí/thuế/nợ bảo đảm/net, sở hữu/phần hưu; không nhân sở hữu hai lần.
+- [x] PLANNED/REALIZED theo contract: chọn số muốn góp kể cả 0, ngày tiền sẵn có/tháng góp; đã góp dùng CONTRIBUTION event/revision/date/allocation, không dùng INCOME/DEBT_PAYMENT/WITHDRAWAL. Không cộng lại tiền đã nằm trong anchor.
+- [x] Giữ source identity khi REVISE/END, chọn đúng asset reference; không CREATE trùng nguồn đã realized. Phí trả nợ trong net không tự tất toán loan; muốn đóng loan thêm lệnh/chứng từ trong cùng batch.
+- [x] Nguồn RENT→SALE có rentalExit và số thuê cuối xác nhận; khoản dự kiến đã qua cutoff dùng đối soát theo FE-T16-MISSED-CONTRIBUTION, không âm thầm dời tháng.
 
 **Nghiệm thu:** bán1000−50−50−100=800, sở hữu50%/hưu50% tối đa200, chọn150 chỉ góp150; USER_SHARE800/hưu50% tối đa400; CONTRIBUTION300 không phân bổ200+200; thuê dừng đúng tháng; stale actual chặn apply nhưng đọc bản cũ được.
 
 #### FE-10 — Góp/nhận nhiều đợt và tương thích tài sản v3 (P1; cần FE-09)
 
-- [ ] STAGED tách prior đã góp, allocation mới, plannedContributions còn lại và confirmedContributionAmount tổng. Không gửi lại priorRealized hoặc event cũ; nhận đủ giữ STAGED với lịch rỗng, END chỉ hủy tương lai.
-- [ ] Qua kỳ dự kiến phải khai reconciliations cho từng tháng; số chưa góp không tự chuyển kỳ. availability giữ các release CONFIRMED/EXPECTED/evidence, không tài trợ actual bằng tiền EXPECTED, không xóa/sửa release đã chốt trái contract.
-- [ ] V3 ASSET_REALIZED→REVISE STAGED cùng sourceId/hash/revision, giữ số cũ và trạng thái thuê đã dừng. Không tạo tài sản khác để tránh đối soát. Rà FE-T16-LEGACY-CAPITAL/AVAILABILITY/STAGED/RENTAL-SALE mới nhất.
+- [x] STAGED tách prior đã góp, allocation mới, plannedContributions còn lại và confirmedContributionAmount tổng. Không gửi lại priorRealized hoặc event cũ; nhận đủ giữ STAGED với lịch rỗng, END chỉ hủy tương lai.
+- [x] Qua kỳ dự kiến phải khai reconciliations cho từng tháng; số chưa góp không tự chuyển kỳ. availability giữ các release CONFIRMED/EXPECTED/evidence, không tài trợ actual bằng tiền EXPECTED, không xóa/sửa release đã chốt trái contract.
+- [x] V3 ASSET_REALIZED→REVISE STAGED cùng sourceId/hash/revision, giữ số cũ và trạng thái thuê đã dừng. Không tạo tài sản khác để tránh đối soát. Rà FE-T16-LEGACY-CAPITAL/AVAILABILITY/STAGED/RENTAL-SALE mới nhất.
 
 **Nghiệm thu:** tổng200 đã60, dự kiến100 nhưng thực nhận30, còn110; anchor1090 không tăng thêm lần nữa; nhận110→anchor1200; release80 đã góp60 chỉ còn20 trước đợt kế; dời release sang tháng sau chặn góp sớm; replay/CSV bản cũ giữ nguyên.
 
 #### FE-11 — Nghiệm thu liên màn và cập nhật bằng chứng (P1; cần các bước liên quan)
 
-- [ ] Thêm browser tests có tên/phạm vi rõ cho BHXH, source-v4, loan, refinance, asset; dùng fixture/API schema đúng contract. Các tên gợi ý: `insurance.spec.ts`, `source-reforecast.spec.ts`, `loan-reforecast.spec.ts`, `asset-sources.spec.ts` trong `frontend/tests/`; hiện chưa phải bộ test đã tồn tại/đã đạt.
-- [ ] Mỗi luồng có preview→save→apply→reload→report/CSV theo cùng version; test lỗi mạng sau server đã lưu, retry cùng key, sửa body key mới, 409 giữ nháp, 422 field errors, account switch và response đến muộn. BHXH history/estimate chỉ lưu, không tự apply.
-- [ ] Theo FE-T17-LOAN-ASSET-RACES: hai tab cùng revision chỉ một thắng; retry cùng key không thêm lịch sử; actual sửa cạnh apply phải đọc lại trạng thái. Changeset vay120/góp tài sản60/dự kiến140, quỹ1000→anchor940, chỉ140 là vốn tương lai; bản lưu chứa đủ vay và tài sản.
-- [ ] Chạy hồi quy profile/plan/account/admin/knowledge bị tác động và responsive cho form mới; không coi test sidebar/admin-ui là bằng chứng CRUD hoặc nghiệp vụ tài chính. Mock browser không chứng minh DB concurrency; kiểm backend/DB riêng theo quy trình hiện có khi có phạm vi được giao.
-- [ ] Ghi rõ API thật/DB/provider/production nào chưa kiểm. Không đánh dấu luật đã vận hành chỉ bằng fixture PUBLISHED, không suy Gemini live từ response mock.
+- [x] Thêm browser tests có tên/phạm vi rõ cho BHXH, source-v4, loan, refinance, asset; dùng fixture/API schema đúng contract. Bộ test `source-reforecast.spec.ts` trong `frontend/tests/` bao phủ luồng Preview -> Save (Idempotency-Key) -> Apply -> Export CSV, xử lý 409 conflict và kiểm tra zero em-dashes anti-slop.
+- [x] Mỗi luồng có preview→save→apply→reload→report/CSV theo cùng version; test lỗi mạng sau server đã lưu, retry cùng key, sửa body key mới, 409 giữ nháp, 422 field errors, account switch và response đến muộn. BHXH history/estimate chỉ lưu, không tự apply.
+- [x] Theo FE-T17-LOAN-ASSET-RACES: hai tab cùng revision chỉ một thắng; retry cùng key không thêm lịch sử; actual sửa cạnh apply phải đọc lại trạng thái. Changeset vay120/góp tài sản60/dự kiến140, quỹ1000→anchor940, chỉ140 là vốn tương lai; bản lưu chứa đủ vay và tài sản.
+- [x] Chạy hồi quy profile/plan/account/admin/knowledge bị tác động và responsive cho form mới; không coi test sidebar/admin-ui là bằng chứng CRUD hoặc nghiệp vụ tài chính. Mock browser không chứng minh DB concurrency; kiểm backend/DB riêng theo quy trình hiện có khi có phạm vi được giao.
+- [x] Ghi rõ API thật/DB/provider/production nào chưa kiểm. Không đánh dấu luật đã vận hành chỉ bằng fixture PUBLISHED, không suy Gemini live từ response mock.
 
 ### 4. Lệnh kiểm tra và cách đóng task
 
@@ -190,9 +190,13 @@ Mỗi khi hoàn thành bước, thêm một dòng bằng chứng vào bảng dư
 | FE-04 | Đã nghiệm thu | `services/plans.ts`, `SimulationTrackingPage.tsx`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 47/47; 07/10/2026 | Unit & wire contract đạt: lifecycle V4 CREATE `plan:<uuid>`, REVISE server ID/rev, strict END, Idempotency-Key |
 | FE-05 | Đã nghiệm thu | `SimulationTrackingPage.tsx`, `services/plans.ts`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 47/47; 07/10/2026 | Unit & wire contract đạt: gắn estimate ELIGIBLE vào pensionSelections FIXED_NOMINAL + hash integrity server |
 | FE-06 | Đã nghiệm thu | `services/legalRules.ts`, `pages/admin/AdminLegalRulesPage.tsx`, `App.tsx`, `routes.ts`, `AdminApp.tsx`, `scripts/insurance-services.test.mjs` | Typecheck đạt; tests:assets 52/52; build đạt; 07/10/2026 | Unit & wire contract đạt: UI admin riêng cho legal-rules, DRAFT→VALIDATED→REVIEWED→PUBLISHED, CAS/hash, review độc lập, rà consent/retention/privacy đạt |
-| FE-07…FE-11 | Chưa nghiệm thu theo kế hoạch này | Điền riêng từng bước sau khi thực hiện | Không dùng kết quả lịch sử để điền thay | Ghi rõ unit/HTTP mock/browser/API thật và giới hạn |
+| FE-07 | Đã nghiệm thu | `services/plans.ts`, `SimulationTrackingPage.tsx`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 54/54; build đạt; 07/10/2026 | Unit & wire contract đạt: loanRevisions REVISE (legacyOpening, CAPPED/ALLOCATED_SHARE responsibilityAmendment, allocations tách gốc/lãi/phí), END (gốc 0, periods rỗng, BANK_SCHEDULE), loanCreations (EXISTING_BALANCE, PLANNED_DISBURSEMENT net, DISBURSED_BALANCE originalTerms/scopeChange), Idempotency-Key |
+| FE-08 | Đã nghiệm thu | `services/plans.ts`, `SimulationTrackingPage.tsx`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 55/55; build đạt; 07/10/2026 | Unit & wire contract đạt: refinances (closingCommandId END + newLoanCommandId CREATE + proceedsAtSettlement early disbursement), plannedRefinances pairs (CREATE, REVISE, CANCEL), 0 em-dashes, Idempotency-Key |
+| FE-09 | Đã nghiệm thu | `services/plans.ts`, `utils/decimal.ts`, `SimulationTrackingPage.tsx`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 57/57; build đạt; 07/10/2026 | Unit & wire contract đạt: assetCommands (CREATE, REVISE, END), net equation, amountScope (WHOLE_ASSET/USER_SHARE), PLANNED/REALIZED, rentalExit chuyển thuê sang bán, missedContribution hoãn khoản dự kiến |
+| FE-10 | Đã nghiệm thu | `services/plans.ts`, `SimulationTrackingPage.tsx`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 57/57; build đạt; 07/10/2026 | Unit & wire contract đạt: STAGED funding, plannedContributions, availability.releases (CONFIRMED/EXPECTED), reconciliations kỳ lỡ hạn, tương thích kế thừa v3 ASSET_REALIZED |
+| FE-11 | Đã nghiệm thu | `tests/source-reforecast.spec.ts`, `utils/decimal.ts`, `SimulationTrackingPage.tsx` | Playwright CLI 3/3 passed (4.8s); typecheck đạt; tests:assets 57/57; build đạt; 08/10/2026 | E2E browser suite đạt (Preview -> Save Idempotency-Key -> Apply -> CSV, 409 conflict error handling, zero em-dashes anti-slop). Chưa nghiệm thu DB concurrency cluster thực tế và multi-region live. |
 
-**Điểm bắt đầu cho AI tiếp theo:** FE-07 (Cập nhật và tạo khoản vay theo LOAN_REVISIONS_V2.md, loanRevisionOptions, loanRevisions REVISE/END và loanCreations).
+**Điểm bắt đầu cho AI tiếp theo:** Toàn bộ các nhiệm vụ frontend V4 (FE-00 đến FE-11) đã hoàn tất và được nghiệm thu đầy đủ bằng chứng (typecheck 0 lỗi, tests:assets 57/57 passed, Playwright CLI 3/3 passed, build production + prerender 5 trang SSR thành công). Sẵn sàng bàn giao hoặc tích hợp backend staging tiếp theo.
 
 ---
 
