@@ -34,6 +34,24 @@ function reconciliation() {
   return { input, actual, allocation };
 }
 
+it("carries the confirmed lifetime paid total even while the responsibility is uncapped", () => {
+  const { input, actual } = reconciliation();
+  input.previous.userPaidToDate = "20000000"; input.next.userPaidToDate = "32000000";
+  expect(reconcileLoanRevision(input, [actual], []).fundAdjustment).toBe("0");
+  input.next.userPaidToDate = "31000000";
+  expect(() => reconcileLoanRevision(input, [actual], [])).toThrowError(expect.objectContaining({ code: "LOAN_PAID_HISTORY_REQUIRED" }));
+  delete input.next.userPaidToDate;
+  expect(() => reconcileLoanRevision(input, [actual], [])).toThrowError(expect.objectContaining({ code: "LOAN_PAID_HISTORY_REQUIRED" }));
+});
+
+it("does not silently start a paid-history ledger on an old unknown basis", () => {
+  const { input, actual } = reconciliation(); input.next.userPaidToDate = "12000000";
+  expect(() => reconcileLoanRevision(input, [actual], [])).toThrowError(expect.objectContaining({ code: "LOAN_PAID_HISTORY_REQUIRED" }));
+  input.next.amendedOn = "2026-09-01"; input.next.effectiveOn = "2026-09-01";
+  input.responsibilityAmendment = { effectiveOn: "2026-09-01", openingUserPaid: "0", confirm: true, evidence };
+  expect(reconcileLoanRevision(input, [actual], []).userPaid).toBe("12000000");
+});
+
 describe("Loan contract v2 arithmetic (independent schedules)", () => {
   it("keeps term or reduces term without changing v1, including zero interest", () => {
     const c = contract();

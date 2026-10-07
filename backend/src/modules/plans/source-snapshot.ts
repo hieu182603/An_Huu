@@ -10,8 +10,9 @@ import { flowSourceCommandSchema } from "./source-schema";
 import { sourceRegistrySchema } from "../retirement/sources";
 import { loanSourceEvidenceSchema, replayLoanSourceEvidence } from "../debts/source-candidate";
 import type { LoanConsumedAllocation } from "../debts/reconciliation";
-import { loanCreationEvidenceSchema, replayLoanCreation } from "../debts/source-create";
+import { loanCreationEvidenceSchema, replayLoanCreation, loanCreationAllocations } from "../debts/source-create";
 import { reconcileRefinance } from "../debts/refinance";
+import { assetSourceEvidenceSchema, replayAssetSource, assetAllocations, assertAssetCommandHistory, legacyCapitalAllocations, priorCapitalAllocations, type AssetSourceEvidence } from "../capital/source-candidate";
 
 export type SourceSnapshot = { format: typeof SOURCE_SNAPSHOT_FORMAT;
   capture: Awaited<ReturnType<RetirementService["capture"]>>; preview: SourceRetirementResult; integrityHash: string };
@@ -59,20 +60,40 @@ export function readSourceSnapshot(value: unknown): SourceSnapshot {
   const consumed: LoanConsumedAllocation[] = [];
   const priorContracts = new Map<string, { sourceHash: string; contract: unknown }>();
   const agreements = new Set<string>();
-  for (const source of stored.preview.newLoanSources ?? []) {
-    const evidence = loanCreationEvidenceSchema.parse(source.evidence), command = evidence.command;
-    const reference = command.agreementReference.toUpperCase();
-    if (evidenced.has(command.commandId) || agreements.has(reference) || priorContracts.has(command.sourceId)) evidenceError();
-    replayLoanCreation(stored.preview.replayInput.sourceRegistry, source.sourceHash, evidence);
-    agreements.add(reference); evidenced.add(command.commandId);
-    priorContracts.set(command.sourceId, { sourceHash: source.sourceHash, contract: command.contract });
-  }
+  // Replay in registry order so allocations consumed by newly created loans
+  // also constrain later revisions and later source creations. Old evidence
+  // without disbursement reconciliation keeps exactly the same empty ledger.
+  const debtProofs = [
+    ...(stored.preview.newLoanSources ?? []).map(source => ({ kind: "CREATE" as const, source })),
+    ...(stored.preview.loanSources ?? []).map(source => ({ kind: "REVISE" as const, source })),
+  ].sort((a, b) => revisions.findIndex(r => r.sourceHash === a.source.sourceHash) - revisions.findIndex(r => r.sourceHash === b.source.sourceHash));
+  const assertPinnedActuals = (actuals: Array<{ period: string; revision: number; data: { closingBalance: string } }>) => {
+    for (const actual of actuals) {
+      const pinned = stored.preview.reforecast?.actualRevisions.find(a => a.period === actual.period);
+      if (!pinned || pinned.revision !== actual.revision || pinned.closingBalance !== actual.data.closingBalance) evidenceError();
+    }
+  };
   let priorIndex = -1;
-  for (const source of stored.preview.loanSources ?? []) {
-    const evidence = loanSourceEvidenceSchema.parse(source.evidence), command = evidence.command;
-    const index = revisions.findIndex(r => r.sourceHash === source.sourceHash);
-    if (index <= priorIndex || evidenced.has(command.commandId) || digest(evidence.consumed) !== digest(consumed)) evidenceError();
+  for (const proof of debtProofs) {
+    const index = revisions.findIndex(r => r.sourceHash === proof.source.sourceHash);
+    if (index <= priorIndex) evidenceError();
     priorIndex = index;
+    if (proof.kind === "CREATE") {
+      const source = proof.source, evidence = loanCreationEvidenceSchema.parse(source.evidence), command = evidence.command;
+      const reference = command.agreementReference.toUpperCase();
+      if (evidenced.has(command.commandId) || agreements.has(reference) || priorContracts.has(command.sourceId)) evidenceError();
+      if (command.funding.kind === "DISBURSED_BALANCE") {
+        if (!evidence.reconciliation || digest(evidence.reconciliation.consumed) !== digest(consumed)) evidenceError();
+        assertPinnedActuals(evidence.reconciliation!.actuals);
+      }
+      replayLoanCreation(stored.preview.replayInput.sourceRegistry, source.sourceHash, evidence);
+      agreements.add(reference); evidenced.add(command.commandId);
+      priorContracts.set(command.sourceId, { sourceHash: source.sourceHash, contract: command.contract });
+      consumed.push(...loanCreationAllocations(command).map(allocation => ({ sourceId: command.sourceId, allocation })));
+      continue;
+    }
+    const source = proof.source, evidence = loanSourceEvidenceSchema.parse(source.evidence), command = evidence.command;
+    if (evidenced.has(command.commandId) || digest(evidence.consumed) !== digest(consumed)) evidenceError();
     const prior = priorContracts.get(command.sourceId);
     if ("contract" in evidence.basis) {
       if (!prior || prior.sourceHash !== evidence.basis.sourceHash || digest(prior.contract) !== digest(evidence.basis.contract)) evidenceError();
@@ -81,10 +102,7 @@ export function readSourceSnapshot(value: unknown): SourceSnapshot {
       const stress = stored.preview.selection.debtStress.filter(s => s.loanId === debt?.id);
       if (prior || !debt || digest(debt) !== digest(evidence.basis.legacy.debt) || digest(stress) !== digest(evidence.basis.legacy.stress)) evidenceError();
     }
-    for (const actual of evidence.actuals) {
-      const pinned = stored.preview.reforecast?.actualRevisions.find(a => a.period === actual.period);
-      if (!pinned || pinned.revision !== actual.revision || pinned.closingBalance !== actual.data.closingBalance) evidenceError();
-    }
+    assertPinnedActuals(evidence.actuals);
     replayLoanSourceEvidence(stored.preview.replayInput.sourceRegistry, source.sourceHash, evidence);
     consumed.push(...command.allocations.map(allocation => ({ sourceId: command.sourceId, allocation })));
     priorContracts.set(command.sourceId, { sourceHash: source.sourceHash, contract: command.contract });
@@ -102,6 +120,27 @@ export function readSourceSnapshot(value: unknown): SourceSnapshot {
     const command = source.evidence.command;
     if (command.refinanceCommandId && !stored.preview.refinances?.some(r => r.command.commandId === command.refinanceCommandId &&
       (r.closingSourceHash === source.sourceHash || r.newSourceHash === source.sourceHash))) evidenceError();
+  }
+  const assetHistory: AssetSourceEvidence[] = [];
+  let assetIndex = -1;
+  for (const source of stored.preview.assetSources ?? []) {
+    const proof = assetSourceEvidenceSchema.parse(source.evidence), command = proof.command;
+    const index = revisions.findIndex(s => s.sourceHash === source.sourceHash);
+    if (index <= assetIndex || evidenced.has(command.commandId)) evidenceError();
+    assetIndex = index;
+    assertAssetCommandHistory(command, assetHistory, stored.preview.sourceChanges ?? [], stored.capture.profile.assets.status === "KNOWN" ? stored.capture.profile.assets.entries : [], proof.cutoff);
+    const consumed = [...legacyCapitalAllocations(stored.preview.sourceChanges ?? [], proof.actuals), ...assetHistory.flatMap(h => assetAllocations(h.command))];
+    if (digest(consumed) !== digest(proof.consumed)) evidenceError();
+    if (command.operation !== "END" && command.capital.funding.status === "STAGED") {
+      const priorRealized = priorCapitalAllocations(command.sourceId, assetHistory, stored.preview.sourceChanges ?? [], proof.actuals);
+      if (!proof.priorRealized || digest(priorRealized) !== digest(proof.priorRealized)) evidenceError();
+    }
+    for (const actual of proof.actuals) {
+      const pinned = stored.preview.reforecast?.actualRevisions.find(a => a.period === actual.period);
+      if (!pinned || pinned.revision !== actual.revision || pinned.closingBalance !== actual.data.closingBalance) evidenceError();
+    }
+    replayAssetSource(stored.preview.replayInput.sourceRegistry, source.sourceHash, proof);
+    assetHistory.push(proof); evidenced.add(command.commandId);
   }
   // Imported profile/legacy commands have namespaced IDs. Every new public
   // UUID command must retain its evidence even after its source ends.

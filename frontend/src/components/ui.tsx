@@ -396,12 +396,16 @@ export function Textarea({ label, placeholder, value, onChange, rows = 4, hideLa
   );
 }
 
-export function Select({ label, options, value, onChange, helper, error, disabled }: { label: string; options: string[]; value?: string; onChange?: (value: string) => void; helper?: string; error?: string; disabled?: boolean }) {
+export function Select({ label, options, value, onChange, helper, error, disabled, hideLabel = false }: { label: string; options: string[]; value?: string; onChange?: (value: string) => void; helper?: string; error?: string; disabled?: boolean; hideLabel?: boolean }) {
   const id = useId();
   const messageId = `${id}-message`;
   return (
     <div className={`form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`}>
-      <label htmlFor={id} className="field-label">{label}</label>
+      {!hideLabel ? (
+        <label htmlFor={id} className="field-label">{label}</label>
+      ) : (
+        <label htmlFor={id} className="sr-only">{label}</label>
+      )}
       <span className="select-wrap">
         <select id={id} disabled={disabled} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} aria-invalid={Boolean(error)} aria-describedby={helper || error ? messageId : undefined}>
           {options.map((option) => <option key={option}>{option}</option>)}
@@ -518,8 +522,8 @@ export function Pagination({
       <div className="pagination-left">
         <span className="pagination-page-indicator">
           {isEn
-            ? `Page ${activePage} of ${activeTotalPages}`
-            : `Trang ${activePage} / ${activeTotalPages}`}
+            ? `Page ${activePage} of ${activeTotalPages}${typeof totalItems === "number" ? ` (${totalItems.toLocaleString()} items)` : ""}`
+            : `Trang ${activePage} / ${activeTotalPages}${typeof totalItems === "number" ? ` (${totalItems.toLocaleString()} mục)` : ""}`}
         </span>
 
         {showRowsPerPage && (
@@ -657,6 +661,8 @@ export function Alert({
   onClose,
   action,
   className,
+  dismissible = false,
+  style,
 }: {
   tone: "success" | "info" | "warning" | "danger" | "error";
   title: string;
@@ -664,15 +670,23 @@ export function Alert({
   onClose?: () => void;
   action?: ReactNode;
   className?: string;
+  dismissible?: boolean;
+  style?: React.CSSProperties;
 }) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
+  const handleClose = onClose || (dismissible ? () => setDismissed(true) : undefined);
+
   return (
     <NotificationCard
       tone={tone}
       title={title}
       description={children}
-      onClose={onClose}
+      onClose={handleClose}
       action={action}
       className={`inline-alert ${className || ""}`}
+      style={style}
     />
   );
 }

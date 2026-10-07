@@ -4,7 +4,7 @@ import { addMonths, dateSchema, monthSchema } from "../../common/calendar";
 import { digest } from "../../common/digest";
 import { DebtDecimal as D } from "./loan";
 import { loanAllocationSchema, loanContractV2Schema, type LoanContractV2 } from "./revision-schema";
-import { loanActualEvidenceSchema, loanBalanceChangeSchema, reconcileLoanRevision, type LoanActualEvidence, type LoanConsumedAllocation } from "./reconciliation";
+import { loanActualEvidenceSchema, loanBalanceChangeSchema, loanResponsibilityAmendmentSchema, loanComponentsTotal, reconcileLoanRevision, type LoanActualEvidence, type LoanConsumedAllocation } from "./reconciliation";
 import { loanLegacyBasisSchema, loanLegacyOpeningSchema, readLegacyLoanBasis } from "./legacy-basis";
 import { projectLoanRevision } from "./revision-engine";
 import { assertSourceRegistry, composeSourceMonths, sealSourceRegistry, sealSourceRevision, type SourceCell, type SourceRegistry } from "../retirement/sources";
@@ -14,6 +14,7 @@ export const loanSourceRevisionSchema = z.object({ commandId: z.string().uuid(),
   expectedSourceRevision: z.number().int().positive(), expectedSourceHash: hash, expectedContractHash: hash,
   refinanceCommandId: z.string().uuid().optional(),
   confirm: z.literal(true), contract: loanContractV2Schema, legacyOpening: loanLegacyOpeningSchema.optional(),
+  responsibilityAmendment: loanResponsibilityAmendmentSchema.optional(),
   allocations: z.array(loanAllocationSchema).max(500), principalAdvances: z.array(loanBalanceChangeSchema).max(100) }).strict();
 export type LoanSourceRevisionCommand = z.infer<typeof loanSourceRevisionSchema>;
 export const loanSourceBasisSchema = z.union([
@@ -68,8 +69,13 @@ export function loanSourceCandidate(registry: SourceRegistry, commandValue: Loan
   const active = composeSourceMonths(registry, from, through).attribution;
   if (active.some(c => c.metric === "debtPayment" && registry.revisions.some(r => r.sourceHash === c.sourceHash && r.kind === "AGGREGATE")))
     fail("SOURCE_AGGREGATE_OVERLAP");
+  if (command.responsibilityAmendment) {
+    const recorded = consumed.filter(c => c.sourceId === command.sourceId).reduce((n, c) => n.plus(loanComponentsTotal(c.allocation.components)), new D(0));
+    if (new D(command.responsibilityAmendment.openingUserPaid).lt(recorded)) fail("LOAN_CAP_CARRY_MISMATCH");
+  }
   const reconciliation = reconcileLoanRevision({ previous: previousBalance, next: command.contract,
-    allocations: command.allocations, principalAdvances: command.principalAdvances }, actuals, consumed);
+    allocations: command.allocations, principalAdvances: command.principalAdvances,
+    ...(command.responsibilityAmendment ? { responsibilityAmendment: command.responsibilityAmendment } : {}) }, actuals, consumed);
   const schedule = loanSourceSchedule(command.contract, from, through);
   if (command.operation === "END" && (command.contract.confirmation !== "BANK_CONFIRMED" || !new D(command.contract.principalBalance).isZero() ||
     !new D(projectLoanRevision(command.contract).totals?.contractPayment ?? "1").isZero())) fail("LOAN_NOT_FULLY_SETTLED");

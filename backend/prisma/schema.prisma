@@ -90,6 +90,7 @@ model User {
   notificationPreference NotificationPreference?
   insuranceHistoryVersions SocialInsuranceHistoryVersion[]
   pensionEstimates PensionEstimate[]
+  loginLogs      LoginLog[]           @relation("UserLoginLogs")
 
   @@map("users")
 }
@@ -299,6 +300,7 @@ model SimulationScenario {
   resultSummary       Json     @db.JsonB
   createdAt           DateTime @default(now())
 
+  @@index([userId])
   @@map("simulation_scenarios")
 }
 
@@ -359,6 +361,7 @@ model Article {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  @@index([kind, status])
   @@map("articles")
 }
 
@@ -472,6 +475,8 @@ model AuditLog {
   targetId      String?
   performerId   String?
   performerName String
+  ipAddress     String?
+  userAgent     String?
   details       Json?    @db.JsonB
   createdAt     DateTime @default(now())
 
@@ -479,6 +484,67 @@ model AuditLog {
 
   @@map("audit_logs")
   @@index([targetType, targetId, createdAt])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json     @db.JsonB
+  category  String   @default("GENERAL")
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([category])
+  @@map("system_settings")
+}
+
+enum LoginStatus {
+  SUCCESS
+  FAILED
+  LOCKED
+}
+
+model LoginLog {
+  id            String      @id @default(uuid())
+  userId        String?
+  identifier    String
+  status        LoginStatus
+  ipAddress     String?
+  userAgent     String?
+  failureReason String?
+  createdAt     DateTime    @default(now())
+
+  user          User?       @relation("UserLoginLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([identifier, createdAt])
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("login_logs")
+}
+
+enum SystemLogLevel {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+model SystemLog {
+  id         String         @id @default(uuid())
+  level      SystemLogLevel @default(INFO)
+  source     String
+  message    String         @db.Text
+  path       String?
+  statusCode Int?
+  traceId    String?
+  details    Json?          @db.JsonB
+  createdAt  DateTime       @default(now())
+
+  @@index([level, createdAt])
+  @@index([source, createdAt])
+  @@index([createdAt])
+  @@map("system_logs")
 }
 
 enum KnowledgeStatus {

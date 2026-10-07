@@ -1,5 +1,189 @@
 # Task frontend — An Hưu
 
+## FE-T15-PLANNED-REFINANCE — chuẩn bị luồng giả định, 07/10/2026
+
+**Chưa có public API.** Backend mới có [bộ tính và contract nội bộ](../backend/docs/PLANNED_REFINANCE.md); chưa ghép form này vào nút lưu/apply hoặc gắn nhãn tính năng đã xong. Các endpoint refinance thực tế hiện tại không nhận input này.
+
+- [ ] Chuẩn bị cách trình bày khoản cũ→ngày refinance→khoản mới; hiển thị các kỳ khoản cũ còn trả trước ngày dự kiến. Cùng ngày có kỳ trả phải cho chọn tất toán trước/sau kỳ đó, không mặc định ẩn.
+- [ ] Tách dư gốc dự kiến (backend tính), lãi/phí báo giá giả định và phí giữ lại khoản vay mới. Hiện phương trình tài trợ toàn khoản và phần người dùng, phân biệt userTopUp với tổng tiền tất toán; chưa phải ngân hàng chấp thuận.
+- [ ] Không cộng net giải ngân/tiền dư vào quỹ. Chỉ tiền bù của người dùng là khoản chi dự báo thêm; không tự tạo actual.
+- [ ] Cần thao tác sửa/hủy cặp nguồn và bước đối soát khi đến ngày dự kiến. Chờ backend mở contract/proof/lifecycle và ghi checkpoint public trước khi nối API. Ca nghiệm thu chi tiết trong PLANNED_REFINANCE.md.
+
+
+## FE-T15-EARLY-DISBURSEMENT — giải ngân trước tất toán, 07/10/2026
+
+[Contract refinance](../backend/docs/LOAN_REVISIONS_V2.md) bổ sung proceedsAtSettlement trong refinances; giữ cặp END khoản cũ + CREATE khoản mới cùng lần lưu.
+
+- [ ] Với DISBURSED_BALANCE và disbursedOn trước settledOn, nhập/xác nhận số tiền giải ngân còn sẵn có ngày tất toán, danh sách đã dùng trước đó (ID/ngày/tiền/mô tả/chứng từ). Không tự lấy dư gốc cuối kỳ làm số tiền còn sẵn có; mảng rỗng cần xác nhận chưa dùng.
+- [ ] Hiện hai phép đối chiếu: gross−phí giữ lại−đã dùng=còn sẵn có; còn sẵn có+tiền bù=tiền tất toán+tiền dư. Các số cùng phạm vi toàn hợp đồng hoặc phần người dùng.
+- [ ] Tách khoản trả gốc/lãi/phí theo actual khỏi dòng tiền giải ngân còn lại; khoản trả có thể do nguồn khác tài trợ. Không tự cộng khoản giải ngân/tiền dư vào quỹ hưu hoặc tự tạo WITHDRAWAL.
+- [ ] Chặn nhập ngày dùng trước giải ngân/từ ngày tất toán trở đi; chứng từ số dư tiền xác nhận từ ngày tất toán. Giải ngân sau tất toán cần luồng khác chưa hỗ trợ, không đổi ngày để vượt kiểm tra. EXISTING_BALANCE không gửi trường mới.
+- [ ] Nghiệm thu gross1000, đã dùng100, còn900, bù120, tất toán1020; khoản vay mới đã trả100gốc+10lãi thì dư gốc900 độc lập. Preview/save/apply/reload/CSV giữ lịch sử; thiếu confirmation/sai số trả422, sửa actual chặn apply. Browser còn cần chạy riêng.
+
+
+## FE-T15-RESPONSIBILITY-AMENDMENT — sửa trần và nghĩa vụ, 07/10/2026
+
+[Contract](../backend/docs/LOAN_REVISIONS_V2.md) và OpenAPI đã bổ sung responsibilityAmendment/userPaidToDate trong loanRevisions. Giữ preview → save → apply riêng, không sửa profile ngầm.
+
+- [ ] Cho chọn đổi ALLOCATED_SHARE/CAPPED hoặc đổi limit; nhập ngày sửa/hiệu lực/chứng từ. Gửi responsibilityAmendment và tổng userPaidToDate; không chỉ sửa trực tiếp limit hoặc previouslyPaid.
+- [ ] Hiện tổng đã trả tại **số dư mở đầu của bản trước**. Nếu backend đã pin số này, giữ nguyên; nếu chưa biết, yêu cầu xác nhận từ chứng từ, không tự điền0. Tổng kỳ này gồm gốc/lãi/phí người dùng thực trả, không lấy phần toàn hợp đồng của đồng vay.
+- [ ] Khi bỏ trần vẫn giữ userPaidToDate; bật lại CAPPED phải dùng số đã trả lũy kế. Hiển thị giới hạn còn lại = limit−previouslyPaid, tách dư gốc toàn khoản vay. Hạ trần dưới số đã trả cần xử lý riêng, không tự tạo hoàn tiền.
+- [ ] Ngày hiệu lực trong khoảng số dư mở đầu→cutoff; không biến ngày tương lai thành thay đổi thực tế đã xảy ra. Giữ nhãn giả định/ngân hàng xác nhận theo contract.confirmation, không tự đổi nhãn khi người dùng bấm xác nhận.
+- [ ] Xử lý409 LOAN_RESPONSIBILITY_AMENDMENT_INVALID, LOAN_PAID_HISTORY_REQUIRED, LOAN_CAP_CARRY_MISMATCH; giữ nháp để sửa/xem trước lại. Kiểm đa tab và stale actual theo FE-T17.
+- [ ] Nghiệm thu chuỗi: đã30+trả120=150; trần250 còn100; bỏ trần vẫn giữ150; bật lại trần200 còn50. Lưu/reload/replay/CSV giữ lịch sử và quỹ chỉ bị rút120 một lần. Browser chưa được nghiệm thu bởi kiểm backend.
+
+
+## FE-T17-LOAN-ASSET-RACES — nghiệm thu nhiều tab, 07/10/2026
+
+Backend đã kiểm3race service/DB độc lập cho cùng changeset sửa vay và góp tài sản STAGED. Không đổi endpoint/schema; phần dưới vẫn cần nghiệm thu browser.
+
+- [ ] Gửi lại đúng yêu cầu lưu với cùng Idempotency-Key phải hiện cùng phiên bản, không thêm dòng lịch sử hoặc thông báo thành công hai lần. Khi sửa nội dung thì dùng key mới.
+- [ ] Hai tab cùng plan revision: chỉ một yêu cầu lưu thắng; tab nhận409 giữ nội dung đang nhập, báo dữ liệu đã đổi và yêu cầu tải/xem trước lại, không tự tăng revision rồi gửi lại bản cũ.
+- [ ] Khi sổ thực tế được sửa trong lúc áp dụng, đọc lại trạng thái server. Apply có thể thành công trước lần sửa, nhưng report sau đó có actualSourceChanged=true; hiển thị cần đối soát lại. Không gán mọi lần apply thành công thành “đang cập nhật” vĩnh viễn.
+- [ ] Nghiệm thu changeset gồm trả vay120 (100gốc/10lãi/10phí), góp tài sản60 và dự kiến140: quỹ đầu1000 cho anchor940, chỉ140 là vốn dự kiến; bản lưu phải chứa đủ cả vay và tài sản. Sửa actual góp60→70 chặn áp dụng lại bản cũ nhưng vẫn xem được lịch sử đã lưu.
+
+
+## FE-T16-LEGACY-CAPITAL — góp tiếp tài sản đã ghi nhận v3, 07/10/2026
+
+[Contract tương thích](../backend/docs/ASSET_SOURCES_V4.md) đã nối ASSET_REALIZED v3 sang STAGED v4. Không đổi endpoint/schema: assetRevisionOptions nay có nguồn cũ này.
+
+- [ ] Khi chọn nguồn đã góp ở v3, giữ cùng sourceId/hash/revision và chọn REVISE + STAGED. Không gửi lại sourceChanges/CREATE tài sản khác hoặc dùng PLANNED/REALIZED một lần.
+- [ ] Hiển thị số đã góp từ event actual được sourceChanges tham chiếu; đó là toàn bộ event đã gắn, không nhân lại sở hữu hoặc ước từ profile. Preview STAGED trả proof priorRealized do backend đối chiếu.
+- [ ] Nhập lại hạn mức net và chứng từ hiện tại, số muốn góp tiếp/lịch; confirmedContributionAmount gồm cả số đã góp cũ. Ví dụ đã60, còn140 thì tổng200, không phải140.
+- [ ] Nếu nguồn thuê đã dừng bởi command v3, không tự phục hồi thuê hoặc bịa rentalExit. Chỉ góp tiếp phần tiền bán xác nhận được; bản v3 vẫn xem/replay theo lịch cũ.
+- [ ] Giữ xử lý conflict actual/CAS, save/apply riêng. Nghiệm thu cũ60→góp thêm140, không cộng lại60 vào anchor; dùng lại event bị chặn; hủy phần tương lai; correction chặn apply nhưng đọc v3/v4 cũ vẫn được. Chưa có browser acceptance từ kiểm backend.
+
+
+## FE-T16-AVAILABILITY — tiền nguồn nhận nhiều đợt, 07/10/2026
+
+[Contract availability](../backend/docs/ASSET_SOURCES_V4.md) đã mở trong funding STAGED, thay giới hạn một ngày sẵn có của FE-T16-STAGED. Không dùng tính năng này để tự tạo tiền vay/thu nhập hoặc gọi đó là đã đối soát ngân hàng.
+
+- [ ] Cho nhập danh sách releases: releaseId, availableOn, amount, status CONFIRMED/EXPECTED, evidence. Số tiền là phần ròng thuộc nguồn sau phí/thuế/trả nợ/sở hữu/phần hưu; không nhân tỷ lệ lần nữa. capital.availableOn bằng ngày sớm nhất.
+- [ ] Tách “đã nhận ngoài quỹ”, “dự kiến nhận”, “đã góp quỹ” và “dự kiến góp”. Tiền nhận không tự cộng vào quỹ; tổng release không vượt hạn mức tiền ròng. Phần không khai release chưa được coi là sẵn có.
+- [ ] Có EXPECTED thì liquidity=PLANNED_RELEASE; AVAILABLE chỉ khi toàn bộ CONFIRMED. Khoản góp thực phải được tiền CONFIRMED trước/đúng ngày giao dịch tài trợ; khoản góp cuối tháng được dùng release trong tháng nhưng không dùng tháng sau.
+- [ ] Khi chốt qua tháng dự kiến nhận, yêu cầu xác nhận đã nhận hoặc cập nhật ngày còn ở tương lai; không tự đánh dấu nhận. Dời ngày nhận phải preview lại lịch góp, không tự dời tiền góp để che lỗi.
+- [ ] Gửi đầy đủ release ở mỗi revision; khóa các đợt CONFIRMED cũ, không xóa availability. Chứng từ xác nhận sai cần báo luồng điều chỉnh riêng, không ghi đè lịch sử.
+- [ ] Hiển thị ASSET_RECEIPT_BEFORE_RELEASE, ASSET_PLANNED_CONTRIBUTION_BEFORE_RELEASE, ASSET_RELEASE_RECONCILIATION_REQUIRED, ASSET_CONFIRMED_RELEASE_IMMUTABLE và các lỗi hạn mức/chứng từ. Không retry với số liệu đã sửa tự động.
+- [ ] Nghiệm thu: đợt80 đã nhận, đã góp60, chỉ còn20 dùng được trước đợt kế; nhận cuối tháng dùng được cuối tháng, dời sang ngày1tháng sau bị chặn; chưa nhận không tài trợ actual; sửa lịch có preview/save/apply/reload/replay/CSV giữ lịch cũ. Chưa có nghiệm thu browser từ kiểm backend.
+
+
+## FE-T16-STAGED — góp một phần/nhiều đợt, 07/10/2026
+
+Backend đã mở funding.status=STAGED cho CREATE/REVISE cùng tài sản. [Contract và ví dụ](../backend/docs/ASSET_SOURCES_V4.md) thay ghi chú phần góp nhiều đợt chưa có trước đây. Phạm vi là góp nhiều lần từ tiền ròng có cùng ngày sẵn có; hợp đồng nhận tiền bán/giải ngân thành nhiều đợt cần luồng thanh khoản riêng.
+
+- [ ] Hiển thị riêng đã góp lũy kế, khoản mới ghi nhận, lịch góp còn lại, tổng xác nhận và phần tiền ròng chưa chọn góp. confirmedContributionAmount là tổng đã góp + dự kiến, không chỉ số góp thêm.
+- [ ] allocations chỉ gửi khoản mới với event/revision/ngày/số tiền; không gửi lại khoản cũ hoặc gửi priorRealized. Backend tự pin khoản cũ cùng nguồn, kiểm hạn mức và chống dùng event trùng.
+- [ ] plannedContributions gồm installmentId UUID duy nhất, month, amount dương, timing=END_OF_MONTH. Cho nhiều đợt cùng tháng nhưng biểu đồ cộng thành một khoản vốn tháng; không cộng số đã góp lần nữa.
+- [ ] Khi đẩy cutoff qua kỳ có lịch dự kiến, nhập reconciliations cho từng tháng: scheduledMonth, actualRevision, receivedAllocationIds, amountNotContributed, confirmedOn, reason, confirm. Các ID tham chiếu khoản mới nhận; số chưa góp không tự chuyển vào tương lai, phải chọn lịch mới rõ ràng.
+- [ ] assetRevisionOptions hiện có cả nguồn REALIZED v4; muốn góp thêm chỉ REVISE sang STAGED và giữ tổng khoản cũ. Sau STAGED tiếp tục cùng chế độ; nhận hết dùng lịch rỗng, hủy phần tương lai dùng END. Không chuyển về chế độ một lần để bỏ số cũ.
+- [ ] Không đánh dấu tiền chưa giải ngân là AVAILABLE. availableOn không sau khoản đã nhận nào; nhiều ngày giải phóng vốn/hạn mức tăng dần chưa thuộc contract này.
+- [ ] RENT→SALE kết hợp STAGED giữ rentalExit. Dự kiến thuê vẫn hiển thị là dự kiến kể cả không chọn khoản góp tiền bán nào.
+- [ ] Xử lý lỗi tổng/cap/đối soát/duplicate/actual stale bằng tải và preview lại, không tự sửa số để gửi thành công. Save/apply riêng, kiểm retry cùng key/multitab/đọc lại/CSV.
+- [ ] Nghiệm thu ví dụ tổng200: đã góp60, kỳ tiếp dự kiến100 nhưng nhận30, còn110; lịch tháng mới110, anchor1090 giữ nguyên. Sau nhận110, anchor1200 và không thêm vốn tương lai. Thử hủy phần còn lại, event dùng lại, sửa actual, replay bản cũ và cùng tháng nhiều đợt.
+
+
+## FE-T16-RENTAL-SALE — chuyển cho thuê sang bán, 07/10/2026
+
+Backend đã nối lifecycle cùng sourceId qua assetCommands.REVISE. [Payload và quy tắc](../backend/docs/ASSET_SOURCES_V4.md). Các ghi chú cũ nói RENT luôn bị chặn được thay bằng mục này; chưa nghiệm thu browser.
+
+- [ ] Hiển thị nguồn cho thuê từ assetRevisionOptions; dùng sourceId/hash/revision có sẵn, không CREATE tài sản bán mới trùng tài sản.
+- [ ] Form chuyển sang bán thêm rentalExit: rentEndsOn, finalMonthIncome, amountScope=SOURCE_SHARE, confirm=true. Giải thích số thuê tháng cuối là phần ròng thuộc kế hoạch sau sở hữu/phần hưu, không nhân lại tỷ lệ hoặc tự chia theo ngày; cho nhập 0.
+- [ ] Nhập riêng ngày tiền bán sẵn có (không trước ngày dừng thuê), net và các khấu trừ, tháng/số tiền xác nhận góp. Cùng tháng có thể vừa nhận khoản thuê cuối vừa góp tiền bán cuối tháng; không mặc định góp toàn bộ tiền bán hoặc tự đóng khoản vay.
+- [ ] Preview thể hiện thuê trước tháng cuối giữ nguyên, tháng cuối theo số xác nhận, các tháng sau bằng 0; vốn chỉ một lần theo số góp. Gửi một lệnh REVISE và giữ save/apply tách biệt.
+- [ ] Khi dời bán/góp, giữ rentalExit nếu không có thỏa thuận đổi thuê. Dời bán không tự nối lại tiền thuê. Ngày dừng thuê đã qua cutoff không được đổi; nhận lỗi ASSET_RENTAL_HISTORY_IMMUTABLE phải xử lý actual tương ứng, không ép gửi lại.
+- [ ] Khi tiền bán đã góp, chuyển REALIZED theo actual allocation và giữ rentalExit, không ghi thêm quỹ. END dừng toàn bộ nguồn trong tương lai, không mang nghĩa “hủy bán và tự cho thuê lại”.
+- [ ] Hiển thị lỗi ASSET_RENTAL_REVIEW_REQUIRED, ASSET_RENTAL_EXIT_MISMATCH, SOURCE_AGGREGATE_OVERLAP, actual stale; yêu cầu tải lại preview khi sửa sổ.
+- [ ] Nghiệm thu nguồn có income linked không cộng trùng; bán giữa tháng/final rent0; dời bán có/không đổi ngày thuê; nhận tiền thật; replay cũ; CAS/multitab; report/CSV giữ attribution. Không tự xác nhận UI hoàn tất từ kiểm thử backend.
+
+
+## FE-T16-MISSED-CONTRIBUTION — khoản góp dự kiến chưa thực hiện, 07/10/2026
+
+[Contract và payload](../backend/docs/ASSET_SOURCES_V4.md) đã mở `assetCommands[].missedContribution` cho REVISE nguồn PLANNED qua API source-reforecasts. Đây là xác nhận toàn bộ khoản cũ chưa góp; đã góp một phần còn chờ luồng nhiều đợt.
+
+- [ ] Khi lịch góp đã đến hạn, hiển thị nguồn, tháng và số tiền dự kiến cũ; cho chọn đã góp (REALIZED), chưa góp và dời lịch (REVISE + missedContribution), hoặc hủy lịch tương lai (END). Không mặc định “chưa góp” chỉ vì thiếu event gắn nguồn.
+- [ ] Khai báo gồm scheduledMonth, actualRevision của tháng đó, amountNotContributed bằng khoản cũ, confirmedOn, reason và confirmNotContributed=true; yêu cầu chứng từ xác nhận. Gửi source revision/hash từ backend, không gửi actual payload hoặc tự sửa số dư.
+- [ ] Nhập tháng mới sau cutoff và số góp mới do người dùng xác nhận; vẫn kiểm số ròng/sở hữu/phần hưu. Số tiền mới có thể khác khoản cũ; không ghi đè amountNotContributed bằng số mới.
+- [ ] Không gửi metadata này cho CREATE/END/REALIZED hoặc nguồn đã nhận tiền. Khi lại lỡ hạn phải xác nhận tháng gần nhất; khi đã góp thì bỏ metadata và phân bổ actual CONTRIBUTION.
+- [ ] Hiển thị riêng lỗi ASSET_PAST_CONTRIBUTION_REVIEW_REQUIRED, ASSET_MISSED_CONTRIBUTION_MISMATCH và ASSET_ACTUAL_STALE_OR_MISSING; actual bị sửa cần tải lại và preview lại. Không tự retry lưu/apply với dữ liệu cũ.
+- [ ] Nghiệm thu: dời khoản 200 chưa góp sang tháng mới, actual có khoản góp khác 50 vẫn giữ nguyên; trì hoãn lần hai; nhận tiền sau trì hoãn không cộng hai lần; nguồn từ hồ sơ; replay bản cũ; actual correction chặn apply. Backend đã có kiểm thử các trường hợp này, chưa nghiệm thu trình duyệt.
+
+
+## FE-T15-DISBURSED-BALANCE — vay thay thế đã trả gốc, 07/10/2026
+
+[Contract](../backend/docs/LOAN_REVISIONS_V2.md) bổ sung funding.kind DISBURSED_BALANCE trong loanCreations; endpoint source-reforecasts hiện có. Tái cấp vốn giả định tương lai vẫn còn việc, không gắn nhãn đã hỗ trợ.
+
+- [ ] Khi khoản mới đã trả bớt gốc trước throughMonth, thu thập tiền giải ngân ban đầu, ngày giải ngân, dư nợ cutoff và chứng từ; không ép gross bằng dư nợ, không sửa một số để khớp số kia.
+- [ ] Điền funding.allocations từ actual DEBT_PAYMENT theo eventId/revision/bookedOn, tách gốc/lãi/phí và phần người dùng/toàn hợp đồng như loanRevisions; principalAdvances cho giải ngân thêm có chứng từ. Không gửi actuals/consumed/reconciliation tự tạo.
+- [ ] CAPPED: xác nhận openingUserPaid tại mốc giải ngân; số đã thực hiện ở cutoff phải mang theo cả opening và các khoản người dùng đã trả. Không mặc định0, không tự đổi trần hoặc loại nghĩa vụ. ALLOCATED_SHARE đặt0 theo contract.
+- [ ] Cặp tái cấp vốn giữ END vay cũ + CREATE vay mới + refinances cùng request. Với DISBURSED_BALANCE, grossPrincipal=refinances.grossDisbursement và disbursedOn=settledOn; contract.principalBalance là số đã đối soát sau trả gốc. Các ngày khác nhau/hợp đồng sửa giữa kỳ hiện cần rà.
+- [ ] Preview trình bày riêng giải ngân, gốc đã trả, lãi/phí, tăng gốc và dư gốc cutoff. Không cộng tiền vay/tiền dư vào quỹ hoặc trừ lại DEBT_PAYMENT đã được WITHDRAWAL phản ánh trong actual.
+- [ ] LOAN_ALLOCATION_REUSED/LOAN_EVENT_OVERALLOCATED/LOAN_ACTUAL_STALE_OR_MISSING/DEBT_BALANCE_MISMATCH/LOAN_CAP_CARRY_MISMATCH cần hướng về đúng khoản phân bổ/chứng từ. Sau sửa actual, preview lại; bản cũ vẫn đọc/replay.
+- [ ] Nghiệm thu:100triệu→trả10triệu gốc+1triệu lãi→90triệu dư; wrongowner/revision, hai nguồn dùng quá một event, sửa tiếp nguồn vừa tạo, capcarry, duplicate save, save/apply/reload/report/CSV, thiếuproof bị chặn. Backend checks không thay nghiệm thu trình duyệt.
+
+
+## FE-T14-PREPAID — đóng trước và ước tính hoàn trả khi nghỉ hưu, 07/10/2026
+
+Thay phần chờ API đóng trước trong FE-T14-PAYMENTS-PENDING. [Contract hiện hành](../backend/docs/VOLUNTARY_PAYMENTS.md), [schema](../backend/docs/insurance.openapi.yaml). Chuyển tiếp/ngoại lệ/năm khác vẫn còn triển khai.
+
+- [ ] Chọn bộ luật từ discovery có branch BH2_VOLUNTARY_PREPAID_REQUEST. Danh sách rỗng thì báo chưa có quy định công bố, không dùng trực tiếp file draft.
+- [ ] Form voluntaryPrepaid theo contract: kỳ3/6/12tháng hoặc2–5năm, tháng bắt đầu, ngày đăng ký/ngày thanh toán, thu nhập, chứng từ, payment confirmation; benefitRequestDate và benefitRequest.confirmation/evidence riêng. Xác nhận không có khoản trả trước/đóng bù khác chưa đối soát; không tự đặt xác nhận.
+- [ ] Dùng chung preview/save/read/source selection; không đồng gửi voluntaryCase/caseDetails/voluntaryTopUp, giữ stateSalaryCase khi phù hợp. Cutoff contributionStopMonth thuộc kỳ và ngay trước tháng hưởng; lấy kết quả thời điểm từ backend, không kéo ngày theo tổng tháng đã trả tiền.
+- [ ] Phân biệt số tháng trong kỳ, số tháng được tính hưởng, số còn lại. Không cộng24/60tháng vào lịch vì đã trả trước; lịch PAID khớp chỉ được tính1lần, trạng thái/base mâu thuẫn cần sửa hoặc đối soát.
+- [ ] refundSupport chưa biết gửinull; có đối soát gửi số M và chứng từ. Hiển thị UNKNOWN/null là “Cần đối soát tiền hỗ trợ”, không là0đồng. Lương hưu vẫn có thể có kết quả độc lập.
+- [ ] PREPAID_REFUND_ESTIMATE là ước tính chưa nhận; tách khỏi tiền hưu/trợ cấp, không tự cộng vào quỹ hoặc đề nghị góp. ESTIMATE_NOT_RECEIVED/NO_REMAINING_PERIOD/SUPPORT_RECONCILIATION_REQUIRED có nội dung riêng.
+- [ ] HYPOTHETICAL ở thanh toán hoặc yêu cầu đều là dự kiến, không chuyển thành đã thanh toán/đã nộp đơn. Các mã deadline/evidence/overlap/cutoff/unknownfactor cần hiện đúng trường; không cho sửa lãi quỹ pháp định.
+- [ ] Nghiệm thu UI:7kỳ;179tháng dù mua tương lai,180đủ; trùng tháng khớp/mâu thuẫn, thiếuM/0M/Mquá lớn, sai biên nhận/yêu cầu, kỳ hết không hoàn, số dự kiến;save/reload409/ownership/source pension không chứa khoản hoàn. Backend tests không thay nghiệm thu trình duyệt.
+
+
+## FE-T14-TOP-UP — API đóng bù phần thiếu, 07/10/2026
+
+Thay phần chờ API **đóng bù** trong FE-T14-PAYMENTS-PENDING; đóng trước/hoàn trả/chuyển tiếp vẫn chờ. Contract chính thức: [VOLUNTARY_PAYMENTS.md](../backend/docs/VOLUNTARY_PAYMENTS.md), schema [insurance.openapi.yaml](../backend/docs/insurance.openapi.yaml).
+
+- [ ] Chọn bộ luật đã công bố từ API có branch `BH2_VOLUNTARY_MISSING_YEARS_TOP_UP`. Nếu danh sách rỗng, báo chưa có bộ quy định được công bố; không tự dùng draft hoặc tính trên UI.
+- [ ] Form `voluntaryTopUp`: paymentOn, missingMonths1–60, monthlyIncome chuỗi tiền, confirmation DOCUMENTED_FULLY_PAID/HYPOTHETICAL, evidence có reference/hash/confirmedOn. Gửi kind=MISSING_YEARS_TOP_UP, ageRule=NORMAL, historyTreatment=REGULAR_ONLY chỉ sau xác nhận lịch tháng không chứa khoản đóng trước/bù khác. Không gửi đồng thời voluntaryCase/caseDetails; giữ stateSalaryCase nếu lịch có Nhà nước.
+- [ ] Dùng endpoint estimates hiện có cho preview/save/read, expectedInputHash/idempotency và chọn pension vào nguồn. Không tạo các tháng PAID giả để đủ180. Hiển thị riêng tháng định kỳ, tháng bù, tổng countedMonths; số thiếu phải khớp backend, không tự thay tháng người dùng nhập.
+- [ ] Phân biệt đã đóng đủ có chứng từ và dự kiến. HYPOTHETICAL luôn PROJECTED_SCENARIO; không biến kế hoạch thanh toán thành trạng thái đã trả. FULL_PAYMENT_EVIDENCE_REQUIRED/BIRTH_DAY_REQUIRED_FOR_PAYMENT_MONTH phải dẫn về trường cần bổ sung.
+- [ ] Hiển thị TOP_UP_GROSS_CONTRIBUTION là ước tính trước hỗ trợ và làm tròn thu thực tế, không là hóa đơn/số cá nhân chắc chắn phải trả. Lãi và giới hạn thu nhập do server chọn theo ngày đóng. Không cho chỉnh lãi suất quỹ pháp định.
+- [ ] Hiển thị startMonth/ELIGIBILITY_MONTH từ backend. Không kéo dài lịch thêm số tháng bù để đoán ngày hưởng. Tiền đóng/trợ cấp/hoàn trả không tự sửa quỹ.
+- [ ] Nghiệm thu: lịch tự nguyện/doanh nghiệp/Nhà nước,120+60 và179+1; sai số tháng, chứng từ trước ngày trả, ngày tương lai, trần trước/sau01/07/2026, thiếu bảng, sai tháng hưởng, luật/lịch stale409, owner, reload bản đã lưu, source selection. Backend544tests/18HTTP-DBrollback không thay nghiệm thu trình duyệt.
+
+
+## FE-T14-PAYMENTS-PENDING — nghiên cứu/hàm nội bộ, chưa nối API
+
+07/10: backend đã đối chiếu nguồn và có hàm tính khoản đóng trước/bù/hoàn trả, chưa mở nhánh estimates này. [VOLUNTARY_PAYMENTS.md](../backend/docs/VOLUNTARY_PAYMENTS.md) ghi contract dự kiến và giới hạn. UI không gọi endpoint tự đặt, không gửi các khoản này dưới REGULAR_ONLY, không đánh dấu PAID cho toàn bộ tháng tương lai vì đã trả tiền trước.
+
+- [ ] Khi backend công bố contract: bổ sung phương thức đóng, ngày thanh toán đủ, số tháng/kỳ, thu nhập đóng, chứng từ và thực tế/dự kiến; khoản hỗ trợ/hoàn trả cần phần riêng.
+- [ ] Không tính lãi trên UI hoặc cho sửa lãi suất quỹ pháp định; nhận từ bộ luật theo năm đóng. Phân biệt báo giá gross trước hỗ trợ với số người dùng thực trả.
+- [ ] Phần đóng bù và đóng trước có quy tắc thời điểm hưởng khác nhau. Không suy tháng hưởng bằng cách kéo dài lịch đóng rồi lấy tháng cuối. Tiền hoàn trả/trợ cấp không tự chuyển vào quỹ.
+
+Mục này là bàn giao chuẩn bị, chưa thay trạng thái chờ API của nhánh đóng trước/bù/chuyển tiếp.
+
+## FE-T14-VOLUNTARY-STATE — Nhà nước + tự nguyện, 07/10/2026
+
+Bổ sung sau FE-T14-VOLUNTARY: backend đã có engine `vn-pension-voluntary-state-v1`, coverage `BH2_VOLUNTARY_STATE_MIXED_NORMAL`. Dùng API estimates/lịch đóng hiện có. Contract [VOLUNTARY_PENSION.md](../backend/docs/VOLUNTARY_PENSION.md). Hai bộ nháp tự nguyện doanh nghiệp/Nhà nước, mỗi bộ1.146dòng, có nguồn lưu/hash; chưa duyệt độc lập hoặc công bố thực tế, UI vẫn dựa discovery để biết lựa chọn hiện có.
+
+- [ ] Hồ sơ có lương Nhà nước trước tự nguyện phải chọn branch Nhà nước; gửi **cả** `voluntaryCase` và `stateSalaryCase`, không gửi `caseDetails`. Nhánh doanh nghiệp trước đó vẫn không nhận stateSalaryCase. Không tự chuyển engine của estimate đã lưu.
+- [ ] Thu thập mốc tham gia lần đầu, chứng từ, chế độ lương thông thường và hệ số đóng từng tháng Nhà nước khi backend yêu cầu. Không lấy contributionBase tiền đồng thay hệ số, không tự giả định hệ số4 hoặc ngày tham gia.
+- [ ] Hiển thị bình quân phần bắt buộc, bình quân Nhà nước/cửa sổ, số tháng từng chế độ và kết quả tổng hợp từ backend. Tổng số tháng BHXH không tự suy thành số tháng đủ điều kiện sàn. Trợ cấp vẫn tách riêng khỏi quỹ.
+- [ ] Chặn luồng còn thiếu dữ liệu/review, nhất là lương trước10/2004, chuyển nghề/phụ cấp, CREDITED; không coi có engine Nhà nước là mọi hồ sơ Nhà nước đều đã hỗ trợ.
+- [ ] Nghiệm thu lịch Nhà nước→tự nguyện và Nhà nước→doanh nghiệp→tự nguyện, thiếu hệ số/chứng từ/mốc tham gia, nguồn luật hết hiệu lực, 239/240tháng bắt buộc, xem lại bản cũ sau sửa lịch/luật. Giữ thao tác preview/lưu/chọn dự báo/áp dụng riêng.
+
+Backend: full518tests/45files đạt,17HTTP/DB rollback với corpus Nhà nước+tự nguyện đạt và giữ41bảng. Không sửa frontend trong đợt này; kiểm UI vẫn giao AI UI.
+
+## FE-T14-VOLUNTARY — backend tự nguyện/hỗn hợp doanh nghiệp, 07/10/2026
+
+Contract [VOLUNTARY_PENSION.md](../backend/docs/VOLUNTARY_PENSION.md), schema trong `backend/docs/insurance.openapi.yaml`. API estimates hiện có đã nhận `voluntaryCase`; engine `vn-pension-voluntary-v1`, coverage `BH2_VOLUNTARY_EMPLOYER_MIXED_NORMAL`. Chỉ mở lựa chọn khi discovery có bộ luật phù hợp đã công bố; hiện chưa có corpus tự nguyện thật được duyệt/công bố. Không dùng luật mẫu kiểm thử hoặc giả dữ liệu khi danh sách rỗng.
+
+- [ ] Form phân biệt hồ sơ đóng tự nguyện định kỳ thông thường, có/không có lịch bắt buộc lương doanh nghiệp. Thu nhập tự nguyện và tiền lương bắt buộc là hai loại căn cứ; giữ từng tháng/chứng từ và UNKNOWN, không đổi tháng thiếu thành không đóng.
+- [ ] Gửi `voluntaryCase` theo contract, không kèm `caseDetails`/`stateSalaryCase`. Phân biệt `ELIGIBILITY` với tiếp tục đóng sau đủ điều kiện `CONTINUED_CONTRIBUTIONS`; nhánh sau bắt buộc ngày yêu cầu hưởng. Không tự đoán phương thức đóng định kỳ cho hồ sơ đóng trước/đóng bù.
+- [ ] Hiển thị tháng hưởng, số tháng từng chế độ, bình quân điều chỉnh, tỷ lệ, sàn có/không áp dụng, trợ cấp tách riêng và căn cứ. Dùng số do backend trả, không cộng hưu/trợ cấp thành vốn/quỹ hoặc tính lại bằng JavaScript.
+- [ ] `DOCUMENTED`/`HYPOTHETICAL` và `estimateKind` phải hiển thị đúng. Số đóng tương lai gửi trong `futureContributions`, không ghi vào lịch đã xác nhận. Nhãn kết quả là ước tính, không là quyết định hưởng chính thức.
+- [ ] Với `INSUFFICIENT_DATA`, `NOT_YET_ELIGIBLE`, `REVIEW_REQUIRED`, trình bày `missingFields` và việc cần bổ sung; không thay `null` bằng 0 hoặc cho chọn kết quả không đủ điều kiện vào kế hoạch. Chặn chọn engine cũ cho voluntaryCase; hiển thị lỗi 422/409 và yêu cầu xem trước lại khi phù hợp.
+- [ ] Lưu/đọc lại theo hash + Idempotency-Key hiện có; lịch sửa hoặc bộ luật thay thế làm estimate cũ không chọn vào nguồn mới được, nhưng vẫn xem lịch sử. Nối `pensionSelections` của nguồn v4, lưu bản dự báo và áp dụng là hai thao tác riêng.
+- [ ] Nghiệm thu UI: tự nguyện thuần, hỗn hợp doanh nghiệp, 179 tháng, thiếu tháng/hệ số/chứng từ, sai ngày hưởng, tiếp tục đóng thiếu ngày yêu cầu, tình huống giả định, lịch/luật stale, danh sách luật rỗng và xem lại phiên bản cũ. Nhà nước+tự nguyện, CREDITED, đóng trước/bù/chuyển tiếp/đặc thù chưa được nghiệm thu trong nhánh này.
+
+Backend: full499tests/44files đạt trước guard nguồn bảng hết hiệu lực; thêm25focused đạt sau guard. HTTP/DB tự nguyện16checks rollback toàn bộ41bảng đạt. Đây chưa là nghiệm thu trình duyệt hoặc phê duyệt pháp lý. Không có chỉnh sửa frontend trong đợt này.
+
 ## FE-T16-SOURCE-V4 — API đã nối 05/10/2026
 
 Backend đã có `POST /api/v1/me/retirement/plans/{planId}/source-reforecasts/preview` và `POST .../source-reforecasts` để thêm/sửa/dừng thu, chi, pension nhập tay hoặc chọn estimate BHXH. Contract [SOURCE_COMMANDS_V4.md](../backend/docs/SOURCE_COMMANDS_V4.md) và production OpenAPI; thay ghi chú “chưa có endpoint” của FE-T14-CORPUS-SOURCE trước đó. Tài sản/vốn/vay mới và cơ cấu nợ chưa hỗ trợ trong endpoint này.
@@ -594,3 +778,27 @@ Thay ghi chú “chưa có API” tại FE-T15-LOAN-V2-CORE. Backend đã nhận
 6. Nghiệm thu: v1→trả một phần→preview→save→apply→reload/report/CSV; sửa kỳ hạn tại cùng cutoff; thêm tháng thực tế; hai khoản vay dùng chung một event không được vượt tổng; CAPPED không reset; bản v1/v3 lịch sử giữ nguyên; tiền WITHDRAWAL không bị trừ thêm.
 
 Backend đã kiểm bằng service/HTTP và response schema; PostgreSQL/races, browser/UI và đối chiếu ngân hàng vẫn chưa nghiệm thu. Không sửa mã frontend trong đợt backend này.
+
+## FE-T15-T16-NEW-LOAN-REFINANCE — 07/10/2026
+
+Backend đã mở khoản vay mới và refinance thực tế trong cùng preview/save nguồn. Thay ghi chú chưa có hai chức năng ở FE-T15-LOAN-V2-API. [Contract](../backend/docs/LOAN_REVISIONS_V2.md). Đã kiểm HTTP/DB rollback loan 19 ca và refinance 20 ca; chưa nghiệm thu UI.
+
+1. Form vay mới gửi loanCreations[] với sourceId plan:UUID, commandId, operation CREATE, expectedSourceRevision=0, confirm=true, agreementReference, contractv2 và funding. EXISTING_BALANCE cần xác nhận chưa có trong nguồn, evidence, BANK_CONFIRMED và dư gốc cuối throughMonth; PLANNED_DISBURSEMENT cần gross/withheldFees/net, destination EXTERNAL_ACCOUNT, balanceNature PROJECTED_DISBURSEMENT và HYPOTHETICAL. Hiển thị riêng tiền vay nhận về và nghĩa vụ phải trả; không cộng khoản vay vào thu nhập hoặc quỹ.
+2. Cập nhật vay mới ở bản sau vẫn dùng loanRevisionOptions và loanRevisions; không gửi lại CREATE. Không tự chuyển trạng thái dự kiến sang ngân hàng xác nhận khi chỉ bấm lưu.
+3. Refinance thực tế là một form tổng hợp: khoản cũ đã tất toán, khoản mới đã giải ngân, chứng từ gốc/lãi/phí và tiền bù ngoài/tiền còn dư. Gửi END khoản cũ + CREATE khoản mới + refinances cùng một body; cả hai lệnh con có refinanceCommandId. Hiển thị phép cân đối gross−withheldFees+externalTopUp = settlementAmount+unusedProceeds. Không lưu hai API tách rời.
+4. Khoản đã đóng: gốc=0, không còn phí/lãi tương lai; BANK_SCHEDULE periods=[] và maturityDate=balanceAsOf. Không cho UI chỉ sửa gốc=0 rồi bỏ nghĩa vụ chưa trả. Sai đối soát phải giữ form, hiển thị lỗi, không thông báo một nửa refinance đã xong.
+5. Nhánh hiện tại chỉ refinance đã xảy ra có actual/chứng từ; chưa mở giả định refinance tương lai hoặc khoản mới đã trả gốc trước cutoff. Save/apply vẫn tách riêng, 409 tải lại source/actual rồi preview; report/CSV/replay theo bản đã chọn.
+
+## FE-T16-ASSET-CAPITAL — 07/10/2026
+
+Backend đã nhận assetCommands[] (tối đa30) và trả assetRevisionOptions. [Contract và giới hạn](../backend/docs/ASSET_SOURCES_V4.md). Bộ kiểm thử có HTTP/schema/save/apply/replay/CSV, 20 ca DB thật rollback giữ41bảng; chưa kiểm browser. Không sửa frontend trong đợt này.
+
+1. Thêm form bán tài sản/nguồn vốn thanh khoản: mã tài sản/chứng từ, toàn tài sản hay phần người dùng, tỷ lệ sở hữu, phần dành cho hưu, tổng tiền, phí, thuế, tiền trả nợ bảo đảm và tiền ròng. Các số tiền phải cùng phạm vi; USER_SHARE không nhân tỷ lệ sở hữu lần nữa. Hiển thị mức góp tối đa nhưng để người dùng xác nhận số thực sự muốn góp, kể cả0; không mặc định góp hết tiền ròng.
+2. Tách “Dự kiến góp” và “Đã góp trong sổ thực tế”. Dự kiến cần ngày tiền có sẵn, trạng thái thanh khoản AVAILABLE/PLANNED_RELEASE, tháng góp, xác nhận tiền chưa nằm trong quỹ; thời điểm góp hiện là cuối tháng. Không cho tháng góp trước tiền sẵn có hoặc trước/sát cutoff actual. Dự báo vẫn ghi HYPOTHETICAL.
+3. Đã góp: chọn event CONTRIBUTION của tháng đã đối soát, gửi eventId/actualRevision/bookedOn/allocationId/amount, tổng bằng confirmedContributionAmount; không chọn INCOME/DEBT_PAYMENT/WITHDRAWAL thay thế. Backend lấy actual theo tài khoản, không nhận actuals/consumed/số dư tự gửi. Khoản này không được cộng lại vào quỹ vì anchor đã bao gồm nó.
+4. CREATE dùng sourceId plan:UUID, revision0/hashnull, notAlreadyInSources=true; REVISE/END dùng options server. Khi sửa nguồn hồ sơ, capital.reference phải là asset id gốc. Mỗi nguồn/command chỉ xuất hiện một lần trong batch và không đổi mã tài sản qua sửa. Nguồn đã realized không cho tạo lại một khoản góp từ cùng tài sản.
+5. Gửi body preview nguồn hiện có + assetCommands. READY/inputHash mới cho lưu; save dùng Idempotency-Key, apply riêng với plan revision mới. Render assetSources của bản lưu để xem chứng cứ. Hiển thị attribution vốn trên báo cáo/CSV; không thay net worth/profile gốc bằng tổng tiền nguồn mới.
+6. Phí/thuế/securedDebtSettlement chỉ giúp tính tiền ròng, chưa tự tất toán nguồn nợ. Muốn đóng vay phải thêm loanRevision/chứng từ tương ứng. Nguồn RENT hoặc chuyển thuê→bán chưa hỗ trợ; khoản góp dự kiến đã qua cutoff cần đối soát, không âm thầm dời sang tháng sau. Với ASSET_*_REVIEW_REQUIRED giữ dữ liệu nhập và giải thích phạm vi cần rà.
+7. Nghiệm thu: bán1000−phí50−thuế50−trả nợ100=800; sở hữu50%, phần hưu50% → tối đa200, góp150 thì chỉ150 vào quỹ. USER_SHARE800/phần hưu50% → tối đa400. Sửa tháng/mức góp rồi hủy không làm lịch cũ xuất hiện lại. Event CONTRIBUTION300 không được phân bổ200+200 cho hai tài sản. Sửa actual làm apply409 nhưng replay lịch sử giữ nguyên; chuyển dự kiến→đã góp không cộng lần hai.
+
+**Bổ sung T17 ngày07/10:** backend nguồn v4 đã kiểm race cùng key/cùng revision/actual sửa cạnh apply trên hai kết nối PostgreSQL độc lập. UI vẫn cần tự nghiệm thu đa tab: retry cùng key giữ cùng body; sau409 tải nguồn mới và preview lại; actual sửa sau apply phải hiện trạng thái cần tính lại, không che bằng thông báo áp dụng thành công cũ.

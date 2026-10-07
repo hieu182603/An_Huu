@@ -545,18 +545,23 @@ export default function FinancialProfilePanel() {
 
             {(error || saveError) && (
               <div style={{ marginTop: "var(--space-4)" }}>
-                <Alert tone="danger" title={isVi ? "Chưa lưu được hồ sơ" : "Could not save profile"}>
+                <Alert
+                  tone="danger"
+                  title={isVi ? "Chưa lưu được hồ sơ" : "Could not save profile"}
+                  action={
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        if (window.confirm(isVi ? "Tải lại hồ sơ và bỏ các thay đổi chưa lưu?" : "Reload profile and discard unsaved changes?")) {
+                          reloadProfile();
+                        }
+                      }}
+                    >
+                      {isVi ? "Tải bản mới nhất" : "Load latest version"}
+                    </Button>
+                  }
+                >
                   {error || saveError}
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      if (window.confirm(isVi ? "Tải lại hồ sơ và bỏ các thay đổi chưa lưu?" : "Reload profile and discard unsaved changes?")) {
-                        reloadProfile();
-                      }
-                    }}
-                  >
-                    {isVi ? "Tải bản mới nhất" : "Load latest version"}
-                  </Button>
                 </Alert>
               </div>
             )}

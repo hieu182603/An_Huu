@@ -4,7 +4,10 @@ import { Prisma } from "@prisma/client";
 import { AppError } from "../common/errors";
 import { log } from "../common/logger";
 import { MulterError } from "multer";
-export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, next) => {
+import type { SystemSettingsService } from "../modules/settings/service";
+
+export function createErrorHandler(recordSystemLog?: SystemSettingsService["recordSystemLog"]): ErrorRequestHandler {
+ return (error: unknown, _req, res, next) => {
   if (res.headersSent) return next(error);
   let result = error instanceof AppError ? error : new AppError(500, "INTERNAL_ERROR", "Đã xảy ra lỗi nội bộ trên máy chủ.");
   if (error instanceof MulterError) {
@@ -26,9 +29,29 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, nex
     if (error.type === "encoding.unsupported" || error.type === "charset.unsupported")
       result = new AppError(415, "UNSUPPORTED_ENCODING", "Định dạng dữ liệu không được hỗ trợ.");
   }
-  if (result.status >= 500) log("error", "http.error", { requestId: res.locals.requestId, code: result.code, statusCode: result.status });
+  if (result.status >= 500) {
+    log("error", "http.error", { requestId: res.locals.requestId, code: result.code, statusCode: result.status });
+    if (recordSystemLog) {
+     try {
+      void recordSystemLog({
+        level: result.status === 500 ? "ERROR" : "CRITICAL",
+        source: "API",
+        message: result.message || "Lỗi nội bộ trên máy chủ",
+        path: typeof _req.route?.path === "string" ? _req.baseUrl + _req.route.path : _req.path,
+        statusCode: result.status,
+        traceId: res.locals.requestId || null,
+        details: {
+          code: result.code,
+          method: _req.method,
+        },
+      }).catch(() => {});
+     } catch { /* Logging must not replace the original HTTP error. */ }
+    }
+  }
   res.status(result.status).json({
     error: { code: result.code, message: result.message, ...(result.fieldErrors ? { fieldErrors: result.fieldErrors } : {}) },
     requestId: res.locals.requestId,
   });
-};
+ };
+}
+export const errorHandler = createErrorHandler();

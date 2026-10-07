@@ -15,8 +15,9 @@ import { PlansService } from "./service";
 import type { SourceReforecastCommand } from "./source-schema";
 import { loanSourceCandidate, type LoanSourceBasis } from "../debts/source-candidate";
 import { loanActualEvidenceSchema } from "../debts/reconciliation";
-import { createLoanSource } from "../debts/source-create";
+import { createLoanSource, loanCreationAllocations } from "../debts/source-create";
 import { reconcileRefinance } from "../debts/refinance";
+import { assetSourceCandidate, assertAssetCommandHistory, assetAllocations, capitalActualEvidenceSchema, legacyCapitalAllocations, priorCapitalAllocations } from "../capital/source-candidate";
 
 export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.TransactionClient, userId: string, planId: string, input: SourceReforecastCommand) {
   const { plan, version, capture } = await new PlansService(db).readVersion(tx, userId, planId, input.versionId);
@@ -33,7 +34,7 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
     calculation: version.preview.calculation, originalRetirementMonth: version.preview.reforecast!.originalRetirementMonth, actuals: [] }
     : await new ActualsService(db).forecast(userId, { planId, versionId: version.id, throughMonth: input.throughMonth }, tx);
   if (forecast.status !== "READY" || !forecast.anchor || !forecast.calculation)
-    return { status: forecast.status, issues: forecast.issues, inputHash: null, candidate: null, loanRevisionOptions: [], saved: false, applied: false };
+    return { status: forecast.status, issues: forecast.issues, inputHash: null, candidate: null, loanRevisionOptions: [], assetRevisionOptions: [], saved: false, applied: false };
   const knownOn = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
   const original = version.preview;
   const upgraded = original.modelVersion === SOURCE_MODEL ? original : upgradeSourcePreview(capture, original, version.snapshotHash, knownOn);
@@ -45,7 +46,8 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
   const pensions = new PensionEstimateService(db), pensionSources = [...(upgraded.pensionSources ?? [])], loanSources = [...(upgraded.loanSources ?? [])];
   const newLoanSources = [...(upgraded.newLoanSources ?? [])];
   const refinances = [...(upgraded.refinances ?? [])];
-  const newCommandIds = [...input.sourceCommands, ...input.pensionSelections, ...(input.loanRevisions ?? []), ...(input.loanCreations ?? []), ...(input.refinances ?? [])].map(c => c.commandId);
+  const assetSources = [...(upgraded.assetSources ?? [])];
+  const newCommandIds = [...input.sourceCommands, ...input.pensionSelections, ...(input.loanRevisions ?? []), ...(input.loanCreations ?? []), ...(input.refinances ?? []), ...(input.assetCommands ?? [])].map(c => c.commandId);
   if (newCommandIds.some(id => refinances.some(r => r.command.commandId === id)) || (input.refinances ?? []).some(c => registry.revisions.some(r => r.commandId === c.commandId)))
     throw new AppError(409, "SOURCE_COMMAND_REUSED", "Mã thao tác đã được dùng trong lịch sử phương án.");
   for (const command of input.sourceCommands) registry = applyFlowSourceCommand(registry, command, input.throughMonth, knownOn);
@@ -59,15 +61,22 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
     const result = pensionSourceCandidate(registry, selected, evidence, userId, input.throughMonth, knownOn);
     registry = result.registry; pensionSources.push({ sourceHash: result.sourceHash, selection: selected, evidence });
   }
+  const loanActualRows = input.loanRevisions?.length || input.loanCreations?.some(c => c.funding.kind === "DISBURSED_BALANCE")
+    ? await tx.actualMonth.findMany({ where: { userId, period: { in: lineage.actualRevisions.map(r => r.period) } }, orderBy: { period: "asc" } }) : [];
+  const loanActuals = loanActualRows.map(row => loanActualEvidenceSchema.parse({ period: row.period, revision: row.revision, status: "RECONCILED", data: row.payload }));
+  const consumedLoanAllocations = () => registry.revisions.flatMap(r => {
+    const revised = loanSources.find(s => s.sourceHash === r.sourceHash), created = newLoanSources.find(s => s.sourceHash === r.sourceHash);
+    return (revised?.evidence.command.allocations ?? (created ? loanCreationAllocations(created.evidence.command) : []))
+      .map(allocation => ({ sourceId: r.sourceId, allocation }));
+  });
   for (const command of input.loanCreations ?? []) {
     if (newLoanSources.some(s => s.evidence.command.agreementReference.toUpperCase() === command.agreementReference.toUpperCase()))
       throw new AppError(409, "LOAN_AGREEMENT_ALREADY_EXISTS", "Hợp đồng đã có trong lịch sử nguồn của phương án.");
-    const result = createLoanSource(registry, command, input.throughMonth, knownOn);
+    const result = createLoanSource(registry, command, input.throughMonth, knownOn, loanActuals, consumedLoanAllocations());
     registry = result.registry; newLoanSources.push({ sourceHash: result.sourceHash, evidence: result.evidence });
   }
   if (input.loanRevisions?.length) {
-    const rows = await tx.actualMonth.findMany({ where: { userId, period: { in: lineage.actualRevisions.map(r => r.period) } }, orderBy: { period: "asc" } });
-    const actuals = rows.map(row => loanActualEvidenceSchema.parse({ period: row.period, revision: row.revision, status: "RECONCILED", data: row.payload }));
+
     for (const command of input.loanRevisions) {
       const priorSource = registry.revisions.filter(r => r.sourceId === command.sourceId).at(-1);
       const priorLoan = priorSource && loanSources.find(s => s.sourceHash === priorSource.sourceHash);
@@ -80,8 +89,8 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
         if (!priorSource || !debt || !command.legacyOpening) throw new AppError(422, "LOAN_OPENING_CONFIRMATION_REQUIRED", "Cần xác nhận căn cứ số dư khoản vay cũ.");
         basis = { sourceHash: priorSource.sourceHash, legacy: { debt, opening: command.legacyOpening, stress: original.selection.debtStress.filter(s => s.loanId === debt.id) } };
       }
-      const consumed = loanSources.flatMap(s => s.evidence.command.allocations.map(allocation => ({ sourceId: s.evidence.command.sourceId, allocation })));
-      const result = loanSourceCandidate(registry, command, basis, actuals, consumed, input.throughMonth, knownOn);
+      const consumed = consumedLoanAllocations();
+      const result = loanSourceCandidate(registry, command, basis, loanActuals, consumed, input.throughMonth, knownOn);
       registry = result.registry; loanSources.push({ sourceHash: result.sourceHash, evidence: result.evidence });
     }
   }
@@ -90,6 +99,17 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
     const replacement = newLoanSources.find(s => s.evidence.command.commandId === command.newLoanCommandId);
     if (!closing || !replacement) throw new AppError(422, "REFINANCE_COMMANDS_REQUIRED", "Thiếu cặp tất toán và khoản vay thay thế.");
     refinances.push(reconcileRefinance(command, closing, replacement));
+  }
+  if (input.assetCommands?.length) {
+    const rows = await tx.actualMonth.findMany({ where: { userId, period: { in: lineage.actualRevisions.map(r => r.period) } }, orderBy: { period: "asc" } });
+    const actuals = rows.map(row => capitalActualEvidenceSchema.parse({ period: row.period, revision: row.revision, data: row.payload }));
+    for (const command of input.assetCommands) {
+      assertAssetCommandHistory(command, assetSources.map(s => s.evidence), upgraded.sourceChanges ?? [], capture.profile.assets.status === "KNOWN" ? capture.profile.assets.entries : [], input.throughMonth);
+      const consumed = [...legacyCapitalAllocations(upgraded.sourceChanges ?? [], actuals), ...assetSources.flatMap(s => assetAllocations(s.evidence.command))];
+      const priorRealized = priorCapitalAllocations(command.sourceId, assetSources.map(s => s.evidence), upgraded.sourceChanges ?? [], actuals);
+      const result = assetSourceCandidate(registry, command, actuals, consumed, input.throughMonth, knownOn, priorRealized);
+      registry = result.registry; assetSources.push({ sourceHash: result.sourceHash, evidence: result.evidence });
+    }
   }
   const nextMonth = addMonths(input.throughMonth, 1), remaining = upgraded.replayInput.rows.filter(r => r.month >= nextMonth);
   // Replaced/ended estimates remain immutable history, but must not prevent a
@@ -102,12 +122,13 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
     valuationDate: nextMonth + "-01", retirementMonth: forecast.originalRetirementMonth < nextMonth ? nextMonth : forecast.originalRetirementMonth,
     initialCapital: forecast.anchor.closingBalance, rows: remaining };
   replayInput.rows = rebuildSourceBudget(replayInput, future.rows);
-  const inputHash = digest({ input, knownOn, parentHash: version.snapshotHash, replayInput, lineage, pensionSources, loanSources, newLoanSources, refinances });
+  const inputHash = digest({ input, knownOn, parentHash: version.snapshotHash, replayInput, lineage, pensionSources, loanSources, newLoanSources, refinances, assetSources });
   const candidate: SourceRetirementResult = { ...upgraded, valuationDate: replayInput.valuationDate, inputHash, replayInput, reforecast: lineage,
     sourceCommands: [...(upgraded.sourceCommands ?? []), ...input.sourceCommands], pensionSources,
     ...(loanSources.length ? { loanSources } : {}),
     ...(newLoanSources.length ? { newLoanSources } : {}),
     ...(refinances.length ? { refinances } : {}),
+    ...(assetSources.length ? { assetSources } : {}),
     calculation: { ...upgraded.calculation, ...projectSources(replayInput), marketRows: upgraded.calculation.marketRows.filter(r => r.month >= nextMonth),
       limitations: [...new Set([...upgraded.calculation.limitations, "PLAN_SCOPED_SOURCES", "EXPLICIT_DEPOSITS_ONLY", "PENSION_ESTIMATE_NOT_OFFICIAL_AWARD", "PROFILE_NET_WORTH_AND_GOAL_SELECTION_RETAIN_ORIGINAL_BASIS"])] } };
   const latestSources = new Map(registry.revisions.map(s => [s.sourceId, s]));
@@ -118,5 +139,7 @@ export async function previewSourceReforecast(db: PrismaClient, tx: Prisma.Trans
     return [{ sourceId: source.sourceId, sourceRevision: source.revision, sourceHash: source.sourceHash,
       contractHash: digest(loan ? loan.evidence.command.contract : debt), legacyOpeningRequired: !loan }];
   });
-  return { status: "READY", issues: [], inputHash, candidate, loanRevisionOptions, saved: false, applied: false };
+  const assetRevisionOptions = [...latestSources.values()].filter(s => s.kind === "ASSET_CAPITAL" && s.operation !== "END")
+    .map(s => ({ sourceId: s.sourceId, sourceRevision: s.revision, sourceHash: s.sourceHash }));
+  return { status: "READY", issues: [], inputHash, candidate, loanRevisionOptions, assetRevisionOptions, saved: false, applied: false };
 }

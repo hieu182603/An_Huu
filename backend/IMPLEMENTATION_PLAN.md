@@ -1,5 +1,48 @@
 # An Hưu — Kế hoạch code backend
 
+**07/10 — refinance dự kiến nội bộ:** engine planned-refinance-v1 giữ kỳ cũ tới tất toán, quote/CAPPED/thứ tự cùng ngày và chỉ tiền bù user vào lịch chi, không ghi actual.608tests/52files đạt; sau sửa narrow TypeScript,8focused/testtypes/sourceemit đạt. Chưa API/registry/save/apply/DB; xem PLANNED_REFINANCE.md (6bước còn làm) và FE-T15-PLANNED-REFINANCE. Tiếp builder/lifecycle cặp nguồn trước mởpublic, toàn bộ T14/T15/T17/vận hành vẫn còn trong mục tiêu.
+
+
+**07/10 — giải ngân trước tất toán:** proceedsAtSettlement đã nối refinance/proof/replay; tiền còn lại sau sử dụng trước đó được xác nhận riêng với dư gốc.600tests/51files/typechecks/emit/OpenAPI và24HTTP/DBrollback41bảng đạt. UI FE-T15-EARLY-DISBURSEMENT, contract LOAN_REVISIONS_V2. Tiếp refinance giả định tương lai và basis hợp đồng sửa sau giải ngân; nhánh hoàn lại tiền tất toán trước đó/thứ tự cùng ngày chưa mở. T14/T17/vận hành vẫn giữ đầy đủ phạm vi.
+
+
+**07/10 — sửa nghĩa vụ:** responsibilityAmendment/userPaidToDate đã nối public loan revision/proof/replay, đổi loại/trần nhưng giữ tổng đã trả qua uncapped và khi bật lại CAPPED.597tests/51files, typechecks/emit/OpenAPI đạt; lượt DB cuối21HTTPchecks rollback41bảng đạt. Lượt trước khác fingerprint sau21ca, residue0/nguyên nhân chưa rõ, ghi đầy đủ trong PROGRESS. UI FE-T15-RESPONSIBILITY-AMENDMENT; không migration. Tiếp refinance tương lai/ngày giải ngân khác tất toán/basis hợp đồng sửa sau giải ngân; T14/T17/vận hành còn mở.
+
+
+**07/10 — T17 vay + tài sản:** verifier `--loan-assets` đạt3races qua hai PostgreSQL PID độc lập, changeset vayv2+STAGED giữ đầy đủ, số thực tế/tiền góp không đếm đôi, stale và replay đúng. Fixture commit riêng đã dọn đúng ID;41bảng giữ fingerprint. Không thay runtime/schema, không có lượt unit mới. T17-02 chỉ đạt thêm phạm vi này; UI/BHXH/refinance và vận hành chưa nghiệm thu đầy đủ. Tiếp T15 đổi nghĩa vụ/CAPPED có chứng từ, giữ lịch sử; xem PROGRESS.
+
+
+**07/10 — vốn legacy v3:** đã nối ASSET_REALIZED → STAGED cùng sourceId, mang toàn bộ giao dịch góp cũ vào tổng lũy kế, không cộng lại quỹ hoặc khôi phục thuê đã dừng. Full593tests/51files,17focused/typechecks/sourceemit và19HTTP/DBrollback41bảng đạt. Contract ASSET_SOURCES_V4 và FE-T16-LEGACY-CAPITAL. Task đã sửa ghi chú public v4/candidate pension lỗi thời; nghiệm thu T13–T17 và vận hành còn mở. Tiếp races vay/tài sản và cross-flow T17; các nhánh T14/T15 còn lại giữ nguyên phạm vi.
+
+
+**07/10 — T17/migration0013:** clean12 phát hiện thiếu2index đã có trong schema/DBthật; bổ sung0013 IFNOTEXISTS. Khôi phục0002–0011 về đúng LF khớp checksumDB (không đổi SQL), giữbaselineCRLF, .gitattributes cố định. Clean13/upgrade4→13/10integration/restore41bảng đạt; rehearsalrollback40 vàapply0013 DBthật đạt. Audit13/13checksum, không pending, diff rỗng,40model/41bảng. Không thay bằng chứng backup/scheduler production hoặc UI/races xuyên nhánh. Chi tiết PROGRESS.
+
+
+**07/10 — availability nhiều đợt:** funding STAGED có releases theo ngày/tiền ròng thuộc nguồn, actual chỉ dùng CONFIRMED đã về trước ngày góp, dự kiến theo prefix cuối tháng; release quá cutoff phải xác nhận hoặc dời lịch. Khoản CONFIRMED giữ bất biến, không bỏ ledger ở revision sau. Full588tests/50files,12focused/typechecks/emit và29HTTP/DBrollback41bảng đạt. UI FE-T16-AVAILABILITY, contract ASSET_SOURCES_V4. Không tự đưa tiền nhận vào quỹ/thu nhập/vay. T17 clean/upgrade12 đang được kiểm lại riêng trên Docker tạm; xem PROGRESS.
+
+
+**07/10 — góp nhiều đợt:** funding STAGED đã nối CREATE/REVISE/preview/save/apply/replay; priorRealized server lấy theo cùng nguồn, tổng lũy kế gồm đã góp và tương lai không vượt net. Có đối soát từng tháng đến hạn, nhận một phần/bù muộn, hủy phần còn lại và chuyển REALIZED v4 sang STAGED để góp thêm phần chưa dùng. UI FE-T16-STAGED. Kết quả cuối ở PROGRESS; không đóng toàn bộ T16/T14/T15/T17/vận hành. Nhận tiền bán/giải ngân nhiều đợt với hạn mức thanh khoản tăng dần cần phần tiếp theo, STAGED hiện có một availableOn cho tiền ròng.
+
+
+**07/10 — thuê sang bán:** rentalExit cùng asset source đã nối API/preview/save/apply/replay; dừng thuê đúng tháng, tiền bán chỉ góp số xác nhận, không tự kéo dài thuê khi dời bán. Full575tests/49files,7focused/typechecks/emit,27HTTP/DBrollback41bảng đạt. UI FE-T16-RENTAL-SALE. Tiếp góp một phần/nhiều đợt và toàn bộ T14/T15/T17/vận hành còn mở.
+
+
+**07/10 — khoản góp chưa thực hiện:** T16 REVISE.missedContribution đã nối API/đối soát/replay, xác nhận toàn bộ chưa góp và dời lịch tương lai; không đổi actual/profile/quỹ hiện tại. Full568tests/48files,14focused/typechecks/emit,28HTTP/DBrollback41bảng đạt. UI FE-T16-MISSED-CONTRIBUTION. Tiếp RENT→SALE và góp nhiều đợt; toàn bộ nhánh T14/T15/T17/vận hành vẫn mở.
+
+
+**07/10 — vay thay thế đã trả gốc:** DISBURSED_BALANCE đã nối API/đối soát/replay, gross giải ngân khác dư nợ cuối kỳ; full563tests, final20focused, typechecks/emit và22HTTP/DBrollback41bảng đạt. UI FE-T15-DISBURSED-BALANCE; tiếp T16 khoản góp dự kiến không xảy ra và toàn bộ phần còn mở, chưa đóng mục tiêu.
+
+
+**07/10 — đóng trước/hoàn trong kỳ nghỉ hưu:** engine/API/prepaidmetadata, day/payment-window/request/duplicate/cutoff/support checks,23case corpus vàsource capture đã nối. Full558tests48files/testtypes/sourceemit/6draftcheckPASS,18HTTP/DBrollback41bảngPASS. Không migration/AI/email/frontend; UI FE-T14-PREPAID. Tiếp T14 chuyển tiếp/CREDITED/đặc thù/năm khác và mở topup trả sớm theoLuật36(3)(e) bằngversion mới; giữtoànbộT15/T16/T17/vận hànhgoal.
+
+**07/10 — đóng bù:** metadata thanh toán/engine riêng đã nối preview/save/read/replay/source selection, corpus năm2026 có nguồn giới hạn/lãi, OpenAPI và FE-T14-TOP-UP. Full544tests/47files, test/source typechecks+emit,18HTTP/DB rollback41bảng đạt. Không migration/frontend/provider/email hoặc công bố luật thật. Tiếp đóng trước/hoàn trả/chuyển tiếp/CREDITED/đặc thù và toàn bộT15/T16/T17/vận hành còn mở; mục tiêu chưa hoàn thành.
+
+**07/10 — corpus/Nhà nước+tự nguyện:** thêm engine riêng cho lương Nhà nước/doanh nghiệp trước tự nguyện,4corpus draft nguồn/hash (2cũ không đổi,2mới1146dòng). Full518tests, typechecks/emit, corpus tái lập đạt;2lượt17HTTP/DBrollback41bảng đạt. Sửa logHTTP dùng writer củaservices thayglobalDB, bỏ rawerror/query,21focused và4DBrollbackchecks đạt. Chưa phê duyệt/công bố luật; tiếp đóng trước/bù/chuyển tiếp và toàn bộ nhánh/vận hành còn lại, không đóng mục tiêu. FE-T14-VOLUNTARY-STATE.
+
+**07/10 — tự nguyện:** API/engine/strategy cho tự nguyện định kỳ và hỗn hợp doanh nghiệp đã nối;499tests +25focused sau guard nguồn luật đạt, testtypecheck/sourceemit đạt,16HTTP/DBrollback41bảng đạt. Contract VOLUNTARY_PENSION.md và FE-T14-VOLUNTARY. Còn corpus nguồn thật/duyệt độc lập, Nhà nước+tự nguyện, đóng trước/bù/chuyển tiếp/credited/đặc thù cùng các phần T15–T17/vận hành; không đóng goal.
+
+**07/10 — nguồn vay/tài sản:** đã nối vay mới, refinance thực tế atomic và tài sản/vốn CREATE/REVISE/END, chứng từ actual và replay. Loan19/refinance20/asset20 ca DB rollback đạt; full465tests +9assetfocused đạt, source emit đạt, testtypecheck cuối đạt sau một guard ở test settings (5tests đạt), OpenAPI production/expansion đạt. Chi tiết PROGRESS/ASSET_SOURCES_V4/LOAN_REVISIONS_V2. Chưa đóng T14–T17: còn nhánh pháp lý, refinance tương lai/lifecycle tài sản, race/UI/vận hành. Giới hạn approval cũ đã hết, DB verifier mới được duyệt và chạy; các checkpoint chưa chạy bên dưới là lịch sử.
+
 **06/10 — T15 public:** đã nối chuyển basis v1, loanRevisions v2, đối soát và proof vào preview/save/apply/read/replay; options hash server và OpenAPI/UI handoff đầy đủ.444tests +32focused sau ca đẩy cutoff đạt; verifierDB --loan mới chuẩn bị, chưa chạy. Refinance/tài sản-vay mới và các nhánhBHXH/T17/vận hành tiếp tục, không đánh dấu toàn bộ hoàn tất.
 
 **06/10 — T15 core:** đã có lịch vay v2/đối soát gốc-lãi-phí/CAPPED và builder nguồn/replay nội bộ;436tests toàn bộ +57focused sau guard ngày đạt. Chưa nối API/save/apply, chuyển v1 có chứng từ hay refinance. Xem LOAN_REVISIONS_V2.md/PROGRESS.md và FE-T15-LOAN-V2-CORE; giữ T15 mở, tiếp các phần tích hợp và mục tiêu backend đầy đủ.

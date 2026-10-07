@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Icon, Button, Badge } from "../ui";
+import { Icon, Button, Badge, Pagination } from "../ui";
 import { useI18n } from "../../i18n";
 import type { RetirementRow, RetirementSummary, RetirementPreviewResult } from "../../services/retirement";
 import { exportPlanVersionCsv } from "../../services/plans";
@@ -348,32 +348,14 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
       </div>
 
       {totalPages > 1 && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", fontSize: "12px" }}>
-          <span style={{ color: "var(--color-text-muted)" }}>
-            {isEn
-              ? `Page ${currentPage} / ${totalPages} (Total ${filteredRows.length} months)`
-              : `Trang ${currentPage} / ${totalPages} (Tổng cộng ${filteredRows.length} tháng)`}
-          </span>
-
-          <div style={{ display: "flex", gap: "6px" }}>
-            <Button
-              variant="ghost"
-              size="small"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            >
-              {isEn ? "Previous" : "Trang trước"}
-            </Button>
-            <Button
-              variant="ghost"
-              size="small"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            >
-              {isEn ? "Next" : "Trang sau"}
-            </Button>
-          </div>
-        </div>
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredRows.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          showRowsPerPage={false}
+        />
       )}
     </div>
   );

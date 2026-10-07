@@ -61,7 +61,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--color-accent-sage);
+  color: var(--color-mist-300);
   margin-bottom: 12px;
 }
 
@@ -104,7 +104,7 @@
 }
 
 .debt-hero-pill strong {
-  color: var(--color-accent-sage);
+  color: var(--color-secondary-light);
   font-variant-numeric: tabular-nums;
 }
 
@@ -248,7 +248,7 @@
   background: #ffffff;
   border-radius: 20px;
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 16px -2px rgba(21, 58, 82, 0.03);
+  box-shadow: 0 4px 16px -2px rgba(5, 38, 89, 0.03);
   padding: 22px;
   display: flex;
   flex-direction: column;
@@ -259,7 +259,7 @@
 .debt-loan-card:hover {
   transform: translateY(-3px);
   border-color: var(--color-secondary-500);
-  box-shadow: 0 12px 28px -6px rgba(21, 58, 82, 0.08);
+  box-shadow: 0 12px 28px -6px rgba(5, 38, 89, 0.08);
 }
 
 .debt-loan-header {
@@ -375,7 +375,7 @@
   background: #ffffff;
   border-radius: 24px;
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 20px -2px rgba(21, 58, 82, 0.04);
+  box-shadow: 0 4px 20px -2px rgba(5, 38, 89, 0.04);
   padding: 28px 32px;
 }
 
@@ -430,7 +430,7 @@
 .debt-horizon-btn.is-active {
   background: #ffffff;
   color: var(--color-primary-700);
-  box-shadow: 0 1px 3px rgba(21, 58, 82, 0.1);
+  box-shadow: 0 1px 3px rgba(5, 38, 89, 0.1);
 }
 
 .debt-quick-chips {
@@ -477,7 +477,7 @@
   background: #ffffff;
   border-radius: 20px;
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 16px -2px rgba(21, 58, 82, 0.03);
+  box-shadow: 0 4px 16px -2px rgba(5, 38, 89, 0.03);
   padding: 22px;
   display: flex;
   flex-direction: column;
@@ -488,7 +488,7 @@
 
 .debt-metric-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px -4px rgba(21, 58, 82, 0.06);
+  box-shadow: 0 10px 24px -4px rgba(5, 38, 89, 0.06);
 }
 
 .debt-metric-card::before {
@@ -546,7 +546,7 @@
   background: #ffffff;
   border-radius: 24px;
   border: 1px solid var(--color-border);
-  box-shadow: 0 6px 20px -3px rgba(21, 58, 82, 0.04);
+  box-shadow: 0 6px 20px -3px rgba(5, 38, 89, 0.04);
   padding: 26px;
   display: flex;
   flex-direction: column;
@@ -556,7 +556,7 @@
 
 .debt-strategy-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 16px 36px -8px rgba(21, 58, 82, 0.09);
+  box-shadow: 0 16px 36px -8px rgba(5, 38, 89, 0.09);
 }
 
 /* Highlighted Avalanche Card */

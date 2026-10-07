@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "knowledgeAsOf": "2026-10-05",
+  "knowledgeAsOf": "2026-10-07",
   "status": "DRAFT_NOT_APPROVED",
   "sources": [
     {
@@ -64,6 +64,51 @@
       "sha256": "ae105e9a17bc38184c17972ba98115811d4eab0b764d24935306ff882081a537",
       "bytes": 585122,
       "retrievedAt": "2026-10-05T12:46:04.927Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "R04",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/6/159-cp.signed.pdf",
+      "file": "R04.pdf",
+      "sha256": "8ffa3bdce6cdf2856eb0ffd21161dc194d38f8c7ff88114b91e24ea3d7b07b36",
+      "bytes": 760542,
+      "retrievedAt": "2026-10-07T04:32:15.652693Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "R06",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/11-bnv.pdf",
+      "file": "R06.pdf",
+      "sha256": "5ed90937ea4e629f35e7ac91cba97b1bfb22ff7df176df91045f6245a9ce23be",
+      "bytes": 2379621,
+      "retrievedAt": "2026-10-07T04:32:16.829272Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "FUND2026",
+      "url": "https://baohiemxahoi.gov.vn:4545/File_Server_BHXH/documents/BHXHVN_151(kem%20theo%20CV09).pdf",
+      "file": "FUND2026.pdf",
+      "sha256": "9239d7ca5e0c867c8b2c3a4a1966ddb6caa8b74866a9dc0c116e4a2a259191e9",
+      "bytes": 268567,
+      "retrievedAt": "2026-10-07T04:52:39.826020Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "POVERTY2026",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/12/351-ndcp.signed.pdf",
+      "file": "POVERTY2026.pdf",
+      "sha256": "b146b81c46ec042850fad1b6f75b1b22d980a4e256e6e5f234f6693b52586cb3",
+      "bytes": 366570,
+      "retrievedAt": "2026-10-07T05:00:47.445467Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "POVERTY2021",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/01/07.signed.pdf",
+      "file": "POVERTY2021.pdf",
+      "sha256": "692c395059f4ec0cc69b0cb4b98e30e16d8088db0804825ba0b21d837c1df2ad",
+      "bytes": 433483,
+      "retrievedAt": "2026-10-07T05:00:48.756843Z",
       "format": "SIGNED_PDF"
     }
   ]

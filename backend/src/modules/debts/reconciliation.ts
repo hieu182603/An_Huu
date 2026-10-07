@@ -12,8 +12,11 @@ export const loanActualEvidenceSchema = z.object({ period: monthSchema, revision
   status: z.literal("RECONCILED"), data: actualPayloadSchema }).strict();
 export const loanBalanceChangeSchema = z.object({ changeId: z.string().uuid(), bookedOn: dateSchema, amount: moneySchema,
   kind: z.literal("CONFIRMED_PRINCIPAL_ADVANCE"), evidence: z.array(loanEvidenceSchema).min(1).max(20) }).strict();
+export const loanResponsibilityAmendmentSchema = z.object({ effectiveOn: dateSchema, openingUserPaid: moneySchema,
+  confirm: z.literal(true), evidence: z.array(loanEvidenceSchema).min(1).max(20) }).strict();
 export const loanReconciliationSchema = z.object({ previous: z.union([loanContractV2Schema, loanBalanceBasisSchema]), next: loanContractV2Schema,
-  allocations: z.array(loanAllocationSchema).max(500), principalAdvances: z.array(loanBalanceChangeSchema).max(100) }).strict();
+  allocations: z.array(loanAllocationSchema).max(500), principalAdvances: z.array(loanBalanceChangeSchema).max(100),
+  responsibilityAmendment: loanResponsibilityAmendmentSchema.optional() }).strict();
 export type LoanReconciliation = z.infer<typeof loanReconciliationSchema>;
 export type LoanActualEvidence = z.infer<typeof loanActualEvidenceSchema>;
 export type LoanConsumedAllocation = { sourceId: string; allocation: z.infer<typeof loanAllocationSchema> };
@@ -86,10 +89,23 @@ export function reconcileLoanRevision(value: LoanReconciliation, actualValues: L
     running = running.plus(day.advanced).minus(day.paid);
     if (running.lt(0)) fail("LOAN_PRINCIPAL_PAYMENT_EXCEEDS_BALANCE");
   }
-  if (previous.responsibility.kind !== next.responsibility.kind) fail("LOAN_RESPONSIBILITY_REVIEW_REQUIRED");
-  if (previous.responsibility.kind === "CAPPED" && next.responsibility.kind === "CAPPED") {
-    if (!new D(previous.responsibility.limit).eq(next.responsibility.limit) ||
-      !new D(previous.responsibility.previouslyPaid).plus(userPaid).eq(next.responsibility.previouslyPaid)) fail("LOAN_CAP_CARRY_MISMATCH");
+  const amendment = input.responsibilityAmendment;
+  const knownPaid = previous.userPaidToDate ?? (previous.responsibility.kind === "CAPPED" ? previous.responsibility.previouslyPaid : undefined);
+  if (amendment) {
+    if (!next.amendedOn || amendment.effectiveOn !== next.effectiveOn || amendment.effectiveOn < previous.balanceAsOf ||
+      amendment.evidence.some(e => e.confirmedOn < amendment.effectiveOn || e.confirmedOn > next.knownOn)) fail("LOAN_RESPONSIBILITY_AMENDMENT_INVALID");
+    if (knownPaid !== undefined && !new D(amendment.openingUserPaid).eq(knownPaid)) fail("LOAN_CAP_CARRY_MISMATCH");
+    if (next.userPaidToDate === undefined || !new D(amendment.openingUserPaid).plus(userPaid).eq(next.userPaidToDate)) fail("LOAN_PAID_HISTORY_REQUIRED");
+  } else {
+    if (previous.responsibility.kind !== next.responsibility.kind) fail("LOAN_RESPONSIBILITY_REVIEW_REQUIRED");
+    // Preserve the old no-amendment path for immutable v2 source replay.
+    if (previous.responsibility.kind === "CAPPED" && next.responsibility.kind === "CAPPED") {
+      if (!new D(previous.responsibility.limit).eq(next.responsibility.limit) ||
+        !new D(previous.responsibility.previouslyPaid).plus(userPaid).eq(next.responsibility.previouslyPaid)) fail("LOAN_CAP_CARRY_MISMATCH");
+    }
+    if (previous.userPaidToDate !== undefined || next.userPaidToDate !== undefined) {
+      if (knownPaid === undefined || next.userPaidToDate === undefined || !new D(knownPaid).plus(userPaid).eq(next.userPaidToDate)) fail("LOAN_PAID_HISTORY_REQUIRED");
+    }
   }
   // A same-day payment is ambiguous with an opening balance: the caller must
   // supply the prior day's confirmed close instead of guessing posting order.

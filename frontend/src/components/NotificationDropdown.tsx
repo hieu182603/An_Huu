@@ -61,7 +61,7 @@ export function NotificationDropdown({ isAdmin = false, align = "right" }: Notif
     }
   };
 
-  const allPageLink = isAdmin ? "/admin/settings/notifications" : "/user/notifications";
+  const allPageLink = isAdmin ? "/admin/settings/audit-log" : "/user/notifications";
 
   return (
     <div className="notif-dropdown-wrapper" ref={containerRef}>

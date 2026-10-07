@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
+import ResponsiveDialog from "../components/ResponsiveDialog";
 import { Badge, BrandLogo, Button, Checkbox, GoogleIcon, Icon, Input, useNotification } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { resumeDestination } from "../services/navigation";
@@ -335,7 +336,7 @@ export function LoginPage() {
 export function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { loginWithGoogle, initializing } = useAuth();
+  const { login, loginWithGoogle, initializing } = useAuth();
   const { notify } = useNotification();
 
   const [fullName, setFullName] = useState("");
@@ -346,6 +347,23 @@ export function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  // OTP Modal State
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [registeredPassword, setRegisteredPassword] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpResending, setOtpResending] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [otpError, setOtpError] = useState("");
+  const [otpSuccessNotice, setOtpSuccessNotice] = useState("");
+
+  useEffect(() => {
+    if (!otpCooldown) return;
+    const timer = window.setTimeout(() => setOtpCooldown((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [otpCooldown]);
 
   const handleGoogleAuth = async () => {
     setError("");
@@ -410,11 +428,69 @@ export function RegisterPage() {
       }
       await apiRequest("/auth/register", { fullName: cleanName, email: cleanEmail, password: cleanPassword, ...(cleanPhone ? { phone: cleanPhone } : {}) });
       trackSignUpEvent("email");
-      navigate("/verify", { state: { email: cleanEmail, from: location.state?.from || "/onboarding", isNewUser: true } });
+      setRegisteredEmail(cleanEmail);
+      setRegisteredPassword(cleanPassword);
+      setOtpCode("");
+      setOtpError("");
+      setOtpSuccessNotice("Mã xác thực gồm 6 chữ số đã được gửi tới email của bạn.");
+      setOtpCooldown(60);
+      setShowOtpModal(true);
+      notify.success("Đăng ký thành công", "Vui lòng nhập mã OTP để kích hoạt tài khoản.");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (otpResending || otpCooldown > 0 || otpLoading) return;
+    setOtpResending(true);
+    setOtpError("");
+    setOtpSuccessNotice("");
+    try {
+      await apiRequest("/auth/resend-verification", { email: registeredEmail });
+      setOtpCooldown(60);
+      setOtpSuccessNotice("Mã mới đã được gửi qua email. Hãy kiểm tra hộp thư của bạn.");
+      notify.success("Đã gửi mã xác minh", "Vui lòng kiểm tra hộp thư đến hoặc mục thư rác (Spam).");
+    } catch (err) {
+      setOtpError(getErrorMessage(err));
+    } finally {
+      setOtpResending(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    const cleanOtp = otpCode.trim();
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      const msg = "Mã OTP phải gồm đúng 6 chữ số.";
+      setOtpError(msg);
+      notify.error("Mã OTP không hợp lệ", msg);
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError("");
+    try {
+      await apiRequest("/auth/verify-email", { email: registeredEmail, otp: cleanOtp });
+      notify.success("Xác thực hoàn tất", "Tài khoản của bạn đã được kích hoạt thành công!");
+      try {
+        const loggedUser = await login(registeredEmail, registeredPassword, true);
+        navigate(resumeDestination(location.state?.from, loggedUser.role, "/onboarding"), { replace: true });
+      } catch {
+        navigate("/login", {
+          replace: true,
+          state: {
+            from: location.state?.from || "/onboarding",
+            isNewUser: true,
+            email: registeredEmail,
+          },
+        });
+      }
+    } catch (err) {
+      setOtpError(getErrorMessage(err));
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -500,7 +576,17 @@ export function RegisterPage() {
               <div className="auth-field-item">
                 <label className="auth-field-label" htmlFor="register-password">
                   <span>Mật khẩu</span>
-                  <span style={{ fontSize: "11px", color: passwordStrength === 3 ? "var(--color-success, #007A3D)" : passwordStrength === 2 ? "var(--color-warning, #B36800)" : "var(--color-ink-muted, #5483B3)" }}>
+                  <span style={{
+                    fontSize: "11.5px",
+                    fontWeight: 600,
+                    color: passwordStrength === 3
+                      ? "var(--color-success, #10B981)"
+                      : passwordStrength === 2
+                      ? "var(--color-warning, #D97706)"
+                      : passwordStrength === 1
+                      ? "var(--color-danger, #EF4444)"
+                      : "transparent",
+                  }}>
                     {passwordStrength === 3
                       ? "Mạnh"
                       : passwordStrength === 2
@@ -532,10 +618,10 @@ export function RegisterPage() {
                 </div>
 
                 {password && (
-                  <div className="auth-strength-meter">
-                    <div className={`strength-bar ${passwordStrength >= 1 ? "is-filled" : ""}`} />
-                    <div className={`strength-bar ${passwordStrength >= 2 ? "is-filled" : ""}`} />
-                    <div className={`strength-bar ${passwordStrength >= 3 ? "is-filled" : ""}`} />
+                  <div className="auth-strength-meter" aria-label="Độ mạnh mật khẩu">
+                    <div className={`strength-bar is-weak ${passwordStrength >= 1 ? "is-filled" : ""}`} />
+                    <div className={`strength-bar is-medium ${passwordStrength >= 2 ? "is-filled" : ""}`} />
+                    <div className={`strength-bar is-strong ${passwordStrength >= 3 ? "is-filled" : ""}`} />
                   </div>
                 )}
               </div>
@@ -596,6 +682,179 @@ export function RegisterPage() {
             </div>
           </form>
         </div>
+
+        {showOtpModal && (
+          <ResponsiveDialog
+            open={showOtpModal}
+            title="Xác minh email"
+            onClose={() => setShowOtpModal(false)}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+                  <Badge tone="info">BƯỚC CUỐI CÙNG</Badge>
+                </div>
+                <h3 style={{ margin: "0 0 6px", fontSize: "20px", color: "var(--color-primary-700)", fontWeight: 700 }}>
+                  Xác minh email
+                </h3>
+                <p style={{ margin: 0, fontSize: "14px", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
+                  Nhập mã OTP gồm 6 chữ số được gửi tới hộp thư của bạn.
+                </p>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "12px 16px",
+                  background: "var(--color-bg)",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--color-border)",
+                  gap: "12px",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: "11px", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>
+                    Email cần xác minh
+                  </div>
+                  <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-primary-700)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {registeredEmail}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowOtpModal(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--color-secondary-600)",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    flexShrink: 0,
+                    padding: "4px 0",
+                  }}
+                >
+                  Đổi email khác? Quay lại
+                </button>
+              </div>
+
+              <form onSubmit={handleVerifyOtp} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div className="auth-field-item">
+                  <label className="auth-field-label" htmlFor="register-otp-input">
+                    <span>Mã OTP 6 số</span>
+                  </label>
+                  <div className="auth-input-wrapper">
+                    <input
+                      id="register-otp-input"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      autoComplete="one-time-code"
+                      autoFocus
+                      placeholder="682490"
+                      value={otpCode}
+                      onChange={(e) => {
+                        setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                        setOtpError("");
+                      }}
+                      style={{
+                        fontSize: "26px",
+                        fontWeight: 700,
+                        letterSpacing: "8px",
+                        textAlign: "center",
+                        height: "54px",
+                        fontFamily: "monospace, sans-serif",
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={otpResending || otpLoading || otpCooldown > 0}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: otpCooldown > 0 ? "var(--color-text-muted)" : "var(--color-secondary-600)",
+                      cursor: otpCooldown > 0 ? "default" : "pointer",
+                    }}
+                  >
+                    {otpResending
+                      ? "Đang gửi lại mã..."
+                      : otpCooldown > 0
+                      ? `Gửi lại sau ${otpCooldown} giây`
+                      : "Chưa nhận được mã? Gửi lại OTP"}
+                  </button>
+                </div>
+
+                {otpSuccessNotice && (
+                  <p
+                    role="status"
+                    style={{
+                      color: "var(--color-success, #007A3D)",
+                      fontSize: "12px",
+                      margin: 0,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {otpSuccessNotice}
+                  </p>
+                )}
+
+                {otpError && (
+                  <div className="auth-error-banner" role="alert" style={{ margin: 0 }}>
+                    <Icon name="alert" size="small" />
+                    <span>{otpError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="auth-btn-primary"
+                  disabled={otpLoading || otpCode.trim().length !== 6}
+                  style={{ height: "48px", marginTop: "4px" }}
+                >
+                  {otpLoading ? (
+                    <>
+                      <span className="spinner" aria-hidden="true" />
+                      <span>Đang xác nhận mã...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Xác nhận email & Đăng nhập</span>
+                      <Icon name="arrow-right" size="small" />
+                    </>
+                  )}
+                </button>
+
+                <div
+                  className="auth-security"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "12px",
+                    color: "var(--color-text-muted)",
+                    marginTop: "4px",
+                  }}
+                >
+                  <Icon name="info" size="small" />
+                  <span>Mã xác thực có hiệu lực trong vòng 15 phút kể từ lúc gửi.</span>
+                </div>
+              </form>
+            </div>
+          </ResponsiveDialog>
+        )}
       </main>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Badge, Button, Card, Checkbox, Icon, SearchField } from "./ui";
+import { Alert, Badge, Button, Card, Checkbox, Icon, Pagination, SearchField } from "./ui";
 import ResponsiveDialog from "./ResponsiveDialog";
 import { apiRequest, authenticatedRequest } from "../services/api";
 import type { ContentItem, ContentPage } from "../services/content";
@@ -200,19 +200,16 @@ export default function KnowledgeLibrary({
             </Card>
           )}
 
-          <div className="account-save-row">
-            <Button disabled={page === 1} onClick={() => setPage((v) => v - 1)}>
-              {isEn ? "Previous" : "Trang trước"}
-            </Button>
-            <span>
-              {isEn
-                ? `Page ${page} / ${Math.max(1, Math.ceil(data.total / data.limit))}`
-                : `Trang ${page} / ${Math.max(1, Math.ceil(data.total / data.limit))}`}
-            </span>
-            <Button disabled={page * data.limit >= data.total} onClick={() => setPage((v) => v + 1)}>
-              {isEn ? "Next" : "Trang sau"}
-            </Button>
-          </div>
+          {data.total > data.limit && (
+            <Pagination
+              page={page}
+              totalPages={Math.max(1, Math.ceil(data.total / data.limit))}
+              totalItems={data.total}
+              pageSize={data.limit}
+              onPageChange={setPage}
+              showRowsPerPage={false}
+            />
+          )}
         </>
       )}
 
@@ -313,15 +310,16 @@ function ReferenceContent({ kind }: { kind: "GLOSSARY" | "FAQ" }) {
             )
           )}
           {!data.items.length && <p>{isEn ? "No matching content." : "Chưa có nội dung phù hợp."}</p>}
-          <div className="account-save-row">
-            <Button disabled={page === 1} onClick={() => setPage((v) => v - 1)}>
-              {isEn ? "Previous" : "Trang trước"}
-            </Button>
-            <span>{isEn ? `Page ${page}` : `Trang ${page}`}</span>
-            <Button disabled={page * data.limit >= data.total} onClick={() => setPage((v) => v + 1)}>
-              {isEn ? "Next" : "Trang sau"}
-            </Button>
-          </div>
+          {data.total > data.limit && (
+            <Pagination
+              page={page}
+              totalPages={Math.max(1, Math.ceil(data.total / data.limit))}
+              totalItems={data.total}
+              pageSize={data.limit}
+              onPageChange={setPage}
+              showRowsPerPage={false}
+            />
+          )}
         </>
       )}
     </div>

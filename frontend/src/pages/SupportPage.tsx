@@ -319,13 +319,16 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
 
       {/* Error state */}
       {error && (
-        <Alert tone="danger" title={isEn ? "Cannot load support requests" : "Không thể tải yêu cầu hỗ trợ"}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-            <span>{error}</span>
+        <Alert
+          tone="danger"
+          title={isEn ? "Cannot load support requests" : "Không thể tải yêu cầu hỗ trợ"}
+          action={
             <Button size="small" variant="secondary" onClick={() => setReload((v) => v + 1)}>
               {isEn ? "Retry" : "Thử lại"}
             </Button>
-          </div>
+          }
+        >
+          {error}
         </Alert>
       )}
 

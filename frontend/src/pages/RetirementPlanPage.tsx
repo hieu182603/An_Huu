@@ -91,7 +91,26 @@ export default function RetirementPlanPage() {
       : (profile.personal.age > 0 ? currentYear - profile.personal.age : null);
     const lifeExpectancy = profile.goal.lifeExpectancy;
     if (!birthYear || !lifeExpectancy || lifeExpectancy <= 0) return null;
-    return `${birthYear + lifeExpectancy}-${birthMonthStr?.slice(5, 7) || "12"}`;
+    const rawEndMonth = `${birthYear + lifeExpectancy}-${birthMonthStr?.slice(5, 7) || "12"}`;
+
+    // Cap by published macroeconomic scenario years & policy horizon (standard 30-year published series, ending 2055)
+    const scenarioYears = policyDetail?.data?.scenarios?.flatMap((s: any) => s.years?.map((y: any) => y.year) || []) || [];
+    const maxScenarioYear = scenarioYears.length > 0 ? Math.max(...scenarioYears) : 2055;
+    const capScenarioMonth = `${maxScenarioYear}-12`;
+
+    const maxHorizon = Math.max(
+      ...(policyDetail?.data?.rules?.map((r: any) => r.horizon?.max).filter(Boolean) || [360]),
+      ...(policyDetail?.data?.templates?.map((t: any) => t.coverageMonths).filter(Boolean) || [360])
+    );
+    const valMonth = v2Profile?.valuationDate ? v2Profile.valuationDate.slice(0, 7) : `${currentYear}-01`;
+    const [vy, vm] = valMonth.split("-").map(Number);
+    const totalCapMonths = vy * 12 + (vm - 1) + (maxHorizon - 1);
+    const capHorizonYear = Math.floor(totalCapMonths / 12);
+    const capHorizonMonthNum = (totalCapMonths % 12) + 1;
+    const capHorizonMonth = `${capHorizonYear}-${String(capHorizonMonthNum).padStart(2, "0")}`;
+
+    const effectiveCap = capScenarioMonth < capHorizonMonth ? capScenarioMonth : capHorizonMonth;
+    return rawEndMonth < effectiveCap ? rawEndMonth : effectiveCap;
   }, [v2Profile, profile, policyDetail]);
 
   // Determine balanced fallback choice if user has not yet taken personalized survey
@@ -272,6 +291,35 @@ export default function RetirementPlanPage() {
   const calculation = previewPayload && previewStatus === "ready" ? previewData?.calculation : null;
   const summary = calculation?.summary;
 
+  // Dynamic adaptive scale & actual progress for coverage gauge
+  const coveragePercentRaw = summary?.atRetirement?.coveragePercent
+    ? parseFloat(summary.atRetirement.coveragePercent)
+    : 0;
+  const coveragePercentNum = Math.round(coveragePercentRaw);
+
+  const maxScale = useMemo(() => {
+    if (coveragePercentNum <= 100) return 100;
+    if (coveragePercentNum <= 150) return 150;
+    if (coveragePercentNum <= 200) return 200;
+    if (coveragePercentNum <= 500) return Math.ceil(coveragePercentNum / 50) * 50;
+    if (coveragePercentNum <= 1000) return Math.ceil(coveragePercentNum / 100) * 100;
+    return Math.ceil(coveragePercentNum / 500) * 500;
+  }, [coveragePercentNum]);
+
+  const progressRatio = maxScale > 0 ? Math.min(1, Math.max(0, coveragePercentRaw / maxScale)) : 0;
+  const arcLength = 403.17;
+  const arcOffset = arcLength * (1 - progressRatio);
+
+  const tipAngleDeg = 160 + 220 * progressRatio;
+  const tipAngleRad = (tipAngleDeg * Math.PI) / 180;
+  const tipX = 150 + 105 * Math.cos(tipAngleRad);
+  const tipY = 130 + 105 * Math.sin(tipAngleRad);
+
+  const targetRatio = maxScale > 100 ? 100 / maxScale : null;
+  const targetAngleDeg = targetRatio !== null ? 160 + 220 * targetRatio : null;
+  const targetX = targetAngleDeg !== null ? 150 + 105 * Math.cos((targetAngleDeg * Math.PI) / 180) : null;
+  const targetY = targetAngleDeg !== null ? 130 + 105 * Math.sin((targetAngleDeg * Math.PI) / 180) : null;
+
   const isAppliedPlan = Boolean(activePlan?.currentVersionId && previewData && currentVersion?.snapshotHash === previewData.references?.profileHash);
 
   return (
@@ -312,26 +360,38 @@ export default function RetirementPlanPage() {
       </div>
 
       {loadingPolicy && <p role="status">{language === "en" ? "Loading projection inputs…" : "Đang tải đầu vào dự phóng…"}</p>}
-      {!loadingPolicy && !previewPayload && <Alert tone="warning" title={language === "en" ? "Complete projection inputs" : "Bổ sung đầu vào dự phóng"}>
-        {language === "en" ? "A detailed financial profile, retirement dates, living expenses and a published policy are required." : "Cần hồ sơ chi tiết, mốc nghỉ hưu, chi tiêu và chính sách đã công bố. Kết quả chỉ xuất hiện khi có đủ đầu vào."}
-        <Link className="button button-secondary" to="/user/account">{language === "en" ? "Review financial profile" : "Kiểm tra hồ sơ tài chính"}</Link>
-      </Alert>}
+      {!loadingPolicy && !previewPayload && (
+        <Alert
+          tone="warning"
+          title={language === "en" ? "Complete projection inputs" : "Bổ sung đầu vào dự phóng"}
+          action={
+            <Link to="/user/account">
+              {language === "en" ? "Review financial profile" : "Kiểm tra hồ sơ tài chính"}
+            </Link>
+          }
+        >
+          {language === "en"
+            ? "A detailed financial profile, retirement dates, living expenses and a published policy are required. Results appear only when all inputs are available."
+            : "Cần hồ sơ chi tiết, mốc nghỉ hưu, chi tiêu và chính sách đã công bố. Kết quả chỉ xuất hiện khi có đủ đầu vào."}
+        </Alert>
+      )}
       {previewStatus === "loading" && <p role="status">{language === "en" ? "Calculating your full retirement horizon…" : "Đang tính dự phóng cho toàn bộ thời gian hưu trí…"}</p>}
       {previewStatus === "error" && <Alert tone="danger" title={language === "en" ? "Could not calculate" : "Chưa tính được dự phóng"} action={<Button onClick={() => previewPayload && runPreview(previewPayload)}>{language === "en" ? "Retry" : "Thử lại"}</Button>}>{previewError}</Alert>}
       {/* Informative notice if using standard balanced benchmark portfolio */}
       {isUsingBenchmarkPortfolio && previewStatus === "ready" && (
         <div style={{ marginBottom: "20px" }}>
-          <Alert tone="info" title={language === "en" ? "Standard Balanced Portfolio Benchmark" : "Danh mục đầu tư chuẩn Cân bằng (Mặc định)"}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-              <span style={{ fontSize: "13px", lineHeight: 1.5 }}>
-                {language === "en"
-                  ? "Your retirement projection currently applies the Standard Balanced Portfolio (50% Equities / 50% Bonds). You can complete the 6-question risk assessment to tailor your expected return."
-                  : "Dự phóng hưu trí của bạn đang áp dụng Danh mục Cân bằng chuẩn (50% Cổ phiếu / 50% Trái phiếu). Bạn có thể làm khảo sát 6 câu hỏi để tối ưu hóa tỷ suất sinh lời theo đúng khẩu vị rủi ro cá nhân."}
-              </span>
-              <Link to="/user/risk-portfolio" className="button button-secondary button-small" style={{ textDecoration: "none" }}>
+          <Alert
+            tone="info"
+            title={language === "en" ? "Standard Balanced Portfolio Benchmark" : "Danh mục đầu tư chuẩn Cân bằng (Mặc định)"}
+            action={
+              <Link to="/user/risk-portfolio">
                 <Icon name="sparkles" size="small" /> {language === "en" ? "Personalize Strategy" : "Cá nhân hóa chiến lược"}
               </Link>
-            </div>
+            }
+          >
+            {language === "en"
+              ? "Your retirement projection currently applies the Standard Balanced Portfolio (50% Equities / 50% Bonds). You can complete the 6-question risk assessment to tailor your expected return."
+              : "Dự phóng hưu trí của bạn đang áp dụng Danh mục Cân bằng chuẩn (50% Cổ phiếu / 50% Trái phiếu). Bạn có thể làm khảo sát 6 câu hỏi để tối ưu hóa tỷ suất sinh lời theo đúng khẩu vị rủi ro cá nhân."}
           </Alert>
         </div>
       )}
@@ -339,36 +399,43 @@ export default function RetirementPlanPage() {
       {/* Warnings & Issues notification banners */}
       {previewStatus === "incomplete" && uniqueIssues.length > 0 && (
         <div style={{ marginBottom: "20px" }}>
-          <Alert tone="warning" title={language === "en" ? "Incomplete Financial Data" : "Dữ liệu chưa hoàn tất"}>
+          <Alert
+            tone="warning"
+            title={language === "en" ? "Incomplete Financial Data" : "Dữ liệu chưa hoàn tất"}
+            action={
+              <>
+                {hasRiskIssues && (
+                  <Link to="/user/risk-portfolio">
+                    <Icon name="sparkles" size="small" />
+                    {language === "en" ? "Complete Risk Assessment" : "Làm khảo sát rủi ro"}
+                  </Link>
+                )}
+                {hasProfileIssues && (
+                  <Link to="/user/account">
+                    {language === "en" ? "Complete Financial Profile" : "Bổ sung hồ sơ tài chính"} <Icon name="arrow-right" size="small" />
+                  </Link>
+                )}
+              </>
+            }
+          >
             <ul style={{ margin: "6px 0 0", paddingLeft: "20px", fontSize: "13px" }}>
               {uniqueIssues.map((iss, idx) => (
                 <li key={idx}>{translateIssueCode(iss.code, language)}</li>
               ))}
             </ul>
-            <div style={{ marginTop: "12px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              {hasRiskIssues && (
-                <Link to="/user/risk-portfolio" className="button button-primary button-small" style={{ textDecoration: "none" }}>
-                  <Icon name="sparkles" size="small" />
-                  {language === "en" ? "Complete Risk Assessment" : "Làm khảo sát rủi ro"}
-                </Link>
-              )}
-              {hasProfileIssues && (
-                <Link to="/user/account" className="button button-secondary button-small" style={{ textDecoration: "none" }}>
-                  {language === "en" ? "Complete Financial Profile" : "Bổ sung hồ sơ tài chính"} <Icon name="arrow-right" size="small" />
-                </Link>
-              )}
-            </div>
           </Alert>
         </div>
       )}
 
       {previewWarnings.length > 0 && (
         <div style={{ marginBottom: "20px" }}>
-          {previewWarnings.map((warn, idx) => (
-            <Alert key={idx} tone="info" title={language === "en" ? "Business Notice" : "Lưu ý nghiệp vụ"}>
-              {translateWarningCode(warn.code, language)}
-            </Alert>
-          ))}
+          <Alert tone="info" title={language === "en" ? "Business Notices" : "Lưu ý nghiệp vụ"}>
+            <ul style={{ margin: "6px 0 0", paddingLeft: "20px", fontSize: "13px" }}>
+              {previewWarnings.map((warn, idx) => (
+                <li key={idx}>{translateWarningCode(warn.code, language)}</li>
+              ))}
+            </ul>
+          </Alert>
         </div>
       )}
 
@@ -405,7 +472,13 @@ export default function RetirementPlanPage() {
               : `TỔNG QUỸ HƯU TRÍ CẦN CÓ TẠI THÁNG NGHỈ HƯU (${summary?.retirementMonth || "..."})`}
           </span>
           <strong className="result-total">
-            {summary?.atRetirement?.requiredFund ? formatVNDCurrency(summary.atRetirement.requiredFund) : (language === "en" ? "Calculating..." : "Đang tính toán...")}
+            {summary?.atRetirement?.requiredFund
+              ? formatVNDCurrency(summary.atRetirement.requiredFund)
+              : previewStatus === "loading"
+              ? (language === "en" ? "Calculating..." : "Đang tính toán...")
+              : previewStatus === "incomplete"
+              ? (language === "en" ? "Awaiting Valid Inputs" : "Chờ dữ liệu hợp lệ")
+              : (language === "en" ? "No Projection" : "Chưa có dự phóng")}
           </strong>
 
           <p>
@@ -467,41 +540,77 @@ export default function RetirementPlanPage() {
         <div className={`plan-progress-panel ${summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "is-warning" : "is-safe"}`}>
           <div className="ring-ambient-glow" />
 
-          {/* Readiness Score Progress Ring */}
+          {/* Premium 220° Arch Dial Gauge */}
           <div className="plan-progress-ring">
-            <svg viewBox="0 0 220 220" className="progress-ring-svg">
-              <circle cx="110" cy="110" r="86" className="ring-base-track" />
+            <svg viewBox="0 0 300 230" className="progress-ring-svg">
+              <defs>
+                <linearGradient id="gaugeSafeGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="50%" stopColor="#06b6d4" />
+                  <stop offset="100%" stopColor="#38bdf8" />
+                </linearGradient>
+                <linearGradient id="gaugeWarnGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#f59e0b" />
+                  <stop offset="100%" stopColor="#f43f5e" />
+                </linearGradient>
+                <filter id="gaugeGlowFilter" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor={summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "rgba(245, 158, 11, 0.4)" : "rgba(16, 185, 129, 0.4)"} />
+                </filter>
+              </defs>
+
+              {/* Background Arch Track */}
               <circle
-                cx="110"
-                cy="110"
-                r="86"
-                className="ring-main-arc"
-                stroke={summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "var(--color-accent-400)" : "var(--color-secondary-500)"}
-                strokeDasharray="540.35 540.35"
-                style={{
-                  strokeDashoffset: `${
-                    540.35 *
-                    (1 -
-                      Math.min(
-                        100,
-                        Math.max(
-                          0,
-                          summary && summary.atRetirement.coveragePercent
-                            ? parseFloat(summary.atRetirement.coveragePercent)
-                            : 0
-                        )
-                      ) /
-                        100)
-                  }`,
-                }}
+                cx="150"
+                cy="130"
+                r="105"
+                className="ring-base-track"
+                strokeDasharray="403.17 256.56"
+                strokeDashoffset="0"
+                transform="rotate(160 150 130)"
               />
+
+              {/* Active Gradient Arc */}
+              <circle
+                cx="150"
+                cy="130"
+                r="105"
+                className="ring-main-arc"
+                stroke={summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "url(#gaugeWarnGradient)" : "url(#gaugeSafeGradient)"}
+                strokeDasharray="403.17 256.56"
+                style={{
+                  strokeDashoffset: `${arcOffset}`,
+                }}
+                transform="rotate(160 150 130)"
+                filter="url(#gaugeGlowFilter)"
+              />
+
+              {/* 100% Target Checkpoint Pin (when scale exceeds 100%) */}
+              {targetX !== null && targetY !== null && (
+                <g className="gauge-target-checkpoint">
+                  <circle cx={targetX} cy={targetY} r="4" fill="#ffffff" stroke="#10b981" strokeWidth="2" filter="url(#gaugeGlowFilter)" />
+                </g>
+              )}
+
+              {/* Glowing Tip Marker at Current Progress */}
+              {progressRatio > 0.02 && (
+                <g className="gauge-tip-marker">
+                  <circle cx={tipX} cy={tipY} r="5.5" fill="#ffffff" filter="url(#gaugeGlowFilter)" />
+                  <circle cx={tipX} cy={tipY} r="3" fill={summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "#f59e0b" : "#06b6d4"} />
+                </g>
+              )}
+
+              {/* Milestone labels at ends of arch */}
+              <text x="44" y="190" className="gauge-milestone-text">0%</text>
+              <text x="256" y="190" className="gauge-milestone-text">
+                {new Intl.NumberFormat(language === "en" ? "en-US" : "vi-VN").format(maxScale)}%
+              </text>
             </svg>
 
             <div className="ring-center-content">
               <div className="ring-number-row">
                 <span className="ring-number">
                   {summary && summary.atRetirement.coveragePercent
-                    ? Math.round(parseFloat(summary.atRetirement.coveragePercent))
+                    ? new Intl.NumberFormat(language === "en" ? "en-US" : "vi-VN").format(coveragePercentNum)
                     : "0"}
                 </span>
                 <span className="ring-unit">%</span>
@@ -510,6 +619,13 @@ export default function RetirementPlanPage() {
                 <Icon name={summary && parseFloat(summary.retirementFundingShortfall) > 0 ? "alert" : "sparkles"} size="small" />
                 <span>{language === "en" ? "COVERAGE RATE" : "MỨC ĐỘ BAO PHỦ"}</span>
               </div>
+              {coveragePercentNum > 100 && (
+                <span className="gauge-multiplier-tag">
+                  {language === "en"
+                    ? `Exceeds target by ${(coveragePercentRaw / 100).toFixed(1)}x`
+                    : `Vượt ${(coveragePercentRaw / 100).toFixed(1)}x mục tiêu`}
+                </span>
+              )}
             </div>
           </div>
 

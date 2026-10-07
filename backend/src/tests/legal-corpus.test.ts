@@ -7,19 +7,20 @@ import { legalRuleDraftSchema } from "../modules/pensions/insurance-schema";
 import { validateLegalDocument } from "../modules/pensions/legal-validation";
 import { assessBenefit } from "../modules/pensions/benefit-engine";
 import { RetirementDecimal as D } from "../modules/retirement/engine";
-import { benefitFixtureV2, stateBenefitFixture } from "./benefit-fixtures";
+import { benefitFixtureV2, stateBenefitFixture, validatedVoluntaryFixture, validatedVoluntaryStateFixture } from "./benefit-fixtures";
 import { addMonths } from "../common/calendar";
 
 const root = resolve("seed-data/legal-2026");
 const { verifySources } = require("../../scripts/generate-legal-corpus.cjs");
 const draft = (file: string) => legalRuleDraftSchema.parse(JSON.parse(readFileSync(join(root, file), "utf8")));
-const employer = draft("bh1-employer.draft.json"), state = draft("bh2-state-mixed.draft.json");
+const employer = draft("bh1-employer.draft.json"), state = draft("bh2-state-mixed.draft.json"), voluntary = draft("bh2-voluntary-employer.draft.json");
+const stateVoluntary = draft("bh2-voluntary-state.draft.json"), topUp = draft("bh2-voluntary-top-up.draft.json"), prepaid = draft("bh2-voluntary-prepaid.draft.json");
 
 describe("archived legal corpus 2026 (draft only)", () => {
-  it("reproduces the two drafts byte-for-byte and verifies all archived source bytes offline", () => {
+  it("reproduces all drafts byte-for-byte and verifies all archived source bytes offline", () => {
     expect(execFileSync(process.execPath, ["scripts/generate-legal-corpus.cjs", "--check"], { encoding: "utf8" })).toContain("CHECKED bh2-state-mixed");
     const manifest = verifySources(root);
-    for (const rules of [employer, state]) {
+    for (const rules of [employer, state, voluntary, stateVoluntary, topUp, prepaid]) {
       expect(Buffer.byteLength(JSON.stringify(rules))).toBeLessThan(2 * 1024 * 1024);
       for (const citation of rules.document.citations) {
         expect(manifest.sources.some((s: { url: string; sha256: string }) => s.url === citation.url && s.sha256 === citation.contentHash)).toBe(true);
@@ -36,11 +37,31 @@ describe("archived legal corpus 2026 (draft only)", () => {
       expect(() => verifySources(dir)).toThrow("Source integrity failed");
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
-  it.each([[employer, 16], [state, 18]] as const)("passes registered validation with actual source citations (%#)", (rules, count) => {
+  it.each([[employer, 16], [state, 18], [voluntary, 8], [stateVoluntary, 14], [topUp, 17], [prepaid, 23]] as const)("passes registered validation with actual source citations (%#)", (rules, count) => {
     const report = validateLegalDocument(rules.document);
     expect(report.issues).toEqual([]);
     expect(report.valid).toBe(true);
     expect(report.coverage[0].cases).toHaveLength(count);
+  });
+  it("uses the archived sources for a state/employer/voluntary career", () => {
+    const f = validatedVoluntaryStateFixture(60, 60);
+    const result = assessBenefit(f.history, f.input, stateVoluntary.document, "2026-10-07");
+    expect(result.assessmentStatus).toBe("ELIGIBLE");
+    expect(new D(result.monthlyPension!).toFixed(2)).toBe("3539200.00");
+  });
+  it.each([0, 120])("uses the voluntary corpus with %i employer months and separates income and wage factor citations", compulsory => {
+    const f = validatedVoluntaryFixture(compulsory);
+    const r = assessBenefit(f.history, f.input, voluntary.document, "2026-10-07");
+    expect(r.assessmentStatus).toBe("ELIGIBLE");
+    expect(new D(r.monthlyPension!).toFixed(2)).toBe("4937333.33");
+    const income = voluntary.document.tables.filter(t => t.kind === "INCOME_FACTOR");
+    expect(income).toHaveLength(19);
+    expect(income.every(t => t.citationId === "CV340_INCOME_2026" && t.key >= "2026:2008")).toBe(true);
+    const missing = structuredClone(voluntary.document); missing.tables = missing.tables.filter(t => t.kind !== "INCOME_FACTOR");
+    expect(assessBenefit(f.history, f.input, missing, "2026-10-07").monthlyPension).toBeNull();
+    const expired = structuredClone(voluntary.document); expired.citations.find(c => c.id === "CV340_INCOME_2026")!.effectiveTo = "2026-07-01";
+    expect(validateLegalDocument(expired).valid).toBe(false);
+    expect(assessBenefit(f.history, f.input, expired, "2026-10-07").monthlyPension).toBeNull();
   });
   it.each([
     [180, "MALE", "4937333.33"], [180, "FEMALE", "5554500.00"],

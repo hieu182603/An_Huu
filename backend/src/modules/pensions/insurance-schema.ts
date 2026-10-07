@@ -69,9 +69,31 @@ export const legalRuleTransitionSchema = z.object({ action: z.enum(["VALIDATE", 
   expectedDocumentHash: insuranceHash, validationHash: insuranceHash.optional(), reviewHash: insuranceHash.optional(),
   reviewNote: z.string().trim().min(1).max(1000).optional(), confirm: z.literal(true),
 }).strict();
+export const voluntaryCaseSchema = z.object({ kind: z.literal("NORMAL_VOLUNTARY"), paymentMethod: z.literal("REGULAR_ONLY"), ageRule: z.literal("NORMAL"),
+  benefitStart: z.object({ kind: z.enum(["ELIGIBILITY", "CONTINUED_CONTRIBUTIONS"]), month: monthSchema,
+    confirmation: z.enum(["DOCUMENTED", "HYPOTHETICAL"]), evidence: z.array(evidenceSchema).min(1).max(20) }).strict(),
+}).strict();
+// A settlement is not a set of dated PAID months. Keep it separate in the
+// immutable estimate input so it cannot silently alter the account history.
+export const voluntaryTopUpCaseSchema = z.object({ kind: z.literal("MISSING_YEARS_TOP_UP"), ageRule: z.literal("NORMAL"),
+  historyTreatment: z.literal("REGULAR_ONLY"), paymentOn: dateSchema, missingMonths: z.number().int().min(1).max(60),
+  monthlyIncome: moneySchema, confirmation: z.enum(["DOCUMENTED_FULLY_PAID", "HYPOTHETICAL"]),
+  evidence: z.array(evidenceSchema).min(1).max(20),
+}).strict();
+export const voluntaryPrepaidCaseSchema = z.object({ kind: z.literal("PREPAID_REQUEST"), ageRule: z.literal("NORMAL"),
+  historyTreatment: z.literal("NO_OTHER_ACTIVE_PREPAYMENT_OR_TOP_UP"), periodStartMonth: monthSchema,
+  periodMonths: z.union([z.literal(3), z.literal(6), z.literal(12), z.literal(24), z.literal(36), z.literal(48), z.literal(60)]),
+  registeredOn: dateSchema, paymentOn: dateSchema, monthlyIncome: moneySchema,
+  confirmation: z.enum(["DOCUMENTED_FULLY_PAID", "HYPOTHETICAL"]), evidence: z.array(evidenceSchema).min(1).max(20),
+  benefitRequest: z.object({ confirmation: z.enum(["DOCUMENTED", "HYPOTHETICAL"]), evidence: z.array(evidenceSchema).min(1).max(20) }).strict(),
+  refundSupport: z.object({ stateSupportToExclude: moneySchema, evidence: z.array(evidenceSchema).min(1).max(20) }).strict().nullable(),
+}).strict();
 export const pensionEstimateInputSchema = z.object({ historyVersionId: z.string().uuid(), expectedHistoryRevision: z.number().int().min(1),
   legalRuleSetVersionId: z.string().uuid(), intendedBenefitDate: dateSchema, employmentEndDate: dateSchema.nullable(),
   contributionStopMonth: monthSchema.nullable(), benefitRequestDate: dateSchema.nullable(), futureContributions: z.array(contributionMonthSchema).max(1200),
+  voluntaryCase: voluntaryCaseSchema.optional(),
+  voluntaryTopUp: voluntaryTopUpCaseSchema.optional(),
+  voluntaryPrepaid: voluntaryPrepaidCaseSchema.optional(),
   caseDetails: z.object({ kind: z.literal("NORMAL_EMPLOYEE"), participationAtRetirement: z.enum(["ACTIVE_COMPULSORY", "PRESERVED"]),
     benefitStart: z.object({ kind: z.enum(["EMPLOYER_NOTICE", "PERSON_REQUEST", "HYPOTHETICAL"]), month: monthSchema, evidence: z.array(evidenceSchema).min(1).max(20) }).strict(),
   }).strict().optional(),

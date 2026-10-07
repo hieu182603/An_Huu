@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, it } from "vitest";
-import { validatedBenefitFixture, stateBenefitFixture } from "./benefit-fixtures";
+import { validatedVoluntaryPrepaidFixture, validatedVoluntaryTopUpFixture, validatedBenefitFixture, stateBenefitFixture, validatedVoluntaryFixture, validatedVoluntaryStateFixture } from "./benefit-fixtures";
 import { memoryDb } from "./memory-db";
 import { validateLegalDocument } from "../modules/pensions/legal-validation";
 import { InsuranceHistoryService } from "../modules/pensions/history-service";
@@ -56,10 +56,10 @@ it("saves and replays a state salary assessment through the owned production ser
   preview.document.months[0].stateSalary!.evidence = [{ ...preview.document.months[0].evidence[0], confirmedOn: "2199-01-01" }];
   await expect(f.histories.preview("owner", preview)).rejects.toMatchObject({ code: "FUTURE_HISTORY_CONFIRMATION" });
 });
-it("saves an owned idempotent immutable estimate and replays after history and rules change", async () => {
-  const f = await fixture(), p = await f.estimates.preview("owner", f.input);
+it.each(["compulsory", "voluntary", "mixed", "state-voluntary", "top-up", "prepaid"])("saves an owned idempotent immutable %s estimate and replays after history and rules change", async (kind) => {
+  const f = await fixture(180, kind === "prepaid" ? validatedVoluntaryPrepaidFixture() : kind === "top-up" ? validatedVoluntaryTopUpFixture() : kind === "state-voluntary" ? validatedVoluntaryStateFixture() : kind === "compulsory" ? validatedBenefitFixture() : validatedVoluntaryFixture(kind === "mixed" ? 120 : 0)), p = await f.estimates.preview("owner", f.input);
   expect(p.assessment.assessmentStatus).toBe("ELIGIBLE");
-  expect(Number(p.assessment.monthlyPension)).toBeCloseTo(4937333.33, 2);
+  expect(Number(p.assessment.monthlyPension)).toBeCloseTo(kind === "prepaid" ? 4857333.33 : kind === "top-up" ? 4062666.67 : kind === "state-voluntary" ? 3261866.67 : 4937333.33, 2);
   const cmd = { preview: f.input, expectedInputHash: p.inputHash }, key = randomUUID();
   const saved = await f.estimates.save("owner", cmd, key);
   expect(await f.estimates.save("owner", cmd, key)).toEqual(saved);
@@ -75,8 +75,8 @@ it("saves an owned idempotent immutable estimate and replays after history and r
   expect(await f.estimates.get("owner", saved.id)).toEqual(saved);
   expect(f.rows("financialProfile")).toHaveLength(0);
 });
-it("captures an owned estimate into an immutable source candidate, with explicit future-only nominal pension and no capital", async () => {
-  const f = await fixture(), preview = await f.estimates.preview("owner", f.input);
+it.each(["compulsory", "voluntary", "state-voluntary", "top-up", "prepaid"])("captures an owned %s estimate into an immutable source candidate, with explicit future-only nominal pension and no capital", async (kind) => {
+  const f = await fixture(180, kind === "prepaid" ? validatedVoluntaryPrepaidFixture() : kind === "top-up" ? validatedVoluntaryTopUpFixture() : kind === "state-voluntary" ? validatedVoluntaryStateFixture() : kind === "compulsory" ? validatedBenefitFixture() : validatedVoluntaryFixture()), preview = await f.estimates.preview("owner", f.input);
   const saved = await f.estimates.save("owner", { preview: f.input, expectedInputHash: preview.inputHash }, randomUUID());
   const evidence = await f.estimates.captureForSource("owner", saved.id, saved.integrityHash);
   const registry = sealSourceRegistry({ schemaVersion: 1, startMonth: "2026-07", endMonth: "2027-12", knowledgeAsOf: evidence.capture.assessedOn,
@@ -165,13 +165,15 @@ it("rejects changed previews, unpublished/out-of-period rules and tampered store
   await f.db.pensionEstimate.update({ where: { id: saved.id }, data: { result: {} } });
   await expect(f.estimates.get("owner", saved.id)).rejects.toMatchObject({ code: "ESTIMATE_INTEGRITY_FAILED" });
 });
-it("matches published OpenAPI responses for rule discovery, preview, save and read", async () => {
-  const f = await fixture(), spec = await SwaggerParser.dereference("docs/openapi.yaml") as any;
+it.each(["compulsory", "voluntary", "state-voluntary", "top-up", "prepaid"])("matches published OpenAPI %s requests and responses for rule discovery, preview, save and read", async (kind) => {
+  const f = await fixture(180, kind === "prepaid" ? validatedVoluntaryPrepaidFixture() : kind === "top-up" ? validatedVoluntaryTopUpFixture() : kind === "state-voluntary" ? validatedVoluntaryStateFixture() : kind === "voluntary" ? validatedVoluntaryFixture() : validatedBenefitFixture()), spec = await SwaggerParser.dereference("docs/openapi.yaml") as any;
   const ajv = new Ajv({ strict: false, formats: { uuid: true, date: true, "date-time": true, uri: true } });
   const check = (path: string, method: string, status: string, data: unknown) => {
     const validate = ajv.compile(spec.paths["/api/v1/me/pension" + path][method].responses[status].content["application/json"].schema);
     expect(validate({ data, meta: { requestId: randomUUID() } }), JSON.stringify(validate.errors)).toBe(true);
   };
+  const request = ajv.compile(spec.paths["/api/v1/me/pension/estimates/preview"].post.requestBody.content["application/json"].schema);
+  expect(request(f.input), JSON.stringify(request.errors)).toBe(true);
   check("/legal-rules", "get", "200", await f.estimates.publishedRules("2026-07-01"));
   const p = await f.estimates.preview("owner", f.input); check("/estimates/preview", "post", "200", p);
   const saved = await f.estimates.save("owner", { preview: f.input, expectedInputHash: p.inputHash }, randomUUID());

@@ -128,8 +128,12 @@ export default function SimulationTrackingPage() {
   const defaultEndMonth = useMemo(() => {
     const lifeExp = profile.goal.lifeExpectancy || 85;
     const birthMonth = v2Profile?.personal.birthMonth;
-    return `${birthYear + lifeExp}-${birthMonth?.status === "KNOWN" ? birthMonth.value.slice(5, 7) : "12"}`;
-  }, [birthYear, profile.goal.lifeExpectancy, policyDetail]);
+    const rawEnd = `${birthYear + lifeExp}-${birthMonth?.status === "KNOWN" ? birthMonth.value.slice(5, 7) : "12"}`;
+    const scenarioYears = policyDetail?.data?.scenarios?.flatMap((s: any) => s.years?.map((y: any) => y.year) || []) || [];
+    const maxScenarioYear = scenarioYears.length > 0 ? Math.max(...scenarioYears) : 2055;
+    const capMonth = `${maxScenarioYear}-12`;
+    return rawEnd < capMonth ? rawEnd : capMonth;
+  }, [birthYear, profile.goal.lifeExpectancy, policyDetail, v2Profile]);
 
   const netWorth = useMemo(() => {
     const totalAssets =
@@ -780,10 +784,21 @@ export default function SimulationTrackingPage() {
                 </div>
               )}
 
-              {!simSummary && !simError && <Alert tone="info" title={language === "en" ? "Projection not ready" : "Chưa có dự phóng hợp lệ"}>
-                {isSimulating ? (language === "en" ? "Calculating the scenario…" : "Đang tính kịch bản…") : (language === "en" ? "Complete your profile and preview a plan first. Missing data cannot be treated as a zero balance." : "Hãy hoàn thiện hồ sơ và xem trước kế hoạch. Dữ liệu chưa đủ không được xem là số dư 0 hoặc đã đạt mục tiêu.")}
-                <Link className="button button-secondary" to="/user/plan">{language === "en" ? "Review plan inputs" : "Kiểm tra đầu vào kế hoạch"}</Link>
-              </Alert>}
+              {!simSummary && !simError && (
+                <Alert
+                  tone="info"
+                  title={language === "en" ? "Projection not ready" : "Chưa có dự phóng hợp lệ"}
+                  action={
+                    <Link to="/user/plan">
+                      {language === "en" ? "Review plan inputs" : "Kiểm tra đầu vào kế hoạch"}
+                    </Link>
+                  }
+                >
+                  {isSimulating
+                    ? (language === "en" ? "Calculating the scenario…" : "Đang tính kịch bản…")
+                    : (language === "en" ? "Complete your profile and preview a plan first. Missing data cannot be treated as a zero balance." : "Hãy hoàn thiện hồ sơ và xem trước kế hoạch. Dữ liệu chưa đủ không được xem là số dư 0 hoặc đã đạt mục tiêu.")}
+                </Alert>
+              )}
               {simSummary && <>
               <div className="simulation-primary-result">
                 <div>

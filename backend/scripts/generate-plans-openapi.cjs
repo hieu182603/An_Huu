@@ -17,6 +17,7 @@ s.Version.properties.preview={oneOf:[retirement('Preview'),{$ref:'./source-snaps
 s.SourcePreviewInput=schema(sourceReforecastSchema);s.SourceSaveInput=schema(saveSourceReforecastSchema);
 s.SourcePreview=obj({status:{type:'string',enum:['READY','BLOCKED','HORIZON_COMPLETE']},issues:arr(obj({month:str,code:str})),inputHash:{...str,nullable:true},
   loanRevisionOptions:arr(obj({sourceId:str,sourceRevision:integer,sourceHash:str,contractHash:str,legacyOpeningRequired:bool})),
+  assetRevisionOptions:arr(obj({sourceId:str,sourceRevision:integer,sourceHash:str})),
   candidate:{anyOf:[{$ref:'./source-snapshot.openapi.yaml#/Preview'},{type:'object',nullable:true,enum:[null]}]},saved:{...bool,enum:[false]},applied:{...bool,enum:[false]}});
 s.Created = obj({ planId: uuid, revision: integer, currentVersionId: nullableUuid, baselineVersionId: nullableUuid, saved: ref("Version") });
 s.Applied = obj({ planId: uuid, revision: integer, currentVersionId: uuid, baselineVersionId: uuid, alreadyCurrent: bool });

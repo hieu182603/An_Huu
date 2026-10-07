@@ -21,9 +21,12 @@ function seconds(value: string) {
   return Number(match[1]) * ({ s: 1, m: 60, h: 3600, d: 86400 }[match[2]]!);
 }
 
+import type { SystemSettingsService } from "../settings/service";
+
 export class AuthService {
   constructor(private db: PrismaClient, private config: AppConfig,
-    private disconnectUser: (id: string) => void = () => {}) {}
+    private disconnectUser: (id: string) => void = () => {},
+    private settings?: SystemSettingsService) {}
   private otpHash(userId: string, otp: string, id: string) {
     return createHmac("sha256", this.config.JWT_REFRESH_SECRET).update("verify:" + userId + ":" + id + ":" + otp).digest("hex");
   }
@@ -35,12 +38,13 @@ export class AuthService {
     const id = randomUUID();
     const record = await tx.verificationToken.create({ data: {
       id, userId: user.id, type, tokenHash: type === "EMAIL_VERIFICATION" ? this.otpHash(user.id, raw, id) : tokenHash(raw),
-      expiresAt: new Date(Date.now() + 15 * 60000),
+      expiresAt: new Date(Date.now() + (type === "EMAIL_VERIFICATION" ? 3 : 15) * 60000),
     } });
     await enqueue(tx, type === "EMAIL_VERIFICATION" ? "auth.verify_email" : "auth.reset_password", user.id,
       seal({ tokenId: record.id, to: user.email, token: raw }, this.config));
   }
   async register(input: { email: string; password: string; fullName: string; phone?: string }) {
+    await this.checkPasswordPolicy(input.password);
     const passwordHash = await bcrypt.hash(input.password, 12);
     try {
       await transaction(this.db, async tx => {
@@ -93,20 +97,125 @@ export class AuthService {
     });
     return { accessToken, refreshToken, expiresAt, persistent, user: publicUser(user) };
   }
-  async login(input: { email: string; password: string; remember: boolean }) {
+  private async checkPasswordPolicy(password: string) {
+    if (!this.settings) return;
+    const s = await this.settings.getSecuritySettings().catch(() => null);
+    if (!s) return;
+    if (password.length < s.passwordMinLength) {
+      throw new AppError(400, "PASSWORD_TOO_SHORT", `Mật khẩu phải có tối thiểu ${s.passwordMinLength} ký tự.`);
+    }
+    if (s.passwordRequireUppercase && !/[A-Z]/.test(password)) {
+      throw new AppError(400, "PASSWORD_REQUIRES_UPPERCASE", "Mật khẩu phải chứa ít nhất 1 ký tự viết hoa.");
+    }
+    if (s.passwordRequireLowercase && !/[a-z]/.test(password)) {
+      throw new AppError(400, "PASSWORD_REQUIRES_LOWERCASE", "Mật khẩu phải chứa ít nhất 1 ký tự viết thường.");
+    }
+    if (s.passwordRequireNumber && !/\d/.test(password)) {
+      throw new AppError(400, "PASSWORD_REQUIRES_NUMBER", "Mật khẩu phải chứa ít nhất 1 chữ số.");
+    }
+    if (s.passwordRequireSpecial && !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
+      throw new AppError(400, "PASSWORD_REQUIRES_SPECIAL", "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt.");
+    }
+  }
+
+  async login(input: { email: string; password: string; remember: boolean }, meta?: { ipAddress?: string; userAgent?: string }) {
+    const emailNorm = input.email.toLowerCase().trim();
+    if (this.settings) {
+      const secSettings = await this.settings.getSecuritySettings().catch(() => null);
+      const maxAttempts = secSettings?.maxLoginAttempts ?? 5;
+      const lockMinutes = secSettings?.accountLockMinutes ?? 15;
+      const lockWindow = new Date(Date.now() - lockMinutes * 60000);
+      const recentFails = await this.db.loginLog.count({
+        where: {
+          identifier: emailNorm,
+          status: "FAILED",
+          createdAt: { gte: lockWindow },
+        },
+      }).catch(() => 0);
+      if (recentFails >= maxAttempts) {
+        await this.settings.recordLoginLog({
+          identifier: emailNorm,
+          status: "LOCKED",
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
+          failureReason: `Tài khoản tạm thời bị khóa do sai quá ${maxAttempts} lần.`,
+        });
+        throw new AppError(423, "ACCOUNT_LOCKED", `Tài khoản tạm thời bị khóa do nhập sai mật khẩu quá ${maxAttempts} lần. Vui lòng thử lại sau ${lockMinutes} phút.`);
+      }
+    }
+
     const found = await this.db.user.findUnique({ where: { email: input.email } });
     // Fixed valid bcrypt hash keeps the unknown-email branch expensive too.
     const hash = found?.passwordHash ?? "$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW";
-    if (!(await bcrypt.compare(input.password, hash)) || !found) throw unauthorized();
+    const passwordMatch = await bcrypt.compare(input.password, hash);
+    if (!passwordMatch || !found) {
+      if (this.settings) {
+        await this.settings.recordLoginLog({
+          userId: found?.id ?? null,
+          identifier: emailNorm,
+          status: "FAILED",
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
+          failureReason: "Thông tin xác thực không chính xác.",
+        });
+      }
+      throw unauthorized();
+    }
+
     return transaction(this.db, async tx => {
       const user = await tx.user.findUnique({ where: { id: found.id } });
-      if (!user || user.passwordHash !== found.passwordHash) throw unauthorized();
-      if (user.status === "PENDING_VERIFICATION") throw new AppError(403, "EMAIL_NOT_VERIFIED", "Bạn cần xác minh email trước khi đăng nhập. Hãy mở trang xác minh để nhập hoặc gửi lại mã OTP.");
-      if (user.status !== "ACTIVE") throw unauthorized();
+      if (!user || user.passwordHash !== found.passwordHash) {
+        if (this.settings) {
+          await this.settings.recordLoginLog({
+            userId: found.id,
+            identifier: emailNorm,
+            status: "FAILED",
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+            failureReason: "Thông tin xác thực không chính xác.",
+          });
+        }
+        throw unauthorized();
+      }
+      if (user.status === "PENDING_VERIFICATION") {
+        if (this.settings) {
+          await this.settings.recordLoginLog({
+            userId: user.id,
+            identifier: emailNorm,
+            status: "FAILED",
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+            failureReason: "Chưa xác minh email",
+          });
+        }
+        throw new AppError(403, "EMAIL_NOT_VERIFIED", "Bạn cần xác minh email trước khi đăng nhập. Hãy mở trang xác minh để nhập hoặc gửi lại mã OTP.");
+      }
+      if (user.status !== "ACTIVE") {
+        if (this.settings) {
+          await this.settings.recordLoginLog({
+            userId: user.id,
+            identifier: emailNorm,
+            status: "LOCKED",
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+            failureReason: "Tài khoản bị tạm ngưng",
+          });
+        }
+        throw unauthorized();
+      }
       const lifetime = input.remember ? seconds(this.config.JWT_REFRESH_EXPIRES_IN) : 24 * 3600;
       const session = await this.issueSession(tx, user, new Date(Date.now() + lifetime * 1000), undefined, input.remember);
       await tx.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
-      await audit(tx, user.id, "AUTH_LOGIN", "USER", user.id);
+      await audit(tx, user.id, "AUTH_LOGIN", "USER", user.id, undefined, { ipAddress: meta?.ipAddress, userAgent: meta?.userAgent });
+      if (this.settings) {
+        await this.settings.recordLoginLog({
+          userId: user.id,
+          identifier: emailNorm,
+          status: "SUCCESS",
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
+        });
+      }
       return { ...session, remember: input.remember };
     });
   }
@@ -152,6 +261,7 @@ export class AuthService {
     return { loggedOut: true };
   }
   async resetPassword(raw: string, password: string) {
+    await this.checkPasswordPolicy(password);
     const passwordHash = await bcrypt.hash(password, 12);
     const userId = await transaction(this.db, async tx => {
       const record = await tx.verificationToken.findUnique({ where: { tokenHash: tokenHash(raw) }, include: { user: true } });
@@ -172,6 +282,7 @@ export class AuthService {
     if (!found || found.status !== "ACTIVE") throw unauthorized();
     if (!(await bcrypt.compare(currentPassword, found.passwordHash)))
       throw new AppError(400, "INCORRECT_PASSWORD", "Mật khẩu hiện tại không đúng.");
+    await this.checkPasswordPolicy(password);
     const passwordHash = await bcrypt.hash(password, 12);
     await transaction(this.db, async tx => {
       const updated = await tx.user.updateMany({ where: { id: userId, passwordHash: found.passwordHash, securityVersion: found.securityVersion, status: "ACTIVE" },
