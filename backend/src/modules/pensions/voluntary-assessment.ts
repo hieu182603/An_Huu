@@ -154,7 +154,16 @@ function assess(historyValue: unknown, inputValue: z.infer<typeof pensionEstimat
   result.countedMonths = counted.length;
   if (!topUp && counted.length < 180) { missing("months", "MINIMUM_180_MONTHS_NOT_MET"); return finish("NOT_YET_ELIGIBLE"); }
   const sex = history.legalSex as "MALE" | "FEMALE", birth = history.birth.precision === "YEAR" ? history.birth.declaredValue! + "-01" : history.birth.declaredValue!.slice(0, 7);
-  const age = normalCohortAge(sex, birth);
+  // Law Art141(9): elected legacy age 60/55 for a pre-2021 voluntary participant with >=240 voluntary months.
+  // Independent of the ND135 cohort table, so it also covers earlier birth cohorts.
+  const legacy = details?.ageRule === "LAW_ART141_9";
+  if (legacy) {
+    if (!voluntary.length || voluntary[0].month >= "2021-01") missing("voluntaryCase.ageRule", "LEGACY_AGE_RULE_REQUIRES_PRE_2021_VOLUNTARY");
+    if (voluntary.length < 240) missing("voluntaryCase.ageRule", "LEGACY_AGE_RULE_REQUIRES_240_VOLUNTARY_MONTHS");
+    if (!rules.citations.some(c => c.id === "LAW_ART141_9")) unsupported("legalRuleSetVersionId", "STATUTORY_CITATION_REQUIRED:LAW_ART141_9");
+    if (issues.length || review.length) return finish();
+  }
+  const age = legacy ? (sex === "MALE" ? 720 : 660) : normalCohortAge(sex, birth);
   if (age === null) { unsupported("birth", "HISTORICAL_BIRTH_COHORT_REVIEW_REQUIRED"); return finish(); }
   const resolve = (kind: LegalRuleDocument["tables"][number]["kind"], key: string, on = input.intendedBenefitDate) => {
     const found = rules.tables.filter(t => t.kind === kind && t.key === key && t.effectiveFrom <= on && (!t.effectiveTo || on < t.effectiveTo));
@@ -176,10 +185,13 @@ function assess(historyValue: unknown, inputValue: z.infer<typeof pensionEstimat
     if (prepaid.refundSupport && new D(prepaid.refundSupport.stateSupportToExclude).gt(gross.grossRemaining)) { missing("voluntaryPrepaid.refundSupport", "REFUND_SUPPORT_EXCEEDS_REMAINING_PAYMENT"); return finish(); }
     prepaidQuote = quoteVoluntaryPeriod({ monthlyIncome: prepaid.monthlyIncome, fundMonthlyRatePercent: fundRate!, periodMonths: prepaid.periodMonths, usedMonths, stateSupportToExclude: prepaid.refundSupport?.stateSupportToExclude ?? null });
   }
-  const statedAge = resolve("AGE_MONTHS", `NORMAL:${sex}:${birth}`);
-  if (statedAge === null) return finish();
-  if (!new D(statedAge).eq(age)) { unsupported("tables.AGE_MONTHS", "AGE_TABLE_REVIEW_REQUIRED"); return finish(); }
-  const retirementAgeMonth = addMonths(birth, age), eligibilityMonth = [retirementAgeMonth, topUp ? topUp.paymentOn.slice(0, 7) : counted[179].month].sort().at(-1)!;
+  if (!legacy) {
+    const statedAge = resolve("AGE_MONTHS", `NORMAL:${sex}:${birth}`);
+    if (statedAge === null) return finish();
+    if (!new D(statedAge).eq(age)) { unsupported("tables.AGE_MONTHS", "AGE_TABLE_REVIEW_REQUIRED"); return finish(); }
+  }
+  const retirementAgeMonth = addMonths(birth, age);
+  const eligibilityMonth = [retirementAgeMonth, topUp ? topUp.paymentOn.slice(0, 7) : legacy ? voluntary[239].month : counted[179].month].sort().at(-1)!;
   let topUpQuote: ReturnType<typeof quoteVoluntaryTopUp> | null = null;
   if (topUp) {
     if (counted.length < 120 || counted.length >= 180 || counted.length + topUp.missingMonths !== 180) missing("voluntaryTopUp.missingMonths", "TOP_UP_MUST_COMPLETE_180_MONTHS");
@@ -205,12 +217,17 @@ function assess(historyValue: unknown, inputValue: z.infer<typeof pensionEstimat
   }
   if (benefitMonth <= eligibilityMonth) { missing("intendedBenefitDate", "ELIGIBILITY_NOT_MET_AT_BENEFIT_START"); return finish("NOT_YET_ELIGIBLE"); }
   const lastContributionMonth = counted.at(-1)!.month;
-  if (!topUp && !prepaid && eligibilityMonth < "2025-07" && lastContributionMonth < "2025-07") { unsupported("voluntaryCase", "VOLUNTARY_TRANSITION_ASSESSMENT_REQUIRED"); return finish(); }
+  // TT11 Art5(4)(5): eligible before 01/07/2025 and no contribution from that date => benefit starts 2025-07.
+  const transition = !topUp && !prepaid && details!.benefitStart.kind === "TRANSITION_2025";
+  const transitionCase = !topUp && !prepaid && eligibilityMonth < "2025-07" && lastContributionMonth < "2025-07";
+  // Unchanged for inputs that do not elect TRANSITION_2025 (keeps saved estimates replayable).
+  if (transitionCase && !transition) { unsupported("voluntaryCase", "VOLUNTARY_TRANSITION_ASSESSMENT_REQUIRED"); return finish(); }
+  if (transition && !transitionCase) { missing("voluntaryCase.benefitStart", "VOLUNTARY_TRANSITION_CONDITIONS_NOT_MET"); return finish(); }
   if (stop !== lastContributionMonth) missing("contributionStopMonth", "STOP_MUST_MATCH_LAST_CONTRIBUTION");
-  if (!topUp && !prepaid && lastContributionMonth > eligibilityMonth && details!.benefitStart.kind !== "CONTINUED_CONTRIBUTIONS") missing("voluntaryCase.benefitStart", "CONTINUED_CONTRIBUTION_CASE_REQUIRED");
+  if (!topUp && !prepaid && !transition && lastContributionMonth > eligibilityMonth && details!.benefitStart.kind !== "CONTINUED_CONTRIBUTIONS") missing("voluntaryCase.benefitStart", "CONTINUED_CONTRIBUTION_CASE_REQUIRED");
   if (!topUp && !prepaid && details!.benefitStart.kind === "CONTINUED_CONTRIBUTIONS" && (lastContributionMonth <= eligibilityMonth || !input.benefitRequestDate)) missing("benefitRequestDate", "CONTINUED_CONTRIBUTION_REQUEST_REQUIRED");
   if (issues.length) return finish();
-  const start = voluntaryBenefitStart(prepaid ? { kind: "PREPAID_REQUEST", eligibilityMonth, prepaidThroughMonth: prepaidEnd!, requestDate: input.benefitRequestDate! } : topUp ? { kind: "MISSING_YEARS_TOP_UP", eligibilityMonth, fullyPaidOn: topUp.paymentOn } : details!.benefitStart.kind === "ELIGIBILITY" ? { kind: "ELIGIBILITY", eligibilityMonth, lastContributionMonth }
+  const start = voluntaryBenefitStart(prepaid ? { kind: "PREPAID_REQUEST", eligibilityMonth, prepaidThroughMonth: prepaidEnd!, requestDate: input.benefitRequestDate! } : topUp ? { kind: "MISSING_YEARS_TOP_UP", eligibilityMonth, fullyPaidOn: topUp.paymentOn } : transition ? { kind: "TRANSITION_2025", eligibilityMonth, lastContributionMonth } : details!.benefitStart.kind === "ELIGIBILITY" ? { kind: "ELIGIBILITY", eligibilityMonth, lastContributionMonth }
     : { kind: "CONTINUED_CONTRIBUTIONS", eligibilityMonth, lastContributionMonth, requestDate: input.benefitRequestDate! });
   if (start.month !== benefitMonth) { missing("intendedBenefitDate", "VOLUNTARY_BENEFIT_START_MISMATCH"); return finish(); }
   const voluntaryRows: VoluntaryAverageInput["voluntary"] = [], wageRows: Array<{ base: string; factor: string }> = [];
@@ -246,6 +263,8 @@ function assess(historyValue: unknown, inputValue: z.infer<typeof pensionEstimat
     .plus(new D(topUp.monthlyIncome).mul(topUp.missingMonths)).div(180) : null;
   const pension = topUpAverage ? { combinedAverage: topUpAverage.toFixed(), rate: sex === "MALE" ? "40" : "45", floorApplies: false,
     monthlyPension: topUpAverage.mul(sex === "MALE" ? "0.40" : "0.45").toFixed() } : regularPension();
+  // Art100 splits excess years at "retirement age"; which age applies under Art141(9) is not stated.
+  if (legacy && counted.length > (sex === "MALE" ? 420 : 360)) { unsupported("voluntaryCase.ageRule", "LEGACY_AGE_GRANT_REVIEW_REQUIRED"); return finish(); }
   const grant = topUp ? { total: "0" } : voluntaryRetirementGrant(sex, counted.map(r => r.month), retirementAgeMonth, pension.combinedAverage);
   result.monthlyPension = pension.monthlyPension; result.startMonth = start.month; result.lumpSum = grant.total;
   if (stateAverage) result.breakdown.push(

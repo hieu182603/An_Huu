@@ -9,18 +9,20 @@ import { assessBenefit } from "../modules/pensions/benefit-engine";
 import { RetirementDecimal as D } from "../modules/retirement/engine";
 import { benefitFixtureV2, stateBenefitFixture, validatedVoluntaryFixture, validatedVoluntaryStateFixture } from "./benefit-fixtures";
 import { addMonths } from "../common/calendar";
+import { voluntaryTransitionCase } from "../modules/pensions/voluntary-validation";
 
 const root = resolve("seed-data/legal-2026");
 const { verifySources } = require("../../scripts/generate-legal-corpus.cjs");
 const draft = (file: string) => legalRuleDraftSchema.parse(JSON.parse(readFileSync(join(root, file), "utf8")));
 const employer = draft("bh1-employer.draft.json"), state = draft("bh2-state-mixed.draft.json"), voluntary = draft("bh2-voluntary-employer.draft.json");
 const stateVoluntary = draft("bh2-voluntary-state.draft.json"), topUp = draft("bh2-voluntary-top-up.draft.json"), prepaid = draft("bh2-voluntary-prepaid.draft.json");
+const stateV2 = draft("bh2-state-mixed-v2.draft.json"), transition = draft("bh2-voluntary-transition-2025.draft.json");
 
 describe("archived legal corpus 2026 (draft only)", () => {
   it("reproduces all drafts byte-for-byte and verifies all archived source bytes offline", () => {
     expect(execFileSync(process.execPath, ["scripts/generate-legal-corpus.cjs", "--check"], { encoding: "utf8" })).toContain("CHECKED bh2-state-mixed");
     const manifest = verifySources(root);
-    for (const rules of [employer, state, voluntary, stateVoluntary, topUp, prepaid]) {
+    for (const rules of [employer, state, voluntary, stateVoluntary, topUp, prepaid, stateV2, transition]) {
       expect(Buffer.byteLength(JSON.stringify(rules))).toBeLessThan(2 * 1024 * 1024);
       for (const citation of rules.document.citations) {
         expect(manifest.sources.some((s: { url: string; sha256: string }) => s.url === citation.url && s.sha256 === citation.contentHash)).toBe(true);
@@ -37,11 +39,20 @@ describe("archived legal corpus 2026 (draft only)", () => {
       expect(() => verifySources(dir)).toThrow("Source integrity failed");
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
-  it.each([[employer, 16], [state, 18], [voluntary, 8], [stateVoluntary, 14], [topUp, 17], [prepaid, 23]] as const)("passes registered validation with actual source citations (%#)", (rules, count) => {
+  it.each([[employer, 16], [state, 18], [voluntary, 9], [stateVoluntary, 15], [topUp, 18], [prepaid, 24], [transition, 9]] as const)("passes registered validation with actual source citations (%#)", (rules, count) => {
     const report = validateLegalDocument(rules.document);
     expect(report.issues).toEqual([]);
     expect(report.valid).toBe(true);
     expect(report.coverage[0].cases).toHaveLength(count);
+  });
+  it("prices the TT11 Art5(4) transition with the archived TT01/2025 benefit-year tables", () => {
+    const f = voluntaryTransitionCase(), r = assessBenefit(f.history, f.input, transition.document, "2026-10-07");
+    expect(r.assessmentStatus).toBe("ELIGIBLE");
+    expect(r.startMonth).toBe("2025-07");
+    expect(new D(r.monthlyPension!).toFixed(2)).toBe("3596468.75");
+    expect(transition.document.citations.find(c => c.id === "TT01_2025_WAGE")?.effectiveTo).toBe("2026-01-01");
+    // The same case cannot be priced with the 2026 corpus (different benefit year).
+    expect(assessBenefit(f.history, f.input, voluntary.document, "2026-10-07").assessmentStatus).not.toBe("ELIGIBLE");
   });
   it("uses the archived sources for a state/employer/voluntary career", () => {
     const f = validatedVoluntaryStateFixture(60, 60);

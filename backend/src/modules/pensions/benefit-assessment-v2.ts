@@ -3,7 +3,7 @@ import { digest } from "../../common/digest";
 import { monthSchema } from "../../common/calendar";
 import { AppError } from "../../common/errors";
 import { RetirementDecimal as D } from "../retirement/engine";
-import { insuranceHistorySchema, legalRuleDocumentSchema, pensionEstimateInputSchema, type LegalRuleDocument } from "./insurance-schema";
+import { insuranceHistorySchema, maternityCreditCitation, legalRuleDocumentSchema, pensionEstimateInputSchema, type LegalRuleDocument } from "./insurance-schema";
 import { benefitYears } from "./benefit-math";
 import { assessOrdinaryBenefit as assessV1, BENEFIT_ENGINE as ENGINE_V1, ORDINARY_STRATEGY as STRATEGY_V1,
   ORDINARY_BRANCH, ORDINARY_CITATIONS as CITATIONS_V1, type BenefitAssessment } from "./benefit-assessment";
@@ -34,7 +34,15 @@ export function assessOrdinaryBenefitV2(historyValue: unknown, inputValue: z.inf
   const history = insuranceHistorySchema.parse(historyValue), input = pensionEstimateInputSchema.parse(inputValue), rules = legalRuleDocumentSchema.parse(rulesValue);
   const supported = rules.engineCode === BENEFIT_ENGINE_V2 && rules.coverage.some(c => c.branch === ORDINARY_BRANCH && c.strategyCode === ORDINARY_STRATEGY_V2);
   const numericalRules = supported ? { ...rules, engineCode: ENGINE_V1, coverage: rules.coverage.map(c => c.branch === ORDINARY_BRANCH ? { ...c, strategyCode: STRATEGY_V1 } : c) } : rules;
-  const result = assessV1(history, input, numericalRules, assessedOn);
+  // Maternity months (Law 2024 Art53(8) / Law 2014 Art39(2), BHXH-recorded base, rule set cites the applicable law) are
+  // contribution time: present them to the frozen v1 arithmetic as counted months. Hashes stay bound to the ORIGINAL history.
+  const citedMaternity = (row: { status: string; creditKind?: string; month: string; scheme: string }) => {
+    const id = maternityCreditCitation(row); return supported && id !== null && rules.citations.some(c => c.id === id) ? id : null;
+  };
+  const counted = <T extends { status: string; creditKind?: string; month: string; scheme: string }>(row: T) => citedMaternity(row) ? { ...row, status: "PAID" as const, creditKind: undefined } : row;
+  const numericalHistory = { ...history, months: history.months.map(counted) }, numericalInput = { ...input, futureContributions: input.futureContributions.map(counted) };
+  const result = assessV1(numericalHistory, numericalInput, numericalRules, assessedOn);
+  result.historyHash = digest(history);
   result.ruleHash = digest(rules);
   result.inputHash = digest({ historyHash: result.historyHash, ruleHash: result.ruleHash, input, assessedOn, engineCode: BENEFIT_ENGINE_V2 });
   if (!supported) return { ...result, assessmentStatus: "REVIEW_REQUIRED", monthlyPension: null, lumpSum: null, startMonth: null,
@@ -45,8 +53,11 @@ export function assessOrdinaryBenefitV2(historyValue: unknown, inputValue: z.inf
     missingFields: [...result.missingFields, ...missingCitations.map(id => ({ path: "citations." + id, code: "LUMP_SUM_CITATION_REQUIRED" }))] };
   const retirementMonth = result.breakdown.find(r => r.code === "NORMAL_RETIREMENT_MONTH")!.value!;
   const average = result.breakdown.find(r => r.code === "ADJUSTED_WAGE_AVERAGE")!.value!;
-  const paidMonths = [...history.months.filter(r => r.month <= history.confirmedThroughMonth), ...input.futureContributions]
+  const paidMonths = [...numericalHistory.months.filter(r => r.month <= history.confirmedThroughMonth), ...numericalInput.futureContributions]
     .filter(r => r.month <= input.contributionStopMonth! && r.status === "PAID").map(r => r.month);
+  const maternityRows = [...history.months, ...input.futureContributions].filter(r => r.month <= input.contributionStopMonth! && citedMaternity(r));
+  if (maternityRows.length) result.breakdown.push({ code: "MATERNITY_CREDITED_MONTHS", value: String(maternityRows.length), unit: "MONTHS",
+    citationIds: [...new Set(maternityRows.map(r => citedMaternity(r)!))].sort() });
   const grant = retirementLumpSum(history.legalSex as "MALE" | "FEMALE", paidMonths, retirementMonth, average);
   result.missingFields = result.missingFields.filter(i => i.code !== "RETIREMENT_LUMP_SUM_ASSESSMENT_REQUIRED");
   result.assessmentStatus = result.missingFields.length ? "REVIEW_REQUIRED" : "ELIGIBLE";

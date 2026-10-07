@@ -1,5 +1,13 @@
 # Bộ quy định hưu trí 2026 — bản nháp để rà soát
 
+Bổ sung07/10 (lần 5): nguồn thứ mười lăm LAW2006 = Luật BHXH 71/2006/QH11, snapshot toàn văn HTML Cổng TTĐT Chính phủ (Cổng chỉ có tệp .doc, không có PDF ký). Draft BH1 và Nhà nước v2 thêm trích dẫn LAW2006_ART35 (thai sản 01/2007–12/2015).
+
+Bổ sung07/10 (lần 4): nguồn thứ mười bốn LAW2014 = Luật BHXH 58/2014/QH13 bản ký gốc (51 trang scan, đọc trực tiếp Điều39 trang17 và Điều124 trang51). Draft BH1 và Nhà nước v2 có thêm trích dẫn LAW_ART53 (Luật 2024 Điều53(8)) và LAW2014_ART39 cho tháng thai sản được tính là thời gian đóng. Các draft còn lại giữ nguyên byte.
+
+Bổ sung07/10 (lần 3): nguồn thứ mười ba FACTORS2025 = TT01/2025/TT-BLĐTBXH (datafiles.chinhphu.vn, PDF ký, 3 trang, đọc trực tiếp). Draft thứ tám `bh2-voluntary-transition-2025.draft.json` cho năm hưởng 2025 (hiệu lực 2025-07-01→2026-01-01, 1.143 dòng: tuổi + 32 hệ số lương Bảng 1 + 18 hệ số thu nhập Bảng 2 + mức tham chiếu 2.340.000). TT01 được ban hành theo NĐ115/NĐ134 đã bị thay từ 01/07/2025 — chưa có xác nhận chuyển tiếp chính thức; người duyệt pháp lý phải quyết định trước khi công bố. Strategy tự nguyện nay chấp nhận năm hưởng 2025 và 2026 và có thêm golden VOL-TRANSITION-2025. Bảy draft trước giữ nguyên byte.
+
+Bổ sung07/10 (lần 2): thêm draft thứ bảy `bh2-state-mixed-v2.draft.json`, engine `vn-pension-state-v2`, cùng 1.127 dòng bảng với bộ v1 và hai trích dẫn mới LAW_ART2 (R02 Điều2(1)) và ND158_ART34 (R03 Điều34). Strategy chạy 18 mẫu v1 + 3 golden v2. Sáu draft trước giữ nguyên byte. Chưa nhập/duyệt/công bố. [Quy tắc](../../docs/INSURANCE_HISTORY_RULES.md).
+
 Bổ sung07/10: corpus có12nguồn và6draft. Bộ thứ năm `bh2-voluntary-top-up.draft.json` dùng engine `vn-pension-voluntary-top-up-v1`,1.148dòng và17ca kiểm: đóng thiếu1–60tháng để đủ180, năm đóng/hưởng2026. Ghép CV1510,31%/tháng, NĐ351 Điều2/NĐ07 Điều3 cho mức tối thiểu1,5triệu, trần theo ngày đóng. Bốn draft cũ giữ nguyên nội dung. Fragment lãi riêng vẫn không phải body công bố. [Contract](../../docs/VOLUNTARY_PAYMENTS.md).
 
 Sáu file draft là body của `POST /api/v1/admin/legal-rules`, chưa được nhập/duyệt/công bố trên DB vận hành; seed không tự nạp. Kiểm duyệt/công bố bằng fixture rollback không thay phê duyệt pháp lý độc lập.

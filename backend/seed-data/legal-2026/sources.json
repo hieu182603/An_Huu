@@ -110,6 +110,33 @@
       "bytes": 433483,
       "retrievedAt": "2026-10-07T05:00:48.756843Z",
       "format": "SIGNED_PDF"
+    },
+    {
+      "id": "FACTORS2025",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/01/01-bldtbxh.pdf",
+      "file": "FACTORS2025.pdf",
+      "sha256": "b5657e5dfa0e59932efe25b582d41370e8cab962cc9da92d65b4e853864f24bf",
+      "bytes": 2417192,
+      "retrievedAt": "2026-10-07T14:13:46.802Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "LAW2014",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/12/58.signed.pdf",
+      "file": "LAW2014.pdf",
+      "sha256": "10dc17ba706c03f93a5b9f0aae492a3e637a09b480cbf01c7e12d6ffc547e64d",
+      "bytes": 1829177,
+      "retrievedAt": "2026-10-07T14:37:20.958Z",
+      "format": "SIGNED_PDF"
+    },
+    {
+      "id": "LAW2006",
+      "url": "https://vanban.chinhphu.vn/default.aspx?pageid=27160&docid=28955",
+      "file": "LAW2006.html.txt",
+      "sha256": "5b754491bf2985fe5025a97cd7b8e580d50041dd2cc7c3642c36e5f1ff5ee97c",
+      "bytes": 634757,
+      "retrievedAt": "2026-10-07T14:48:01.455Z",
+      "format": "OFFICIAL_FULL_TEXT_HTML_SNAPSHOT"
     }
   ]
 }

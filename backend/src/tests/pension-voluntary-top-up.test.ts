@@ -13,7 +13,7 @@ const fixture = () => ({ ...voluntaryTopUpValidationCase(), rules: corpus() });
 const assess = (f = fixture(), on = "2026-10-07") => assessBenefit(f.history, f.input, f.rules, on);
 it("validates sourced top-up rules and rejects changed, missing, unofficial or misdated payment tables", () => {
   const valid = validateLegalDocument(corpus()); expect(valid.issues).toEqual([]); expect(valid.valid).toBe(true);
-  expect(valid.coverage[0].cases).toHaveLength(17);
+  expect(valid.coverage[0].cases).toHaveLength(18);
   for (const mutate of [
     (r: ReturnType<typeof corpus>) => { r.tables.find(t => t.kind === "FUND_MONTHLY_RATE")!.value = "3.1"; },
     (r: ReturnType<typeof corpus>) => { r.tables.find(t => t.key === "VOLUNTARY_MIN_INCOME")!.value = "2200000"; },

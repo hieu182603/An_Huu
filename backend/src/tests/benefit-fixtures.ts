@@ -101,3 +101,35 @@ export function validatedVoluntaryTopUpFixture() {
 export function validatedVoluntaryPrepaidFixture() {
   return { ...voluntaryPrepaidValidationCase(), rules: JSON.parse(readFileSync("seed-data/legal-2026/bh2-voluntary-prepaid.draft.json", "utf8")).document as LegalRuleDocument };
 }
+
+export type StateV2Options = { from?: string; credited?: string | null; creditKind?: string; creditCategory?: string; early?: string; late?: string;
+  transfer?: string | null; convert?: boolean; scale?: string; lastCategory?: string;
+  /** Non-military change treatments reuse `transfer` as the occupation-change month. */
+  treatment?: "HAZARDOUS_TRANSFER" | "SENIORITY_ALLOWANCE_TRANSFER"; hazard?: Array<[string, string]>; windowFrom?: string;
+  seniority?: (month: string) => boolean | undefined };
+const stateV2Evidence = { reference: "BHXH statement", contentHash: digest("statement"), confirmedOn: "2026-07-01" };
+/** Male born 1964-01, BHXH through 2026-06, benefit 2026-07 (state reference 2,530,000). */
+export function stateV2Career(o: StateV2Options = {}) {
+  const from = o.from ?? "1990-01", transfer = o.transfer ?? null, months = [];
+  for (let month = from; month <= "2026-06"; month = addMonths(month, 1)) {
+    const credited = (o.credited ?? null) !== null && month < "1995-01", armed = !o.treatment && transfer !== null && month < transfer;
+    const beforeChange = transfer !== null && month < transfer, seniority = o.seniority?.(month);
+    const category = month === "2026-06" && o.lastCategory ? o.lastCategory : credited ? o.creditCategory ?? "ARTICLE_2_1_B" : armed ? "ARTICLE_2_1_D" : "ARTICLE_2_1_B";
+    months.push({ month, scheme: "COMPULSORY", salaryRegime: "STATE", status: credited ? "CREDITED" : "PAID",
+      ...(credited ? { creditKind: o.creditKind ?? "PRE_1995_STATE_SECTOR" } : {}),
+      contributionBase: credited ? null : "1000000", participantCategory: category, evidence: [stateV2Evidence],
+      stateSalary: { kind: "CURRENT_SCALE_COEFFICIENT", totalContributionCoefficient: credited ? o.credited! : beforeChange || month < "2004-10" ? o.early ?? "2" : o.late ?? "4", evidence: [stateV2Evidence],
+        ...(seniority === undefined ? {} : { includesSeniorityAllowance: seniority }),
+        ...(month < "2004-10" && o.convert !== false ? { pre2004Conversion: { scale: o.scale ?? (armed || category === "ARTICLE_2_1_D" ? "ND204_ARMED_FORCES" : "ND204_PUBLIC"), evidence: [stateV2Evidence] } } : {}) } });
+  }
+  const history = { schemaVersion: 1, birth: { precision: "MONTH", declaredValue: "1964-01" }, legalSex: "MALE",
+    coverageFrom: from, coverageThrough: "2026-06", confirmedThroughMonth: "2026-06", specialPeriods: [], months };
+  const input = pensionEstimateInputSchema.parse({ historyVersionId: "00000000-0000-4000-8000-000000000001", expectedHistoryRevision: 1, legalRuleSetVersionId: "00000000-0000-4000-8000-000000000002",
+    intendedBenefitDate: "2026-07-01", employmentEndDate: "2026-06-30", contributionStopMonth: "2026-06", benefitRequestDate: null, futureContributions: [],
+    caseDetails: { kind: "NORMAL_EMPLOYEE", participationAtRetirement: "ACTIVE_COMPULSORY", benefitStart: { kind: "EMPLOYER_NOTICE", month: "2026-07", evidence: [stateV2Evidence] } },
+    stateSalaryCase: { firstParticipationMonth: from, firstParticipationEvidence: [stateV2Evidence], salaryTreatment: o.treatment ?? (transfer ? "MILITARY_TRANSFER" : "ORDINARY"),
+      treatmentEvidence: [stateV2Evidence], ...(transfer ? { transferMonth: transfer } : {}),
+      ...(o.hazard ? { hazardousPeriods: o.hazard.map(([fromMonth, toMonth]) => ({ fromMonth, toMonth, evidence: [stateV2Evidence] })) } : {}),
+      ...(o.windowFrom ? { hazardousWindowFrom: o.windowFrom } : {}) } });
+  return { history, input };
+}
