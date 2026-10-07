@@ -69,6 +69,14 @@ export default function AIAssistantPage() {
   const [consentModalOpen, setConsentModalOpen] = useState(false);
   const [updatingConsent, setUpdatingConsent] = useState(false);
 
+  const cleanedNotice = useMemo(() => {
+    if (!privacy?.processingNotice) return null;
+    return privacy.processingNotice
+      .replace(/Google Gemini qua dịch vụ Google bên ngoài hệ thống/gi, "trí tuệ nhân tạo (AI) của hệ thống")
+      .replace(/Google Gemini/gi, "AI của hệ thống")
+      .replace(/Gemini/gi, "AI hệ thống");
+  }, [privacy?.processingNotice]);
+
   // Conversations state
   const [conversations, setConversations] = useState<AiConversationItem[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
@@ -112,7 +120,7 @@ export default function AIAssistantPage() {
     try {
       const p = await getAiPrivacy();
       setPrivacy(p);
-      if (!p.processing) {
+      if (!p.processing || p.reconsentRequired || (p.acceptedPolicyVersion && p.policyVersion && p.acceptedPolicyVersion !== p.policyVersion)) {
         setConsentModalOpen(true);
       }
     } catch {
@@ -150,7 +158,7 @@ export default function AIAssistantPage() {
     try {
       const updated = await updateAiPrivacy({
         expectedRevision: privacy.revision,
-        policyVersion: AI_POLICY_VERSION,
+        policyVersion: privacy.policyVersion || AI_POLICY_VERSION,
         processing,
         saveHistory,
       });
@@ -296,7 +304,7 @@ export default function AIAssistantPage() {
     const question = (textToSend || inputPrompt).trim();
     if (!question || isTyping) return;
 
-    if (privacy && !privacy.processing) {
+    if (privacy && (!privacy.processing || privacy.reconsentRequired || (privacy.acceptedPolicyVersion && privacy.policyVersion && privacy.acceptedPolicyVersion !== privacy.policyVersion))) {
       setConsentModalOpen(true);
       return;
     }
@@ -346,6 +354,9 @@ export default function AIAssistantPage() {
       setMessages((prev) => [...prev, aiMsg]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : (language === "en" ? "Could not get response from assistant." : "Không thể nhận phản hồi từ trợ lý.");
+      if (typeof msg === "string" && (msg.includes("403") || msg.includes("AI_CONSENT_REQUIRED") || msg.toLowerCase().includes("consent"))) {
+        setConsentModalOpen(true);
+      }
       const errorMsg: ChatMessage = {
         id: `m-${Date.now() + 1}`,
         role: "assistant",
@@ -538,6 +549,19 @@ export default function AIAssistantPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, ease: "easeOut" }}
               >
+                {/* Status Badge */}
+                {msg.role === "assistant" && msg.status && (
+                  <div style={{ marginBottom: "8px" }}>
+                    {msg.status === "AI_ASSISTED" ? (
+                      <Badge tone="success"><Icon name="sparkles" size="small" /> {language === "en" ? "System AI Assisted" : "AI hệ thống hỗ trợ giải thích"}</Badge>
+                    ) : msg.status === "PROVIDER_UNAVAILABLE" ? (
+                      <Badge tone="warning"><Icon name="info" size="small" /> {language === "en" ? "AI Provider Unavailable (System Model)" : "AI tạm không khả dụng (kết quả hệ thống)"}</Badge>
+                    ) : (
+                      <Badge tone="info"><Icon name="shield" size="small" /> {language === "en" ? "System Plan Calculation" : "Giải thích từ mô hình hệ thống"}</Badge>
+                    )}
+                  </div>
+                )}
+
                 {/* Assistant Message Body */}
                 <div className="codex-message-prose">
                   {msg.content.split("\n\n").map((para, pIdx) => (
@@ -944,53 +968,235 @@ export default function AIAssistantPage() {
       <Modal
         open={consentModalOpen}
         onClose={() => setConsentModalOpen(false)}
-        title={language === "en" ? "AI Privacy & Data Processing" : "Quyền riêng tư & Xử lý dữ liệu AI"}
+        title={language === "en" ? "AI Privacy & Assistant Consent" : "Quyền riêng tư & Xác nhận Trợ lý AI"}
       >
         <div style={{ display: "grid", gap: "16px" }}>
-          <p style={{ margin: 0, fontSize: "13px", lineHeight: 1.6 }}>
-            {language === "en"
-              ? "The An Huu assistant uses key metric outputs from your retirement plan to provide rigorous explanations. The system never exposes personal identification, contact details, or granular transaction records."
-              : "Trợ lý An Hữu sử dụng các chỉ số đầu ra từ kế hoạch hưu trí của bạn để giải thích tường tận. Hệ thống cam kết không gửi hồ sơ cá nhân đầy đủ, thông tin liên hệ hay dữ liệu giao dịch chi tiết ra ngoài."}
-          </p>
-
-          <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)", fontSize: "12px" }}>
-            <span style={{ fontWeight: 700, display: "block", marginBottom: "4px" }}>
-              {language === "en" ? "DATA PROTECTION POLICY:" : "CHÍNH SÁCH BẢO VỆ DỮ LIỆU:"}
-            </span>
-            <ul style={{ margin: 0, paddingLeft: "18px" }}>
-              <li>
-                {language === "en"
-                  ? "Transmits only: Your prompt, high-level plan summaries, and regulatory citations."
-                  : "Chỉ gửi: Câu hỏi của bạn, các chỉ số tóm tắt của kế hoạch và các đoạn tri thức chuẩn mực."}
-              </li>
-              <li>
-                {language === "en"
-                  ? "Strictly excludes: Full name, email, phone number, bank account details, and raw ledgers."
-                  : "Loại trừ tuyệt đối: Tên, email, số điện thoại, số tài khoản và các dòng giao dịch chi tiết."}
-              </li>
-              <li>
-                {language === "en"
-                  ? "Conversations automatically expire and are purged after 30 days."
-                  : "Hội thoại được lưu tự động hết hạn và xóa hoàn toàn sau 30 ngày."}
-              </li>
-            </ul>
+          {/* Header Security Hero Banner */}
+          <div
+            style={{
+              display: "flex",
+              gap: "14px",
+              padding: "16px",
+              background: "linear-gradient(135deg, rgba(232, 242, 254, 0.8) 0%, rgba(249, 251, 255, 0.95) 100%)",
+              border: "1px solid var(--color-border, #D0E4FE)",
+              borderRadius: "var(--radius-md, 16px)",
+              alignItems: "flex-start",
+            }}
+          >
+            <div
+              style={{
+                width: "42px",
+                height: "42px",
+                borderRadius: "12px",
+                background: "linear-gradient(135deg, #052659 0%, #334DAF 100%)",
+                color: "#FFFFFF",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                boxShadow: "0 4px 12px rgba(5, 38, 89, 0.18)",
+              }}
+            >
+              <Icon name="shield" size="default" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h4 style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: 700, color: "var(--color-primary-700, #052659)" }}>
+                {language === "en" ? "System AI Security & Privacy Notice" : "Thông báo an toàn & Quyền riêng tư AI"}
+              </h4>
+              <p style={{ margin: 0, fontSize: "13px", lineHeight: 1.55, color: "var(--color-text-muted, #456B91)" }}>
+                {cleanedNotice ||
+                  (language === "en"
+                    ? "The An Huu assistant uses system AI to analyze calculations and explain retirement scenarios. All data processing strictly adheres to financial security standards without exposing your personal identity."
+                    : "Trợ lý AI của hệ thống hỗ trợ giải thích các chỉ số và kế hoạch hưu trí của bạn dựa trên dữ liệu tính toán chuẩn mực. Mọi thông tin được xử lý an toàn theo nguyên tắc bảo mật tài chính, bảo vệ tối đa danh tính cá nhân.")}
+              </p>
+            </div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+          {/* 2-Column Policy Breakdown */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "12px",
+            }}
+          >
+            {/* Column 1: Dữ liệu AI phân tích */}
+            <div
+              style={{
+                padding: "14px",
+                background: "var(--color-bg, #F9FBFF)",
+                border: "1px solid var(--color-border, #D0E4FE)",
+                borderRadius: "var(--radius-md, 16px)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ color: "var(--color-secondary-500, #334DAF)", display: "inline-flex" }}>
+                  <Icon name="circle-check" size="small" />
+                </span>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: "var(--color-primary-700, #052659)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  {language === "en" ? "Data Processed by AI" : "Dữ liệu AI phân tích"}
+                </span>
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: "18px",
+                  fontSize: "12px",
+                  lineHeight: 1.6,
+                  color: "var(--color-text-primary, #052659)",
+                }}
+              >
+                <li>
+                  {language === "en"
+                    ? "Your questions and explanation prompts"
+                    : "Câu hỏi và yêu cầu giải thích của bạn"}
+                </li>
+                <li>
+                  {language === "en"
+                    ? "Retirement plan summary metrics (goals, years, funds)"
+                    : "Chỉ số tóm tắt kế hoạch hưu trí (mục tiêu, thời hạn, quỹ)"}
+                </li>
+                <li>
+                  {language === "en"
+                    ? "Approved regulatory and financial knowledge citations"
+                    : "Trích đoạn tri thức & căn cứ quy định đã duyệt"}
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 2: Cam kết bảo vệ tuyệt đối */}
+            <div
+              style={{
+                padding: "14px",
+                background: "rgba(230, 248, 240, 0.45)",
+                border: "1px solid rgba(30, 126, 85, 0.25)",
+                borderRadius: "var(--radius-md, 16px)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ color: "var(--color-success, #1E7E55)", display: "inline-flex" }}>
+                  <Icon name="shield" size="small" />
+                </span>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: "var(--color-success, #1E7E55)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                >
+                  {language === "en" ? "Strictly Protected" : "Cam kết bảo vệ tuyệt đối"}
+                </span>
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: "18px",
+                  fontSize: "12px",
+                  lineHeight: 1.6,
+                  color: "var(--color-text-primary, #052659)",
+                }}
+              >
+                <li>
+                  {language === "en"
+                    ? "Never transmits full name, email, or phone number"
+                    : "Tuyệt đối không gửi họ tên, email, số điện thoại"}
+                </li>
+                <li>
+                  {language === "en"
+                    ? "No bank accounts or payment credentials"
+                    : "Không truy cập số tài khoản hay thẻ ngân hàng"}
+                </li>
+                <li>
+                  {language === "en"
+                    ? "Granular cashflow transactions remain strictly isolated"
+                    : "Dòng sổ thu chi chi tiết được cách ly nội bộ"}
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Retention Callout */}
+          <div
+            style={{
+              padding: "12px 14px",
+              background: "var(--color-secondary-soft, #E8F2FE)",
+              border: "1px solid var(--color-border, #D0E4FE)",
+              borderRadius: "var(--radius-sm, 12px)",
+              fontSize: "12px",
+              lineHeight: 1.5,
+              color: "var(--color-text-muted, #456B91)",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "10px",
+            }}
+          >
+            <span style={{ color: "var(--color-secondary-500, #334DAF)", marginTop: "1px", flexShrink: 0 }}>
+              <Icon name="info" size="small" />
+            </span>
+            <div>
+              <strong style={{ color: "var(--color-primary-700, #052659)", display: "block", marginBottom: "2px" }}>
+                {language === "en" ? "Retention & History Options:" : "Chính sách lưu trữ & Quản lý lịch sử:"}
+              </strong>
+              {language === "en"
+                ? "You can choose to save conversation history for 30 days to review anytime (auto-purged after 30 days), or select session-only mode where no conversation data is stored."
+                : "Bạn có thể chọn lưu lịch sử đối thoại trong 30 ngày để xem lại hoặc tiếp tục phiên làm việc (tự động xóa sau 30 ngày), hoặc chọn chỉ giải thích trong phiên mà không lưu lại lịch sử."}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "10px",
+              marginTop: "4px",
+              paddingTop: "12px",
+              borderTop: "1px solid var(--color-border, #D0E4FE)",
+            }}
+          >
             <Button
               variant="secondary"
               onClick={() => handleConsent(false, false)}
               disabled={updatingConsent}
             >
-              {language === "en" ? "Decline Processing" : "Từ chối xử lý"}
+              {language === "en" ? "Decline" : "Từ chối"}
             </Button>
-            <Button
-              variant="primary"
-              onClick={() => handleConsent(true, true)}
-              loading={updatingConsent}
-            >
-              {language === "en" ? "Agree & Save History (30 Days)" : "Đồng ý & Lưu lịch sử (30 ngày)"}
-            </Button>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <Button
+                variant="soft"
+                onClick={() => handleConsent(true, false)}
+                loading={updatingConsent}
+                icon="message"
+              >
+                {language === "en" ? "Explain Only (No History)" : "Chỉ giải thích (Không lưu lịch sử)"}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => handleConsent(true, true)}
+                loading={updatingConsent}
+                icon="circle-check"
+              >
+                {language === "en" ? "Consent & Save History (30 Days)" : "Đồng ý & Lưu lịch sử (30 ngày)"}
+              </Button>
+            </div>
           </div>
         </div>
       </Modal>

@@ -452,7 +452,15 @@ export function ProgressBar({ value }: { value: number }) {
 }
 
 export function Tabs({ items, active, onChange }: { items: string[]; active: string; onChange: (item: string) => void }) {
-  return <div className="tabs" role="tablist">{items.map((item) => <button aria-selected={active === item} className={active === item ? "is-active" : ""} key={item} onClick={() => onChange(item)} role="tab" type="button">{item}</button>)}</div>;
+  return <div className="tabs" role="tablist">{items.map((item, index) => <button aria-selected={active === item} tabIndex={active === item ? 0 : -1} className={active === item ? "is-active" : ""} key={item} onClick={() => onChange(item)} onKeyDown={event => {
+    const next = event.key === "ArrowRight" ? (index + 1) % items.length
+      : event.key === "ArrowLeft" ? (index - 1 + items.length) % items.length
+      : event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : null;
+    if (next === null) return;
+    event.preventDefault();
+    onChange(items[next]);
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+  }} role="tab" type="button">{item}</button>)}</div>;
 }
 
 export function Breadcrumb({ items }: { items: string[] }) {

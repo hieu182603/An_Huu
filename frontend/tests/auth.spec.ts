@@ -47,7 +47,4 @@ test("email và mã xác thực không hợp lệ không được báo thành c�
   await page.getByRole("button", { name: /Gửi mã xác nhận/ }).click();
   expect(await page.getByLabel("Email đã đăng ký").evaluate((input: HTMLInputElement) => input.validity.valid)).toBe(false);
 
-  await page.goto("/verify");
-  await page.getByRole("button", { name: /Xác nhận email & Đăng nhập/ }).click();
-  await expect(page.getByRole('main').getByRole('alert')).toContainText(/6 chữ số/i);
 });

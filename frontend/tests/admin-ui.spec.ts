@@ -3,7 +3,7 @@ import { installRouteAuth } from "./helpers";
 
 test.describe("Admin Layout & Styling Verification", () => {
   test("renders admin dashboard with royal navy sidebar, inverted fillet curve, and functional collapse", async ({ page }, testInfo) => {
-    await installRouteAuth(page);
+    await installRouteAuth(page, "ADM-001");
 
     // 1. Visit Admin Dashboard
     await page.goto("/admin/dashboard");
@@ -87,9 +87,8 @@ test.describe("Admin Layout & Styling Verification", () => {
 
     // 10. Navigate to Financial Config page and screenshot
     await page.locator('.admin-nav a[href="/admin/financial-config"]').click();
-    await page.waitForSelector(".admin-kpi-grid", { state: "visible" });
     await page.waitForSelector(".financial-assumptions-card", { state: "visible" });
-    await expect(page.locator("h1")).toContainText("Cấu hình tham số tài chính");
+    await expect(page.locator("h1")).toContainText(/giả định tài chính|Financial Assumption/i);
     // Ensure zero em-dashes on page
     const pageText = await page.locator(".admin-page").innerText();
     expect(pageText).not.toContain("—");
@@ -100,7 +99,7 @@ test.describe("Admin Layout & Styling Verification", () => {
 
     // 11. Navigate to Settings page and screenshot
     await page.locator('.admin-nav a[href="/admin/settings/general"]').first().click();
-    await page.waitForSelector(".system-setting-card", { state: "visible" });
+    await page.waitForSelector(".system-settings-card", { state: "visible" });
     await expect(page.locator("h1")).toContainText("Cài đặt chung");
     await page.screenshot({
       path: testInfo.outputPath("admin_settings_redesigned.png"),

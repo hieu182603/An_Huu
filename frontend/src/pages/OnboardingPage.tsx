@@ -64,7 +64,6 @@ export default function OnboardingPage() {
     return "welcome";
   });
   const [isCompleted, setIsCompleted] = useState(false);
-  const [showSaveToast, setShowSaveToast] = useState(false);
   const [working, setWorking] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -139,6 +138,18 @@ export default function OnboardingPage() {
   // Form states: khởi tạo từ bản nháp đã lưu
   const [formData, setFormData] = useState(initialFromDraft);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (onboardingDraft && Object.keys(onboardingDraft).length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        ...initialFromDraft,
+      }));
+      if (onboardingDraft.step && onboardingDraft.step !== "welcome") {
+        setCurrentStep(onboardingDraft.step as StepId);
+      }
+    }
+  }, [onboardingDraft, initialFromDraft]);
 
   const updateField = <K extends keyof typeof formData>(field: K, value: typeof formData[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -219,8 +230,30 @@ export default function OnboardingPage() {
   const totalDebt = formData.hasDebt ? formData.mortgageDebt + formData.consumerDebt : 0;
   const estimatedNetWorth = totalAssets - totalDebt;
 
+  const [visitedSteps, setVisitedSteps] = useState<StepId[]>([]);
+  useEffect(() => {
+    setVisitedSteps((prev) => (prev.includes(currentStep) ? prev : [...prev, currentStep]));
+  }, [currentStep]);
+
+  const isStepFilled = (id: StepId): boolean => {
+    switch (id) {
+      case "personal": return formData.age > 0 && Boolean(formData.gender) && Boolean(formData.maritalStatus) && Boolean(formData.city);
+      case "income": return formData.primaryIncome > 0 || formData.secondaryIncome > 0;
+      case "expense": return formData.essentialExpense > 0 || formData.lifestyleExpense > 0;
+      case "assets": return formData.cashSavings > 0 || formData.realEstateValue > 0 || formData.liquidAssets > 0;
+      // "No debt" is a valid answer once the user has actually opened this step.
+      case "debt": return formData.hasDebt ? formData.mortgageDebt + formData.consumerDebt > 0 : visitedSteps.includes("debt");
+      case "invest-social": return formData.socialInsuranceYears > 0 || formData.socialInsuranceSalary > 0 || formData.stockFundValue > 0;
+      default: return true;
+    }
+  };
+
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep);
   const progressPercent = Math.round((currentStepIndex / (steps.length - 1)) * 100);
+  const skippedSteps = steps.filter((s, index) => index > 0 && index < steps.length - 1 && index < currentStepIndex && !isStepFilled(s.id));
+  const stepLabel = currentStepIndex === 0
+    ? (isEn ? "Not started" : "Chưa bắt đầu")
+    : (isEn ? `Step ${currentStepIndex}/${steps.length - 1}` : `Bước ${currentStepIndex}/${steps.length - 1}`);
 
   const formatVND = (num: number) => {
     return new Intl.NumberFormat("vi-VN").format(num) + " ₫";
@@ -274,28 +307,6 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleSaveDraft = async () => {
-    setSaveError(null);
-    const ok = await saveOnboardingDraft({
-      step: currentStep,
-      ...formData,
-    });
-    if (ok) {
-      setShowSaveToast(true);
-      notify.info(
-        isEn ? "Draft Saved" : "Đã lưu bản nháp",
-        isEn
-          ? `Survey progress securely saved${lastDraftSavedAt ? ` at ${lastDraftSavedAt}` : ""}.`
-          : `Tiến độ khảo sát đã được lưu an toàn${lastDraftSavedAt ? ` lúc ${lastDraftSavedAt}` : ""}.`
-      );
-      setTimeout(() => setShowSaveToast(false), 3000);
-    } else {
-      const err = isEn ? "Could not save draft. Please retry." : "Không thể lưu nháp. Vui lòng thử lại.";
-      setSaveError(err);
-      notify.error(isEn ? "Draft Save Error" : "Lỗi lưu nháp", err);
-    }
-  };
-
   if (isCompleted) {
     return (
       <div className="profile-complete">
@@ -319,9 +330,9 @@ export default function OnboardingPage() {
             <Button
               variant="primary"
               size="large"
-              onClick={() => navigate(resumeDestination(location.state?.from, "user", "/user/account"), { replace: true })}
+              onClick={() => navigate(resumeDestination(location.state?.from, "user", "/user/dashboard"), { replace: true })}
             >
-              {isEn ? "Continue to Financial Profile" : "Tiếp tục hoàn thiện hồ sơ"} <Icon name="arrow-right" />
+              {isEn ? "Open Dashboard & Plan Retirement" : "Mở Dashboard & Lập kế hoạch hưu trí"} <Icon name="arrow-right" />
             </Button>
           </div>
           <small>{isEn ? "This data will serve as the automatic basis for the retirement simulation engine." : "Tiếp theo, bổ sung mốc thời gian và phân bổ tài sản trong hồ sơ chi tiết để tính kế hoạch hưu trí."}</small>
@@ -332,72 +343,12 @@ export default function OnboardingPage() {
 
   return (
     <div className="onboarding-app">
-      {/* Topbar */}
-      <header className="onboarding-topbar">
-        <Link to="/" className="onboarding-brand" aria-label={isEn ? "An Huu Home" : "Trang chủ An Hưu"}>
-          <BrandLogo />
-        </Link>
-
-        <div
-          className={`save-status save-status-${draftSaveStatus}`}
-          role="status"
-          aria-live="polite"
-        >
-          {draftSaveStatus === "saving" ? (
-            <>
-              <span className="save-spinner" aria-hidden="true" />
-              <span>{isEn ? "Saving draft..." : "Đang lưu bản nháp..."}</span>
-            </>
-          ) : draftSaveStatus === "saved" ? (
-            <>
-              <Icon name="circle-check" size="small" />
-              <span>{isEn ? `Draft saved${lastDraftSavedAt ? ` at ${lastDraftSavedAt}` : ""}` : `Đã lưu bản nháp${lastDraftSavedAt ? ` lúc ${lastDraftSavedAt}` : ""}`}</span>
-            </>
-          ) : draftSaveStatus === "error" ? (
-            <>
-              <Icon name="alert" size="small" />
-              <span>{isEn ? "Error saving draft. Please try again." : "Lỗi lưu bản nháp. Hãy thử lại."}</span>
-            </>
-          ) : (
-            <>
-              <Icon name="circle-check" size="small" />
-              <span>{isEn ? "Draft is saved to your account as you proceed" : "Bản nháp được lưu vào tài khoản khi bạn tiếp tục"}</span>
-            </>
-          )}
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Button
-            variant="ghost"
-            onClick={async () => {
-              if (working) return;
-              setWorking(true);
-              try { await saveOnboardingDraft({ step: currentStep, ...formData }); } catch {}
-              finally { setWorking(false); }
-              navigate("/user/dashboard");
-            }}
-            style={{ fontSize: "13px", color: "var(--color-text-muted)" }}
-          >
-            {isEn ? "Skip to Dashboard" : "Bỏ qua & Vào tổng quan"}
-          </Button>
-          <IconButton
-            icon="x"
-            label={isEn ? "Save and return to Dashboard" : "Lưu và về tổng quan"}
-            onClick={async () => {
-              if (working) return;
-              setWorking(true);
-              try { if (await saveOnboardingDraft({ step: currentStep, ...formData })) navigate("/user/dashboard"); }
-              finally { setWorking(false); }
-            }}
-          />
-        </div>
-      </header>
 
       {apiSaveError && <p role="alert">{apiSaveError}</p>}
       {/* Mobile progress tracker */}
       <div className="onboarding-progress-mobile">
         <div>
-          <span>{isEn ? `Step ${currentStepIndex + 1}/${steps.length}` : `Bước ${currentStepIndex + 1}/${steps.length}`}</span>
+          <span>{stepLabel}</span>
           <strong>{steps[currentStepIndex].title}</strong>
           <small>{progressPercent}%</small>
         </div>
@@ -409,11 +360,41 @@ export default function OnboardingPage() {
       <div className="onboarding-layout">
         {/* Step Sidebar */}
         <aside className="step-sidebar" aria-label={isEn ? "Setup progress" : "Tiến trình khai báo"}>
+          <Link to="/" className="onboarding-brand" aria-label={isEn ? "An Huu Home" : "Trang chủ An Hưu"}>
+            <BrandLogo height="28px" />
+          </Link>
+            <div
+              className={`save-status onboarding-save-status save-status-${draftSaveStatus}`}
+              role="status"
+              aria-live="polite"
+            >
+              {draftSaveStatus === "saving" ? (
+                <>
+                  <span className="save-spinner" aria-hidden="true" />
+                  <span>{isEn ? "Saving draft..." : "Đang lưu bản nháp..."}</span>
+                </>
+              ) : draftSaveStatus === "saved" ? (
+                <>
+                  <Icon name="circle-check" size="small" />
+                  <span>{isEn ? `Draft saved${lastDraftSavedAt ? ` at ${lastDraftSavedAt}` : ""}` : `Đã lưu bản nháp${lastDraftSavedAt ? ` lúc ${lastDraftSavedAt}` : ""}`}</span>
+                </>
+              ) : draftSaveStatus === "error" ? (
+                <>
+                  <Icon name="alert" size="small" />
+                  <span>{isEn ? "Error saving draft. Please try again." : "Lỗi lưu bản nháp. Hãy thử lại."}</span>
+                </>
+              ) : (
+                <>
+                  <Icon name="circle-check" size="small" />
+                  <span>{isEn ? "Draft is saved to your account as you proceed" : "Bản nháp được lưu vào tài khoản khi bạn tiếp tục"}</span>
+                </>
+              )}
+            </div>
           <div className="step-progress-summary">
             <span>{isEn ? "SETUP PROGRESS" : "TIẾN ĐỘ THIẾT LẬP"}</span>
             <div>
               <strong>{progressPercent}%</strong>
-              <small>({isEn ? `${currentStepIndex + 1}/${steps.length} steps` : `${currentStepIndex + 1}/${steps.length} bước`})</small>
+              <small>({stepLabel})</small>
             </div>
             <div className="progress-track" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
               <span style={{ "--progress": `${progressPercent}%` } as React.CSSProperties} />
@@ -423,42 +404,28 @@ export default function OnboardingPage() {
           <nav>
             {steps.map((s, index) => {
               const isActive = s.id === currentStep;
-              const isDone = index < currentStepIndex;
+              const isLast = index === steps.length - 1;
+              const filled = index > 0 && !isLast && isStepFilled(s.id);
+              const isSkipped = !isActive && index > 0 && !isLast && index < currentStepIndex && !filled;
+              const isDone = !isActive && !isSkipped && (index === 0 ? currentStepIndex > 0 : filled);
               return (
                 <button
                   key={s.id}
                   type="button"
-                  className={`${isActive ? "is-active" : ""} ${isDone ? "is-done" : ""}`}
+                  className={`${isActive ? "is-active" : ""} ${isDone ? "is-done" : ""} ${isSkipped ? "is-skipped" : ""}`}
                   onClick={() => setCurrentStep(s.id)}
+                  aria-current={isActive ? "step" : undefined}
                 >
-                  <span>{isDone ? <Icon name="check" size="small" /> : index}</span>
+                  <span>{isDone ? <Icon name="check" size="small" /> : isSkipped ? <Icon name="x" size="small" /> : index}</span>
                   <div>
                     <strong>{s.title}</strong>
-                    <small>{s.detail}</small>
+                    <small>{isSkipped ? (isEn ? "Not filled in yet" : "Chưa điền thông tin") : s.detail}</small>
                   </div>
                 </button>
               );
             })}
           </nav>
 
-          <div className="step-sidebar-help">
-            <Icon name="info" />
-            <div>
-              <strong>{isEn ? "Need data entry help?" : "Cần hỗ trợ nhập liệu?"}</strong>
-              <button
-                type="button"
-                onClick={() =>
-                  alert(
-                    isEn
-                      ? "These figures are used to evaluate your financial capacity and can be adjusted anytime in the Account settings."
-                      : "Các số liệu này dùng để tính toán khả năng tài chính của bạn và có thể điều chỉnh bất kỳ lúc nào tại mục Tài khoản."
-                  )
-                }
-              >
-                {isEn ? "View calculation guide" : "Xem giải thích cách tính"}
-              </button>
-            </div>
-          </div>
         </aside>
 
         {/* Main Content Area */}
@@ -466,121 +433,65 @@ export default function OnboardingPage() {
           <div className="onboarding-content">
             {/* STEP 0: WELCOME - REDESIGNED PREMIUM FINTECH ONBOARDING */}
             {currentStep === "welcome" && (
-              <div className="welcome-step-v2">
-                {/* Header section with clean badge & hierarchy */}
-                <div className="welcome-header-v2">
-                  <div className="welcome-badge-pill">
-                    <span className="welcome-badge-dot" />
-                    <span>{isEn ? "STEP 0 OF 7 · ESTIMATED 5 MINS" : "BƯỚC KHỞI ĐẦU · ƯỚC TÍNH 5 PHÚT"}</span>
-                  </div>
-                  <h1 className="welcome-title-v2">
-                    {isEn ? "Initial Financial Profile Setup" : "Thiết lập hồ sơ tài chính ban đầu"}
+              <div className="welcome-step-v3">
+                <header className="welcome-v3-header">
+                  <span className="welcome-badge-pill">
+                    <span className="welcome-badge-dot" aria-hidden="true" />
+                    {isEn ? `${steps.length - 1} steps · about 5 minutes` : `${steps.length - 1} bước · khoảng 5 phút`}
+                  </span>
+                  <h1 className="welcome-v3-title">
+                    {isEn ? "Set up your financial profile" : "Thiết lập hồ sơ tài chính"}
                   </h1>
-                  <p className="welcome-subtitle-v2">
+                  <p className="welcome-v3-lead">
                     {isEn
-                      ? "To calculate an accurate retirement plan, An Huu needs an overview of your current cashflow and assets. Your data is encrypted and strictly used for your projections."
-                      : "Để lượng hóa kế hoạch hưu trí chính xác đến từng tháng, An Hưu cần hiểu bức tranh toàn cảnh về dòng tiền và tài sản hiện tại của bạn. Mọi số liệu đều được bảo mật tuyệt đối."}
+                      ? "An Huu uses these figures to project your retirement plan month by month. Rough estimates are fine and everything can be edited later."
+                      : "An Hưu dùng các số liệu này để dự phóng kế hoạch hưu trí theo từng tháng. Số ước lượng là đủ, bạn có thể sửa lại bất cứ lúc nào."}
                   </p>
-                </div>
+                </header>
 
-                {/* Central Visual Banner: Financial Horizon Preview */}
-                <div className="welcome-showcase-card">
-                  <div className="welcome-showcase-ambient" />
-                  
-                  <div className="welcome-showcase-content">
-                    <div className="showcase-tag">
-                      <Icon name="sparkles" size="small" />
-                      <span>{isEn ? "HOLISTIC RETIREMENT JOURNEY" : "HÀNH TRÌNH ĐỘC LẬP TÀI CHÍNH"}</span>
-                    </div>
+                <div className="welcome-v3-grid">
+                  <section className="welcome-v3-plan" aria-labelledby="welcome-plan-title">
+                    <h2 id="welcome-plan-title">{isEn ? "What you will fill in" : "Bạn sẽ khai báo"}</h2>
+                    <ol>
+                      {steps.slice(1).map((s) => (
+                        <li key={s.id}>
+                          <span className="welcome-v3-step-no" aria-hidden="true">{s.number}</span>
+                          <span className="welcome-v3-step-text">
+                            <strong>{s.title}</strong>
+                            <small>{s.detail}</small>
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
 
-                    <h2 className="showcase-heading">
-                      {isEn ? "From current savings to lifelong golden retirement" : "Từ dòng tiền hiện tại đến an tâm tuổi vàng viên mãn"}
-                    </h2>
+                  <aside className="welcome-v3-side">
+                    <section className="welcome-v3-prep" aria-labelledby="welcome-prep-title">
+                      <h2 id="welcome-prep-title">{isEn ? "Have these ready" : "Nên chuẩn bị sẵn"}</h2>
+                      <ul>
+                        <li><Icon name="wallet" size="small" />{isEn ? "Monthly income after tax" : "Thu nhập hàng tháng (sau thuế)"}</li>
+                        <li><Icon name="chart" size="small" />{isEn ? "Average monthly spending" : "Chi tiêu trung bình mỗi tháng"}</li>
+                        <li><Icon name="home" size="small" />{isEn ? "Savings, investments and property" : "Tiền tiết kiệm, đầu tư, bất động sản"}</li>
+                        <li><Icon name="file-text" size="small" />{isEn ? "Loan balances and monthly payments" : "Dư nợ và số tiền trả nợ mỗi tháng"}</li>
+                        <li><Icon name="shield" size="small" />{isEn ? "Years of social insurance (BHXH)" : "Số năm đã đóng BHXH"}</li>
+                      </ul>
+                    </section>
 
-                    {/* 3 Pillars Preview Floating Grid */}
-                    <div className="showcase-pillars-grid">
-                      <div className="showcase-pillar-item">
-                        <div className="pillar-icon-wrap">
-                          <Icon name="wallet" />
-                        </div>
-                        <div className="pillar-meta">
-                          <span className="pillar-label">{isEn ? "Pillar 01" : "Trụ cột 01"}</span>
-                          <strong>{isEn ? "Income & Cashflow" : "Thu nhập & Dòng tiền"}</strong>
-                          <small>{isEn ? "Monthly surplus optimization" : "Tối ưu hóa thặng dư hàng tháng"}</small>
-                        </div>
-                      </div>
-
-                      <div className="showcase-pillar-item highlight">
-                        <div className="pillar-icon-wrap highlight">
-                          <Icon name="target" />
-                        </div>
-                        <div className="pillar-meta">
-                          <span className="pillar-label highlight">{isEn ? "Pillar 02" : "Trụ cột 02"}</span>
-                          <strong>{isEn ? "Assets & Investments" : "Tài sản & Đầu tư"}</strong>
-                          <small>{isEn ? "Savings, real estate & funds" : "Tiết kiệm, bất động sản & quỹ"}</small>
-                        </div>
-                      </div>
-
-                      <div className="showcase-pillar-item">
-                        <div className="pillar-icon-wrap">
-                          <Icon name="shield" />
-                        </div>
-                        <div className="pillar-meta">
-                          <span className="pillar-label">{isEn ? "Pillar 03" : "Trụ cột 03"}</span>
-                          <strong>{isEn ? "Social Pension & Net Worth" : "Bảo hiểm & Lương hưu"}</strong>
-                          <small>{isEn ? "BHXH & comprehensive safety net" : "Lương hưu BHXH & lưới an sinh"}</small>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3 Bento Feature Cards */}
-                <div className="welcome-bento-grid">
-                  <div className="welcome-bento-card">
-                    <div className="bento-card-icon">
-                      <Icon name="compass" />
-                    </div>
-                    <div className="bento-card-text">
-                      <h3>{isEn ? "Estimated Figures" : "Số liệu mang tính ước tính"}</h3>
-                      <p>{isEn ? "You do not need exact penny-level numbers, just a reasonable approximation." : "Không cần chính xác từng đồng lẻ, con số xấp xỉ hợp lý là đủ để thuật toán vận hành."}</p>
-                    </div>
-                  </div>
-
-                  <div className="welcome-bento-card">
-                    <div className="bento-card-icon">
-                      <Icon name="chart" />
-                    </div>
-                    <div className="bento-card-text">
-                      <h3>{isEn ? "Easily Editable Later" : "Dễ dàng chỉnh sửa linh hoạt"}</h3>
-                      <p>{isEn ? "All information can be revised anytime at Plan screen as your family situation evolves." : "Mọi số liệu đều có thể cập nhật lại khi thu nhập hoặc hoàn cảnh gia đình thay đổi."}</p>
-                    </div>
-                  </div>
-
-                  <div className="welcome-bento-card">
-                    <div className="bento-card-icon">
-                      <Icon name="shield" />
-                    </div>
-                    <div className="bento-card-text">
-                      <h3>{isEn ? "Bank-Grade Security" : "Bảo mật chuẩn tài chính"}</h3>
-                      <p>{isEn ? "Data is strictly for your retirement projections, never sold or shared with third parties." : "Dữ liệu chỉ phục vụ mục đích tính toán của bạn, không bán hay chia sẻ cho bên thứ ba."}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Preparation Guide Card */}
-                <div className="welcome-prep-card">
-                  <div className="welcome-prep-icon">
-                    <Icon name="info" />
-                  </div>
-                  <div className="welcome-prep-body">
-                    <strong>{isEn ? "Quick Preparation Tips" : "Gợi ý chuẩn bị để hoàn thành trong 5 phút"}</strong>
-                    <p>
-                      {isEn
-                        ? "Having ready estimated numbers for your monthly income, savings balance, and years of social insurance contributions will help you finish effortlessly."
-                        : "Bạn chỉ cần ước lượng nhanh: Thu nhập hàng tháng, số dư tiết kiệm hiện có và số năm đã đóng BHXH để hoàn tất bảng khảo sát dễ dàng."}
-                    </p>
-                  </div>
+                    <ul className="welcome-v3-assurances">
+                      <li>
+                        <Icon name="circle-check" size="small" />
+                        <span>{isEn ? "Estimates are enough, no need to be exact." : "Không cần chính xác từng đồng, ước lượng là đủ."}</span>
+                      </li>
+                      <li>
+                        <Icon name="circle-check" size="small" />
+                        <span>{isEn ? "Your draft is saved as you go." : "Bản nháp được lưu khi bạn chuyển bước."}</span>
+                      </li>
+                      <li>
+                        <Icon name="circle-check" size="small" />
+                        <span>{isEn ? "Used only for your projections, never sold or shared." : "Chỉ dùng để tính toán cho bạn, không bán hay chia sẻ."}</span>
+                      </li>
+                    </ul>
+                  </aside>
                 </div>
               </div>
             )}
@@ -936,6 +847,22 @@ export default function OnboardingPage() {
                   <p>{isEn ? "Review all key financial metrics before completing your profile and receiving your customized retirement roadmap." : "Hãy xem lại toàn bộ các chỉ số tài chính quan trọng trước khi hoàn tất hồ sơ và tiến hành lập kế hoạch nghỉ hưu chi tiết."}</p>
                 </div>
 
+                {skippedSteps.length > 0 && (
+                  <div className="onboarding-skipped-card" role="status">
+                    <div>
+                      <strong>{isEn ? `${skippedSteps.length} step(s) left empty` : `Còn ${skippedSteps.length} bước chưa điền`}</strong>
+                      <p>{isEn ? "The plan will treat these as zero. Fill them in for a more accurate result." : "Kế hoạch sẽ tính các mục này bằng 0. Điền thêm để kết quả sát thực tế hơn."}</p>
+                    </div>
+                    <div className="onboarding-skipped-list">
+                      {skippedSteps.map((s) => (
+                        <button key={s.id} type="button" onClick={() => setCurrentStep(s.id)}>
+                          <Icon name="x" size="small" /> {s.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Net Worth Card */}
                 <div className="net-worth-card">
                   <div className="net-worth-copy">
@@ -1023,36 +950,38 @@ export default function OnboardingPage() {
 
           {/* Sticky Onboarding Actions */}
           <div className="onboarding-actions">
-            <div>
+            <div className="onboarding-actions-start">
               {currentStepIndex > 0 && (
                 <Button variant="secondary" onClick={handlePrev}>
-                  <Icon name="arrow-left" size="small" /> {isEn ? "Back" : "Quay lại"}
+                  <Icon name="arrow-left" size="small" /> <span className="onboarding-back-label">{isEn ? "Back" : "Quay lại"}</span>
                 </Button>
               )}
-              <Button variant="ghost" onClick={handleSaveDraft} loading={working || draftSaveStatus === "saving"}>
-                {isEn ? "Save Draft" : "Lưu nháp"}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={async () => {
-                  try { await saveOnboardingDraft({ step: currentStep, ...formData }); } catch {}
-                  navigate("/user/dashboard");
-                }}
-                className="onboarding-skip-btn"
-              >
-                {isEn ? "Skip for now" : "Bỏ qua & Vào ứng dụng"}
-              </Button>
             </div>
 
+            <div className="onboarding-actions-end">
+              <Button
+                variant="ghost"
+                className="onboarding-exit-btn"
+                disabled={working}
+                onClick={async () => {
+                  if (working) return;
+                  setWorking(true);
+                  try { if (await saveOnboardingDraft({ step: currentStep, ...formData })) navigate("/user/dashboard"); }
+                  finally { setWorking(false); }
+                }}
+              >
+                {isEn ? "Save & finish later" : "Lưu & làm sau"}
+              </Button>
             <Button variant="primary" size="large" onClick={handleNext} loading={working}>
               {currentStepIndex === 0 ? (
-                <>{isEn ? "Start Profile Setup" : "Bắt đầu thiết lập ngay"} <Icon name="arrow-right" /></>
+                <>{isEn ? "Start" : "Bắt đầu khai báo"} <Icon name="arrow-right" /></>
               ) : currentStepIndex === steps.length - 1 ? (
-                <>{isEn ? "Complete Profile & View Plan" : "Hoàn tất hồ sơ & Nhận kế hoạch"} <Icon name="check" /></>
+                <>{isEn ? "Complete profile" : "Hoàn tất hồ sơ"} <Icon name="check" /></>
               ) : (
-                <>{isEn ? "Continue to Next Step" : "Tiếp tục bước tiếp theo"} <Icon name="arrow-right" /></>
+                <>{isEn ? "Continue" : "Tiếp tục"} <Icon name="arrow-right" /></>
               )}
             </Button>
+            </div>
           </div>
 
           {saveError && (
@@ -1064,17 +993,6 @@ export default function OnboardingPage() {
         </main>
       </div>
 
-      {/* Save Draft Toast */}
-      {showSaveToast && (
-        <div className="save-toast" role="status">
-          <Icon name="circle-check" />
-          <div>
-            <strong>{isEn ? "Draft Saved" : "Đã lưu bản nháp"}</strong>
-            <span>{isEn ? "Your draft is saved automatically; you can resume anytime." : "Bản nháp của bạn đã được lưu tự động, có thể tiếp tục bất cứ lúc nào."}</span>
-          </div>
-          <IconButton icon="x" label={isEn ? "Close notification" : "Đóng thông báo"} onClick={() => setShowSaveToast(false)} />
-        </div>
-      )}
     </div>
   );
 }

@@ -29,7 +29,7 @@ test("saved articles persist and stay separate per account", async ({ page, brow
   try {
     const otherPage = await otherContext.newPage();
     await installRouteAuth(otherPage, "USR-SECOND");
-    await otherPage.goto("http://127.0.0.1:8444/user/explore");
+    await otherPage.goto(new URL("/user/explore", page.url()).toString());
     const otherLibrary = otherPage.getByRole("region", { name: "Thư viện bài viết" });
     await expect(otherLibrary.getByLabel(/Chỉ xem bài đã lưu \(0\)/)).toBeVisible();
     await otherLibrary.getByLabel(/Chỉ xem bài đã lưu/).check();

@@ -1,8 +1,24 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-export default function ResponsiveDialog({ open, title, onClose, children, drawer = false }: {
-  open: boolean; title: string; onClose: () => void; children: ReactNode; drawer?: boolean;
+export default function ResponsiveDialog({
+  open,
+  title,
+  onClose,
+  children,
+  drawer = false,
+  className = "",
+  hideHeader = false,
+  usePortal = true,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  drawer?: boolean;
+  className?: string;
+  hideHeader?: boolean;
+  usePortal?: boolean;
 }) {
   const titleId = useId();
   const surface = useRef<HTMLDivElement>(null);
@@ -17,9 +33,9 @@ export default function ResponsiveDialog({ open, title, onClose, children, drawe
     const previousInert = root?.inert ?? false;
     document.body.style.overflow = "hidden";
     window.scrollTo({ left: 0 });
-    if (root) root.inert = true;
+    if (usePortal && root) root.inert = true;
     const focusable = () => Array.from(surface.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]') ?? []).filter(el => el.getClientRects().length && !el.closest('[inert]'));
-    focusable()[0]?.focus({ preventScroll: true });
+    (focusable()[0] ?? surface.current)?.focus({ preventScroll: true });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); close.current(); }
       if (event.key !== "Tab") return;
@@ -34,18 +50,28 @@ export default function ResponsiveDialog({ open, title, onClose, children, drawe
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
-      if (root) root.inert = previousInert;
+      if (usePortal && root) root.inert = previousInert;
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
-  }, [open]);
+  }, [open, usePortal]);
 
   if (!open) return null;
-  return createPortal(
+
+  const dialogElement = (
     <div className={`overlay${drawer ? " drawer-overlay" : ""}`} role="presentation" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <div ref={surface} className={drawer ? "drawer" : "modal"} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
-        <header><h2 id={titleId}>{title}</h2><button type="button" className="icon-button dialog-close" aria-label={drawer ? "Đóng drawer" : "Đóng modal"} onClick={onClose}><span aria-hidden="true">×</span></button></header>
+      <div ref={surface} className={`${drawer ? "drawer" : "modal"} ${className}`.trim()} role="dialog" aria-modal="true" aria-labelledby={hideHeader ? undefined : titleId} aria-label={hideHeader ? title : undefined} tabIndex={-1}>
+        {!hideHeader && (
+          <header>
+            <h2 id={titleId}>{title}</h2>
+            <button type="button" className="icon-button dialog-close" aria-label={drawer ? "Đóng drawer" : "Đóng modal"} onClick={onClose}>
+              <span aria-hidden="true">×</span>
+            </button>
+          </header>
+        )}
         <div className={drawer ? "drawer-body" : "modal-body"}>{children}</div>
       </div>
-    </div>, document.body,
+    </div>
   );
+
+  return usePortal ? createPortal(dialogElement, document.body) : dialogElement;
 }

@@ -144,6 +144,117 @@ export async function installRouteAuth(page: Page, userId = "USR-001") {
     });
   });
 
+  await page.route("**/api/v1/admin/partners**", async route => {
+    await route.fulfill({
+      json: {
+        data: {
+          items: [
+            { id: "part-1", name: "Dragon Capital", type: "OPEN_FUND", logoUrl: null, website: "https://dragoncapital.com.vn", contactEmail: "contact@dragoncapital.com.vn", isHighlight: true, isVisible: true },
+            { id: "part-2", name: "Vietcombank", type: "BANK", logoUrl: null, website: "https://vietcombank.com.vn", contactEmail: "support@vietcombank.com.vn", isHighlight: true, isVisible: true },
+          ],
+          total: 2,
+          page: 1,
+          limit: 20
+        }
+      }
+    });
+  });
+
+  await page.route("**/api/v1/admin/products**", async route => {
+    await route.fulfill({
+      json: {
+        data: {
+          items: [
+            { id: "prod-1", partnerId: "part-1", name: "Quỹ Đầu tư Cổ phiếu Tiếp cận Thị trường", category: "Quỹ mở cổ phiếu/trái phiếu", expectedReturn: "12%/năm", riskLevel: "MEDIUM", description: "Danh mục cổ phiếu tăng trưởng", annualFee: "1.2%/năm", conditions: "Thời gian nắm giữ tối thiểu 30 ngày", disclosure: "Minh bạch danh mục định kỳ", isVisible: true, partner: { id: "part-1", name: "Dragon Capital", type: "OPEN_FUND" } },
+            { id: "prod-2", partnerId: "part-2", name: "Tiền gửi Tích lũy Hưu trí Tương lai", category: "Tiết kiệm mục tiêu", expectedReturn: "6.5%/năm", riskLevel: "LOW", description: "Lãi suất bậc thang kỳ hạn 24 tháng", annualFee: "Miễn phí", conditions: "Trích nợ tự động định kỳ", disclosure: "Bảo hiểm tiền gửi theo quy định", isVisible: true, partner: { id: "part-2", name: "Vietcombank", type: "BANK" } }
+          ],
+          total: 2,
+          page: 1,
+          limit: 20
+        }
+      }
+    });
+  });
+
+  await page.route("**/api/v1/partners**", async route => {
+    await route.fulfill({
+      json: {
+        data: {
+          items: [
+            { id: "part-1", name: "Dragon Capital", type: "OPEN_FUND", logoUrl: null, website: "https://dragoncapital.com.vn", contactEmail: "contact@dragoncapital.com.vn", isHighlight: true, isVisible: true },
+          ],
+          total: 1,
+          page: 1,
+          limit: 20
+        }
+      }
+    });
+  });
+
+  await page.route("**/api/v1/products**", async route => {
+    await route.fulfill({
+      json: {
+        data: {
+          items: [
+            { id: "prod-1", partnerId: "part-1", name: "Quỹ Đầu tư Cổ phiếu Tiếp cận Thị trường", category: "Quỹ mở cổ phiếu/trái phiếu", expectedReturn: "12%/năm", riskLevel: "MEDIUM", description: "Danh mục cổ phiếu tăng trưởng", annualFee: "1.2%/năm", conditions: "Thời gian nắm giữ tối thiểu 30 ngày", disclosure: "Minh bạch danh mục định kỳ", isVisible: true, partner: { id: "part-1", name: "Dragon Capital", type: "OPEN_FUND" } },
+          ],
+          total: 1,
+          page: 1,
+          limit: 20
+        }
+      }
+    });
+  });
+
+  await page.route("**/api/v1/admin/settings/**", async route => {
+    const url = route.request().url();
+    if (url.includes("/logs/audit")) {
+      return route.fulfill({
+        json: {
+          data: {
+            items: [
+              {
+                id: "aud-001",
+                action: "UPDATE_SYSTEM_SETTINGS",
+                targetType: "SYSTEM_SETTINGS",
+                targetId: "sys-01",
+                performerName: "Lê Lan Anh",
+                performerEmail: "admin@demo.com",
+                ipAddress: "127.0.0.1",
+                createdAt: "2026-10-03T10:00:00.000Z",
+                details: null,
+              },
+            ],
+            total: 1,
+            page: 1,
+            limit: 20,
+          },
+        },
+      });
+    }
+    if (route.request().method() === "PUT") {
+      const body = route.request().postDataJSON();
+      return route.fulfill({ json: { data: body } });
+    }
+    if (url.endsWith("/settings/security")) {
+      return route.fulfill({ json: { data: { sessionTimeoutMinutes: 60, maxLoginAttempts: 5, accountLockMinutes: 15, passwordMinLength: 12, passwordRequireUppercase: true, passwordRequireLowercase: true, passwordRequireNumber: true, passwordRequireSpecial: true, admin2faRequired: true } } });
+    }
+    if (url.endsWith("/settings/notifications")) {
+      return route.fulfill({ json: { data: { emailEnabled: true, inAppEnabled: true, smsEnabled: false, notifyAccount: true, notifySupport: true, notifyFinancial: true, notifySystem: true } } });
+    }
+    return route.fulfill({
+      json: {
+        data: {
+          systemName: "An Hưu",
+          defaultLanguage: "Tiếng Việt",
+          operatingTimezone: "GMT+7 (Việt Nam)",
+          supportEmail: "hotro@anhuu.vn",
+          maintenanceMode: false,
+        },
+      },
+    });
+  });
+
   await page.route("**/api/v1/products**", async route => {
     await route.fulfill({
       json: {
@@ -340,7 +451,7 @@ export async function installRouteAuth(page: Page, userId = "USR-001") {
       profileRevision: 1,
       snapshotHash: "hash-mock",
       preview: {
-        status: "CALCULATED",
+        status: "READY",
         inputHash: "mock-hash",
         policy: { id: "pol-1", version: 1, hash: "p-hash" },
         assumptions: { id: "asm-1", version: 1, hash: "a-hash" },
@@ -423,7 +534,7 @@ export async function installRouteAuth(page: Page, userId = "USR-001") {
     });
   });
 
-  await page.route("**/api/v1/policies/**/preview-monthly", async route => {
+  await page.route(/(?:policies\/.*\/preview-monthly|me\/retirement\/preview)/, async route => {
     return route.fulfill({ json: { data: currentPlan.current.preview } });
   });
 

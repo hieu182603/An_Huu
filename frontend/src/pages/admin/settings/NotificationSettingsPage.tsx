@@ -43,6 +43,7 @@ export default function NotificationSettingsPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading || error || saving) return;
     setSaving(true);
     try {
       const updated = await authenticatedRequest<NotificationSettings>("/admin/settings/notifications", form, "PUT");
@@ -86,7 +87,7 @@ export default function NotificationSettingsPage() {
 
       {loading ? (
         <p style={{ padding: 20 }}>{isEn ? "Loading notification rules..." : "Đang tải cấu hình thông báo..."}</p>
-      ) : (
+      ) : error ? null : (
         <Card className="system-settings-card">
           <form onSubmit={handleSubmit} className="system-settings-form">
             <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 12px", color: "var(--color-primary-700)" }}>

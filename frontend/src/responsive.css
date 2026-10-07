@@ -176,6 +176,34 @@ img { max-width: 100%; }
     max-width: 100% !important;
     overflow-x: clip !important;
   }
+  .onboarding-topbar {
+    padding: 0 10px !important;
+    min-height: 60px !important;
+    gap: 6px !important;
+  }
+  .onboarding-skip-long {
+    display: none !important;
+  }
+  .onboarding-skip-short {
+    display: inline !important;
+  }
+  .onboarding-actions {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    min-height: auto !important;
+  }
+  .onboarding-actions > div {
+    display: flex !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 4px !important;
+  }
+  .onboarding-actions > .button {
+    width: 100% !important;
+    flex: none !important;
+  }
   .onboarding-content { width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; padding-inline: var(--space-4) !important; }
 
   /* Goal Page Reflow */
@@ -273,4 +301,16 @@ img { max-width: 100%; }
 
 @media (pointer: coarse) {
   .icon-button, .pagination button, .account-nav button, .user-sidebar nav a, .admin-nav a { min-height: 44px; min-width: 44px; }
+}
+
+/* Onboarding action bar on phones: one row — icon-only Back, Save & later, primary */
+@media (max-width: 767px) {
+  .onboarding-actions { flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 8px !important; }
+  .onboarding-actions > .onboarding-actions-start { width: auto !important; flex: 0 0 auto; }
+  .onboarding-actions > .onboarding-actions-start:empty { display: none !important; }
+  .onboarding-actions-start .button-secondary { min-width: 44px; padding-inline: 12px !important; }
+  .onboarding-back-label { display: none !important; }
+  .onboarding-actions > .onboarding-actions-end { flex: 1 1 auto; width: auto !important; justify-content: flex-end !important; gap: 4px !important; flex-wrap: nowrap !important; }
+  .onboarding-actions-end .onboarding-exit-btn { display: inline-flex !important; padding-inline: 8px !important; white-space: nowrap; }
+  .onboarding-actions-end > .button-primary { flex: 1 1 auto; min-width: 0; }
 }
