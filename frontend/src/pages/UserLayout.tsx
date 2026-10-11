@@ -1,3 +1,4 @@
+import "./user-readability.css";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Avatar, Badge, BrandLogo, Drawer, Icon, IconButton, Tooltip, useNotification, type IconName } from "../components/ui";
@@ -156,10 +157,10 @@ export default function UserLayout() {
               <span>{t("nav.profile_progress")}</span>
               <strong>{completenessPercentage}%</strong>
             </div>
-            <div className="progress-track" role="progressbar" aria-valuenow={completenessPercentage} aria-valuemin={0} aria-valuemax={100}>
+            <div className="progress-track" role="progressbar" aria-label={t("nav.profile_progress")} aria-valuenow={completenessPercentage} aria-valuemin={0} aria-valuemax={100}>
               <span style={{ "--progress": `${completenessPercentage}%` } as React.CSSProperties} />
             </div>
-            <small>{t("nav.demo_disclaimer")}</small>
+            <small>{language === "en" ? "Projections are indicative estimates." : "Số liệu dự phóng mang tính tham khảo."}</small>
           </div>
         )}
 
@@ -193,7 +194,7 @@ export default function UserLayout() {
                 className="topbar-search-input"
                 placeholder={t("topbar.search_placeholder")}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setSearchFeedback(""); }}
                 aria-label={t("common.search")}
               />
               <span className="topbar-search-shortcut">
@@ -295,6 +296,7 @@ export default function UserLayout() {
 
       {/* Wide Horizontal User Account & Settings Modal */}
       <UserAccountModal
+        key={user?.id}
         open={accountModalOpen}
         initialTab={accountModalTab}
         onClose={() => setAccountModalOpen(false)}

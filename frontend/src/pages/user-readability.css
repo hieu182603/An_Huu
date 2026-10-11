@@ -1,0 +1,12 @@
+.user-dashboard-shell .user-sidebar nav a,
+.user-dashboard-shell .user-sidebar nav button { font-size: 14px; }
+.user-dashboard-shell .user-topbar .icon-button,
+.user-dashboard-shell .user-topbar .topbar-action-btn { min-width: 44px; min-height: 44px; }
+.mobile-navigation a { min-height: 48px; font-size: 16px; }
+@media (max-width: 767px) {
+  .user-dashboard-shell .user-mobile-nav { height: calc(96px + env(safe-area-inset-bottom)); }
+  .user-dashboard-shell .user-mobile-nav a,
+  .user-dashboard-shell .user-mobile-nav button { min-height: 84px; font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; }
+  .user-dashboard-shell .dashboard-main { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+  html:has(.user-dashboard-shell) { scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
+}

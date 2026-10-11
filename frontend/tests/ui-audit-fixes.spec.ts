@@ -80,7 +80,7 @@ test("registration OTP dialog has a name, traps focus and closes with Escape", a
   expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
-  await expect(trigger).toBeFocused();
+  await expect(page.locator("#register-email")).toBeFocused();
 });
 
 test("changing support category returns pagination to page one", async ({ page }) => {

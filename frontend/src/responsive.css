@@ -76,7 +76,7 @@ img { max-width: 100%; }
   .dashboard-insight-grid .recent-activity { grid-column: 1 / -1; }
   .plan-result-hero { grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr); }
   .plan-progress-panel { padding: 20px; }
-  .plan-progress-ring { width: 200px; height: 200px; }
+  .plan-progress-ring { width: min(100%, 300px); }
   .simulation-layout { grid-template-columns: minmax(0, 1fr); }
   .simulation-controls { position: static; }
   .simulation-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }

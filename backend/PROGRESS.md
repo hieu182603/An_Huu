@@ -1,5 +1,15 @@
 # Tiến độ triển khai backend An Hưu
 
+## Hiện hành — 08/10/2026: bộ nạp toàn bộ chờ duyệt, chưa ghi DB thật
+
+User yêu cầu đọc lại seed cũ, tái sử dụng dữ liệu và chuẩn bị một file nạp toàn bộ; dữ liệu quan trọng phải có nguồn thật, chỉ nạp DB thật sau khi user duyệt. Đã đọc seed-azure.cjs/seed.cjs/generate-demo-data.cjs, references và corpus; chụp 400 bản ghi/40 bảng qua transaction READ ONLY. Mới `scripts/prepare-reviewed-dataset.cjs` (capture read-only/build offline), `scripts/verify-reviewed-dataset.cjs` (owned Docker only), `seed-data/reviewed-references-20261008.json`. File riêng tư `seed-data/seed-datafull.sql` chứa toàn bộ 40 bảng, 400 rows sau sửa/bổ sung; không reset/delete, chặn thiếu approval code/DB không trống/migration lệch. Giữ tài khoản, credential, JSON hồ sơ, legacy và tiền; sửa ngày metadata/enum/category; thay các bài thiếu căn cứ bằng draft có nguồn; 7 knowledge nguồn thật, lexical hashes, chưa approved; 8 legal drafts từ corpus hiện có. Giả định seed chưa xác minh về DRAFT; catalog ẩn, không nhận lợi suất seed là thật. Không tạo actual/BHXH/plan giả để lấp bảng.
+
+**Bản cuối 16/16 nhóm kiểm PostgreSQL PASS; 132 legal golden cases PASS**. Import chính SQL, round-trip mọi trường400rows, bảo toàn dữ liệu gốc trong phạm vi giữ nguyên, atomic rollback khi lỗi cuối, thiếu/saiapproval/migration/nonempty/rerun bị chặn, service reads50profile/goal, knowledge/review guards; container đã dọn. Hai lỗi verifier ban đầu (so sánh JSON/timezone và chờ PostgreSQL khởi động) đã sửa; final rerun đạt. Corpus generate --check đạt8draft/15nguồn. SQL SHA256 `0a49dae72c5673ef930ed05727015766ec4b5fab78db86726a52cac8edb3dc39`. Không chạy browser/full backend suite vì không sửa runtime. Không credential hoặc bản xuất DB được đưa vào Git.
+
+Theo yêu cầu đặt tên file: đã chuyển nguyên byte sang `backend/seed-data/seed-datafull.sql`, cập nhật builder/verifier và Git ignore; SHA256 không đổi. Người dùng tự chạy sau; chưa nạp DB thật.
+
+Review đầy đủ: `docs/data-package-review-2026-10-08.md`. **Bước tiếp theo: chờ user duyệt nội dung gói; không tự nạp/reset/chuyển DB thật.** Gói dùng DB đích trống đã migrate; trước cutover phải đối chiếu phần phát sinh sau snapshot và giữ đường phục hồi. Pháp lý độc lập, nội dung/cấu hình công bố, dữ liệu actual/BHXH thật và production cutover vẫn chưa hoàn tất.
+
 ## Hiện hành — 07/10/2026: T17 race xuyên nhánh BHXH (Docker tạm)
 
 Mới `scripts/verify-pension-races-db.cjs`: bộ quy định PUBLISHED bị trigger cấm sửa/xóa nên KHÔNG commit fixture lên DB thật; script chạy PostgreSQL pgvector Docker tạm (nhãn riêng, cổng 127.0.0.1), migrate deploy 0001–0013 qua prepare-test-db, không đọc .env; container bị xóa cuối lượt. Hai PrismaClient + barrier xác nhận hai pg_backend_pid khác nhau mỗi race.

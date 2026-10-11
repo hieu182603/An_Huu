@@ -208,8 +208,8 @@ export async function listActualMonths(from: string, to: string): Promise<Actual
   );
 }
 
-export async function getActualMonth(period: string): Promise<ActualMonthDetail> {
-  return authenticatedRequest<ActualMonthDetail>(`/me/retirement/actuals/${encodeURIComponent(period)}`);
+export async function getActualMonth(period: string, fresh = false): Promise<ActualMonthDetail> {
+  return authenticatedRequest<ActualMonthDetail>(`/me/retirement/actuals/${encodeURIComponent(period)}`, undefined, "GET", undefined, { skipCache: fresh });
 }
 
 export async function writeActualMonth(

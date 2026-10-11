@@ -1,5 +1,334 @@
 # Task frontend — An Hưu
 
+**Dọn sau task (yêu cầu 11/10):** cập nhật tiến độ chung, không tạo báo cáo audit riêng cho mỗi lượt. Dọn tệp tạm/ảnh trùng; minh chứng cần giữ gom lưu trữ. Giữ kiểm thử hồi quy, kế hoạch đang dùng và đầu ra mới của công việc khác. Xem [tiến độ UI](ui-screen-audit-2026-10-08.md).
+
+## BÀN GIAO CHO AI TIẾP THEO — Hoàn thiện UI đang làm dở, 11/10/2026
+
+**Trạng thái (Cập nhật đêm 11/10/2026):** Đã hoàn tất xử lý và nghiệm thu toàn bộ các hạng mục tồn đọng theo nguyên tắc /ponytail:
+- **Nút Quay lại Onboarding mobile:** Đã thêm thuộc tính `aria-label` trực tiếp trên component `Button` và `OnboardingPage.tsx`, giải quyết triệt để lỗi mất accessible name khi `.onboarding-back-label` bị ẩn bởi CSS trên màn hình hẹp (390x844, 390x400). Đạt **5/5 tests** `onboarding-readability.spec.ts`.
+- **Trợ lý AI:** Đã xác minh `processingNotice` từ server được giữ nguyên vẹn không tự ý suy diễn cam kết bảo mật; cơ chế khóa gửi khi tải/lỗi quyền xử lý và nút thử lại hoạt động chính xác. Đạt **14/14 tests** `assistant-detail-fixes.spec.ts`.
+- **Mục tiêu & Điều hướng:** Đã nghiệm thu nhãn “Tuổi kết thúc kế hoạch” không gây hiểu nhầm về tuổi thọ, dòng tiền và reflow 200%. Đạt **16/16 tests** `goal-detail-fixes.spec.ts` và **21/21 tests** `dashboard-detail-fixes.spec.ts`.
+- **Bảng Kế hoạch:** Đã nghiệm thu tăng cỡ chữ 14px, căn phải 10 cột số liệu với `tabular-nums`, modal xác nhận áp dụng độc lập, CSV preview. Đạt **32/32 tests** `plan-detail-fixes.spec.ts`.
+- **Chất lượng toàn diện:** `npm run typecheck` (0 lỗi), `npm run test:assets` (59/59 passed), `npm run build` (dist sẵn sàng).
+
+### Prompt giao việc
+
+Hãy tiếp tục hoàn thiện giao diện An Hưu trong `E:/An_Huu` theo `docs/ui-friendly-implementation-plan-2026-10-11.md` và kết quả review RV-01 đến RV-06 ở `docs/ui-screen-audit-2026-10-08.md`. Người dùng muốn UI dễ đọc, dễ hiểu và dễ bấm. Làm từng màn/nhóm popup; sửa và kiểm nhóm đó rồi mới chuyển tiếp, không chạy tất cả màn cùng lúc. Được phép sửa trực tiếp, không chỉ lập kế hoạch. Không tự thêm công thức, đổi dữ liệu/payload tài chính, backend hoặc quy trình xem trước → lưu → áp dụng. Không thêm cam kết bảo mật hay số liệu nghiên cứu chưa có căn cứ. Điều khoản dịch vụ/chính sách bảo mật chưa có: bỏ qua theo yêu cầu người dùng.
+
+Workspace có nhiều thay đổi chưa commit từ nhiều công việc. Đọc mã hiện tại trước khi sửa; không reset/checkout toàn repo, không đè thay đổi khác, không suy toàn bộ git diff là do lượt này. Các lỗi RV là kết quả review trước sửa; cần kiểm lại, không mặc định vẫn còn nguyên.
+
+### Phần đã viết mã, cần giữ và kiểm hoàn tất
+
+- **RV-01 — Tổng quan thiếu dữ liệu:** `frontend/src/services/profileDisplay.ts` mới kiểm trạng thái KNOWN/UNKNOWN/NOT_APPLICABLE và từng khoản con. `UserDashboard.tsx` không hiển thị thặng dư khi thiếu thu/chi/trả nợ; hiển thị “Chưa khai báo” và đường dẫn bổ sung. Tài sản/nợ/tài sản ròng/biểu đồ cũng được chặn khi thiếu dữ liệu liên quan. `RetirementGoalPage.tsx` dùng cùng kiểm tra cho dòng tiền có thể tích lũy. Không đổi phép tính hoặc adapter lưu trữ. Cần kiểm cả KNOWN 0, không có nợ, khoản con UNKNOWN, dữ liệu âm hợp lệ và hồ sơ legacy.
+- **RV-03 — Bố cục Tổng quan:** thay hero lớn bằng tiêu đề/lời chào gọn, chuyển biểu đồ xuống sau thu chi, sửa tiêu đề lặp phiên bản; thêm `frontend/src/pages/dashboard-readability.css`. Giữ cảnh báo hồ sơ cũ và kết quả thuộc bản đã lưu.
+- **RV-04/RV-05 — Mục tiêu/bảng:** trong `index.css`, nhãn tóm tắt Mục tiêu 14 px, số tiền 16 px; `MonthlyCashflowTable.tsx` tăng chữ và cảnh báo lên 14 px. Đổi nhãn/validation/tên truy cập thành “Tuổi kết thúc kế hoạch”, có giải thích không phải dự đoán tuổi thọ; giữ validation và giá trị hiện có.
+- **RV-02/RV-06 — Trợ lý:** `AIAssistantPage.tsx` thêm trạng thái tải quyền xử lý, chặn cả Enter/nút gửi lúc tải/lỗi/chưa có quyền, giữ nháp và nút thử lại cạnh ô soạn; nêu rõ chưa kết nối AI ngoài cả khi chưa có kế hoạch. Vùng thông báo thử lại đã được sửa `pointer-events: auto` vì wrapper composer chặn pointer. Thay đổi cuối cùng: bỏ việc thay tên nhà cung cấp trong `processingNotice`, giữ nguyên thông báo từ server và bỏ lời cam kết bảo mật suy diễn ở fallback. **Thay đổi cuối này chưa build/test lại.**
+- **UI-06 — Onboarding:** `OnboardingPage.tsx` + `onboarding-readability.css` thêm 3 chặng trình bày trên các bước sẵn có, giải thích mục đích hỏi, nhắc “Lưu & làm sau” khi chưa biết số liệu, nhãn tuổi cần để hoàn tất; tăng chữ/vùng nhập, bỏ thời gian “khoảng 5 phút” chưa đo. Không đổi số bước hoặc payload. Đang có lỗi kiểm tra trên mobile bên dưới.
+- **UI-08 — Điều hướng:** `UserLayout.tsx` import `user-readability.css`; nhãn sidebar 14 px, vùng icon 44 px, menu di động 14 px/cao 96 px và tăng khoảng trống cuối nội dung. **Cần kiểm lại việc che nội dung/ô soạn/nút cuối, đặc biệt 390×400.** Chưa thêm tùy chọn cỡ chữ vì đây là hạng mục cân nhắc, không bắt buộc.
+- Kiểm thử hồi quy đã bổ sung trong `dashboard-detail-fixes.spec.ts`, `goal-detail-fixes.spec.ts`, `assistant-detail-fixes.spec.ts`; thêm `onboarding-readability.spec.ts`. `financial-profile.spec.ts` cập nhật vị trí lời chào sau khi đổi header. Ảnh của ba spec đầu đã chuyển vào `test.info().outputPath(...)` để không ghi đè minh chứng cũ.
+
+### Việc phải làm tiếp, theo thứ tự
+
+1. **Sửa khả năng truy cập nút Quay lại của onboarding mobile.** Lượt mới nhất: 1440×1000 và 768×1024 đạt; 390×844 và 390×400 timeout vì không tìm thấy `getByRole('button', {name:'Quay lại', exact:true})` sau reload ở bước Thu nhập. Snapshot vẫn ở Bước 2/7 và có một `button` không tên trước “Lưu & làm sau”/“Tiếp tục”. Khả năng cao CSS ẩn `.onboarding-back-label` làm nút chỉ còn icon không tên. Kiểm lại rồi bổ sung accessible name đúng VI/EN, đừng chỉ đổi test sang nút không tên. Chạy đủ 5 ca `onboarding-readability.spec.ts`; ca lỗi lưu/thử lại chưa chạy vì max-failures=2. Kiểm tiến/lùi/reload giữ tuổi 45, không bỏ assertion.
+2. **Hoàn tất kiểm Trợ lý.** Lần gần nhất 13/14 đạt; ca thử lại lỗi privacy đã bấm được nút nhưng bộ đếm request vẫn 0 do route mock `/ai/explain` được đăng ký trước `setupAssistant`, bị mock trong helper ghi đè. Đã chuyển route sau setup nhưng **chưa chạy lại**. Đã thêm assert giữ nguyên tên nhà cung cấp trong popup đồng ý và fixture `processingNotice`; cần build mới trước khi chạy. Nếu còn lỗi, phân biệt lỗi mock với app; phải chứng minh lúc tải/lỗi không gửi, nháp còn nguyên, retry thành công mới gửi đúng một lần, chưa đồng ý/cần đồng ý lại vẫn bị chặn. Xem thêm trạng thái lỗi trên mobile và bàn phím.
+3. **Kiểm lại Mục tiêu và điều hướng sau sửa.** Mục tiêu trước đó 15/16 đạt; một ca còn tìm tên nút cũ “Tăng 1 tuổi thọ”, đã sửa selector thành “Tăng 1 tuổi kết thúc kế hoạch” nhưng chưa chạy lại. Chạy spec 16 ca, xem ảnh bốn viewport/reflow. Tổng quan đã đạt 21/21 trước khi đổi CSS điều hướng; chỉ cần chạy lại nhóm layout/menu/popup và ca ưu tiên thông tin vì phần dùng chung vừa đổi, không lặp toàn bộ vô cớ. Kiểm số tiền không bị cắt, vùng bấm, Tab/Shift+Tab/Escape và trả focus.
+4. **Nghiệm thu phần bảng Kế hoạch vừa tăng chữ.** Chạy các ca CSV/đổi năm, bố cục bảng, lịch sử/xác nhận áp dụng trong `plan-detail-fixes.spec.ts`, kiểm cuộn trong bảng thay vì tràn cả trang, cảnh báo thiếu tiền đọc được; kiểm bản đang xem/đang dùng. Không đổi công thức thanh bao phủ hoặc làm lại popup ngang đã sửa. Popup BHXH/lịch sử đã có các ca nghiệm thu trước đó trong tệp tiến độ, nhưng không dùng chúng để khẳng định mọi form khoản vay/nguồn đã xong.
+5. **Đối chiếu phần còn lại của kế hoạch hiện hành**, lần lượt UI-04a thử kịch bản, UI-04b sổ tháng và từng form UI-05. Đã có thay đổi và test từ lượt khác; xác minh thực tế trước khi sửa. Không gộp phần UI này với nghiệp vụ chưa làm như 09d-3d lịch trả chi tiết. Các form còn chữ 10–12 px/ô 30–34 px cần kiểm ngay trên đúng form trước khi đổi. Không coi căn phải bảng hoặc build đạt là đã hoàn tất cả nhóm.
+6. Cuối cùng typecheck/build, kiểm chọn lọc phần ảnh hưởng, xem ảnh thật sau sửa; ghi đạt/chưa đạt và giới hạn vào tệp tiến độ chung. Chỉ đánh dấu mục nào có bằng chứng; dữ liệu mock không chứng minh DB/production hay usability với người thật. Không công bố “hoàn tất toàn bộ” khi các mục trên còn mở.
+
+### Cách chạy và bằng chứng tại lúc bàn giao
+
+- `npm --prefix frontend run typecheck` và `npm --prefix frontend run build` đã đạt sau khi thêm UI-06/UI-08 và sửa pointer của nút thử lại, **trước** thay đổi cuối `processingNotice`. Không gọi đây là kết quả của mã cuối cùng.
+- Test browser dùng preview dist với API giả lập; mọi `/api` không được mock đều bị chặn, không chạm DB thật. Có cấu hình tạm `frontend/.finish-ui.config.ts` và `frontend/tests/.finish-preview.ts` dùng port **8559**, tránh chiếm port 8444 của công việc khác. Tất cả lượt test do lượt này khởi chạy đã kết thúc tại lúc bàn giao; không dừng tiến trình khác.
+- PowerShell, từ thư mục `frontend`: đặt `$env:PLAYWRIGHT_BROWSERS_PATH='C:\Users\os\AppData\Local\ms-playwright'`, rồi chạy **một spec/nhóm mỗi lượt**, ví dụ `npx playwright test tests/onboarding-readability.spec.ts --config .finish-ui.config.ts --output test-results-ui-finish-onboarding --reporter=line --timeout=30000 --max-failures=2`. Build dist trước nếu đã sửa mã app. Dùng `--grep` để chọn nhóm hồi quy cần thiết, không dùng danh sách tất cả spec.
+- Các thư mục `frontend/test-results-ui-finish-dashboard`, `...-goal`, `...-assistant`, `...-onboarding` là đầu ra của task này, đang giữ để AI tiếp theo xem lỗi/ảnh. Không coi `.last-run.json` của lượt bị dừng sớm là kết quả đầy đủ; onboarding thực tế **2 đạt, 2 lỗi mobile, 1 chưa chạy**.
+- Khi hoàn tất, dọn đúng bốn thư mục đầu ra cùng hai tệp cấu hình/preview tạm nêu trên sau khi ghi kết quả. Giữ source, spec hồi quy và minh chứng của công việc khác. Không tạo thêm báo cáo audit riêng, không xóa cả `artifacts` hoặc file chỉ vì có chữ audit.
+
+## FE-UX — Nâng cấp giao diện thân thiện người dùng, 09/10/2026 (lịch sử; ưu tiên kế hoạch 11/10 và bàn giao trên)
+
+**Nguồn:** [Kế hoạch UI hiện hành](ui-friendly-implementation-plan-2026-10-11.md); phân tích W1–W10 và ảnh cũ đã gom trong [lưu trữ audit](../artifacts/ui-audit-history-2026-10-11.zip). Phạm vi: khu `/user/*`, `/onboarding`, popup BHXH. Admin và marketing không thuộc đợt này.
+
+**Quy tắc chung cho mọi task FE-UX:**
+- Chỉ đổi trình bày, ngôn ngữ, bố cục và điều hướng. **Không** đổi payload API, phép tính, Decimal, idempotency, xử lý 409/422 hay vòng đời preview/save/apply hiện có. Task nào cần backend đều ghi rõ "Phụ thuộc BE"; khi chưa có API thì không giả lập ở UI.
+- Giữ song ngữ: chuỗi đang viết inline dạng `language === "en" ? … : …` thì sửa cả hai nhánh. Chuỗi mới nên đưa vào `i18n/translations`.
+- Không xóa các test hiện có. Selector thay đổi thì cập nhật test, không bỏ assert.
+- Mỗi task chụp lại ảnh **sau sửa** ở 1440×1000, 768×1024, 390×844 và 390×400, lưu tại `artifacts/ui-ux-2026-10-09/<task-id>-<màn>-<kích thước>.png`.
+- Mỗi task phải PASS `npm --prefix frontend run typecheck`, `build` và các spec Playwright liên quan.
+- Thứ tự làm: FE-UX-0 → FE-UX-1 → FE-UX-2 → FE-UX-3 → FE-UX-4; FE-UX-5 làm song song. Trong mỗi nhóm có thể làm theo thứ tự đánh số.
+
+### FE-UX-0 · Ngôn ngữ và thuật ngữ (W3)
+
+**FE-UX-0.1 — Lập bảng thuật ngữ `docs/glossary-ui.md`**
+- [ ] Mỗi dòng có 4 cột: *mã nội bộ | nhãn VI | nhãn EN | tooltip VI 1 câu*. Tối thiểu gồm:
+
+| Mã nội bộ | Nhãn VI | Tooltip VI |
+|---|---|---|
+| closingBalance | Số dư quỹ cuối tháng | Số tiền dự kiến còn trong quỹ hưu vào cuối tháng đó |
+| requiredClosingBalance | Số dư cần có | Số dư tối thiểu để đủ chi tiêu đến hết tuổi thọ dự kiến |
+| (A) / quỹ dự kiến | Quỹ dự kiến lúc nghỉ hưu | — |
+| (K) / vốn cần chuẩn bị | Quỹ cần đạt | — |
+| PV | Theo giá hôm nay | — |
+| FV | Theo giá lúc nghỉ hưu | Đã cộng trượt giá đến năm nghỉ hưu |
+| whatIf / WhatIf Scenario | Kịch bản thử | — |
+| FORECAST | *(bỏ, dùng "Dự phóng")* | — |
+| Kế hoạch chính thức / bản áp dụng | Kế hoạch đang dùng | — |
+| preview / bản xem trước | Bản nháp | — |
+| T08 What-if | *(bỏ badge)* | — |
+| TEST_ONLY (vN) | Bộ quy tắc thử nghiệm | Chỉ hiện khi môi trường không phải production |
+| rN (revision lịch sử BHXH) | "Cập nhật lần N, ngày dd/mm/yyyy" | — |
+| DTI | Tỷ lệ nợ/thu nhập | — |
+
+**FE-UX-0.2 — Thay chuỗi hiển thị theo bảng thuật ngữ**
+- [ ] `components/charts/MonthlyRetirementChart.tsx:322`: chú thích biểu đồ bỏ "(closingBalance)" và "(requiredClosingBalance)".
+- [ ] `pages/UserDashboard.tsx:261`: bỏ badge "Giả định whatIf"; thay bằng nội dung FE-UX-2.1.
+- [ ] `UserDashboard`: sửa tiêu đề lặp "Kế hoạch chính thức v1 v1" và "(Phiên bản v1) (v1)" thành `Kế hoạch đang dùng · bản 1`. Bỏ chuỗi "Dự phóng kế hoạch (FORECAST): …".
+- [ ] `SimulationTrackingPage`: bỏ "(A)", "(K)", "T08 What-if" khỏi nhãn hiển thị.
+- [ ] `RetirementGoalPage`: "Chi tiêu hôm nay (PV)" → "Chi tiêu theo giá hôm nay"; "(FV)" → "Chi tiêu theo giá lúc nghỉ hưu".
+- [ ] `SocialInsuranceModal`: "TEST_ONLY (v1)" và "lịch sử đã lưu r2" đổi theo bảng thuật ngữ.
+- [ ] Các thuật ngữ tài chính còn lại (bao phủ, thiếu hụt, tài sản ròng, DTI, lạm phát) dùng `<Tooltip>` từ `components/ui.tsx:448` với nội dung lấy từ bảng thuật ngữ.
+- **Nghiệm thu:** `grep -rnE "closingBalance\)|whatIf\"|FORECAST|\(A\)|\(K\)|T08 What-if|TEST_ONLY \(" frontend/src --include=*.tsx` không còn kết quả nằm trong chuỗi hiển thị. Tên biến trong code giữ nguyên.
+
+### FE-UX-1 · Sửa nhanh có tác động lớn (W2, W4, W5, W6, W7)
+
+**FE-UX-1.1 — Component `<Money>` và định dạng tiền thống nhất (W6)**
+- [ ] Tạo `components/Money.tsx` gồm `value: number | string (Decimal)`, `mode: "full" | "compact"` (mặc định `full`), `perMonth?: boolean`, `tone?: "default" | "positive" | "negative" | "muted"`.
+- [ ] Dùng lại `utils/currency.ts` (`formatCompactVND`, `formatFullVND`). Bổ sung 2 điểm:
+  - Compact hiển thị 2 chữ số thập phân khi < 10 tỷ ("2,23 tỷ"); "tr" đổi thành "triệu".
+  - Khi value là chuỗi Decimal: **không** ép qua `Number` nếu chuỗi vượt `Number.MAX_SAFE_INTEGER`. Trường hợp đó hiển thị dạng full từ chuỗi gốc.
+- [ ] Font: dùng font chữ của hệ thống (Be Vietnam Pro hoặc Inter) với `font-variant-numeric: tabular-nums`. **Bỏ** font kiểu monospace và bỏ gạch chân "đ". Ký hiệu thống nhất là "₫" hoặc "đ"; chọn một và ghi vào `docs/design-system.md`.
+- [ ] Compact có `title` / `aria-label` chứa số đầy đủ.
+- [ ] Quy tắc dùng:
+  - Thẻ KPI, trục biểu đồ và hero dùng `compact`.
+  - Bảng, form, CSV, xác nhận áp dụng và chứng từ dùng `full`.
+- [ ] Thay toàn bộ cách hiển thị tiền tự viết trên 6 màn chính (Tổng quan, Mục tiêu, Kế hoạch, Mô phỏng, Nợ, Rủi ro). Bỏ cách viết "2,2 T đ" ở `AssetDonutChart` và "5 / Tỷ đồng" tách dòng ở panel Mục tiêu.
+- **Nghiệm thu:**
+  - Unit test cho `0`, `999_999`, `1_000_000`, `12_345_678`, `2_230_000_000`, `-2_000_000_000` và chuỗi `"123456789012345678"`.
+  - Ảnh chụp không còn số dạng monospace.
+  - Ở 390 px không có số tiền nào bị xuống dòng giữa số và đơn vị (dùng `white-space: nowrap` trên cụm số).
+
+**FE-UX-1.2 — Component `<PendingValue>` thay mọi "Chưa xác định" (W2)**
+- [ ] Tạo component với `reason: string` (1 câu, đời thường), `action?: { label; to | onClick }`, `size: "kpi" | "inline"`.
+  - Giao diện: chữ cỡ thường màu `--color-text-muted`, icon ⓘ, rồi đến lý do. Có action thì hiện link-button.
+  - **Không** dùng cỡ chữ của KPI lớn.
+- [ ] Thay 13 chỗ "Chưa xác định" trong `UserDashboard`, `RetirementPlanPage`, `SimulationTrackingPage`, `FinancialProfilePanel`, `PlanVersionDrawer` và `SocialInsuranceModal`. Mỗi chỗ phải có lý do cụ thể theo dữ liệu đang thiếu:
+  - Thiếu chuỗi giả định vĩ mô → "Hệ thống chưa có số liệu lạm phát/lãi suất chính thức để tính chỉ số này." Không có action phía người dùng; **không** đổ lỗi cho người dùng.
+  - Chưa hoàn tất khảo sát rủi ro → action "Hoàn tất khảo sát" dẫn đến `/user/risk-portfolio`.
+  - Chưa có kế hoạch đang dùng → action "Tạo kế hoạch" dẫn đến `/user/plan`.
+  - Không có kỳ đóng góp đủ điều kiện → "Chưa còn tháng nào để góp trước mốc nghỉ hưu." Action "Đổi tuổi nghỉ hưu" dẫn đến `/user/goal`.
+- [ ] Đồng hồ "Mức độ bao phủ" (Kế hoạch) và ô "Tỷ lệ bao phủ" (Mô phỏng): khi chưa có giá trị thì **ẩn kim và vòng cung**, hiện `PendingValue`.
+- [ ] Ô chữ đang hiển thị như giá trị ("Theo từng năm", "Theo danh mục" ở Mục tiêu bước 03) đổi về cỡ chữ mô tả và thêm link "Xem giả định" dẫn tới Kế hoạch.
+- **Nghiệm thu:** với hồ sơ mẫu của test, không còn chữ "Chưa xác định" ở cỡ chữ ≥ 20 px. Mỗi `PendingValue` có lý do, và có action khi người dùng thực sự xử lý được.
+
+**FE-UX-1.3 — Gộp cảnh báo thành một khối "Cần xử lý" (W4)**
+- [ ] Tạo `components/ActionCallout.tsx`:
+  - Nhận `items: { id; severity: "danger" | "warning" | "info"; title; body?; action? }[]`.
+  - Sắp theo severity. Mặc định hiện 1 mục đầu và "Xem thêm n mục"; nút thu gọn có `aria-expanded`.
+- [ ] `RetirementPlanPage` hiện có 19 `Alert`. Các `Alert` nghiệp vụ trong khoảng dòng 419–507 và 600–614 gộp vào **một** `ActionCallout` đặt dưới tiêu đề trang.
+  - Gồm: dự phóng ngắn hơn tuổi thọ, câu trả lời rủi ro tham khảo, lưu ý nghiệp vụ, yêu cầu vốn đầu kỳ, không có kỳ đóng góp.
+  - Lỗi tải hoặc lỗi tính (`plansError`, `policyError`, `previewStatus === "error"`) **giữ riêng** dạng `Alert` có nút thử lại, vì đây là lỗi hệ thống chứ không phải việc của người dùng.
+- [ ] Áp dụng cách tương tự cho `SimulationTrackingPage` (27 `Alert`), `RetirementGoalPage` (10) và `UserDashboard` (7). Mỗi màn tối đa 1 `ActionCallout` cộng với các lỗi hệ thống.
+- **Nghiệm thu:** màn Kế hoạch ở 1440×1000 hiển thị con số chính (quỹ cần đạt) trong màn hình đầu tiên, không phải cuộn. Không mất nội dung cảnh báo nào: test kiểm đủ các id trong callout.
+
+**FE-UX-1.4 — Thứ bậc nút: mỗi màn đúng 1 nút chính (W4, W8)**
+- [ ] Kế hoạch (`RetirementPlanPage.tsx:686–713`), giữ đúng vòng đời save/apply hiện có:
+  - **Nút chính** theo trạng thái: chưa lưu thì "Lưu bản này"; đã lưu nhưng chưa áp dụng thì "Áp dụng làm kế hoạch đang dùng".
+  - Nút phụ: "Lịch sử (n)".
+  - "Ước tính BHXH" chuyển thành link trong thẻ lương hưu, không nằm cạnh save/apply.
+- [ ] Mục tiêu (`RetirementGoalPage.tsx:803–812`): nút chính "Xem kế hoạch với mục tiêu này →"; "Giữ để thử trong phiên" chuyển thành nút phụ. Sau FE-UX-2 nút này sẽ bị bỏ.
+- [ ] Mô phỏng: nút chính "Áp dụng kịch bản này". "Đặt lại thông số ban đầu" dùng icon ↺ (`rotate-left`) thay icon thùng rác và đổi kiểu sang nút chữ.
+- [ ] Ghi quy tắc vào `docs/design-system.md`: 1 `Button variant="primary"` mỗi vùng hành động; hành động hủy/xóa dùng `danger`; nút điều hướng dùng link.
+- **Nghiệm thu:** trong mỗi vùng hành động của 6 màn chính chỉ có ≤ 1 nút primary đang hiển thị (đếm bằng Playwright).
+
+**FE-UX-1.5 — Sửa biểu đồ (W5)**
+- [ ] `ProjectionWealthChart` (Tổng quan):
+  - Trục Y tự co theo max(dữ liệu, mục tiêu) × 1,1.
+  - Vẽ **đường ngang mục tiêu** có nhãn "Quỹ cần đạt: 5 tỷ".
+  - Tô vùng thiếu hụt giữa đường dự phóng và mục tiêu tại tuổi nghỉ hưu.
+  - Trục X không bị khuyết nhãn: hiện bị trống quãng 2040.
+- [ ] Khi dữ liệu dự phóng chỉ phủ một phần khoảng đã chọn: hiện chú thích "Dự phóng hiện có đến năm YYYY" và cắt trục X tới điểm cuối có dữ liệu cộng thêm đường mục tiêu. Không để 80% biểu đồ trống.
+- [ ] `MonthlyRetirementChart` (Kế hoạch):
+  - Kiểm tra lại scale: ảnh 08/10 chỉ có 1 cột ở 2026-03, các cột sau trống.
+  - Mặc định gộp theo năm; tooltip hiện "Số dư quỹ cuối tháng" và "Số dư cần có".
+- [ ] `AssetDonutChart`: kiểm tra vì vùng donut trống trong ảnh 08/10. Nhãn tâm dùng `<Money mode="compact">`. Lát < 3% gộp thành "Khác".
+- [ ] Mọi biểu đồ có `role="img"` + `aria-label` tóm tắt 1 câu, cộng với bảng số liệu ẩn cho trình đọc màn hình. Có trạng thái rỗng riêng thay vì khung trống.
+- **Nghiệm thu:** ảnh chụp 3 biểu đồ với hồ sơ mẫu không có vùng trống > 30% diện tích vẽ. Đường mục tiêu xuất hiện ở Tổng quan và Kế hoạch.
+
+**FE-UX-1.6 — Xóa mâu thuẫn và lặp lại (W7)**
+- [ ] Mô phỏng: badge "KHÔNG THIẾU HỤT DỰ PHÒNG" chỉ hiện khi tỷ lệ bao phủ đã xác định và ≥ 100%. Nếu chưa xác định thì không hiện badge kết luận.
+- [ ] Mô phỏng, bảng so sánh: khi chưa có kế hoạch đang dùng, thay cột "Kế hoạch hiện tại" (đang lặp "Chưa có bản áp dụng" 6 lần) bằng **một** dòng `PendingValue` phía trên bảng. Bảng chỉ còn 2 cột: Chỉ số | Kịch bản.
+- [ ] Kế hoạch: tiêu đề "Cần bổ sung vốn" và thẻ "Khoảng thiếu hụt" phải thống nhất với callout. Nếu không có kỳ đóng góp thì không hiện "Mức góp cần thiết".
+- [ ] Tổng quan: không hiện đồng thời badge "Hồ sơ đã lưu" và cảnh báo "Hồ sơ đã thay đổi so với kế hoạch". Chỉ giữ cảnh báo; FE-UX-2.1 sẽ thay bằng thanh trạng thái.
+- [ ] Badge "Chưa khai báo" (thẻ BHXH ở Tổng quan) không được xuống dòng: dùng `white-space: nowrap` hoặc rút gọn thành "Chưa có".
+
+### FE-UX-2 · Đơn giản mô hình trạng thái kế hoạch (W1)
+
+> **Phụ thuộc BE:**
+> - (a) API lưu **bản nháp** mục tiêu/kịch bản phía server và API trả **khác biệt bản nháp ↔ kế hoạch đang dùng**. Backend sẽ bổ sung section contract riêng trong file này khi xong.
+> - (b) Seed chuỗi giả định vĩ mô đã phê duyệt.
+>
+> Trước khi có (a), chỉ làm 2.1 và 2.4 bằng dữ liệu hiện có; **không** dùng localStorage để giả lập bản nháp.
+
+**FE-UX-2.1 — `PlanStatusBar` dùng chung**
+- [ ] Tạo `components/retirement/PlanStatusBar.tsx` và gắn dưới `PageHeader` của Tổng quan, Mục tiêu, Kế hoạch và Mô phỏng.
+- [ ] Hiển thị theo trạng thái:
+
+| Trạng thái | Nội dung | Hành động |
+|---|---|---|
+| Chưa có kế hoạch | "Bạn chưa có kế hoạch nghỉ hưu" | [Tạo kế hoạch] |
+| Đang dùng, khớp hồ sơ | "Kế hoạch đang dùng: bản N · cập nhật dd/mm/yyyy" | [Lịch sử] |
+| Hồ sơ đã đổi sau khi áp dụng | "Hồ sơ của bạn đã thay đổi từ dd/mm — kế hoạch có thể chưa chính xác" | [Cập nhật kế hoạch] |
+| Có bản nháp chưa áp dụng (sau BE) | "Bạn có thay đổi chưa áp dụng" | [Xem khác biệt] [Áp dụng] |
+
+- [ ] Thanh trạng thái thay cho các badge/cảnh báo rời: "Hồ sơ đã lưu", "Đang áp dụng", "Giả định whatIf", hộp "Hồ sơ đã thay đổi" ở panel Mục tiêu, và nhãn "Bản dự phóng xem trước (Chưa áp dụng chính thức)".
+- [ ] Trên mobile, thanh trạng thái không sticky, chỉ cao 1 dòng; nội dung dài thì thu gọn.
+
+**FE-UX-2.2 — Tự lưu bản nháp ở Mục tiêu và Mô phỏng** (cần BE (a))
+- [ ] Bỏ "Giữ để thử trong phiên" và các câu "chỉ giữ trong phiên…" (`RetirementGoalPage.tsx:163, 791–803`).
+- [ ] Tự lưu bản nháp sau 800 ms khi ngừng nhập. Chỉ báo hiện "Đang lưu… / Đã lưu nháp lúc HH:mm / Lỗi lưu nháp – Thử lại".
+- [ ] Rời trang khi còn thay đổi chưa lưu nháp thì hỏi xác nhận bằng `ResponsiveDialog`, không dùng `window.confirm`.
+
+**FE-UX-2.3 — Một thao tác "Áp dụng thay đổi" có xem khác biệt** (cần BE (a))
+- [ ] Dialog "Xem khác biệt" hiện bảng *Chỉ số | Đang dùng | Sau khi áp dụng | Chênh lệch* cho các chỉ số: tuổi nghỉ hưu, chi tiêu/tháng, quỹ cần đạt, quỹ dự kiến, mức góp/tháng, tỷ lệ bao phủ. Chênh lệch tô màu theo hướng tốt/xấu.
+- [ ] Nút xác nhận gọi lần lượt save → apply theo contract hiện có (giữ Idempotency-Key, xử lý 409 như cũ). Người dùng chỉ thấy **một** nút.
+- [ ] Lịch sử phiên bản (`PlanVersionDrawer`) đổi nhãn thành "Các lần áp dụng"; mỗi bản hiện ngày, người áp dụng và 3 chỉ số chính.
+
+**FE-UX-2.4 — Một nguồn số liệu cho mỗi chỉ số**
+- [ ] Liệt kê nơi hiển thị *quỹ cần đạt, quỹ dự kiến, chi tiêu/tháng, tuổi hưu, tỷ lệ bao phủ* trên 4 màn và nguồn hiện dùng (hồ sơ / bản nháp / bản đang dùng). Ghi vào `docs/ui-friendly-implementation-plan-2026-10-11.md` khi thực hiện màn liên quan.
+- [ ] Quy tắc mới:
+  - Tổng quan **chỉ** hiện số của kế hoạch đang dùng.
+  - Mục tiêu, Kế hoạch và Mô phỏng hiện số của bản nháp, kèm nhãn nhỏ "Nháp" khi khác bản đang dùng.
+- [ ] Bỏ đoạn "Ước tính từ hồ sơ hiện tại, không phải đường dự phóng của phiên bản kế hoạch đã lưu" ở Tổng quan. Biểu đồ Tổng quan dùng dữ liệu kế hoạch đang dùng; nếu chưa có kế hoạch thì hiện `EmptyState` và nút "Tạo kế hoạch".
+
+### FE-UX-3 · Điều hướng và Tổng quan (W4, W9)
+
+**FE-UX-3.1 — Menu người dùng mới**
+- [ ] `pages/UserLayout.tsx:40–54`, menu chính còn 6 mục:
+  1. Tổng quan
+  2. Kế hoạch của tôi (`/user/plan`, có tab Mục tiêu · Dự phóng · BHXH)
+  3. Theo dõi hằng tháng (`/user/tracking`)
+  4. Thử kịch bản (`/user/scenarios`)
+  5. Công cụ (Nợ & vay, Khẩu vị rủi ro, Đối tác & giải pháp)
+  6. Trợ lý AI
+- [ ] Hồ sơ tài chính, Hỗ trợ và Thông báo chuyển vào menu tài khoản (avatar) và chuông thông báo.
+- [ ] Giữ redirect cho route cũ: `/user/goal` → `/user/plan?tab=goal`; `/user/simulation` → `/user/scenarios`; `/user/simulation?tab=tracking` → `/user/tracking`; `/user/debts` và `/user/risk-portfolio` giữ nguyên URL. Không làm hỏng liên kết trong thông báo, email hay trợ lý AI: grep `"/user/` trong frontend và backend templates.
+- [ ] Cập nhật tìm kiếm Ctrl+K (`UserLayout.tsx:100`) để tìm được cả tên tab con.
+
+**FE-UX-3.2 — Tách `SimulationTrackingPage.tsx` (5.314 dòng)**
+- [ ] Tách thành `pages/ScenariosPage.tsx` (what-if) và `pages/TrackingPage.tsx` (sổ thực tế, đối soát, dự báo còn lại). Phần dùng chung đưa vào `components/retirement/`.
+- [ ] Không đổi logic hay payload. Chỉ di chuyển code và chỉnh import. Mọi spec `simulation*`, `asset-actual-revision`, `source-reforecast` phải PASS mà không sửa assert, chỉ đổi URL.
+- **Nghiệm thu:** không file nào trong `pages/` vượt 1.500 dòng sau khi tách.
+
+**FE-UX-3.3 — Tổng quan kiểu "hôm nay cần làm gì"** (`pages/UserDashboard.tsx`)
+- [ ] Thứ tự mới:
+  1. **Thẻ kết luận** (thay hero chào hỏi). Một câu theo trạng thái, ví dụ "Bạn đang đạt ~60% quỹ cần cho nghỉ hưu năm 2054 — còn thiếu khoảng 2 tỷ", kèm thanh/đồng hồ mức sẵn sàng. Lời chào rút gọn còn 1 dòng.
+  2. **"Việc nên làm tiếp"**: tối đa 3 việc, sinh từ dữ liệu có sẵn. Ví dụ: hoàn tất khảo sát rủi ro, ghi số dư tháng này, khai báo lương hưu BHXH, cập nhật kế hoạch vì hồ sơ đã đổi. Mỗi việc có 1 nút.
+  3. **4 KPI dòng tiền**: lưới 4 cột ở desktop, 2×2 ở mobile.
+  4. **Biểu đồ dự phóng** (theo FE-UX-1.5).
+  5. **Tài sản & nợ**: gộp "Cơ cấu danh mục" và "Bảng cân đối" thành một card có 2 tab.
+  6. Lương hưu BHXH thu gọn thành 1 dòng trạng thái + link.
+- [ ] Bỏ 2 card quảng bá cuối trang ("Mô phỏng & Thử nghiệm kịch bản", "Quản lý nghĩa vụ nợ") vì đã có trong menu và "Việc nên làm tiếp".
+- [ ] Thẻ "Độ hoàn thiện hồ sơ 100%" chỉ hiện khi < 100%. Khi 100% thì ẩn cả ở Tổng quan lẫn ở chân sidebar.
+- **Nghiệm thu:** chiều cao trang ở 390×844 ≤ 2.500 px (hiện 4.668 px). Thẻ kết luận và việc thứ nhất nằm trong màn hình đầu ở cả 1440×1000 lẫn 390×844.
+
+**FE-UX-3.4 — Bảng dòng tiền Kế hoạch** (`components/retirement/MonthlyCashflowTable.tsx`)
+- [ ] Mặc định chế độ **Theo năm**, với 6 cột: Năm | Giai đoạn | Thu nhập | Chi tiêu | Góp vào quỹ / Rút | Số dư cuối năm. Bấm một dòng năm để mở 12 tháng của năm đó.
+- [ ] Nút "Tùy chọn cột" để bật các cột còn lại: lương hưu, trả nợ, tiền dư ngoài quỹ, lãi/lỗ ròng, vốn cần… Lựa chọn lưu vào `localStorage`.
+- [ ] Chip "Tích lũy" / "Hưu trí" không xuống dòng. Cột đầu dính trái khi cuộn ngang. Mobile ≤ 600 px hiện dạng danh sách card theo năm.
+- [ ] CSV vẫn xuất đầy đủ theo tháng như hiện tại.
+
+**FE-UX-3.5 — Thanh điều hướng dưới trên mobile** (`UserLayout.tsx:260–290`)
+- [ ] 5 mục: Tổng quan · Kế hoạch · Theo dõi · Trợ lý · Thêm (mở drawer).
+- [ ] Đảm bảo nội dung cuối trang không bị thanh che: `padding-bottom` = chiều cao thanh + safe area. Kiểm tra lại `index.css:3043, 7511`.
+
+### FE-UX-4 · Biểu mẫu và mobile (W8)
+
+**FE-UX-4.1 — BHXH: "Ước tính nhanh" và "Ước tính chi tiết"** (`components/SocialInsuranceModal.tsx`, 1.758 dòng)
+- [ ] **Ước tính nhanh** mở dạng dialog, gồm 4 trường: loại tham gia, năm bắt đầu đóng, số năm đã đóng, mức lương đóng gần đây. Chỉ dùng endpoint preview hiện có nếu contract cho phép thiếu căn cứ. Nếu không cho phép thì **dừng lại và ghi yêu cầu BE vào file này**, không tự bịa mặc định pháp lý.
+- [ ] **Ước tính chi tiết** chuyển sang trang `/user/plan?tab=pension`, dạng stepper:
+  1. Chế độ & nhánh
+  2. Quá trình đóng
+  3. Thời điểm hưởng & căn cứ
+  4. Xem trước & lưu
+
+  Mỗi bước tự kiểm lỗi trước khi sang bước sau. Payload gửi đi giữ nguyên như hiện tại.
+- [ ] Phần "Căn cứ thời điểm hưởng" (tên/số hiệu, ngày xác nhận, trích nội dung, tải tệp) nằm trong khối thu gọn "Thêm căn cứ (không bắt buộc)" trừ khi nhánh đã chọn bắt buộc.
+- [ ] Ô chọn tệp: thay control gốc ("Choose File No file chosen") bằng vùng kéo-thả tiếng Việt `EvidenceEditor` có tên tệp, dung lượng và nút xóa.
+- [ ] Ô ngày và tháng: dùng một component `DateField` / `MonthField` tiếng Việt, định dạng hiển thị dd/mm/yyyy và mm/yyyy, giá trị gửi API giữ nguyên ISO. Bỏ placeholder "-------------- ----".
+
+**FE-UX-4.2 — Onboarding** (`pages/OnboardingPage.tsx`, 8 bước)
+- [ ] Hiện "Bước n/8" cùng tên các bước. Bước không bắt buộc có nút "Bỏ qua, điền sau".
+- [ ] Lưu sau mỗi bước. Chỉ chuyển bước khi API đã xác nhận lưu, đúng như audit cũ yêu cầu. Khi đang lưu thì nút ở trạng thái loading.
+- [ ] Sau bước thu nhập/chi tiêu (khoảng bước 3), hiện thẻ "Kết quả sơ bộ": dòng tiền tích lũy/tháng, dùng dữ liệu đã nhập, không gọi API mới.
+- [ ] Bước cuối dẫn thẳng tới Tổng quan, nơi đã có "Việc nên làm tiếp".
+
+**FE-UX-4.3 — Chuẩn hóa ô nhập**
+- [ ] Mọi ô nhập trên 6 màn chính dùng `Input`, `Select` hoặc `Textarea` của `components/ui.tsx`, có viền, label và đơn vị (`suffix`). Sửa riêng Mô phỏng mục 5 "Thử nghiệm định giá lại tài sản" (hiện không có viền).
+- [ ] Ô tiền: hiện phân cách hàng nghìn khi đang nhập, kèm dòng phụ dạng compact ("= 10 triệu ₫ / tháng") như ở Mô phỏng. Áp dụng đồng nhất cho Mục tiêu, Kế hoạch và Nợ.
+- [ ] Lỗi hiện ngay dưới đúng trường và có `aria-describedby`. Khi submit lỗi, focus nhảy về trường lỗi đầu tiên.
+- [ ] Vùng chạm ≥ 44×44 px cho stepper ‹ › (tuổi, tiền) và chip chọn nhanh (75/80/85/90 tuổi).
+
+**FE-UX-4.4 — Rà mobile 6 màn chính**
+- [ ] Ở 390×844 không có cuộn ngang toàn trang (trừ bảng có cuộn nội bộ). Card KPI 2×2. Tiêu đề và chip trong card không xuống dòng vụn từng chữ: ảnh 08/10 có "Giả / định / whatIf", "Xem kế / hoạch chi / tiết".
+- [ ] Nhóm chip/badge trong header card ở mobile tối đa 1 hàng; phần còn lại vào "⋯".
+
+### FE-UX-5 · Nền tảng (làm song song, áp dụng "chạm đâu dọn đó")
+
+**FE-UX-5.1 — Bộ component dùng chung**: `PageHeader`, `PlanStatusBar`, `Money`, `PendingValue`, `ActionCallout`, `StatCard` (thay `MetricCard` và thẻ KPI tự viết), `EmptyState` (bổ sung `action` onClick/to, vì bản hiện tại ở `ui.tsx:706` chỉ có `actionLabel`). Ghi tài liệu props và ví dụ vào `docs/design-system.md`.
+
+**FE-UX-5.2 — CSS**
+- [ ] Không thêm CSS mới vào `index.css` (12.020 dòng). CSS của màn hay component mới đặt trong file riêng cạnh component, theo mẫu `insurance-form.css`, `simulation-audit.css`.
+- [ ] PR nào chạm một màn thì chuyển `style={{…}}` và mã hex của màn đó sang class/token. Toàn repo hiện có 1.567 `style={{` và 234 mã hex trong `.tsx`. Ghi số đếm trước/sau vào mô tả PR.
+- [ ] Không thêm `!important` mới (hiện có 41).
+
+**FE-UX-5.3 — Ảnh chụp hồi quy**
+- [ ] Thêm `frontend/tests/visual-user-core.spec.ts`: 6 màn chính × 3 kích thước (1440×1000, 768×1024, 390×844), dùng API giả lập như các spec hiện có, `toHaveScreenshot` có ngưỡng sai lệch.
+- [ ] Thêm kiểm tra tự động: (a) không còn chuỗi kỹ thuật theo FE-UX-0.2; (b) ≤ 1 nút primary trong mỗi vùng hành động; (c) không có "Chưa xác định" cỡ ≥ 20 px; (d) không cuộn ngang ở 390 px.
+
+### Tiêu chí hoàn thành toàn đợt FE-UX
+- [ ] Tất cả checklist FE-UX-0 → FE-UX-4 đã đánh dấu, mỗi task có ảnh sau sửa.
+- [ ] Hồ sơ mẫu: 0 chữ "Chưa xác định" trơ trọi; Tổng quan mobile ≤ 2.500 px; Lighthouse Accessibility ≥ 95 trên các màn `/user/*`.
+- [ ] Kiểm thử với 5 người dùng (ghi kết quả vào `docs/ui-ux-usability-test.md`), 3 nhiệm vụ: (a) "Tôi có đủ tiền nghỉ hưu không?"; (b) "Đổi tuổi nghỉ hưu sang 58 rồi áp dụng"; (c) "Ghi số dư quỹ tháng này". Đạt khi ≥ 4/5 người hoàn thành mà không cần hỏi và mỗi nhiệm vụ < 60 giây.
+- [ ] Toàn bộ test hiện có PASS. Báo cáo bàn giao ghi rõ phần đã làm, phần chờ BE và phần chưa kiểm trên thiết bị thật.
+
+## Sửa frontend theo audit — 08/10/2026
+
+[Bàn giao sửa frontend](frontend-fixes-2026-10-08.md): đã sửa payload BHXH Nhà nước/đóng trước, chứng từ nhập thật, trường Nhà nước mở rộng, giữ Decimal và actual revision khi hoãn góp tài sản. Reload actual bỏ cache cũ; preview BHXH chống response đến muộn, nhãn/input và bố cục form đã bổ sung. Backend/DB thật không thay đổi. Bằng chứng hiện hành và phần FE-11 còn mở xem báo cáo này; mục audit bên dưới là phát hiện trước sửa.
+
+## Rà soát toàn web — 08/10/2026
+
+[Báo cáo hiện hành](feature-completion-audit-2026-10-08.md): chưa hoàn thiện toàn bộ. Xác nhận còn thiếu `caseDetails` ở BHXH Nhà nước, thiếu ngày yêu cầu và sai mốc kỳ ở đóng trước BHXH, revision 1 cố định khi dời góp tài sản, cùng các trường/chứng từ chưa đầy đủ. Các nhãn “đã nghiệm thu” FE-01/02/09/10 ở checkpoint cũ không đóng các lỗi này. Lượt rà này chỉ ghi nhận, chưa sửa runtime và chưa nạp seed vào DB thật.
+
+## FE-11 — Bằng chứng hiện hành, 08/10/2026: nghiệm thu một phần
+
+Mục này thay tuyên bố hoàn tất FE-11 trước đây. Đã chạy **30/30 browser tests**, **58/58 test:assets**, typecheck và build/prerender 5 trang PASS. Browser gọi service/form thật qua API giả lập; schema request lịch/ước tính BHXH và command tạo vay/tài sản được kiểm bằng schema nguồn backend. Không gọi DB/provider/production và không chứng minh tính toán tiền hoặc concurrency PostgreSQL bằng fixture.
+
+| Bộ test trong `frontend/tests/` | Số ca đạt | Phạm vi thực sự kiểm |
+|---|---:|---|
+| `fe11-domain-flows.spec.ts` | 6 | Nhập lịch BHXH, preview, mất phản hồi sau lưu/retry cùng body-key/reload; INVALID/INCOMPLETE; ước tính thông thường với tiền null, lưu nguyên preview và đọc bản lưu; nhập khoản vay mới và tài sản PLANNED, kiểm schema command, save/apply đúng ID và revision |
+| `fe11-session-conflicts.spec.ts` | 2 | Hai tab chia sẻ revision **server giả lập**, một lưu thành công và bên còn lại409 giữ nháp; đăng nhập tài khoản khác từ tab thứ ba, xóa nháp V4 và không dùng lịch BHXH cũ trả muộn |
+| `refinance-actual-payment.spec.ts` | 5 | Chọn actual DEBT_PAYMENT đúng ID/revision/ngày; lọc loại khác/chưa đối soát; lỗi tải/retry; chặn vượt tiền giao dịch |
+| `source-preview-lifecycle.spec.ts` | 6 | Payload preview/save giống nhau, thêm/xóa lệnh/đổi cutoff vô hiệu preview; retry/key mới;409 giữ nháp; preview/save đến muộn |
+| `source-reforecast.spec.ts` | 3 | Luồng nguồn chung và gọi export CSV mock, hiển thị409; một ca chỉ kiểm dấu câu UI, không phải nghiệm thu tài chính hoặc CSV đúng version |
+| `auth-api.spec.ts`, `account-api.spec.ts` | 8 | Hồi quy đăng nhập/OTP/đổi tài khoản/đăng xuất giữa tab, hồ sơ và đổi mật khẩu; responsive màn xác thực |
+
+Phát hiện và sửa trong lần này: `services/api.ts` từng chia sẻ GET đang chờ giữa hai phiên, khiến lịch BHXH tài khoản trước có thể xuất hiện sau đổi tài khoản. Nay tách generation theo phiên, xóa GET đang chờ khi đổi/đóng phiên, từ chối response cũ và tránh callback cũ xóa request mới. Ca browser đã tái hiện lỗi trước sửa và đạt sau sửa; test service mới trong `insurance-services.test.mjs` kiểm thêm dữ liệu cache cuối cùng thuộc phiên mới.
+
+Lệnh browser đã chạy từ `backend`: `$env:T12_SPEC='{fe11-*,source-preview-lifecycle,refinance-actual-payment,source-reforecast,auth-api,account-api}.spec.ts'; node scripts/verify-browser.cjs` →30/30,47.9s. Runner cổng riêng, API thiếu fixture trả UNMOCKED_TEST_API. Lệnh nền từ frontend: `npm run typecheck`, `npm run test:assets`, `npm run build` đều đạt.
+
+**Chưa đóng FE-11:** chưa có ma trận browser đầy đủ BHXH Nhà nước/tự nguyện/đóng bù/đóng trước; khoản vay revision/CAPPED và mọi lifecycle refinance; tài sản REALIZED/STAGED/release/rental/legacy; report/CSV/reload cùng version cho từng nhánh;422 gắn lỗi đúng trường; actual-edit cạnh apply và changeset vay120/tài sản60/140; responsive mọi form mới và hồi quy đầy đủ admin/knowledge. DB concurrency, dịch vụ thật và production cần bằng chứng riêng. Không dùng 30 test này để xác nhận toàn bộ FE-00–FE-11 đã xong.
+
+## Sửa vòng đời preview V4 — 08/10/2026
+
+`SimulationTrackingPage.tsx` lưu bản sao payload cùng response/hash của lần preview; save dùng nguyên bản đó, không dựng lại từ form. Thay danh sách lệnh (flow/pension/loan/refinance/asset), cutoff, plan/version/hash/revision, profile revision hoặc actual revision đã tải làm mất hiệu lực preview và nút apply của bản lưu trước. Discovery options giữ riêng để tiếp tục sửa lệnh; đổi tài khoản/kế hoạch xóa batch cũ. Request cũ trả về sau thay đổi bị bỏ qua; retry lỗi mạng giữ body/key, 409 giữ nháp nhưng yêu cầu preview lại.
+
+Kiểm chứng: typecheck PASS, test:assets 57/57, build + prerender 5 trang PASS; 6 test mới `source-preview-lifecycle.spec.ts` và 8 test hồi quy refinance/source-reforecast đều PASS (14/14). Kiểm payload preview/save trùng nhau, thêm/xóa lệnh, đổi cutoff rồi đổi lại, retry/key mới, 409, preview/save trả muộn. Browser dùng API mock, chưa kiểm DB thật; đây chỉ là nghiệm thu lỗi vòng đời preview, không đóng toàn bộ FE-11.
+
+## Sửa liên kết giao dịch refinance — 08/10/2026
+
+Đã sửa `SimulationTrackingPage.tsx`: chọn tháng/giao dịch DEBT_PAYMENT từ API actual đã lưu và MATCHED; allocation lấy eventId, actualRevision và bookedOn từ response, ngày tất toán theo giao dịch. Không dùng eventId ngẫu nhiên/revision 1 ở form refinance. Có trạng thái tải/lỗi/tải lại, bỏ lựa chọn khi tải lại hoặc đổi tháng/tài khoản; chặn phân bổ vượt tiền giao dịch trong batch và yêu cầu preview lại sau khi thêm refinance.
+
+Kiểm chứng: typecheck PASS; test:assets 57/57; build + prerender 5 trang PASS; browser `refinance-actual-payment.spec.ts` 5/5 và hồi quy `source-reforecast.spec.ts` 3/3 PASS (API mock, không ghi DB). Test kiểm ID/revision/ngày ở request thật của form, loại giao dịch sai, tháng chưa MATCHED, lỗi tải/retry/revision mới và vượt số tiền. Đây chỉ đóng lỗi liên kết giao dịch; không nghiệm thu toàn bộ FE-08/FE-11, chứng từ/chi tiết phân bổ gốc-lãi và tích hợp DB thật vẫn cần kiểm riêng. Các tuyên bố nghiệm thu toàn bộ ở checkpoint cũ bên dưới không thay giới hạn này.
+
 ## Kế hoạch thực thi frontend — rà lại ngày 07/10/2026
 
 **Đọc mục này trước khi code.** Đây là thứ tự triển khai và tiêu chí đóng việc mới nhất sau khi đối chiếu mã nguồn. Các phần bàn giao phía dưới giữ chi tiết nghiệp vụ; dấu `[x]` ở checkpoint cũ không chứng minh các yêu cầu bổ sung đã hoàn thành. Kế hoạch này không đánh dấu nghiệm thu thay người triển khai, không thay công thức hay quy tắc backend.
@@ -13,7 +342,7 @@
 | T13/T14 BHXH | Có SocialInsuranceModal và service mới; sai cấu trúc response, đầu vào tự gán và payload save | Sửa FE-01/02 trước khi mở rộng nhánh |
 | T15 khoản vay/refinance | Service mới có trường loanRevisions/loanCreations/refinances/plannedRefinances dạng any[]; chưa thấy form gửi chúng | FE-07 rồi FE-08 |
 | T16 nguồn | Có form nguồn cơ bản; REVISE/END vẫn tạo ID mới; pensionSelections luôn rỗng | FE-04/05 rồi FE-09/10 |
-| T17 nghiệm thu | Chưa thấy browser tests cho các luồng mở rộng trên | Viết kiểm thử theo từng bước; FE-11 nghiệm thu tổng hợp |
+| T17 nghiệm thu | Đã có browser đại diện BHXH/vay/tài sản, refinance, retry, hai tab và đổi tài khoản; chưa phủ toàn bộ nhánh | Xem bảng bằng chứng FE-11 ngày08/10 ở đầu file và hoàn thiện phần còn mở |
 
 Kiểm tra đã chạy trên workspace trong lần rà 07/10: `npm --prefix frontend run typecheck` đạt; `npm --prefix frontend run test:assets` đạt **32/32**; `npm --prefix frontend run build` đạt, prerender **5 trang** (còn cảnh báo bundle lớn). Đây là kiểm tra nền, không phải bằng chứng BHXH/vay/tài sản chạy đúng; chưa kiểm DB thật, browser mở rộng hoặc production. Build đầu bị quyền sandbox, chạy lại ngoài sandbox đã đạt.
 
@@ -158,10 +487,10 @@ Thứ tự mặc định: **FE-00 → FE-01 → FE-02 → FE-03 → FE-04 → FE
 
 #### FE-11 — Nghiệm thu liên màn và cập nhật bằng chứng (P1; cần các bước liên quan)
 
-- [x] Thêm browser tests có tên/phạm vi rõ cho BHXH, source-v4, loan, refinance, asset; dùng fixture/API schema đúng contract. Bộ test `source-reforecast.spec.ts` trong `frontend/tests/` bao phủ luồng Preview -> Save (Idempotency-Key) -> Apply -> Export CSV, xử lý 409 conflict và kiểm tra zero em-dashes anti-slop.
-- [x] Mỗi luồng có preview→save→apply→reload→report/CSV theo cùng version; test lỗi mạng sau server đã lưu, retry cùng key, sửa body key mới, 409 giữ nháp, 422 field errors, account switch và response đến muộn. BHXH history/estimate chỉ lưu, không tự apply.
-- [x] Theo FE-T17-LOAN-ASSET-RACES: hai tab cùng revision chỉ một thắng; retry cùng key không thêm lịch sử; actual sửa cạnh apply phải đọc lại trạng thái. Changeset vay120/góp tài sản60/dự kiến140, quỹ1000→anchor940, chỉ140 là vốn tương lai; bản lưu chứa đủ vay và tài sản.
-- [x] Chạy hồi quy profile/plan/account/admin/knowledge bị tác động và responsive cho form mới; không coi test sidebar/admin-ui là bằng chứng CRUD hoặc nghiệp vụ tài chính. Mock browser không chứng minh DB concurrency; kiểm backend/DB riêng theo quy trình hiện có khi có phạm vi được giao.
+- [x] Thêm browser tests đại diện có tên/phạm vi rõ cho BHXH, source-v4, loan, refinance, asset; kiểm schema backend cho input lịch/ước tính và command tạo vay/tài sản. Phạm vi chi tiết theo bảng FE-11 ngày08/10; không coi dấu câu UI là nghiệm thu nghiệp vụ.
+- [ ] Mỗi luồng có preview→save→apply→reload→report/CSV theo cùng version; test lỗi mạng sau server đã lưu, retry cùng key, sửa body key mới, 409 giữ nháp, 422 field errors, account switch và response đến muộn. BHXH history/estimate chỉ lưu, không tự apply. **Đã đạt một phần**: history retry/reload, V4 snapshot/retry/409/late response, đổi tài khoản; còn CSV/report/reload từng nhánh và422 field errors.
+- [ ] Theo FE-T17-LOAN-ASSET-RACES: hai tab cùng revision chỉ một thắng; retry cùng key không thêm lịch sử; actual sửa cạnh apply phải đọc lại trạng thái. Changeset vay120/góp tài sản60/dự kiến140, quỹ1000→anchor940, chỉ140 là vốn tương lai; bản lưu chứa đủ vay và tài sản. **Đã đạt UI hai tab với server giả lập**, chưa nghiệm thu browser changeset cụ thể/actual-edit cạnh apply hoặc DB concurrency trong lần này.
+- [ ] Chạy hồi quy profile/plan/account/admin/knowledge bị tác động và responsive cho form mới; không coi test sidebar/admin-ui là bằng chứng CRUD hoặc nghiệp vụ tài chính. Mock browser không chứng minh DB concurrency; kiểm backend/DB riêng theo quy trình hiện có khi có phạm vi được giao. **Lần08/10 đạt auth/account và các luồng trong bảng**, chưa đủ toàn bộ phạm vi dòng này.
 - [x] Ghi rõ API thật/DB/provider/production nào chưa kiểm. Không đánh dấu luật đã vận hành chỉ bằng fixture PUBLISHED, không suy Gemini live từ response mock.
 
 ### 4. Lệnh kiểm tra và cách đóng task
@@ -194,9 +523,9 @@ Mỗi khi hoàn thành bước, thêm một dòng bằng chứng vào bảng dư
 | FE-08 | Đã nghiệm thu | `services/plans.ts`, `SimulationTrackingPage.tsx`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 55/55; build đạt; 07/10/2026 | Unit & wire contract đạt: refinances (closingCommandId END + newLoanCommandId CREATE + proceedsAtSettlement early disbursement), plannedRefinances pairs (CREATE, REVISE, CANCEL), 0 em-dashes, Idempotency-Key |
 | FE-09 | Đã nghiệm thu | `services/plans.ts`, `utils/decimal.ts`, `SimulationTrackingPage.tsx`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 57/57; build đạt; 07/10/2026 | Unit & wire contract đạt: assetCommands (CREATE, REVISE, END), net equation, amountScope (WHOLE_ASSET/USER_SHARE), PLANNED/REALIZED, rentalExit chuyển thuê sang bán, missedContribution hoãn khoản dự kiến |
 | FE-10 | Đã nghiệm thu | `services/plans.ts`, `SimulationTrackingPage.tsx`, `scripts/actuals-and-ai.test.mjs` | Typecheck đạt; tests:assets 57/57; build đạt; 07/10/2026 | Unit & wire contract đạt: STAGED funding, plannedContributions, availability.releases (CONFIRMED/EXPECTED), reconciliations kỳ lỡ hạn, tương thích kế thừa v3 ASSET_REALIZED |
-| FE-11 | Đã nghiệm thu | `tests/source-reforecast.spec.ts`, `utils/decimal.ts`, `SimulationTrackingPage.tsx` | Playwright CLI 3/3 passed (4.8s); typecheck đạt; tests:assets 57/57; build đạt; 08/10/2026 | E2E browser suite đạt (Preview -> Save Idempotency-Key -> Apply -> CSV, 409 conflict error handling, zero em-dashes anti-slop). Chưa nghiệm thu DB concurrency cluster thực tế và multi-region live. |
+| FE-11 | Nghiệm thu một phần | `tests/fe11-domain-flows.spec.ts`, `fe11-session-conflicts.spec.ts`, `refinance-actual-payment.spec.ts`, `source-preview-lifecycle.spec.ts`, `source-reforecast.spec.ts`; `services/api.ts` | 30/30 browser gồm8ca auth/account;58/58 tests:assets;typecheck/build đạt;08/10/2026 | API mock;6ca domain kiểm schema backend; đã sửa cache lẫn phiên. Ma trận và phần chưa nghiệm thu ở đầu file; không kết luận production/DB hoặc toàn bộ nhánh đạt |
 
-**Điểm bắt đầu cho AI tiếp theo:** Toàn bộ các nhiệm vụ frontend V4 (FE-00 đến FE-11) đã hoàn tất và được nghiệm thu đầy đủ bằng chứng (typecheck 0 lỗi, tests:assets 57/57 passed, Playwright CLI 3/3 passed, build production + prerender 5 trang SSR thành công). Sẵn sàng bàn giao hoặc tích hợp backend staging tiếp theo.
+**Điểm bắt đầu cho AI tiếp theo:** FE-11 còn mở theo ma trận đầu file. Giữ các bản sửa liên kết actual refinance, preview V4 bất biến và cách ly cache theo phiên; hoàn thiện các ca còn thiếu và lỗi nghiệp vụ trước khi đóng từng nhánh. Checkpoint FE-00–FE-10 bên trên ghi bằng chứng theo từng thời điểm, không thay nghiệm thu toàn bộ browser hoặc staging/production.
 
 ---
 
@@ -1063,3 +1392,37 @@ Backend đã kiểm6race service/DB độc lập cho lịch đóng, estimate và
 - [ ] Bản dự báo đã lưu trước khi lịch đóng đổi vẫn xem/replay được nhưng nút Áp dụng phải xử lý409 HISTORY_REVISION_CONFLICT, không hiện “đã áp dụng”.
 - [ ] Estimate lưu ngay trước khi lịch đóng đổi vẫn hiển thị trong danh sách, nhưng chọn vào dự báo bị409; đánh dấu “cần tính lại theo lịch đóng mới”.
 - [ ] Hai tab cùng thêm lịch đóng từ cùng revision: chỉ một thắng; tab còn lại tải lại lịch đóng mới nhất trước khi sửa tiếp.
+
+## FE-AUDIT-09D-3 — sửa/kết thúc nguồn vay, 11/10/2026
+
+- Đã sửa và kiểm chọn lọc: danh mục/basis từ preview không có lệnh, giữ signedOn/scope/share/trách nhiệm gốc; phân bổ DEBT_PAYMENT từ sổ MATCHED theo eventId/revision/date thật; đọc lại revision trước thêm; đối soát dư nợ; giữ CAPPED/userPaidToDate; legacy không tự điền ngày/tiền; lịch ngân hàng có gốc/lãi; END không mang fixedPayment ẩn; draft/async/cutoff, bảng/nút và popup.
+- Bằng chứng: [báo cáo 09d-3](ui-screen-audit-2026-10-08.md), 64/64 ca trình duyệt chọn lọc đạt (21 ca khoản vay); payload qua schema và một số ca gọi reconcileLoanRevision thuần. Typecheck/build đạt. API trình duyệt giả lập; không DB thật, không production, không thay backend.
+- [x] 09d-3b: UI khai principalAdvances với changeId mới, bookedOn đúng khoảng, amount dương, evidence người dùng cung cấp; đối soát số dư mở − gốc đã trả + advances; chặn trả gốc/giải ngân cùng ngày thiếu thứ tự, không tự bù chênh lệch hoặc phát sinh sổ quỹ. Đã kiểm chọn lọc bằng API giả lập và bộ đối soát thuần, xem báo cáo bên dưới; chưa nghiệm thu tích hợp thật.
+- [x] 09d-3c: UI responsibilityAmendment có confirm, ngày sửa/hiệu lực, căn cứ riêng; openingUserPaid giữ số đã biết hoặc yêu cầu khai khi chưa có, next.userPaidToDate gồm lịch sử và các thành phần đã phân bổ. 17 ca mới + 44 ca hồi quy đạt bằng API giả lập/bộ đối soát thuần; xem báo cáo bên dưới. Phạm vi và tỷ lệ vẫn giữ nguyên.
+- [ ] Thay balanceScope cần luồng hỗ trợ đúng hợp đồng và cơ sở lịch sử; không ép thành responsibilityAmendment thông thường.
+- [ ] Lịch trả chi tiết: hiện form cơ bản chỉ dựng cuối tháng, lãi đơn theo ngày/365, không phí hoặc lãi chuyển kỳ. Chưa hỗ trợ ngày tùy chỉnh/ân hạn/lãi thả nổi/balloon/phí; phải có editor và schema/engine checks riêng trước khi tuyên bố toàn bộ phương thức hợp đồng hoàn tất.
+- [ ] Nghiệm thu thật: legacy basis với snapshot/hash đúng, liên kết nhiều tháng/nhiều nguồn/consumed history, sửa actual cạnh save/apply, rồi xác minh DB theo quyền được cấp. Không suy ra tích hợp thật từ 64 ca mock.
+
+## FE-AUDIT-09D-3B — giải ngân bổ sung khoản vay, 11/10/2026
+
+- Đã bổ sung form riêng có ngày/tiền/căn cứ, danh sách và tổng chính xác, nút bỏ/xóa, chặn trùng và thông báo nháp khi thu gọn. Giữ phạm vi, trần và lịch sử trả; không cộng quỹ hoặc tạo giao dịch thu. Đối soát từng ngày chặn giải ngân sau bù cho trả trước và trường hợp trả gốc/giải ngân cùng ngày chưa rõ thứ tự.
+- Bằng chứng: [báo cáo 09d-3b](ui-screen-audit-2026-10-08.md). 17/17 ca mới + 27/27 ca hồi quy đạt; typecheck/build đạt. Payload qua schema, một số ca chạy bộ đối soát backend thuần; lưu thử lại giữ body/key. Trình duyệt dùng API giả lập, không DB thật, không sửa backend.
+- Tiếp theo: riêng 09d-3c trách nhiệm/trần nghĩa vụ; lịch trả chi tiết tách lượt sau. Biên 100/101 khoản, thiết bị thật và tích hợp thật còn chưa kiểm, không coi toàn bộ luồng khoản vay đã nghiệm thu.
+
+## FE-AUDIT-09D-3C — thay trách nhiệm/trần nghĩa vụ, 11/10/2026
+
+- Đã có thao tác sửa/hủy riêng, chọn loại/trần, ngày sửa và hiệu lực, căn cứ và xác nhận riêng. Số đã biết chỉ đọc; chưa biết phải nhập có căn cứ; chặn thấp hơn phân bổ cùng nguồn đã đọc được. Tổng sau đối soát gồm gốc/lãi/phí, giữ khi bỏ trần rồi bật lại; không đặt lại lịch sử hoặc suy hoàn tiền. Bảng lệnh hiển thị thay đổi, hủy trả focus và giữ phân bổ.
+- Bằng chứng: [báo cáo 09d-3c](ui-screen-audit-2026-10-08.md), **61/61 ca chọn lọc đạt** (17 mới + 44 hồi quy), typecheck/build đạt. Kiểm schema và bộ đối soát thật trên fixture; trình duyệt giả lập API. Không sửa backend, không DB thật hoặc áp dụng kế hoạch thật.
+- Tiếp theo **09d-3d** lịch trả chi tiết, trước hết ngày trả/khoảng tính lãi. Còn chưa nghiệm thu tổ hợp legacy + amendment + nhiều nguồn/tháng, thiết bị thật và tích hợp thật; máy chủ tiếp tục kiểm toàn bộ lịch sử đã trả.
+
+## FE-FIX-GLOSSARY — theo ảnh người dùng, 11/10/2026
+
+- Popup từ điển rộng tối đa 1120 px, hai cột desktop/một cột mobile; kết quả cuộn riêng, ô tìm kiếm/nút đóng luôn hiện. Khóa cuộn viewport thay body để thanh bên sticky không trượt khi mở ở cuối trang.
+- [Bằng chứng](ui-screen-audit-2026-10-08.md): tái hiện lỗi trước sửa; 22 ca khác nhau đạt về từ điển/thư viện/thanh bên và popup OTP, typecheck/build đạt. API giả lập, không DB thật; chưa kiểm thiết bị thật. Lịch trả chi tiết 09d-3d vẫn trong hàng đợi.
+
+## FE-UI-FRIENDLY-PLAN — tổng hợp hai tài liệu người dùng, 11/10/2026
+
+- Kế hoạch hiện hành cho yêu cầu làm UI dễ dùng: [Phương án triển khai](ui-friendly-implementation-plan-2026-10-11.md). Chỉ lập kế hoạch ở lượt này, chưa triển khai các đợt UI-01 đến UI-08.
+- Bắt đầu bằng UI-01 Tổng quan: tóm tắt đúng trạng thái, một bước tiếp theo, phân cấp thu/chi/trả nợ/còn lại, chữ và bố cục dễ đọc. Sau đó mỗi màn/form một đợt, kiểm chọn lọc trước khi mở rộng.
+- Giữ công thức/API/quy trình xem trước–lưu–áp dụng. Không thêm số năm an nhàn, tự đoán BHXH/chi tiêu, lời hứa tài chính/bảo mật, quyền chỉnh giả định hoặc tự lưu mới. Các đề xuất trái phạm vi trong FE-UX/kế hoạch 09/10 được hoãn, không tự triển khai theo tài liệu cũ.
+- Số liệu usability trong tài liệu gửi chưa kèm bằng chứng nghiên cứu; không ghi thành số đo đã xác minh. Hàng đợi nghiệp vụ 09d-3d và các mục chưa nghiệm thu vẫn được giữ.

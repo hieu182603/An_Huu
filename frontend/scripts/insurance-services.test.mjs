@@ -18,7 +18,7 @@ import {
   patchAdminLegalRule,
   transitionAdminLegalRule,
 } from "../src/services/legalRules.ts";
-import { ApiError, invalidateApiCache } from "../src/services/api.ts";
+import { ApiError, clearAccessToken, invalidateApiCache } from "../src/services/api.ts";
 
 function mockFetch(handler) {
   const originalFetch = globalThis.fetch;
@@ -44,6 +44,44 @@ function errorResponse(status, code, message, fieldErrors) {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+test("FE-11: session switch rejects old history and preserves the new in-flight request/cache", async () => {
+  clearAccessToken();
+  let releaseOld, releaseNew, startedOld, startedNew;
+  const oldStarted = new Promise(resolve => { startedOld = resolve; });
+  const newStarted = new Promise(resolve => { startedNew = resolve; });
+  let calls = 0;
+  const restore = mockFetch(async () => {
+    ++calls;
+    if (calls === 1) {
+      startedOld();
+      await new Promise(resolve => { releaseOld = resolve; });
+      return jsonResponse({ id: "history-A", userId: "account-A" });
+    }
+    startedNew();
+    await new Promise(resolve => { releaseNew = resolve; });
+    return jsonResponse({ id: "history-B", userId: "account-B" });
+  });
+  try {
+    const first = getLatestInsuranceHistory();
+    const rejected = assert.rejects(first, error => error instanceof ApiError && error.code === "SESSION_CHANGED");
+    await oldStarted;
+    clearAccessToken();
+    const second = getLatestInsuranceHistory();
+    await newStarted;
+    releaseOld();
+    await rejected;
+    const duplicate = getLatestInsuranceHistory();
+    releaseNew();
+    assert.deepEqual(await second, { id: "history-B", userId: "account-B" });
+    assert.deepEqual(await duplicate, await second);
+    assert.deepEqual(await getLatestInsuranceHistory(), await second);
+    assert.equal(calls, 2);
+  } finally {
+    clearAccessToken();
+    restore();
+  }
+});
 
 test("FE-00: getPublishedLegalRules correctly unpacks { items: [] } envelope and passes query", async () => {
   let capturedUrl = "";
@@ -371,6 +409,21 @@ test("FE-01: computeContentHash returns 64-character lowercase hex string", asyn
   assert.equal(typeof hash, "string");
   assert.equal(hash.length, 64);
   assert.match(hash, /^[a-f0-9]{64}$/);
+});
+
+test("evidence hashing matches SHA-256 bytes and refuses unavailable crypto", async () => {
+  const { computeContentHash } = await import("../src/services/insurance.ts");
+  const expected = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+  assert.equal(await computeContentHash("abc"), expected);
+  assert.equal(await computeContentHash(new TextEncoder().encode("abc").buffer), expected);
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+  try {
+    Object.defineProperty(globalThis, "crypto", { value: undefined, configurable: true });
+    await assert.rejects(() => computeContentHash("abc"), /HTTPS/);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, "crypto", descriptor);
+    else delete globalThis.crypto;
+  }
 });
 
 test("FE-01: previewInsuranceHistoryImport sends document and unpacks status & issues", async () => {

@@ -13,9 +13,18 @@ const baseUrl = ((typeof import.meta !== "undefined" && (import.meta as any).env
 let accessToken: string | null = null;
 let accessTokenExpiresAt = 0;
 let refreshPromise: Promise<Session> | null = null;
+let sessionUserId: string | null = null;
+let sessionGeneration = 0;
 export type ApiUser = { id: string; email: string; fullName: string; role: "USER" | "ADMIN"; status: string; phone: string | null; city: string | null; avatarUrl: string | null; revision: number; emailVerifiedAt?: string | null };
 export type Session = { accessToken: string; user: ApiUser };
-export function clearAccessToken() { accessToken = null; accessTokenExpiresAt = 0; invalidateApiCache(); }
+export function clearAccessToken() {
+  accessToken = null;
+  accessTokenExpiresAt = 0;
+  sessionUserId = null;
+  ++sessionGeneration;
+  invalidateApiCache();
+  inflightGetRequests.clear();
+}
 export function getAccessToken(): string | null { return accessToken; }
 export function sessionRefreshDelay(): number | null {
   return accessToken ? Math.max(0, accessTokenExpiresAt - Date.now() - 60000) : null;
@@ -62,6 +71,12 @@ export async function apiRequest<T>(path: string, body?: unknown, method = body 
 export async function startSession(path: string, body: unknown) {
   return withSessionLock(async () => {
     const session = await apiRequest<Session>(path, body);
+    if (sessionUserId !== session.user.id) {
+      sessionUserId = session.user.id;
+      ++sessionGeneration;
+      invalidateApiCache();
+      inflightGetRequests.clear();
+    }
     acceptAccessToken(session.accessToken);
     window.dispatchEvent(new CustomEvent("anhuu:session-updated", { detail: session.user }));
     return session;
@@ -123,6 +138,12 @@ export async function authenticatedRequest<T>(
   const isGet = (method === undefined || method.toUpperCase() === "GET") && body === undefined;
   const ttlMs = options?.ttlMs ?? 45000;
   const cacheKey = `${path}|${JSON.stringify(extraHeaders || {})}`;
+  const requestSession = sessionGeneration;
+  const assertCurrentSession = () => {
+    if (requestSession !== sessionGeneration) {
+      throw new ApiError(409, "SESSION_CHANGED", "Phiên đăng nhập đã thay đổi. Vui lòng tải lại dữ liệu.");
+    }
+  };
 
   if (isGet && !options?.skipCache) {
     const cached = apiGetCache.get(cacheKey);
@@ -137,11 +158,13 @@ export async function authenticatedRequest<T>(
 
   const exec = async (): Promise<T> => {
     await ensureFreshSession();
+    assertCurrentSession();
     const sentToken = accessToken;
     let res: T;
     try {
       res = await apiRequest<T>(path, body, method, extraHeaders);
     } catch (error) {
+      assertCurrentSession();
       if (!(error instanceof ApiError) || error.status !== 401) throw error;
       try {
         if (!accessToken || accessToken === sentToken) await refreshSession();
@@ -152,8 +175,11 @@ export async function authenticatedRequest<T>(
         }
         throw refreshError;
       }
+      assertCurrentSession();
       res = await apiRequest<T>(path, body, method, extraHeaders);
     }
+
+    assertCurrentSession();
 
     if (isGet) {
       apiGetCache.set(cacheKey, { data: res, expiresAt: Date.now() + ttlMs });
@@ -170,7 +196,7 @@ export async function authenticatedRequest<T>(
 
   if (isGet && !options?.skipCache) {
     const promise = exec().finally(() => {
-      inflightGetRequests.delete(cacheKey);
+      if (inflightGetRequests.get(cacheKey) === promise) inflightGetRequests.delete(cacheKey);
     });
     inflightGetRequests.set(cacheKey, promise);
     return promise;

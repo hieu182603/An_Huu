@@ -64,21 +64,15 @@ export interface HistoryPreviewResponse {
   inputHash: string | null;
 }
 
-export async function computeContentHash(content: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(content);
+export async function computeContentHash(content: string | ArrayBuffer): Promise<string> {
+  const data = typeof content === "string" ? new TextEncoder().encode(content) : content;
   if (typeof crypto !== "undefined" && crypto.subtle) {
     const hash = await crypto.subtle.digest("SHA-256", data);
     return Array.from(new Uint8Array(hash))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
   }
-  try {
-    const nodeCrypto = await import("node:crypto");
-    return nodeCrypto.createHash("sha256").update(data).digest("hex");
-  } catch {
-    return Array.from({ length: 64 }, () => "a").join("");
-  }
+  throw new Error("Không thể kiểm tra nội dung tài liệu. Vui lòng mở ứng dụng qua HTTPS hoặc localhost.");
 }
 
 export interface LegalRuleCitation {
@@ -289,8 +283,8 @@ export async function getPublishedLegalRules(benefitDate: string): Promise<Legal
   );
 }
 
-export async function listPensionEstimates(): Promise<PensionEstimateListResponse> {
-  return await authenticatedRequest<PensionEstimateListResponse>("/me/pension/estimates");
+export async function listPensionEstimates(skipCache = false): Promise<PensionEstimateListResponse> {
+  return await authenticatedRequest<PensionEstimateListResponse>("/me/pension/estimates", undefined, "GET", undefined, { skipCache });
 }
 
 export async function getPensionEstimate(id: string): Promise<PensionEstimateRecord> {

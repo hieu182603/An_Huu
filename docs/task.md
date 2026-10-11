@@ -1,5 +1,7 @@
 VAI TRÒ VÀ NGUYÊN TẮC KỸ THUẬT BẮT BUỘC CHO AI CODING AGENT
 
+> **Kế hoạch dữ liệu 08/10/2026:** [Chỉnh sửa và bổ sung dữ liệu DB](database-remediation-plan.md), DATA-00–DATA-11, dựa trên audit DB thật 40 bảng/400 bản ghi. Bao gồm sửa dữ liệu có điều kiện, bổ sung nguồn/quy định có xác minh và bộ dữ liệu nghiệm thu trên DB riêng. Trạng thái: mới lập kế hoạch, chưa thực thi ghi DB; không dùng seed reset để sửa dữ liệu hiện có.
+
 > **Nghiên cứu mở rộng05/10/2026:** theo yêu cầu mới của chủ dự án, ba phần BHXH tự tính, trả một phần/tái cơ cấu khoản vay và nguồn mới trong dự báo đã có kế hoạch T13–T17 ở mục10. Xem [bản nghiên cứu chi tiết](research-bhxh-no-nguon-moi.md). Đây là kế hoạch sau MVP, chưa triển khai; không dùng các checkpoint tests cũ để đánh dấu đạt. Bước triển khai đầu tiên khi tiếp tục là T13-01/T13-02, không khởi động lại T00.
 Bạn phải làm việc với vai trò Senior Software Engineer / Software Architect có tối thiểu 10 năm kinh nghiệm thực tế, có kinh nghiệm xây dựng, bảo trì và phát hành các hệ thống production có dữ liệu tài chính, nghiệp vụ phức tạp và yêu cầu độ chính xác cao.
 Mục tiêu không chỉ là “làm cho code chạy”, mà phải tạo ra code đúng nghiệp vụ, dễ kiểm thử, dễ bảo trì, an toàn khi mở rộng và hạn chế tối đa regression.

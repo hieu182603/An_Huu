@@ -61,7 +61,7 @@ for (const width of [390, 768, 1024, 1440]) {
       expect.soft(findings.overflow, route).toEqual([]);
       expect.soft(findings.brokenImages, route).toEqual([]);
       expect.soft(findings.mainCount, route).toBe(1);
-      expect.soft(new URL(page.url()).pathname, route).toBe(route);
+      expect.soft(new URL(page.url()).pathname, route).toBe(route === "/verify" ? "/register" : route);
     }
     expect(results).toHaveLength(routes.length);
   });

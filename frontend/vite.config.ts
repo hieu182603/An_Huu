@@ -1,11 +1,25 @@
-import { defineConfig } from 'vite'
+import { defineConfig, createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 import { readFileSync } from 'node:fs'
 
+const customLogger = createLogger()
+const loggerError = customLogger.error.bind(customLogger)
+customLogger.error = (msg, options) => {
+  if (
+    typeof msg === 'string' &&
+    msg.includes('ws proxy socket error') &&
+    ((options?.error as { code?: string })?.code === 'ECONNRESET' || msg.includes('ECONNRESET'))
+  ) {
+    return
+  }
+  loggerError(msg, options)
+}
+
 // Vite config — https://vitejs.dev/config/
 export default defineConfig({
+  customLogger,
   plugins: [
     react(),
     tailwindcss(),
@@ -39,6 +53,7 @@ export default defineConfig({
       '/socket.io': {
         target: 'http://127.0.0.1:5000',
         ws: true,
+        changeOrigin: true,
       },
     },
   },
@@ -48,6 +63,7 @@ export default defineConfig({
       '/socket.io': {
         target: 'http://127.0.0.1:5000',
         ws: true,
+        changeOrigin: true,
       },
     },
     host: '0.0.0.0',

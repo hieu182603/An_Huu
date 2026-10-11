@@ -1,0 +1,58 @@
+.social-insurance-form label,
+.evidence-editor label {
+  display: block;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.social-insurance-form .input,
+.evidence-editor .input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  box-sizing: border-box;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface, white);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.social-insurance-form .input:focus-visible,
+.evidence-editor .input:focus-visible {
+  outline: 2px solid var(--color-primary-700);
+  outline-offset: 2px;
+}
+
+.evidence-editor input[type="file"] {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.social-insurance-form fieldset,
+.evidence-editor {
+  overflow-wrap: anywhere;
+}
+
+.social-insurance-form button,
+.social-insurance-form .input,
+.insurance-saved-record summary {
+  min-height: 44px;
+}
+
+.social-insurance-form button {
+  max-width: 100%;
+}
+
+.insurance-saved-record summary:focus-visible {
+  outline: 2px solid var(--color-primary-700);
+  outline-offset: 4px;
+}

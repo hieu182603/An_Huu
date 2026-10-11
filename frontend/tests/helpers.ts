@@ -936,3 +936,10 @@ export async function installFinancialProfileRoutes(page: Page, initial?: { prof
     setDraft: (d: any) => { draft = d; },
   };
 }
+
+export async function fillEvidence(page: Page, title: string, reference = "TEST-EVIDENCE-ONLY", confirmedOn = "2026-10-08") {
+  const group = page.getByRole("group", { name: title, exact: true });
+  await group.getByLabel("Tên / số hiệu căn cứ", { exact: true }).fill(reference);
+  await group.getByLabel("Ngày xác nhận căn cứ", { exact: true }).fill(confirmedOn);
+  await group.getByLabel("Trích nội dung từ hồ sơ / mô tả giả định", { exact: true }).fill("Nội dung fixture dành riêng cho kiểm thử; không phải chứng từ người dùng.");
+}

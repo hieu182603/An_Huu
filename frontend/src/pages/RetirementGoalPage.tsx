@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { profileDisplayStatus } from "../services/profileDisplay";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Alert, Badge, Button, Card, Icon, IconButton, Input, Tooltip, useNotification } from "../components/ui";
+import { Alert, Badge, Button, Card, Icon, Input, Tooltip, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
-import { formatVNDCurrency } from "../services/retirement";
 import { fetchUserAssumptions } from "../services/assumptions";
-import { type PlanReport } from "../services/plans";
+import { getPlanReport, type PlanReport } from "../services/plans";
 import { useI18n } from "../i18n";
 
 const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " ₫";
@@ -15,10 +15,17 @@ export default function RetirementGoalPage() {
   const { t, language } = useI18n();
   const navigate = useNavigate();
   const { notify } = useNotification();
-  const { profile, v2Profile, updateProfileLocal, updateProfileV2, saveStatus } = useFinancialProfile();
-  const { activePlan, currentVersion, fetchPlanReport } = useRetirementPlan();
+  const { profile, v2Profile, updateProfileLocal, updateProfileV2, saveStatus, saveError } = useFinancialProfile();
+  const cashflowKnown = profileDisplayStatus(v2Profile).surplus;
+  const { activePlan, currentVersion, loadingPlans, plansError, refreshPlans } = useRetirementPlan();
 
   const [report, setReport] = useState<PlanReport | null>(null);
+  const [reportError, setReportError] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportAttempt, setReportAttempt] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const saving = useRef(false);
+  const fields = useRef<HTMLFieldSetElement>(null);
 
   // Check valid age from profile
   const hasValidProfileAge = Number.isFinite(profile.personal.age) && profile.personal.age >= 18 && profile.personal.age <= 74;
@@ -41,19 +48,25 @@ export default function RetirementGoalPage() {
   const [monthlyExpenseInRetirement, setMonthlyExpenseInRetirement] = useState<number>(initialExpense);
 
   // Macro assumptions
-  const [inflationNum, setInflationNum] = useState<number>(profile.goal.inflationRate > 0 ? profile.goal.inflationRate : 0);
-  const [returnNum, setReturnNum] = useState<number>(profile.goal.investmentReturn > 0 ? profile.goal.investmentReturn : 0);
-  const [assumptionsStatus, setAssumptionsStatus] = useState<"loading" | "published" | "unconfigured">("loading");
+  const [assumptionsStatus, setAssumptionsStatus] = useState<"loading" | "published" | "unconfigured" | "error">("loading");
+  const [assumptionsAttempt, setAssumptionsAttempt] = useState(0);
 
   const [lifeExpectancy, setLifeExpectancy] = useState<number>(
     profile.goal.lifeExpectancy > targetAge ? profile.goal.lifeExpectancy : Math.max(80, targetAge + 15)
   );
-  const [saveNotice, setSaveNotice] = useState(false);
+  const [preparedInput, setPreparedInput] = useState("");
   const [validationError, setValidationError] = useState("");
+  const [validationField, setValidationField] = useState("");
+  const inputKey = JSON.stringify([currentAge, targetAge, lifeExpectancy, lifestyle, monthlyExpenseInRetirement]);
+
+  useEffect(() => { setValidationError(""); setValidationField(""); }, [inputKey]);
 
   useEffect(() => {
+    let active = true;
+    setAssumptionsStatus("loading");
     fetchUserAssumptions()
       .then((res) => {
+        if (!active) return;
         if (res.status === "AVAILABLE" && res.items.length > 0) {
           setAssumptionsStatus("published");
         } else {
@@ -61,66 +74,58 @@ export default function RetirementGoalPage() {
         }
       })
       .catch(() => {
-        setAssumptionsStatus("unconfigured");
+        if (active) setAssumptionsStatus("error");
       });
-  }, []);
+    return () => { active = false; };
+  }, [assumptionsAttempt]);
 
   useEffect(() => {
-    if (activePlan?.id) {
-      fetchPlanReport(activePlan.id).then((res) => {
-        if (res) {
-          setReport(res);
-          if (res.goal) {
-            if (Number(res.goal.monthlyExpenseToday) > 0) {
-              setMonthlyExpenseInRetirement(Number(res.goal.monthlyExpenseToday));
-            }
-          }
-        }
-      });
-    }
-  }, [activePlan?.id, activePlan?.currentVersionId]);
+    let active = true;
+    setReport(null); setReportError(""); setReportLoading(Boolean(activePlan?.id));
+    if (activePlan?.id) getPlanReport(activePlan.id)
+      .then(res => { if (active) setReport(res); })
+      .catch(error => { if (active) setReportError(error instanceof Error ? error.message : String(error)); })
+      .finally(() => { if (active) setReportLoading(false); });
+    return () => { active = false; };
+  }, [activePlan?.id, activePlan?.currentVersionId, reportAttempt]);
 
   const yearsLeft = Math.max(0, targetAge - (currentAge || 18));
   const retirementDuration = Math.max(0, lifeExpectancy - targetAge);
 
   const planSummary = report?.version?.preview?.calculation?.summary ?? currentVersion?.preview?.calculation?.summary;
-  const estimatedTargetFund = planSummary ? Number(planSummary.atRetirement.requiredFund) : 0;
-  const estimatedMonthlySave = planSummary?.requiredConstantMonthlyContribution
-    ? Number(planSummary.requiredConstantMonthlyContribution)
-    : profile.plan.monthlySavings;
+  const estimatedTargetFund = planSummary?.atRetirement.requiredFund != null ? Number(planSummary.atRetirement.requiredFund) : null;
+  const currentSurplus = profile.income.primaryIncome + profile.income.secondaryIncome - currentTotalExpense - (profile.debt.hasDebt ? profile.debt.monthlyDebtService : 0);
+  const fail = (field: string, message: string) => {
+    setValidationField(field); setValidationError(message);
+    fields.current?.querySelector<HTMLInputElement>(field === 'expense' ? '.goal-spending-field input' : `#goal-${field}`)?.focus();
+    return false;
+  };
 
   const handleSaveGoal = async () => {
-    if (currentAge < 18 || currentAge > 74) {
+    if (saving.current || saveStatus === "saving") return false;
+    if (!Number.isInteger(currentAge) || currentAge < 18 || currentAge > 74) {
       const err = language === "en"
-        ? "Current age is invalid (must be between 18 and 74). Please check again."
-        : "Tuổi hiện tại chưa hợp lệ (phải từ 18 đến 74 tuổi). Vui lòng kiểm tra lại.";
-      setValidationError(err);
-      notify.error(language === "en" ? "Invalid Information" : "Thông tin chưa hợp lệ", err);
-      return false;
+        ? "Current age must be a whole number between 18 and 74."
+        : "Tuổi hiện tại phải là số nguyên từ 18 đến 74.";
+      return fail('current-age', err);
     }
-    if (targetAge <= currentAge || targetAge > 75) {
+    if (!Number.isInteger(targetAge) || targetAge <= currentAge || targetAge > 75) {
       const err = language === "en"
-        ? "Target retirement age must be greater than current age and not exceed 75."
-        : "Tuổi nghỉ hưu mục tiêu phải lớn hơn tuổi hiện tại và không vượt quá 75.";
-      setValidationError(err);
-      notify.error(language === "en" ? "Invalid Information" : "Thông tin chưa hợp lệ", err);
-      return false;
+        ? "Target retirement age must be a whole number above your current age and no greater than 75."
+        : "Tuổi nghỉ hưu mục tiêu phải là số nguyên, lớn hơn tuổi hiện tại và không vượt quá 75.";
+      return fail('target-age', err);
     }
-    if (lifeExpectancy <= targetAge || lifeExpectancy > 110) {
+    if (!Number.isInteger(lifeExpectancy) || lifeExpectancy <= targetAge || lifeExpectancy > 110) {
       const err = language === "en"
-        ? "Life expectancy must be greater than retirement age and not exceed 110."
-        : "Tuổi thọ kỳ vọng phải lớn hơn tuổi nghỉ hưu và không vượt quá 110.";
-      setValidationError(err);
-      notify.error(language === "en" ? "Invalid Information" : "Thông tin chưa hợp lệ", err);
-      return false;
+        ? "Plan end age must be a whole number above retirement age and no greater than 110."
+        : "Tuổi kết thúc kế hoạch phải là số nguyên, lớn hơn tuổi nghỉ hưu và không vượt quá 110.";
+      return fail('life-age', err);
     }
-    if (monthlyExpenseInRetirement <= 0) {
+    if (!Number.isSafeInteger(monthlyExpenseInRetirement) || monthlyExpenseInRetirement <= 0) {
       const err = language === "en"
-        ? "Projected monthly retirement expense must be greater than 0."
-        : "Mức chi tiêu dự kiến mỗi tháng khi nghỉ hưu phải lớn hơn 0.";
-      setValidationError(err);
-      notify.error(language === "en" ? "Invalid Information" : "Thông tin chưa hợp lệ", err);
-      return false;
+        ? "Enter a positive whole VND amount within the supported numeric range."
+        : "Nhập số tiền nguyên dương trong giới hạn số được hỗ trợ.";
+      return fail('expense', err);
     }
     setValidationError("");
 
@@ -129,36 +134,38 @@ export default function RetirementGoalPage() {
     const birthYear = birthMonthStr
       ? parseInt(birthMonthStr.slice(0, 4), 10)
       : new Date().getFullYear() - currentAge;
-    const computedRetireMonth = `${birthYear + targetAge}-12`;
-
-    if (v2Profile && currentAge !== profile.personal.age) {
-      setValidationError(language === "en" ? "Update your birth month in Financial Profile before changing your age." : "Hãy cập nhật tháng sinh trong Hồ sơ tài chính nếu tuổi hiện tại chưa đúng.");
+    if (v2Profile && (!birthMonthStr || currentAge !== profile.personal.age)) {
+      setValidationError(language === "en" ? "Update your birth month in Financial Profile first." : "Hãy cập nhật tháng sinh trong Hồ sơ tài chính trước khi tiếp tục.");
       return false;
     }
     // Persist only the field covered by the profile contract. Goal assumptions
     // remain a session preview until the user saves a plan version.
-    const retirementMonth = `${birthYear + targetAge}-${birthMonthStr?.slice(5, 7) || "12"}`;
-    if (v2Profile) {
-      const saved = await updateProfileV2({
-        personal: { ...v2Profile.personal, desiredRetirementMonth: { status: "KNOWN", value: retirementMonth } },
-      });
-      if (!saved) {
-        setValidationError(language === "en" ? "Could not save retirement date. Your inputs are unchanged; please retry." : "Chưa lưu được thời điểm nghỉ hưu. Dữ liệu nhập vẫn được giữ; hãy thử lại.");
-        return false;
+    const retirementMonth = targetAge === profile.goal.targetRetireAge && v2Profile?.personal.desiredRetirementMonth.status === "KNOWN"
+      ? v2Profile.personal.desiredRetirementMonth.value
+      : `${birthYear + targetAge}-${birthMonthStr?.slice(5, 7) || "12"}`;
+    saving.current = true; setIsSaving(true);
+    try {
+      if (v2Profile && (v2Profile.personal.desiredRetirementMonth.status !== "KNOWN" || v2Profile.personal.desiredRetirementMonth.value !== retirementMonth)) {
+        const saved = await updateProfileV2({
+          personal: { ...v2Profile.personal, desiredRetirementMonth: { status: "KNOWN", value: retirementMonth } },
+        });
+        if (!saved) {
+          setValidationError(language === "en" ? "Could not save retirement date. Your inputs are unchanged; please retry." : "Chưa lưu được thời điểm nghỉ hưu. Dữ liệu nhập vẫn được giữ; hãy thử lại.");
+          return false;
+        }
       }
-    }
-    updateProfileLocal({
-      personal: { ...profile.personal, age: currentAge },
-      goal: { ...profile.goal, targetRetireAge: targetAge, lifeExpectancy, lifestyle, monthlyExpenseInRetirement, inflationRate: inflationNum, investmentReturn: returnNum },
-    });
+      updateProfileLocal({
+        personal: { ...profile.personal, age: currentAge },
+        goal: { ...profile.goal, targetRetireAge: targetAge, lifeExpectancy, lifestyle, monthlyExpenseInRetirement },
+      });
 
-    setSaveNotice(true);
-    notify.info(
-      language === "en" ? "Ready to preview" : "Đã chuẩn bị đầu vào xem trước",
-      language === "en" ? "Save a plan version on the next screen to keep these assumptions in your account." : "Chi tiêu và tuổi thọ đang dùng để thử trong phiên này. Hãy lưu phiên bản ở trang Kế hoạch để giữ các giả định trong tài khoản."
-    );
-    setTimeout(() => setSaveNotice(false), 4000);
-    return true;
+      setPreparedInput(inputKey);
+      notify.info(
+        language === "en" ? "Ready to preview" : "Đã chuẩn bị đầu vào xem trước",
+        language === "en" ? "Save a plan version on the next screen to keep these assumptions in your account." : "Chi tiêu và tuổi kết thúc kế hoạch đang dùng để thử trong phiên này. Hãy lưu phiên bản ở trang Kế hoạch để giữ các giả định trong tài khoản."
+      );
+      return true;
+    } finally { saving.current = false; setIsSaving(false); }
   };
 
   const handleProceedToPlan = async () => {
@@ -189,7 +196,8 @@ export default function RetirementGoalPage() {
         </div>
       </div>
 
-      {!hasValidProfileAge && (
+      {v2Profile && <p className="goal-profile-age-note">{language === "en" ? "Current age is based on your saved birth month." : "Tuổi hiện tại được tính từ tháng sinh đã lưu."} <Link to="/user/account">{language === "en" ? "Update Financial Profile" : "Cập nhật Hồ sơ tài chính"}</Link></p>}
+      {!hasValidProfileAge && !v2Profile && (
         <div style={{ marginBottom: "var(--space-4)" }}>
           <Alert
             tone="warning"
@@ -222,6 +230,7 @@ export default function RetirementGoalPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
         >
+          <fieldset ref={fields} className="goal-edit-fields" disabled={isSaving || saveStatus === "saving"}>
           {/* Section 1: Age Controls */}
           <Card className="goal-form-card">
             <header>
@@ -250,6 +259,7 @@ export default function RetirementGoalPage() {
                     type="button"
                     className="age-stepper-btn"
                     aria-label={language === "en" ? "Decrease age by 1" : "Giảm 1 tuổi"}
+                    disabled={Boolean(v2Profile) || currentAge <= 18}
                     onClick={() => setCurrentAge(Math.max(18, currentAge - 1))}
                   >
                     <Icon name="chevron-left" />
@@ -258,15 +268,14 @@ export default function RetirementGoalPage() {
                   <div className="age-number-display-wrap">
                     <input
                       type="number"
+                      id="goal-current-age"
+                      disabled={Boolean(v2Profile)}
+                      aria-invalid={validationField === 'current-age'}
+                      aria-describedby={validationField === 'current-age' ? 'goal-current-error' : undefined}
                       min={18}
-                      max={targetAge - 1}
-                      value={currentAge}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        if (!isNaN(val)) {
-                          setCurrentAge(Math.max(18, Math.min(targetAge - 1, val)));
-                        }
-                      }}
+                      max={74}
+                      value={currentAge || ""}
+                      onChange={(e) => setCurrentAge(Number(e.target.value))}
                       className="age-hero-number-input"
                       aria-label={language === "en" ? "Enter your current age" : "Nhập tuổi hiện tại của bạn"}
                       title={language === "en" ? "Click to enter age directly" : "Bấm để nhập số tuổi trực tiếp"}
@@ -278,15 +287,17 @@ export default function RetirementGoalPage() {
                     type="button"
                     className="age-stepper-btn"
                     aria-label={language === "en" ? "Increase age by 1" : "Tăng 1 tuổi"}
-                    onClick={() => setCurrentAge(Math.min(targetAge - 1, currentAge + 1))}
+                    disabled={Boolean(v2Profile) || currentAge >= 74}
+                    onClick={() => setCurrentAge(Math.min(74, Math.max(18, currentAge + 1)))}
                   >
                     <Icon name="chevron-right" />
                   </button>
                 </div>
 
+                {validationField === 'current-age' && <p id="goal-current-error" className="goal-field-error">{validationError}</p>}
                 <div className="age-card-footer-pill">
                   <Icon name="info" size="small" />
-                  <span>{language === "en" ? "Estimated birth year:" : "Năm sinh ước tính:"} <strong>{new Date().getFullYear() - currentAge}</strong></span>
+                  <span>{language === "en" ? "Birth year:" : "Năm sinh:"} <strong>{v2Profile?.personal.birthMonth.status === "KNOWN" ? v2Profile.personal.birthMonth.value.slice(0, 4) : currentAge >= 18 ? `${new Date().getFullYear() - currentAge} (${language === "en" ? "estimate" : "ước tính"})` : "—"}</strong></span>
                 </div>
               </div>
 
@@ -307,6 +318,7 @@ export default function RetirementGoalPage() {
                     type="button"
                     className="age-stepper-btn"
                     aria-label={language === "en" ? "Decrease retirement age" : "Giảm 1 tuổi hưu"}
+                    disabled={targetAge <= currentAge + 1}
                     onClick={() => setTargetAge(Math.max(currentAge + 1, targetAge - 1))}
                   >
                     <Icon name="chevron-left" />
@@ -315,15 +327,13 @@ export default function RetirementGoalPage() {
                   <div className="age-number-display-wrap">
                     <input
                       type="number"
+                      id="goal-target-age"
+                      aria-invalid={validationField === 'target-age'}
+                      aria-describedby={validationField === 'target-age' ? 'goal-target-error' : undefined}
                       min={currentAge + 1}
-                      max={80}
-                      value={targetAge}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        if (!isNaN(val)) {
-                          setTargetAge(Math.max(currentAge + 1, Math.min(80, val)));
-                        }
-                      }}
+                      max={75}
+                      value={targetAge || ""}
+                      onChange={(e) => setTargetAge(Number(e.target.value))}
                       className="age-hero-number-input"
                       aria-label={language === "en" ? "Enter target retirement age" : "Nhập tuổi dự kiến nghỉ hưu"}
                       title={language === "en" ? "Click to enter age directly" : "Bấm để nhập số tuổi trực tiếp"}
@@ -335,12 +345,14 @@ export default function RetirementGoalPage() {
                     type="button"
                     className="age-stepper-btn"
                     aria-label={language === "en" ? "Increase retirement age" : "Tăng 1 tuổi hưu"}
-                    onClick={() => setTargetAge(Math.min(80, targetAge + 1))}
+                    disabled={targetAge >= 75}
+                    onClick={() => setTargetAge(Math.min(75, Math.max(currentAge + 1, targetAge + 1)))}
                   >
                     <Icon name="chevron-right" />
                   </button>
                 </div>
 
+                {validationField === 'target-age' && <p id="goal-target-error" className="goal-field-error">{validationError}</p>}
                 <div className="age-card-footer-pill is-highlight">
                   <Icon name="target" size="small" />
                   <span>
@@ -365,15 +377,16 @@ export default function RetirementGoalPage() {
 
             <div className="lifestyle-options">
               {(() => {
-                const baseExp = currentTotalExpense > 0 ? currentTotalExpense : 20000000;
+                const baseExp = currentTotalExpense;
                 return (
                   <>
                     <button
                       type="button"
                       className={lifestyle === "standard" ? "is-selected" : ""} aria-pressed={lifestyle === "standard"}
+                      disabled={baseExp <= 0}
                       onClick={() => {
                         setLifestyle("standard");
-                        setMonthlyExpenseInRetirement(Math.round((baseExp * 0.75) / 1000000) * 1000000);
+                        setMonthlyExpenseInRetirement(Math.round(baseExp * 0.75));
                       }}
                     >
                       <span><Icon name="home" /></span>
@@ -389,6 +402,7 @@ export default function RetirementGoalPage() {
                     <button
                       type="button"
                       className={lifestyle === "comfortable" ? "is-selected" : ""} aria-pressed={lifestyle === "comfortable"}
+                      disabled={baseExp <= 0}
                       onClick={() => {
                         setLifestyle("comfortable");
                         setMonthlyExpenseInRetirement(baseExp);
@@ -407,9 +421,10 @@ export default function RetirementGoalPage() {
                     <button
                       type="button"
                       className={lifestyle === "affluent" ? "is-selected" : ""} aria-pressed={lifestyle === "affluent"}
+                      disabled={baseExp <= 0}
                       onClick={() => {
                         setLifestyle("affluent");
-                        setMonthlyExpenseInRetirement(Math.round((baseExp * 1.4) / 1000000) * 1000000);
+                        setMonthlyExpenseInRetirement(Math.round(baseExp * 1.4));
                       }}
                     >
                       <span><Icon name="compass" /></span>
@@ -426,33 +441,37 @@ export default function RetirementGoalPage() {
               })()}
             </div>
 
+            {currentTotalExpense <= 0 && <p>{language === "en" ? "No current spending is available for these suggestions. Enter your desired expense below." : "Chưa có chi tiêu hiện tại để tính các mức gợi ý. Hãy nhập mức chi tiêu mong muốn bên dưới."}</p>}
             <div className="goal-spending-field">
               <Input
                 label={language === "en" ? "Projected monthly retirement expense (at today's price)" : "Mức chi tiêu dự kiến mỗi tháng (theo thời giá hiện tại)"}
                 labelAction={
                   <Tooltip content={language === "en" ? "System automatically compounds annual future inflation into fund calculations." : "Hệ thống tự động cộng dồn lạm phát tương lai theo năm vào công thức tính quỹ."}>
-                    <span
+                    <button
+                      type="button"
                       className="field-help-icon"
                       style={{
                         cursor: "pointer",
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        width: 22,
-                        height: 22,
+                        width: 44,
+                        height: 44,
+                        border: 0,
                         borderRadius: "50%",
                         background: "rgba(5, 38, 89, 0.08)",
                         color: "var(--color-primary-700)",
                       }}
-                      aria-label="Thông tin bổ sung về lạm phát chi tiêu"
+                      aria-label={language === "en" ? "About expense inflation" : "Thông tin bổ sung về lạm phát chi tiêu"}
                     >
                       <Icon name="info" size="small" />
-                    </span>
+                    </button>
                   </Tooltip>
                 }
                 type="text"
                 inputMode="numeric"
-                value={new Intl.NumberFormat("vi-VN").format(monthlyExpenseInRetirement)}
+                value={monthlyExpenseInRetirement ? new Intl.NumberFormat("vi-VN").format(monthlyExpenseInRetirement) : ""}
+                error={validationField === 'expense' ? validationError : undefined}
                 onChange={(v) => {
                   const clean = v.replace(/\D/g, "");
                   setMonthlyExpenseInRetirement(clean ? parseInt(clean, 10) : 0);
@@ -471,11 +490,13 @@ export default function RetirementGoalPage() {
             <header>
               <span className="form-section-index">03</span>
               <div>
-                <h2>{language === "en" ? "Economic Assumptions & Longevity" : "Giả định kinh tế & Tuổi thọ"}</h2>
+                <h2>{language === "en" ? "Assumptions & Plan Horizon" : "Giả định & Thời hạn kế hoạch"}</h2>
                 <p>{language === "en" ? "Foundational metrics to ensure financial projections reflect long-term reality." : "Các chỉ số nền tảng giúp kế hoạch tài chính phản ánh đúng thực tế theo thời gian."}</p>
               </div>
             </header>
 
+            {assumptionsStatus === "loading" && <p role="status">{language === "en" ? "Loading assumptions…" : "Đang tải giả định…"}</p>}
+            {assumptionsStatus === "error" && <Alert tone="warning" title={language === "en" ? "Could not load assumptions" : "Chưa tải được giả định"} action={<Button onClick={() => setAssumptionsAttempt(value => value + 1)}>{language === "en" ? "Retry assumptions" : "Tải lại giả định"}</Button>}>{language === "en" ? "Publication status could not be checked." : "Chưa kiểm tra được trạng thái công bố. Vui lòng thử lại."}</Alert>}
             {assumptionsStatus === "unconfigured" && (
               <div style={{ margin: "var(--space-4) 0" }}>
                 <Alert
@@ -483,8 +504,8 @@ export default function RetirementGoalPage() {
                   title={language === "en" ? "No official macro assumption series published" : "Chưa có chuỗi giả định vĩ mô được phê duyệt"}
                 >
                   {language === "en"
-                    ? "The server has not yet published an official annual macroeconomic assumption series (T03). The rates below are for temporary reference."
-                    : "Máy chủ chưa công bố chuỗi giả định kinh tế vĩ mô chính thức theo năm (T03). Các tỷ lệ bên dưới đang ở trạng thái tham chiếu tạm thời."}
+                    ? "No annual assumptions are available. You can prepare inputs; projection requires a published series."
+                    : "Chưa có chuỗi giả định theo năm. Bạn có thể chuẩn bị đầu vào; việc dự phóng cần chuỗi đã công bố."}
                 </Alert>
               </div>
             )}
@@ -498,7 +519,7 @@ export default function RetirementGoalPage() {
                     <span className="assumption-tag-badge">
                       {assumptionsStatus === "published"
                         ? (language === "en" ? "Macro Standard" : "Chuẩn hóa vĩ mô")
-                        : (language === "en" ? "Reference Benchmark" : "Giả định tham chiếu")}
+                        : (language === "en" ? "Not confirmed" : "Chưa xác nhận")}
                     </span>
                   </div>
                   <div className="assumption-metric-value">
@@ -507,8 +528,8 @@ export default function RetirementGoalPage() {
                   </div>
                   <p className="assumption-metric-desc">
                     {language === "en"
-                      ? "Uses the published annual assumptions; see the Plan screen for the calculation."
-                      : "Dùng chuỗi giả định đã công bố; xem kết quả tính tại trang Kế hoạch."}
+                      ? "Select a published annual assumption series on the Plan screen."
+                      : "Chọn chuỗi giả định theo năm đã công bố tại trang Kế hoạch."}
                   </p>
                 </div>
 
@@ -517,8 +538,8 @@ export default function RetirementGoalPage() {
                     <span className="assumption-metric-label">{language === "en" ? "Expected Investment Return" : "Lợi suất đầu tư kỳ vọng"}</span>
                     <span className="assumption-tag-badge is-green">
                       {assumptionsStatus === "published"
-                        ? (language === "en" ? "Balanced Portfolio" : "Danh mục cân bằng")
-                        : (language === "en" ? "Prudent Reference" : "Tham chiếu thận trọng")}
+                        ? (language === "en" ? "Published assumptions" : "Có chuỗi công bố")
+                        : (language === "en" ? "Not confirmed" : "Chưa xác nhận")}
                     </span>
                   </div>
                   <div className="assumption-metric-value">
@@ -527,27 +548,28 @@ export default function RetirementGoalPage() {
                   </div>
                   <p className="assumption-metric-desc">
                     {language === "en"
-                      ? "Simulated on a balanced growth portfolio (Bonds & Open-Ended Mutual Funds in VN)."
-                      : "Mô phỏng dựa trên danh mục đầu tư tăng trưởng cân bằng (Trái phiếu & Quỹ mở VN)."}
+                      ? "Depends on the portfolio and assumptions selected on the Plan screen."
+                      : "Phụ thuộc danh mục và giả định được chọn tại trang Kế hoạch."}
                   </p>
                 </div>
               </div>
 
-              {/* Life Expectancy Row / Card */}
+              {/* Plan horizon */}
               <div className="life-expectancy-card">
                 <div className="life-expectancy-input-side">
                   <div className="life-expectancy-header">
                     <span className="life-expectancy-title">
-                      {language === "en" ? "Average Life Expectancy Expectation" : "Kỳ vọng tuổi thọ trung bình"}
+                      {language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}
                     </span>
                   </div>
 
+                  <p id="goal-end-age-help">{language === "en" ? "The age through which this plan projects income and expenses; this is not a prediction of your lifespan." : "Mốc tuổi để tính thu chi đến cuối kế hoạch, không phải dự đoán tuổi thọ của bạn."}</p>
                   <div className="life-expectancy-controls-row">
                     <div className="life-expectancy-stepper-wrap">
                       <button
                         type="button"
                         className="life-stepper-btn"
-                        aria-label={language === "en" ? "Decrease life expectancy" : "Giảm 1 tuổi thọ"}
+                        aria-label={language === "en" ? "Decrease plan end age" : "Giảm 1 tuổi kết thúc kế hoạch"}
                         disabled={lifeExpectancy <= targetAge + 1}
                         onClick={() => setLifeExpectancy((prev) => Math.max(targetAge + 1, prev - 1))}
                       >
@@ -557,22 +579,15 @@ export default function RetirementGoalPage() {
                       <div className="life-stepper-display">
                         <input
                           type="number"
+                          id="goal-life-age"
+                          aria-invalid={validationField === 'life-age'}
+                          aria-describedby={validationField === 'life-age' ? 'goal-end-age-help goal-life-error' : 'goal-end-age-help'}
                           min={targetAge + 1}
                           max={110}
                           value={lifeExpectancy || ""}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) {
-                              setLifeExpectancy(Math.max(targetAge + 1, Math.min(110, val)));
-                            }
-                          }}
-                          onBlur={() => {
-                            if (!lifeExpectancy || lifeExpectancy <= targetAge) {
-                              setLifeExpectancy(Math.max(80, targetAge + 15));
-                            }
-                          }}
+                          onChange={(e) => setLifeExpectancy(Number(e.target.value))}
                           className="life-stepper-input"
-                          aria-label={language === "en" ? "Average life expectancy" : "Kỳ vọng tuổi thọ trung bình"}
+                          aria-label={language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}
                           title={language === "en" ? "Click to enter age directly" : "Bấm để nhập số tuổi trực tiếp"}
                         />
                         <span className="life-stepper-unit">{language === "en" ? "years" : "tuổi"}</span>
@@ -581,9 +596,9 @@ export default function RetirementGoalPage() {
                       <button
                         type="button"
                         className="life-stepper-btn"
-                        aria-label={language === "en" ? "Increase life expectancy" : "Tăng 1 tuổi thọ"}
+                        aria-label={language === "en" ? "Increase plan end age" : "Tăng 1 tuổi kết thúc kế hoạch"}
                         disabled={lifeExpectancy >= 110}
-                        onClick={() => setLifeExpectancy((prev) => Math.min(110, prev + 1))}
+                        onClick={() => setLifeExpectancy((prev) => Math.min(110, Math.max(targetAge + 1, prev + 1)))}
                       >
                         <Icon name="chevron-right" />
                       </button>
@@ -608,6 +623,7 @@ export default function RetirementGoalPage() {
                     </div>
                   </div>
 
+                  {validationField === 'life-age' && <p id="goal-life-error" className="goal-field-error">{validationError}</p>}
                   <p className="life-expectancy-helper">
                     {language === "en"
                       ? `Projected retirement income stream needed across ${retirementDuration} years.`
@@ -677,7 +693,7 @@ export default function RetirementGoalPage() {
 
               <div className="age-marker">
                 <span>{lifeExpectancy}</span>
-                <strong>{language === "en" ? "Life Expectancy" : "Tuổi thọ kỳ vọng"}</strong>
+                <strong>{language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}</strong>
                 <small>{lifeExpectancy} {language === "en" ? "years old" : "tuổi"} ({retirementDuration} {language === "en" ? "years in retirement" : "năm hưởng hưu"})</small>
               </div>
             </div>
@@ -691,6 +707,7 @@ export default function RetirementGoalPage() {
               </span>
             </footer>
           </Card>
+          </fieldset>
         </motion.div>
 
         {/* Right Sticky Column: Summary Card */}
@@ -702,9 +719,14 @@ export default function RetirementGoalPage() {
           transition={{ duration: 0.35, delay: 0.08, ease: "easeOut" }}
         >
           <Card className="goal-summary-card">
+            {loadingPlans && <p role="status">{language === "en" ? "Loading saved plan…" : "Đang tải kế hoạch đã lưu…"}</p>}
+            {plansError && <Alert tone="warning" title={language === "en" ? "Could not load plans" : "Chưa tải được kế hoạch"} action={<Button onClick={() => void refreshPlans()}>{language === "en" ? "Retry plans" : "Tải lại kế hoạch"}</Button>}>{plansError}</Alert>}
+            {reportLoading && <p role="status">{language === "en" ? "Loading plan report…" : "Đang tải báo cáo kế hoạch…"}</p>}
+            {reportError && <Alert tone="warning" title={language === "en" ? "Could not load plan report" : "Chưa tải được báo cáo kế hoạch"} action={<Button onClick={() => setReportAttempt(value => value + 1)}>{language === "en" ? "Retry report" : "Tải lại báo cáo"}</Button>}>{reportError}</Alert>}
+            {report?.profileChanged && <Alert tone="warning" title={language === "en" ? "Profile has changed" : "Hồ sơ đã thay đổi"}>{language === "en" ? "The saved plan has not been recalculated for your current profile." : "Kế hoạch đã lưu chưa được tính lại theo hồ sơ hiện tại."}</Alert>}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
               <Badge tone="soft">{language === "en" ? "GOALS SUMMARY" : "TỔNG HỢP MỤC TIÊU"}</Badge>
-              {report?.version && <Badge tone="info">v{report.version.version}</Badge>}
+              {(report?.version ?? currentVersion) && <Badge tone="info">v{(report?.version ?? currentVersion)?.version}</Badge>}
             </div>
 
             {report?.hypothetical && (
@@ -714,8 +736,9 @@ export default function RetirementGoalPage() {
             )}
 
             <div className="goal-summary-main">
+              {planSummary && <p>{language === "en" ? "The fund and future expense below come from the saved version. Editing inputs here does not recalculate them." : "Quỹ và chi tiêu lúc hưu bên dưới lấy từ phiên bản đã lưu. Thay đổi đầu vào tại đây chưa tính lại các số này."}</p>}
               <span>{language === "en" ? "TARGET RETIREMENT FUND (K)" : "QUỸ NGHỈ HƯU CẦN ĐẠT (K)"}</span>
-              {estimatedTargetFund > 0 ? (
+              {estimatedTargetFund != null && Number.isFinite(estimatedTargetFund) ? (
                 <>
                   <strong className="font-mono">{Math.round(estimatedTargetFund / 1000000000 * 10) / 10}</strong>
                   <p>
@@ -762,16 +785,15 @@ export default function RetirementGoalPage() {
 
             <div className="goal-estimate">
               <span>{language === "en" ? "Current monthly surplus:" : "Dòng tiền có thể tích lũy hiện tại:"}</span>
-              <strong className="font-mono">{formatVND(profile.plan.monthlySavings)} {language === "en" ? "/ month" : "/ tháng"}</strong>
+              <strong className="font-mono">{cashflowKnown ? `${formatVND(currentSurplus)} ${language === "en" ? "/ month" : "/ tháng"}` : (language === "en" ? "Complete income, expenses and debt payments first." : "Cần bổ sung thu nhập, chi tiêu và khoản trả nợ.")}</strong>
               <small>
-                {planSummary
-                  ? (language === "en" ? `Accurately calculated from server as of valuation date ${planSummary.valuationDate}.` : `Tính toán chuẩn xác từ máy chủ theo ngày định giá ${planSummary.valuationDate}.`)
-                  : (language === "en" ? "Savings rate will be optimized based on approved macroeconomic assumptions." : "Mức tích lũy sẽ được tính toán tối ưu theo chuỗi giả định kinh tế vĩ mô được duyệt.")}
+                {language === "en" ? "Income minus living expenses and monthly debt payments in your current profile; not the plan's required contribution." : "Thu nhập trừ chi tiêu và tiền trả nợ hàng tháng trong hồ sơ hiện tại; không phải mức đóng góp cần duy trì của kế hoạch."}
               </small>
             </div>
 
-            <p className="goal-draft-note">{language === "en" ? "These inputs are for this session. Save a version on the Plan screen to keep your goal; applying it requires confirmation." : "Đầu vào thử trong phiên. Lưu phiên bản tại trang Kế hoạch để giữ mục tiêu; chỉ trở thành kế hoạch chính thức sau khi bạn xác nhận áp dụng."}</p>
-            {validationError && <Alert tone="danger" title={language === "en" ? "Invalid Information" : "Thông tin chưa hợp lệ"}>{validationError}</Alert>}
+            <p className="goal-draft-note">{v2Profile ? (language === "en" ? "Continuing saves your desired retirement date to your profile. Spending and plan end age stay in this session until you save a plan version." : "Khi tiếp tục, thời điểm nghỉ hưu được lưu vào hồ sơ. Chi tiêu và tuổi kết thúc kế hoạch chỉ giữ trong phiên cho đến khi bạn lưu phiên bản kế hoạch.") : (language === "en" ? "These inputs stay in this session. Save a version on the Plan screen to retain your goal." : "Đầu vào chỉ giữ trong phiên. Lưu phiên bản tại trang Kế hoạch để giữ mục tiêu trong tài khoản.")}</p>
+            {preparedInput === inputKey && <p role="status">{language === "en" ? "Inputs are ready for preview." : "Đã giữ đầu vào để thử trong phiên."}</p>}
+            {validationError && <div id="goal-validation"><Alert tone="danger" title={language === "en" ? "Could not continue" : "Chưa thể tiếp tục"}>{validationError}{saveStatus === 'error' && saveError && <p>{saveError}</p>}</Alert></div>}
 
             <div className="goal-summary-actions">
               <Button
@@ -779,16 +801,16 @@ export default function RetirementGoalPage() {
                 size="medium"
                 onClick={handleSaveGoal}
                 className="goal-save-btn"
-                loading={saveStatus === "saving"}
+                loading={isSaving || saveStatus === "saving"}
               >
-                <Icon name="check" size="small" /> {language === "en" ? "Use for this preview" : "Giữ để thử trong phiên"}
+                <Icon name="check" size="small" /> {v2Profile ? (language === "en" ? "Save date & prepare inputs" : "Lưu mốc hưu & giữ đầu vào") : (language === "en" ? "Use for this preview" : "Giữ để thử trong phiên")}
               </Button>
               <Button
                 variant="primary"
                 size="large"
                 onClick={handleProceedToPlan}
                 className="goal-proceed-btn"
-                disabled={saveStatus === "saving"}
+                disabled={isSaving || saveStatus === "saving"}
               >
                 {language === "en" ? "Preview retirement plan" : "Xem trước kế hoạch"} <Icon name="arrow-right" />
               </Button>
