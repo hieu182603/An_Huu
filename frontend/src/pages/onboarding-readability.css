@@ -1,0 +1,18 @@
+.onboarding-stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; padding: 0; list-style: none; }
+.onboarding-stages li { display: flex; align-items: center; gap: 8px; padding: 12px; border: 1px solid var(--color-border); border-radius: 12px; font-size: 14px; line-height: 1.5; }
+.onboarding-stages li[aria-current] { color: var(--color-primary-700); background: var(--color-soft); border-color: var(--color-primary-700); font-weight: 600; }
+.onboarding-stages li > span { flex: 0 0 24px; text-align: center; }
+.onboarding-step-guide { margin-bottom: 24px; font-size: 16px; line-height: 1.6; }
+.onboarding-step-guide p { margin: 0 0 8px; }
+.onboarding-step-guide .onboarding-unknown-help { font-size: 14px; }
+.onboarding-app .field-label, .onboarding-app .form-field > small,
+.onboarding-app .step-sidebar nav button strong,
+.onboarding-app .onboarding-save-status { font-size: 14px; line-height: 1.5; }
+.onboarding-app .form-field input, .onboarding-app .form-field select { min-height: 44px; font-size: 16px; }
+.onboarding-app .step-sidebar nav button { min-height: 44px; }
+.onboarding-app .onboarding-actions .button { min-height: 48px; }
+@media (max-width: 767px) {
+  .onboarding-stages { gap: 8px; }
+  .onboarding-stages li { flex-direction: column; align-items: flex-start; padding: 8px; }
+  .onboarding-stages li > span { flex-basis: auto; }
+}

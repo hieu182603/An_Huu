@@ -31,6 +31,7 @@ test("FE-11: source reforecast preview, save, apply and CSV export flow in Simul
           inputHash: "input-hash-mock-fe11-999",
           candidate: {
             calculation: {
+              summary: { atRetirement: { projectedFund: "1500000000", coveragePercent: "80" } },
               rows: [{ month: "2026-10", capitalInjection: "150000000", totalLivingExpense: "25000000" }],
             },
           },
@@ -171,6 +172,7 @@ test("FE-11: source reforecast preview, save, apply and CSV export flow in Simul
   const applyButton = page.getByRole("button", { name: /Áp dụng bản/i });
   await expect(applyButton).toBeVisible();
   await applyButton.click();
+  await page.getByRole("dialog").getByRole("button", { name: "Xác nhận áp dụng nguồn", exact: true }).click();
 
   // Wait for apply request to be captured
   await expect.poll(() => applyCaptured).not.toBeNull();

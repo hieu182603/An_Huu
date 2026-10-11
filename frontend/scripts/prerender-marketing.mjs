@@ -19,6 +19,7 @@ const template = `<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#10385b" />
+    <meta name="google-site-verification" content="google084fb0249d30ed55" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <script type="module" crossorigin src="/assets/${jsFile}"></script>
     <link rel="stylesheet" crossorigin href="/assets/${cssFile}">

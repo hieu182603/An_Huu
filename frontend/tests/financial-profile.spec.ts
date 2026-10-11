@@ -77,7 +77,7 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     await expect(page).toHaveURL(/.*\/user\/dashboard/);
 
     // Dashboard hiển thị đúng chào buổi sáng và thông tin
-    await expect(page.locator("h1")).toContainText(/Xin chào/i);
+    await expect(page.locator(".dashboard-summary-header")).toContainText(/Xin chào/i);
 
     // Vào trang tài khoản và xác minh thông tin
     await page.goto("/user/account");
@@ -102,7 +102,7 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
 
     // Mở Dashboard kiểm tra tên mới
     await page.goto("/user/dashboard");
-    const heading = await page.locator("h1").first().textContent();
+    const heading = await page.locator(".dashboard-summary-header").textContent();
     expect(heading).toContain("Nguyễn Hoàng Nam");
   });
 
@@ -135,6 +135,10 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     await expect(page.getByRole("button", { name: "Tăng 1 triệu" }).first()).toBeVisible();
     await page.getByRole("button", { name: "Tăng 1 triệu" }).first().click();
     await page.getByRole("button", { name: /Áp dụng kịch bản này/ }).click();
+    const confirmBtn = page.getByRole("button", { name: "Xác nhận áp dụng", exact: true });
+    if (await confirmBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await confirmBtn.click();
+    }
     await expect(page).toHaveURL(/\/user\/plan$/, { timeout: 5000 });
     await expect(page.locator(".result-total")).toBeVisible();
   });

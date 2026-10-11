@@ -136,30 +136,43 @@ export function LoginPage() {
   const { login, loginWithGoogle, initializing } = useAuth();
   const { notify } = useNotification();
 
-  const [email, setEmail] = useState("");
+  const initialEmail = (location.state as { email?: unknown } | null)?.email;
+  const [email, setEmail] = useState(typeof initialEmail === "string" ? initialEmail : "");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string; sentAt: number } | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const busy = loading || googleLoading || initializing;
+  const submitRef = useRef<HTMLButtonElement>(null);
+  const verificationRequests = useRef(new Map<string, number>());
+  const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string; remember: boolean; sentAt: number | null; error?: string } | null>(null);
+  const closeVerification = () => {
+    setPendingVerification(null);
+    requestAnimationFrame(() => submitRef.current?.focus());
+  };
 
   const handleGoogleAuth = async () => {
+    if (busy) return;
     setError("");
     if (!isGoogleAuthConfigured()) {
       const msg = "Đăng nhập Google chưa sẵn sàng. Bạn có thể tiếp tục bằng email và mật khẩu.";
       setError(msg);
-      notify.warning("Chưa cấu hình Google OAuth", msg);
       return;
     }
 
+    setGoogleLoading(true);
     try {
       await triggerGoogleSignIn(
         async (_payload, credential) => {
-          const u = await loginWithGoogle(credential);
-          trackLoginEvent("google");
-          notify.success("Đăng nhập Google thành công", `Chào mừng bạn trở lại, ${u.name}!`);
-          navigate(resumeDestination(location.state?.from, u.role), { replace: true });
+          setLoading(true);
+          try {
+            const u = await loginWithGoogle(credential);
+            trackLoginEvent("google");
+            notify.success("Đăng nhập Google thành công", `Chào mừng bạn trở lại, ${u.name}!`);
+            navigate(resumeDestination(location.state?.from, u.role), { replace: true });
+          } finally { setLoading(false); }
         },
         (err) => {
           console.error("Google Auth Error:", err);
@@ -168,12 +181,15 @@ export function LoginPage() {
       );
     } catch (err: unknown) {
       console.error(err);
-      setError("Không thể khởi động Google Sign-In. Vui lòng kiểm tra cấu hình mạng hoặc Google Cloud Console.");
+      setError("Chưa thể kết nối đăng nhập Google. Vui lòng thử lại hoặc đăng nhập bằng email.");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
   const performLogin = async (loginEmail: string, loginPass: string) => {
-    const cleanEmail = (loginEmail || "").trim();
+    if (busy) return;
+    const cleanEmail = (loginEmail || "").trim().toLowerCase();
     const cleanPassword = loginPass || "";
     if (!cleanEmail || !cleanPassword) {
       const msg = "Vui lòng điền đầy đủ email và mật khẩu.";
@@ -193,9 +209,17 @@ export function LoginPage() {
       navigate(targetDestination, { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
-        // Issue a fresh code (the backend ignores requests within 60s of the last one).
-        await apiRequest("/auth/resend-verification", { email: cleanEmail }).catch(() => undefined);
-        setPendingVerification({ email: cleanEmail, password: cleanPassword, sentAt: Date.now() });
+        let sentAt = verificationRequests.current.get(cleanEmail) ?? null;
+        let requestError: string | undefined;
+        // Reopening is not a new request. Keep a failed first send retryable.
+        if (sentAt === null) {
+          try {
+            await apiRequest("/auth/resend-verification", { email: cleanEmail });
+            sentAt = Date.now();
+            verificationRequests.current.set(cleanEmail, sentAt);
+          } catch (sendError) { requestError = getErrorMessage(sendError); }
+        }
+        setPendingVerification({ email: cleanEmail, password: cleanPassword, remember, sentAt, error: requestError });
       } else setError(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -204,8 +228,15 @@ export function LoginPage() {
 
   const handleVerified = async () => {
     if (!pendingVerification) return;
-    const loggedUser = await login(pendingVerification.email, pendingVerification.password, remember);
-    navigate(resumeDestination(location.state?.from, loggedUser.role, "/onboarding"), { replace: true });
+    try {
+      const loggedUser = await login(pendingVerification.email, pendingVerification.password, pendingVerification.remember);
+      navigate(resumeDestination(location.state?.from, loggedUser.role, "/onboarding"), { replace: true });
+    } catch (loginError) {
+      // Verification consumed the code; retry credentials, not the same OTP.
+      setPendingVerification(null);
+      setError(`Email đã xác minh. ${getErrorMessage(loginError)} Bạn có thể đăng nhập lại.`);
+      requestAnimationFrame(() => document.getElementById("login-password")?.focus());
+    }
   };
 
   const handleSubmit = async (e?: FormEvent) => {
@@ -216,7 +247,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="auth-page">
+    <div className="auth-page auth-login-page">
       <AuthStory
         title="Tự chủ tài chính, an nhiên mỗi ngày."
         highlight="8,5 TỶ ĐỒNG"
@@ -243,6 +274,7 @@ export function LoginPage() {
                 <div className="auth-input-wrapper">
                   <input
                     id="login-email"
+                    disabled={busy}
                     type="email"
                     className="auth-input"
                     placeholder="yourname@email.com"
@@ -261,6 +293,7 @@ export function LoginPage() {
                 <div className="auth-input-wrapper">
                   <input
                     id="login-password"
+                    disabled={busy}
                     type={showPassword ? "text" : "password"}
                     className="auth-input has-eye"
                     placeholder="Nhập mật khẩu của bạn"
@@ -272,6 +305,7 @@ export function LoginPage() {
                   <button
                     type="button"
                     className="auth-eye-btn"
+                    disabled={busy}
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                   >
@@ -284,6 +318,7 @@ export function LoginPage() {
             <div className="auth-options-row">
               <Checkbox
                 checked={remember}
+                disabled={busy}
                 label="Ghi nhớ đăng nhập"
                 onChange={setRemember}
               />
@@ -300,9 +335,10 @@ export function LoginPage() {
             )}
 
             <button
+              ref={submitRef}
               type="submit"
               className="auth-btn-primary"
-              disabled={loading || initializing}
+              disabled={busy}
             >
               {loading ? (
                 <>
@@ -324,11 +360,11 @@ export function LoginPage() {
             <button
               type="button"
               className="auth-btn-google"
-              disabled={loading || initializing}
+              disabled={busy}
               onClick={handleGoogleAuth}
             >
               <GoogleIcon />
-              <span>Đăng nhập nhanh với Google</span>
+              <span>{googleLoading ? "Đang kết nối Google..." : "Đăng nhập nhanh với Google"}</span>
             </button>
 
             <div style={{ textAlign: "center", marginTop: "16px" }}>
@@ -343,8 +379,10 @@ export function LoginPage() {
           <EmailOtpDialog
             email={pendingVerification.email}
             sentAt={pendingVerification.sentAt}
-            intro="Tài khoản chưa xác minh email. Mã mới đã được gửi tới hộp thư của bạn."
-            onClose={() => setPendingVerification(null)}
+            intro="Tài khoản chưa xác minh email. Kiểm tra mã trong email mới nhất hoặc yêu cầu gửi lại."
+            initialError={pendingVerification.error}
+            onRequested={requestedAt => verificationRequests.current.set(pendingVerification.email, requestedAt)}
+            onClose={closeVerification}
             onVerified={handleVerified}
           />
         )}
@@ -357,15 +395,20 @@ function OtpSixDigitInput({
   value,
   onChange,
   hasError,
-  autoFocus = true,
+  disabled,
 }: {
-  value: string;
-  onChange: (val: string) => void;
+  value: string[];
+  onChange: (val: string[]) => void;
   hasError?: boolean;
-  autoFocus?: boolean;
+  disabled?: boolean;
 }) {
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
-  const digits = Array.from({ length: 6 }, (_, i) => value[i] || "");
+  const digits = value;
+  const fillCode = (raw: string) => {
+    const clean = raw.replace(/\D/g, "").slice(0, 6);
+    onChange(Array.from({ length: 6 }, (_, i) => clean[i] || ""));
+    inputsRef.current[Math.min(clean.length, 5)]?.focus();
+  };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Backspace") {
@@ -386,22 +429,18 @@ function OtpSixDigitInput({
     if (!rawVal) {
       const nextDigits = [...digits];
       nextDigits[index] = "";
-      onChange(nextDigits.join(""));
+      onChange(nextDigits);
       return;
     }
 
     if (rawVal.length > 1) {
-      const pasted = rawVal.slice(0, 6);
-      onChange(pasted);
-      const nextFocus = Math.min(pasted.length, 5);
-      inputsRef.current[nextFocus]?.focus();
+      fillCode(rawVal);
       return;
     }
 
     const nextDigits = [...digits];
     nextDigits[index] = rawVal[rawVal.length - 1];
-    const newCombined = nextDigits.join("");
-    onChange(newCombined);
+    onChange(nextDigits);
 
     if (index < 5) {
       inputsRef.current[index + 1]?.focus();
@@ -412,39 +451,12 @@ function OtpSixDigitInput({
     e.preventDefault();
     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
     if (pasted) {
-      onChange(pasted);
-      const targetIndex = Math.min(pasted.length, 5);
-      inputsRef.current[targetIndex]?.focus();
+      fillCode(pasted);
     }
   };
 
   return (
     <div className="otp-boxes-container">
-      {/* Hidden input strictly for automation test locator and accessibility */}
-      <input
-        id="register-otp-input"
-        aria-label="Mã OTP 6 số"
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        maxLength={6}
-        value={value}
-        onChange={(e) => {
-          const clean = e.target.value.replace(/\D/g, "").slice(0, 6);
-          onChange(clean);
-        }}
-        style={{
-          position: "absolute",
-          opacity: 0,
-          pointerEvents: "none",
-          width: 1,
-          height: 1,
-          margin: -1,
-          padding: 0,
-          border: 0,
-        }}
-        tabIndex={-1}
-      />
       {digits.map((digit, idx) => (
         <Fragment key={idx}>
           {idx === 3 && <span className="otp-box-divider" aria-hidden="true" />}
@@ -454,7 +466,10 @@ function OtpSixDigitInput({
             inputMode="numeric"
             pattern="[0-9]*"
             maxLength={6}
-            autoFocus={autoFocus && idx === 0}
+            autoComplete={idx === 0 ? "one-time-code" : "off"}
+            disabled={disabled}
+            aria-invalid={hasError || undefined}
+            aria-describedby={hasError ? "email-otp-error" : undefined}
             className={`otp-digit-slot ${digit ? "is-filled" : ""} ${hasError ? "has-error" : ""}`}
             value={digit}
             onChange={(e) => handleInputChange(idx, e)}
@@ -469,36 +484,36 @@ function OtpSixDigitInput({
   );
 }
 
-// Mirrors backend AuthService.issueVerification: EMAIL_VERIFICATION codes expire
-// after 3 minutes and a new code can be requested 60 seconds after the last one.
-const OTP_LIFETIME_SECONDS = 180;
+// ACCEPTED does not reveal whether a code was issued. Track request cooldown only;
+// the backend remains authoritative for code validity and expiry.
 const OTP_RESEND_AFTER_SECONDS = 60;
-const formatClock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
-function EmailOtpDialog({ email, sentAt: initialSentAt, onClose, onVerified, intro }: {
+function EmailOtpDialog({ email, sentAt: initialSentAt, onClose, onVerified, intro, onRequested, initialError }: {
   email: string;
-  sentAt: number;
+  sentAt: number | null;
   onClose: () => void;
   onVerified: () => Promise<void>;
   intro?: string;
+  onRequested?: (requestedAt: number) => void;
+  initialError?: string;
 }) {
   const { notify } = useNotification();
   const [sentAt, setSentAt] = useState(initialSentAt);
   const [now, setNow] = useState(() => Date.now());
-  const [code, setCode] = useState("");
+  const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
+  const code = digits.join("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState(intro ?? "Mã gồm 6 chữ số đã được gửi tới email của bạn.");
+  const [error, setError] = useState(initialError ?? "");
+  const [notice, setNotice] = useState(intro ?? "Yêu cầu đã được tiếp nhận. Nếu đủ điều kiện, hướng dẫn xác minh sẽ được gửi qua email.");
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
-  const elapsed = Math.max(0, Math.floor((now - sentAt) / 1000));
-  const remaining = Math.max(0, OTP_LIFETIME_SECONDS - elapsed);
-  const expired = remaining === 0;
+  const elapsed = sentAt === null ? OTP_RESEND_AFTER_SECONDS : Math.max(0, Math.floor((now - sentAt) / 1000));
+  const resendRemaining = Math.max(0, OTP_RESEND_AFTER_SECONDS - elapsed);
   const canResend = elapsed >= OTP_RESEND_AFTER_SECONDS;
 
   const resend = async () => {
@@ -507,10 +522,12 @@ function EmailOtpDialog({ email, sentAt: initialSentAt, onClose, onVerified, int
     setError("");
     try {
       await apiRequest("/auth/resend-verification", { email });
-      setSentAt(Date.now());
-      setNow(Date.now());
-      setCode("");
-      setNotice("Đã gửi mã mới. Mã cũ không còn dùng được.");
+      const requestedAt = Date.now();
+      setSentAt(requestedAt);
+      setNow(requestedAt);
+      onRequested?.(requestedAt);
+      setDigits(Array(6).fill(""));
+      setNotice("Đã tiếp nhận yêu cầu gửi lại. Nếu đủ điều kiện, bạn sẽ nhận được mã mới; hãy dùng mã trong email mới nhất.");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -520,12 +537,9 @@ function EmailOtpDialog({ email, sentAt: initialSentAt, onClose, onVerified, int
 
   const verify = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading || resending) return;
     if (!/^\d{6}$/.test(code)) {
       setError("Mã OTP phải gồm đúng 6 chữ số.");
-      return;
-    }
-    if (expired) {
-      setError("Mã đã hết hạn. Hãy gửi mã mới.");
       return;
     }
     setLoading(true);
@@ -542,9 +556,9 @@ function EmailOtpDialog({ email, sentAt: initialSentAt, onClose, onVerified, int
   };
 
   return (
-    <ResponsiveDialog open title="Xác minh email" onClose={onClose} className="otp-dialog-modal" hideHeader usePortal={false}>
+    <ResponsiveDialog open title="Xác minh email" onClose={() => { if (!loading && !resending) onClose(); }} className="otp-dialog-modal" hideHeader initialFocusSelector=".otp-digit-slot">
       <div className="otp-card-header">
-        <button type="button" className="otp-close-btn" aria-label="Đóng" onClick={onClose}>
+        <button type="button" className="otp-close-btn" aria-label="Đóng" onClick={onClose} disabled={loading || resending}>
           <span aria-hidden="true">×</span>
         </button>
         <div className="otp-badge-icon" aria-hidden="true">
@@ -554,26 +568,22 @@ function EmailOtpDialog({ email, sentAt: initialSentAt, onClose, onVerified, int
           </svg>
         </div>
         <h2 className="otp-title">Xác minh email</h2>
-        <p className="otp-subtitle">Nhập mã 6 chữ số đã gửi tới</p>
+        <p className="otp-subtitle">Nhập mã 6 chữ số từ email xác minh của</p>
         <p className="otp-email-value" data-testid="otp-email">{email}</p>
       </div>
 
       <form onSubmit={verify} noValidate>
-        <OtpSixDigitInput value={code} onChange={(next) => { setCode(next); setError(""); }} hasError={Boolean(error)} autoFocus />
+        <OtpSixDigitInput value={digits} onChange={(next) => { setDigits(next); setError(""); }} hasError={Boolean(error)} disabled={loading || resending} />
 
         <div className="otp-action-row">
-          <span className={`otp-timer${expired ? " is-expired" : remaining <= 30 ? " is-ending" : ""}`} role="timer">
-            {expired ? "Mã đã hết hạn" : <>Mã hết hạn sau <strong>{formatClock(remaining)}</strong></>}
-          </span>
-          {canResend && (
-            <button type="button" className="otp-resend-btn" onClick={resend} disabled={resending || loading}>
-              {resending ? "Đang gửi..." : "Gửi lại mã"}
-            </button>
-          )}
+          <span className="otp-security-note">Mã có hiệu lực 3 phút từ lúc phát hành.</span>
+          <button type="button" className="otp-resend-btn" onClick={resend} disabled={!canResend || resending || loading}>
+            {resending ? "Đang gửi..." : canResend ? "Gửi lại mã" : `Gửi lại sau ${resendRemaining} giây`}
+          </button>
         </div>
 
         {error ? (
-          <div className="otp-alert otp-alert-error" role="alert">
+          <div className="otp-alert otp-alert-error" role="alert" id="email-otp-error">
             <Icon name="alert" size="small" />
             <span>{error}</span>
           </div>
@@ -584,7 +594,7 @@ function EmailOtpDialog({ email, sentAt: initialSentAt, onClose, onVerified, int
           </div>
         ) : null}
 
-        <button type="submit" className="otp-submit-btn" disabled={loading || expired || code.length !== 6}>
+        <button type="submit" className="otp-submit-btn" disabled={loading || resending || code.length !== 6}>
           {loading ? (
             <><span className="spinner" aria-hidden="true" /><span>Đang kích hoạt tài khoản...</span></>
           ) : (
@@ -614,6 +624,14 @@ export function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  type Field = "name" | "email" | "phone" | "password" | "agree";
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<Field, string>>>({});
+  const clearFieldError = (field: Field) => setFieldErrors(current => ({ ...current, [field]: undefined }));
+  const fieldError = (field: Field) => fieldErrors[field]
+    ? <p className="auth-field-error" id={`register-${field}-error`}>{fieldErrors[field]}</p>
+    : null;
+  // Only request times live here, never credentials in browser storage.
+  const verificationRequests = useRef(new Map<string, number>());
 
   const registerSubmitRef = useRef<HTMLButtonElement>(null);
   const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string; sentAt: number } | null>(null);
@@ -666,39 +684,36 @@ export function RegisterPage() {
     if (e && typeof e.preventDefault === "function") {
       e.preventDefault();
     }
+    if (loading || initializing) return;
     const cleanName = fullName.trim();
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password;
-
-    if (!cleanName || !cleanEmail || !cleanPassword) {
-      const msg = "Vui lòng điền đầy đủ họ tên, email và mật khẩu.";
-      setError(msg);
-      notify.error("Thông tin chưa đầy đủ", msg);
+    const cleanPhone = phone.replace(/[ ()-]/g, "");
+    const errors: Partial<Record<Field, string>> = {};
+    if (!cleanName) errors.name = "Vui lòng nhập họ tên.";
+    if (!cleanEmail) errors.email = "Vui lòng nhập email.";
+    if (!validPassword(cleanPassword)) errors.password = "Mật khẩu cần ít nhất 12 ký tự và tối đa 72 byte UTF-8.";
+    if (cleanPhone && !/^(?:0|\+84)[35789]\d{8}$/.test(cleanPhone)) errors.phone = "Vui lòng nhập số điện thoại di động Việt Nam hợp lệ.";
+    if (!agree) errors.agree = "Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.";
+    setFieldErrors(errors);
+    setError("");
+    const firstError = (Object.keys(errors) as Field[])[0];
+    if (firstError) {
+      requestAnimationFrame(() => document.getElementById(`register-${firstError}`)?.focus());
       return;
     }
-    if (!validPassword(cleanPassword)) {
-      const msg = "Mật khẩu cần ít nhất 12 ký tự và tối đa 72 byte UTF-8.";
-      setError(msg);
-      notify.warning("Mật khẩu chưa đủ an toàn", msg);
-      return;
-    }
-    if (!agree) {
-      const msg = "Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.";
-      setError(msg);
-      notify.warning("Điều khoản dịch vụ", msg);
+    const previousRequest = verificationRequests.current.get(cleanEmail);
+    if (previousRequest !== undefined) {
+      setPendingVerification({ email: cleanEmail, password: cleanPassword, sentAt: previousRequest });
       return;
     }
     setLoading(true);
     try {
-      const cleanPhone = phone.replace(/[ ()-]/g, "");
-      if (cleanPhone && !/^(?:0|\+84)[35789]\d{8}$/.test(cleanPhone)) {
-        setError("Vui lòng nhập số điện thoại di động Việt Nam hợp lệ.");
-        return;
-      }
       await apiRequest("/auth/register", { fullName: cleanName, email: cleanEmail, password: cleanPassword, ...(cleanPhone ? { phone: cleanPhone } : {}) });
       trackSignUpEvent("email");
-      setPendingVerification({ email: cleanEmail, password: cleanPassword, sentAt: Date.now() });
-      notify.success("Đăng ký thành công", "Vui lòng nhập mã OTP để kích hoạt tài khoản.");
+      const requestedAt = Date.now();
+      verificationRequests.current.set(cleanEmail, requestedAt);
+      setPendingVerification({ email: cleanEmail, password: cleanPassword, sentAt: requestedAt });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -706,11 +721,11 @@ export function RegisterPage() {
     }
   };
 
-  const passwordStrength =
-    password.length === 0 ? 0 : password.length >= 12 && /[0-9]/.test(password) && /[a-zA-Z]/.test(password) ? 3 : password.length >= 6 ? 2 : 1;
+  const passwordBytes = new TextEncoder().encode(password).length;
+  const passwordHint = !password ? "" : passwordBytes > 72 ? "Vượt giới hạn 72 byte" : password.length < 12 ? "Cần ít nhất 12 ký tự" : "Đủ độ dài cho phép";
 
   return (
-    <div className="auth-page">
+    <div className="auth-page auth-register-page">
       <AuthStory
         title="An tâm tài chính, thảnh thơi tuổi vàng."
         highlight="8,5 TỶ ĐỒNG"
@@ -741,11 +756,15 @@ export function RegisterPage() {
                     className="auth-input"
                     placeholder="Ví dụ: Nguyễn Minh An"
                     value={fullName}
-                    onChange={(e) => { setFullName(e.target.value); setError(""); }}
+                    onChange={(e) => { setFullName(e.target.value); clearFieldError("name"); }}
+                    disabled={loading}
+                    aria-invalid={Boolean(fieldErrors.name) || undefined}
+                    aria-describedby={fieldErrors.name ? "register-name-error" : undefined}
                     autoComplete="name"
                     required
                   />
                 </div>
+                {fieldError("name")}
               </div>
 
               <div className="name-fields">
@@ -760,11 +779,15 @@ export function RegisterPage() {
                       className="auth-input"
                       placeholder="yourname@email.com"
                       value={email}
-                      onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                      onChange={(e) => { setEmail(e.target.value); clearFieldError("email"); }}
+                      disabled={loading}
+                      aria-invalid={Boolean(fieldErrors.email) || undefined}
+                      aria-describedby={fieldErrors.email ? "register-email-error" : undefined}
                       autoComplete="email"
                       required
                     />
                   </div>
+                  {fieldError("email")}
                 </div>
 
                 <div className="auth-field-item">
@@ -778,10 +801,15 @@ export function RegisterPage() {
                       className="auth-input"
                       placeholder="0912 345 678"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      inputMode="numeric"
+                      onChange={(e) => { setPhone(e.target.value); clearFieldError("phone"); }}
+                      disabled={loading}
+                      aria-invalid={Boolean(fieldErrors.phone) || undefined}
+                      aria-describedby={fieldErrors.phone ? "register-phone-error" : undefined}
+                      autoComplete="tel"
+                      inputMode="tel"
                     />
                   </div>
+                  {fieldError("phone")}
                 </div>
               </div>
 
@@ -791,21 +819,9 @@ export function RegisterPage() {
                   <span style={{
                     fontSize: "11.5px",
                     fontWeight: 600,
-                    color: passwordStrength === 3
-                      ? "var(--color-success, #10B981)"
-                      : passwordStrength === 2
-                      ? "var(--color-warning, #D97706)"
-                      : passwordStrength === 1
-                      ? "var(--color-danger, #EF4444)"
-                      : "transparent",
+                    color: validPassword(password) ? "var(--color-success, #10B981)" : "var(--color-danger, #EF4444)",
                   }}>
-                    {passwordStrength === 3
-                      ? "Mạnh"
-                      : passwordStrength === 2
-                      ? "Trung bình"
-                      : passwordStrength === 1
-                      ? "Yếu (tối thiểu 12 ký tự)"
-                      : ""}
+                    <span id="register-password-hint">{passwordHint}</span>
                   </span>
                 </label>
                 <div className="auth-input-wrapper">
@@ -815,7 +831,10 @@ export function RegisterPage() {
                     className="auth-input has-eye"
                     placeholder="Tạo mật khẩu an toàn (tối thiểu 12 ký tự)"
                     value={password}
-                    onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                    onChange={(e) => { setPassword(e.target.value); clearFieldError("password"); }}
+                    disabled={loading}
+                    aria-invalid={Boolean(fieldErrors.password) || (Boolean(password) && !validPassword(password)) || undefined}
+                    aria-describedby={`register-password-hint${fieldErrors.password ? " register-password-error" : ""}`}
                     autoComplete="new-password"
                     required
                   />
@@ -829,22 +848,22 @@ export function RegisterPage() {
                   </button>
                 </div>
 
-                {password && (
-                  <div className="auth-strength-meter" aria-label="Độ mạnh mật khẩu">
-                    <div className={`strength-bar is-weak ${passwordStrength >= 1 ? "is-filled" : ""}`} />
-                    <div className={`strength-bar is-medium ${passwordStrength >= 2 ? "is-filled" : ""}`} />
-                    <div className={`strength-bar is-strong ${passwordStrength >= 3 ? "is-filled" : ""}`} />
-                  </div>
-                )}
+                {fieldError("password")}
               </div>
             </div>
 
             <div className="auth-options-row">
-              <Checkbox
-                checked={agree}
-                label="Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của An Hưu"
-                onChange={setAgree}
-              />
+              <div>
+                <label className="choice-control">
+                  <input id="register-agree" type="checkbox" checked={agree} disabled={loading}
+                    onChange={e => { setAgree(e.target.checked); clearFieldError("agree"); }}
+                    aria-invalid={Boolean(fieldErrors.agree) || undefined}
+                    aria-describedby={fieldErrors.agree ? "register-agree-error" : undefined} />
+                  <span className="checkbox-visual"><Icon name="check" size="small" /></span>
+                  <span>Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của An Hưu</span>
+                </label>
+                {fieldError("agree")}
+              </div>
             </div>
 
             {error && (
@@ -902,6 +921,7 @@ export function RegisterPage() {
             sentAt={pendingVerification.sentAt}
             onClose={closeOtpModal}
             onVerified={handleVerified}
+            onRequested={requestedAt => verificationRequests.current.set(pendingVerification.email, requestedAt)}
           />
         )}
       </main>

@@ -1,3 +1,4 @@
+import "./admin-dashboard.css";
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router";
 import { Alert, Badge, Button, Card, Icon } from "../../components/ui";

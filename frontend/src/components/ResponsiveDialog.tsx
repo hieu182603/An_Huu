@@ -10,6 +10,7 @@ export default function ResponsiveDialog({
   className = "",
   hideHeader = false,
   usePortal = true,
+  initialFocusSelector,
 }: {
   open: boolean;
   title: string;
@@ -19,6 +20,7 @@ export default function ResponsiveDialog({
   className?: string;
   hideHeader?: boolean;
   usePortal?: boolean;
+  initialFocusSelector?: string;
 }) {
   const titleId = useId();
   const surface = useRef<HTMLDivElement>(null);
@@ -28,14 +30,17 @@ export default function ResponsiveDialog({
   useEffect(() => {
     if (!open) return;
     const previousFocus = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
+    // Lock the viewport, not body: body overflow creates a new scroll ancestor
+    // and makes sticky navigation jump when the page is already scrolled.
+    const scrollRoot = document.documentElement;
+    const previousOverflow = scrollRoot.style.overflow;
     const root = document.getElementById("root");
     const previousInert = root?.inert ?? false;
-    document.body.style.overflow = "hidden";
-    window.scrollTo({ left: 0 });
+    scrollRoot.style.overflow = "hidden";
     if (usePortal && root) root.inert = true;
-    const focusable = () => Array.from(surface.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]') ?? []).filter(el => el.getClientRects().length && !el.closest('[inert]'));
-    (focusable()[0] ?? surface.current)?.focus({ preventScroll: true });
+    const focusable = () => Array.from(surface.current?.querySelectorAll<HTMLElement>('a[href],button,input,select,textarea,summary,[tabindex="0"]') ?? []).filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && el.getClientRects().length && !el.closest('[inert]'));
+    const initialFocus = initialFocusSelector ? surface.current?.querySelector<HTMLElement>(initialFocusSelector) : null;
+    (initialFocus ?? focusable()[0] ?? surface.current)?.focus({ preventScroll: true });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); close.current(); }
       if (event.key !== "Tab") return;
@@ -49,11 +54,11 @@ export default function ResponsiveDialog({
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      scrollRoot.style.overflow = previousOverflow;
       if (usePortal && root) root.inert = previousInert;
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
-  }, [open, usePortal]);
+  }, [open, usePortal, initialFocusSelector]);
 
   if (!open) return null;
 

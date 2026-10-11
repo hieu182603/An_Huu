@@ -284,6 +284,8 @@ export function KnowledgeGlossary() {
         open={open}
         title={isEn ? "An Huu Financial Glossary" : "Từ điển thuật ngữ An Hưu"}
         onClose={() => setOpen(false)}
+        className="glossary-dialog"
+        initialFocusSelector="input"
       >
         <div className="knowledge-glossary">
           <SearchField
@@ -291,23 +293,25 @@ export function KnowledgeGlossary() {
             value={glossaryQuery}
             onChange={setGlossaryQuery}
           />
-          {matchedTerms.length > 0 ? (
-            <dl>
-              {matchedTerms.map((item) => (
-                <div key={item.term} className="glossary-item">
-                  <dt>{item.term}</dt>
-                  <dd className="knowledge-body">{item.definition}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : (
-            <div className="explore-empty">
-              <p>{isEn ? "No matching terms found" : "Chưa tìm thấy thuật ngữ"}</p>
-              <Button variant="secondary" onClick={() => setGlossaryQuery("")}>
-                {isEn ? "View all terms" : "Xem tất cả thuật ngữ"}
-              </Button>
-            </div>
-          )}
+          <div className="glossary-results">
+            {matchedTerms.length > 0 ? (
+              <dl>
+                {matchedTerms.map((item) => (
+                  <div key={item.term} className="glossary-item">
+                    <dt>{item.term}</dt>
+                    <dd className="knowledge-body">{item.definition}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <div className="explore-empty">
+                <p>{isEn ? "No matching terms found" : "Chưa tìm thấy thuật ngữ"}</p>
+                <Button variant="secondary" onClick={() => setGlossaryQuery("")}>
+                  {isEn ? "View all terms" : "Xem tất cả thuật ngữ"}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </ResponsiveDialog>
     </>

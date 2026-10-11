@@ -169,6 +169,8 @@ export function Button({
   type = "button",
   className = "",
   style,
+  "aria-pressed": ariaPressed,
+  "aria-label": ariaLabel,
 }: {
   children: ReactNode;
   variant?: "primary" | "secondary" | "soft" | "ghost" | "danger";
@@ -180,6 +182,8 @@ export function Button({
   type?: "button" | "submit" | "reset";
   className?: string;
   style?: React.CSSProperties;
+  "aria-pressed"?: boolean;
+  "aria-label"?: string;
 }) {
   return (
     <button
@@ -188,6 +192,8 @@ export function Button({
       onClick={onClick}
       type={type}
       style={style}
+      aria-pressed={ariaPressed}
+      aria-label={ariaLabel}
     >
       {loading ? <span className="spinner" aria-hidden="true" /> : icon ? <Icon name={icon} size="small" /> : null}
       <span>{children}</span>
@@ -438,8 +444,8 @@ export function Radio({ checked, label, onChange, disabled }: { checked: boolean
   return <label className={`choice-control ${disabled ? "is-disabled" : ""}`}><input type="radio" disabled={disabled} checked={checked} onChange={onChange} /><span className="radio-visual" /><span>{label}</span></label>;
 }
 
-export function Switch({ checked, label, onChange, disabled }: { checked: boolean; label: string; onChange: (value: boolean) => void; disabled?: boolean }) {
-  return <label className={`switch-control ${disabled ? "is-disabled" : ""}`}><span>{label}</span><input type="checkbox" role="switch" disabled={disabled} checked={checked} onChange={(event) => onChange(event.target.checked)} /><span className="switch-track"><span /></span></label>;
+export function Switch({ checked, label, onChange, disabled, ariaLabel }: { checked: boolean; label: string; onChange: (value: boolean) => void; disabled?: boolean; ariaLabel?: string }) {
+  return <label className={`switch-control ${disabled ? "is-disabled" : ""}`}><span>{label}</span><input type="checkbox" role="switch" aria-label={ariaLabel} disabled={disabled} checked={checked} onChange={(event) => onChange(event.target.checked)} /><span className="switch-track"><span /></span></label>;
 }
 
 export function Tooltip({ children, content }: { children: ReactNode; content: string }) {
@@ -646,7 +652,7 @@ export function Dropdown({ label, items }: { label: string; items: string[] }) {
   return <div className="dropdown"><Button variant="secondary" onClick={() => setOpen(!open)}>{label}</Button>{open && <div className="dropdown-menu" role="menu">{items.map((item) => <button key={item} role="menuitem" type="button" onClick={() => setOpen(false)}>{item}</button>)}</div>}</div>;
 }
 
-export function Modal(props: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
+export function Modal(props: { open: boolean; title: string; onClose: () => void; children: ReactNode; className?: string }) {
   return <ResponsiveDialog {...props} />;
 }
 

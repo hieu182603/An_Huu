@@ -26,6 +26,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
   const [selectedYear, setSelectedYear] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [exportError, setExportError] = useState("");
   const pageSize = 24; // 2 years per page for comfortable browsing
 
   const safeRows = rows || [];
@@ -50,14 +51,15 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
   }, [filteredRows, currentPage, pageSize]);
 
   const handleExportCSV = async () => {
-    if (!rows || rows.length === 0) return;
+    if (!rows || rows.length === 0 || isExporting) return;
+    setExportError("");
 
-    if (planId && versionId) {
+    if (isApplied && planId && versionId) {
       setIsExporting(true);
       try {
         await exportPlanVersionCsv(planId, versionId);
       } catch (err) {
-        console.error("Export CSV failed", err);
+        setExportError(err instanceof Error ? err.message : String(err));
       } finally {
         setIsExporting(false);
       }
@@ -179,10 +181,13 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="monthly-cashflow-table-component" style={{ marginTop: "24px" }}>
+      {exportError && <p role="alert">{isEn ? "CSV export failed. Retry the export button." : "Chưa xuất được CSV. Hãy bấm xuất để thử lại."} {exportError}</p>}
+      <p>{isApplied ? (isEn ? "Applied version's cashflow." : "Dòng tiền của phiên bản đang áp dụng.") : (isEn ? "Preview cashflow; not the applied plan." : "Dòng tiền bản xem trước; chưa phải kế hoạch đang áp dụng.")}</p>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
         <div>
           <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "var(--color-text-main)" }}>
@@ -197,8 +202,9 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{isEn ? "Filter Year:" : "Lọc năm:"}</span>
+            <span style={{ fontSize: "14px", color: "var(--color-text-muted)" }}>{isEn ? "Filter Year:" : "Lọc năm:"}</span>
             <select
+              aria-label={isEn ? "Filter year" : "Lọc năm"}
               value={selectedYear}
               onChange={(e) => {
                 setSelectedYear(e.target.value);
@@ -209,7 +215,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
                 border: "1px solid var(--color-border-subtle)",
                 borderRadius: "6px",
                 color: "var(--color-text-main)",
-                fontSize: "12px",
+                fontSize: "14px",
                 padding: "4px 8px",
               }}
             >
@@ -224,17 +230,17 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
             </select>
           </div>
 
-          <Button variant="ghost" size="small" onClick={handleExportCSV} loading={isExporting} disabled={isExporting}>
+          <Button variant="ghost" size="small" onClick={handleExportCSV} loading={isExporting} disabled={isExporting || rows.length === 0}>
             <Icon name="download" size="small" /> {isExporting ? (isEn ? "Exporting CSV..." : "Đang xuất CSV...") : (isEn ? "Export CSV" : "Xuất file CSV")}
           </Button>
         </div>
       </div>
 
-      <p className="horizontal-scroll-hint" style={{ fontSize: "12px", color: "var(--color-text-muted)", marginBottom: "8px" }}>
+      <p className="horizontal-scroll-hint" style={{ fontSize: "14px", color: "var(--color-text-muted)", marginBottom: "8px" }}>
         <Icon name="info" size="small" />{" "}
         {isEn
-          ? "Scroll horizontally to view all 12 cashflow columns."
-          : "Cuộn ngang để xem đầy đủ 12 cột số liệu dòng tiền theo hợp đồng T06."}
+          ? "Scroll horizontally to view all cashflow columns. CSV includes all projection months."
+          : "Cuộn ngang để xem đầy đủ các cột dòng tiền. CSV bao gồm toàn bộ các tháng dự phóng."}
       </p>
 
       <div
@@ -249,21 +255,21 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
           background: "var(--color-surface)",
         }}
       >
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", textAlign: "right" }}>
+        <table style={{ width: "100%", minWidth: "1080px", borderCollapse: "collapse", fontSize: "14px", textAlign: "right" }}>
           <thead>
             <tr style={{ background: "var(--color-surface-subtle)", borderBottom: "1px solid var(--color-border-subtle)" }}>
               <th style={{ padding: "10px 12px", textAlign: "left", whiteSpace: "nowrap" }}>{isEn ? "Month" : "Tháng"}</th>
               <th style={{ padding: "10px 12px", textAlign: "left", whiteSpace: "nowrap" }}>{isEn ? "Phase" : "Giai đoạn"}</th>
-              <th style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{isEn ? "Income" : "Thu nhập"}</th>
-              <th style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{isEn ? "Pension" : "Lương hưu"}</th>
-              <th style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{isEn ? "Living Expenses" : "Chi hoạt động"}</th>
-              <th style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{isEn ? "Debt" : "Trả nợ"}</th>
-              <th style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{isEn ? "Actual Contribution" : "Thực góp"}</th>
-              <th style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{isEn ? "Withdrawal" : "Rút chi tiêu"}</th>
-              <th style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{isEn ? "Surplus Outside Fund" : "Tiền dư ngoài quỹ"}</th>
-              <th style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{isEn ? "Net Return" : "Lãi/Lỗ ròng"}</th>
-              <th style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{isEn ? "Ending Balance" : "Số dư cuối tháng"}</th>
-              <th style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{isEn ? "Minimum Required" : "Vốn cần tối thiểu"}</th>
+              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Income" : "Thu nhập"}</th>
+              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Pension" : "Lương hưu"}</th>
+              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Living Expenses" : "Chi hoạt động"}</th>
+              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Debt" : "Trả nợ"}</th>
+              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Actual Contribution" : "Thực góp"}</th>
+              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Withdrawal" : "Rút chi tiêu"}</th>
+              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Surplus Outside Fund" : "Tiền dư ngoài quỹ"}</th>
+              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Net Return" : "Lãi/Lỗ ròng"}</th>
+              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Ending Balance" : "Số dư cuối tháng"}</th>
+              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Minimum Required" : "Vốn cần tối thiểu"}</th>
             </tr>
           </thead>
           <tbody>
@@ -287,12 +293,12 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
                   <td style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>
                     {r.month}
                     {isRetireStart && (
-                      <span style={{ marginLeft: "6px", fontSize: "10px", color: "var(--color-warning)", background: "rgba(var(--color-warning-rgb), 0.18)", padding: "2px 4px", borderRadius: "3px" }}>
+                      <span style={{ marginLeft: "6px", fontSize: "14px", color: "var(--color-warning)", background: "rgba(var(--color-warning-rgb), 0.18)", padding: "2px 4px", borderRadius: "3px" }}>
                         {isEn ? "Retirement Starts" : "Bắt đầu hưu"}
                       </span>
                     )}
                     {isFirstShortfall && (
-                      <span style={{ marginLeft: "6px", fontSize: "10px", color: "var(--color-danger)", background: "rgba(var(--color-danger-rgb), 0.14)", padding: "2px 4px", borderRadius: "3px" }}>
+                      <span style={{ marginLeft: "6px", fontSize: "14px", color: "var(--color-danger)", background: "rgba(var(--color-danger-rgb), 0.14)", padding: "2px 4px", borderRadius: "3px" }}>
                         {isEn ? "Deficit Starts" : "Bắt đầu thiếu quỹ"}
                       </span>
                     )}
@@ -302,34 +308,36 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
                       {r.phase === "RETIREMENT" ? (isEn ? "Retirement" : "Hưu trí") : (isEn ? "Accumulation" : "Tích lũy")}
                     </Badge>
                   </td>
-                  <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{formatMoneyCell(r.income)}</td>
-                  <td style={{ padding: "8px 12px", whiteSpace: "nowrap", color: parseFloat(r.pension) > 0 ? "var(--color-secondary-700)" : undefined }}>
+                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatMoneyCell(r.income)}</td>
+                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: parseFloat(r.pension) > 0 ? "var(--color-secondary-700)" : undefined }}>
                     {formatMoneyCell(r.pension)}
                   </td>
-                  <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{formatMoneyCell(r.livingExpense)}</td>
-                  <td style={{ padding: "8px 12px", whiteSpace: "nowrap", color: parseFloat(r.debtPayment) > 0 ? "var(--color-warning)" : undefined }}>
+                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatMoneyCell(r.livingExpense)}</td>
+                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: parseFloat(r.debtPayment) > 0 ? "var(--color-warning)" : undefined }}>
                     {formatMoneyCell(r.debtPayment)}
                   </td>
-                  <td style={{ padding: "8px 12px", whiteSpace: "nowrap", fontWeight: 600, color: "var(--color-primary-700)" }}>
+                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: 600, color: "var(--color-primary-700)" }}>
                     {formatMoneyCell(r.contribution)}
                     {parseFloat(r.budgetShortfall) > 0 && (
-                      <small style={{ display: "block", fontSize: "10px", color: "var(--color-danger)" }}>
+                      <small style={{ display: "block", fontSize: "14px", color: "var(--color-danger)" }}>
                         {isEn ? "Shortfall: -" : "Thiếu: -"}{formatMoneyCell(r.budgetShortfall)}
                       </small>
                     )}
                   </td>
-                  <td style={{ padding: "8px 12px", whiteSpace: "nowrap", fontWeight: 600, color: parseFloat(r.withdrawal) > 0 ? "var(--color-warning)" : undefined }}>
+                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: 600, color: parseFloat(r.withdrawal) > 0 ? "var(--color-warning)" : undefined }}>
                     {formatMoneyCell(r.withdrawal)}
                   </td>
-                  <td style={{ padding: "8px 12px", whiteSpace: "nowrap", color: "var(--color-text-muted)" }}>
+                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: "var(--color-text-muted)" }}>
                     {formatMoneyCell(r.uninvestedSurplus)}
                   </td>
-                  <td style={{ padding: "8px 12px", whiteSpace: "nowrap", color: parseFloat(r.investmentChange) >= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }}>
+                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: parseFloat(r.investmentChange) >= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }}>
                     {formatMoneyCell(r.investmentChange)}
                   </td>
                   <td
                     style={{
                       padding: "8px 12px",
+                      textAlign: "right",
+                      fontVariantNumeric: "tabular-nums",
                       whiteSpace: "nowrap",
                       fontWeight: 700,
                       color: isNegative ? "var(--color-danger)" : "var(--color-primary-700)",
@@ -337,7 +345,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
                   >
                     {formatMoneyCell(r.closingBalance)}
                   </td>
-                  <td style={{ padding: "8px 12px", whiteSpace: "nowrap", fontWeight: 600, color: "var(--color-secondary-700)" }}>
+                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: 600, color: "var(--color-secondary-700)" }}>
                     {formatMoneyCell(r.requiredClosingBalance)}
                   </td>
                 </tr>

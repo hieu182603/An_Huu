@@ -1,0 +1,67 @@
+.modal.plan-wide-dialog {
+  position: relative;
+  inset: auto;
+  width: min(1120px, calc(100vw - 48px));
+  max-width: none;
+  max-height: min(820px, calc(100dvh - 48px));
+  margin: auto;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.plan-wide-dialog > header { flex: 0 0 auto; padding: 18px 24px; gap: 16px; }
+.plan-wide-dialog > header h2 { font-size: 20px; line-height: 1.4; }
+.plan-wide-dialog .dialog-close { width: 44px; height: 44px; flex-shrink: 0; }
+.plan-wide-dialog > .modal-body { min-height: 0; padding: 24px; overflow-y: auto; overscroll-behavior: contain; }
+.plan-wide-dialog .button { min-height: 44px; }
+.insurance-dialog .social-insurance-form { min-width: 0; font-size: 14px; }
+.insurance-dialog .insurance-tabs { position: sticky; top: -24px; z-index: 3; display: flex; flex-wrap: wrap; gap: 8px; background: var(--color-surface, white); padding-top: 12px; }
+.insurance-dialog .insurance-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; font-size: 14px; line-height: 1.4; }
+.insurance-estimate-layout { display: grid; gap: 20px; align-items: start; }
+.insurance-estimate-layout > p { grid-column: 1 / -1; }
+.insurance-section-title { margin: 0 0 16px; font-size: 17px; }
+.insurance-estimate-config, .insurance-estimate-result { min-width: 0; }
+.insurance-estimate-result, .insurance-dialog input, .insurance-dialog select, .insurance-dialog textarea, .insurance-dialog .button { scroll-margin-block: 96px 16px; }
+.insurance-estimate-result:focus-visible { outline: 2px solid var(--color-primary-700); outline-offset: -2px; }
+.insurance-dialog .evidence-editor { background: var(--color-surface, white); }
+.plan-versions-intro { margin: 0 0 20px; color: var(--color-text-muted); font-size: 15px; line-height: 1.6; }
+.plan-versions-overview { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 16px; margin-bottom: 20px; border-radius: 12px; background: var(--color-surface-subtle); font-size: 14px; }
+.plan-versions-overview .plan-stale-note { flex-basis: 100%; color: var(--color-warning); }
+.plan-versions-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.plan-version-card { min-width: 0; padding: 20px; border: 1px solid var(--color-border); border-radius: 14px; }
+.plan-version-card:only-child { grid-column: 1 / -1; }
+.plan-version-card.is-current { border: 2px solid var(--color-primary-700); background: var(--color-surface-subtle); }
+.plan-version-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-bottom: 20px; }
+.plan-version-heading > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.plan-version-heading strong { font-size: 17px; }
+.plan-version-heading time { font-size: 14px; color: var(--color-text-muted); }
+.plan-version-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 16px; margin: 0 0 20px; }
+.plan-version-metrics dt { font-size: 14px; line-height: 1.5; color: var(--color-text-muted); }
+.plan-version-metrics dd { margin: 4px 0 0; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.plan-version-technical { margin: 12px 0; font-size: 14px; color: var(--color-text-muted); }
+.plan-version-technical summary { cursor: pointer; padding: 12px 0; min-height: 44px; }
+.plan-version-technical summary:focus-visible { outline: 2px solid var(--color-primary-700); outline-offset: 2px; }
+.plan-version-technical code { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+.plan-version-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--color-border); padding-top: 16px; }
+.plan-history-confirm { padding: 16px; margin-top: 16px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-subtle); font-size: 14px; line-height: 1.6; }
+@media (min-width: 1024px) {
+  .insurance-estimate-layout:has(.insurance-estimate-result) { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+}
+@media (min-width: 900px) {
+  .plan-version-card:only-child .plan-version-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 899px) {
+  .plan-versions-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .modal.plan-wide-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: 16px; }
+  .plan-wide-dialog > header { padding: 12px 16px; gap: 8px; }
+  .plan-wide-dialog > header h2 { font-size: 17px; }
+  .plan-wide-dialog > .modal-body { padding: 16px; }
+  .insurance-dialog .insurance-tabs { top: -16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .insurance-dialog .insurance-tabs button { padding: 8px 6px; font-size: 12px; }
+  .insurance-dialog .insurance-tabs .icon { display: none; }
+  .plan-version-card { padding: 16px; }
+  .plan-version-actions > .button { flex: 1 1 auto; }
+}

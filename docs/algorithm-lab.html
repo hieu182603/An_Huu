@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>An Hưu — Phòng thử thuật toán</title>
+<style>
+  :root {
+    --bg: #f3f5f9; --surface: #ffffff; --surface-2: #f8fafc; --line: #e2e8f0; --line-strong: #cbd5e1;
+    --ink: #0f1d33; --ink-2: #334155; --muted: #64748b;
+    --accent: #1f4fa3; --accent-ink: #163b7d; --accent-soft: #e9f0fb;
+    --good: #0f7a4f; --good-soft: #e6f5ee; --bad: #b42318; --bad-soft: #fdecea; --warn: #9a5b00; --warn-soft: #fff4e0;
+    --radius: 14px; --radius-sm: 10px;
+    --shadow: 0 1px 2px rgba(15, 29, 51, .04), 0 8px 24px -16px rgba(15, 29, 51, .18);
+    font-family: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  .wrap { width: 100%; max-width: 1440px; margin: 0 auto; padding-inline: clamp(14px, 3vw, 32px); }
+
+  /* ---------- Top bar ---------- */
+  .topbar { position: sticky; top: 0; z-index: 20; background: rgba(243, 245, 249, .92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .topbar .wrap { display: flex; align-items: center; gap: 16px 24px; flex-wrap: wrap; padding-block: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 800; font-size: 15px; }
+  .brand h1 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
+  .brand small { display: block; color: var(--muted); font-size: 12px; line-height: 1.2; }
+  .tabs { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { flex: 0 0 auto; border: 0; background: transparent; padding: 7px 14px; border-radius: 999px; font-weight: 600; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+  .tabs button:hover { background: var(--surface-2); }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: #fff; }
+  .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 760px) {
+    .topbar { position: static; }
+    .tabs { flex-wrap: wrap; border-radius: 16px; overflow: visible; }
+    .tabs button { flex: 1 1 auto; padding: 7px 10px; font-size: 13px; }
+    .form-panel, .toc { top: 12px; }
+  }
+
+  main { padding-block: 20px 48px; }
+  .tab { display: none; }
+  .tab.active { display: block; animation: fade .2s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- Layout ---------- */
+  .split { display: grid; grid-template-columns: minmax(320px, 410px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .split > * { min-width: 0; }
+  @media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .card-pad { padding: 18px; }
+  .card h2 { margin: 0 0 4px; font-size: 15px; letter-spacing: -.005em; }
+  .card .lead { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+  .stack { display: grid; gap: 16px; }
+
+  /* ---------- Form panel ---------- */
+  .form-panel { position: sticky; top: 76px; display: flex; flex-direction: column; max-height: calc(100vh - 92px); overflow: hidden; }
+  @media (max-width: 900px) { .form-panel { position: static; max-height: none; } }
+  .form-scroll { overflow-y: auto; padding: 6px 18px 12px; }
+  .form-head { padding: 16px 18px 8px; border-bottom: 1px solid var(--line); }
+  .form-head h2 { margin: 0; font-size: 15px; }
+  .form-head p { margin: 2px 0 8px; color: var(--muted); font-size: 12.5px; }
+  .form-foot { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--surface-2); }
+  .form-foot .status { margin-left: auto; color: var(--muted); font-size: 12px; text-align: right; }
+  details.group { border-bottom: 1px solid var(--line); }
+  details.group:last-child { border-bottom: 0; }
+  details.group > summary { display: flex; align-items: center; gap: 8px; padding: 14px 0; cursor: pointer; list-style: none; font-weight: 700; font-size: 13.5px; }
+  details.group > summary::-webkit-details-marker { display: none; }
+  details.group > summary::after { content: ""; width: 8px; height: 8px; margin-left: auto; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s; }
+  details.group[open] > summary::after { transform: rotate(-135deg); }
+  details.group > summary small { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 12px; padding-bottom: 16px; }
+  .fields .full { grid-column: 1 / -1; }
+  @media (max-width: 460px) { .fields { grid-template-columns: minmax(0, 1fr); } }
+  .field { display: grid; gap: 5px; min-width: 0; }
+  .field > label, .field > .label { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+  .control { position: relative; display: flex; align-items: center; }
+  .control input, .control select, .field textarea {
+    width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: #fff;
+    font-variant-numeric: tabular-nums; transition: border-color .15s, box-shadow .15s; }
+  .control.with-unit { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: #fff; transition: border-color .15s, box-shadow .15s; }
+  .control.with-unit input { flex: 1 1 auto; min-width: 0; border: 0; border-radius: var(--radius-sm) 0 0 var(--radius-sm); box-shadow: none !important; }
+  .control.with-unit .unit { position: static; flex: 0 0 auto; padding: 0 12px 0 4px; white-space: nowrap; }
+  .control.with-unit:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(31, 79, 163, .15); }
+  .control.with-unit:has(input[aria-invalid="true"]) { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(180, 35, 24, .12); }
+  .control input[inputmode="numeric"], .control input[inputmode="decimal"] { text-align: right; }
+  .control select { appearance: none; padding-right: 32px; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 17px) 17px, calc(100% - 12px) 17px; background-size: 5px 5px; background-repeat: no-repeat; }
+  .control .unit { position: absolute; right: 12px; color: var(--muted); font-size: 12.5px; pointer-events: none; }
+  .control input:focus, .control select:focus, .field textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(31, 79, 163, .15); }
+  .control input[aria-invalid="true"] { border-color: var(--bad); box-shadow: 0 0 0 3px rgba(180, 35, 24, .12); }
+  .field textarea { height: auto; min-height: 160px; padding: 10px 12px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; line-height: 1.5; resize: vertical; }
+  .field .help { color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .field.disabled { opacity: .45; }
+  .field.disabled * { pointer-events: none; }
+  .toggle { display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; font-weight: 600; font-size: 13px; color: var(--ink-2); }
+  .toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .toggle .switch { position: relative; flex: 0 0 auto; width: 38px; height: 22px; border-radius: 999px; background: var(--line-strong); transition: background .15s; }
+  .toggle .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+  .toggle input:checked + .switch { background: var(--accent); }
+  .toggle input:checked + .switch::after { transform: translateX(16px); }
+  .toggle input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- Buttons ---------- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border: 0; border-radius: var(--radius-sm); background: var(--accent); color: #fff; font-weight: 700; cursor: pointer; transition: background .15s, transform .05s; }
+  .btn:hover { background: var(--accent-ink); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .55; cursor: progress; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line-strong); }
+  .btn.ghost:hover { background: var(--accent-soft); }
+  .btn.small { height: 32px; padding: 0 12px; font-size: 13px; }
+  .icon-btn { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--muted); cursor: pointer; }
+  .icon-btn:hover { color: var(--bad); border-color: var(--bad); }
+
+  /* ---------- Results ---------- */
+  .hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: center; }
+  .ring { position: relative; width: 132px; height: 132px; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .value { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+  .ring .value strong { display: block; font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .ring .value span { display: block; margin-top: 4px; color: var(--muted); font-size: 11.5px; }
+  .verdict { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; }
+  .verdict.good { background: var(--good-soft); color: var(--good); } .verdict.warn { background: var(--warn-soft); color: var(--warn); } .verdict.bad { background: var(--bad-soft); color: var(--bad); }
+  .hero h3 { margin: 8px 0 4px; font-size: 18px; letter-spacing: -.01em; }
+  .hero p { margin: 0; color: var(--muted); font-size: 13px; max-width: 70ch; }
+  @media (max-width: 560px) { .hero { grid-template-columns: minmax(0, 1fr); justify-items: start; } }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+  .kpi { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+  .kpi span { display: block; color: var(--muted); font-size: 12px; }
+  .kpi strong { display: block; margin-top: 2px; font-size: 17px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .kpi small { display: block; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .good { color: var(--good); } .bad { color: var(--bad); } .warn-text { color: var(--warn); }
+  .section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 10px; }
+  .section-title h3 { margin: 0; font-size: 14px; }
+  .section-title small { color: var(--muted); font-size: 12px; }
+  .chart-wrap { position: relative; }
+  .chart { display: block; width: 100%; height: auto; }
+  .chart-tip { position: absolute; top: 8px; z-index: 2; min-width: 170px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.97); box-shadow: var(--shadow); font-size: 12px; pointer-events: none; font-variant-numeric: tabular-nums; }
+  .chart-tip b { display: block; margin-bottom: 4px; font-size: 12.5px; }
+  .chart-tip div { display: flex; justify-content: space-between; gap: 12px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; color: var(--muted); font-size: 12px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; margin-right: 5px; border-radius: 3px; vertical-align: -2px; }
+  .ref { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .meta { color: var(--muted); font-size: 12px; }
+  .notes { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .notes li { padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 12.5px; }
+  .errors-box { padding: 14px 16px; border: 1px solid #f5c2bd; border-radius: var(--radius-sm); background: var(--bad-soft); color: var(--bad); }
+  .errors-box strong { display: block; margin-bottom: 6px; }
+  .errors-box ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+  .empty { display: grid; place-items: center; min-height: 260px; color: var(--muted); text-align: center; }
+  .busy { position: relative; }
+  .busy::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius); background: rgba(255,255,255,.55); }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .pill.ok { background: var(--good-soft); color: var(--good); } .pill.bad { background: var(--bad-soft); color: var(--bad); } .pill.warn { background: var(--warn-soft); color: var(--warn); }
+
+  /* ---------- Tables ---------- */
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+  th { color: var(--muted); font-size: 12px; font-weight: 700; background: var(--surface-2); }
+  td.num, th.num { text-align: right; }
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+  .table-scroll table th:first-child, .table-scroll table td:first-child { padding-left: 12px; }
+  .loan-table input { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; font-variant-numeric: tabular-nums; }
+  .loan-table input.num { text-align: right; }
+  .loan-table input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(31,79,163,.15); }
+  .loan-table td { padding: 6px; } .loan-table th { padding: 8px 6px; }
+  .bars { display: grid; gap: 10px; }
+  .bar-row { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr) auto; gap: 12px; align-items: center; font-size: 13px; }
+  .bar-track { height: 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 999px; background: var(--line-strong); }
+  .bar-row.best .bar-fill { background: var(--good); }
+  @media (max-width: 640px) { .bar-row { grid-template-columns: minmax(0, 1fr) auto; } .bar-track { grid-column: 1 / -1; grid-row: 2; } }
+
+  /* ---------- Formulas ---------- */
+  .doc { display: grid; grid-template-columns: 250px minmax(0, 860px); gap: 24px; justify-content: center; align-items: start; }
+  @media (max-width: 960px) { .doc { grid-template-columns: minmax(0, 1fr); } .toc { position: static !important; } }
+  .toc { position: sticky; top: 76px; padding: 14px; max-height: calc(100vh - 92px); overflow-y: auto; }
+  .toc h2 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .toc ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; counter-reset: toc; }
+  .toc li { counter-increment: toc; }
+  .toc a { display: block; padding: 6px 10px; border-radius: 8px; color: var(--ink-2); text-decoration: none; font-size: 13px; }
+  .toc a::before { content: counter(toc) ". "; color: var(--muted); }
+  .toc a:hover { background: var(--surface-2); }
+  .toc a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .doc-body { display: grid; gap: 14px; min-width: 0; }
+  .doc-body > * { min-width: 0; }
+  .doc-body article { padding: 20px 22px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); scroll-margin-top: 84px; }
+  .doc-body h2 { margin: 0 0 10px; font-size: 16px; letter-spacing: -.01em; }
+  .doc-body p { margin: 0 0 10px; }
+  .doc-body p:last-child { margin-bottom: 0; }
+  .idea { font-size: 14.5px; color: var(--ink); }
+  .formula { margin: 10px 0; padding: 12px 16px; border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; background: var(--accent-soft); font-family: "Cambria Math", "Times New Roman", serif; font-size: 16px; overflow-x: auto; }
+  .formula var, .doc-body var { font-style: italic; }
+  .example { margin: 10px 0; padding: 12px 16px; border-radius: 10px; background: var(--good-soft); color: #124a33; }
+  .hint { color: var(--muted); font-size: 12.5px; }
+  .code { color: var(--muted); font-size: 12.5px; }
+  .code code, .hint code, .doc-body code { padding: 1px 6px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); font-size: 12px; }
+  ul.plain { margin: 6px 0 10px; padding-left: 20px; display: grid; gap: 4px; }
+  .doc-body table td { border-bottom: 1px solid var(--line); }
+  dl.symbols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; margin: 0; }
+  dl.symbols div { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+  dl.symbols dt { font-family: "Cambria Math", "Times New Roman", serif; font-size: 16px; font-style: italic; color: var(--accent); }
+  dl.symbols dd { margin: 0; font-size: 13px; color: var(--ink-2); }
+  @media (max-width: 700px) { .formula { font-size: 15px; } .doc-body article { padding: 16px; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">AH</div>
+      <div><h1>Phòng thử thuật toán</h1><small>An Hưu · chạy hoàn toàn trên trình duyệt</small></div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Chức năng">
+      <button role="tab" data-tab="mc" aria-selected="true">Hưu trí – Monte Carlo</button>
+      <button role="tab" data-tab="a4" aria-selected="false">Mức góp theo xác suất</button>
+      <button role="tab" data-tab="debt" aria-selected="false">Thứ tự trả nợ</button>
+      <button role="tab" data-tab="data" aria-selected="false">Dữ liệu</button>
+      <button role="tab" data-tab="formulas" aria-selected="false">Công thức &amp; giải thích</button>
+      <button role="tab" data-tab="tests" aria-selected="false">Kiểm thử</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ============ MONTE CARLO ============ -->
+  <section class="tab active" id="tab-mc" role="tabpanel">
+    <div class="split">
+      <form class="card form-panel" id="mcForm" novalidate onsubmit="return false">
+        <div class="form-head"><h2>Thông tin kế hoạch</h2><p>Kết quả tự tính lại khi bạn thay đổi số liệu.</p></div>
+        <div class="form-scroll">
+          <details class="group" open><summary>Hồ sơ &amp; tích lũy</summary><div class="fields" data-form="mcProfile"></div></details>
+          <details class="group" open><summary>Khi nghỉ hưu</summary><div class="fields" data-form="mcRetire"></div></details>
+          <details class="group"><summary>Tuổi thọ &amp; vợ/chồng <small>tùy chọn</small></summary><div class="fields" data-form="mcLife"></div></details>
+          <details class="group"><summary>Chi tiêu linh hoạt <small>tùy chọn</small></summary><div class="fields" data-form="mcGK"></div></details>
+          <details class="group"><summary>Thiết lập mô phỏng <small>nâng cao</small></summary><div class="fields" data-form="mcSim"></div></details>
+        </div>
+        <div class="form-foot">
+          <button type="button" class="btn" id="runMc">Chạy mô phỏng</button>
+          <span class="status" id="mcStatus"></span>
+        </div>
+      </form>
+      <div class="stack" id="mcOut"><div class="card empty">Đang chuẩn bị…</div></div>
+    </div>
+  </section>
+
+  <!-- ============ A4 ============ -->
+  <section class="tab" id="tab-a4" role="tabpanel">
+    <div class="split">
+      <form class="card form-panel" id="a4Form" novalidate onsubmit="return false">
+        <div class="form-head"><h2>Mức góp theo xác suất</h2><p>Tìm mức góp nhỏ nhất để đạt tỷ lệ không cạn quỹ mong muốn. Dùng các thông tin ở tab Monte Carlo.</p></div>
+        <div class="form-scroll"><div class="fields" data-form="a4" style="padding-top:14px"></div></div>
+        <div class="form-foot"><button type="button" class="btn" id="runA4">Tìm mức góp</button><span class="status" id="a4Status"></span></div>
+      </form>
+      <div class="stack" id="a4Out"><div class="card empty">Nhập mục tiêu rồi bấm “Tìm mức góp”.</div></div>
+    </div>
+  </section>
+
+  <!-- ============ DEBT ============ -->
+  <section class="tab" id="tab-debt" role="tabpanel">
+    <div class="stack">
+      <div class="card card-pad">
+        <div class="section-title"><h2>Các khoản vay</h2><button type="button" class="btn ghost small" id="addLoan">+ Thêm khoản vay</button></div>
+        <div class="table-scroll">
+          <table class="loan-table">
+            <thead><tr><th style="min-width:180px">Tên khoản vay</th><th class="num" style="min-width:150px">Dư nợ (đ)</th><th class="num" style="min-width:100px">Lãi %/năm</th><th class="num" style="min-width:150px">Trả tối thiểu / tháng (đ)</th><th class="num" style="min-width:110px">Phí trả trước %</th><th></th></tr></thead>
+            <tbody id="loanRows"></tbody>
+          </table>
+        </div>
+        <div class="fields" data-form="debt" style="max-width:420px;margin-top:14px;padding-bottom:0"></div>
+      </div>
+      <div class="stack" id="debtOut"></div>
+    </div>
+  </section>
+
+  <!-- ============ DATA ============ -->
+  <section class="tab" id="tab-data" role="tabpanel">
+    <div class="split">
+      <form class="card form-panel" id="dataForm" novalidate onsubmit="return false">
+        <div class="form-head"><h2>Sinh dữ liệu tổng hợp</h2><p>Chỉ để thử thuật toán. Đây là dữ liệu giả lập, không phải số liệu thị trường Việt Nam.</p></div>
+        <div class="form-scroll"><div class="fields" data-form="synthetic" style="padding-top:14px"></div></div>
+        <div class="form-foot"><button type="button" class="btn" id="genData">Sinh dữ liệu</button><span class="status" id="genStatus"></span></div>
+      </form>
+      <div class="stack">
+        <div class="card card-pad">
+          <h2>Chuỗi tháng dùng cho mô phỏng</h2>
+          <p class="lead">Mỗi dòng: <code>tháng, cổ phiếu, an toàn, cpi</code> — lợi suất tháng dạng số thập phân (0.012 = 1,2%). Dòng bắt đầu bằng # là chú thích. Dán số liệu thật có nguồn vào đây để thử.</p>
+          <div class="field"><textarea id="series" spellcheck="false" style="min-height:260px" aria-label="Chuỗi tháng"></textarea><span class="help" id="seriesInfo"></span></div>
+        </div>
+        <div class="card card-pad">
+          <h2>Bảng sống <span class="pill warn" style="vertical-align:2px">tùy chọn</span></h2>
+          <p class="lead">Mỗi dòng: <code>tuổi, qx nam, qx nữ</code> (xác suất mất trong năm), tuổi liên tiếp không thiếu. Để trống nếu chưa có bảng sống chính thức — lab không tự điền số.</p>
+          <div class="field"><textarea id="lifeTable" spellcheck="false" placeholder="60, 0.0123, 0.0071&#10;61, 0.0134, 0.0078&#10;…" aria-label="Bảng sống"></textarea><span class="help" id="lifeInfo"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FORMULAS ============ -->
+  <section class="tab" id="tab-formulas" role="tabpanel">
+    <div class="doc">
+      <aside class="card toc" aria-label="Mục lục">
+        <h2>Mục lục</h2>
+        <ol id="tocList"></ol>
+      </aside>
+      <div class="doc-body" id="docBody">
+        <article id="f-overview">
+          <h2>Tổng quan trong một đoạn</h2>
+          <p>Bài toán: <strong>tiền trong quỹ hưu có đủ trả chi tiêu đến cuối đời không?</strong> Mỗi tháng, quỹ <em>sinh lời</em> theo thị trường, <em>nhận thêm</em> tiền góp (trước khi nghỉ hưu) hoặc <em>bị rút</em> để bù phần chi tiêu mà lương hưu không đủ (sau khi nghỉ hưu). Tính lần lượt từng tháng là ra số dư.</p>
+          <p>Vì không ai biết trước thị trường, Monte Carlo <strong>tạo ra hàng nghìn “tương lai có thể xảy ra”</strong> bằng cách ghép ngẫu nhiên các đoạn lịch sử, rồi đếm xem bao nhiêu phần trăm tương lai quỹ không bị cạn. Đó là “tỷ lệ thành công”.</p>
+        </article>
+
+        <article id="f-symbols">
+          <h2>1. Ký hiệu</h2>
+          <dl class="symbols"><div><dt><var>t</var></dt><dd>Tháng thứ t, tính từ hôm nay (t = 0, 1, 2…)</dd></div><div><dt><var>n</var></dt><dd>Tháng nghỉ hưu (số tháng từ hôm nay đến lúc nghỉ hưu)</dd></div><div><dt><var>T</var></dt><dd>Tổng số tháng của kế hoạch</dd></div><div><dt><var>F<sub>t</sub></var></dt><dd>Số dư quỹ cuối tháng t</dd></div><div><dt><var>g<sub>t</sub></var></dt><dd>Hệ số tăng trưởng của quỹ trong tháng t (1,01 nghĩa là lãi 1%)</dd></div><div><dt><var>π<sub>t</sub></var>, <var>I<sub>t</sub></var></dt><dd>Lạm phát tháng t và chỉ số giá tích lũy đến tháng t</dd></div><div><dt><var>C<sub>t</sub></var></dt><dd>Tiền góp vào quỹ tháng t</dd></div><div><dt><var>W<sub>t</sub></var></dt><dd>Tiền cần rút khỏi quỹ tháng t</dd></div><div><dt><var>U<sub>t</sub></var></dt><dd>Phần cần rút nhưng quỹ không đủ (thiếu hụt)</dd></div><div><dt><var>w</var></dt><dd>Tỷ trọng cổ phiếu trong danh mục</dd></div></dl>
+        </article>
+
+        <article id="f-rate">
+          <h2>2. Lợi suất năm → lợi suất tháng</h2>
+          <p class="idea">Lãi 9%/năm <strong>không</strong> phải 9/12 = 0,75%/tháng, vì lãi tháng trước lại sinh lãi tháng sau (lãi kép). Phải tìm mức lãi tháng sao cho gộp đủ 12 tháng ra đúng 9%.</p>
+          <div class="formula">r<sub>tháng</sub> = (1 + r<sub>năm</sub>)<sup>1/12</sup> − 1</div>
+          <div class="example"><strong>Ví dụ:</strong> 9%/năm → (1,09)<sup>1/12</sup> − 1 = <strong>0,7207%/tháng</strong> (thấp hơn 0,75%). Lạm phát 3,5%/năm → 0,2871%/tháng.</div>
+          <p class="code">Trong code: <code>constantMarket()</code>, <code>synthetic()</code></p>
+        </article>
+
+        <article id="f-portfolio">
+          <h2>3. Lợi suất danh mục mỗi tháng</h2>
+          <p class="idea">Quỹ chia làm hai phần: cổ phiếu (rủi ro, lãi kỳ vọng cao) và kênh an toàn (tiền gửi/trái phiếu). Mỗi tháng đưa tỷ trọng về đúng mức đã chọn (tái cân bằng), nên lãi của quỹ là trung bình có trọng số của hai phần.</p>
+          <div class="formula">g<sub>t</sub> = 1 + w × r<sub>cổ phiếu, t</sub> + (1 − w) × r<sub>an toàn, t</sub></div>
+          <div class="example"><strong>Ví dụ:</strong> w = 60%, cổ phiếu tháng này +2%, an toàn +0,4% → 0,6 × 2% + 0,4 × 0,4% = <strong>+1,36%</strong>, tức g = 1,0136.</div>
+          <p class="code">Trong code: <code>simulate()</code>, dòng đầu vòng lặp tháng. Lab giả định tái cân bằng hằng tháng, không phí; engine chính thức có lộ trình phân bổ và phí tái cân bằng riêng.</p>
+        </article>
+
+        <article id="f-inflation">
+          <h2>4. Chỉ số lạm phát</h2>
+          <p class="idea">Chỉ số giá cho biết 1 đồng hôm nay tương đương bao nhiêu đồng ở tháng t. Mọi chi tiêu “theo giá hôm nay” được nhân với chỉ số này để ra số tiền thật phải trả.</p>
+          <div class="formula">I<sub>0</sub> = 1 &nbsp;&nbsp;·&nbsp;&nbsp; I<sub>t</sub> = I<sub>t−1</sub> × (1 + π<sub>t</sub>)</div>
+          <div class="example"><strong>Ví dụ:</strong> lạm phát đều 3,5%/năm trong 20 năm → I ≈ 1,035<sup>20</sup> = <strong>1,99</strong>. Chi tiêu 15 triệu/tháng hôm nay sẽ thành khoảng 29,8 triệu/tháng sau 20 năm.</div>
+          <p class="hint">“Giá trị thực” trong kết quả = số tiền danh nghĩa ÷ I<sub>t</sub>, tức quy về sức mua hôm nay.</p>
+        </article>
+
+        <article id="f-accumulation">
+          <h2>5. Giai đoạn tích lũy (trước khi nghỉ hưu)</h2>
+          <p class="idea">Mỗi tháng: số dư cũ sinh lời, rồi cuối tháng cộng thêm tiền góp. Chỉ cộng số tiền bạn xác nhận góp; tiền dư trong tháng <strong>không</strong> tự động vào quỹ.</p>
+          <div class="formula">F<sub>t</sub> = F<sub>t−1</sub> × g<sub>t</sub> + C<sub>t</sub> &nbsp;&nbsp;(t &lt; n)</div>
+          <div class="formula">Góp cố định danh nghĩa: C<sub>t</sub> = C &nbsp;&nbsp;·&nbsp;&nbsp; Góp tăng theo lạm phát: C<sub>t</sub> = C × I<sub>t</sub></div>
+          <div class="example"><strong>Ví dụ:</strong> quỹ 100 triệu, tháng này g = 1,0072, góp 5 triệu → 100 × 1,0072 + 5 = <strong>105,72 triệu</strong>.</div>
+          <p class="hint">Vì sao nên cân nhắc góp tăng theo lạm phát: 5 triệu/tháng cố định trong 25 năm, với lạm phát 3,5%/năm, đến năm cuối chỉ còn sức mua khoảng 2,1 triệu hôm nay.</p>
+        </article>
+
+        <article id="f-withdrawal">
+          <h2>6. Số tiền phải rút khi nghỉ hưu</h2>
+          <p class="idea">Sau khi nghỉ hưu, chi tiêu được trả trước hết bằng lương hưu. Phần còn thiếu mới rút từ quỹ. Nếu lương hưu dư thì phần dư <strong>không</strong> tự đưa vào quỹ.</p>
+          <div class="formula">Chi sinh hoạt: L<sub>t</sub> = L<sub>0</sub> × I<sub>t</sub> × (hệ số còn một người)</div>
+          <div class="formula">Phần tùy ý: D<sub>t</sub> = L<sub>t</sub> × d × k<sub>t</sub> &nbsp;&nbsp;(d = tỷ lệ chi tùy ý, k = hệ số chi tiêu linh hoạt, mặc định 1)</div>
+          <div class="formula">Y tế: H<sub>t</sub> = H<sub>0</sub> × I<sub>t</sub> × (1 + h)<sup>số năm đã nghỉ hưu</sup></div>
+          <div class="formula">Lương hưu: P<sub>t</sub> = P<sub>0</sub> × (1 + a)<sup>số năm tròn đã nghỉ hưu</sup> &nbsp;&nbsp;(chỉ khi người đó còn sống)</div>
+          <div class="formula">W<sub>t</sub> = max(0, L<sub>t</sub> × (1 − d) + D<sub>t</sub> + H<sub>t</sub> − P<sub>t</sub>)</div>
+          <div class="example"><strong>Ví dụ:</strong> chi 15 triệu theo giá hôm nay, I = 2,0 → L = 30 triệu; không bật chi tiêu linh hoạt, không y tế, lương hưu 8 triệu → W = 30 − 8 = <strong>22 triệu/tháng</strong> phải rút từ quỹ.</div>
+          <p class="hint">Lương hưu BHXH chỉ tăng theo mức <var>a</var> bạn khai báo (theo văn bản đã ban hành), không tự tăng theo lạm phát. Vì vậy khi lạm phát cao, phần phải rút tăng dần.</p>
+        </article>
+
+        <article id="f-ledger">
+          <h2>7. Sổ quỹ và thiếu hụt</h2>
+          <p class="idea">Quỹ không được âm và không “vay trước” tiền tương lai. Nếu tháng nào cần rút nhiều hơn số đang có thì quỹ về 0, phần thiếu được ghi lại thành thiếu hụt.</p>
+          <div class="formula">A<sub>t</sub> = F<sub>t−1</sub> × g<sub>t</sub> &nbsp;&nbsp;(tiền có sau khi sinh lời)</div>
+          <div class="formula">U<sub>t</sub> = max(0, W<sub>t</sub> − A<sub>t</sub>) &nbsp;&nbsp;·&nbsp;&nbsp; F<sub>t</sub> = max(0, A<sub>t</sub> − W<sub>t</sub>)</div>
+          <div class="example"><strong>Ví dụ:</strong> quỹ 3.000 triệu, g = 1,005 → A = 3.015; rút 22 → còn <strong>2.993 triệu</strong>, thiếu hụt 0. Nếu quỹ chỉ còn 10 triệu mà cần rút 22 → quỹ về 0, thiếu hụt khoảng 11,95 triệu.</div>
+          <div class="formula">Một tương lai “thành công” khi: ΣU<sub>t</sub> = 0 &nbsp;và&nbsp; F<sub>cuối</sub> ≥ số dư mục tiêu</div>
+          <p class="hint">Khi dùng bảng sống (tuổi mất ngẫu nhiên), điều kiện số dư mục tiêu bỏ qua: chỉ cần không thiếu hụt khi còn sống.</p>
+        </article>
+
+        <article id="f-required">
+          <h2>8. Quỹ cần có lúc nghỉ hưu (tính ngược)</h2>
+          <p class="idea">Đi ngược từ tháng cuối về tháng nghỉ hưu: tháng cuối cần đúng số dư mục tiêu; mỗi tháng trước đó cần đủ để vừa rút tiền tháng đó vừa để lại đủ cho tháng sau. Không cho phép số cần có âm, tức không được “mượn” tiền của tháng sau.</p>
+          <div class="formula">R<sub>T</sub> = số dư mục tiêu &nbsp;&nbsp;·&nbsp;&nbsp; R<sub>t</sub> = max(0, (R<sub>t+1</sub> + W<sub>t</sub>) ÷ g<sub>t</sub>)</div>
+          <div class="example"><strong>Ví dụ:</strong> 2 tháng hưu, mỗi tháng rút 10, g = 1,01, mục tiêu 0. R<sub>2</sub> = 0; R<sub>1</sub> = (0 + 10) ÷ 1,01 = 9,901; R<sub>0</sub> = (9,901 + 10) ÷ 1,01 = <strong>19,704</strong>. Lúc nghỉ hưu cần 19,704.</div>
+          <p class="code">Trong code: <code>requiredContribution()</code>; engine chính thức dùng cùng ý tưởng (sàn 0 ở mọi tháng).</p>
+        </article>
+
+        <article id="f-contribution">
+          <h2>9. Mức góp cần thiết (công thức trực tiếp)</h2>
+          <p class="idea">Số dư lúc nghỉ hưu = phần vốn ban đầu sinh lời + phần từ tiền góp. Phần từ tiền góp tỷ lệ thuận với mức góp, nên chỉ cần một phép chia là ra mức góp, không phải dò thử.</p>
+          <div class="formula">G = g<sub>0</sub> × g<sub>1</sub> × … × g<sub>n−1</sub> &nbsp;&nbsp;(vốn ban đầu nhân lên bao nhiêu lần)</div>
+          <div class="formula">K = Σ<sub>t&lt;n</sub> c<sub>t</sub> × (tích các g sau tháng t) &nbsp;&nbsp;(c<sub>t</sub> = 1, hoặc I<sub>t</sub> nếu góp tăng theo lạm phát)</div>
+          <div class="formula">C = max(0, (R<sub>n</sub> − F<sub>0</sub> × G) ÷ K)</div>
+          <div class="example"><strong>Ví dụ:</strong> 2 tháng tích lũy, g = 1,01, vốn 0, cần R = 19,704. K = 1 × 1,01 + 1 = 2,01 → C = 19,704 ÷ 2,01 = <strong>9,803/tháng</strong>. Kiểm tra: góp 9,803 tháng 1, sinh lời 1% rồi góp tiếp 9,803 → 19,704. Đúng.</div>
+          <p class="code">Bộ kiểm thử so công thức này với cách dò thử (chia đôi): lệch dưới 1 đồng.</p>
+        </article>
+
+        <article id="f-bootstrap">
+          <h2>10. Monte Carlo: bốc khối dữ liệu (block bootstrap)</h2>
+          <p class="idea">Hình dung lịch sử thị trường là một cuộn phim từng tháng. Ta <strong>cắt cuộn phim thành các đoạn 12 tháng</strong>, rồi ghép ngẫu nhiên các đoạn lại thành một “tương lai” đủ dài. Lặp lại hàng nghìn lần để ra hàng nghìn tương lai khác nhau.</p>
+          <ul class="plain">
+            <li><strong>Cắt theo đoạn</strong> (không bốc từng tháng lẻ) để giữ chuỗi tháng xấu liên tiếp, như một năm khủng hoảng.</li>
+            <li><strong>Lấy cùng một tháng cho cả cổ phiếu, kênh an toàn và lạm phát</strong>, để giữ đúng quan hệ giữa chúng (ví dụ lạm phát cao thường đi kèm cổ phiếu giảm).</li>
+          </ul>
+          <div class="formula">Chọn s ngẫu nhiên đều trong [0, M − L] &nbsp;→&nbsp; lấy các tháng s, s+1, …, s+L−1 &nbsp;→&nbsp; lặp đến đủ T tháng</div>
+          <p class="hint">M = số tháng dữ liệu, L = độ dài khối. Dưới 120 tháng dữ liệu thì cảnh báo, vì quá ít đoạn để ghép.</p>
+          <p class="code">Trong code: <code>blockBootstrap()</code>; số ngẫu nhiên từ <code>rng(seed)</code> (thuật toán sfc32). Cùng seed luôn cho ra cùng kết quả.</p>
+        </article>
+
+        <article id="f-recenter">
+          <h2>11. Dời tâm dữ liệu lịch sử</h2>
+          <p class="idea">Lịch sử có thể đẹp hơn tương lai (ví dụ giai đoạn bắt đầu từ đáy khủng hoảng). Dời tâm giữ nguyên <em>độ lên xuống</em> của từng tháng, chỉ hạ (hoặc nâng) <em>mức trung bình</em> về đúng con số kỳ vọng đã duyệt.</p>
+          <div class="formula">m̄ = trung bình của ln(1 + r) trên toàn bộ lịch sử</div>
+          <div class="formula">r' = e<sup>ln(1 + r) − m̄ + ln(1 + r*)/12</sup> − 1 &nbsp;&nbsp;(r* = lợi suất năm kỳ vọng)</div>
+          <div class="example"><strong>Ví dụ:</strong> lịch sử có m̄ = 0,0095/tháng (≈ 12,1%/năm), kỳ vọng 9%/năm → dịch −0,0023 mỗi tháng. Một tháng lịch sử +5% trở thành <strong>+4,757%</strong>; tháng −10% vẫn là tháng giảm mạnh, chỉ giảm thêm một chút.</div>
+          <p class="code">Trong code: <code>recenter()</code>. Bộ kiểm thử xác nhận trung bình sau dời đúng 9,000000% và độ biến động giữ nguyên.</p>
+        </article>
+
+        <article id="f-stats">
+          <h2>12. Tỷ lệ thành công và các con số kết quả</h2>
+          <div class="formula">Tỷ lệ thành công p̂ = số tương lai thành công ÷ N</div>
+          <div class="formula">Khoảng tin cậy 95% (Wilson): tâm = (p̂ + z²/2N) ÷ (1 + z²/N) &nbsp;·&nbsp; bán kính = z × √(p̂(1 − p̂)/N + z²/4N²) ÷ (1 + z²/N) &nbsp;·&nbsp; z = 1,96</div>
+          <div class="example"><strong>Ví dụ:</strong> 1.600/2.000 tương lai thành công → p̂ = 80% → khoảng <strong>78,19% – 81,69%</strong>. Nếu cả 2.000 đều thành công, khoảng là 99,81% – 100%, không phải “chắc chắn 100%”. Chạy càng nhiều đường, khoảng càng hẹp.</div>
+          <p class="hint">Vì sao không dùng p̂ ± 1,96√(p̂(1−p̂)/N): công thức đó cho khoảng [100%, 100%] khi mọi tương lai thành công, tức là tự tin sai.</p>
+          <table>
+            <tbody>
+              <tr><td><strong>Thiếu hụt kỳ vọng (giá thực)</strong></td><td>Trung bình trên mọi tương lai của Σ U<sub>t</sub> ÷ I<sub>t</sub>: tổng số tiền thiếu, quy về sức mua hôm nay.</td></tr>
+              <tr><td><strong>Số năm thiếu hụt (trung vị)</strong></td><td>Số tháng có thiếu hụt ÷ 12, lấy giá trị giữa khi xếp các tương lai từ thấp đến cao.</td></tr>
+              <tr><td><strong>Tuổi cạn quỹ P10 / P50</strong></td><td>Tuổi ở tháng thiếu hụt đầu tiên. P10 = 10% tương lai xấu nhất cạn quỹ trước tuổi này. Tương lai không cạn được tính là “không cạn”.</td></tr>
+              <tr><td><strong>Dải P10 – P50 – P90</strong></td><td>Ở mỗi tuổi, xếp số dư (giá thực) của mọi tương lai; P10 là mức mà 10% tương lai thấp hơn, P50 ở giữa, P90 là mức mà 90% tương lai thấp hơn. Giữa hai giá trị dùng nội suy tuyến tính.</td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article id="f-stress">
+          <h2>13. Kịch bản căng thẳng</h2>
+          <p class="idea">Dữ liệu lịch sử ngắn nên có thể không chứa cú sốc tệ nhất. Vì vậy chạy thêm một tương lai cố định: <strong>5 năm đầu nghỉ hưu, cổ phiếu giảm đều theo mức bạn nhập</strong> (mặc định −15%/năm), các tháng khác dùng mức kỳ vọng. Kết quả báo riêng, không gộp vào tỷ lệ thành công.</p>
+          <div class="formula">r<sub>cổ phiếu, t</sub> = (1 + s)<sup>1/12</sup> − 1 &nbsp;với n ≤ t &lt; n + 60</div>
+        </article>
+
+        <article id="f-life">
+          <h2>14. Tuổi thọ (bảng sống)</h2>
+          <p class="idea">Thay vì giả định ai cũng sống đến đúng tuổi kết thúc, mỗi tương lai “tung xúc xắc” tuổi mất theo bảng sống: ở mỗi tuổi x, xác suất mất trong năm đó là q<sub>x</sub>.</p>
+          <div class="formula">Với x = tuổi hiện tại, x+1, …: mất trong năm tuổi x nếu số ngẫu nhiên &lt; q<sub>x</sub>; tháng mất chọn ngẫu nhiên trong năm đó</div>
+          <div class="formula">Hộ hai người: thời gian kế hoạch = đến khi <strong>người thứ hai</strong> mất = max(tuổi mất 1, tuổi mất 2)</div>
+          <div class="example"><strong>Ví dụ:</strong> q<sub>65</sub> = 0,012 nghĩa là 1,2% số người 65 tuổi sẽ mất trong năm đó. Khi một người mất: lương hưu của người đó dừng, chi tiêu giảm theo tỷ lệ bạn nhập.</div>
+          <p class="hint">Lab không tự điền bảng sống. Cần dán bảng sống chính thức (Tổng cục Thống kê) đã có nguồn vào tab Dữ liệu.</p>
+        </article>
+
+        <article id="f-gk">
+          <h2>15. Chi tiêu linh hoạt (Guyton–Klinger)</h2>
+          <p class="idea">Giống người lái xe có “lan can”: thị trường xấu, quỹ teo lại thì bớt chi tiêu tùy ý một chút; thị trường tốt thì được chi thêm. Chỉ áp lên <strong>phần chi tùy ý</strong>, không đụng chi thiết yếu.</p>
+          <div class="formula">Tỷ lệ rút năm = tổng tiền rút trong năm ÷ số dư đầu năm &nbsp;·&nbsp; WR<sub>0</sub> = tỷ lệ rút của năm đầu nghỉ hưu</div>
+          <ul class="plain">
+            <li>Năm trước quỹ lỗ <strong>và</strong> tỷ lệ rút &gt; WR<sub>0</sub> → năm nay không tăng phần tùy ý theo lạm phát.</li>
+            <li>Tỷ lệ rút &gt; 1,2 × WR<sub>0</sub> → giảm phần tùy ý 10%.</li>
+            <li>Tỷ lệ rút &lt; 0,8 × WR<sub>0</sub> → tăng phần tùy ý 10%.</li>
+            <li>Không bao giờ giảm dưới mức sàn (mặc định 60% mức gốc).</li>
+            <li>Quy tắc bắt đầu xét từ năm thứ hai. Nếu năm đầu rút dưới 1% quỹ (lương hưu gần đủ chi) thì không áp dụng, vì không có mốc tham chiếu có ý nghĩa.</li>
+          </ul>
+          <div class="example"><strong>Ví dụ:</strong> WR<sub>0</sub> = 5% → lan can trên 6%, lan can dưới 4%. Năm nào rút tới 6,3% số dư thì cắt phần tùy ý 10%.</div>
+          <p class="hint">Đổi lại, chi tiêu sẽ lên xuống theo năm. Quy tắc “tăng chi khi thuận lợi” cũng có thể làm giảm tỷ lệ thành công, nên đây là tùy chọn.</p>
+        </article>
+
+        <article id="f-a4">
+          <h2>16. Mức góp theo xác suất mục tiêu</h2>
+          <p class="idea">Câu hỏi: “góp ít nhất bao nhiêu mỗi tháng để có 85% khả năng không cạn quỹ?”. Cách làm: <strong>dò kiểu chia đôi</strong>. Thử mức ở giữa khoảng; nếu đạt thì tìm ở nửa dưới, chưa đạt thì tìm ở nửa trên; lặp đến khi khoảng nhỏ hơn độ chính xác.</p>
+          <div class="formula">Thấp = 0, Cao = khả năng góp tối đa &nbsp;→&nbsp; Giữa = (Thấp + Cao) ÷ 2 &nbsp;→&nbsp; p̂(Giữa) ≥ mục tiêu ? Cao = Giữa : Thấp = Giữa</div>
+          <ul class="plain">
+            <li><strong>Mọi lần thử dùng cùng một bộ tương lai</strong> (cùng seed). Nhờ vậy góp nhiều hơn thì tỷ lệ chắc chắn không giảm, và cách chia đôi luôn đúng.</li>
+            <li>Nếu góp tối đa vẫn không đạt mục tiêu → báo <code>TARGET_PROBABILITY_UNREACHABLE_WITHIN_CAPACITY</code>, không đưa ra số vượt khả năng.</li>
+          </ul>
+          <p class="hint">Mỗi vòng thu hẹp khoảng một nửa: từ 20 triệu xuống 10.000 đ cần khoảng 11 vòng, mỗi vòng chạy lại toàn bộ Monte Carlo.</p>
+        </article>
+
+        <article id="f-debt">
+          <h2>17. Thứ tự trả nợ</h2>
+          <p class="idea">Mỗi tháng trả đủ mức tối thiểu của mọi khoản vay, phần tiền dư dồn vào khoản được ưu tiên nhất. Khoản nào trả xong thì mức tối thiểu của nó cũng dồn vào tiền dư (hiệu ứng “lăn cầu tuyết”).</p>
+          <div class="formula">Lãi tháng = dư nợ × lãi suất năm ÷ 12</div>
+          <div class="formula">Trả thêm x = min(dư nợ, tiền dư ÷ (1 + phí trả trước)) &nbsp;·&nbsp; phí = x × phí trả trước</div>
+          <table>
+            <tbody>
+              <tr><td><strong>Avalanche</strong></td><td>Ưu tiên lãi suất cao nhất → thường ít tiền lãi nhất.</td></tr>
+              <tr><td><strong>Snowball</strong></td><td>Ưu tiên dư nợ nhỏ nhất → nhanh xóa từng khoản, tạo động lực, nhưng thường tốn lãi hơn.</td></tr>
+              <tr><td><strong>Theo chi phí sau phí</strong></td><td>Lãi suất − phí trả trước chia đều cho thời gian còn lại: r − phí × 12 ÷ (số tháng còn lại). Số tháng còn lại ≈ dư nợ ÷ (trả tối thiểu − lãi tháng).</td></tr>
+              <tr><td><strong>Tốt nhất trong các thứ tự đã thử</strong></td><td>Với ≤ 7 khoản vay, thử mọi thứ tự và chọn tổng lãi + phí thấp nhất. Đây vẫn chỉ là cách gần đúng, chưa phải tối ưu tuyệt đối.</td></tr>
+            </tbody>
+          </table>
+          <div class="example"><strong>Ví dụ:</strong> vay tiêu dùng 200 triệu, lãi 22%, phí trả trước 4%, trả tối thiểu 5 triệu. Lãi tháng = 3,667 triệu → trả gốc 1,333 triệu/tháng → còn khoảng 150 tháng → chi phí hiệu dụng = 22% − 4% × 12 ÷ 150 = <strong>21,68%</strong>. Có 5 triệu tiền dư → trả thêm được 4,902 triệu gốc, mất 0,098 triệu phí.</div>
+          <p class="hint">Nếu trả tối thiểu không đủ trả lãi, khoản vay không bao giờ hết; lab sẽ cảnh báo.</p>
+        </article>
+
+        <article id="f-synthetic">
+          <h2>18. Dữ liệu tổng hợp (chỉ để thử)</h2>
+          <p class="idea">Khi chưa có số liệu thật, lab tự tạo chuỗi tháng giả lập có mức trung bình, độ biến động và tương quan theo ý bạn. Đây <strong>không</strong> phải dữ liệu thị trường Việt Nam.</p>
+          <div class="formula">r<sub>t</sub> = e<sup>μ + σ × z<sub>t</sub></sup> − 1 &nbsp;với μ = ln(1 + trung bình năm)/12 − σ²/2, σ = độ biến động năm ÷ √12</div>
+          <div class="formula">Lạm phát tương quan: z<sub>CPI</sub> = ρ<sub>1</sub> × z<sub>cổ phiếu</sub> + ρ<sub>2</sub> × z<sub>an toàn</sub> + √(1 − ρ<sub>1</sub>² − ρ<sub>2</sub>²) × z<sub>riêng</sub></div>
+          <p class="hint">z là số ngẫu nhiên chuẩn (trung bình 0, độ lệch 1), tạo bằng phép biến đổi Box–Muller từ số ngẫu nhiên đều.</p>
+        </article>
+</div>
+    </div>
+  </section>
+
+  <!-- ============ TESTS ============ -->
+  <section class="tab" id="tab-tests" role="tabpanel">
+    <div class="card card-pad">
+      <div class="section-title">
+        <div><h2>Kiểm thử thuật toán</h2><p class="lead" style="margin:0">Chạy trên dữ liệu tổng hợp riêng, không phụ thuộc thông số bạn đang nhập.</p></div>
+        <button type="button" class="btn" id="runTests">Chạy kiểm thử</button>
+      </div>
+      <div id="testOut" style="margin-top:14px"></div>
+    </div>
+  </section>
+</main>
+
+<script id="engine">
+"use strict";
+const Lab = (() => {
+  // ---------- PRNG: cyrb128 seed hashing + sfc32 ----------
+  function cyrb128(str) {
+    let h1 = 1779033703, h2 = 3144134277, h3 = 1013904242, h4 = 2773480762;
+    for (let i = 0; i < str.length; i++) {
+      const k = str.charCodeAt(i);
+      h1 = h2 ^ Math.imul(h1 ^ k, 597399067); h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+      h3 = h4 ^ Math.imul(h3 ^ k, 951274213); h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+    }
+    h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067); h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+    h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213); h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+    h1 ^= (h2 ^ h3 ^ h4); h2 ^= h1; h3 ^= h1; h4 ^= h1;
+    return [h1 >>> 0, h2 >>> 0, h3 >>> 0, h4 >>> 0];
+  }
+  function rng(seed) {
+    let [a, b, c, d] = cyrb128(String(seed));
+    const next = () => {
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      let t = (a + b) | 0; a = b ^ (b >>> 9); b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11); d = (d + 1) | 0; t = (t + d) | 0; c = (c + t) | 0;
+      return (t >>> 0) / 4294967296;
+    };
+    for (let i = 0; i < 15; i++) next();
+    return next;
+  }
+  function gaussian(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+
+  // ---------- Data ----------
+  /** Synthetic monthly series (simple returns). NOT market data. */
+  function synthetic(o) {
+    const r = rng(o.seed), m = o.months, out = { stock: new Float64Array(m), safe: new Float64Array(m), cpi: new Float64Array(m) };
+    const l33sq = 1 - o.rsc * o.rsc - o.rfc * o.rfc;
+    if (l33sq <= 0) throw new Error("Hai hệ số tương quan quá lớn (ma trận không xác định dương).");
+    const l33 = Math.sqrt(l33sq);
+    const p = (mean, vol) => ({ mu: Math.log(1 + mean) / 12 - (vol * vol) / 24, s: vol / Math.sqrt(12) });
+    const ps = p(o.ms, o.vs), pf = p(o.mf, o.vf), pc = p(o.mc, o.vc);
+    for (let t = 0; t < m; t++) {
+      const z1 = gaussian(r), z2 = gaussian(r), z3 = gaussian(r);
+      out.stock[t] = Math.exp(ps.mu + ps.s * z1) - 1;
+      out.safe[t] = Math.exp(pf.mu + pf.s * z2) - 1;
+      out.cpi[t] = Math.exp(pc.mu + pc.s * (o.rsc * z1 + o.rfc * z2 + l33 * z3)) - 1;
+    }
+    return out;
+  }
+  // ---------- Input validation (all user input passes through here) ----------
+  class InputError extends Error { constructor(issues) { super(issues.join("\n")); this.name = "InputError"; this.issues = issues; } }
+  const fmt = v => Number(v).toLocaleString("vi-VN");
+  function makeReader(raw, labels, issues) {
+    return (key, { min = -Infinity, max = Infinity, integer = false, above = false } = {}) => {
+      const label = labels[key] || key, value = raw[key];
+      const text = typeof value === "number" ? String(value) : String(value ?? "").trim().replace(",", ".");
+      if (text === "") { issues.push(`${label}: chưa nhập.`); return NaN; }
+      const v = Number(text);
+      if (!Number.isFinite(v)) { issues.push(`${label}: không phải số.`); return NaN; }
+      if (integer && !Number.isInteger(v)) issues.push(`${label}: phải là số nguyên.`);
+      if (above ? v <= min : v < min) issues.push(`${label}: phải ${above ? "lớn hơn" : "từ"} ${fmt(min)}${max < Infinity ? ` và tối đa ${fmt(max)}` : ""}.`);
+      else if (v > max) issues.push(`${label}: tối đa ${fmt(max)}.`);
+      return v;
+    };
+  }
+  const oneOf = (raw, key, allowed, label, issues) => { if (!allowed.includes(raw[key])) issues.push(`${label}: giá trị không hợp lệ.`); return raw[key]; };
+  const PLAN_LABELS = { ageNow: "Tuổi hiện tại", retireAge: "Tuổi nghỉ hưu", endAge: "Tuổi kết thúc kế hoạch", age2: "Tuổi hiện tại người 2",
+    initial: "Vốn hưu trí hiện có", contribution: "Mức góp / tháng", stockWeight: "Tỷ trọng cổ phiếu", livingToday: "Chi tiêu / tháng",
+    discShare: "Phần chi tùy ý", pension1: "Lương hưu người 1", pension2: "Lương hưu người 2", pensionAdj: "Điều chỉnh lương hưu",
+    healthToday: "Chi phí y tế / tháng", healthExtra: "Y tế tăng thêm so với CPI", terminalTarget: "Số dư mục tiêu cuối kỳ",
+    survivorCut: "Chi tiêu giảm khi còn 1 người", gkFloor: "Sàn phần tùy ý" };
+  const MONEY = { min: 0, max: 1e15 };
+  function buildPlan(raw) {
+    const issues = [], n = makeReader(raw, PLAN_LABELS, issues);
+    const spouse = raw.spouse === true;
+    const p = { ageNow: n("ageNow", { min: 18, max: 100, integer: true }), retireAge: n("retireAge", { min: 19, max: 110, integer: true }),
+      endAge: n("endAge", { min: 20, max: 110, integer: true }), age2: spouse ? n("age2", { min: 18, max: 110, integer: true }) : 0,
+      initial: n("initial", MONEY), contribution: n("contribution", MONEY), stockWeight: n("stockWeight", { min: 0, max: 100 }) / 100,
+      livingToday: n("livingToday", MONEY), discShare: n("discShare", { min: 0, max: 100 }) / 100,
+      pension1: n("pension1", MONEY), pension2: spouse ? n("pension2", MONEY) : 0, pensionAdj: n("pensionAdj", { min: -100, max: 50, above: true }) / 100,
+      healthToday: n("healthToday", MONEY), healthExtra: n("healthExtra", { min: -100, max: 50, above: true }) / 100,
+      terminalTarget: n("terminalTarget", MONEY), survivorCut: spouse ? n("survivorCut", { min: 0, max: 100 }) / 100 : 0,
+      gkFloor: n("gkFloor", { min: 0, max: 100 }) / 100, spouse,
+      contribMode: oneOf(raw, "contribMode", ["nominal", "indexed"], "Chế độ góp", issues),
+      sex1: oneOf(raw, "sex1", ["m", "f"], "Giới tính người 1", issues), sex2: spouse ? oneOf(raw, "sex2", ["m", "f"], "Giới tính người 2", issues) : "f" };
+    if (Number.isFinite(p.ageNow) && Number.isFinite(p.retireAge) && Number.isFinite(p.endAge)) {
+      if (!(p.ageNow < p.retireAge)) issues.push("Tuổi nghỉ hưu phải lớn hơn tuổi hiện tại.");
+      if (!(p.retireAge < p.endAge)) issues.push("Tuổi kết thúc kế hoạch phải lớn hơn tuổi nghỉ hưu.");
+      if (p.endAge - p.ageNow > 100) issues.push("Kế hoạch tối đa 100 năm (1.200 tháng).");
+    }
+    if (issues.length) throw new InputError(issues);
+    p.retireMonth = (p.retireAge - p.ageNow) * 12; p.horizonMonths = (p.endAge - p.ageNow) * 12;
+    return p;
+  }
+  function buildMcOptions(raw, life) {
+    const issues = [], n = makeReader(raw, { pathCount: "Số đường N", blockLen: "Độ dài khối L", tStock: "Cổ phiếu kỳ vọng",
+      tSafe: "Kênh an toàn kỳ vọng", tCpi: "Lạm phát dài hạn", stressStock: "Kịch bản căng thẳng" }, issues);
+    const seed = String(raw.seed ?? "").trim();
+    if (!seed) issues.push("Seed: chưa nhập."); else if (seed.length > 100) issues.push("Seed: tối đa 100 ký tự.");
+    const o = { seed, pathCount: n("pathCount", { min: 10, max: 20000, integer: true }), blockLen: n("blockLen", { min: 1, max: 120, integer: true }),
+      recenter: raw.recenter === true, guardrails: raw.guardrails === true, life: life ?? null, collect: true,
+      targets: { stock: n("tStock", { min: -100, max: 100, above: true }) / 100, safe: n("tSafe", { min: -100, max: 100, above: true }) / 100,
+        cpi: n("tCpi", { min: -100, max: 100, above: true }) / 100 },
+      stress: n("stressStock", { min: -100, max: 100, above: true }) / 100 };
+    if (issues.length) throw new InputError(issues);
+    return o;
+  }
+  function buildA4(raw) {
+    const issues = [], n = makeReader(raw, { targetP: "Xác suất mục tiêu", capacity: "Khả năng góp tối đa", a4N: "Số đường N", a4Tol: "Độ chính xác" }, issues);
+    const o = { target: n("targetP", { min: 0, max: 99.9, above: true }) / 100, capacity: n("capacity", MONEY),
+      pathCount: n("a4N", { min: 10, max: 10000, integer: true }), tol: n("a4Tol", { min: 1, max: 1e9 }) };
+    if (issues.length) throw new InputError(issues);
+    return o;
+  }
+  function buildSynthetic(raw) {
+    const issues = [], n = makeReader(raw, { months: "Số tháng", ms: "Cổ phiếu TB", vs: "Cổ phiếu biến động", mf: "An toàn TB", vf: "An toàn biến động",
+      mc: "CPI TB", vc: "CPI biến động", rsc: "Tương quan cổ phiếu–CPI", rfc: "Tương quan an toàn–CPI" }, issues);
+    const seed = String(raw.seed ?? "").trim();
+    if (!seed) issues.push("Seed dữ liệu: chưa nhập.");
+    const o = { seed, months: n("months", { min: 24, max: 2400, integer: true }),
+      ms: n("ms", { min: -100, max: 200, above: true }) / 100, vs: n("vs", { min: 0, max: 200 }) / 100,
+      mf: n("mf", { min: -100, max: 200, above: true }) / 100, vf: n("vf", { min: 0, max: 200 }) / 100,
+      mc: n("mc", { min: -100, max: 200, above: true }) / 100, vc: n("vc", { min: 0, max: 200 }) / 100,
+      rsc: n("rsc", { min: -0.99, max: 0.99 }), rfc: n("rfc", { min: -0.99, max: 0.99 }) };
+    if (Number.isFinite(o.rsc) && Number.isFinite(o.rfc) && o.rsc * o.rsc + o.rfc * o.rfc >= 1) issues.push("Tổng bình phương hai hệ số tương quan phải nhỏ hơn 1.");
+    if (issues.length) throw new InputError(issues);
+    return o;
+  }
+
+  /** Strict: comment (#) and one header line allowed; any other malformed line is an error. */
+  function parseSeries(text) {
+    const rows = [], issues = [];
+    let headerSeen = false;
+    text.split(/\r?\n/).forEach((raw, idx) => {
+      const line = raw.trim(), no = idx + 1;
+      if (!line || line.startsWith("#")) return;
+      const cells = line.split(/[,;\t]/).map(s => s.trim()).filter(s => s !== "");
+      const last = cells.slice(-3).map(Number);
+      if (cells.length < 3 || last.some(v => !Number.isFinite(v))) {
+        const isHeader = cells.length >= 3 && last.every(v => Number.isNaN(v)); // header = only text in the value columns
+        if (isHeader && !rows.length && !headerSeen) { headerSeen = true; return; }
+        issues.push(`Dòng ${no}: cần 3 số cuối dòng (cổ phiếu, an toàn, cpi).`); return;
+      }
+      const [st, sf, sc] = last;
+      if (st <= -1 || sf <= -1 || sc <= -1) issues.push(`Dòng ${no}: lợi suất/CPI tháng phải lớn hơn -100%.`);
+      else if (Math.abs(st) > 0.6 || Math.abs(sf) > 0.3 || Math.abs(sc) > 0.3)
+        issues.push(`Dòng ${no}: giá trị tháng quá lớn (${last.join(", ")}). Có thể đang nhập phần trăm (1.2) thay vì số thập phân (0.012).`);
+      else rows.push(last);
+    });
+    if (issues.length) throw new InputError(issues.slice(0, 8).concat(issues.length > 8 ? [`… và ${issues.length - 8} dòng lỗi khác.`] : []));
+    const n = rows.length, out = { stock: new Float64Array(n), safe: new Float64Array(n), cpi: new Float64Array(n) };
+    rows.forEach((r, i) => { out.stock[i] = r[0]; out.safe[i] = r[1]; out.cpi[i] = r[2]; });
+    return out;
+  }
+  function seriesToCsv(d, note) {
+    const lines = ["# " + note, "thang,co_phieu,an_toan,cpi"];
+    for (let i = 0; i < d.stock.length; i++) lines.push(`${i + 1},${d.stock[i].toFixed(6)},${d.safe[i].toFixed(6)},${d.cpi[i].toFixed(6)}`);
+    return lines.join("\n");
+  }
+  /** Ages must be integers, strictly consecutive (no gaps), qx in [0, 1]. Returns null when empty. */
+  function parseLifeTable(text) {
+    const m = new Map(), f = new Map(), issues = [];
+    let headerSeen = false, prev = null;
+    text.split(/\r?\n/).forEach((raw, idx) => {
+      const line = raw.trim(), no = idx + 1;
+      if (!line || line.startsWith("#")) return;
+      const nums = line.split(/[,;\t]/).map(s => Number(s.trim()));
+      if (nums.length < 3 || nums.slice(0, 3).some(v => !Number.isFinite(v))) {
+        const isHeader = nums.length >= 3 && nums.slice(0, 3).every(v => Number.isNaN(v));
+        if (isHeader && !m.size && !headerSeen) { headerSeen = true; return; }
+        issues.push(`Dòng ${no}: cần 3 số (tuổi, qx nam, qx nữ).`); return;
+      }
+      const [age, qm, qf] = nums;
+      if (!Number.isInteger(age) || age < 0 || age > 130) issues.push(`Dòng ${no}: tuổi phải là số nguyên 0–130.`);
+      else if (prev !== null && age !== prev + 1) issues.push(`Dòng ${no}: tuổi ${age} không liền sau tuổi ${prev} (bảng không được thiếu hoặc lặp tuổi).`);
+      if (qm < 0 || qm > 1 || qf < 0 || qf > 1) issues.push(`Dòng ${no}: qx phải nằm trong [0, 1].`);
+      prev = Number.isInteger(age) ? age : prev; m.set(age, qm); f.set(age, qf);
+    });
+    if (issues.length) throw new InputError(issues.slice(0, 8));
+    if (!m.size) return null;
+    const ages = [...m.keys()];
+    return { m, f, minAge: Math.min(...ages), maxAge: Math.max(...ages) };
+  }
+  const logMean = a => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.log1p(a[i]); return s / a.length; };
+  /** R2: keep shape/volatility, shift mean log-return to approved annual targets. */
+  function recenter(d, t) {
+    const shift = (arr, annual) => { const k = Math.log1p(annual) / 12 - logMean(arr); return arr.map(x => Math.expm1(Math.log1p(x) + k)); };
+    return { stock: shift(d.stock, t.stock), safe: shift(d.safe, t.safe), cpi: shift(d.cpi, t.cpi) };
+  }
+  /** R1/R3: same start index for every component keeps joint rows (returns + CPI) together. */
+  function blockBootstrap(d, months, L, r) {
+    const n = d.stock.length, out = { stock: new Float64Array(months), safe: new Float64Array(months), cpi: new Float64Array(months) };
+    const block = Math.max(1, Math.min(L, n));
+    for (let t = 0; t < months;) {
+      const start = Math.floor(r() * (n - block + 1));
+      for (let j = 0; j < block && t < months; j++, t++) {
+        out.stock[t] = d.stock[start + j]; out.safe[t] = d.safe[start + j]; out.cpi[t] = d.cpi[start + j];
+      }
+    }
+    return out;
+  }
+  function constantMarket(months, t) {
+    const f = a => new Float64Array(months).fill(Math.expm1(Math.log1p(a) / 12));
+    return { stock: f(t.stock), safe: f(t.safe), cpi: f(t.cpi) };
+  }
+
+  // ---------- Longevity (A2, A6) ----------
+  function deathMonth(table, sex, age0, r) {
+    const q = sex === "f" ? table.f : table.m; // coverage of age0..maxAge is validated before simulation
+    for (let age = age0, months = 0; age <= table.maxAge; age++, months += 12) {
+      if (r() < q.get(age)) return months + Math.floor(r() * 12);
+    }
+    return (table.maxAge + 1 - age0) * 12; // everyone dies by table end
+  }
+
+  // ---------- Path simulation (funded ledger; explicit deposits only) ----------
+  /** Guardrails need a meaningful reference: below 1%/year the fund is barely drawn and a ±20% band
+   * around it would cut spending for no economic reason. Lab modelling choice, documented in the formulas tab. */
+  const GK_MIN_RATE = 0.01;
+  /**
+   * p: plan (amounts in VND, rates as decimals). mk: monthly market arrays.
+   * o: { horizon, contribution, guardrails, d1, d2 (death months or Infinity), collect }
+   * Success = no unfunded withdrawal within horizon, and (fixed horizon only) final ≥ terminalTarget.
+   */
+  function simulate(p, mk, o) {
+    const T = o.horizon, n = p.retireMonth, w = p.stockWeight;
+    let F = p.initial, cpiIdx = 1, unmet = 0, unmetReal = 0, shortMonths = 0, firstShort = -1;
+    let pension1 = p.pension1, pension2 = p.pension2, gkAdj = 1, wr0 = null, yearStartBal = 0, yearWithdraw = 0, yearInfl = 1, yearGrowth = 1;
+    const series = o.collect ? new Float64Array(Math.floor(T / 12) + 1) : null;
+    if (series) series[0] = F;
+    const spouse = p.spouse, d1 = o.d1 ?? Infinity, d2 = spouse ? (o.d2 ?? Infinity) : -1;
+    for (let t = 0; t < T; t++) {
+      const g = 1 + w * mk.stock[t] + (1 - w) * mk.safe[t];
+      cpiIdx *= 1 + mk.cpi[t];
+      if (t < n) {
+        const c = o.contribution * (p.contribMode === "indexed" ? cpiIdx : 1);
+        F = F * g + c; // end-of-month deposit
+      } else {
+        const k = t - n;
+        if (k % 12 === 0) {
+          if (k > 0) {
+            // Reference rate = withdrawals of the whole first retirement year ÷ fund at retirement.
+            if (o.guardrails && k === 12) wr0 = yearStartBal > 0 ? yearWithdraw / yearStartBal : Infinity;
+            if (o.guardrails && wr0 >= GK_MIN_RATE && Number.isFinite(wr0) && yearStartBal > 0) {
+              const wr = yearWithdraw / yearStartBal;
+              if (yearGrowth < 1 && wr > wr0) gkAdj /= yearInfl; // skip this year's inflation raise
+              if (wr > wr0 * 1.2) gkAdj *= 0.9; else if (wr < wr0 * 0.8) gkAdj *= 1.1;
+              gkAdj = Math.max(gkAdj, p.gkFloor);
+            }
+            pension1 *= 1 + p.pensionAdj; pension2 *= 1 + p.pensionAdj; // declared schedule, not CPI (R5)
+          }
+          yearStartBal = F; yearWithdraw = 0; yearInfl = 1; yearGrowth = 1;
+        }
+        const alive1 = t < d1, alive2 = spouse && t < d2;
+        const factor = spouse && !(alive1 && alive2) ? 1 - p.survivorCut : 1;
+        const living = p.livingToday * cpiIdx * factor;
+        const disc = living * p.discShare * (o.guardrails ? gkAdj : 1);
+        const health = p.healthToday * cpiIdx * Math.pow(1 + p.healthExtra, k / 12);
+        const pen = (alive1 ? pension1 : 0) + (alive2 ? pension2 : 0);
+        const wd = Math.max(0, living * (1 - p.discShare) + disc + health - pen); // surplus is never auto-deposited
+        const avail = F * g, u = Math.max(0, wd - avail);
+        F = Math.max(0, avail - wd);
+        if (u > 0) { unmet += u; unmetReal += u / cpiIdx; shortMonths++; if (firstShort < 0) firstShort = t; }
+        yearWithdraw += wd; yearInfl *= 1 + mk.cpi[t]; yearGrowth *= g;
+      }
+      if (series && (t + 1) % 12 === 0) series[(t + 1) / 12] = F / cpiIdx;
+    }
+    const fixed = !Number.isFinite(d1) && (!spouse || !Number.isFinite(d2));
+    const success = unmet === 0 && (!fixed || F >= p.terminalTarget);
+    return { success, unmet, unmetReal, shortMonths, firstShort, final: F, finalReal: F / cpiIdx, series,
+      guardrailsApplied: !o.guardrails ? false : wr0 !== null && wr0 >= GK_MIN_RATE && Number.isFinite(wr0) };
+  }
+
+  /** Deterministic closed form (fixed horizon, no guardrails): constant contribution reaching the
+   * required fund with a non-negative requirement at every retirement month. */
+  function requiredContribution(p, mk) {
+    const T = p.horizonMonths, n = p.retireMonth, w = p.stockWeight;
+    const g = new Float64Array(T), wd = new Float64Array(T), cpiIdx = new Float64Array(T);
+    let idx = 1, pen1 = p.pension1, pen2 = p.pension2;
+    for (let t = 0; t < T; t++) {
+      g[t] = 1 + w * mk.stock[t] + (1 - w) * mk.safe[t]; idx *= 1 + mk.cpi[t]; cpiIdx[t] = idx;
+      if (t >= n) {
+        const k = t - n;
+        if (k > 0 && k % 12 === 0) { pen1 *= 1 + p.pensionAdj; pen2 *= 1 + p.pensionAdj; }
+        const living = p.livingToday * idx;
+        const health = p.healthToday * idx * Math.pow(1 + p.healthExtra, k / 12);
+        wd[t] = Math.max(0, living + health - pen1 - (p.spouse ? pen2 : 0));
+      }
+    }
+    let R = p.terminalTarget;
+    for (let t = T - 1; t >= n; t--) R = Math.max(0, (R + wd[t]) / g[t]);
+    if (n === 0) return { status: p.initial >= R ? "NO_ADDITIONAL_CONTRIBUTION" : "NO_ACCUMULATION_PERIOD", requiredAtRetirement: R, contribution: null };
+    let G = 1, A = 0;
+    for (let t = 0; t < n; t++) { G *= g[t]; A = A * g[t] + (p.contribMode === "indexed" ? cpiIdx[t] : 1); }
+    const c = Math.max(0, (R - p.initial * G) / A);
+    return { status: c > 0 ? "ADDITIONAL_CONTRIBUTION_REQUIRED" : "NO_ADDITIONAL_CONTRIBUTION", requiredAtRetirement: R, contribution: c };
+  }
+
+  // ---------- Monte Carlo (A1) ----------
+  /** Linear interpolation; values may be +Infinity ("never depleted") without producing NaN. */
+  function percentile(sorted, q) {
+    if (!sorted.length) return NaN;
+    const pos = (sorted.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
+    if (lo === hi || sorted[lo] === sorted[hi]) return sorted[lo];
+    if (!Number.isFinite(sorted[hi])) return Infinity;
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+  }
+  /** Wilson score interval: stays inside [0, 1] and is not degenerate at p = 0 or 1. */
+  function wilson(k, N, z = 1.96) {
+    const p = k / N, d = 1 + z * z / N, c = (p + z * z / (2 * N)) / d;
+    const h = (z * Math.sqrt(p * (1 - p) / N + z * z / (4 * N * N))) / d;
+    return [Math.max(0, c - h), Math.min(1, c + h)];
+  }
+  function prepareData(data, o) {
+    const warnings = [];
+    if (data.stock.length < 24) throw new Error("Cần ít nhất 24 tháng dữ liệu.");
+    if (data.stock.length < 120) warnings.push("SHORT_HISTORY: cửa sổ dữ liệu dưới 120 tháng; backend sẽ chuyển sang mô hình tham số (Student-t). Lab vẫn bootstrap để minh họa.");
+    if (o.blockLen > data.stock.length) warnings.push("Độ dài khối lớn hơn dữ liệu; đã giới hạn bằng số tháng có.");
+    return { market: o.recenter ? recenter(data, o.targets) : data, warnings };
+  }
+  function runMonteCarlo(p, data, o) {
+    const { market, warnings } = prepareData(data, o);
+    if (!Number.isInteger(o.pathCount) || o.pathCount < 1) throw new InputError(["Số đường N phải là số nguyên dương."]);
+    if (!Number.isInteger(o.blockLen) || o.blockLen < 1) throw new InputError(["Độ dài khối L phải là số nguyên dương."]);
+    if (o.life) {
+      const need = [[p.ageNow, "người 1"]].concat(p.spouse ? [[p.age2, "người 2"]] : []);
+      const bad = need.filter(([a]) => a < o.life.minAge || a > o.life.maxAge).map(([a, who]) => `Bảng sống (tuổi ${o.life.minAge}–${o.life.maxAge}) không bao phủ tuổi hiện tại ${a} của ${who}.`);
+      if (bad.length) throw new InputError(bad);
+    }
+    const r = rng(o.seed), N = o.pathCount;
+    const fixedT = p.horizonMonths;
+    const lifeT = o.life ? Math.max((o.life.maxAge + 1 - p.ageNow) * 12, p.spouse ? (o.life.maxAge + 1 - p.age2) * 12 : 0) : 0;
+    const maxT = o.life ? lifeT : fixedT;
+    let wins = 0, unmetRealSum = 0, diedBeforeRetirement = 0, guardrailsSkipped = 0;
+    const shortYears = [], depletionAges = [], finals = [], bandsByYear = [];
+    const years = Math.floor(maxT / 12);
+    for (let y = 0; y <= years; y++) bandsByYear.push([]);
+    for (let i = 0; i < N; i++) {
+      const mk = blockBootstrap(market, maxT, o.blockLen, r); // market draws first, deaths second: fixed order => CRN
+      let d1 = Infinity, d2 = Infinity, T = fixedT;
+      if (o.life) {
+        d1 = deathMonth(o.life, p.sex1, p.ageNow, r);
+        d2 = p.spouse ? deathMonth(o.life, p.sex2, p.age2, r) : -1;
+        T = Math.max(d1, d2); // household horizon = second death (A6); deposits stop when nobody is alive
+        if (T <= p.retireMonth) diedBeforeRetirement++;
+      }
+      const res = simulate(p, mk, { horizon: T, contribution: p.contribution, guardrails: o.guardrails, d1, d2, collect: o.collect });
+      if (res.success) wins++;
+      if (o.guardrails && T > p.retireMonth && !res.guardrailsApplied) guardrailsSkipped++;
+      unmetRealSum += res.unmetReal;
+      shortYears.push(res.shortMonths / 12);
+      depletionAges.push(res.firstShort < 0 ? Infinity : p.ageNow + res.firstShort / 12);
+      finals.push(res.finalReal);
+      if (res.series) for (let y = 0; y < res.series.length && y <= years; y++) if (y * 12 <= T) bandsByYear[y].push(res.series[y]);
+    }
+    const rate = wins / N;
+    if (o.life && diedBeforeRetirement) warnings.push(`${fmt(diedBeforeRetirement)}/${fmt(N)} tương lai: mất trước khi nghỉ hưu (được tính là không cạn quỹ).`);
+    if (guardrailsSkipped) warnings.push(`${fmt(guardrailsSkipped)} tương lai không áp dụng chi tiêu linh hoạt vì năm đầu nghỉ hưu rút dưới 1% quỹ (lương hưu gần đủ chi) hoặc quỹ đã hết.`);
+    if (o.life) warnings.push("Đang dùng bảng sống: dải số dư ở tuổi cao chỉ gồm các tương lai còn người sống; điều kiện số dư mục tiêu cuối kỳ không áp dụng.");
+    depletionAges.sort((a, b) => a - b); shortYears.sort((a, b) => a - b); finals.sort((a, b) => a - b);
+    const bands = bandsByYear.map((v, y) => { const s = v.sort((a, b) => a - b); return s.length ? { year: y, age: p.ageNow + y, p10: percentile(s, .1), p50: percentile(s, .5), p90: percentile(s, .9), n: s.length } : null; }).filter(Boolean);
+    return { engineCode: "retirement-mc-lab", seed: o.seed, pathCount: N, blockLength: o.blockLen, dataMonths: data.stock.length, warnings,
+      successRate: rate, ci95: wilson(wins, N), diedBeforeRetirementRate: o.life ? diedBeforeRetirement / N : 0,
+      expectedRealShortfall: unmetRealSum / N, medianShortfallYears: percentile(shortYears, .5),
+      depletionAgeP10: percentile(depletionAges, .1), depletionAgeP50: percentile(depletionAges, .5),
+      finalRealP10: percentile(finals, .1), finalRealP50: percentile(finals, .5), finalRealP90: percentile(finals, .9), bands };
+  }
+  /** R3: one fixed stress path, reported separately. */
+  function stressPath(p, targets, stressAnnual) {
+    const mk = constantMarket(p.horizonMonths, targets), shock = Math.expm1(Math.log1p(stressAnnual) / 12);
+    for (let t = p.retireMonth; t < Math.min(p.retireMonth + 60, p.horizonMonths); t++) mk.stock[t] = shock;
+    return simulate(p, mk, { horizon: p.horizonMonths, contribution: p.contribution, guardrails: false, collect: true });
+  }
+
+  // ---------- A4 ----------
+  function solveContribution(p, data, o, target, cap, tol) {
+    if (!(target > 0 && target <= 1)) throw new InputError(["Xác suất mục tiêu phải trong (0%, 100%]."]);
+    if (!(tol >= 1)) throw new InputError(["Độ chính xác phải từ 1 đồng."]);
+    if (!(cap >= 0 && Number.isFinite(cap))) throw new InputError(["Khả năng góp tối đa không hợp lệ."]);
+    const rateAt = c => runMonteCarlo({ ...p, contribution: c }, data, { ...o, collect: false }).successRate;
+    const atCap = rateAt(cap);
+    if (atCap < target) return { code: "TARGET_PROBABILITY_UNREACHABLE_WITHIN_CAPACITY", rateAtCapacity: atCap, evaluations: 1 };
+    const atZero = rateAt(0);
+    if (atZero >= target) return { code: "OK", contribution: 0, rate: atZero, evaluations: 2 };
+    let lo = 0, hi = cap, hiRate = atCap, evaluations = 2;
+    while (hi - lo > tol) {
+      const mid = (lo + hi) / 2, m = rateAt(mid); evaluations++;
+      if (m >= target) { hi = mid; hiRate = m; } else lo = mid;
+    }
+    return { code: "OK", contribution: hi, rate: hiRate, evaluations };
+  }
+
+  // ---------- Debts (A5) ----------
+  /** "name, balance, annual rate %, minimum payment, prepayment fee %". The last 4 cells are numbers,
+   * so the name itself may contain commas. */
+  function parseLoans(text) {
+    const issues = [], loans = [];
+    text.split(/\r?\n/).forEach((raw, idx) => {
+      const line = raw.trim(), no = idx + 1;
+      if (!line || line.startsWith("#")) return;
+      const parts = line.split(",").map(s => s.trim());
+      if (parts.length < 5) { issues.push(`Dòng ${no}: cần 5 cột (tên, dư nợ, lãi %/năm, trả tối thiểu, phí trả trước %).`); return; }
+      const name = parts.slice(0, -4).join(", "), [bal, rate, min, fee] = parts.slice(-4).map(Number);
+      if (!name) issues.push(`Dòng ${no}: thiếu tên khoản vay.`);
+      if (!(bal > 0) || bal > 1e15) issues.push(`Dòng ${no}: dư nợ phải lớn hơn 0.`);
+      if (!(rate >= 0 && rate <= 100)) issues.push(`Dòng ${no}: lãi suất phải từ 0 đến 100%/năm.`);
+      if (!(min >= 0) || !Number.isFinite(min)) issues.push(`Dòng ${no}: trả tối thiểu không hợp lệ.`);
+      if (!(fee >= 0 && fee <= 100)) issues.push(`Dòng ${no}: phí trả trước phải từ 0 đến 100%.`);
+      loans.push({ name, balance: bal, rate: rate / 100, minPayment: min, fee: fee / 100 });
+    });
+    if (issues.length) throw new InputError(issues.slice(0, 8));
+    if (!loans.length) throw new InputError(["Chưa có khoản vay nào."]);
+    return loans;
+  }
+  function simulateDebts(loans, extra, order, maxMonths = 600) {
+    const bal = loans.map(l => l.balance);
+    let interest = 0, fees = 0, months = 0;
+    for (; months < maxMonths && bal.some(b => b > 0.5); months++) {
+      let pool = extra;
+      for (let i = 0; i < loans.length; i++) {
+        if (bal[i] <= 0) { pool += loans[i].minPayment; continue; } // freed minimum rolls into extra
+        const it = bal[i] * loans[i].rate / 12; interest += it; bal[i] += it;
+        const pay = Math.min(loans[i].minPayment, bal[i]); bal[i] -= pay; pool += loans[i].minPayment - pay;
+      }
+      for (const i of order) {
+        if (pool <= 0) break;
+        if (bal[i] <= 0) continue;
+        const x = Math.min(bal[i], pool / (1 + loans[i].fee));
+        bal[i] -= x; fees += x * loans[i].fee; pool -= x * (1 + loans[i].fee);
+      }
+    }
+    const paidOff = bal.every(b => b <= 0.5);
+    return { months, interest, fees, cost: interest + fees, paidOff };
+  }
+  function permutations(a) { if (a.length <= 1) return [a.slice()]; const out = []; a.forEach((x, i) => permutations([...a.slice(0, i), ...a.slice(i + 1)]).forEach(p => out.push([x, ...p]))); return out; }
+  function compareDebtStrategies(loans, extra) {
+    if (!loans.length) throw new InputError(["Chưa có khoản vay nào."]);
+    if (!(extra >= 0) || !Number.isFinite(extra)) throw new InputError(["Tiền dư trả thêm phải từ 0."]);
+    const idx = loans.map((_, i) => i);
+    const stuck = loans.filter(l => l.minPayment <= l.balance * l.rate / 12).map(l => l.name);
+    const avalanche = [...idx].sort((a, b) => loans[b].rate - loans[a].rate);
+    const snowball = [...idx].sort((a, b) => loans[a].balance - loans[b].balance);
+    // Fee-aware: rate minus prepayment fee amortized over the estimated remaining term.
+    const eff = i => { const l = loans[i], term = Math.max(1, l.balance / Math.max(1, l.minPayment - l.balance * l.rate / 12)); return l.rate - l.fee * 12 / term; };
+    const feeAware = [...idx].sort((a, b) => eff(b) - eff(a));
+    const rows = [
+      { key: "AVALANCHE", label: "Avalanche (lãi cao trước)", order: avalanche },
+      { key: "SNOWBALL", label: "Snowball (dư nợ nhỏ trước)", order: snowball },
+      { key: "FEE_AWARE", label: "Theo chi phí hiệu dụng sau phí (A5)", order: feeAware },
+    ].map(s => ({ ...s, ...simulateDebts(loans, extra, s.order) }));
+    let best = null;
+    if (loans.length <= 7) {
+      for (const order of permutations(idx)) { const r = simulateDebts(loans, extra, order); if (!best || r.cost < best.cost - 1e-6) best = { order, ...r }; }
+      rows.push({ key: "BEST_TRIED", label: `Tốt nhất trong ${permutations(idx).length} thứ tự đã thử (heuristic)`, ...best });
+    }
+    return { rows, stuck };
+  }
+
+  // ---------- Self tests (doc section 5) ----------
+  function basePlan(over = {}) {
+    const p = { ageNow: 40, age2: 38, retireAge: 60, endAge: 85, initial: 200e6, contribution: 5e6, contribMode: "nominal", stockWeight: 0.6,
+      livingToday: 12e6, discShare: 0.3, pension1: 6e6, pension2: 0, pensionAdj: 0, healthToday: 0, healthExtra: 0.02,
+      terminalTarget: 0, spouse: false, sex1: "m", sex2: "f", survivorCut: 0.3, gkFloor: 0.6, ...over };
+    p.retireMonth = (p.retireAge - p.ageNow) * 12; p.horizonMonths = (p.endAge - p.ageNow) * 12;
+    return p;
+  }
+  function runTests() {
+    const results = [], t = (name, fn) => { try { const d = fn(); results.push({ name, pass: d.pass, detail: d.detail }); } catch (e) { results.push({ name, pass: false, detail: "Lỗi: " + e.message }); } };
+    const targets = { stock: 0.09, safe: 0.05, cpi: 0.035 };
+    const data = synthetic({ seed: "test-data", months: 300, ms: 0.1, vs: 0.22, mf: 0.055, vf: 0.015, mc: 0.04, vc: 0.02, rsc: -0.3, rfc: 0.5 });
+    const mcOpts = (over = {}) => ({ seed: "test-seed", pathCount: 400, blockLen: 12, recenter: true, targets, guardrails: false, collect: false, ...over });
+
+    t("Golden: cùng seed cho kết quả giống hệt", () => {
+      const a = runMonteCarlo(basePlan(), data, mcOpts()), b = runMonteCarlo(basePlan(), data, mcOpts());
+      return { pass: a.successRate === b.successRate && a.finalRealP50 === b.finalRealP50 && a.expectedRealShortfall === b.expectedRealShortfall, detail: `tỷ lệ ${a.successRate}, P50 thực ${a.finalRealP50.toFixed(0)}` };
+    });
+    t("Golden: seed khác cho chuỗi khác", () => {
+      const a = runMonteCarlo(basePlan(), data, mcOpts()), b = runMonteCarlo(basePlan(), data, mcOpts({ seed: "other" }));
+      return { pass: a.expectedRealShortfall !== b.expectedRealShortfall, detail: `thiếu hụt kỳ vọng ${Math.round(a.expectedRealShortfall).toLocaleString("vi-VN")} ≠ ${Math.round(b.expectedRealShortfall).toLocaleString("vi-VN")}` };
+    });
+    t("PRNG sfc32: phân bố đều (trung bình ≈ 0,5)", () => {
+      const r = rng("uniform"); let s = 0; for (let i = 0; i < 100000; i++) s += r();
+      const m = s / 100000; return { pass: Math.abs(m - 0.5) < 0.005, detail: `trung bình ${m.toFixed(4)}` };
+    });
+    t("Bootstrap giữ nguyên bộ (lợi suất, CPI) cùng tháng (R1)", () => {
+      const r = rng("boot"), mk = blockBootstrap(data, 600, 12, r), keys = new Set();
+      for (let i = 0; i < data.stock.length; i++) keys.add(`${data.stock[i]}|${data.safe[i]}|${data.cpi[i]}`);
+      let bad = 0; for (let i = 0; i < 600; i++) if (!keys.has(`${mk.stock[i]}|${mk.safe[i]}|${mk.cpi[i]}`)) bad++;
+      return { pass: bad === 0, detail: `${bad} tháng lệch bộ` };
+    });
+    t("Bootstrap giữ khối liên tiếp dài L", () => {
+      const r = rng("block"), mk = blockBootstrap(data, 120, 12, r);
+      const start = Array.from(data.stock).indexOf(mk.stock[0]); let ok = start >= 0;
+      for (let j = 1; j < 12 && ok; j++) ok = mk.stock[j] === data.stock[start + j];
+      return { pass: ok, detail: ok ? `khối đầu bắt đầu ở tháng ${start + 1}` : "khối bị đứt" };
+    });
+    t("Dời tâm: trung bình log-lợi suất bằng mục tiêu (R2)", () => {
+      const rc = recenter(data, targets), got = Math.expm1(logMean(rc.stock) * 12);
+      const vol = a => { const m = logMean(a); let s = 0; for (const x of a) s += (Math.log1p(x) - m) ** 2; return Math.sqrt(s / a.length); };
+      return { pass: Math.abs(got - targets.stock) < 1e-9 && Math.abs(vol(rc.stock) - vol(data.stock)) < 1e-12, detail: `${(got * 100).toFixed(6)}%/năm, độ biến động giữ nguyên` };
+    });
+    t("Độ biến động 0 + lạm phát mục tiêu ⇒ Monte Carlo trùng tất định", () => {
+      const flat = constantMarket(600, targets), out = [];
+      let pass = true;
+      for (const initial of [200e6, 1.5e9]) { // one plan that depletes, one that does not
+        const p = basePlan({ initial });
+        const mc = runMonteCarlo(p, flat, mcOpts({ pathCount: 50, recenter: false, collect: true }));
+        const det = simulate(p, constantMarket(p.horizonMonths, targets), { horizon: p.horizonMonths, contribution: p.contribution, collect: true });
+        const midOk = Math.abs(mc.bands[20].p50 - det.series[20]) < 1;
+        pass = pass && midOk && Math.abs(mc.finalRealP50 - det.finalReal) < 1 && Math.abs(mc.expectedRealShortfall - det.unmetReal) < 1 && mc.successRate === (det.success ? 1 : 0);
+        out.push(`vốn ${initial / 1e6} tr: năm 20 ${Math.round(mc.bands[20].p50).toLocaleString("vi-VN")} = ${Math.round(det.series[20]).toLocaleString("vi-VN")}, cuối ${Math.round(mc.finalRealP50).toLocaleString("vi-VN")} = ${Math.round(det.finalReal).toLocaleString("vi-VN")}, thiếu ${Math.round(mc.expectedRealShortfall).toLocaleString("vi-VN")} = ${Math.round(det.unmetReal).toLocaleString("vi-VN")}`);
+      }
+      return { pass, detail: out.join("; ") };
+    });
+    for (const mode of ["nominal", "indexed"]) t(`Công thức đóng mức góp = chia đôi trên kernel (${mode === "nominal" ? "danh nghĩa" : "chỉ số hóa"})`, () => {
+      const p = basePlan({ contribMode: mode, terminalTarget: 50e6 }), mk = constantMarket(p.horizonMonths, targets);
+      const cf = requiredContribution(p, mk).contribution;
+      const ok = c => simulate(p, mk, { horizon: p.horizonMonths, contribution: c }).success;
+      let lo = 0, hi = 1e9; for (let i = 0; i < 100; i++) { const m = (lo + hi) / 2; if (ok(m)) hi = m; else lo = m; }
+      return { pass: Math.abs(cf - hi) < 1, detail: `đóng ${cf.toFixed(2)} vs chia đôi ${hi.toFixed(2)}` };
+    });
+    t("Tăng mức góp ⇒ tỷ lệ thành công không giảm (CRN)", () => {
+      const rates = [0, 2e6, 4e6, 6e6, 8e6].map(c => runMonteCarlo(basePlan({ contribution: c }), data, mcOpts()).successRate);
+      return { pass: rates.every((r, i) => i === 0 || r >= rates[i - 1]), detail: rates.map(r => (r * 100).toFixed(1) + "%").join(" → ") };
+    });
+    t("Kéo dài tuổi kết thúc (mục tiêu cuối kỳ = 0) ⇒ không tăng", () => {
+      const rates = [80, 85, 90, 95].map(a => runMonteCarlo(basePlan({ endAge: a }), data, mcOpts()).successRate);
+      return { pass: rates.every((r, i) => i === 0 || r <= rates[i - 1]), detail: rates.map(r => (r * 100).toFixed(1) + "%").join(" → ") };
+    });
+    t("Dời tâm về lợi suất thấp hơn ⇒ không tăng (R2)", () => {
+      const rates = [0.11, 0.09, 0.07, 0.05].map(s => runMonteCarlo(basePlan(), data, mcOpts({ targets: { ...targets, stock: s } })).successRate);
+      return { pass: rates.every((r, i) => i === 0 || r <= rates[i - 1]), detail: rates.map(r => (r * 100).toFixed(1) + "%").join(" → ") };
+    });
+    t("Bật chi phí y tế ⇒ không tăng (A7)", () => {
+      const a = runMonteCarlo(basePlan(), data, mcOpts()).successRate, b = runMonteCarlo(basePlan({ healthToday: 1.5e6 }), data, mcOpts()).successRate;
+      return { pass: b <= a, detail: `${(a * 100).toFixed(1)}% → ${(b * 100).toFixed(1)}%` };
+    });
+    t("Thêm người thứ hai (không thu nhập, chi không giảm) ⇒ không tăng (A6)", () => {
+      const life = { m: new Map(), f: new Map(), maxAge: 105 };
+      for (let a = 18; a <= 105; a++) { const q = Math.min(1, 0.0005 * Math.exp(0.085 * (a - 18))); life.m.set(a, q); life.f.set(a, q * 0.7); }
+      const a = runMonteCarlo(basePlan(), data, mcOpts({ life })).successRate;
+      const b = runMonteCarlo(basePlan({ spouse: true, pension2: 0, survivorCut: 0 }), data, mcOpts({ life })).successRate;
+      return { pass: b <= a, detail: `${(a * 100).toFixed(1)}% → ${(b * 100).toFixed(1)}% (bảng sống giả lập Gompertz chỉ dùng cho kiểm thử)` };
+    });
+    t("A4: nghiệm đạt ngưỡng và nhỏ nhất trong sai số", () => {
+      const p = basePlan(), o = mcOpts({ pathCount: 300 }), s = solveContribution(p, data, o, 0.8, 20e6, 10000);
+      if (s.code !== "OK") return { pass: false, detail: s.code };
+      const below = runMonteCarlo({ ...p, contribution: Math.max(0, s.contribution - 10000) }, data, o).successRate;
+      return { pass: s.rate >= 0.8 && (s.contribution === 0 || below < 0.8), detail: `${Math.round(s.contribution).toLocaleString("vi-VN")} đ → ${(s.rate * 100).toFixed(1)}%, thấp hơn 10.000 đ → ${(below * 100).toFixed(1)}%` };
+    });
+    t("A4: vượt khả năng góp ⇒ TARGET_PROBABILITY_UNREACHABLE_WITHIN_CAPACITY (R10)", () => {
+      const s = solveContribution(basePlan({ livingToday: 60e6 }), data, mcOpts({ pathCount: 200 }), 0.9, 1e6, 10000);
+      return { pass: s.code === "TARGET_PROBABILITY_UNREACHABLE_WITHIN_CAPACITY", detail: `${s.code}, tỷ lệ tại mức tối đa ${((s.rateAtCapacity ?? 0) * 100).toFixed(1)}%` };
+    });
+    t("Khoảng tin cậy trong kết quả = khoảng Wilson của số tương lai thành công", () => {
+      const r = runMonteCarlo(basePlan(), data, mcOpts()), w = wilson(Math.round(r.successRate * r.pathCount), r.pathCount);
+      return { pass: r.ci95[0] === w[0] && r.ci95[1] === w[1], detail: `p=${(r.successRate * 100).toFixed(2)}%, [${(w[0] * 100).toFixed(2)}%, ${(w[1] * 100).toFixed(2)}%]` };
+    });
+    t("Lương hưu không tự tăng theo CPI, chỉ theo lịch khai báo (R5)", () => {
+      // Pension equals today's spending. No inflation => nothing withdrawn; 5% CPI => the unindexed
+      // pension falls behind; a declared +5%/year adjustment closes most of the gap.
+      const mk = cpi => constantMarket(540, { stock: 0, safe: 0, cpi });
+      const p = over => { const x = basePlan({ initial: 0, contribution: 0, retireAge: 40, livingToday: 10e6, pension1: 10e6, ...over }); x.retireMonth = 0; return x; };
+      const run = (plan, m) => simulate(plan, m, { horizon: plan.horizonMonths, contribution: 0 }).unmetReal;
+      const none = run(p(), mk(0)), unindexed = run(p(), mk(0.05)), declared = run(p({ pensionAdj: 0.05 }), mk(0.05));
+      return { pass: none === 0 && unindexed > 0 && declared < unindexed * 0.2, detail: `CPI 0%: ${Math.round(none)}; CPI 5% không điều chỉnh: ${Math.round(unindexed).toLocaleString("vi-VN")}; khai báo +5%/năm: ${Math.round(declared).toLocaleString("vi-VN")}` };
+    });
+    t("Thặng dư không tự đưa vào quỹ (EXPLICIT_DEPOSITS_ONLY)", () => {
+      const p = basePlan({ initial: 100e6, contribution: 0, pension1: 50e6, livingToday: 1e6 }), mk = constantMarket(p.horizonMonths, { stock: 0, safe: 0, cpi: 0 });
+      const r = simulate(p, mk, { horizon: p.horizonMonths, contribution: 0 });
+      return { pass: r.final === 100e6, detail: `số dư cuối ${r.final.toLocaleString("vi-VN")} đ` };
+    });
+    t("Guardrails: thị trường sụt kéo dài ⇒ cắt chi tùy ý, giảm thiếu hụt (A3)", () => {
+      const p = basePlan({ initial: 400e6, contribution: 0, retireAge: 40, livingToday: 20e6, pension1: 0, discShare: 0.5, gkFloor: 0.6 });
+      p.retireMonth = 0;
+      const crash = constantMarket(p.horizonMonths, { stock: -0.3, safe: -0.3, cpi: 0.03 });
+      const a = simulate(p, crash, { horizon: p.horizonMonths, contribution: 0, guardrails: false });
+      const b = simulate(p, crash, { horizon: p.horizonMonths, contribution: 0, guardrails: true });
+      return { pass: b.unmetReal < a.unmetReal, detail: `thiếu hụt thực: cố định ${Math.round(a.unmetReal).toLocaleString("vi-VN")} → linh hoạt ${Math.round(b.unmetReal).toLocaleString("vi-VN")}` };
+    });
+    t("A5: tốt nhất trong các thứ tự đã thử ≤ Avalanche, Snowball, theo phí", () => {
+      const loans = parseLoans("Nha, 900000000, 9.5, 9000000, 2\nTieu dung, 200000000, 22, 5000000, 4\nThe, 30000000, 15, 1500000, 0\nXe, 120000000, 11, 4000000, 1");
+      const r = compareDebtStrategies(loans, 5e6), best = r.rows.find(x => x.key === "BEST_TRIED");
+      const av = r.rows.find(x => x.key === "AVALANCHE"), sb = r.rows.find(x => x.key === "SNOWBALL");
+      return { pass: r.rows.every(x => best.cost <= x.cost + 1e-6) && av.cost < sb.cost, detail: r.rows.map(x => `${x.key}: ${Math.round(x.cost).toLocaleString("vi-VN")}`).join("; ") };
+    });
+    t("Golden PRNG: seed “an-huu” cho đúng 3 số nguyên đầu (phát hiện đổi thuật toán)", () => {
+      const r = rng("an-huu"), got = [r(), r(), r()].map(x => Math.round(x * 4294967296));
+      return { pass: got.join() === "3184558170,231018964,1629924398", detail: got.join(", ") };
+    });
+    t("Phân vị không ra NaN khi nhiều tương lai không cạn quỹ (∞)", () => {
+      const a = percentile([70, Infinity, Infinity], 0.5), b = percentile([Infinity, Infinity], 0.1), c = percentile([70, 80], 0.5);
+      return { pass: a === Infinity && b === Infinity && c === 75, detail: `${a}, ${b}, ${c}` };
+    });
+    t("Khoảng tin cậy Wilson không co về một điểm khi p = 0 hoặc 1 (R12)", () => {
+      const all = wilson(2000, 2000), none = wilson(0, 2000), mid = wilson(1600, 2000);
+      return { pass: all[0] < 1 && all[1] === 1 && none[0] === 0 && none[1] > 0 && mid[0] < 0.8 && mid[1] > 0.8,
+        detail: `p=1: [${(all[0] * 100).toFixed(2)}%, 100%]; p=0: [0%, ${(none[1] * 100).toFixed(2)}%]; p=0,8: [${(mid[0] * 100).toFixed(2)}%, ${(mid[1] * 100).toFixed(2)}%]` };
+    });
+    const rejects = (fn, needle) => { try { fn(); return false; } catch (e) { return e instanceof InputError && (!needle || e.message.includes(needle)); } };
+    const rawPlan = (over = {}) => ({ ageNow: "40", retireAge: "60", endAge: "85", age2: "38", initial: "200000000", contribution: "5000000",
+      contribMode: "nominal", stockWeight: "60", livingToday: "12000000", discShare: "30", pension1: "6000000", pension2: "0", pensionAdj: "0",
+      healthToday: "0", healthExtra: "2", terminalTarget: "0", spouse: false, sex1: "m", sex2: "f", survivorCut: "30", gkFloor: "60", ...over });
+    t("Kiểm tra đầu vào: hồ sơ hợp lệ được chấp nhận", () => {
+      const p = buildPlan(rawPlan());
+      return { pass: p.retireMonth === 240 && p.horizonMonths === 540 && p.stockWeight === 0.6, detail: `${p.retireMonth} tháng tích lũy, ${p.horizonMonths} tháng kế hoạch` };
+    });
+    t("Kiểm tra đầu vào: từ chối ô trống, tuổi lẻ, sai thứ tự tuổi, % ngoài 0–100, số âm", () => {
+      const cases = [["initial", "", "chưa nhập"], ["ageNow", "40.5", "số nguyên"], ["retireAge", "90", "Tuổi kết thúc kế hoạch phải lớn hơn"],
+        ["stockWeight", "120", "tối đa"], ["contribution", "-1", "Mức góp"], ["pensionAdj", "-100", "lớn hơn"], ["ageNow", "abc", "không phải số"]];
+      const failed = cases.filter(([k, v, needle]) => !rejects(() => buildPlan(rawPlan({ [k]: v })), needle)).map(c => c[0] + "=" + c[1]);
+      return { pass: !failed.length, detail: failed.length ? "không bị chặn: " + failed.join(", ") : `${cases.length} trường hợp đều bị chặn` };
+    });
+    t("Kiểm tra đầu vào: gom mọi lỗi trong một lần (không dừng ở lỗi đầu)", () => {
+      try { buildPlan(rawPlan({ initial: "", stockWeight: "150", ageNow: "17" })); return { pass: false, detail: "không báo lỗi" }; }
+      catch (e) { return { pass: e.issues && e.issues.length >= 3, detail: `${e.issues?.length ?? 0} lỗi` }; }
+    });
+    t("Kiểm tra đầu vào: tùy chọn mô phỏng và A4", () => {
+      const ok = { seed: "a", pathCount: "1000", blockLen: "12", tStock: "9", tSafe: "5", tCpi: "3.5", stressStock: "-15" };
+      const bad = [{ pathCount: "0" }, { pathCount: "10.5" }, { blockLen: "-5" }, { seed: "  " }, { tStock: "-100" }, { stressStock: "-100" }]
+        .filter(o => !rejects(() => buildMcOptions({ ...ok, ...o }))).map(o => JSON.stringify(o));
+      const a4 = { targetP: "85", capacity: "20000000", a4N: "1000", a4Tol: "10000" };
+      const badA4 = [{ a4Tol: "0" }, { targetP: "100" }, { targetP: "0" }, { capacity: "-1" }, { a4N: "5" }]
+        .filter(o => !rejects(() => buildA4({ ...a4, ...o }))).map(o => JSON.stringify(o));
+      buildMcOptions(ok); buildA4(a4);
+      return { pass: !bad.length && !badA4.length, detail: bad.concat(badA4).join("; ") || "11 trường hợp sai đều bị chặn, giá trị hợp lệ được nhận" };
+    });
+    t("Dữ liệu chuỗi: chặn nhập phần trăm thay số thập phân, dòng hỏng; chấp nhận 1 dòng tiêu đề", () => {
+      const header = parseSeries("# chú thích\nthang,co_phieu,an_toan,cpi\n1,0.01,0.004,0.003\n2,-0.02,0.004,0.002");
+      return { pass: header.stock.length === 2 && rejects(() => parseSeries("1,1.2,0.4,0.3"), "phần trăm")
+        && rejects(() => parseSeries("1,0.01,0.004,0.003\n2,0.01,abc,0.002"), "Dòng 2") && rejects(() => parseSeries("1,0.01,abc,0.002"), "Dòng 1")
+        && rejects(() => parseSeries("1,-1,0.004,0.003"), "-100%"), detail: "tiêu đề được bỏ qua; 1.2 (=120%/tháng), dòng có chữ, −100% đều bị chặn" };
+    });
+    t("Bảng sống: chặn thiếu tuổi, lặp tuổi, qx ngoài [0,1]; chặn tuổi ngoài bảng", () => {
+      const okTable = parseLifeTable("tuoi,qx_nam,qx_nu\n60,0.01,0.008\n61,0.011,0.009\n62,1,1");
+      const p = basePlan({ ageNow: 59, retireAge: 61, endAge: 62 }), data2 = synthetic({ seed: "x", months: 60, ms: .1, vs: .2, mf: .05, vf: .01, mc: .03, vc: .01, rsc: 0, rfc: 0 });
+      return { pass: okTable.minAge === 60 && okTable.maxAge === 62 && rejects(() => parseLifeTable("60,0.01,0.01\n62,0.01,0.01"), "không liền sau")
+        && rejects(() => parseLifeTable("60,0.01,0.01\n60,0.01,0.01"), "không liền sau") && rejects(() => parseLifeTable("60,1.5,0.01"), "[0, 1]")
+        && rejects(() => runMonteCarlo(p, data2, mcOpts({ life: okTable, pathCount: 10 })), "không bao phủ"),
+        detail: "bảng 60–62 hợp lệ; thiếu tuổi 61, lặp tuổi 60, qx = 1,5, người 59 tuổi đều bị chặn" };
+    });
+    t("Mất trước khi nghỉ hưu: ngừng góp, được thống kê riêng (A2)", () => {
+      const table = { m: new Map(), f: new Map(), minAge: 40, maxAge: 41 };
+      table.m.set(40, 1); table.f.set(40, 1); table.m.set(41, 1); table.f.set(41, 1);
+      const r = runMonteCarlo(basePlan(), data, mcOpts({ life: table, pathCount: 50 }));
+      const mk = constantMarket(600, { stock: 0, safe: 0, cpi: 0 }), p = basePlan({ initial: 0, contribution: 1e6 });
+      const res = simulate(p, mk, { horizon: 6, contribution: 1e6, d1: 6 });
+      return { pass: r.diedBeforeRetirementRate === 1 && r.successRate === 1 && res.final === 6e6, detail: `100% mất ở tuổi 40; góp dừng sau 6 tháng: ${res.final.toLocaleString("vi-VN")} đ` };
+    });
+    t("Guardrails không áp dụng khi năm đầu rút dưới 1% quỹ (tránh cắt chi vô lý)", () => {
+      // Pension equals spending at retirement, inflation 5%, no market loss: year-1 withdrawals are well under
+      // 1% of the fund, so guardrails must leave the plan unchanged instead of cutting to the floor every year.
+      const p = basePlan({ initial: 1e9, contribution: 0, retireAge: 40, livingToday: 6e6, pension1: 6e6, discShare: 0.5 }); p.retireMonth = 0;
+      const mk = constantMarket(p.horizonMonths, { stock: 0.06, safe: 0.06, cpi: 0.05 });
+      const a = simulate(p, mk, { horizon: p.horizonMonths, contribution: 0, guardrails: false });
+      const b = simulate(p, mk, { horizon: p.horizonMonths, contribution: 0, guardrails: true });
+      return { pass: a.finalReal === b.finalReal && b.guardrailsApplied === false, detail: `số dư cuối giống nhau: ${Math.round(b.finalReal).toLocaleString("vi-VN")} đ` };
+    });
+    t("A5: tên khoản vay có dấu phẩy; danh sách rỗng và số sai bị chặn", () => {
+      const loans = parseLoans("Vay nhà, chi nhánh Hà Nội, 900000000, 9.5, 9000000, 2");
+      return { pass: loans[0].name === "Vay nhà, chi nhánh Hà Nội" && loans[0].balance === 9e8 && rejects(() => parseLoans("  \n"), "Chưa có")
+        && rejects(() => parseLoans("A, -5, 10, 1000, 0"), "dư nợ") && rejects(() => parseLoans("A, 100, 150, 10, 0"), "lãi suất")
+        && rejects(() => compareDebtStrategies(loans, -1), "Tiền dư"), detail: `tên: “${loans[0].name}”` };
+    });
+    t("A4: độ chính xác 0 bị chặn (tránh lặp vô hạn)", () => {
+      return { pass: rejects(() => solveContribution(basePlan(), data, mcOpts(), 0.8, 1e7, 0), "Độ chính xác"), detail: "tol = 0 ⇒ InputError" };
+    });
+    t("A5: khoản vay trả tối thiểu < lãi bị cảnh báo", () => {
+      const r = compareDebtStrategies(parseLoans("X, 100000000, 24, 1000000, 0"), 0);
+      return { pass: r.stuck.includes("X"), detail: `cảnh báo: ${r.stuck.join(", ")}` };
+    });
+    return results;
+  }
+
+  return { InputError, buildPlan, buildMcOptions, buildA4, buildSynthetic, rng, synthetic, parseSeries, seriesToCsv, parseLifeTable, recenter,
+    blockBootstrap, constantMarket, simulate, requiredContribution, percentile, wilson, runMonteCarlo, stressPath, solveContribution,
+    parseLoans, compareDebtStrategies, runTests };
+})();
+if (typeof module !== "undefined") module.exports = Lab;
+</script>
+
+<!-- ======================= UI ======================= -->
+<script>
+"use strict";
+(() => {
+  if (typeof document === "undefined") return;
+  const $ = id => document.getElementById(id);
+  const vnd = x => Number.isFinite(x) ? Math.round(x).toLocaleString("vi-VN") + " đ" : "—";
+  const short = x => !Number.isFinite(x) ? "—" : Math.abs(x) >= 1e9 ? (x / 1e9).toLocaleString("vi-VN", { maximumFractionDigits: 2 }) + " tỷ"
+    : Math.abs(x) >= 1e6 ? (x / 1e6).toLocaleString("vi-VN", { maximumFractionDigits: 1 }) + " tr" : Math.round(x).toLocaleString("vi-VN") + " đ";
+  const pct = x => Number.isFinite(x) ? (x * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 }) + "%" : "—";
+  const age = x => Number.isFinite(x) ? x.toLocaleString("vi-VN", { maximumFractionDigits: 1 }) + " tuổi" : "không cạn";
+  const esc = x => String(x).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const later = fn => new Promise(res => setTimeout(() => res(fn()), 16));
+  const debounce = (fn, ms) => { let t; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; };
+
+  // ---------------- Form definitions ----------------
+  const MONEY = "money", NUM = "num", INT = "int", SELECT = "select", TOGGLE = "toggle", TEXT = "text";
+  const FORMS = {
+    mcProfile: [
+      { id: "ageNow", label: "Tuổi hiện tại", kind: INT, unit: "tuổi", value: 35 },
+      { id: "ageRetire", label: "Tuổi nghỉ hưu", kind: INT, unit: "tuổi", value: 60 },
+      { id: "ageEnd", label: "Kế hoạch đến tuổi", kind: INT, unit: "tuổi", value: 85 },
+      { id: "stockWeight", label: "Tỷ trọng cổ phiếu", kind: NUM, unit: "%", value: 60 },
+      { id: "initial", label: "Vốn hưu trí hiện có", kind: MONEY, value: 300000000 },
+      { id: "contribution", label: "Góp mỗi tháng", kind: MONEY, value: 6000000 },
+      { id: "contribMode", label: "Cách góp", kind: SELECT, value: "nominal", options: [["nominal", "Cố định mỗi tháng"], ["indexed", "Tăng theo lạm phát"]] },
+      { id: "terminalTarget", label: "Muốn còn lại cuối kỳ", kind: MONEY, value: 0 },
+    ],
+    mcRetire: [
+      { id: "livingToday", label: "Chi tiêu / tháng (giá hôm nay)", kind: MONEY, value: 15000000, full: true },
+      { id: "pension1", label: "Lương hưu / tháng lúc bắt đầu", kind: MONEY, value: 8000000 },
+      { id: "pensionAdj", label: "Điều chỉnh lương hưu", kind: NUM, unit: "%/năm", value: 0 },
+      { id: "discShare", label: "Phần chi tùy ý", kind: NUM, unit: "%", value: 30 },
+      { id: "healthToday", label: "Chi phí y tế / tháng", kind: MONEY, value: 0 },
+      { id: "healthExtra", label: "Y tế tăng thêm so với CPI", kind: NUM, unit: "%/năm", value: 2, full: true,
+        help: "Lương hưu chỉ tăng theo mức bạn khai báo, không tự theo lạm phát. Chi phí y tế tính từ khi nghỉ hưu." },
+    ],
+    mcLife: [
+      { id: "useLife", label: "Dùng bảng sống thay cho tuổi kết thúc cố định", kind: TOGGLE, value: false, full: true, help: "Cần dán bảng sống ở tab Dữ liệu." },
+      { id: "sex1", label: "Giới tính", kind: SELECT, value: "m", options: [["m", "Nam"], ["f", "Nữ"]], dep: "useLife" },
+      { id: "useSpouse", label: "Có vợ/chồng", kind: TOGGLE, value: false },
+      { id: "age2", label: "Tuổi vợ/chồng", kind: INT, unit: "tuổi", value: 33, dep: "useSpouse" },
+      { id: "sex2", label: "Giới tính vợ/chồng", kind: SELECT, value: "f", options: [["f", "Nữ"], ["m", "Nam"]], dep: "useSpouse" },
+      { id: "pension2", label: "Lương hưu vợ/chồng / tháng", kind: MONEY, value: 0, dep: "useSpouse" },
+      { id: "survivorCut", label: "Chi tiêu giảm khi còn 1 người", kind: NUM, unit: "%", value: 30, dep: "useSpouse",
+        help: "Lương hưu vợ/chồng bắt đầu cùng lúc với người 1." },
+    ],
+    mcGK: [
+      { id: "useGK", label: "Bật chi tiêu linh hoạt (Guyton–Klinger)", kind: TOGGLE, value: false, full: true,
+        help: "Thị trường xấu thì bớt phần chi tùy ý 10%, thuận lợi thì tăng 10%." },
+      { id: "gkFloor", label: "Không giảm dưới", kind: NUM, unit: "% mức gốc", value: 60, dep: "useGK", full: true },
+    ],
+    mcSim: [
+      { id: "pathCount", label: "Số tương lai mô phỏng", kind: INT, value: 2000 },
+      { id: "blockLen", label: "Độ dài mỗi đoạn", kind: INT, unit: "tháng", value: 12 },
+      { id: "recenter", label: "Dời trung bình lịch sử về kỳ vọng", kind: TOGGLE, value: true, full: true },
+      { id: "tStock", label: "Cổ phiếu kỳ vọng", kind: NUM, unit: "%/năm", value: 9 },
+      { id: "tSafe", label: "Kênh an toàn kỳ vọng", kind: NUM, unit: "%/năm", value: 5 },
+      { id: "tCpi", label: "Lạm phát dài hạn", kind: NUM, unit: "%/năm", value: 3.5 },
+      { id: "stressStock", label: "Căng thẳng: cổ phiếu 5 năm đầu hưu", kind: NUM, unit: "%/năm", value: -15 },
+      { id: "seed", label: "Seed (để tái lập kết quả)", kind: TEXT, value: "an-huu-2026", full: true },
+    ],
+    a4: [
+      { id: "targetP", label: "Tỷ lệ không cạn quỹ mong muốn", kind: NUM, unit: "%", value: 85 },
+      { id: "a4N", label: "Số tương lai mô phỏng", kind: INT, value: 1000 },
+      { id: "capacity", label: "Góp tối đa được / tháng", kind: MONEY, value: 20000000, full: true, help: "Nếu chọn “tăng theo lạm phát”, đây là mức theo giá hôm nay." },
+      { id: "a4Tol", label: "Độ chính xác", kind: MONEY, value: 10000, full: true },
+    ],
+    debt: [{ id: "extraBudget", label: "Tiền dư trả thêm mỗi tháng", kind: MONEY, value: 5000000, full: true }],
+    synthetic: [
+      { id: "gMonths", label: "Số tháng", kind: INT, value: 300 },
+      { id: "gSeed", label: "Seed", kind: TEXT, value: "synthetic-1" },
+      { id: "gMs", label: "Cổ phiếu trung bình", kind: NUM, unit: "%/năm", value: 11 },
+      { id: "gVs", label: "Cổ phiếu biến động", kind: NUM, unit: "%/năm", value: 22 },
+      { id: "gMf", label: "An toàn trung bình", kind: NUM, unit: "%/năm", value: 5.5 },
+      { id: "gVf", label: "An toàn biến động", kind: NUM, unit: "%/năm", value: 1.5 },
+      { id: "gMc", label: "Lạm phát trung bình", kind: NUM, unit: "%/năm", value: 4 },
+      { id: "gVc", label: "Lạm phát biến động", kind: NUM, unit: "%/năm", value: 2 },
+      { id: "gRsc", label: "Tương quan cổ phiếu – lạm phát", kind: NUM, value: -0.3 },
+      { id: "gRfc", label: "Tương quan an toàn – lạm phát", kind: NUM, value: 0.5 },
+    ],
+  };
+  const KIND = {};
+  const groupDigits = v => { const raw = String(v).replace(/[.\s]/g, ""); if (!/^-?\d+$/.test(raw)) return String(v); const neg = raw.startsWith("-"); return (neg ? "-" : "") + BigInt(raw.replace("-", "")).toLocaleString("vi-VN"); };
+  /** Live thousands grouping that keeps the caret after the same digit, so typing, Tab + overwrite,
+   * paste and select-all all behave like a normal input. */
+  function formatMoneyLive(input) {
+    const text = input.value, pos = input.selectionStart ?? text.length;
+    const digitsBefore = text.slice(0, pos).replace(/\D/g, "").length, digits = text.replace(/\D/g, "");
+    const neg = text.trim().startsWith("-");
+    const formatted = (neg ? "-" : "") + (digits ? BigInt(digits).toLocaleString("vi-VN") : "");
+    if (formatted === text) return;
+    input.value = formatted;
+    let i = neg ? 1 : 0, seen = 0;
+    while (i < formatted.length && seen < digitsBefore) { if (/\d/.test(formatted[i])) seen++; i++; }
+    input.setSelectionRange(i, i);
+  }
+  function fieldHtml(f) {
+    KIND[f.id] = f.kind;
+    const cls = `field${f.full ? " full" : ""}`, dep = f.dep ? ` data-dep="${f.dep}"` : "", help = f.help ? `<span class="help">${f.help}</span>` : "";
+    if (f.kind === TOGGLE) return `<div class="${cls}"${dep}><label class="toggle"><input type="checkbox" id="${f.id}"${f.value ? " checked" : ""}><span class="switch" aria-hidden="true"></span>${f.label}</label>${help}</div>`;
+    if (f.kind === SELECT) return `<div class="${cls}"${dep}><label for="${f.id}">${f.label}</label><div class="control"><select id="${f.id}">${f.options.map(([v, t]) => `<option value="${v}"${v === f.value ? " selected" : ""}>${t}</option>`).join("")}</select></div>${help}</div>`;
+    const unit = f.kind === MONEY ? "đ" : f.unit || "";
+    const value = f.kind === MONEY ? groupDigits(f.value) : f.value;
+    const mode = f.kind === TEXT ? "text" : f.kind === INT || f.kind === MONEY ? "numeric" : "decimal";
+    return `<div class="${cls}"${dep}><label for="${f.id}">${f.label}</label><div class="control${unit ? " with-unit" : ""}"><input id="${f.id}" type="text" inputmode="${mode}" autocomplete="off" value="${esc(value)}">${unit ? `<span class="unit">${unit}</span>` : ""}</div>${help}</div>`;
+  }
+  document.querySelectorAll("[data-form]").forEach(box => { box.innerHTML = FORMS[box.dataset.form].map(fieldHtml).join(""); });
+  document.querySelectorAll("input[type=text]").forEach(input => { if (KIND[input.id] === MONEY) input.addEventListener("input", () => formatMoneyLive(input)); });
+  const val = id => { const el = $(id); return KIND[id] === MONEY ? el.value.replace(/[.\s]/g, "") : el.value; };
+  const on = id => $(id).checked;
+  function syncDeps() {
+    document.querySelectorAll("[data-dep]").forEach(el => {
+      const enabled = on(el.dataset.dep);
+      el.classList.toggle("disabled", !enabled);
+      el.querySelectorAll("input,select").forEach(i => { i.tabIndex = enabled ? 0 : -1; });
+    });
+  }
+  document.addEventListener("change", syncDeps);
+  syncDeps();
+
+  // ---------------- Tabs ----------------
+  const tabs = document.querySelectorAll(".tabs button");
+  function openTab(name) {
+    tabs.forEach(x => x.setAttribute("aria-selected", String(x.dataset.tab === name)));
+    document.querySelectorAll(".tab").forEach(s => s.classList.toggle("active", s.id === "tab-" + name));
+    window.scrollTo({ top: 0 });
+  }
+  tabs.forEach(b => b.addEventListener("click", () => openTab(b.dataset.tab)));
+
+  // ---------------- Errors ----------------
+  const fieldOf = { "Tuổi hiện tại": "ageNow", "Tuổi nghỉ hưu": "ageRetire", "Tuổi kết thúc kế hoạch": "ageEnd", "Vốn hưu trí hiện có": "initial",
+    "Mức góp / tháng": "contribution", "Tỷ trọng cổ phiếu": "stockWeight", "Chi tiêu / tháng": "livingToday", "Phần chi tùy ý": "discShare",
+    "Lương hưu người 1": "pension1", "Lương hưu người 2": "pension2", "Điều chỉnh lương hưu": "pensionAdj", "Chi phí y tế / tháng": "healthToday",
+    "Y tế tăng thêm so với CPI": "healthExtra", "Số dư mục tiêu cuối kỳ": "terminalTarget", "Chi tiêu giảm khi còn 1 người": "survivorCut",
+    "Sàn phần tùy ý": "gkFloor", "Tuổi hiện tại người 2": "age2", "Số đường N": "pathCount", "Độ dài khối L": "blockLen", "Cổ phiếu kỳ vọng": "tStock",
+    "Kênh an toàn kỳ vọng": "tSafe", "Lạm phát dài hạn": "tCpi", "Kịch bản căng thẳng": "stressStock", "Xác suất mục tiêu": "targetP",
+    "Khả năng góp tối đa": "capacity", "Độ chính xác": "a4Tol" };
+  function markInvalid(form, issues) {
+    form.querySelectorAll("[aria-invalid]").forEach(i => i.removeAttribute("aria-invalid"));
+    for (const msg of issues) { const id = fieldOf[msg.split(":")[0]]; if (id && $(id)) $(id).setAttribute("aria-invalid", "true"); }
+  }
+  const errorCard = e => {
+    const items = e && e.issues ? e.issues : [e && e.message ? e.message : String(e)];
+    return `<div class="errors-box"><strong>${e && e.issues ? "Cần sửa thông tin:" : "Có lỗi:"}</strong><ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></div>`;
+  };
+
+  // ---------------- Data tab ----------------
+  function setInfo(el, html, bad) { el.innerHTML = bad ? `<span class="bad">${html}</span>` : html; }
+  function genData() {
+    try {
+      const o = Lab.buildSynthetic({ seed: val("gSeed"), months: val("gMonths"), ms: val("gMs"), vs: val("gVs"), mf: val("gMf"), vf: val("gVf"),
+        mc: val("gMc"), vc: val("gVc"), rsc: val("gRsc"), rfc: val("gRfc") });
+      $("series").value = Lab.seriesToCsv(Lab.synthetic(o), "DỮ LIỆU TỔNG HỢP – GIẢ LẬP, KHÔNG PHẢI SỐ LIỆU THẬT");
+      $("genStatus").textContent = `Đã sinh ${o.months} tháng.`;
+      showSeriesInfo(); scheduleMc();
+    } catch (e) { $("genStatus").innerHTML = `<span class="bad">${(e.issues || [e.message]).map(esc).join("<br>")}</span>`; }
+  }
+  function showSeriesInfo() {
+    try {
+      const d = Lab.parseSeries($("series").value);
+      setInfo($("seriesInfo"), d.stock.length < 24 ? `${d.stock.length} tháng hợp lệ — cần ít nhất 24.` : `${d.stock.length} tháng hợp lệ${d.stock.length < 120 ? " (dưới 120 tháng: kết quả kém tin cậy)" : ""}.`, d.stock.length < 24);
+    } catch (e) { setInfo($("seriesInfo"), (e.issues || [e.message]).map(esc).join("<br>"), true); }
+  }
+  function showLifeInfo() {
+    try { const t = Lab.parseLifeTable($("lifeTable").value); setInfo($("lifeInfo"), t ? `Bảng sống hợp lệ: tuổi ${t.minAge}–${t.maxAge}.` : "Chưa có bảng sống.", false); }
+    catch (e) { setInfo($("lifeInfo"), (e.issues || [e.message]).map(esc).join("<br>"), true); }
+  }
+  $("genData").addEventListener("click", genData);
+  $("series").addEventListener("input", debounce(() => { showSeriesInfo(); scheduleMc(); }, 300));
+  $("lifeTable").addEventListener("input", debounce(showLifeInfo, 300));
+
+  // ---------------- Shared builders ----------------
+  const plan = () => Lab.buildPlan({ ageNow: val("ageNow"), age2: val("age2"), retireAge: val("ageRetire"), endAge: val("ageEnd"), initial: val("initial"),
+    contribution: val("contribution"), contribMode: val("contribMode"), stockWeight: val("stockWeight"), livingToday: val("livingToday"),
+    discShare: val("discShare"), pension1: val("pension1"), pension2: val("pension2"), pensionAdj: val("pensionAdj"), healthToday: val("healthToday"),
+    healthExtra: val("healthExtra"), terminalTarget: val("terminalTarget"), spouse: on("useSpouse"), sex1: val("sex1"), sex2: val("sex2"),
+    survivorCut: val("survivorCut"), gkFloor: val("gkFloor") });
+  function mcOptions(pathCountId) {
+    let life = null;
+    if (on("useLife")) {
+      life = Lab.parseLifeTable($("lifeTable").value);
+      if (!life) throw new Lab.InputError(["Đang bật bảng sống nhưng tab Dữ liệu chưa có bảng sống. Cần bảng sống chính thức đã duyệt; lab không tự điền số."]);
+    }
+    return Lab.buildMcOptions({ seed: val("seed"), pathCount: val(pathCountId), blockLen: val("blockLen"), recenter: on("recenter"),
+      tStock: val("tStock"), tSafe: val("tSafe"), tCpi: val("tCpi"), stressStock: val("stressStock"), guardrails: on("useGK") }, life);
+  }
+  function seriesData() {
+    const d = Lab.parseSeries($("series").value);
+    if (d.stock.length < 24) throw new Lab.InputError([`Tab Dữ liệu mới có ${d.stock.length} tháng hợp lệ; cần ít nhất 24.`]);
+    return d;
+  }
+
+  // ---------------- Chart ----------------
+  function renderChart(box, bands, stress, ageNow) {
+    const W = 820, H = 300, P = { l: 58, r: 14, t: 14, b: 30 };
+    const stressPts = stress ? Array.from(stress).map((v, y) => ({ age: ageNow + y, v })) : [];
+    const maxY = Math.max(1, ...bands.map(b => b.p90), ...stressPts.map(s => s.v)) * 1.05;
+    const x0 = bands[0].age, x1 = Math.max(bands[bands.length - 1].age, x0 + 1);
+    const sx = a => P.l + (a - x0) / (x1 - x0) * (W - P.l - P.r), sy = v => H - P.b - v / maxY * (H - P.t - P.b);
+    const area = bands.map(b => `${sx(b.age)},${sy(b.p90)}`).join(" ") + " " + [...bands].reverse().map(b => `${sx(b.age)},${sy(b.p10)}`).join(" ");
+    const line = key => bands.map(b => `${sx(b.age)},${sy(b[key])}`).join(" ");
+    let grid = "";
+    for (let i = 0; i <= 4; i++) { const v = maxY * i / 4, y = sy(v); grid += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" stroke="#e2e8f0"/><text x="${P.l - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="#64748b">${short(v)}</text>`; }
+    for (let a = Math.ceil(x0 / 5) * 5; a <= x1; a += 5) grid += `<text x="${sx(a)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#64748b">${a}</text>`;
+    box.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Dải số dư quỹ theo giá trị hôm nay, theo tuổi">${grid}
+      <polygon points="${area}" fill="#1f4fa3" fill-opacity=".13"/>
+      <polyline points="${line("p10")}" fill="none" stroke="#1f4fa3" stroke-opacity=".45" stroke-dasharray="4 3" stroke-width="1.4"/>
+      <polyline points="${line("p50")}" fill="none" stroke="#1f4fa3" stroke-width="2.6" stroke-linejoin="round"/>
+      ${stressPts.length ? `<polyline points="${stressPts.map(s => `${sx(s.age)},${sy(s.v)}`).join(" ")}" fill="none" stroke="#b42318" stroke-width="1.8"/>` : ""}
+      <line id="guide" x1="0" x2="0" y1="${P.t}" y2="${H - P.b}" stroke="#0f1d33" stroke-opacity=".25" visibility="hidden"/>
+      <rect x="${P.l}" y="${P.t}" width="${W - P.l - P.r}" height="${H - P.t - P.b}" fill="transparent" id="hit"/></svg>
+      <div class="chart-tip" hidden></div>`;
+    const svg = box.querySelector("svg"), tip = box.querySelector(".chart-tip"), guide = svg.querySelector("#guide");
+    svg.querySelector("#hit").addEventListener("mousemove", e => {
+      const r = svg.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W;
+      let best = bands[0]; for (const b of bands) if (Math.abs(sx(b.age) - x) < Math.abs(sx(best.age) - x)) best = b;
+      const st = stressPts.find(s => s.age === best.age);
+      guide.setAttribute("x1", sx(best.age)); guide.setAttribute("x2", sx(best.age)); guide.setAttribute("visibility", "visible");
+      tip.innerHTML = `<b>Tuổi ${best.age}</b><div><span>Tốt (P90)</span><span>${short(best.p90)}</span></div><div><span>Giữa (P50)</span><span>${short(best.p50)}</span></div><div><span>Xấu (P10)</span><span>${short(best.p10)}</span></div>${st ? `<div class="bad"><span>Căng thẳng</span><span>${short(st.v)}</span></div>` : ""}`;
+      tip.hidden = false;
+      const px = sx(best.age) / W * r.width; tip.style.left = Math.min(Math.max(8, px + 12), r.width - tip.offsetWidth - 8) + "px";
+    });
+    svg.querySelector("#hit").addEventListener("mouseleave", () => { tip.hidden = true; guide.setAttribute("visibility", "hidden"); });
+  }
+  function ring(rate) {
+    const r = 54, c = 2 * Math.PI * r, color = rate >= 0.85 ? "#0f7a4f" : rate >= 0.7 ? "#9a5b00" : "#b42318";
+    return `<div class="ring"><svg viewBox="0 0 132 132" aria-hidden="true"><circle cx="66" cy="66" r="${r}" fill="none" stroke="#e2e8f0" stroke-width="12"/>
+      <circle cx="66" cy="66" r="${r}" fill="none" stroke="${color}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${c * rate} ${c}"/></svg>
+      <div class="value"><div><strong style="color:${color}">${pct(rate)}</strong><span>không cạn quỹ</span></div></div></div>`;
+  }
+  const verdict = rate => rate >= 0.85 ? ["good", "Khá vững", "Phần lớn các tương lai mô phỏng đều đủ tiền đến cuối kế hoạch."]
+    : rate >= 0.7 ? ["warn", "Cần cân nhắc", "Có khả năng đáng kể quỹ cạn trước cuối kế hoạch. Thử góp thêm, nghỉ hưu muộn hơn hoặc giảm chi."]
+    : ["bad", "Rủi ro cao", "Nhiều tương lai mô phỏng bị cạn quỹ. Nên điều chỉnh mức góp, tuổi nghỉ hưu hoặc chi tiêu."];
+
+  // ---------------- Monte Carlo ----------------
+  let mcRun = 0;
+  async function runMc() {
+    const id = ++mcRun, out = $("mcOut"), form = $("mcForm");
+    $("runMc").disabled = true; $("mcStatus").textContent = "Đang tính…"; out.classList.add("busy");
+    try {
+      const p = plan(), o = mcOptions("pathCount"), data = seriesData();
+      markInvalid(form, []);
+      const t0 = performance.now(), r = await later(() => Lab.runMonteCarlo(p, data, o)), ms = performance.now() - t0;
+      if (id !== mcRun) return;
+      const stress = Lab.stressPath(p, o.targets, o.stress);
+      const det = Lab.requiredContribution(p, Lab.constantMarket(p.horizonMonths, o.targets));
+      const [tone, title, text] = verdict(r.successRate);
+      out.innerHTML = `
+        <div class="card card-pad"><div class="hero">${ring(r.successRate)}<div>
+          <span class="verdict ${tone}">${title}</span>
+          <h3>${pct(r.successRate)} tương lai không cạn quỹ đến ${o.life ? "khi mất" : `tuổi ${p.endAge}`}</h3>
+          <p>${text} Khoảng tin cậy 95%: ${pct(r.ci95[0])} – ${pct(r.ci95[1])}.</p></div></div></div>
+        <div class="kpis">
+          <div class="kpi"><span>Tuổi cạn quỹ (10% xấu nhất)</span><strong class="${Number.isFinite(r.depletionAgeP10) ? "bad" : "good"}">${age(r.depletionAgeP10)}</strong><small>trung vị: ${age(r.depletionAgeP50)}</small></div>
+          <div class="kpi"><span>Thiếu hụt trung bình (giá hôm nay)</span><strong>${short(r.expectedRealShortfall)}</strong><small>${vnd(r.expectedRealShortfall)}</small></div>
+          <div class="kpi"><span>Số dư cuối kỳ (giá hôm nay)</span><strong>${short(r.finalRealP50)}</strong><small>xấu ${short(r.finalRealP10)} · tốt ${short(r.finalRealP90)}</small></div>
+          <div class="kpi"><span>Kịch bản căng thẳng</span><strong class="${stress.success ? "good" : "bad"}">${stress.success ? "Vẫn đủ" : "Bị thiếu"}</strong><small>${stress.success ? `cổ phiếu ${pct(o.stress)}/năm × 5 năm` : `thiếu ${short(stress.unmetReal)} (giá hôm nay)`}</small></div>
+          ${o.life ? `<div class="kpi"><span>Mất trước khi nghỉ hưu</span><strong>${pct(r.diedBeforeRetirementRate)}</strong><small>tính là không cạn quỹ</small></div>` : ""}
+        </div>
+        <div class="card card-pad">
+          <div class="section-title"><h3>Số dư quỹ theo tuổi</h3><small>giá trị theo sức mua hôm nay · rê chuột để xem</small></div>
+          <div class="chart-wrap" id="mcChart"></div>
+          <div class="legend"><span><i style="background:#1f4fa3"></i>Giữa (P50)</span><span><i style="background:#1f4fa333"></i>Khoảng tốt–xấu (P10–P90)</span><span><i style="background:#b42318"></i>Kịch bản căng thẳng</span></div>
+        </div>
+        <div class="card card-pad">
+          <div class="section-title"><h3>Tham chiếu tất định</h3><small>lợi suất và lạm phát đúng bằng kỳ vọng mỗi tháng</small></div>
+          <div class="ref">
+            <div class="kpi"><span>Quỹ cần có lúc nghỉ hưu</span><strong>${short(det.requiredAtRetirement)}</strong><small>${vnd(det.requiredAtRetirement)}</small></div>
+            <div class="kpi"><span>Mức góp ${p.contribMode === "indexed" ? "khởi điểm " : ""}cần thiết / tháng</span><strong>${det.contribution === null ? "—" : vnd(det.contribution)}</strong><small>${det.status === "ADDITIONAL_CONTRIBUTION_REQUIRED" ? (det.contribution > p.contribution ? `cao hơn mức đang góp ${vnd(det.contribution - p.contribution)}` : "mức đang góp đã đủ") : "không cần góp thêm"}</small></div>
+          </div>
+        </div>
+        ${r.warnings.length ? `<ul class="notes">${r.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+        <p class="meta">Seed “${esc(r.seed)}” · ${r.pathCount.toLocaleString("vi-VN")} tương lai · đoạn ${r.blockLength} tháng · ${r.dataMonths} tháng dữ liệu · ${ms.toFixed(0)} ms. Tỷ lệ là mô phỏng theo giả định, không phải cam kết.</p>`;
+      renderChart($("mcChart"), r.bands, stress.series, p.ageNow);
+      $("mcStatus").textContent = `Cập nhật lúc ${new Date().toLocaleTimeString("vi-VN")}`;
+    } catch (e) {
+      if (id !== mcRun) return;
+      markInvalid(form, e.issues || []);
+      out.innerHTML = `<div class="card card-pad">${errorCard(e)}</div>`;
+      $("mcStatus").textContent = "";
+    } finally {
+      if (id === mcRun) { $("runMc").disabled = false; out.classList.remove("busy"); }
+    }
+  }
+  const scheduleMc = debounce(runMc, 500);
+  $("runMc").addEventListener("click", runMc);
+  $("mcForm").addEventListener("input", scheduleMc);
+  $("mcForm").addEventListener("change", scheduleMc);
+
+  // ---------------- A4 ----------------
+  $("runA4").addEventListener("click", async () => {
+    const out = $("a4Out"), form = $("a4Form");
+    $("runA4").disabled = true; $("a4Status").textContent = "Đang tìm…"; out.classList.add("busy");
+    try {
+      const a4 = Lab.buildA4({ targetP: val("targetP"), capacity: val("capacity"), a4N: val("a4N"), a4Tol: val("a4Tol") });
+      const p = plan(), o = { ...mcOptions("a4N"), collect: false }, data = seriesData();
+      markInvalid(form, []);
+      const t0 = performance.now(), s = await later(() => Lab.solveContribution(p, data, o, a4.target, a4.capacity, a4.tol)), ms = performance.now() - t0;
+      out.innerHTML = s.code === "OK"
+        ? `<div class="card card-pad"><div class="hero">${ring(s.rate)}<div><span class="verdict good">Tìm được</span>
+             <h3>Góp ${vnd(s.contribution)} / tháng${p.contribMode === "indexed" ? " (theo giá hôm nay, tăng theo lạm phát)" : ""}</h3>
+             <p>Đây là mức nhỏ nhất để ${pct(s.rate)} tương lai mô phỏng không cạn quỹ (mục tiêu ${pct(a4.target)}). Bạn đang góp ${vnd(p.contribution)}: ${s.contribution > p.contribution ? `cần thêm <b>${vnd(s.contribution - p.contribution)}</b> mỗi tháng.` : "đã đủ."}</p></div></div></div>
+           <p class="meta">${s.evaluations} lần chạy mô phỏng · ${ms.toFixed(0)} ms · cùng một bộ tương lai cho mọi lần thử.</p>`
+        : `<div class="card card-pad"><div class="hero">${ring(s.rateAtCapacity)}<div><span class="verdict bad">Không đạt trong khả năng</span>
+             <h3>Góp tối đa ${vnd(a4.capacity)} / tháng chỉ đạt ${pct(s.rateAtCapacity)}</h3>
+             <p>Mục tiêu ${pct(a4.target)} không đạt được trong khả năng góp. Cần giảm chi tiêu, nghỉ hưu muộn hơn, tăng khả năng góp hoặc hạ mục tiêu.</p>
+             <p class="meta" style="margin-top:6px">Mã: TARGET_PROBABILITY_UNREACHABLE_WITHIN_CAPACITY</p></div></div></div>`;
+      $("a4Status").textContent = "";
+    } catch (e) { markInvalid(form, e.issues || []); out.innerHTML = `<div class="card card-pad">${errorCard(e)}</div>`; $("a4Status").textContent = ""; }
+    $("runA4").disabled = false; out.classList.remove("busy");
+  });
+
+  // ---------------- Debts ----------------
+  const loans = [
+    { name: "Vay mua nhà", balance: 900000000, rate: 9.5, min: 9000000, fee: 2 },
+    { name: "Vay tiêu dùng", balance: 200000000, rate: 22, min: 5000000, fee: 4 },
+    { name: "Thẻ tín dụng", balance: 30000000, rate: 15, min: 1500000, fee: 0 },
+    { name: "Vay mua xe", balance: 120000000, rate: 11, min: 4000000, fee: 1 },
+  ];
+  function renderLoans() {
+    $("loanRows").innerHTML = loans.map((l, i) => `<tr data-i="${i}">
+      <td><input data-k="name" value="${esc(l.name)}" aria-label="Tên khoản vay ${i + 1}"></td>
+      <td><input class="num" data-k="balance" data-money="1" inputmode="numeric" value="${groupDigits(l.balance)}" aria-label="Dư nợ ${i + 1}"></td>
+      <td><input class="num" data-k="rate" inputmode="decimal" value="${l.rate}" aria-label="Lãi suất ${i + 1}"></td>
+      <td><input class="num" data-k="min" data-money="1" inputmode="numeric" value="${groupDigits(l.min)}" aria-label="Trả tối thiểu ${i + 1}"></td>
+      <td><input class="num" data-k="fee" inputmode="decimal" value="${l.fee}" aria-label="Phí trả trước ${i + 1}"></td>
+      <td><button type="button" class="icon-btn" data-remove="${i}" aria-label="Xóa khoản vay ${i + 1}" title="Xóa">✕</button></td></tr>`).join("");
+  }
+  $("loanRows").addEventListener("input", e => {
+    const tr = e.target.closest("tr"); if (!tr || !e.target.dataset.k) return;
+    if (e.target.dataset.money) formatMoneyLive(e.target);
+    loans[+tr.dataset.i][e.target.dataset.k] = e.target.dataset.money ? e.target.value.replace(/[.\s]/g, "") : e.target.value; scheduleDebt();
+  });
+  $("loanRows").addEventListener("click", e => { const i = e.target.dataset.remove; if (i !== undefined) { loans.splice(+i, 1); renderLoans(); runDebt(); } });
+  $("addLoan").addEventListener("click", () => { loans.push({ name: `Khoản vay ${loans.length + 1}`, balance: 50000000, rate: 12, min: 2000000, fee: 0 }); renderLoans(); runDebt(); });
+  function runDebt() {
+    const out = $("debtOut");
+    try {
+      const text = loans.map(l => [l.name, String(l.balance).replace(/[.\s]/g, ""), String(l.rate).replace(",", "."), String(l.min).replace(/[.\s]/g, ""), String(l.fee).replace(",", ".")].join(", ")).join("\n");
+      const extraText = val("extraBudget").trim(), extra = Number(extraText);
+      if (extraText === "" || !Number.isFinite(extra) || extra < 0) throw new Lab.InputError(["Tiền dư trả thêm mỗi tháng: phải là số từ 0."]);
+      const list = Lab.parseLoans(text), r = Lab.compareDebtStrategies(list, extra);
+      const best = Math.min(...r.rows.map(x => x.cost)), worst = Math.max(...r.rows.map(x => x.cost));
+      const bestRow = r.rows.find(x => x.cost <= best + 1e-6);
+      out.innerHTML = `
+        <div class="card card-pad"><div class="section-title"><h2>So sánh tổng chi phí (lãi + phí)</h2><small>chênh lệch tốt nhất – kém nhất: ${vnd(worst - best)}</small></div>
+          <div class="bars">${r.rows.map(x => `<div class="bar-row${x.cost <= best + 1e-6 ? " best" : ""}"><span>${esc(x.label)}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${(x.cost / worst * 100).toFixed(1)}%"></div></div><strong>${short(x.cost)}</strong></div>`).join("")}</div>
+          <p class="meta" style="margin-top:12px">Gợi ý: ưu tiên trả thêm theo thứ tự <b>${bestRow.order.map(i => esc(list[i].name)).join(" → ")}</b>, hết nợ sau ${bestRow.paidOff ? bestRow.months + " tháng" : "hơn 600 tháng"}.</p></div>
+        <div class="card card-pad"><h2>Chi tiết</h2>
+          <div class="table-scroll" style="margin-top:10px"><table><thead><tr><th>Chiến lược</th><th>Thứ tự ưu tiên</th><th class="num">Lãi</th><th class="num">Phí trả trước</th><th class="num">Tổng</th><th class="num">Số tháng</th></tr></thead><tbody>
+          ${r.rows.map(x => `<tr><td>${esc(x.label)}${x.cost <= best + 1e-6 ? ' <span class="pill ok">thấp nhất</span>' : ""}</td><td>${x.order.map(i => esc(list[i].name)).join(" → ")}</td>
+            <td class="num">${vnd(x.interest)}</td><td class="num">${vnd(x.fees)}</td><td class="num"><b>${vnd(x.cost)}</b></td><td class="num">${x.paidOff ? x.months : "&gt;" + x.months}</td></tr>`).join("")}
+          </tbody></table></div>
+          <p class="meta" style="margin-top:10px">“Tốt nhất trong các thứ tự đã thử” là cách gần đúng, chưa phải tối ưu tuyệt đối.</p></div>
+        ${r.stuck.length || r.rows.some(x => !x.paidOff) ? `<ul class="notes">${r.stuck.length ? `<li>Trả tối thiểu không đủ trả lãi: ${r.stuck.map(esc).join(", ")}.</li>` : ""}${r.rows.some(x => !x.paidOff) ? "<li>Có chiến lược chưa trả hết nợ sau 600 tháng; so sánh chỉ trong 600 tháng.</li>" : ""}</ul>` : ""}`;
+    } catch (e) { out.innerHTML = `<div class="card card-pad">${errorCard(e)}</div>`; }
+  }
+  const scheduleDebt = debounce(runDebt, 300);
+  $("extraBudget").addEventListener("input", scheduleDebt);
+
+  // ---------------- Formulas: TOC + scroll spy ----------------
+  const articles = [...document.querySelectorAll("#docBody article[id]")].filter(a => a.id !== "f-overview");
+  $("tocList").innerHTML = articles.map(a => `<li><a href="#${a.id}">${esc(a.querySelector("h2").textContent.replace(/^\d+\.\s*/, ""))}</a></li>`).join("");
+  const links = new Map([...document.querySelectorAll("#tocList a")].map(a => [a.getAttribute("href").slice(1), a]));
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver(entries => {
+      for (const en of entries) if (en.isIntersecting) { links.forEach(l => l.classList.remove("active")); links.get(en.target.id)?.classList.add("active"); }
+    }, { rootMargin: "-90px 0px -65% 0px" });
+    articles.forEach(a => io.observe(a));
+  }
+
+  // ---------------- Tests ----------------
+  $("runTests").addEventListener("click", async () => {
+    $("runTests").disabled = true; $("testOut").innerHTML = `<p class="meta">Đang chạy…</p>`;
+    const t0 = performance.now(), results = await later(() => Lab.runTests()), ms = performance.now() - t0, passed = results.filter(r => r.pass).length;
+    $("testOut").innerHTML = `<p><span class="pill ${passed === results.length ? "ok" : "bad"}">${passed}/${results.length} đạt</span> <span class="meta">· ${ms.toFixed(0)} ms</span></p>
+      <div class="table-scroll"><table><thead><tr><th style="width:42%">Kiểm thử</th><th style="width:90px">Kết quả</th><th>Chi tiết</th></tr></thead><tbody>
+      ${results.map(r => `<tr><td>${esc(r.name)}</td><td><span class="pill ${r.pass ? "ok" : "bad"}">${r.pass ? "Đạt" : "Lỗi"}</span></td><td class="meta">${esc(r.detail)}</td></tr>`).join("")}</tbody></table></div>`;
+    $("runTests").disabled = false;
+  });
+
+  // ---------------- Start ----------------
+  renderLoans();
+  genData();
+  showLifeInfo();
+  runDebt();
+})();
+</script>
+</body>
+</html>

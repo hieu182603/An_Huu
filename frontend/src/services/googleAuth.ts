@@ -92,20 +92,36 @@ export function loadGoogleGsiScript(): Promise<void> {
   if (scriptLoadingPromise) return scriptLoadingPromise;
 
   scriptLoadingPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("Không thể tải Google Identity Services")));
-      return;
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://accounts.google.com/gsi/client"]');
+    const script = existing ?? document.createElement("script");
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      script.removeEventListener("load", loaded);
+      script.removeEventListener("error", failed);
+    };
+    const failed = () => {
+      cleanup();
+      script.remove();
+      reject(new Error("Chưa tải được đăng nhập Google. Vui lòng thử lại hoặc đăng nhập bằng email."));
+    };
+    const loaded = () => {
+      if (!window.google?.accounts?.id) { failed(); return; }
+      cleanup();
+      resolve();
+    };
+    const timeout = window.setTimeout(failed, 15000);
+    script.addEventListener("load", loaded);
+    script.addEventListener("error", failed);
+    if (!existing) {
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
     }
-
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Không thể tải Google Identity Services"));
-    document.head.appendChild(script);
+  }).catch(error => {
+    // A rejected promise must not permanently disable the retry button.
+    scriptLoadingPromise = null;
+    throw error;
   });
 
   return scriptLoadingPromise;
@@ -149,9 +165,11 @@ export async function triggerGoogleSignIn(
 
   window.google.accounts.id.prompt((notification) => {
     if (notification.isNotDisplayed()) {
-      console.warn("Google One Tap không hiển thị:", notification.getNotDisplayedReason());
+      onError?.(new Error("Cửa sổ đăng nhập Google không mở được. Bạn có thể thử lại hoặc đăng nhập bằng email."));
     } else if (notification.isSkippedMoment()) {
-      console.warn("Google One Tap bị bỏ qua:", notification.getSkippedReason());
+      onError?.(new Error("Đăng nhập Google chưa hoàn tất. Bạn có thể thử lại hoặc đăng nhập bằng email."));
+    } else if (notification.isDismissedMoment() && notification.getDismissedReason() !== "credential_returned") {
+      onError?.(new Error("Cửa sổ đăng nhập Google đã đóng. Bạn có thể thử lại hoặc đăng nhập bằng email."));
     }
   });
 }

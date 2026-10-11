@@ -80,7 +80,7 @@ test("forged stored role cannot grant access and network login errors are visibl
   await expect(page.getByRole("button", { name: "Đăng nhập vào tài khoản" })).toBeEnabled();
 });
 
-test("OTP dialog counts down the 3-minute code lifetime and allows resend after 60 seconds", async ({ page }) => {
+test("OTP dialog explains code lifetime and counts down the resend request cooldown", async ({ page }) => {
   let resends = 0;
   await page.clock.install();
   await page.route("**/api/v1/auth/**", async route => {
@@ -95,17 +95,17 @@ test("OTP dialog counts down the 3-minute code lifetime and allows resend after 
   await page.getByLabel(/Tôi đồng ý/).check();
   await page.getByRole("button", { name: "Tạo tài khoản", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("timer")).toContainText("3:00");
-  await expect(dialog.getByRole("button", { name: "Gửi lại mã" })).toHaveCount(0);
+  await expect(dialog.getByText("Mã có hiệu lực 3 phút từ lúc phát hành.")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Gửi lại sau 60 giây" })).toBeDisabled();
   await page.clock.fastForward(61_000);
-  await expect(dialog.getByRole("timer")).toContainText("1:59");
+  await expect(dialog.getByRole("button", { name: "Gửi lại mã" })).toBeEnabled();
   await dialog.getByRole("button", { name: "Gửi lại mã" }).click();
   await expect(dialog.getByRole("status")).toContainText("mã mới");
-  await expect(dialog.getByRole("timer")).toContainText("3:00");
-  await expect(dialog.getByRole("button", { name: "Gửi lại mã" })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Gửi lại sau 60 giây" })).toBeDisabled();
   expect(resends).toBe(1);
   await page.clock.fastForward(181_000);
-  await expect(dialog.getByRole("timer")).toContainText("Mã đã hết hạn");
+  await expect(dialog.getByRole("button", { name: "Gửi lại mã" })).toBeEnabled();
+  // Empty code stays disabled; expiry itself must be checked by the API.
   await expect(dialog.getByRole("button", { name: "Xác nhận email & Đăng nhập" })).toBeDisabled();
   await page.goto("/verify");
   await expect(page).toHaveURL(/\/register$/);

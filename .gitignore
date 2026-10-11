@@ -32,6 +32,8 @@ Thumbs.db
 .tmp/
 .tmp-*
 artifacts/
+# Full seed export contains private account and financial data.
+/backend/seed-data/seed-datafull.sql
 
 # Local development scripts (keep root dev.cjs tracked)
 /scripts/*
@@ -55,6 +57,9 @@ artifacts/
 !/backend/scripts/verify-browser.cjs
 !/backend/scripts/verify-build-isolated.cjs
 !/backend/scripts/audit-database-readonly.cjs
+!/backend/scripts/audit-database-content-readonly.cjs
+!/backend/scripts/prepare-reviewed-dataset.cjs
+!/backend/scripts/verify-reviewed-dataset.cjs
 !/backend/scripts/generate-assumptions-openapi.cjs
 !/backend/scripts/generate-retirement-openapi.cjs
 !/backend/scripts/generate-plans-openapi.cjs
@@ -81,4 +86,4 @@ an-huu-intro*
 *.mov
 *.avi
 *.mkv
-
+

@@ -1,0 +1,91 @@
+{
+  "checkedOn": "2026-10-08",
+  "status": "PREPARED_FOR_USER_REVIEW_NOT_IMPORTED",
+  "knowledge": [
+    {
+      "match": "LUAT-BHXH-41-2024-QH15",
+      "title": "Luật Bảo hiểm xã hội — bản hợp nhất đăng Công báo số 133/2026",
+      "referenceCode": "LUAT-BHXH-CONGBAO-133-2026",
+      "category": "LEGAL_SOCIAL_INSURANCE",
+      "url": "https://congbaocdn.chinhphu.vn/180507251028987904/2026/3/5/468972-1772691642_v1_1772691941_signed.pdf",
+      "effectiveDate": "2025-07-01T00:00:00.000Z",
+      "text": "Thông tin nhận diện tài liệu, không phải toàn văn hoặc kết luận hưởng chế độ cá nhân. Bản hợp nhất đăng Công báo số 133 ngày 28/02/2026 nêu Luật Bảo hiểm xã hội số 41/2024/QH15 có hiệu lực từ 01/07/2025 và liệt kê các luật sửa đổi, bổ sung với các ngày hiệu lực riêng. Khi xử lý hồ sơ phải đối chiếu điều khoản và thời điểm áp dụng, không áp chung ngày hiệu lực của luật gốc cho mọi sửa đổi. Tài liệu bao gồm chính sách BHXH bắt buộc, BHXH tự nguyện, trợ cấp hưu trí xã hội và bảo hiểm hưu trí bổ sung. Tra cứu văn bản gốc tại đường dẫn đính kèm."
+    },
+    {
+      "match": "ND-135-2020-ND-CP",
+      "title": "Nghị định 135/2020/NĐ-CP — văn bản về tuổi nghỉ hưu",
+      "referenceCode": "ND-135-2020-ND-CP",
+      "category": "LEGAL_RETIREMENT_AGE",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/11/135.signed.pdf",
+      "effectiveDate": "2021-01-01T00:00:00.000Z",
+      "text": "Thông tin nhận diện tài liệu. Nghị định 135/2020/NĐ-CP là văn bản của Chính phủ quy định về tuổi nghỉ hưu. Bản PDF ký được lưu trên Cổng Thông tin điện tử Chính phủ. Cần đối chiếu điều khoản và phụ lục theo tháng, năm sinh cùng điều kiện làm việc của từng hồ sơ. Bản ghi này không tự xác nhận một người đủ tuổi hoặc đủ điều kiện hưởng lương hưu."
+    },
+    {
+      "match": "ND-75-2024-ND-CP",
+      "title": "Nghị định 75/2024/NĐ-CP — điều chỉnh lương hưu và trợ cấp",
+      "referenceCode": "ND-75-2024-ND-CP",
+      "category": "LEGAL_PENSION_ADJUSTMENT",
+      "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/7/75-cp.signed.pdf",
+      "effectiveDate": "2024-07-01T00:00:00.000Z",
+      "text": "Thông tin nhận diện văn bản lịch sử. Nghị định 75/2024/NĐ-CP được ban hành ngày 30/06/2024, có hiệu lực từ 01/07/2024, điều chỉnh lương hưu, trợ cấp BHXH và trợ cấp hằng tháng. Phạm vi đối tượng và cách điều chỉnh được quy định trong văn bản; không dùng mức điều chỉnh của văn bản này làm tỷ lệ tăng lương hưu tự động cho mọi năm tương lai. Bản ghi không khẳng định đây là văn bản điều chỉnh mới nhất."
+    },
+    {
+      "match": "GSO-DEMO-2024",
+      "title": "Kết quả chủ yếu Điều tra dân số và nhà ở giữa kỳ thời điểm 01/04/2024",
+      "referenceCode": "NSO-DSGK-2024",
+      "category": "STATISTICS_DEMOGRAPHICS",
+      "url": "https://www.nso.gov.vn/wp-content/uploads/2024/12/Dieu-tra-Dan-so-giua-ky-2024-31.12-1.pdf",
+      "effectiveDate": "2024-04-01T00:00:00.000Z",
+      "text": "Thông tin nhận diện ấn phẩm thống kê; ngày tham chiếu dữ liệu là 01/04/2024, không phải ngày hiệu lực pháp luật. Tổng cục Thống kê công bố ấn phẩm Kết quả chủ yếu Điều tra dân số và nhà ở giữa kỳ thời điểm 0 giờ ngày 01/04/2024. Điều tra thu thập thông tin về dân số, nhân khẩu học và điều kiện nhà ở. Không suy ra tuổi thọ còn lại của một cá nhân từ tên báo cáo hoặc một chỉ tiêu dân số tổng hợp."
+    },
+    {
+      "match": "CFA-FPSB-RETIREMENT-STD",
+      "title": "FPSB — Global Financial Planning Standards",
+      "referenceCode": "FPSB-GLOBAL-STANDARDS",
+      "category": "FINANCIAL_PLANNING_STANDARDS",
+      "url": "https://fpsb.org/standards-for-the-profession/",
+      "effectiveDate": "2026-10-08T00:00:00.000Z",
+      "text": "Tóm tắt nhận diện nguồn, không sao chép toàn văn tiêu chuẩn. FPSB công bố Global Financial Planning Standards, gồm kiến thức, chuẩn mực thực hành và đạo đức nghề nghiệp. Nguồn này không phải bộ tiêu chuẩn hưu trí chung do CFA Institute và FPSB cùng ban hành. Ngày tham chiếu của bản ghi là ngày kiểm tra nguồn 08/10/2026, không phải ngày ban hành tiêu chuẩn. Nguồn không quy định một tỷ lệ phân bổ tài sản cố định theo tuổi cho mọi người."
+    },
+    {
+      "match": null,
+      "title": "Cục Thống kê — CPI bình quân năm 2025",
+      "referenceCode": "NSO-CPI-2025-VERIFIED",
+      "category": "STATISTICS_PRICES",
+      "url": "https://www.nso.gov.vn/du-lieu-va-so-lieu-thong-ke/2026/01/thong-cao-bao-chi-ve-tinh-hinh-gia-thang-muoi-hai-quy-iv-va-nam-2025/",
+      "effectiveDate": "2026-10-08T00:00:00.000Z",
+      "text": "Cục Thống kê công bố CPI bình quân năm 2025 tăng 3,31% so với năm 2024. Đây là số liệu lịch sử cả năm; không phải dự báo lạm phát 2026–2055 và không tự trở thành giả định cho kế hoạch cá nhân. Ngày tham chiếu của bản ghi là ngày kiểm tra nguồn 08/10/2026."
+    },
+    {
+      "match": null,
+      "title": "Investor.gov — phân bổ và đa dạng hóa tài sản",
+      "referenceCode": "SEC-ASSET-ALLOCATION",
+      "category": "FINANCIAL_EDUCATION",
+      "url": "https://www.investor.gov/introduction-investing/getting-started/asset-allocation",
+      "effectiveDate": "2026-10-08T00:00:00.000Z",
+      "text": "Tóm tắt giáo dục từ Investor.gov. Phân bổ tài sản phân chia danh mục giữa các nhóm như cổ phiếu, trái phiếu và tiền mặt; lựa chọn gắn với thời hạn đầu tư và khả năng chịu rủi ro. Đa dạng hóa giúp giảm tập trung rủi ro nhưng không bảo đảm tránh thua lỗ. Đây không phải khuyến nghị phân bổ cá nhân hoặc quy định áp dụng riêng tại Việt Nam."
+    }
+  ],
+  "products": [
+    {"prefix":"SSI-SCA", "name":"Quỹ Đầu tư Lợi thế Cạnh tranh Bền vững SSI (SSI-SCA)", "url":"https://ssiam.com.vn/thong-tin-chung-quy-ssi-sca", "fee":"Giá dịch vụ quản lý quỹ: 1,75%/năm theo trang chính thức được kiểm tra ngày 08/10/2026.", "description":"Quỹ mở cổ phiếu do SSIAM quản lý. Phí giao dịch và điều kiện áp dụng cần đối chiếu bản cáo bạch và biểu phí hiện hành."},
+    {"prefix":"DCBF", "name":"Quỹ Đầu tư Trái phiếu DC (DCBF)", "url":"https://www.dragoncapital.com.vn/individual/vi/product/a0eJ2000001X9nBIAS/dcbf", "fee":"Trang quỹ công bố phí quản lý 1,20%; kiểm tra ngày 08/10/2026. Đối chiếu bản cáo bạch để xác định đầy đủ cơ sở tính và phí khác.", "description":"Quỹ trái phiếu do Dragon Capital quản lý. Kết quả đầu tư không phải lãi suất tiền gửi cố định."},
+    {"prefix":"VFF", "name":"Quỹ Đầu tư Trái phiếu Nâng Cao VinaCapital (VINACAPITAL-VFF)", "url":"https://vinacapital.com/vi/investment-solutions/onshore-funds/vff/", "fee":"Phí quản lý: 0,95%/năm theo trang chính thức, kiểm tra ngày 08/10/2026.", "description":"Quỹ mở trái phiếu của VinaCapital. Phí giao dịch và thuế theo tài liệu hiện hành; không bảo đảm kết quả đầu tư."},
+    {"prefix":"DCDS", "name":"Quỹ Đầu tư Chứng khoán Năng động DC (DCDS)", "url":"https://dautu.dragoncapital.com.vn/tin-tuc/cap-nhat-danh-muc-dau-tu-quy-co-phieu-dcds-moi-nhat-thang-2-2026", "fee":"Báo cáo được kiểm tra ngày 08/10/2026 nêu phí quản lý tối đa 2% NAV/năm. Kiểm tra bản cáo bạch và biểu phí tại thời điểm giao dịch.", "description":"Quỹ mở cổ phiếu của Dragon Capital. Không dùng hiệu suất quá khứ làm mức sinh lời cam kết."},
+    {"prefix":"VEOF", "name":"Quỹ Đầu tư Cổ phiếu Doanh nghiệp Hàng đầu VinaCapital (VINACAPITAL-VEOF)", "url":"https://vinacapital.com/vi/investment-solutions/onshore-funds/veof/", "fee":"Phí quản lý: 1,75%/năm theo trang chính thức, kiểm tra ngày 08/10/2026.", "description":"Quỹ mở cổ phiếu của VinaCapital. Số tiền đầu tư tối thiểu công bố: 100.000 VND. Điều kiện giao dịch, thuế và phí khác theo tài liệu hiện hành."},
+    {"prefix":"VIBF", "name":"Quỹ Đầu tư Cân bằng Gắn kết VinaCapital (VINACAPITAL-VIBF)", "url":"https://vinacapital.com/vi/investment-solutions/onshore-funds/vibf/", "fee":"Phí quản lý: 1,75%/năm theo trang chính thức, kiểm tra ngày 08/10/2026.", "description":"Quỹ mở cân bằng của VinaCapital. Số tiền đầu tư tối thiểu công bố: 100.000 VND. Không cam kết mức lợi nhuận cố định."},
+    {"prefix":"Tiết kiệm Trực tuyến VCB", "name":"Tiết kiệm trực tuyến trên VCB Digibank", "url":"https://vietcombank.com.vn/vi-VN/KHCN/SPDV/Tiet-kiem", "fee":null, "description":"Tra cứu sản phẩm tiết kiệm và điều kiện gửi qua VCB Digibank tại Vietcombank. Không điền lãi suất cố định khi chưa xác minh biểu lãi suất tương ứng."},
+    {"prefix":"Bảo Việt An Gia", "name":"Bảo Việt An Gia", "url":"https://www.baoviet.com.vn/vi/bao-hiem-phi-nhan-tho", "fee":null, "description":"Sản phẩm bảo hiểm sức khỏe thuộc Bảo hiểm Bảo Việt. Quyền lợi, loại trừ và phí cần đối chiếu quy tắc và báo giá đúng phiên bản hợp đồng; không phải sản phẩm đầu tư cam kết lợi suất."}
+  ],
+  "unverifiedProducts": [
+    {"prefix":"Tiết kiệm Tích lũy Hưu trí VCB", "url":"https://vietcombank.com.vn/vi-VN/KHCN/SPDV/Tiet-kiem", "reason":"Chưa xác minh được sản phẩm đúng tên này tại nguồn chính thức. Giữ bản ghi cũ để đối chiếu; không tự đổi sang sản phẩm khác."},
+    {"prefix":"Tiết kiệm Phát Lộc Hưu Trí", "url":"https://techcombank.com/khach-hang-ca-nhan/tiet-kiem/tien-gui-tiet-kiem-co-ky-han", "reason":"Nguồn chính thức có Tiết kiệm Phát Lộc, chưa xác minh được phiên bản Hưu Trí như seed. Không coi hai tên là cùng hợp đồng."},
+    {"prefix":"An Phát Hưu Trí", "url":"https://www.baovietnhantho.com.vn/san-pham/danh-muc/huu-tri", "reason":"Chưa xác minh được đúng tên seed. Trang Bảo Việt Nhân thọ liệt kê Hưu Trí An Khang và ghi ngừng triển khai; không thay tên rồi coi là sản phẩm đang bán. Đơn vị nhân thọ cũng khác Bảo hiểm Bảo Việt phi nhân thọ."}
+  ],
+  "editorialReplacement": [
+    {"slug":"huong-dan-lap-ke-hoach-huu-tri-tu-tuoi-30", "title":"Chuẩn bị dữ liệu để lập kế hoạch hưu trí", "excerpt":"Lưu rõ ngày định giá, dữ liệu đã biết và những phần cần bổ sung trước khi xem dự báo.", "category":"Kế hoạch hưu trí", "body":"Bắt đầu từ hồ sơ thu nhập, chi tiêu, tài sản và nợ cùng ngày định giá. Ghi nhận riêng các khoản chưa biết để kết quả phản ánh đúng mức độ đầy đủ của dữ liệu. Trong An Hưu, bản xem trước, phiên bản đã lưu và kế hoạch đang áp dụng là những trạng thái khác nhau. Chỉ áp dụng phiên bản sau khi đã xem lại đầu vào và kết quả.", "source":"backend/src/modules/profiles/schema-v2.ts; backend/src/modules/plans/service.ts"},
+    {"slug":"5-sai-lam-pho-bien-khi-tich-luy-huu-tri", "title":"Phân biệt dữ liệu lịch sử và giả định tương lai", "excerpt":"Một số liệu lạm phát đã công bố không tự trở thành dự báo cho các năm sau.", "category":"Quản lý tài chính", "body":"Cục Thống kê công bố CPI bình quân năm 2025 tăng 3,31% so với năm 2024. Đây là số liệu lịch sử, không phải tỷ lệ lạm phát được bảo đảm cho các năm tiếp theo. Một kịch bản tài chính cần chỉ rõ giả định, thời hạn và nguồn sử dụng; kết quả dự báo phụ thuộc vào những đầu vào đó.", "source":"https://www.nso.gov.vn/du-lieu-va-so-lieu-thong-ke/2026/01/thong-cao-bao-chi-ve-tinh-hinh-gia-thang-muoi-hai-quy-iv-va-nam-2025/"},
+    {"slug":"hieu-ve-quy-mo-va-cach-phan-bo-tai-san-thong-minh", "title":"Phân bổ và đa dạng hóa tài sản", "excerpt":"Thời hạn sử dụng tiền và khả năng chịu rủi ro là hai yếu tố cần xem xét khi phân bổ.", "category":"Đầu tư tích lũy", "body":"Phân bổ tài sản là chia danh mục giữa các nhóm tài sản. Đa dạng hóa giảm sự phụ thuộc vào một khoản đầu tư hoặc nguồn rủi ro. Theo Investor.gov, thời hạn đầu tư và khả năng chịu rủi ro ảnh hưởng đến lựa chọn phân bổ. Không có một tỷ lệ cố định theo tuổi phù hợp cho tất cả mọi người; đa dạng hóa không bảo đảm không thua lỗ.", "source":"https://www.investor.gov/introduction-investing/getting-started/asset-allocation"},
+    {"slug":"cach-tinh-luong-huu-bhxh-theo-luat-moi", "title":"Tra cứu căn cứ trước khi ước tính lương hưu BHXH", "excerpt":"Đối chiếu lịch đóng, ngày hưởng dự kiến và đúng phiên bản quy định áp dụng.", "category":"Chính sách & Pháp luật", "body":"Luật BHXH số 41/2024/QH15 có hiệu lực từ 01/07/2025 và đã có các sửa đổi được liệt kê trong bản hợp nhất đăng Công báo số 133/2026. Việc đánh giá một hồ sơ cần đối chiếu đối tượng tham gia, lịch đóng, căn cứ tiền lương hoặc thu nhập, thời điểm hưởng và quy định liên quan. Nội dung giới thiệu này không kết luận quyền hưởng hoặc mức lương hưu của một cá nhân.", "source":"https://congbaocdn.chinhphu.vn/180507251028987904/2026/3/5/468972-1772691642_v1_1772691941_signed.pdf"},
+    {"slug":"chien-luoc-quan-tri-chi-phi-y-te-tuoi-vang", "title":"Ghi nhận chi phí và quỹ dự phòng trong hồ sơ", "excerpt":"Phân biệt khoản chi, tài sản dự phòng và tài sản dành cho hưu trí.", "category":"Sức khỏe & Đời sống", "body":"Trong hồ sơ An Hưu, phần tài sản dành cho dự phòng và phần dành cho hưu trí được ghi nhận riêng. Hãy nhập khoản chi và phạm vi dữ liệu đã xác nhận, đồng thời giữ trạng thái chưa biết cho thông tin còn thiếu. Bài viết không đưa ra một mức tăng chi phí y tế cố định hoặc một số tháng dự phòng bắt buộc cho mọi người.", "source":"backend/src/modules/profiles/schema-v2.ts; backend/src/modules/profiles/summary-v2.ts"}
+  ]
+}

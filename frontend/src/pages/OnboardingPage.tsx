@@ -1,3 +1,4 @@
+import "./onboarding-readability.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
 import { Badge, BrandLogo, Button, Card, Checkbox, Icon, IconButton, Input, Select, useNotification } from "../components/ui";
@@ -249,6 +250,27 @@ export default function OnboardingPage() {
   };
 
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep);
+  const stageIndex = currentStepIndex <= 1 ? 0 : currentStepIndex <= 5 ? 1 : 2;
+  const stageLabels = isEn ? ["About you", "Income & assets", "Retirement & review"] : ["Thông tin của bạn", "Thu chi & tài sản", "Hưu trí & kiểm tra"];
+  const stepPurpose: Record<StepId, string> = isEn ? {
+    welcome: "Prepare your income, expenses, assets and debt figures. You can save and return later.",
+    personal: "Your age sets the planning timeline; dependents help describe household needs. A valid age is required before completing your profile.",
+    income: "Enter the income available for spending and saving, so the plan can distinguish incoming money from expenses.",
+    expense: "Separate essential and flexible expenses to understand the amount left after spending.",
+    assets: "Record what you currently own. These declarations are separate from the assets allocated to retirement in your detailed profile.",
+    debt: "Record outstanding debt and regular repayments to avoid counting repayment money as savings.",
+    "invest-social": "These figures describe your investments and contribution history. Pension estimates still need the detailed contribution record.",
+    summary: "Review your entries before saving the profile. Completing the profile does not mean the retirement plan is fully funded."
+  } : {
+    welcome: "Chuẩn bị số liệu thu nhập, chi tiêu, tài sản và nợ. Bạn có thể lưu rồi quay lại làm tiếp.",
+    personal: "Tuổi giúp xác định thời gian lập kế hoạch; người phụ thuộc giúp mô tả nhu cầu gia đình. Cần có tuổi hợp lệ trước khi hoàn tất hồ sơ.",
+    income: "Khai báo khoản thu dành cho chi tiêu và tích lũy, để phân biệt tiền vào với các khoản phải chi.",
+    expense: "Tách chi tiêu thiết yếu và linh hoạt để hiểu khoản còn lại sau chi tiêu.",
+    assets: "Khai báo tài sản đang sở hữu. Phần dành cho hưu trí được xác nhận riêng trong hồ sơ chi tiết.",
+    debt: "Khai báo dư nợ và số tiền trả định kỳ để không nhầm tiền trả nợ với tiền có thể tích lũy.",
+    "invest-social": "Các số này mô tả đầu tư và lịch sử đóng. Ước tính lương hưu vẫn cần quá trình đóng BHXH chi tiết.",
+    summary: "Kiểm tra thông tin trước khi lưu hồ sơ. Hoàn tất hồ sơ không có nghĩa là đã đủ tiền nghỉ hưu."
+  };
   const progressPercent = Math.round((currentStepIndex / (steps.length - 1)) * 100);
   const skippedSteps = steps.filter((s, index) => index > 0 && index < steps.length - 1 && index < currentStepIndex && !isStepFilled(s.id));
   const stepLabel = currentStepIndex === 0
@@ -352,7 +374,7 @@ export default function OnboardingPage() {
           <strong>{steps[currentStepIndex].title}</strong>
           <small>{progressPercent}%</small>
         </div>
-        <div className="progress-track" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
+        <div className="progress-track" role="progressbar" aria-label={isEn ? "Setup progress" : "Tiến trình khai báo"} aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
           <span style={{ "--progress": `${progressPercent}%` } as React.CSSProperties} />
         </div>
       </div>
@@ -396,7 +418,7 @@ export default function OnboardingPage() {
               <strong>{progressPercent}%</strong>
               <small>({stepLabel})</small>
             </div>
-            <div className="progress-track" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
+            <div className="progress-track" role="progressbar" aria-label={isEn ? "Setup progress" : "Tiến trình khai báo"} aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
               <span style={{ "--progress": `${progressPercent}%` } as React.CSSProperties} />
             </div>
           </div>
@@ -431,13 +453,22 @@ export default function OnboardingPage() {
         {/* Main Content Area */}
         <main className="onboarding-main" id="main-content">
           <div className="onboarding-content">
+            <ol className="onboarding-stages" aria-label={isEn ? "Setup stages" : "Các chặng khai báo"}>
+              {stageLabels.map((label, index) => <li key={label} aria-current={stageIndex === index ? "step" : undefined}>
+                <span aria-hidden="true">{index + 1}</span>{label}
+              </li>)}
+            </ol>
+            <div className="onboarding-step-guide">
+              <p>{stepPurpose[currentStep]}</p>
+              {currentStep !== "welcome" && currentStep !== "summary" && <p className="onboarding-unknown-help">{isEn ? "Not sure of a figure? Choose Save & finish later. Do not use zero to mean unknown." : "Chưa biết số liệu? Chọn “Lưu & làm sau”. Không nhập 0 để thay cho thông tin chưa biết."}</p>}
+            </div>
             {/* STEP 0: WELCOME - REDESIGNED PREMIUM FINTECH ONBOARDING */}
             {currentStep === "welcome" && (
               <div className="welcome-step-v3">
                 <header className="welcome-v3-header">
                   <span className="welcome-badge-pill">
                     <span className="welcome-badge-dot" aria-hidden="true" />
-                    {isEn ? `${steps.length - 1} steps · about 5 minutes` : `${steps.length - 1} bước · khoảng 5 phút`}
+                    {isEn ? `3 stages · ${steps.length - 1} steps` : `3 chặng · ${steps.length - 1} bước`}
                   </span>
                   <h1 className="welcome-v3-title">
                     {isEn ? "Set up your financial profile" : "Thiết lập hồ sơ tài chính"}
@@ -508,7 +539,7 @@ export default function OnboardingPage() {
 
                 <div className="form-grid">
                   <Input
-                    label={isEn ? "Your Current Age" : "Tuổi hiện tại của bạn"}
+                    label={isEn ? "Your Current Age (required to finish)" : "Tuổi hiện tại của bạn (cần để hoàn tất)"}
                     type="number"
                     value={formData.age === 0 ? "" : String(formData.age)}
                     onChange={(v) => updateField("age", Number(v) || 0)}
@@ -952,7 +983,7 @@ export default function OnboardingPage() {
           <div className="onboarding-actions">
             <div className="onboarding-actions-start">
               {currentStepIndex > 0 && (
-                <Button variant="secondary" onClick={handlePrev}>
+                <Button variant="secondary" onClick={handlePrev} aria-label={isEn ? "Back" : "Quay lại"}>
                   <Icon name="arrow-left" size="small" /> <span className="onboarding-back-label">{isEn ? "Back" : "Quay lại"}</span>
                 </Button>
               )}

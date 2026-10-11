@@ -64,18 +64,13 @@ export default function AIAssistantPage() {
   }, [inputPrompt]);
 
   // Privacy & Consent state
+  const [privacyLoading, setPrivacyLoading] = useState(true);
   const [privacyError, setPrivacyError] = useState(false);
   const [privacy, setPrivacy] = useState<AiPrivacyResponse | null>(null);
   const [consentModalOpen, setConsentModalOpen] = useState(false);
   const [updatingConsent, setUpdatingConsent] = useState(false);
 
-  const cleanedNotice = useMemo(() => {
-    if (!privacy?.processingNotice) return null;
-    return privacy.processingNotice
-      .replace(/Google Gemini qua dịch vụ Google bên ngoài hệ thống/gi, "trí tuệ nhân tạo (AI) của hệ thống")
-      .replace(/Google Gemini/gi, "AI của hệ thống")
-      .replace(/Gemini/gi, "AI hệ thống");
-  }, [privacy?.processingNotice]);
+  const processingNotice = privacy?.processingNotice;
 
   // Conversations state
   const [conversations, setConversations] = useState<AiConversationItem[]>([]);
@@ -116,7 +111,9 @@ export default function AIAssistantPage() {
 
   // Load privacy settings
   const loadPrivacy = async () => {
+    setPrivacyLoading(true);
     setPrivacyError(false);
+    setDismissedPrivacyError(false);
     try {
       const p = await getAiPrivacy();
       setPrivacy(p);
@@ -124,7 +121,10 @@ export default function AIAssistantPage() {
         setConsentModalOpen(true);
       }
     } catch {
+      setPrivacy(null);
       setPrivacyError(true);
+    } finally {
+      setPrivacyLoading(false);
     }
   };
 
@@ -302,9 +302,9 @@ export default function AIAssistantPage() {
 
   const handleSend = async (textToSend?: string) => {
     const question = (textToSend || inputPrompt).trim();
-    if (!question || isTyping) return;
+    if (!question || isTyping || privacyLoading || privacyError || !privacy) return;
 
-    if (privacy && (!privacy.processing || privacy.reconsentRequired || (privacy.acceptedPolicyVersion && privacy.policyVersion && privacy.acceptedPolicyVersion !== privacy.policyVersion))) {
+    if (!privacy.processing || privacy.reconsentRequired || (privacy.acceptedPolicyVersion && privacy.policyVersion && privacy.acceptedPolicyVersion !== privacy.policyVersion)) {
       setConsentModalOpen(true);
       return;
     }
@@ -368,6 +368,23 @@ export default function AIAssistantPage() {
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
       setIsTyping(false);
+    }
+  };
+
+  const handleSelectSuggestion = (text: string) => {
+    if (!inputPrompt.trim()) {
+      setInputPrompt(text);
+    } else {
+      notify.info(
+        language === "en" ? "Draft preserved" : "Đã giữ câu đang soạn",
+        language === "en"
+          ? "Appended suggested question to your draft."
+          : "Đã nối thêm câu hỏi gợi ý vào nội dung đang soạn."
+      );
+      setInputPrompt((prev) => `${prev.trim()}\n${text}`);
+    }
+    if (textareaRef.current) {
+      textareaRef.current.focus();
     }
   };
 
@@ -474,9 +491,15 @@ export default function AIAssistantPage() {
           </h1>
           <span className="codex-status-pill">
             <span className="codex-pulse" />
-            {privacy?.providerConfigured
-              ? (language === "en" ? "AI Analytical Assistant" : "AI Hỗ trợ phân tích")
-              : (language === "en" ? "Plan Data Explainer - Local Calculation Engine" : "Giải thích từ số liệu kế hoạch - chưa kết nối AI ngoài")}
+            {privacyLoading
+              ? (language === "en" ? "Checking AI permissions…" : "Đang tải quyền xử lý AI…")
+              : privacyError
+              ? (language === "en" ? "Could not load AI permissions" : "Chưa tải được quyền xử lý AI")
+              : !privacy?.providerConfigured
+              ? (language === "en" ? "External AI not connected · Plan data explanation only" : "Chưa kết nối AI ngoài · Chỉ giải thích số liệu kế hoạch")
+              : !activePlan || !currentVersion
+              ? (language === "en" ? "General explainer (no plan selected)" : "Giải thích chung (Chưa chọn kế hoạch)")
+              : (language === "en" ? "AI Analytical Assistant" : "AI Hỗ trợ phân tích")}
           </span>
         </div>
 
@@ -693,31 +716,33 @@ export default function AIAssistantPage() {
 
             {/* Quick Suggestions Block */}
             <div className="codex-suggestions-block">
-              <span className="suggestions-title">{language === "en" ? "FREQUENT PLAN QUESTIONS:" : "CÂU HỎI THƯỜNG GẶP VỀ KẾ HOẠCH:"}</span>
+              <span className="suggestions-title">
+                {language === "en" ? "FREQUENT PLAN QUESTIONS (CHOOSE TO DRAFT):" : "CÂU HỎI THƯỜNG GẶP (CHỌN ĐỂ ĐIỀN NHÁP):"}
+              </span>
               <div className="suggestions-pills">
                 <button
                   type="button"
-                  onClick={() => handleSend(language === "en" ? "Explain my retirement coverage ratio and its most critical driving factors?" : "Giải thích tỷ lệ bao phủ quỹ hưu trí của tôi và các yếu tố ảnh hưởng lớn nhất?")}
+                  onClick={() => handleSelectSuggestion(language === "en" ? "Explain my retirement coverage ratio and its most critical driving factors?" : "Giải thích tỷ lệ bao phủ quỹ hưu trí của tôi và các yếu tố ảnh hưởng lớn nhất?")}
+                  title={language === "en" ? "Click to insert into draft" : "Bấm để điền vào ô soạn thảo"}
                 >
-                  {language === "en" ? "What is the retirement coverage ratio?" : "Tỷ lệ bao phủ quỹ hưu trí là gì?"}
+                  <Icon name="sparkles" size="small" />
+                  <span>{language === "en" ? "What is the retirement coverage ratio?" : "Tỷ lệ bao phủ quỹ hưu trí là gì?"}</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleSend(language === "en" ? "How much more do I need to contribute monthly to retire 2 years earlier?" : "Nếu tôi muốn nghỉ hưu sớm hơn 2 năm thì cần đóng góp thêm bao nhiêu mỗi tháng?")}
+                  onClick={() => handleSelectSuggestion(language === "en" ? "How much more do I need to contribute monthly to retire 2 years earlier?" : "Nếu tôi muốn nghỉ hưu sớm hơn 2 năm thì cần đóng góp thêm bao nhiêu mỗi tháng?")}
+                  title={language === "en" ? "Click to insert into draft" : "Bấm để điền vào ô soạn thảo"}
                 >
-                  {language === "en" ? "Retiring 2 years earlier requirements" : "Nghỉ hưu sớm hơn 2 năm cần thêm vốn gì?"}
+                  <Icon name="target" size="small" />
+                  <span>{language === "en" ? "Retiring 2 years earlier requirements" : "Nghỉ hưu sớm hơn 2 năm cần thêm vốn gì?"}</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleSend(language === "en" ? "How are inflation and investment return assumptions set in this plan?" : "Giả định lạm phát và lợi suất trong phiên bản này được quy định như thế nào?")}
+                  onClick={() => handleSelectSuggestion(language === "en" ? "How are inflation and investment return assumptions set in this plan?" : "Giả định lạm phát và lợi suất trong phiên bản này được quy định như thế nào?")}
+                  title={language === "en" ? "Click to insert into draft" : "Bấm để điền vào ô soạn thảo"}
                 >
-                  {language === "en" ? "Inflation and yield assumptions" : "Quy ước lạm phát và lợi suất đầu tư"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSend(language === "en" ? "What key limitations should I keep in mind regarding these projections?" : "Các giới hạn quan trọng tôi cần lưu ý trước khi dựa vào kết quả này?")}
-                >
-                  {language === "en" ? "Important model limitations" : "Các giới hạn cần lưu ý"}
+                  <Icon name="info" size="small" />
+                  <span>{language === "en" ? "Inflation and yield assumptions" : "Quy ước lạm phát và lợi suất đầu tư"}</span>
                 </button>
               </div>
             </div>
@@ -725,6 +750,13 @@ export default function AIAssistantPage() {
 
           {/* Composer Input Form */}
           <div className="codex-composer-wrapper">
+            {(privacyLoading || privacyError) && <div className="assistant-send-status" role="status">
+              <span>{privacyLoading
+                ? (language === "en" ? "Checking permissions. You can keep drafting your question." : "Đang tải quyền xử lý. Bạn vẫn có thể soạn câu hỏi.")
+                : (language === "en" ? "Could not load permissions. Your draft is kept; retry before sending." : "Chưa tải được quyền xử lý. Câu hỏi được giữ lại; hãy thử lại trước khi gửi.")}</span>
+              {privacyError && <Button variant="secondary" onClick={loadPrivacy}>{language === "en" ? "Retry permissions" : "Tải lại quyền xử lý"}</Button>}
+            </div>}
+            {!privacyLoading && !privacyError && privacy && !privacy.providerConfigured && <p className="assistant-send-status">{language === "en" ? "External AI is not connected. Only plan data explanations are available." : "Chưa kết nối AI ngoài. Hiện chỉ có thể giải thích từ số liệu kế hoạch."}</p>}
             <form
               className="codex-composer-card"
               onSubmit={(e) => {
@@ -776,9 +808,11 @@ export default function AIAssistantPage() {
                     <span className="composer-badge-dot" />
                     <Icon name="shield" size="small" />
                     <span className="composer-badge-text">
-                      {currentVersion
+                      {privacyError
+                        ? (language === "en" ? "Service connection error" : "Lỗi kết nối máy chủ")
+                        : currentVersion
                         ? (language === "en" ? `Plan v${currentVersion.version}` : `Kế hoạch v${currentVersion.version}`)
-                        : (language === "en" ? "Plan Grounded" : "Chuẩn mực An Hưu")}
+                        : (language === "en" ? "No plan selected (profile baseline)" : "Chưa chọn kế hoạch (dữ liệu hồ sơ)")}
                     </span>
                   </div>
 
@@ -795,8 +829,8 @@ export default function AIAssistantPage() {
                 <div className="composer-right-actions">
                   <button
                     type="submit"
-                    className={`composer-send-button ${inputPrompt.trim() && !isTyping ? "is-ready" : ""}`}
-                    disabled={!inputPrompt.trim() || isTyping}
+                    className={`composer-send-button ${inputPrompt.trim() && !isTyping && !privacyLoading && !privacyError && privacy ? "is-ready" : ""}`}
+                    disabled={!inputPrompt.trim() || isTyping || privacyLoading || privacyError || !privacy}
                     aria-label={t("ai.send")}
                   >
                     {isTyping ? (
@@ -1004,10 +1038,10 @@ export default function AIAssistantPage() {
                 {language === "en" ? "System AI Security & Privacy Notice" : "Thông báo an toàn & Quyền riêng tư AI"}
               </h4>
               <p style={{ margin: 0, fontSize: "13px", lineHeight: 1.55, color: "var(--color-text-muted, #456B91)" }}>
-                {cleanedNotice ||
+                {processingNotice ||
                   (language === "en"
-                    ? "The An Huu assistant uses system AI to analyze calculations and explain retirement scenarios. All data processing strictly adheres to financial security standards without exposing your personal identity."
-                    : "Trợ lý AI của hệ thống hỗ trợ giải thích các chỉ số và kế hoạch hưu trí của bạn dựa trên dữ liệu tính toán chuẩn mực. Mọi thông tin được xử lý an toàn theo nguyên tắc bảo mật tài chính, bảo vệ tối đa danh tính cá nhân.")}
+                    ? "Review the processing purpose, data categories and history preferences below before choosing whether to allow processing."
+                    : "Hãy xem mục đích xử lý, các loại dữ liệu và lựa chọn lưu lịch sử bên dưới trước khi quyết định cho phép xử lý.")}
               </p>
             </div>
           </div>

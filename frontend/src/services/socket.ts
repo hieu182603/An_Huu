@@ -1,5 +1,5 @@
 import { io, Socket } from "socket.io-client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getAccessToken, authenticatedRequest } from "./api";
 
 export interface RealtimeNotification {
@@ -56,44 +56,47 @@ export function useRealtimeNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [updating, setUpdating] = useState(false);
+  const writing = useRef(false);
+  const fetchSeq = useRef(0);
 
   const fetchLatest = useCallback(async () => {
+    const seq = ++fetchSeq.current;
     try {
       setLoading(true);
       const res = await authenticatedRequest<{ items: RealtimeNotification[]; total: number; unread: number; limit: number }>(
         "/me/notifications?page=1&limit=25"
       );
-      if (res && Array.isArray(res.items)) {
+      if (seq === fetchSeq.current && res && Array.isArray(res.items)) {
         setNotifications(res.items);
-        setUnreadCount(res.items.filter((n) => !n.readAt).length);
+        setUnreadCount(res.unread);
+        setError("");
       }
-    } catch {
-      // Offline fallback
+    } catch (error) {
+      if (seq === fetchSeq.current) setError(error instanceof Error ? error.message : String(error));
     } finally {
-      setLoading(false);
+      if (seq === fetchSeq.current) setLoading(false);
     }
   }, []);
 
-  const markAsRead = useCallback(async (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n))
-    );
-    setUnreadCount((c) => Math.max(0, c - 1));
-    window.dispatchEvent(new Event("anhuu:notifications-updated"));
+  const saveRead = useCallback(async (path: string) => {
+    if (writing.current) return false;
+    writing.current = true;
+    setUpdating(true);
+    setError("");
     try {
-      await authenticatedRequest(`/me/notifications/${id}/read`, {});
-    } catch {}
-  }, []);
-
-  const markAllAsRead = useCallback(async () => {
-    const now = new Date().toISOString();
-    setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || now })));
-    setUnreadCount(0);
-    window.dispatchEvent(new Event("anhuu:notifications-updated"));
-    try {
-      await authenticatedRequest("/me/notifications/read-all", {});
-    } catch {}
-  }, []);
+      await authenticatedRequest(path, {});
+      window.dispatchEvent(new Event("anhuu:notifications-updated"));
+      await fetchLatest();
+      return true;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+      return false;
+    } finally { writing.current = false; setUpdating(false); }
+  }, [fetchLatest]);
+  const markAsRead = useCallback((id: string) => saveRead(`/me/notifications/${id}/read`), [saveRead]);
+  const markAllAsRead = useCallback(() => saveRead("/me/notifications/read-all"), [saveRead]);
 
   useEffect(() => {
     void fetchLatest();
@@ -113,19 +116,9 @@ export function useRealtimeNotifications() {
       window.dispatchEvent(new CustomEvent("anhuu:notification-received", { detail: notifItem }));
     };
 
-    const onRead = ({ id }: { id?: string }) => {
-      const now = new Date().toISOString();
-      setNotifications((prev) =>
-        id
-          ? prev.map((n) => (n.id === id ? { ...n, readAt: now } : n))
-          : prev.map((n) => ({ ...n, readAt: n.readAt || now }))
-      );
-      if (id) {
-        setUnreadCount((c) => Math.max(0, c - 1));
-      } else {
-        setUnreadCount(0);
-      }
-    };
+    // A POST and its socket echo can both arrive; reload the authoritative total
+    // instead of decrementing twice or counting only the visible first page.
+    const onRead = () => { void fetchLatest(); };
 
     const onBroadcast = (payload: { title: string; message: string; timestamp: string }) => {
       const syntheticNotif: RealtimeNotification = {
@@ -170,6 +163,8 @@ export function useRealtimeNotifications() {
     unreadCount,
     isConnected,
     loading,
+    error,
+    updating,
     refresh: fetchLatest,
     markAsRead,
     markAllAsRead,

@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Alert, Badge, Button, Card, Icon, IconButton, Modal, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
+import { useAuth } from "../context/AuthContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
+import { LoanRevisionEditor } from "../components/retirement/LoanRevisionEditor";
+import { AnchorReforecastResult } from "../components/retirement/AnchorReforecastResult";
 import {
   previewMonthlyRetirement,
   formatVNDCurrency,
@@ -23,6 +26,7 @@ import {
   saveSourceReforecast,
   type FlowSourceCommand,
   type SourceReforecastPreviewResponse,
+  type SourceReforecastPreviewInput,
   type PensionSourceSelection,
   type LoanSourceRevisionCommand,
   type LoanCreation,
@@ -35,7 +39,9 @@ import {
   type AssetAvailabilityRelease,
   generateContractPeriods,
 } from "../services/plans";
+import { EvidenceEditor, emptyEvidence, submittedEvidence } from "../components/EvidenceEditor";
 import { Decimal } from "../utils/decimal";
+import { ApiError } from "../services/api";
 import { listPensionEstimates, type PensionEstimateRecord } from "../services/insurance";
 import {
   listActualMonths,
@@ -54,10 +60,11 @@ import {
   type ActualForecastResult,
   type FutureChange,
   type FutureChangeField,
-  type SourceChange,
   type ReforecastPreviewResponse,
+  type ReforecastPreviewCommand,
 } from "../services/actuals";
 import { useI18n } from "../i18n";
+import "./simulation-audit.css";
 
 const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " ₫";
 
@@ -87,10 +94,11 @@ const getVietnamCurrentMonth = () => new Date(Date.now() + 7 * 3600000).toISOStr
 
 export default function SimulationTrackingPage() {
   const { t, language } = useI18n();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { notify } = useNotification();
   const { profile, v2Profile, profileRevision } = useFinancialProfile();
-  const { activePlan, currentVersion, savePlanVersion, applyVersion } = useRetirementPlan();
+  const { activePlan, currentVersion, savePlanVersion, applyVersion, loadingPlans, plansError, refreshPlans } = useRetirementPlan();
 
   // Top level active tab: T08 (What-If & Compare) vs T09 (Actual Ledger & Reforecast)
   const [params, setParams] = useSearchParams();
@@ -101,6 +109,10 @@ export default function SimulationTrackingPage() {
   // TAB 1: WHAT-IF & COMPARE (FE-T08) STATE
   // ==========================================
   const [policyDetail, setPolicyDetail] = useState<PortfolioPolicyDetail | null>(null);
+  const [policyError, setPolicyError] = useState("");
+  const [loadingPolicy, setLoadingPolicy] = useState(true);
+  const [policyAttempt, setPolicyAttempt] = useState(0);
+  const [simAttempt, setSimAttempt] = useState(0);
   const [scenario, setScenario] = useState<"BASE" | "ADVERSE" | "FAVORABLE">("BASE");
 
   const [simRetireAge, setSimRetireAge] = useState(profile.goal.targetRetireAge || 60);
@@ -122,10 +134,13 @@ export default function SimulationTrackingPage() {
   const [confirmApply, setConfirmApply] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applyNotice, setApplyNotice] = useState<{ tone: "success" | "danger"; message: string } | null>(null);
+  const scenarioSaving = useRef(false);
+  const savedScenario = useRef<{ hash: string; saved: NonNullable<Awaited<ReturnType<typeof savePlanVersion>>> } | null>(null);
 
   // Load published policy
   useEffect(() => {
     let active = true;
+    setLoadingPolicy(true); setPolicyError(""); setPolicyDetail(null);
     fetchUserPortfolioPolicies(1, 1)
       .then(async (res) => {
         if (!active) return;
@@ -134,11 +149,12 @@ export default function SimulationTrackingPage() {
           if (active) setPolicyDetail(detail);
         }
       })
-      .catch(() => {});
+      .catch(error => { if (active) setPolicyError(error instanceof Error ? error.message : String(error)); })
+      .finally(() => { if (active) setLoadingPolicy(false); });
     return () => {
       active = false;
     };
-  }, []);
+  }, [policyAttempt]);
 
   const birthYear = useMemo(() => {
     const birthMonthStr = v2Profile?.personal.birthMonth?.status === "KNOWN" ? v2Profile.personal.birthMonth.value : null;
@@ -153,7 +169,7 @@ export default function SimulationTrackingPage() {
     const birthMonth = v2Profile?.personal.birthMonth;
     const rawEnd = `${birthYear + lifeExp}-${birthMonth?.status === "KNOWN" ? birthMonth.value.slice(5, 7) : "12"}`;
     const scenarioYears = policyDetail?.data?.scenarios?.flatMap((s: any) => s.years?.map((y: any) => y.year) || []) || [];
-    const maxScenarioYear = scenarioYears.length > 0 ? Math.max(...scenarioYears) : 2055;
+    const maxScenarioYear = scenarioYears.length > 0 ? Math.max(...scenarioYears) : Number(rawEnd.slice(0, 4));
     const capMonth = `${maxScenarioYear}-12`;
     return rawEnd < capMonth ? rawEnd : capMonth;
   }, [birthYear, profile.goal.lifeExpectancy, policyDetail, v2Profile]);
@@ -170,9 +186,13 @@ export default function SimulationTrackingPage() {
     return totalAssets - totalDebt;
   }, [profile]);
 
+  const retirementMonthSuffix = v2Profile?.personal.desiredRetirementMonth?.status === "KNOWN"
+    ? v2Profile.personal.desiredRetirementMonth.value.slice(5, 7)
+    : v2Profile?.personal.birthMonth?.status === "KNOWN" ? v2Profile.personal.birthMonth.value.slice(5, 7) : "12";
+  const simRetirementMonth = `${birthYear + simRetireAge}-${retirementMonthSuffix}`;
   // Run server preview simulation (What-If)
   useEffect(() => {
-    if (!policyDetail) return;
+    if (!policyDetail || activeTab !== "what-if" || loadingPlans || plansError) return;
 
     let active = true;
     setIsSimulating(true);
@@ -184,13 +204,22 @@ export default function SimulationTrackingPage() {
     const baselineAnswers = currentVersion?.preview.selection.answers;
     const answers = baselineAnswers && baselineAnswers.length > 0 ? baselineAnswers : [];
 
-    const simRetireMonth = `${birthYear + simRetireAge}-12`;
+    const simRetireMonth = simRetirementMonth;
 
     // Map overrides to real asset IDs from profile v2; never use generic placeholder strings
     const entries = v2Profile?.assets.status === "KNOWN" ? v2Profile.assets.entries : [];
     const cashAsset = entries.find((a) => a.type === "CASH" || a.type === "DEPOSIT");
     const realEstateAsset = entries.find((a) => a.type === "REAL_ESTATE" || a.type === "PRIMARY_HOME");
     const stockAsset = entries.find((a) => a.type === "STOCK_FUND");
+    const assetGroups = [
+      [overrideCash, entries.filter(a => a.type === "CASH" || a.type === "DEPOSIT")],
+      [overrideRealEstate, entries.filter(a => a.type === "REAL_ESTATE" || a.type === "PRIMARY_HOME")],
+      [overrideStock, entries.filter(a => a.type === "STOCK_FUND")],
+    ] as const;
+    if (assetGroups.some(([value, assets]) => value && assets.length !== 1)) {
+      setSimError(language === "en" ? "An asset override requires exactly one matching asset. Review your assets or clear the override." : "Giá trị tài sản giả định cần đúng một tài sản tương ứng trong hồ sơ. Hãy kiểm tra tài sản hoặc xóa giá trị ghi đè.");
+      setIsSimulating(false); return;
+    }
 
     const assetValuesList: Array<{ assetId: string; value: string }> = [];
     if (overrideCash && cashAsset) assetValuesList.push({ assetId: cashAsset.id, value: overrideCash });
@@ -257,6 +286,7 @@ export default function SimulationTrackingPage() {
     };
   }, [
     policyDetail,
+    activeTab, loadingPlans, plansError, simAttempt, simRetirementMonth,
     scenario,
     simRetireAge,
     simMonthlySave,
@@ -270,11 +300,15 @@ export default function SimulationTrackingPage() {
     activePlan?.id,
     currentVersion?.id,
     currentVersion?.preview.selection.answers,
+    v2Profile?.assets,
     language,
   ]);
 
-  const simSummary = !isSimulating && !simError && (simResult?.status === "READY" || (simResult as any)?.status === "CALCULATED" || Boolean(simResult?.calculation?.summary)) ? simResult?.calculation?.summary : null;
+  const simSummary = policyDetail && !loadingPolicy && !policyError && !loadingPlans && !plansError && !isSimulating && !simError && simResult?.status === "READY" ? simResult.calculation?.summary : null;
   const currentSummary = currentVersion?.preview.calculation?.summary;
+  const baselineSelection = currentVersion?.preview.selection;
+  const noBaseline = language === "en" ? "No applied version" : "Chưa có bản áp dụng";
+  const retirementMonthDelta = currentSummary?.retirementMonth ? (Number(simRetirementMonth.slice(0, 4)) - Number(currentSummary.retirementMonth.slice(0, 4))) * 12 + Number(simRetirementMonth.slice(5, 7)) - Number(currentSummary.retirementMonth.slice(5, 7)) : null;
 
   const simTargetFund = simSummary ? parseFloat(simSummary.atRetirement.requiredFund) : 0;
   const simProjectedFund = simSummary ? parseFloat(simSummary.atRetirement.projectedFund) : 0;
@@ -298,7 +332,7 @@ export default function SimulationTrackingPage() {
   };
 
   const handleApplyScenario = async () => {
-    if (applying || isSimulating || !simSummary || !simResult || !simResult.inputHash || !simResult.selection) {
+    if (scenarioSaving.current || applying || isSimulating || !simSummary || !simResult || !simResult.inputHash || !simResult.selection) {
       notify.error(
         language === "en" ? "Cannot Apply" : "Chưa thể áp dụng",
         language === "en" ? "Simulation data calculation not completed." : "Dữ liệu mô phỏng chưa hoàn tất tính toán."
@@ -306,12 +340,14 @@ export default function SimulationTrackingPage() {
       return;
     }
 
-    setApplying(true);
+    scenarioSaving.current = true; setApplying(true);
     setApplyNotice(null);
 
     try {
-      const saved = await savePlanVersion(simResult.selection, simResult.inputHash);
+      const saved = savedScenario.current?.hash === simResult.inputHash ? savedScenario.current.saved : await savePlanVersion(simResult.selection, simResult.inputHash);
+      if (!saved) throw new Error(language === "en" ? "Could not save scenario." : "Chưa lưu được kịch bản.");
       if (saved) {
+        savedScenario.current = { hash: simResult.inputHash, saved };
         const revision = profileRevision > 0 ? profileRevision : 1;
         const applied = await applyVersion(saved.id, revision, saved.planId, saved.planRevision);
         if (applied === false) {
@@ -336,6 +372,7 @@ export default function SimulationTrackingPage() {
       setApplyNotice({ tone: "danger", message: err });
       notify.error(language === "en" ? "Application Error" : "Lỗi áp dụng", err);
     } finally {
+      scenarioSaving.current = false;
       setApplying(false);
     }
   };
@@ -351,6 +388,12 @@ export default function SimulationTrackingPage() {
   const [entries, setEntries] = useState<ActualEntry[]>([]);
   const [correctionReason, setCorrectionReason] = useState<string>(() => (language === "en" ? "Actual balance reconciliation" : "Đối soát số dư thực tế"));
   const [ledgerLoading, setLedgerLoading] = useState<boolean>(false);
+  const [ledgerError, setLedgerError] = useState("");
+  const [ledgerSaveError, setLedgerSaveError] = useState("");
+  const [loadedPeriod, setLoadedPeriod] = useState("");
+  const ledgerRequest = useRef(0);
+  const actualSaving = useRef(false);
+  const ledgerReady = loadedPeriod === selectedPeriod && !ledgerLoading && !ledgerError;
   const [savingActual, setSavingActual] = useState<boolean>(false);
   const [historyOpen, setHistoryOpen] = useState<boolean>(false);
 
@@ -364,25 +407,32 @@ export default function SimulationTrackingPage() {
 
   // Load actual month detail when selected period changes
   const loadPeriodData = async (period: string) => {
+    const request = ++ledgerRequest.current;
     setLedgerLoading(true);
+    setLoadedPeriod(""); setLedgerError(""); setLedgerSaveError("");
+    setMonthDetail(null); setHistoryOpen(false);
     setReforecastResult(null);
     setReforecastError(null);
     try {
-      const detail = await getActualMonth(period);
+      const detail = await getActualMonth(period, true);
+      if (request !== ledgerRequest.current) return;
       setMonthDetail(detail);
       setOpeningBalance(detail.data.openingBalance);
       setClosingBalance(detail.data.closingBalance);
       setEntries(detail.data.entries);
       setCorrectionReason(detail.data.correctionReason || (language === "en" ? "Actual balance reconciliation" : "Đối soát số dư thực tế"));
-    } catch {
-      // 404: Month has not been recorded yet. Initialize defaults
+      setLoadedPeriod(period);
+    } catch (error) {
+      if (request !== ledgerRequest.current) return;
       setMonthDetail(null);
-      setOpeningBalance(netWorth > 0 ? String(netWorth) : "0");
-      setClosingBalance(netWorth > 0 ? String(netWorth) : "0");
+      setOpeningBalance("");
+      setClosingBalance("");
       setEntries([]);
       setCorrectionReason(language === "en" ? "Initialize actual ledger month" : "Khởi tạo sổ thực tế tháng");
+      if (error instanceof ApiError && error.status === 404) setLoadedPeriod(period);
+      else setLedgerError(error instanceof Error ? error.message : String(error));
     } finally {
-      setLedgerLoading(false);
+      if (request === ledgerRequest.current) setLedgerLoading(false);
     }
   };
 
@@ -390,7 +440,8 @@ export default function SimulationTrackingPage() {
     if (activeTab === "actuals") {
       loadPeriodData(selectedPeriod);
     }
-  }, [activeTab, selectedPeriod]);
+    return () => { ++ledgerRequest.current; };
+  }, [activeTab, selectedPeriod, user?.id]);
 
   // Client reconciliation preview
   const currentPayload: ActualPayload = useMemo(() => ({
@@ -401,9 +452,29 @@ export default function SimulationTrackingPage() {
     correctionReason,
   }), [openingBalance, closingBalance, entries, correctionReason]);
 
-  const localReconcile = useMemo(() => {
-    return calculateLocalReconciliation(currentPayload);
-  }, [currentPayload]);
+  const validMoney = (value: string, signed = false) => (signed ? /^-?\d+(\.\d{1,2})?$/ : /^\d+(\.\d{1,2})?$/).test(value);
+  const lastPeriodDate = `${selectedPeriod}-${new Date(Number(selectedPeriod.slice(0, 4)), Number(selectedPeriod.slice(5, 7)), 0).getDate()}`;
+  const amountsValid = validMoney(openingBalance) && validMoney(closingBalance) && entries.every(entry => validMoney(entry.amount, ["MARKET_CHANGE", "BALANCE_ADJUSTMENT"].includes(entry.kind)));
+  const datesValid = entries.every(entry => /^\d{4}-\d{2}-\d{2}$/.test(entry.date) && entry.date >= `${selectedPeriod}-01` && entry.date <= lastPeriodDate);
+  const localReconcile = useMemo(() => calculateLocalReconciliation({ ...currentPayload,
+    openingBalance: validMoney(openingBalance) ? openingBalance : "0", closingBalance: validMoney(closingBalance) ? closingBalance : "0",
+    entries: entries.map(entry => ({ ...entry, amount: validMoney(entry.amount, true) ? entry.amount : "0" }))
+  }), [currentPayload]);
+  const ledgerDirty = ledgerReady && (!monthDetail || JSON.stringify(currentPayload) !== JSON.stringify({
+    currency: monthDetail.data.currency,
+    openingBalance: monthDetail.data.openingBalance,
+    closingBalance: monthDetail.data.closingBalance,
+    entries: monthDetail.data.entries,
+    correctionReason: monthDetail.data.correctionReason,
+  }));
+  const reforecastKey = JSON.stringify([user?.id, activeTab, selectedPeriod, currentPayload, openingBalance, closingBalance, ledgerReady, monthDetail?.revision, activePlan?.id, activePlan?.revision, currentVersion?.id, loadingPlans, plansError]);
+  const latestReforecastKey = useRef(reforecastKey); latestReforecastKey.current = reforecastKey;
+  const reforecastRequest = useRef(0);
+  useEffect(() => {
+    ++reforecastRequest.current;
+    setReforecastResult(null); setReforecastError(null); setReforecasting(false);
+    return () => { ++reforecastRequest.current; };
+  }, [reforecastKey]);
 
   const handleAddEntry = () => {
     const newEntry: ActualEntry = {
@@ -425,6 +496,7 @@ export default function SimulationTrackingPage() {
   };
 
   const handleSaveActualMonth = async () => {
+    if (actualSaving.current || candidateWriting.current || !ledgerReady || !amountsValid || !datesValid) return;
     if (!correctionReason.trim()) {
       notify.error(
         language === "en" ? "Missing Reason" : "Thiếu lý do",
@@ -443,9 +515,9 @@ export default function SimulationTrackingPage() {
       return;
     }
 
-    setSavingActual(true);
+    actualSaving.current = true; setSavingActual(true); setLedgerSaveError("");
     const expectedRevision = monthDetail ? monthDetail.revision : 0;
-    const bodyStr = JSON.stringify({ expectedRevision, data: currentPayload });
+    const bodyStr = JSON.stringify({ userId: user?.id, period: selectedPeriod, expectedRevision, data: currentPayload });
 
     // Idempotent retry: reuse key if exact body matches, else generate new
     const key = actualIdempotency && actualIdempotency.bodyStr === bodyStr
@@ -462,13 +534,15 @@ export default function SimulationTrackingPage() {
       await loadPeriodData(selectedPeriod);
     } catch (e) {
       const msg = e instanceof Error ? e.message : (language === "en" ? "Unable to save actual ledger." : "Không thể lưu sổ thực tế.");
+      setLedgerSaveError(msg);
       notify.error(language === "en" ? "Save Ledger Error" : "Lỗi lưu sổ", msg);
     } finally {
-      setSavingActual(false);
+      actualSaving.current = false; setSavingActual(false);
     }
   };
 
   const handleRunReforecast = async () => {
+    if (!ledgerReady || ledgerDirty || savingActual || reforecasting || loadingPlans || plansError) return;
     if (!activePlan?.id || !currentVersion?.id) {
       notify.error(
         language === "en" ? "No Active Plan" : "Chưa có kế hoạch",
@@ -477,12 +551,17 @@ export default function SimulationTrackingPage() {
       return;
     }
 
+    const requestKey = reforecastKey;
+    const requestId = ++reforecastRequest.current;
+    const isCurrent = () => latestReforecastKey.current === requestKey && reforecastRequest.current === requestId;
     setReforecasting(true);
     setReforecastError(null);
+    setReforecastResult(null);
     try {
       const result = await reforecastPlan(activePlan.id, currentVersion.id, selectedPeriod);
+      if (!isCurrent()) return;
       setReforecastResult(result);
-      if (result.status === "READY") {
+      if (result.status === "READY" && result.anchor && result.calculation) {
         notify.success(
           language === "en" ? "Reforecast Completed" : "Dự báo lại hoàn tất",
           language === "en" ? `Reforecasted based on balance anchored at ${selectedPeriod}.` : `Đã dự báo lại dựa trên số dư chốt tháng ${selectedPeriod}.`
@@ -494,29 +573,35 @@ export default function SimulationTrackingPage() {
         );
       } else if (result.status === "HORIZON_COMPLETE") {
         notify.info(
-          language === "en" ? "Horizon Completed" : "Hoàn thành chân trời",
+          language === "en" ? "Projection Horizon Completed" : "Đã hết kỳ dự báo",
           language === "en" ? "The full projection horizon of this version has passed." : "Toàn bộ chuỗi dự báo của phiên bản đã trôi qua."
         );
       }
     } catch (e) {
+      if (!isCurrent()) return;
       const msg = e instanceof Error ? e.message : (language === "en" ? "Could not run reforecast." : "Không thể chạy dự báo lại.");
       setReforecastError(msg);
       notify.error(language === "en" ? "Reforecast Error" : "Lỗi dự báo lại", msg);
     } finally {
-      setReforecasting(false);
+      if (isCurrent()) setReforecasting(false);
     }
   };
 
   // Future & Source Changes (P13/P15 & Q15-03)
   const [reforecastSubTab, setReforecastSubTab] = useState<"standard" | "future-changes" | "sources-v4">("standard");
   const [futureChanges, setFutureChanges] = useState<FutureChange[]>([]);
-  const [sourceChanges, setSourceChanges] = useState<SourceChange[]>([]);
   const [reforecastCandidate, setReforecastCandidate] = useState<ReforecastPreviewResponse | null>(null);
   const [previewingCandidate, setPreviewingCandidate] = useState<boolean>(false);
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [savingCandidate, setSavingCandidate] = useState<boolean>(false);
   const [applyingCandidate, setApplyingCandidate] = useState<boolean>(false);
-  const [savedCandidateVersion, setSavedCandidateVersion] = useState<any | null>(null);
+  const [savedCandidateVersion, setSavedCandidateVersion] = useState<Awaited<ReturnType<typeof saveReforecast>> | null>(null);
+  const [candidateSnapshot, setCandidateSnapshot] = useState<{ key: string; input: ReforecastPreviewCommand; revision: number } | null>(null);
+  const [confirmCandidate, setConfirmCandidate] = useState(false);
+  const [candidateConflict, setCandidateConflict] = useState(false);
+  const candidateRequest = useRef(0);
+  const candidateWriting = useRef(false);
+  const candidateSavedRevision = useRef<{ planId: string; revision: number } | null>(null);
 
   // Future Change form inputs
   const [fcField, setFcField] = useState<FutureChangeField>("plannedContribution");
@@ -524,10 +609,50 @@ export default function SimulationTrackingPage() {
   const [fcStartMonth, setFcStartMonth] = useState<string>("");
   const [fcEndMonth, setFcEndMonth] = useState<string>("");
   const [fcReason, setFcReason] = useState<string>("");
+  const [fcEditingId, setFcEditingId] = useState<string | null>(null);
+  const [fcError, setFcError] = useState("");
+  const candidateBusy = savingCandidate || applyingCandidate;
+  const candidateKey = JSON.stringify([user?.id, activePlan?.id, activePlan?.revision, currentVersion?.id, currentVersion?.snapshotHash, profileRevision, selectedPeriod, monthDetail?.revision, ledgerReady, ledgerDirty, currentPayload, activeTab, loadingPlans, plansError, futureChanges, fcField, fcAmount, fcStartMonth, fcEndMonth, fcReason, fcEditingId]);
+  const latestCandidateKey = useRef(candidateKey); latestCandidateKey.current = candidateKey;
+  const currentCandidate = candidateSnapshot?.key === candidateKey ? reforecastCandidate : null;
+  const candidateComplete = currentCandidate?.status === "READY" && Boolean(currentCandidate.inputHash && currentCandidate.candidate?.calculation?.summary?.atRetirement);
+  const candidateEndMonth = currentVersion?.preview?.calculation?.summary?.endMonth;
+  const candidateUsesSources = currentVersion?.preview?.modelVersion === "retirement-monthly-v4";
+  const candidateCanPreview = !candidateUsesSources && ledgerReady && !ledgerDirty && !savingActual && !loadingPlans && !plansError && Boolean(activePlan?.id && currentVersion?.id) && profileRevision > 0 && futureChanges.length > 0 && !fcAmount && !fcReason && !fcEditingId;
+  useEffect(() => {
+    ++candidateRequest.current;
+    setReforecastCandidate(null); setCandidateSnapshot(null); setSavedCandidateVersion(null);
+    setCandidateError(null); setPreviewingCandidate(false); setConfirmCandidate(false);
+    return () => { ++candidateRequest.current; };
+  }, [candidateKey]);
+  useEffect(() => {
+    setFutureChanges([]); setFcAmount(""); setFcReason(""); setFcEditingId(null); setFcError(""); setCandidateConflict(false);
+    candidateSavedRevision.current = null;
+  }, [user?.id, activePlan?.id, currentVersion?.id]);
+  const futureFieldLabel = (field: FutureChangeField) => ({
+    plannedContribution: language === "en" ? "Savings contribution" : "Đóng góp tích lũy",
+    income: language === "en" ? "Income" : "Thu nhập",
+    livingExpense: language === "en" ? "Living expenses" : "Sinh hoạt",
+    additionalExpense: language === "en" ? "Additional expenses" : "Chi bổ sung",
+  })[field];
+  const futureMoney = (value: string | null | undefined) => {
+    if (value == null || !/^-?\d+(\.\d+)?$/.test(value)) return language === "en" ? "Unknown" : "Chưa xác định";
+    const [whole, fraction = ""] = value.replace(/^-/, "").split(".");
+    const decimals = fraction.replace(/0+$/, "");
+    return `${value.startsWith("-") ? "-" : ""}${BigInt(whole).toLocaleString(language === "en" ? "en-US" : "vi-VN")}${decimals ? `${language === "en" ? "." : ","}${decimals}` : ""} ₫`;
+  };
 
   // Source commands v4 state
   const [sourceCommands, setSourceCommands] = useState<FlowSourceCommand[]>([]);
   const [v4Candidate, setV4Candidate] = useState<SourceReforecastPreviewResponse | null>(null);
+  // Keep discovery options separate from the immutable input/result that may be saved.
+  const [v4Preview, setV4Preview] = useState<{
+    inputKey: string;
+    planId: string;
+    input: SourceReforecastPreviewInput;
+    response: SourceReforecastPreviewResponse;
+  } | null>(null);
+  const v4Request = useRef(0);
   const [previewingV4, setPreviewingV4] = useState<boolean>(false);
   const [savingV4, setSavingV4] = useState<boolean>(false);
   const [v4Error, setV4Error] = useState<string | null>(null);
@@ -540,6 +665,13 @@ export default function SimulationTrackingPage() {
   const [eligibleEstimates, setEligibleEstimates] = useState<PensionEstimateRecord[]>([]);
   const [selectedEstimateId, setSelectedEstimateId] = useState<string>("");
   const [pensionSelections, setPensionSelections] = useState<PensionSourceSelection[]>([]);
+  const [pensionLoading, setPensionLoading] = useState(true);
+  const [pensionLoadError, setPensionLoadError] = useState(false);
+  const [pensionReload, setPensionReload] = useState(0);
+  const [pensionError, setPensionError] = useState("");
+  const [pensionTargetId, setPensionTargetId] = useState("");
+  const [pensionConfirmed, setPensionConfirmed] = useState(false);
+  const pensionDraft = Boolean(selectedEstimateId && !pensionSelections.length);
 
   // V4 flow form inputs
   const [v4Operation, setV4Operation] = useState<"CREATE" | "REVISE" | "END">("CREATE");
@@ -549,6 +681,14 @@ export default function SimulationTrackingPage() {
   const [v4FromMonth, setV4FromMonth] = useState<string>("");
   const [v4ToMonth, setV4ToMonth] = useState<string>("");
   const [v4Document, setV4Document] = useState<string>("");
+  const [v4Confirmation, setV4Confirmation] = useState<"HYPOTHETICAL" | "USER_CONFIRMED">("HYPOTHETICAL");
+  const [v4FlowError, setV4FlowError] = useState("");
+  const [v4DiscoveryRegistry, setV4DiscoveryRegistry] = useState<any>(null);
+  const [confirmV4Apply, setConfirmV4Apply] = useState(false);
+  const [v4Conflict, setV4Conflict] = useState(false);
+  const v4Writing = useRef(false);
+  const v4LastSavedRevision = useRef<{ planId: string; revision: number } | null>(null);
+  const v4FlowDraft = Boolean(v4Amount || v4Document);
 
   // V4 Loan revisions & creations state (FE-07 & FE-08)
   const [loanRevisions, setLoanRevisions] = useState<LoanSourceRevisionCommand[]>([]);
@@ -557,28 +697,8 @@ export default function SimulationTrackingPage() {
   const [plannedRefinances, setPlannedRefinances] = useState<PlannedPairCommand[]>([]);
   const [loanTab, setLoanTab] = useState<"revise" | "create" | "refinance" | "plannedRefinance">("revise");
 
-  // Form state for revising loan
-  const [selectedLoanOptionSourceId, setSelectedLoanOptionSourceId] = useState<string>("");
-  const [lrOperation, setLrOperation] = useState<"REVISE" | "END">("REVISE");
-  const [lrPrincipal, setLrPrincipal] = useState<string>("");
-  const [lrMaturityMonths, setLrMaturityMonths] = useState<number>(36);
-  const [lrRatePercent, setLrRatePercent] = useState<string>("8.5");
-  const [lrMode, setLrMode] = useState<"REDUCE_PAYMENT_KEEP_TERM" | "REDUCE_TERM_KEEP_PAYMENT" | "BANK_SCHEDULE" | "RESTRUCTURED">("REDUCE_PAYMENT_KEEP_TERM");
-  const [lrFixedPayment, setLrFixedPayment] = useState<string>("");
-  const [lrPaymentShare, setLrPaymentShare] = useState<string>("1");
-  const [lrBalanceScope, setLrBalanceScope] = useState<"FULL_CONTRACT" | "USER_SHARE">("FULL_CONTRACT");
-  const [lrResponsibilityKind, setLrResponsibilityKind] = useState<"ALLOCATED_SHARE" | "CAPPED">("ALLOCATED_SHARE");
-  const [lrCapLimit, setLrCapLimit] = useState<string>("");
-  const [lrCapPreviouslyPaid, setLrCapPreviouslyPaid] = useState<string>("");
-  const [lrDocument, setLrDocument] = useState<string>("");
-  // Legacy opening form
-  const [lrLegacySignedOn, setLrLegacySignedOn] = useState<string>("2024-01-01");
-  const [lrLegacyEffectiveOn, setLrLegacyEffectiveOn] = useState<string>("2024-01-01");
-  const [lrLegacyPreviouslyPaid, setLrLegacyPreviouslyPaid] = useState<string>("0");
-  const [lrLegacyDoc, setLrLegacyDoc] = useState<string>("");
-  // Responsibility amendment
-  const [lrHasAmendment, setLrHasAmendment] = useState<boolean>(false);
-  const [lrAmendmentOpeningUserPaid, setLrAmendmentOpeningUserPaid] = useState<string>("0");
+  const [loanRevisionDraft, setLoanRevisionDraft] = useState("");
+
 
   // Form state for creating loan
   const [lcAgreementRef, setLcAgreementRef] = useState<string>("");
@@ -593,7 +713,6 @@ export default function SimulationTrackingPage() {
   const [lcResponsibilityKind, setLcResponsibilityKind] = useState<"ALLOCATED_SHARE" | "CAPPED">("ALLOCATED_SHARE");
   const [lcCapLimit, setLcCapLimit] = useState<string>("");
   const [lcCapPreviouslyPaid, setLcCapPreviouslyPaid] = useState<string>("");
-  const [lcDocRef, setLcDocRef] = useState<string>("");
   const [lcWithheldFees, setLcWithheldFees] = useState<string>("0");
   const [lcDisbursedOn, setLcDisbursedOn] = useState<string>("");
   const [lcOpeningUserPaid, setLcOpeningUserPaid] = useState<string>("0");
@@ -605,7 +724,39 @@ export default function SimulationTrackingPage() {
   const [refiWithheldFees, setRefiWithheldFees] = useState<string>("5000000");
   const [refiExternalTopUp, setRefiExternalTopUp] = useState<string>("0");
   const [refiUnusedProceeds, setRefiUnusedProceeds] = useState<string>("0");
-  const [refiSettledOn, setRefiSettledOn] = useState<string>("");
+  const [refiPaymentPeriod, setRefiPaymentPeriod] = useState("");
+  const [refiPaymentEventId, setRefiPaymentEventId] = useState("");
+  const [refiPaymentLedger, setRefiPaymentLedger] = useState<{ userId: string; detail: ActualMonthDetail } | null>(null);
+  const [refiPaymentsLoading, setRefiPaymentsLoading] = useState(false);
+  const [refiPaymentsError, setRefiPaymentsError] = useState<string | null>(null);
+  const [refiPaymentReload, setRefiPaymentReload] = useState(0);
+  const refiLedgerPeriod = refiPaymentPeriod || selectedPeriod;
+  const refiLedger = refiPaymentLedger?.userId === user?.id
+    && refiPaymentLedger?.detail.period === refiLedgerPeriod
+    && refiLedgerPeriod <= selectedPeriod ? refiPaymentLedger.detail : null;
+  const refiPaymentOptions = refiLedger?.reconciliation === "MATCHED"
+    ? refiLedger.data.entries.filter(entry => entry.kind === "DEBT_PAYMENT" && new Decimal(entry.amount).gt(0))
+    : [];
+  const refiPayment = refiPaymentOptions.find(entry => entry.eventId === refiPaymentEventId);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRefiPaymentLedger(null);
+    setRefiPaymentEventId("");
+    setRefiPaymentsError(null);
+    setRefiPaymentsLoading(false);
+    if (loanTab !== "refinance" || !user?.id || refiLedgerPeriod > selectedPeriod) return;
+    const userId = user.id;
+    setRefiPaymentsLoading(true);
+    getActualMonth(refiLedgerPeriod, true).then(detail => {
+      if (!cancelled) setRefiPaymentLedger({ userId, detail });
+    }).catch(error => {
+      if (!cancelled) setRefiPaymentsError(error instanceof Error ? error.message : "Không tải được sổ giao dịch thực tế.");
+    }).finally(() => {
+      if (!cancelled) setRefiPaymentsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [loanTab, user?.id, refiLedgerPeriod, selectedPeriod, refiPaymentReload, monthDetail?.revision]);
   const [refiFundingScope, setRefiFundingScope] = useState<"FULL_CONTRACT" | "USER_SHARE">("USER_SHARE");
   const [refiRatePercent, setRefiRatePercent] = useState<string>("8.0");
   const [refiMaturityMonths, setRefiMaturityMonths] = useState<number>(60);
@@ -654,7 +805,6 @@ export default function SimulationTrackingPage() {
   const [assetConfirmedContribution, setAssetConfirmedContribution] = useState<string>("150000000");
   const [assetFundingStatus, setAssetFundingStatus] = useState<"PLANNED" | "REALIZED" | "STAGED">("PLANNED");
   const [assetContributionMonth, setAssetContributionMonth] = useState<string>("");
-  const [assetDocRef, setAssetDocRef] = useState<string>("");
   // Rental exit
   const [assetHasRentalExit, setAssetHasRentalExit] = useState<boolean>(false);
   const [assetRentEndsOn, setAssetRentEndsOn] = useState<string>("");
@@ -664,6 +814,36 @@ export default function SimulationTrackingPage() {
   const [assetMissedScheduledMonth, setAssetMissedScheduledMonth] = useState<string>("");
   const [assetMissedAmount, setAssetMissedAmount] = useState<string>("");
   const [assetMissedReason, setAssetMissedReason] = useState<string>("");
+  const [assetActual, setAssetActual] = useState<{ userId: string; detail: ActualMonthDetail } | null>(null);
+  const [assetActualLoading, setAssetActualLoading] = useState(false);
+  const [assetActualError, setAssetActualError] = useState("");
+  const [assetActualReload, setAssetActualReload] = useState(0);
+  const assetActualPeriod = assetMissedScheduledMonth || selectedPeriod;
+  const assetActualLedger = assetActual && assetActual.userId === user?.id && assetActual.detail.period === assetActualPeriod ? assetActual.detail : null;
+  useEffect(() => {
+    let cancelled = false;
+    setAssetActual(null); setAssetActualError(""); setAssetActualLoading(false);
+    if (!assetHasMissedContribution || !user?.id || assetActualPeriod > selectedPeriod) return;
+    const owner = user.id;
+    setAssetActualLoading(true);
+    getActualMonth(assetActualPeriod, true).then(detail => { if (!cancelled) setAssetActual({ userId: owner, detail }); })
+      .catch(error => { if (!cancelled) setAssetActualError(error instanceof Error ? error.message : "Không tải được sổ tháng."); })
+      .finally(() => { if (!cancelled) setAssetActualLoading(false); });
+    return () => { cancelled = true; };
+  }, [user?.id, assetHasMissedContribution, assetActualPeriod, selectedPeriod, assetActualReload, monthDetail?.revision]);
+  const [sourceEvidence, setSourceEvidence] = useState(emptyEvidence);
+  useEffect(() => { setSourceEvidence(emptyEvidence()); }, [user?.id, activePlan?.id]);
+  const sourceProofKey = JSON.stringify([user?.id, activePlan?.id, selectedPeriod, sourceEvidence, assetActualLedger?.revision, refiLedger?.revision]);
+  const latestProofKey = useRef(sourceProofKey); latestProofKey.current = sourceProofKey;
+  const getSourceProof = async () => {
+    try {
+      const proof = (await submittedEvidence(sourceEvidence))[0];
+      return latestProofKey.current === sourceProofKey ? proof : null;
+    } catch (error) {
+      notify.error(language === "en" ? "Evidence required" : "Cần căn cứ cho lệnh", error instanceof Error ? error.message : "Vui lòng nhập căn cứ.");
+      return null;
+    }
+  };
   // End reason
   const [assetEndReason, setAssetEndReason] = useState<string>("");
   // Staged planning & availability (FE-10)
@@ -674,6 +854,49 @@ export default function SimulationTrackingPage() {
   const [stagedReleaseAmount, setStagedReleaseAmount] = useState<string>("");
   const [stagedReleaseStatus, setStagedReleaseStatus] = useState<"CONFIRMED" | "EXPECTED">("CONFIRMED");
   const [stagedReleases, setStagedReleases] = useState<AssetAvailabilityRelease[]>([]);
+
+  const v4PayloadJson = JSON.stringify({
+    versionId: currentVersion?.id,
+    expectedSnapshotHash: currentVersion?.snapshotHash,
+    expectedRevision: activePlan?.revision ?? 0,
+    expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
+    throughMonth: selectedPeriod,
+    sourceCommands, pensionSelections, loanRevisions, loanCreations,
+    refinances, assetCommands, plannedRefinances,
+  } satisfies Partial<SourceReforecastPreviewInput>);
+  const v4ContextKey = JSON.stringify([user?.id, activePlan?.id, currentVersion?.id, currentVersion?.snapshotHash,
+    activePlan?.revision, profileRevision, selectedPeriod]);
+  const v4InputKey = JSON.stringify([v4ContextKey, v4PayloadJson, monthDetail?.period, monthDetail?.revision, assetActualLedger?.revision, assetActualReload, refiLedger?.revision, refiPaymentReload, v4Operation, selectedSourceId, v4Metric, v4Frequency, v4Amount, v4FromMonth, v4ToMonth, v4Document, v4Confirmation, selectedEstimateId, pensionTargetId, pensionConfirmed, pensionReload, loanRevisionDraft]);
+  const currentV4Preview = v4Preview?.inputKey === v4InputKey ? v4Preview : null;
+  const v4Ready = currentV4Preview?.response.status === "READY" && Boolean(currentV4Preview.response.inputHash && currentV4Preview.response.candidate?.calculation?.summary?.atRetirement);
+
+  useEffect(() => {
+    ++v4Request.current;
+    setV4Preview(null);
+    setSavedV4Version(null);
+    setSavedV4PlanRevision(null);
+    setV4Idempotency(null);
+    setV4Error(null);
+    setPreviewingV4(false);
+    setConfirmV4Apply(false);
+    return () => { ++v4Request.current; };
+  }, [v4InputKey]);
+
+  useEffect(() => { setV4Candidate(null); setV4DiscoveryRegistry(null); }, [v4ContextKey]);
+
+  useEffect(() => {
+    setV4Amount(""); setV4Document(""); setV4FlowError(""); setSelectedSourceId("");
+    setV4Conflict(false);
+    v4LastSavedRevision.current = null;
+    setSourceCommands([]);
+    setPensionSelections([]);
+    setSelectedEstimateId(""); setPensionTargetId(""); setPensionConfirmed(false); setPensionError("");
+    setLoanRevisions([]);
+    setLoanCreations([]);
+    setRefinances([]);
+    setAssetCommands([]);
+    setPlannedRefinances([]);
+  }, [user?.id, activePlan?.id, currentVersion?.id]);
 
   useEffect(() => {
     if (selectedPeriod && /^\d{4}-\d{2}$/.test(selectedPeriod)) {
@@ -692,27 +915,31 @@ export default function SimulationTrackingPage() {
   // Load eligible pension estimates (FE-05)
   useEffect(() => {
     let active = true;
-    listPensionEstimates()
+    setEligibleEstimates([]); setSelectedEstimateId(""); setPensionSelections([]);
+    setPensionLoading(true); setPensionLoadError(false); setPensionConfirmed(false); setPensionError("");
+    listPensionEstimates(true)
       .then((res) => {
         if (!active) return;
         const eligible = (res.items || []).filter(
-          (item) => item.assessment?.assessmentStatus === "ELIGIBLE" && Boolean(item.assessment?.monthlyPension)
+          (item) => item.assessment?.assessmentStatus === "ELIGIBLE"
+            && /^\d{4}-(0[1-9]|1[0-2])$/.test(item.assessment.startMonth ?? "")
+            && /^(0|[1-9]\d*)(\.\d+)?$/.test(item.assessment.monthlyPension ?? "")
+            && /[1-9]/.test(item.assessment.monthlyPension ?? "")
+            && /^[a-f0-9]{64}$/i.test(item.integrityHash ?? "")
         );
         setEligibleEstimates(eligible);
-        if (eligible.length > 0 && !selectedEstimateId) {
-          setSelectedEstimateId(eligible[0].id);
-        }
       })
-      .catch(() => {});
+      .catch(() => { if (active) setPensionLoadError(true); })
+      .finally(() => { if (active) setPensionLoading(false); });
     return () => {
       active = false;
     };
-  }, []);
+  }, [user?.id, pensionReload]);
 
   // Compute active sources from registry (FE-04)
   const activeSources = useMemo(() => {
-    const revisions = ((v4Candidate?.candidate?.replayInput?.sourceRegistry?.revisions
-      || (currentVersion?.preview as any)?.replayInput?.sourceRegistry?.revisions
+    const revisions = (((currentVersion?.preview as any)?.replayInput?.sourceRegistry?.revisions
+      || v4DiscoveryRegistry?.revisions
       || []) as any[]);
     const map = new Map<string, {
       sourceId: string;
@@ -721,6 +948,8 @@ export default function SimulationTrackingPage() {
       operation: string;
       effectiveFromMonth: string;
       effectiveToMonth: string;
+      metric: string;
+      amount: string;
     }>();
     for (const r of revisions) {
       if (r?.sourceId) {
@@ -731,24 +960,40 @@ export default function SimulationTrackingPage() {
           operation: r.operation || "CREATE",
           effectiveFromMonth: r.effectiveFromMonth || "",
           effectiveToMonth: r.effectiveToMonth || "",
+          metric: r.schedule?.[0]?.metric ?? "",
+          amount: r.schedule?.[0]?.amount ?? "",
         });
       }
     }
     return [...map.values()].filter((s) => s.operation !== "END");
-  }, [v4Candidate, currentVersion]);
+  }, [v4DiscoveryRegistry, currentVersion]);
+  const flowSources = activeSources.filter(source => ["INCOME", "EXPENSE", "PENSION"].includes(source.kind));
+  const pensionSources = activeSources.filter(source => source.kind === "PENSION");
+  const pensionRegistry = (currentVersion?.preview as any)?.replayInput?.sourceRegistry ?? v4DiscoveryRegistry;
+  const selectedPensionEstimate = eligibleEstimates.find(estimate => estimate.id === selectedEstimateId);
+  const pensionTarget = pensionSources.length === 1 ? pensionSources[0] : pensionSources.find(source => source.sourceId === pensionTargetId);
+  const pensionRegistryReady = Boolean(pensionRegistry?.registryHash && pensionRegistry?.startMonth && pensionRegistry?.endMonth);
+  const pensionNextMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(selectedPeriod)
+    ? new Date(Date.UTC(Number(selectedPeriod.slice(0, 4)), Number(selectedPeriod.slice(5, 7)), 1)).toISOString().slice(0, 7) : "";
+  const pensionFrom = selectedPensionEstimate && pensionRegistryReady && pensionNextMonth
+    ? [selectedPensionEstimate.assessment.startMonth!, pensionNextMonth, pensionRegistry.startMonth].sort().at(-1)! : "";
+  const pensionTo = pensionRegistry?.endMonth ?? "";
+  const pensionPeriodValid = Boolean(pensionFrom && pensionTo && pensionFrom <= pensionTo);
+  useEffect(() => { setPensionConfirmed(false); setPensionError(""); }, [selectedPeriod, selectedEstimateId, pensionTargetId, pensionRegistry?.registryHash]);
 
   useEffect(() => {
-    if (activeSources.length > 0 && (!selectedSourceId || !activeSources.some((s) => s.sourceId === selectedSourceId))) {
-      setSelectedSourceId(activeSources[0].sourceId);
+    if (!flowSources.some((s) => s.sourceId === selectedSourceId)) {
+      setSelectedSourceId(flowSources[0]?.sourceId ?? "");
     }
   }, [activeSources, selectedSourceId]);
-
+  const selectedFlowSource = flowSources.find(source => source.sourceId === selectedSourceId);
   useEffect(() => {
-    const opts = v4Candidate?.loanRevisionOptions || [];
-    if (opts.length > 0 && (!selectedLoanOptionSourceId || !opts.some((o) => o.sourceId === selectedLoanOptionSourceId))) {
-      setSelectedLoanOptionSourceId(opts[0].sourceId);
-    }
-  }, [v4Candidate?.loanRevisionOptions, selectedLoanOptionSourceId]);
+    if (v4Operation === "CREATE" || !selectedFlowSource) return;
+    const metric = selectedFlowSource.metric || (selectedFlowSource.kind === "INCOME" ? "income" : selectedFlowSource.kind === "PENSION" ? "pension" : "livingExpense");
+    setV4Metric(metric as typeof v4Metric);
+  }, [v4Operation, selectedSourceId, selectedFlowSource?.metric]);
+
+
 
   useEffect(() => {
     const opts = v4Candidate?.assetRevisionOptions || [];
@@ -757,345 +1002,155 @@ export default function SimulationTrackingPage() {
     }
   }, [v4Candidate?.assetRevisionOptions, selectedAssetOptionSourceId]);
 
+  const validateFutureChange = (change: Pick<FutureChange, "amount" | "startMonth" | "endMonth" | "reason">) => {
+    if (!/^(0|[1-9]\d{0,15})(\.\d{1,2})?$/.test(change.amount)) return language === "en" ? "Enter a non-negative decimal amount with up to 16 integer digits and 2 decimal places." : "Nhập số tiền không âm, tối đa 16 chữ số nguyên và 2 chữ số thập phân.";
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(change.startMonth) || !/^\d{4}-(0[1-9]|1[0-2])$/.test(change.endMonth) || change.startMonth > change.endMonth || change.startMonth <= selectedPeriod || (candidateEndMonth && change.endMonth > candidateEndMonth)) return language === "en" ? "Choose future months after the reconciliation month, within the plan horizon, with start no later than end." : "Chọn tháng sau kỳ đối soát, trong kỳ dự báo của kế hoạch; tháng bắt đầu không được sau tháng kết thúc.";
+    if (!change.reason.trim() || change.reason.trim().length > 500) return language === "en" ? "Enter a reason (1–500 characters)." : "Nhập lý do từ 1 đến 500 ký tự.";
+    return "";
+  };
   const handleAddFutureChange = () => {
-    if (!fcAmount || isNaN(Number(fcAmount)) || Number(fcAmount) < 0) {
-      notify.error(language === "en" ? "Invalid Amount" : "Số tiền không hợp lệ", language === "en" ? "Please enter a valid non-negative amount." : "Vui lòng nhập số tiền hợp lệ không âm.");
-      return;
+    if (candidateWriting.current) return;
+    const error = validateFutureChange({ amount: fcAmount, startMonth: fcStartMonth, endMonth: fcEndMonth, reason: fcReason });
+    if (error) { setFcError(error); return; }
+    if (futureChanges.some(c => c.id !== fcEditingId && c.field === fcField && c.startMonth <= fcEndMonth && fcStartMonth <= c.endMonth)) {
+      setFcError(language === "en" ? "This field already has an adjustment in that period. Edit the existing row or choose another period." : "Hạng mục này đã có điều chỉnh trong khoảng tháng đó. Hãy sửa dòng hiện có hoặc chọn khoảng khác."); return;
     }
-    if (!fcStartMonth || !fcEndMonth || fcStartMonth > fcEndMonth) {
-      notify.error(language === "en" ? "Invalid Period" : "Khoảng tháng không hợp lệ", language === "en" ? "Start month must be less than or equal to end month." : "Tháng bắt đầu phải trước hoặc bằng tháng kết thúc.");
-      return;
-    }
-    const change: FutureChange = {
-      id: crypto.randomUUID(),
-      field: fcField,
-      operation: "REPLACE_MONTHLY_TOTAL",
-      amount: new Decimal(fcAmount).toFixed(),
-      startMonth: fcStartMonth,
-      endMonth: fcEndMonth,
-      reason: fcReason.trim() || (language === "en" ? "Monthly budget adjustment" : "Điều chỉnh ngân sách tháng"),
-    };
-    setFutureChanges(prev => [...prev, change]);
-    setFcAmount("");
-    setFcReason("");
+    if (!fcEditingId && futureChanges.length >= 200) { setFcError(language === "en" ? "A maximum of 200 adjustments is allowed." : "Tối đa 200 điều chỉnh."); return; }
+    const change: FutureChange = { id: fcEditingId ?? crypto.randomUUID(), field: fcField, operation: "REPLACE_MONTHLY_TOTAL", amount: fcAmount, startMonth: fcStartMonth, endMonth: fcEndMonth, reason: fcReason.trim() };
+    setFutureChanges(prev => fcEditingId ? prev.map(c => c.id === fcEditingId ? change : c) : [...prev, change]);
+    setFcAmount(""); setFcReason(""); setFcEditingId(null); setFcError("");
   };
-
+  const handleEditFutureChange = (change: FutureChange) => {
+    if (candidateWriting.current) return;
+    setFcEditingId(change.id); setFcField(change.field); setFcAmount(change.amount); setFcStartMonth(change.startMonth); setFcEndMonth(change.endMonth); setFcReason(change.reason); setFcError("");
+    document.getElementById("fc-amount")?.focus();
+  };
   const handleRemoveFutureChange = (id: string) => {
+    if (candidateWriting.current) return;
     setFutureChanges(prev => prev.filter(c => c.id !== id));
+    if (fcEditingId === id) { setFcEditingId(null); setFcAmount(""); setFcReason(""); }
+    setFcError("");
   };
-
   const handlePreviewCandidate = async () => {
-    if (!activePlan?.id || !currentVersion?.id) {
-      notify.error(language === "en" ? "No Active Plan" : "Chưa có kế hoạch", language === "en" ? "An active plan version is required." : "Cần một phiên bản kế hoạch chính thức.");
-      return;
-    }
-    setPreviewingCandidate(true);
-    setCandidateError(null);
-    setSavedCandidateVersion(null);
+    if (!candidateCanPreview || candidateWriting.current || previewingCandidate) return;
+    const invalid = futureChanges.map(validateFutureChange).find(Boolean);
+    if (invalid) { setCandidateError(invalid); return; }
+    const request = ++candidateRequest.current;
+    const key = candidateKey;
+    const input: ReforecastPreviewCommand = { planId: activePlan!.id, versionId: currentVersion!.id, throughMonth: selectedPeriod, expectedProfileRevision: profileRevision, futureChanges: structuredClone(futureChanges) };
+    const revision = Math.max(activePlan!.revision, candidateSavedRevision.current?.planId === input.planId ? candidateSavedRevision.current.revision : 0);
+    setPreviewingCandidate(true); setCandidateError(null); setCandidateConflict(false); setReforecastCandidate(null); setCandidateSnapshot(null); setSavedCandidateVersion(null);
     try {
-      const res = await previewReforecast({
-        planId: activePlan.id,
-        versionId: currentVersion.id,
-        throughMonth: selectedPeriod,
-        expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
-        futureChanges: futureChanges.length > 0 ? futureChanges : undefined,
-        sourceChanges: sourceChanges.length > 0 ? sourceChanges : undefined,
-      });
-      setReforecastCandidate(res);
-      if (res.status === "READY") {
-        notify.success(
-          language === "en" ? "Scenario Ready" : "Kịch bản sẵn sàng",
-          language === "en" ? "Reforecast candidate successfully calculated." : "Kịch bản điều chỉnh đã được tính toán thành công."
-        );
-      } else {
-        notify.warning(
-          language === "en" ? "Calculation Blocked" : "Dự báo chưa hoàn tất",
-          res.issues?.map(i => `${i.month}: ${i.code}`).join("; ") || (language === "en" ? "Issues encountered" : "Có vấn đề phát sinh")
-        );
-      }
+      const res = await previewReforecast(input);
+      if (request !== candidateRequest.current || latestCandidateKey.current !== key) return;
+      setReforecastCandidate(res); setCandidateSnapshot({ key, input, revision });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Error previewing reforecast";
-      setCandidateError(msg);
-      notify.error(language === "en" ? "Preview Error" : "Lỗi xem trước", msg);
+      if (request !== candidateRequest.current || latestCandidateKey.current !== key) return;
+      setCandidateError(e instanceof Error ? e.message : (language === "en" ? "Unable to preview." : "Không thể xem trước."));
     } finally {
-      setPreviewingCandidate(false);
+      if (request === candidateRequest.current && latestCandidateKey.current === key) setPreviewingCandidate(false);
     }
   };
-
   const handleSaveCandidate = async () => {
-    if (!activePlan?.id || !currentVersion?.id || !reforecastCandidate?.inputHash || reforecastCandidate.status !== "READY") return;
-    setSavingCandidate(true);
+    if (!candidateComplete || !candidateSnapshot || savedCandidateVersion || candidateWriting.current || previewingCandidate) return;
+    const snapshot = candidateSnapshot;
+    const request = candidateRequest.current;
+    const body = { expectedRevision: snapshot.revision, expectedInputHash: currentCandidate!.inputHash!, preview: snapshot.input };
+    const bodyStr = JSON.stringify([snapshot.input.planId, body]);
+    const key = candidateIdempotency?.bodyStr === bodyStr ? candidateIdempotency.key : crypto.randomUUID();
+    setCandidateIdempotency({ key, bodyStr }); candidateWriting.current = true; setSavingCandidate(true); setCandidateError(null);
     try {
-      const previewPayload = {
-        planId: activePlan.id,
-        versionId: currentVersion.id,
-        throughMonth: selectedPeriod,
-        expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
-        futureChanges: futureChanges.length > 0 ? futureChanges : undefined,
-        sourceChanges: sourceChanges.length > 0 ? sourceChanges : undefined,
-      };
-      const bodyStr = JSON.stringify({
-        expectedRevision: activePlan.revision || 1,
-        expectedInputHash: reforecastCandidate.inputHash,
-        preview: previewPayload,
-      });
-      const key = candidateIdempotency && candidateIdempotency.bodyStr === bodyStr
-        ? candidateIdempotency.key
-        : crypto.randomUUID();
-      setCandidateIdempotency({ key, bodyStr });
-
-      const res = await saveReforecast(activePlan.id, {
-        expectedRevision: activePlan.revision || 1,
-        expectedInputHash: reforecastCandidate.inputHash,
-        preview: previewPayload,
-      }, key);
+      const res = await saveReforecast(snapshot.input.planId, body, key);
+      if (request !== candidateRequest.current || latestCandidateKey.current !== snapshot.key) return;
+      candidateSavedRevision.current = { planId: res.planId, revision: res.planRevision };
       setSavedCandidateVersion(res);
-      notify.success(
-        language === "en" ? "New Plan Version Saved" : "Đã lưu phiên bản mới",
-        language === "en" ? `Saved plan version v${res.version}.` : `Đã lưu thành công phiên bản kế hoạch v${res.version}.`
-      );
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Error saving candidate";
-      notify.error(language === "en" ? "Save Error" : "Lỗi lưu phiên bản", msg);
-    } finally {
-      setSavingCandidate(false);
-    }
+      if (request !== candidateRequest.current || latestCandidateKey.current !== snapshot.key) return;
+      setCandidateError(e instanceof Error ? e.message : (language === "en" ? "Unable to save." : "Không thể lưu phiên bản."));
+      if (e instanceof ApiError && e.status === 409) { setCandidateConflict(true); setCandidateSnapshot(null); setReforecastCandidate(null); void refreshPlans(); }
+    } finally { candidateWriting.current = false; setSavingCandidate(false); }
   };
-
-  const handleApplyCandidateVersion = async (v: any) => {
-    const versionId = v?.versionId || v?.id;
-    if (!activePlan?.id || !versionId) return;
-    setApplyingCandidate(true);
+  const handleApplyCandidateVersion = async () => {
+    if (!savedCandidateVersion || !candidateSnapshot || !candidateComplete || candidateWriting.current) return;
+    const saved = savedCandidateVersion;
+    candidateWriting.current = true; setApplyingCandidate(true); setCandidateError(null);
     try {
-      const rev = profileRevision > 0 ? profileRevision : 1;
-      const success = await applyVersion(versionId, rev, v.planId || activePlan.id, v.planRevision || activePlan.revision);
-      if (success === false) throw new Error(language === "en" ? "Failed to apply version" : "Áp dụng phiên bản thất bại");
-      notify.success(
-        language === "en" ? "Plan Version Applied" : "Đã áp dụng phiên bản",
-        language === "en" ? `Version v${v.version} is now active.` : `Phiên bản v${v.version} đã trở thành kế hoạch chính thức.`
-      );
-      navigate("/user/plan");
+      const success = await applyVersion(saved.versionId, candidateSnapshot.input.expectedProfileRevision, saved.planId, saved.planRevision);
+      if (!success) throw new Error(language === "en" ? "Failed to apply version." : "Áp dụng phiên bản thất bại.");
+      setConfirmCandidate(false); navigate("/user/plan");
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Error applying version";
-      notify.error(language === "en" ? "Apply Error" : "Lỗi áp dụng", msg);
-    } finally {
-      setApplyingCandidate(false);
-    }
+      setCandidateError(e instanceof Error ? e.message : (language === "en" ? "Unable to apply." : "Không thể áp dụng phiên bản."));
+      setConfirmCandidate(false);
+      if (e instanceof ApiError && e.status === 409) { setCandidateConflict(true); setCandidateSnapshot(null); setReforecastCandidate(null); setSavedCandidateVersion(null); void refreshPlans(); }
+    } finally { candidateWriting.current = false; setApplyingCandidate(false); }
   };
 
+  const flowEndMonth = (currentVersion?.preview as any)?.replayInput?.sourceRegistry?.endMonth ?? currentVersion?.preview?.calculation?.summary?.endMonth ?? v4DiscoveryRegistry?.endMonth;
+  const validateFlowPeriod = (from: string, to: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(from) && /^\d{4}-(0[1-9]|1[0-2])$/.test(to) && from > selectedPeriod && from <= to && (!flowEndMonth || to <= flowEndMonth);
   const handleAddV4Command = () => {
-    if (v4Operation !== "END" && (!v4Amount || isNaN(Number(v4Amount)) || Number(v4Amount) < 0)) {
-      notify.error(language === "en" ? "Invalid Amount" : "Số tiền không hợp lệ", language === "en" ? "Please enter a valid amount." : "Vui lòng nhập số tiền hợp lệ.");
-      return;
+    if (v4Writing.current) return;
+    const fail = (vi: string, en: string) => setV4FlowError(language === "en" ? en : vi);
+    if (v4Operation !== "END" && (!/^(0|[1-9]\d*)(\.\d+)?$/.test(v4Amount) || v4Amount.length > 160 || new Decimal(v4Amount).gt("1" + "0".repeat(100)))) {
+      fail("Nhập số tiền thập phân không âm, không dùng ký pháp mũ.", "Enter a non-negative decimal amount without exponent notation."); return;
     }
-    if (!v4FromMonth || !v4ToMonth || v4FromMonth > v4ToMonth) {
-      notify.error(language === "en" ? "Invalid Period" : "Khoảng tháng không hợp lệ", language === "en" ? "Effective from must be before or equal to effective to." : "Tháng bắt đầu phải trước hoặc bằng tháng kết thúc.");
-      return;
-    }
-    if (!v4Document.trim()) {
-      notify.error(language === "en" ? "Missing Document" : "Thiếu chứng từ", language === "en" ? "Please enter a document verification note." : "Vui lòng nhập căn cứ/chứng từ xác nhận.");
-      return;
-    }
-
-    if (v4Operation === "CREATE") {
-      const cmd: FlowSourceCommand = {
-        commandId: crypto.randomUUID(),
-        sourceId: `plan:${crypto.randomUUID()}`,
-        expectedSourceRevision: 0,
-        effectiveFromMonth: v4FromMonth,
-        effectiveToMonth: v4ToMonth,
-        confirm: true,
-        document: v4Document.trim(),
-        operation: "CREATE",
-        metric: v4Metric,
-        frequency: v4Frequency,
-        amount: new Decimal(v4Amount).toFixed(),
-        currency: "VND",
-        confirmation: "USER_CONFIRMED",
-      };
-      setSourceCommands(prev => [...prev, cmd]);
-    } else {
-      const source = activeSources.find(s => s.sourceId === selectedSourceId);
-      if (!source) {
-        notify.error(language === "en" ? "Source Required" : "Chưa chọn nguồn", language === "en" ? "Please select an existing source to revise or end." : "Vui lòng chọn nguồn hiện có để điều chỉnh hoặc kết thúc.");
-        return;
-      }
-      if (v4Operation === "REVISE") {
-        const cmd: FlowSourceCommand = {
-          commandId: crypto.randomUUID(),
-          sourceId: source.sourceId,
-          expectedSourceRevision: source.revision,
-          effectiveFromMonth: v4FromMonth,
-          effectiveToMonth: v4ToMonth,
-          confirm: true,
-          document: v4Document.trim(),
-          operation: "REVISE",
-          metric: v4Metric,
-          frequency: v4Frequency,
-          amount: new Decimal(v4Amount).toFixed(),
-          currency: "VND",
-          confirmation: "USER_CONFIRMED",
-        };
-        setSourceCommands(prev => [...prev, cmd]);
-      } else {
-        // END operation - strict schema: only identity fields, no metric/amount/confirmation/frequency!
-        const cmd: FlowSourceCommand = {
-          commandId: crypto.randomUUID(),
-          sourceId: source.sourceId,
-          expectedSourceRevision: source.revision,
-          effectiveFromMonth: v4FromMonth,
-          effectiveToMonth: v4ToMonth,
-          confirm: true,
-          document: v4Document.trim(),
-          operation: "END",
-        };
-        setSourceCommands(prev => [...prev, cmd]);
-      }
-    }
-    setV4Amount("");
-    setV4Document("");
+    if (!validateFlowPeriod(v4FromMonth, v4ToMonth)) { fail("Chọn khoảng tháng sau kỳ đối soát và trong kỳ dự báo của kế hoạch.", "Choose months after reconciliation and within the plan horizon."); return; }
+    if (v4Operation !== "END" && v4Frequency === "ONCE" && v4FromMonth !== v4ToMonth) { fail("Nguồn một lần phải có tháng bắt đầu và kết thúc giống nhau.", "A one-off source must start and end in the same month."); return; }
+    if (!v4Document.trim() || v4Document.trim().length > 2000) { fail("Nhập căn cứ hoặc mô tả giả định từ 1 đến 2000 ký tự.", "Enter supporting information or assumptions (1–2000 characters)."); return; }
+    const source = flowSources.find(s => s.sourceId === selectedSourceId);
+    if (v4Operation !== "CREATE" && !source) { fail("Chọn nguồn thu/chi hiện có hoặc tải danh sách bằng nút xem trước.", "Select an existing cash flow source or load sources with Preview."); return; }
+    if (sourceCommands.length >= 100) { fail("Tối đa 100 lệnh nguồn trong một lần xem trước.", "A preview supports at most 100 flow commands."); return; }
+    if (v4Operation !== "CREATE" && [...sourceCommands, ...pensionSelections].some(c => c.sourceId === source!.sourceId)) { fail("Nguồn này đã có lệnh trong danh sách. Xóa lệnh cũ trước khi thêm lệnh thay thế.", "This source already has a command. Remove it before adding a replacement."); return; }
+    if (pensionSelections.length && v4Operation !== "END" && v4Metric === "pension") { fail("Đã gắn kết quả BHXH. Bỏ gắn trước khi thêm dòng lương hưu khác.", "Remove the attached pension estimate before adding another pension flow."); return; }
+    const identity = { commandId: crypto.randomUUID(), sourceId: v4Operation === "CREATE" ? `plan:${crypto.randomUUID()}` : source!.sourceId, expectedSourceRevision: v4Operation === "CREATE" ? 0 : source!.revision, effectiveFromMonth: v4FromMonth, effectiveToMonth: v4ToMonth, confirm: true as const, document: v4Document.trim() };
+    const cmd: FlowSourceCommand = v4Operation === "END" ? { ...identity, operation: "END" } : { ...identity, operation: v4Operation, metric: v4Metric, frequency: v4Frequency, amount: v4Amount, currency: "VND", confirmation: v4Confirmation };
+    setSourceCommands(prev => [...prev, cmd]); setV4Amount(""); setV4Document(""); setV4FlowError("");
   };
-
   const handleRemoveV4Command = (cmdId: string) => {
+    if (v4Writing.current) return;
     setSourceCommands(prev => prev.filter(c => c.commandId !== cmdId));
   };
 
   const handleAddPensionSelection = () => {
+    if (v4Writing.current || pensionLoading || pensionSelections.length) return;
     const est = eligibleEstimates.find(e => e.id === selectedEstimateId);
-    if (!est) {
-      notify.error(language === "en" ? "Select Estimate" : "Chọn ước tính", language === "en" ? "Please select an eligible estimate." : "Vui lòng chọn kết quả ước tính hợp lệ.");
+    if (!est || !pensionRegistryReady || !pensionPeriodValid || !pensionConfirmed || (pensionSources.length > 0 && !pensionTarget)) {
+      setPensionError(language === "en" ? "Review the estimate, target source, remaining period and confirmation." : "Kiểm tra kết quả, nguồn thay thế, kỳ còn lại và ô xác nhận.");
       return;
     }
-    const registryHash = v4Candidate?.candidate?.replayInput?.sourceRegistry?.registryHash
-      || (currentVersion?.preview as any)?.replayInput?.sourceRegistry?.registryHash
-      || "";
-    if (!registryHash) {
-      notify.error(language === "en" ? "Preview Required" : "Cần xem trước", language === "en" ? "Run preview first to establish source registry hash." : "Vui lòng bấm xem trước nguồn V4 để xác lập hash danh mục nguồn từ máy chủ.");
+    if (sourceCommands.some(command => command.sourceId === pensionTarget?.sourceId || (command.operation !== "END" && command.metric === "pension"))) {
+      setPensionError(language === "en" ? "Remove the conflicting pension flow command before attaching this estimate." : "Đã có lệnh thu/chi trùng nguồn hoặc tạo dòng lương hưu. Xóa lệnh đó trước khi gắn kết quả BHXH.");
       return;
     }
-    const existingPension = activeSources.find(s => s.kind === "PENSION");
-    const startMonth = est.assessment.startMonth || v4FromMonth;
-    const endMonth = currentVersion?.preview?.calculation?.summary?.endMonth || currentVersion?.preview?.calculation?.summary?.retirementMonth || v4ToMonth || "2060-12";
     const sel: PensionSourceSelection = {
       estimateId: est.id,
       expectedEstimateIntegrityHash: est.integrityHash,
-      expectedRegistryHash: registryHash,
+      expectedRegistryHash: pensionRegistry.registryHash,
       commandId: crypto.randomUUID(),
-      sourceId: existingPension ? existingPension.sourceId : `plan:${crypto.randomUUID()}`,
-      operation: existingPension ? "REVISE" : "CREATE",
-      expectedSourceRevision: existingPension ? existingPension.revision : 0,
-      effectiveFromMonth: startMonth,
-      effectiveToMonth: endMonth,
+      sourceId: pensionTarget ? pensionTarget.sourceId : `plan:${crypto.randomUUID()}`,
+      operation: pensionTarget ? "REVISE" : "CREATE",
+      expectedSourceRevision: pensionTarget ? pensionTarget.revision : 0,
+      effectiveFromMonth: pensionFrom,
+      effectiveToMonth: pensionTo,
       amountPolicy: "FIXED_NOMINAL",
       confirm: true,
     };
     setPensionSelections([sel]);
-    notify.success(
-      language === "en" ? "Pension Attached" : "Đã gắn nguồn lương hưu",
-      `${formatVND(Number(est.assessment.monthlyPension || 0))}/${language === "en" ? "mo from" : "tháng từ"} ${startMonth}`
-    );
+    setPensionError("");
   };
 
   const handleRemovePensionSelection = () => {
-    setPensionSelections([]);
-  };
-
-  const handleAddLoanRevision = () => {
-    const option = (v4Candidate?.loanRevisionOptions || []).find(o => o.sourceId === selectedLoanOptionSourceId);
-    if (!option) {
-      notify.error(language === "en" ? "Select Loan" : "Chọn khoản vay", language === "en" ? "Please select a loan to revise from options." : "Vui lòng chọn một khoản vay từ danh sách.");
-      return;
-    }
-    const [y, m] = selectedPeriod.split("-").map(Number);
-    const nextMonthStr = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
-    const cutoffDate = new Date(Date.parse(`${nextMonthStr}-01T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const knownOn = todayStr < cutoffDate ? cutoffDate : todayStr;
-    const evidenceHash = "a".repeat(64);
-    const docRef = lrDocument.trim() || (language === "en" ? "Loan agreement verified" : "Chứng từ hợp đồng vay đã xác nhận");
-
-    const periods = lrOperation === "END"
-      ? []
-      : generateContractPeriods(cutoffDate, lrMaturityMonths, lrRatePercent);
-    const maturityDate = lrOperation === "END" ? cutoffDate : (periods.at(-1)?.dueDate || cutoffDate);
-
-    const contract: LoanContractV2 = {
-      contractVersion: 2,
-      currency: "VND",
-      signedOn: option.legacyOpeningRequired ? lrLegacySignedOn : (lrLegacySignedOn <= cutoffDate ? lrLegacySignedOn : cutoffDate),
-      amendedOn: cutoffDate,
-      effectiveOn: cutoffDate,
-      knownOn,
-      confirmation: "BANK_CONFIRMED",
-      evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
-      balanceAsOf: cutoffDate,
-      principalBalance: lrOperation === "END" ? "0" : (lrPrincipal ? lrPrincipal.trim() : "0"),
-      balanceScope: lrBalanceScope,
-      paymentShare: lrBalanceScope === "USER_SHARE" ? "1" : lrPaymentShare,
-      responsibility: lrResponsibilityKind === "CAPPED"
-        ? {
-            kind: "CAPPED",
-            capBasis: "TOTAL_USER_PAYMENTS",
-            limit: lrCapLimit || "500000000",
-            previouslyPaid: lrCapPreviouslyPaid || "0",
-            evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
-          }
-        : { kind: "ALLOCATED_SHARE" },
-      interestBasis: "REDUCING_BALANCE",
-      rounding: "CENT_HALF_UP",
-      mode: lrOperation === "END" ? "BANK_SCHEDULE" : lrMode,
-      fixedPayment: lrMode === "REDUCE_TERM_KEEP_PAYMENT" ? (lrFixedPayment || null) : null,
-      finalPayment: lrMode === "REDUCE_PAYMENT_KEEP_TERM" ? "ADJUST_FINAL_PAYMENT" : "NO_BALLOON",
-      maturityDate,
-      periods,
-    };
-
-    const cmd: LoanSourceRevisionCommand = {
-      commandId: crypto.randomUUID(),
-      sourceId: option.sourceId,
-      operation: lrOperation,
-      expectedSourceRevision: option.sourceRevision,
-      expectedSourceHash: option.sourceHash,
-      expectedContractHash: option.contractHash,
-      confirm: true,
-      contract,
-      allocations: [],
-      principalAdvances: [],
-    };
-
-    if (option.legacyOpeningRequired) {
-      cmd.legacyOpening = {
-        signedOn: lrLegacySignedOn <= cutoffDate ? lrLegacySignedOn : cutoffDate,
-        amendedOn: null,
-        effectiveOn: lrLegacyEffectiveOn <= cutoffDate ? lrLegacyEffectiveOn : cutoffDate,
-        knownOn,
-        previouslyPaid: lrLegacyPreviouslyPaid.trim() || "0",
-        ...(lrResponsibilityKind === "CAPPED" ? { capBasis: "TOTAL_USER_PAYMENTS" as const } : {}),
-        evidence: [{ reference: lrLegacyDoc.trim() || docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
-      };
-    }
-
-    if (lrHasAmendment) {
-      cmd.responsibilityAmendment = {
-        effectiveOn: cutoffDate,
-        openingUserPaid: lrAmendmentOpeningUserPaid.trim() || "0",
-        confirm: true,
-        evidence: [{ reference: docRef, contentHash: evidenceHash, confirmedOn: knownOn }],
-      };
-    }
-
-    setLoanRevisions(prev => [...prev.filter(c => c.sourceId !== option.sourceId), cmd]);
-    notify.success(
-      language === "en" ? "Loan Revision Added" : "Đã thêm lệnh sửa khoản vay",
-      `${option.sourceId} (${lrOperation})`
-    );
+    if (v4Writing.current) return;
+    setPensionSelections([]); setSelectedEstimateId(""); setPensionTargetId(""); setPensionConfirmed(false); setPensionError("");
   };
 
   const handleRemoveLoanRevision = (sourceId: string) => {
+    if (v4Writing.current) return;
     setLoanRevisions(prev => prev.filter(c => c.sourceId !== sourceId));
   };
 
-  const handleAddLoanCreation = () => {
+  const handleAddLoanCreation = async () => {
+    const proof = await getSourceProof();
+    if (!proof) return;
     const agreementRef = lcAgreementRef.trim();
     if (!agreementRef) {
       notify.error(language === "en" ? "Agreement Reference" : "Mã hợp đồng", language === "en" ? "Please provide agreement reference." : "Vui lòng nhập mã hợp đồng vay.");
@@ -1105,9 +1160,9 @@ export default function SimulationTrackingPage() {
     const nextMonthStr = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
     const cutoffDate = new Date(Date.parse(`${nextMonthStr}-01T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
     const todayStr = new Date().toISOString().slice(0, 10);
-    const knownOn = todayStr < cutoffDate ? cutoffDate : todayStr;
-    const evidenceHash = "b".repeat(64);
-    const docRef = lcDocRef.trim() || (language === "en" ? "Verified loan contract document" : "Chứng từ hợp đồng vay mới");
+    const knownOn = proof.confirmedOn;
+    const evidenceHash = proof.contentHash;
+    const docRef = proof.reference;
 
     const isPlanned = lcFundingKind === "PLANNED_DISBURSEMENT";
     const balanceAsOf = isPlanned ? `${nextMonthStr}-01` : cutoffDate;
@@ -1204,7 +1259,14 @@ export default function SimulationTrackingPage() {
     setLoanCreations(prev => prev.filter(c => c.commandId !== cmdId));
   };
 
-  const handleAddRefinance = () => {
+  const handleAddRefinance = async () => {
+    const proof = await getSourceProof();
+    if (!proof) return;
+    if (refiPaymentsLoading || !refiLedger || !refiPayment || refiPaymentsError) {
+      notify.error(language === "en" ? "Select a recorded payment" : "Chọn giao dịch đã ghi nhận",
+        language === "en" ? "Select a debt payment from a saved, reconciled month." : "Chọn giao dịch trả nợ trong tháng đã lưu và đối soát khớp.");
+      return;
+    }
     const closingOption = (v4Candidate?.loanRevisionOptions || []).find(o => o.sourceId === refiClosingSourceId);
     if (!closingOption) {
       notify.error(language === "en" ? "Select Closing Loan" : "Chọn khoản vay tất toán", language === "en" ? "Please select an existing loan to close." : "Vui lòng chọn khoản vay hiện hữu cần tất toán.");
@@ -1219,10 +1281,10 @@ export default function SimulationTrackingPage() {
     const nextMonthStr = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
     const cutoffDate = new Date(Date.parse(`${nextMonthStr}-01T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
     const todayStr = new Date().toISOString().slice(0, 10);
-    const knownOn = todayStr < cutoffDate ? cutoffDate : todayStr;
-    const settledOn = refiSettledOn || cutoffDate;
-    const evidenceHash = "c".repeat(64);
-    const docRef = language === "en" ? "Refinance verified document" : "Chứng từ tái cấp vốn đã xác nhận";
+    const knownOn = proof.confirmedOn;
+    const settledOn = refiPayment.date;
+    const evidenceHash = proof.contentHash;
+    const docRef = proof.reference;
 
     const gross = refiGrossDisbursement.trim() || "500000000";
     const withheld = refiWithheldFees.trim() || "0";
@@ -1232,6 +1294,18 @@ export default function SimulationTrackingPage() {
     const unused = refiUnusedProceeds.trim() || "0";
 
     const settlementAmount = Decimal.max("0", new Decimal(available).plus(externalTopUp).minus(unused)).toString();
+
+    const allocated = [...loanRevisions.flatMap(command => command.allocations),
+      ...loanCreations.flatMap(command => command.funding.kind === "DISBURSED_BALANCE" ? command.funding.allocations : [])]
+      .filter(allocation => allocation.eventId === refiPayment.eventId)
+      .reduce((total, allocation) => total.plus(allocation.components.principal).plus(allocation.components.interest)
+        .plus(allocation.components.prepaymentFee).plus(allocation.components.otherFee), new Decimal(0));
+    if (!new Decimal(settlementAmount).gt(0) || allocated.plus(settlementAmount).gt(refiPayment.amount)) {
+      notify.error(language === "en" ? "Payment amount exceeded" : "Số tiền phân bổ không hợp lệ",
+        language === "en" ? "The settlement must be positive and fit within the recorded payment after existing draft allocations."
+          : "Tiền tất toán phải lớn hơn 0 và không vượt số tiền giao dịch sau các phân bổ đang có trong bản nháp.");
+      return;
+    }
 
     const refinanceCommandId = crypto.randomUUID();
     const closingCommandId = crypto.randomUUID();
@@ -1272,8 +1346,8 @@ export default function SimulationTrackingPage() {
       allocations: [
         {
           allocationId: crypto.randomUUID(),
-          eventId: crypto.randomUUID(),
-          actualRevision: 1,
+          eventId: refiPayment.eventId,
+          actualRevision: refiLedger.revision,
           bookedOn: settledOn,
           scope: refiFundingScope,
           components: {
@@ -1399,14 +1473,16 @@ export default function SimulationTrackingPage() {
     setRefinances(prev => prev.filter(r => r.commandId !== refiCmdId));
   };
 
-  const handleAddPlannedRefinance = () => {
+  const handleAddPlannedRefinance = async () => {
+    const proof = await getSourceProof();
+    if (!proof) return;
     const [y, m] = selectedPeriod.split("-").map(Number);
     const nextMonthStr = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
     const cutoffDate = new Date(Date.parse(`${nextMonthStr}-01T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
     const todayStr = new Date().toISOString().slice(0, 10);
-    const knownOn = todayStr < cutoffDate ? cutoffDate : todayStr;
-    const evidenceHash = "d".repeat(64);
-    const docRef = language === "en" ? "Planned refinance quote document" : "Chứng từ báo giá tái cấp vốn dự kiến";
+    const knownOn = proof.confirmedOn;
+    const evidenceHash = proof.contentHash;
+    const docRef = proof.reference;
 
     if (prOperation === "CANCEL") {
       const activePair = (v4Candidate?.plannedRefinanceOptions?.activePairs || []).find(p => p.pairId === prSelectedActivePairId);
@@ -1640,7 +1716,9 @@ export default function SimulationTrackingPage() {
     setStagedPlannedContributions(prev => prev.filter(i => i.installmentId !== installmentId));
   };
 
-  const handleAddStagedRelease = () => {
+  const handleAddStagedRelease = async () => {
+    const proof = await getSourceProof();
+    if (!proof) return;
     if (!stagedReleaseDate || !stagedReleaseAmount || Number(stagedReleaseAmount) <= 0) return;
     setStagedReleases(prev => [
       ...prev,
@@ -1649,7 +1727,7 @@ export default function SimulationTrackingPage() {
         availableOn: stagedReleaseDate,
         amount: stagedReleaseAmount,
         status: stagedReleaseStatus,
-        evidence: [{ reference: assetDocRef || "Release evidence", contentHash: "e".repeat(64), confirmedOn: stagedReleaseDate }],
+        evidence: [proof],
       },
     ]);
     setStagedReleaseAmount("");
@@ -1659,14 +1737,20 @@ export default function SimulationTrackingPage() {
     setStagedReleases(prev => prev.filter(r => r.releaseId !== releaseId));
   };
 
-  const handleAddAssetCommand = () => {
+  const handleAddAssetCommand = async () => {
+    const proof = await getSourceProof();
+    if (!proof) return;
+    if (assetHasMissedContribution && (assetActualLoading || assetActualError || !assetActualLedger || assetActualLedger.reconciliation !== "MATCHED" || assetActualPeriod > selectedPeriod)) {
+      notify.error("Cần đối soát tháng", "Vui lòng tải sổ tháng đã lưu và đối soát khớp trước khi dời khoản góp.");
+      return;
+    }
     const [y, m] = selectedPeriod.split("-").map(Number);
     const nextMonthStr = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
     const cutoffDate = new Date(Date.parse(`${nextMonthStr}-01T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
     const todayStr = new Date().toISOString().slice(0, 10);
-    const knownOn = todayStr < cutoffDate ? cutoffDate : todayStr;
-    const evidenceHash = "a".repeat(64);
-    const docRef = assetDocRef.trim() || (language === "en" ? "Verified asset capital evidence" : "Chứng từ tài sản và vốn xác nhận");
+    const knownOn = proof.confirmedOn;
+    const evidenceHash = proof.contentHash;
+    const docRef = proof.reference;
 
     if (assetTab === "end") {
       const option = (v4Candidate?.assetRevisionOptions || []).find(o => o.sourceId === selectedAssetOptionSourceId);
@@ -1792,7 +1876,7 @@ export default function SimulationTrackingPage() {
           ? {
               missedContribution: {
                 scheduledMonth: assetMissedScheduledMonth || selectedPeriod,
-                actualRevision: 1,
+                actualRevision: assetActualLedger!.revision,
                 amountNotContributed: assetMissedAmount.trim() || "0",
                 confirmedOn: knownOn,
                 reason: assetMissedReason.trim() || "Chưa nộp khoản dự kiến",
@@ -1811,95 +1895,82 @@ export default function SimulationTrackingPage() {
   };
 
   const handlePreviewV4 = async () => {
-    if (!activePlan?.id || !currentVersion?.id) return;
+    if (!activePlan?.id || !currentVersion?.id || v4Writing.current || previewingV4 || v4FlowDraft || pensionDraft || Boolean(loanRevisionDraft)) return;
+    if (loanRevisions.some(c => c.contract.balanceAsOf.slice(0, 7) !== selectedPeriod)) { setV4Error("Kỳ đối soát đã đổi. Xóa và lập lại lệnh khoản vay theo kỳ mới."); return; }
+    if ([...sourceCommands, ...pensionSelections].some(c => !validateFlowPeriod(c.effectiveFromMonth, c.effectiveToMonth))) { setV4Error(language === "en" ? "Review command dates after changing reconciliation month." : "Kiểm tra lại tháng hiệu lực của các lệnh sau khi đổi kỳ đối soát."); return; }
+    const request = ++v4Request.current;
+    const planId = activePlan.id;
+    // Detach the request from editable command state before starting the network call.
+    const input: SourceReforecastPreviewInput = JSON.parse(v4PayloadJson);
+    input.expectedRevision = Math.max(input.expectedRevision, v4LastSavedRevision.current?.planId === planId ? v4LastSavedRevision.current.revision : 0);
     setPreviewingV4(true);
+    setV4Conflict(false);
     setV4Error(null);
+    setV4Preview(null);
     setSavedV4Version(null);
+    setSavedV4PlanRevision(null);
     try {
-      const res = await previewSourceReforecast(activePlan.id, {
-        versionId: currentVersion.id,
-        expectedSnapshotHash: currentVersion.snapshotHash,
-        expectedRevision: activePlan.revision || 1,
-        expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
-        throughMonth: selectedPeriod,
-        sourceCommands: sourceCommands.length > 0 ? sourceCommands : [],
-        pensionSelections: pensionSelections.length > 0 ? pensionSelections : [],
-        loanRevisions: loanRevisions.length > 0 ? loanRevisions : [],
-        loanCreations: loanCreations.length > 0 ? loanCreations : [],
-        refinances: refinances.length > 0 ? refinances : [],
-        assetCommands: assetCommands.length > 0 ? assetCommands : [],
-        plannedRefinances: plannedRefinances.length > 0 ? plannedRefinances : [],
-      });
+      const res = await previewSourceReforecast(planId, input);
+      if (request !== v4Request.current) return;
       setV4Candidate(res);
-      if (res.status === "READY") {
-        notify.success(
-          language === "en" ? "V4 Sources Ready" : "Nguồn v4 sẵn sàng",
-          language === "en" ? "Source reforecast preview calculated." : "Đã tính toán xem trước điều chỉnh nguồn thành công."
-        );
-      } else {
-        notify.warning(
-          language === "en" ? "Incomplete" : "Chưa hoàn tất",
-          res.issues?.map(i => i.message || i.code).join("; ") || (language === "en" ? "Issues found" : "Có vấn đề phát sinh")
-        );
-      }
+      if (!sourceCommands.length && !pensionSelections.length && !loanRevisions.length && !loanCreations.length && !refinances.length && !assetCommands.length && !plannedRefinances.length) setV4DiscoveryRegistry(res.candidate?.replayInput?.sourceRegistry ?? null);
+      setV4Preview({ inputKey: v4InputKey, planId, input, response: res });
+
     } catch (e) {
+      if (request !== v4Request.current) return;
       const msg = e instanceof Error ? e.message : "Error previewing V4";
       setV4Error(msg);
       notify.error(language === "en" ? "V4 Error" : "Lỗi nguồn v4", msg);
     } finally {
-      setPreviewingV4(false);
+      if (request === v4Request.current) setPreviewingV4(false);
     }
   };
 
   const handleSaveV4 = async () => {
-    if (!activePlan?.id || !currentVersion?.id || !v4Candidate?.inputHash || v4Candidate.status !== "READY") return;
+    if (!v4Ready || !currentV4Preview || v4Writing.current || previewingV4 || savedV4Version || v4FlowDraft || pensionDraft || Boolean(loanRevisionDraft)) return;
+    const request = ++v4Request.current;
+    const snapshot = currentV4Preview;
+    const body = {
+      expectedInputHash: snapshot.response.inputHash!,
+      confirm: true as const,
+      preview: snapshot.input,
+    };
     setSavingV4(true);
+    v4Writing.current = true;
+    setV4Error(null);
     try {
-      const previewPayload = {
-        versionId: currentVersion.id,
-        expectedSnapshotHash: currentVersion.snapshotHash,
-        expectedRevision: activePlan.revision || 1,
-        expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
-        throughMonth: selectedPeriod,
-        sourceCommands: sourceCommands.length > 0 ? sourceCommands : [],
-        pensionSelections: pensionSelections.length > 0 ? pensionSelections : [],
-        loanRevisions: loanRevisions.length > 0 ? loanRevisions : [],
-        loanCreations: loanCreations.length > 0 ? loanCreations : [],
-        refinances: refinances.length > 0 ? refinances : [],
-        assetCommands: assetCommands.length > 0 ? assetCommands : [],
-        plannedRefinances: plannedRefinances.length > 0 ? plannedRefinances : [],
-      };
-      const bodyStr = JSON.stringify({
-        expectedInputHash: v4Candidate.inputHash,
-        confirm: true,
-        preview: previewPayload,
-      });
+      const bodyStr = JSON.stringify(body);
       const key = v4Idempotency && v4Idempotency.bodyStr === bodyStr
         ? v4Idempotency.key
         : crypto.randomUUID();
       setV4Idempotency({ key, bodyStr });
 
-      const res = await saveSourceReforecast(activePlan.id, {
-        expectedInputHash: v4Candidate.inputHash,
-        confirm: true,
-        preview: previewPayload,
-      }, key);
+      const res = await saveSourceReforecast(snapshot.planId, body, key);
+      if (request !== v4Request.current) return;
       setSavedV4Version(res.saved);
       setSavedV4PlanRevision(res.revision);
-      notify.success(
-        language === "en" ? "V4 Version Saved" : "Đã lưu phiên bản nguồn v4",
-        language === "en" ? `Saved plan version v${res.saved.version} (plan revision r${res.revision}).` : `Đã lưu phiên bản kế hoạch v${res.saved.version} (phiên bản r${res.revision}).`
-      );
+      v4LastSavedRevision.current = { planId: snapshot.planId, revision: res.revision };
+
     } catch (e) {
+      if (request !== v4Request.current) return;
       const msg = e instanceof Error ? e.message : "Error saving V4";
+      setV4Error(msg);
+      if (e instanceof ApiError && e.status === 409) {
+        setV4Conflict(true);
+        setV4Preview(null);
+        setSavedV4Version(null);
+        setSavedV4PlanRevision(null);
+        void refreshPlans();
+      }
       notify.error(language === "en" ? "Save Error" : "Lỗi lưu phiên bản", msg);
     } finally {
-      setSavingV4(false);
+      v4Writing.current = false; setSavingV4(false);
     }
   };
 
   const handleApplyV4Version = async () => {
-    if (!activePlan?.id || !savedV4Version?.id) return;
+    if (!activePlan?.id || !savedV4Version?.id || !currentV4Preview || !v4Ready || v4Writing.current || v4FlowDraft || pensionDraft || Boolean(loanRevisionDraft)) return;
+    v4Writing.current = true;
     setApplyingV4(true);
     try {
       const rev = profileRevision > 0 ? profileRevision : 1;
@@ -1910,11 +1981,14 @@ export default function SimulationTrackingPage() {
         language === "en" ? "Plan Version Applied" : "Đã áp dụng phiên bản",
         language === "en" ? `Version v${savedV4Version.version} is now active.` : `Phiên bản v${savedV4Version.version} đã trở thành kế hoạch chính thức.`
       );
-      navigate("/user/plan");
+      setConfirmV4Apply(false); navigate("/user/plan");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Error applying version";
+      setV4Error(msg); setConfirmV4Apply(false);
+      if (e instanceof ApiError && e.status === 409) { setV4Conflict(true); setV4Preview(null); setSavedV4Version(null); setSavedV4PlanRevision(null); void refreshPlans(); }
       notify.error(language === "en" ? "Apply Error" : "Lỗi áp dụng", msg);
     } finally {
+      v4Writing.current = false;
       setApplyingV4(false);
     }
   };
@@ -1933,6 +2007,8 @@ export default function SimulationTrackingPage() {
           <button
             type="button"
             className={activeTab === "what-if" ? "is-active" : ""}
+            aria-pressed={activeTab === "what-if"}
+            disabled={savingActual || applying || candidateBusy || savingV4 || applyingV4}
             onClick={() => setActiveTab("what-if")}
           >
             <Icon name="sparkles" size="small" /> {language === "en" ? "Scenario Testing (What-if)" : "Thử nghiệm kịch bản (What-if)"}
@@ -1940,6 +2016,8 @@ export default function SimulationTrackingPage() {
           <button
             type="button"
             className={activeTab === "actuals" ? "is-active" : ""}
+            aria-pressed={activeTab === "actuals"}
+            disabled={savingActual || applying || candidateBusy || savingV4 || applyingV4}
             onClick={() => setActiveTab("actuals")}
           >
             <Icon name="chart" size="small" /> {language === "en" ? "Track progress" : "Theo dõi tiến độ"}
@@ -1975,6 +2053,7 @@ export default function SimulationTrackingPage() {
               </div>
             </header>
 
+            <fieldset disabled={applying} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
             <div className="simulation-fields">
               {/* 1. Kịch bản kinh tế */}
               <div className="simulation-stepper-card">
@@ -1985,6 +2064,7 @@ export default function SimulationTrackingPage() {
                   <button
                     type="button"
                     className={`button button-small ${scenario === "BASE" ? "button-primary" : "button-ghost"}`}
+                    aria-pressed={scenario === "BASE"}
                     onClick={() => setScenario("BASE")}
                   >
                     {language === "en" ? "Baseline" : "Cơ sở"}
@@ -1992,6 +2072,7 @@ export default function SimulationTrackingPage() {
                   <button
                     type="button"
                     className={`button button-small ${scenario === "ADVERSE" ? "button-primary" : "button-ghost"}`}
+                    aria-pressed={scenario === "ADVERSE"}
                     onClick={() => setScenario("ADVERSE")}
                   >
                     {language === "en" ? "Adverse" : "Bất lợi"}
@@ -1999,6 +2080,7 @@ export default function SimulationTrackingPage() {
                   <button
                     type="button"
                     className={`button button-small ${scenario === "FAVORABLE" ? "button-primary" : "button-ghost"}`}
+                    aria-pressed={scenario === "FAVORABLE"}
                     onClick={() => setScenario("FAVORABLE")}
                   >
                     {language === "en" ? "Favorable" : "Thuận lợi"}
@@ -2042,7 +2124,7 @@ export default function SimulationTrackingPage() {
                     </div>
                     <div className="stepper-subtext-badge-row">
                       <span className="stepper-human-readable-subtext font-mono">
-                        {language === "en" ? "Retire month" : "Tháng hưu"}: {birthYear + simRetireAge}-12
+                        {language === "en" ? "Retire month" : "Tháng hưu"}: {simRetirementMonth}
                       </span>
                     </div>
                   </div>
@@ -2193,14 +2275,15 @@ export default function SimulationTrackingPage() {
               <Icon name="info" />
               <p>
                 {language === "en"
-                  ? "Simulation runs official T08 calculation engine. Testing scenarios do not modify your official plan until you click 'Apply this scenario'."
-                  : "Mô phỏng sử dụng engine T08 chính thức. Kịch bản thử nghiệm không làm thay đổi kế hoạch hiện hành cho đến khi bạn bấm \"Áp dụng kịch bản này\"."}
+                  ? "Scenario tests change your official plan only after you confirm application."
+                  : "Kịch bản thử nghiệm chỉ thay đổi kế hoạch hiện hành sau khi bạn xác nhận áp dụng."}
               </p>
             </div>
 
             <Button variant="ghost" onClick={resetToBaseline} style={{ marginTop: "12px" }}>
               <Icon name="trash" size="small" /> {language === "en" ? "Reset to base parameters" : "Đặt lại thông số ban đầu"}
             </Button>
+            </fieldset>
           </Card>
 
           {/* Right: Simulation Results & Comparison */}
@@ -2221,20 +2304,26 @@ export default function SimulationTrackingPage() {
                     </Badge>
                   )}
                   {simSummary && <Badge tone={simGap <= 0 ? "success" : "warning"}>
-                    {simGap <= 0 ? (language === "en" ? "GOAL SURPLUS" : "DƯ THỪA MỤC TIÊU") : (language === "en" ? "FUNDING SHORTFALL" : "CÒN THIẾU HỤT")}
+                    {simGap <= 0 ? (language === "en" ? "NO PROJECTED SHORTFALL" : "KHÔNG THIẾU HỤT DỰ PHÓNG") : (language === "en" ? "FUNDING SHORTFALL" : "CÒN THIẾU HỤT")}
                   </Badge>}
                 </div>
               </header>
 
+              {loadingPolicy && <p role="status">{language === "en" ? "Loading policy…" : "Đang tải chính sách mô phỏng…"}</p>}
+              {policyError && <Alert tone="danger" title={language === "en" ? "Policy load failed" : "Chưa tải được chính sách mô phỏng"}>
+                <p>{policyError}</p><Button onClick={() => setPolicyAttempt(n => n + 1)}>{language === "en" ? "Retry" : "Tải lại chính sách"}</Button>
+              </Alert>}
+              {plansError && <Alert tone="danger" title={language === "en" ? "Plan load failed" : "Chưa tải được kế hoạch gốc"}>{plansError}<Button onClick={() => void refreshPlans()}>{language === "en" ? "Retry plans" : "Tải lại kế hoạch"}</Button></Alert>}
               {simError && (
                 <div style={{ margin: "16px 0" }}>
                   <Alert tone="danger" title={language === "en" ? "Simulation Error" : "Lỗi chạy mô phỏng"}>
                     {simError}
+                    <Button onClick={() => setSimAttempt(n => n + 1)}>{language === "en" ? "Retry simulation" : "Thử lại mô phỏng"}</Button>
                   </Alert>
                 </div>
               )}
 
-              {!simSummary && !simError && (
+              {!simSummary && !simError && !policyError && !loadingPolicy && !plansError && (
                 <Alert
                   tone="info"
                   title={language === "en" ? "Projection not ready" : "Chưa có dự phóng hợp lệ"}
@@ -2250,6 +2339,7 @@ export default function SimulationTrackingPage() {
                 </Alert>
               )}
               {simSummary && <>
+              {defaultEndMonth < `${birthYear + (profile.goal.lifeExpectancy || 85)}-${v2Profile?.personal.birthMonth?.status === "KNOWN" ? v2Profile.personal.birthMonth.value.slice(5, 7) : "12"}` && <Alert tone="warning" title={language === "en" ? "Projection horizon limited" : "Dự phóng chưa bao phủ hết tuổi thọ"}>{language === "en" ? `Current assumptions cover through ${defaultEndMonth}. Later months are not included.` : `Giả định hiện tại chỉ bao phủ đến ${defaultEndMonth}. Các tháng sau mốc này chưa được tính.`}</Alert>}
               <div className="simulation-primary-result">
                 <div>
                   <span>{language === "en" ? "PROJECTED RETIREMENT FUND (A)" : "QUỸ HƯU DỰ KIẾN TÍCH LŨY (A)"}</span>
@@ -2258,17 +2348,17 @@ export default function SimulationTrackingPage() {
                     {language === "en" ? "Versus required capital" : "So với vốn cần chuẩn bị"} (K = <span className="font-mono">{formatVND(simTargetFund)}</span>):{" "}
                     <b style={{ color: simGap <= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }} className="font-mono">
                       {simGap <= 0
-                        ? `${language === "en" ? "Surplus" : "Vượt"} ${formatVND(Math.abs(simGap))}`
+                        ? `${language === "en" ? "Surplus" : "Dư"} ${formatVNDCurrency(simSummary.excessAtRetirement)}`
                         : `${language === "en" ? "Shortfall" : "Thiếu"} ${formatVND(simGap)}`}
                     </b>
                   </p>
                 </div>
 
                 <div className="simulation-score">
-                  <strong className="font-mono">{simScore}%</strong>
+                  <strong className="font-mono">{simSummary.atRetirement.coveragePercent == null ? (language === "en" ? "Undetermined" : "Chưa xác định") : `${simScore}%`}</strong>
                   <span>{language === "en" ? "Coverage Ratio" : "Tỷ lệ bao phủ"}</span>
                   <small className={simScore >= 100 ? "is-positive" : ""}>
-                    {simScore >= 100
+                    {simSummary.atRetirement.coveragePercent == null ? "—" : simScore >= 100
                       ? (language === "en" ? "Solid" : "Vững vàng")
                       : simScore >= 75
                       ? (language === "en" ? "Promising" : "Khả quan")
@@ -2291,40 +2381,34 @@ export default function SimulationTrackingPage() {
 
                 <div>
                   <span>{language === "en" ? "Retirement Month" : "Tháng nghỉ hưu"}</span>
-                  <strong className="font-mono">{currentSummary ? currentSummary.retirementMonth : `${birthYear + (profile.goal.targetRetireAge || 60)}-12`}</strong>
-                  <strong className="font-mono" style={{ color: "var(--color-primary-700)" }}>{birthYear + simRetireAge}-12 ({simRetireAge} {language === "en" ? "yrs" : "tuổi"})</strong>
+                  <strong className="font-mono">{currentSummary ? currentSummary.retirementMonth : noBaseline}</strong>
+                  <strong className="font-mono" style={{ color: "var(--color-primary-700)" }}>{simRetirementMonth} ({simRetireAge} {language === "en" ? "yrs" : "tuổi"})</strong>
                   <strong style={{ textAlign: "right" }} className="font-mono">
-                    {simRetireAge - (profile.goal.targetRetireAge || 60) > 0
-                      ? `+${simRetireAge - (profile.goal.targetRetireAge || 60)} ${language === "en" ? "yrs" : "năm"}`
-                      : simRetireAge - (profile.goal.targetRetireAge || 60) < 0
-                      ? `${simRetireAge - (profile.goal.targetRetireAge || 60)} ${language === "en" ? "yrs" : "năm"}`
-                      : "0"}
+                    {retirementMonthDelta == null ? "—" : `${retirementMonthDelta > 0 ? "+" : ""}${retirementMonthDelta} ${language === "en" ? "months" : "tháng"}`}
                   </strong>
                 </div>
 
                 <div>
                   <span>{language === "en" ? "Monthly Savings" : "Mức tích lũy / tháng"}</span>
-                  <strong className="font-mono">{formatVND(profile.plan.monthlySavings)}</strong>
+                  <strong className="font-mono">{baselineSelection?.monthlyContribution != null ? formatVNDCurrency(baselineSelection.monthlyContribution) : noBaseline}</strong>
                   <strong className="font-mono" style={{ color: "var(--color-primary-700)" }}>{formatVND(simMonthlySave)}</strong>
                   <strong style={{ textAlign: "right" }} className="font-mono">
-                    {simMonthlySave - profile.plan.monthlySavings >= 0 ? "+" : ""}
-                    {formatVND(simMonthlySave - profile.plan.monthlySavings)}
+                    {baselineSelection?.monthlyContribution != null ? formatVNDCurrency(new Decimal(simMonthlySave).minus(baselineSelection.monthlyContribution).toString()) : "—"}
                   </strong>
                 </div>
 
                 <div>
                   <span>{language === "en" ? "Retirement Spending" : "Chi tiêu tháng khi hưu"}</span>
-                  <strong className="font-mono">{formatVND(profile.goal.monthlyExpenseInRetirement || 20000000)}</strong>
+                  <strong className="font-mono">{baselineSelection?.monthlyExpenseToday != null ? formatVNDCurrency(baselineSelection.monthlyExpenseToday) : noBaseline}</strong>
                   <strong className="font-mono">{formatVND(simExpense)}</strong>
                   <strong style={{ textAlign: "right" }} className="font-mono">
-                    {simExpense - (profile.goal.monthlyExpenseInRetirement || 20000000) >= 0 ? "+" : ""}
-                    {formatVND(simExpense - (profile.goal.monthlyExpenseInRetirement || 20000000))}
+                    {baselineSelection?.monthlyExpenseToday != null ? formatVNDCurrency(new Decimal(simExpense).minus(baselineSelection.monthlyExpenseToday).toString()) : "—"}
                   </strong>
                 </div>
 
                 <div>
                   <span>{language === "en" ? "Macro Scenario" : "Kịch bản kinh tế"}</span>
-                  <strong>{language === "en" ? "Baseline (BASE)" : "Cơ sở (BASE)"}</strong>
+                  <strong>{baselineSelection?.scenario ?? noBaseline}</strong>
                   <strong style={{ color: "var(--color-secondary-700)" }}>{scenario}</strong>
                   <strong style={{ textAlign: "right" }}>-</strong>
                 </div>
@@ -2375,8 +2459,8 @@ export default function SimulationTrackingPage() {
                   <p>
                     {simGap <= 0
                       ? (language === "en"
-                          ? `Retirement scenario at age ${simRetireAge} exceeds your goal by ${formatVND(Math.abs(simGap))}. You can comfortably maintain this contribution level or consider retiring earlier.`
-                          : `Kịch bản nghỉ hưu ở tuổi ${simRetireAge} cho kết quả vượt mục tiêu ${formatVND(Math.abs(simGap))}. Bạn có thể an tâm duy trì mức đóng góp này hoặc nghỉ sớm hơn.`)
+                          ? `No shortfall is projected under the selected assumptions and projection period.`
+                          : `Chưa thấy thiếu hụt theo giả định và khoảng thời gian dự phóng đã chọn.`)
                       : (language === "en"
                           ? `Retirement scenario at age ${simRetireAge} still has a shortfall of ${formatVND(simGap)} compared to minimum goal. Consider increasing monthly savings or controlling living costs.`
                           : `Kịch bản nghỉ hưu ở tuổi ${simRetireAge} còn thiếu ${formatVND(simGap)} so với mục tiêu tối thiểu. Bạn nên tăng mức tiết kiệm hoặc kiểm soát chi phí sinh hoạt.`)}
@@ -2390,7 +2474,7 @@ export default function SimulationTrackingPage() {
 
                 <Button
                   variant="primary"
-                  onClick={handleApplyScenario}
+                  onClick={() => setConfirmApply(true)}
                   loading={applying}
                   disabled={applying || isSimulating || !simSummary}
                 >
@@ -2415,20 +2499,22 @@ export default function SimulationTrackingPage() {
       {/* TAB 2: SỔ THỰC TẾ & ĐỐI SOÁT (FE-T09)                     */}
       {/* ========================================================= */}
       {activeTab === "actuals" && (
-        <div style={{ display: "grid", gap: "var(--space-6)" }}>
+        <div className="simulation-actuals" style={{ display: "grid", gap: "var(--space-6)" }}>
           {/* Header Controls: Period Picker & Status */}
           <Card style={{ padding: "var(--space-5)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
                 <div>
-                  <label style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", color: "var(--color-text-muted)", display: "block", marginBottom: "4px" }}>
+                  <label htmlFor="actual-period" style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", color: "var(--color-text-muted)", display: "block", marginBottom: "4px" }}>
                     {language === "en" ? "Reconciliation Period (Vietnam)" : "Kỳ đối soát tháng (Việt Nam)"}
                   </label>
                   <input
+                    id="actual-period"
+                    disabled={savingActual || candidateBusy || savingV4 || applyingV4}
                     type="month"
                     max={currentVnMonth}
                     value={selectedPeriod}
-                    onChange={(e) => setSelectedPeriod(e.target.value)}
+                    onChange={(e) => { const value = e.target.value; if (/^\d{4}-(0[1-9]|1[0-2])$/.test(value) && value <= currentVnMonth) setSelectedPeriod(value); }}
                     className="input font-mono"
                     style={{ height: "38px", fontSize: "14px", fontWeight: 600 }}
                   />
@@ -2449,7 +2535,7 @@ export default function SimulationTrackingPage() {
                 )}
               </div>
 
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                 {monthDetail?.history && monthDetail.history.length > 0 && (
                   <Button variant="ghost" onClick={() => setHistoryOpen(true)}>
                     <Icon name="file-text" size="small" /> {language === "en" ? "Edit History" : "Lịch sử chỉnh sửa"} ({monthDetail.history.length})
@@ -2459,7 +2545,7 @@ export default function SimulationTrackingPage() {
                   variant="primary"
                   onClick={handleSaveActualMonth}
                   loading={savingActual}
-                  disabled={ledgerLoading}
+                  disabled={!ledgerReady || !amountsValid || !datesValid || candidateBusy || savingV4 || applyingV4}
                 >
                   <Icon name="check" size="small" /> {language === "en" ? `Save Ledger ${selectedPeriod}` : `Lưu sổ tháng ${selectedPeriod}`}
                 </Button>
@@ -2467,6 +2553,15 @@ export default function SimulationTrackingPage() {
             </div>
           </Card>
 
+          {ledgerLoading && <p role="status">{language === "en" ? "Loading selected month…" : "Đang tải sổ tháng đã chọn…"}</p>}
+          {ledgerError && <Alert tone="danger" title={language === "en" ? "Could not load ledger" : "Chưa tải được sổ tháng"}>
+            <p>{ledgerError}</p><Button onClick={() => loadPeriodData(selectedPeriod)}>{language === "en" ? "Retry month" : "Tải lại sổ tháng"}</Button>
+          </Alert>}
+          {ledgerSaveError && <Alert tone="danger" title={language === "en" ? "Could not save ledger" : "Chưa lưu được sổ tháng"}>{ledgerSaveError}</Alert>}
+          {ledgerReady && <fieldset disabled={savingActual || candidateBusy || savingV4 || applyingV4} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: "grid", gap: "var(--space-6)" }}>
+          {!monthDetail && <Alert tone="info" title={language === "en" ? "Month not recorded" : "Tháng chưa có bản ghi"}>{language === "en" ? "Enter actual opening and closing balances from your statements, including zero if confirmed." : "Nhập số dư đầu và cuối kỳ từ sao kê thực tế, kể cả số 0 nếu đã xác nhận. Tài sản ròng không được tự dùng làm số dư quỹ."}</Alert>}
+          {ledgerDirty && <p role="status">{language === "en" ? "Unsaved ledger changes. Reforecast uses saved data." : "Sổ tháng có thay đổi chưa lưu. Dự báo lại sử dụng dữ liệu đã lưu."}</p>}
+          {(!amountsValid || !datesValid) && <p role="alert">{language === "en" ? "Complete all amounts and dates within the selected month before saving." : "Nhập đủ số tiền hợp lệ và ngày thuộc tháng đang chọn trước khi lưu."}</p>}
           {/* Balances & Real-Time Reconciliation Dashboard */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "var(--space-4)" }}>
             <Card style={{ padding: "var(--space-4)" }}>
@@ -2475,10 +2570,11 @@ export default function SimulationTrackingPage() {
               </span>
               <div style={{ marginTop: "6px" }}>
                 <input
+                  aria-label={language === "en" ? "Opening balance" : "Số dư đầu kỳ"}
                   type="text"
                   inputMode="numeric"
-                  value={new Intl.NumberFormat("vi-VN").format(Number(openingBalance) || 0)}
-                  onChange={(e) => setOpeningBalance(e.target.value.replace(/\D/g, ""))}
+                  value={openingBalance}
+                  onChange={(e) => { if (/^\d*(\.\d{0,2})?$/.test(e.target.value)) setOpeningBalance(e.target.value); }}
                   className="input font-mono"
                   style={{ fontSize: "18px", fontWeight: 700, width: "100%" }}
                 />
@@ -2494,10 +2590,11 @@ export default function SimulationTrackingPage() {
               </span>
               <div style={{ marginTop: "6px" }}>
                 <input
+                  aria-label={language === "en" ? "Closing balance" : "Số dư cuối kỳ"}
                   type="text"
                   inputMode="numeric"
-                  value={new Intl.NumberFormat("vi-VN").format(Number(closingBalance) || 0)}
-                  onChange={(e) => setClosingBalance(e.target.value.replace(/\D/g, ""))}
+                  value={closingBalance}
+                  onChange={(e) => { if (/^\d*(\.\d{0,2})?$/.test(e.target.value)) setClosingBalance(e.target.value); }}
                   className="input font-mono"
                   style={{ fontSize: "18px", fontWeight: 700, width: "100%" }}
                 />
@@ -2507,6 +2604,7 @@ export default function SimulationTrackingPage() {
               </small>
             </Card>
 
+            {amountsValid && <>
             <Card style={{ padding: "var(--space-4)", background: "var(--color-surface-subtle)" }}>
               <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 600 }}>
                 {language === "en" ? "CALCULATED CLOSING (SYSTEM)" : "SỐ DƯ CUỐI TÍNH TOÁN (HỆ THỐNG)"}
@@ -2543,10 +2641,12 @@ export default function SimulationTrackingPage() {
                   : (language === "en" ? "Variance between reported and calculated balances" : "Chênh lệch giữa số dư thực khai và số dư tính toán")}
               </small>
             </Card>
+            </>}
           </div>
 
           {/* Household Flow & Contribution Insights */}
           {/* Household Flow & Contribution Insights (FE-03) */}
+          {amountsValid &&
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--space-4)" }}>
             <Card style={{ padding: "var(--space-4)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2618,9 +2718,10 @@ export default function SimulationTrackingPage() {
             </Card>
           </div>
 
+          }
           {/* Entries Table */}
           <Card style={{ padding: "var(--space-6)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
               <div>
                 <h2>{language === "en" ? `Monthly Transaction Ledger (${entries.length})` : `Chi tiết giao dịch trong tháng (${entries.length})`}</h2>
                 <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "12px" }}>
@@ -2644,26 +2745,27 @@ export default function SimulationTrackingPage() {
                 </Button>
               </div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <div role="region" aria-label={language === "en" ? "Monthly transactions" : "Bảng giao dịch tháng"} tabIndex={0} style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px" }}>
                   <thead>
                     <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
                       <th style={{ padding: "8px 12px" }}>{language === "en" ? "Date" : "Ngày"}</th>
                       <th style={{ padding: "8px 12px" }}>{language === "en" ? "Flow Type" : "Loại dòng tiền"}</th>
-                      <th style={{ padding: "8px 12px" }}>{language === "en" ? "Amount (VND)" : "Số tiền (VND)"}</th>
+                      <th style={{ padding: "8px 12px", textAlign: "right" }}>{language === "en" ? "Amount (VND)" : "Số tiền (VND)"}</th>
                       <th style={{ padding: "8px 12px" }}>{language === "en" ? "Notes / Description" : "Ghi chú / Giải thích"}</th>
                       <th style={{ padding: "8px 12px", width: "40px" }}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {entries.map((entry) => (
+                    {entries.map((entry, index) => (
                       <tr key={entry.eventId} style={{ borderBottom: "1px solid var(--color-border)" }}>
                         <td style={{ padding: "8px 12px" }}>
                           <input
                             type="date"
+                            aria-label={`${language === "en" ? "Transaction date" : "Ngày giao dịch"} ${index + 1}`}
                             value={entry.date}
                             min={`${selectedPeriod}-01`}
-                            max={`${selectedPeriod}-31`}
+                            max={lastPeriodDate}
                             onChange={(e) => handleUpdateEntry(entry.eventId, { date: e.target.value })}
                             className="input font-mono"
                             style={{ height: "32px", fontSize: "12px", width: "135px" }}
@@ -2671,6 +2773,7 @@ export default function SimulationTrackingPage() {
                         </td>
                         <td style={{ padding: "8px 12px" }}>
                           <select
+                            aria-label={`${language === "en" ? "Flow type" : "Loại dòng tiền"} ${index + 1}`}
                             value={entry.kind}
                             onChange={(e) => handleUpdateEntry(entry.eventId, { kind: e.target.value as ActualKind })}
                             className="input"
@@ -2687,17 +2790,17 @@ export default function SimulationTrackingPage() {
                           <input
                             type="text"
                             inputMode="numeric"
+                            aria-label={`${language === "en" ? "Amount" : "Số tiền"} ${index + 1}`}
                             value={entry.amount}
                             onChange={(e) => {
                               // Allow minus sign for MARKET_CHANGE and BALANCE_ADJUSTMENT
                               const val = e.target.value;
                               if (["MARKET_CHANGE", "BALANCE_ADJUSTMENT"].includes(entry.kind)) {
-                                if (/^-?\d*$/.test(val)) {
+                                if (/^-?\d*(\.\d{0,2})?$/.test(val)) {
                                   handleUpdateEntry(entry.eventId, { amount: val });
                                 }
                               } else {
-                                const clean = val.replace(/\D/g, "");
-                                handleUpdateEntry(entry.eventId, { amount: clean });
+                                if (/^\d*(\.\d{0,2})?$/.test(val)) handleUpdateEntry(entry.eventId, { amount: val });
                               }
                             }}
                             className="input font-mono"
@@ -2708,6 +2811,7 @@ export default function SimulationTrackingPage() {
                           <input
                             type="text"
                             placeholder={entry.kind === "BALANCE_ADJUSTMENT" ? (language === "en" ? "Required explanation for audit adjustment" : "Bắt buộc giải thích lý do điều chỉnh") : (language === "en" ? "Optional note" : "Ghi chú tuỳ chọn")}
+                            aria-label={`${language === "en" ? "Note" : "Ghi chú"} ${index + 1}`}
                             value={entry.note || ""}
                             onChange={(e) => handleUpdateEntry(entry.eventId, { note: e.target.value })}
                             className="input"
@@ -2722,7 +2826,7 @@ export default function SimulationTrackingPage() {
                         <td style={{ padding: "8px 12px" }}>
                           <IconButton
                             icon="trash"
-                            label={language === "en" ? "Delete row" : "Xóa dòng"}
+                            label={`${language === "en" ? "Delete row" : "Xóa dòng"} ${index + 1}`}
                             onClick={() => handleRemoveEntry(entry.eventId)}
                           />
                         </td>
@@ -2740,6 +2844,7 @@ export default function SimulationTrackingPage() {
               <input
                 type="text"
                 placeholder={language === "en" ? "E.g. Reconciled bank and brokerage statements" : "VD: Cập nhật sao kê tài khoản ngân hàng và công ty chứng khoán"}
+                aria-label={language === "en" ? "Ledger revision reason" : "Lý do cập nhật sổ tháng"}
                 value={correctionReason}
                 onChange={(e) => setCorrectionReason(e.target.value)}
                 className="input"
@@ -2749,6 +2854,8 @@ export default function SimulationTrackingPage() {
           </Card>
 
           {/* Reforecast Section */}
+          </fieldset>}
+          <fieldset disabled={savingActual || candidateBusy || savingV4 || applyingV4} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
           <Card style={{ padding: "var(--space-6)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "16px" }}>
               <div>
@@ -2765,6 +2872,8 @@ export default function SimulationTrackingPage() {
               <div style={{ display: "flex", gap: "6px", background: "var(--color-surface-subtle)", padding: "4px", borderRadius: "var(--radius-lg)" }}>
                 <button
                   type="button"
+                  disabled={candidateBusy || savingV4 || applyingV4 || Boolean(loanRevisionDraft)}
+                  aria-pressed={reforecastSubTab === "standard"}
                   onClick={() => setReforecastSubTab("standard")}
                   style={{
                     padding: "6px 12px",
@@ -2782,6 +2891,8 @@ export default function SimulationTrackingPage() {
                 </button>
                 <button
                   type="button"
+                  disabled={candidateBusy || savingV4 || applyingV4 || Boolean(loanRevisionDraft)}
+                  aria-pressed={reforecastSubTab === "future-changes"}
                   onClick={() => setReforecastSubTab("future-changes")}
                   style={{
                     padding: "6px 12px",
@@ -2799,6 +2910,8 @@ export default function SimulationTrackingPage() {
                 </button>
                 <button
                   type="button"
+                  disabled={candidateBusy || savingV4 || applyingV4 || Boolean(loanRevisionDraft)}
+                  aria-pressed={reforecastSubTab === "sources-v4"}
                   onClick={() => setReforecastSubTab("sources-v4")}
                   style={{
                     padding: "6px 12px",
@@ -2822,12 +2935,17 @@ export default function SimulationTrackingPage() {
             {/* ========================================================= */}
             {reforecastSubTab === "standard" && (
               <div>
+                {loadingPlans ? <p role="status">{language === "en" ? "Loading the official plan…" : "Đang tải kế hoạch chính thức…"}</p>
+                  : plansError ? <Alert tone="danger" title={language === "en" ? "Plan load failed" : "Chưa tải được kế hoạch gốc"}>{plansError}<Button onClick={() => void refreshPlans()}>{language === "en" ? "Retry plans" : "Tải lại kế hoạch"}</Button></Alert>
+                  : (!activePlan?.id || !currentVersion?.id) && <p>{language === "en" ? "An official plan version is required. " : "Cần có phiên bản kế hoạch chính thức. "}<Link to="/user/plan">{language === "en" ? "Open retirement plan" : "Mở kế hoạch hưu trí"}</Link></p>}
+                {ledgerDirty && <p>{language === "en" ? "Save the actual ledger before forecasting." : "Lưu sổ thực tế trước khi chạy dự báo."}</p>}
+
                 <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
                   <Button
                     variant="primary"
                     onClick={handleRunReforecast}
                     loading={reforecasting}
-                    disabled={!activePlan?.id || !currentVersion?.id}
+                    disabled={!ledgerReady || ledgerDirty || savingActual || loadingPlans || Boolean(plansError) || !activePlan?.id || !currentVersion?.id}
                   >
                     <Icon name="sparkles" size="small" /> {language === "en" ? "Run Standard Reforecast" : "Chạy dự báo neo số dư"}
                   </Button>
@@ -2841,100 +2959,10 @@ export default function SimulationTrackingPage() {
                   </div>
                 )}
 
-                {reforecastResult?.status === "BLOCKED" && (
-                  <div style={{ marginTop: "16px" }}>
-                    <Alert tone="warning" title={language === "en" ? "Reforecast Blocked by Data Integrity" : "Dự báo bị chặn bởi tính toàn vẹn dữ liệu"}>
-                      <p style={{ margin: "0 0 8px" }}>
-                        {language === "en"
-                          ? "To guarantee algorithm reliability, the system requires a continuous, fully reconciled series without discrepancies:"
-                          : "Để đảm bảo độ tin cậy của thuật toán, hệ thống yêu cầu chuỗi đối soát liên tục và không có tháng lệch:"}
-                      </p>
-                      <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "12px" }}>
-                        {reforecastResult.issues.map((iss, i) => (
-                          <li key={i}>
-                            {language === "en" ? "Month" : "Tháng"} <span className="font-mono">{iss.month}</span>:{" "}
-                            {iss.code === "MISSING_MONTH" && (language === "en" ? "Unrecorded actual month" : "Chưa khai báo sổ thực tế")}
-                            {iss.code === "UNRECONCILED_MONTH" && (language === "en" ? "Month has unreconciled discrepancy (UNRECONCILED)" : "Sổ thực tế chưa khớp số dư đối soát (UNRECONCILED)")}
-                            {iss.code === "OPENING_BALANCE_MISMATCH" && (language === "en" ? "Opening balance does not match previous month's closing balance" : "Số dư đầu kỳ không khớp số dư cuối kỳ tháng trước")}
-                            {iss.code === "MONTH_NOT_CLOSED" && (language === "en" ? "Current month cycle is still ongoing" : "Tháng hiện tại chưa kết thúc chu kỳ")}
-                          </li>
-                        ))}
-                      </ul>
-                    </Alert>
-                  </div>
-                )}
-
-                {reforecastResult?.status === "HORIZON_COMPLETE" && (
-                  <div style={{ marginTop: "16px" }}>
-                    <Alert tone="info" title={language === "en" ? "Projection Horizon Completed" : "Hoàn thành chân trời dự phóng"}>
-                      {language === "en"
-                        ? "The entire projection horizon of this plan version has elapsed. Please create a new version for ongoing long-term planning."
-                        : "Toàn bộ kỳ dự báo của phiên bản kế hoạch đã qua. Hãy tạo phiên bản mới nếu bạn muốn lập kế hoạch dài hạn tiếp theo."}
-                    </Alert>
-                  </div>
-                )}
-
-                {reforecastResult?.status === "READY" && reforecastResult.calculation && (
-                  <div style={{ marginTop: "20px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginBottom: "16px" }}>
-                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                          {language === "en" ? "ACTUAL ANCHOR" : "MỐC NEO THỰC TẾ (ANCHOR)"}
-                        </span>
-                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px" }}>
-                          {reforecastResult.anchor?.period}: {formatVND(Number(reforecastResult.anchor?.closingBalance))}
-                        </strong>
-                      </div>
-                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                          {language === "en" ? "PROJECTED RETIREMENT FUND (REFORECAST)" : "QUỸ DỰ KIẾN HƯU (REFORECAST)"}
-                        </span>
-                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px", color: "var(--color-primary-700)" }}>
-                          {formatVND(Number(reforecastResult.calculation.summary.atRetirement.projectedFund))}
-                        </strong>
-                      </div>
-                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                          {language === "en" ? "REVISED COVERAGE RATIO" : "TỶ LỆ BAO PHỦ MỚI"}
-                        </span>
-                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px" }}>
-                          {reforecastResult.calculation.summary.atRetirement.coveragePercent}%
-                        </strong>
-                      </div>
-                    </div>
-
-                    {/* 3-Layer Comparison Table */}
-                    <h3>{language === "en" ? "3-Layer Comparison: Original Forecast / Actuals / Reforecast" : "Bảng đối chiếu 3 lớp: Dự báo gốc / Thực tế / Dự báo lại"}</h3>
-                    <div style={{ overflowX: "auto", marginTop: "12px" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-                        <thead>
-                          <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
-                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Month" : "Tháng"}</th>
-                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Actual Balance" : "Số thực tế (Actual)"}</th>
-                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Original Forecast" : "Dự báo gốc (Forecast)"}</th>
-                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Variance (Delta)" : "Chênh lệch (Delta)"}</th>
-                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Actual Contribution" : "Tích lũy thực tế"}</th>
-                            <th style={{ padding: "8px 12px" }}>{language === "en" ? "Forecast Contribution" : "Tích lũy dự báo"}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {reforecastResult.comparison.map((row) => (
-                            <tr key={row.month} style={{ borderBottom: "1px solid var(--color-border)" }}>
-                              <td style={{ padding: "8px 12px", fontWeight: 600 }} className="font-mono">{row.month}</td>
-                              <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.actualClosingBalance))}</td>
-                              <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.forecastClosingBalance))}</td>
-                              <td style={{ padding: "8px 12px", color: Number(row.closingBalanceDelta) >= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }} className="font-mono">
-                                {Number(row.closingBalanceDelta) >= 0 ? "+" : ""}{formatVND(Number(row.closingBalanceDelta))}
-                              </td>
-                              <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.actualContribution))}</td>
-                              <td style={{ padding: "8px 12px" }} className="font-mono">{formatVND(Number(row.forecastContribution))}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
+                {reforecastResult && <AnchorReforecastResult result={reforecastResult} language={language} onSelectMonth={month => {
+                  setSelectedPeriod(month);
+                  document.getElementById("actual-period")?.focus();
+                }} />}
               </div>
             )}
 
@@ -2942,223 +2970,55 @@ export default function SimulationTrackingPage() {
             {/* SUBTAB 2: FUTURE CASH FLOW ADJUSTMENTS (P13/P15 & Q15-03)   */}
             {/* ========================================================= */}
             {reforecastSubTab === "future-changes" && (
-              <div>
-                <div style={{ background: "var(--color-surface-subtle)", padding: "16px", borderRadius: "var(--radius-md)", marginBottom: "16px" }}>
-                  <h4 style={{ margin: "0 0 8px", fontSize: "13px", color: "var(--color-primary-800)" }}>
-                    {language === "en" ? "Configure Monthly Total Adjustments" : "Thiết lập điều chỉnh tổng dòng tiền theo tháng"}
-                  </h4>
-                  <p style={{ margin: "0 0 12px", fontSize: "12px", color: "var(--color-text-muted)" }}>
-                    {language === "en"
-                      ? "Directly replace monthly aggregate totals for future periods. Surplus policy strictly respects confirmed deposits only."
-                      : "Thay thế trực tiếp tổng tháng cho thu nhập, sinh hoạt, chi bổ sung hoặc mức tích lũy trong các tháng tương lai. Chính sách quỹ chỉ nộp đúng số xác nhận."}
-                  </p>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
-                    <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                        {language === "en" ? "Field to Adjust" : "Hạng mục điều chỉnh"}
-                      </label>
-                      <select
-                        className="input"
-                        value={fcField}
-                        onChange={(e) => setFcField(e.target.value as FutureChangeField)}
-                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                      >
-                        <option value="plannedContribution">{language === "en" ? "Planned Contribution (Savings)" : "Đóng góp tích lũy (Quỹ hưu)"}</option>
-                        <option value="livingExpense">{language === "en" ? "Living Expense" : "Chi phí sinh hoạt"}</option>
-                        <option value="income">{language === "en" ? "Total Income" : "Tổng thu nhập"}</option>
-                        <option value="additionalExpense">{language === "en" ? "Additional Expense" : "Chi phí bổ sung"}</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                        {language === "en" ? "Start Month" : "Tháng bắt đầu"}
-                      </label>
-                      <input
-                        type="month"
-                        className="input"
-                        value={fcStartMonth}
-                        onChange={(e) => setFcStartMonth(e.target.value)}
-                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                        {language === "en" ? "End Month" : "Tháng kết thúc"}
-                      </label>
-                      <input
-                        type="month"
-                        className="input"
-                        value={fcEndMonth}
-                        onChange={(e) => setFcEndMonth(e.target.value)}
-                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                        {language === "en" ? "New Monthly Amount (VND)" : "Số tiền thay thế mỗi tháng (VND)"}
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="VD: 5000000"
-                        className="input"
-                        value={fcAmount}
-                        onChange={(e) => setFcAmount(e.target.value)}
-                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                      />
-                    </div>
+              <section className="future-cashflows" aria-label={language === "en" ? "Future cash flow adjustments" : "Điều chỉnh dòng tiền tương lai"}>
+                <h3>{language === "en" ? "Adjust monthly totals" : "Điều chỉnh tổng tiền từng tháng"}</h3>
+                {candidateUsesSources && <Alert tone="info" title={language === "en" ? "Adjust individual sources" : "Kế hoạch cần điều chỉnh theo từng nguồn"}><p>{language === "en" ? "This plan tracks individual sources. Use source adjustments to preserve their schedules and supporting records." : "Kế hoạch này quản lý từng nguồn riêng. Hãy điều chỉnh nguồn để giữ đúng lịch và căn cứ của từng khoản."}</p><Button onClick={() => setReforecastSubTab("sources-v4")}>{language === "en" ? "Open source adjustments" : "Mở điều chỉnh từng nguồn"}</Button></Alert>}
+                <p>{language === "en" ? "Each row replaces the selected monthly total; it does not add to it. Add each draft row before previewing. Saving creates a version; applying makes it the official plan." : "Mỗi dòng thay thế tổng tiền của hạng mục trong khoảng tháng đã chọn, không cộng thêm vào số cũ. Thêm dòng vào danh sách trước khi xem trước. Lưu tạo phiên bản mới; áp dụng mới thay đổi kế hoạch chính thức."}</p>
+                <fieldset disabled={candidateBusy || candidateUsesSources} className="future-form">
+                  <legend>{fcEditingId ? (language === "en" ? "Edit adjustment" : "Sửa điều chỉnh") : (language === "en" ? "New adjustment" : "Điều chỉnh mới")}</legend>
+                  <div className="future-grid">
+                    <label htmlFor="fc-field">{language === "en" ? "Field to adjust" : "Hạng mục điều chỉnh"}<select id="fc-field" className="input" value={fcField} onChange={e => { setFcField(e.target.value as FutureChangeField); setFcError(""); }}>{(["plannedContribution", "livingExpense", "income", "additionalExpense"] as FutureChangeField[]).map(field => <option key={field} value={field}>{futureFieldLabel(field)}</option>)}</select></label>
+                    <label htmlFor="fc-start">{language === "en" ? "Start month" : "Tháng bắt đầu"}<input id="fc-start" className="input" type="month" max={candidateEndMonth} value={fcStartMonth} onChange={e => { setFcStartMonth(e.target.value); setFcError(""); }} /></label>
+                    <label htmlFor="fc-end">{language === "en" ? "End month" : "Tháng kết thúc"}<input id="fc-end" className="input" type="month" min={fcStartMonth || undefined} max={candidateEndMonth} value={fcEndMonth} onChange={e => { setFcEndMonth(e.target.value); setFcError(""); }} /></label>
+                    <label htmlFor="fc-amount">{language === "en" ? "New monthly amount (VND)" : "Số tiền thay thế mỗi tháng (VND)"}<input id="fc-amount" className="input" type="text" inputMode="decimal" placeholder="5000000" value={fcAmount} onChange={e => { setFcAmount(e.target.value); setFcError(""); }} /></label>
                   </div>
-
-                  <div style={{ marginTop: "12px", display: "flex", gap: "12px", alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                        {language === "en" ? "Reason / Document Reference" : "Lý do / Tham chiếu chứng từ"}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={language === "en" ? "E.g. Salary review or adjusted savings schedule" : "VD: Tăng lương hoặc điều chỉnh kế hoạch tích lũy"}
-                        className="input"
-                        value={fcReason}
-                        onChange={(e) => setFcReason(e.target.value)}
-                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                      />
-                    </div>
-                    <Button variant="secondary" onClick={handleAddFutureChange}>
-                      <Icon name="plus" size="small" /> {language === "en" ? "Add Adjustment" : "Thêm điều chỉnh"}
-                    </Button>
+                  <label htmlFor="fc-reason">{language === "en" ? "Reason (required)" : "Lý do điều chỉnh (bắt buộc)"}<input id="fc-reason" className="input" maxLength={500} value={fcReason} onChange={e => { setFcReason(e.target.value); setFcError(""); }} /></label>
+                  <p>{language === "en" ? "Use months after " : "Chọn tháng sau "}{selectedPeriod}{candidateEndMonth ? (language === "en" ? " through " : " đến ") + candidateEndMonth : ""}. {language === "en" ? "Use a dot for decimals, for example 1000000.50; zero is allowed." : "Dùng dấu chấm cho phần lẻ, ví dụ 1000000.50; có thể nhập 0."}</p>
+                  {fcError && <Alert tone="danger" title={language === "en" ? "Check adjustment" : "Kiểm tra điều chỉnh"}>{fcError}</Alert>}
+                  <div className="future-actions">
+                    <Button variant="secondary" onClick={handleAddFutureChange}>{fcEditingId ? (language === "en" ? "Update adjustment" : "Cập nhật điều chỉnh") : (language === "en" ? "Add adjustment" : "Thêm điều chỉnh")}</Button>
+                    {(fcEditingId || fcAmount || fcReason) && <Button variant="ghost" onClick={() => { setFcEditingId(null); setFcAmount(""); setFcReason(""); setFcError(""); }}>{language === "en" ? "Discard draft" : "Bỏ nhập dở"}</Button>}
                   </div>
-                </div>
-
-                {/* List of active future changes */}
-                {futureChanges.length > 0 && (
-                  <div style={{ marginBottom: "16px", overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-                      <thead>
-                        <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
-                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Field" : "Hạng mục"}</th>
-                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Period" : "Khoảng thời gian"}</th>
-                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "New Amount" : "Số tiền thay thế"}</th>
-                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Reason" : "Lý do"}</th>
-                          <th style={{ padding: "6px 10px", width: "40px" }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {futureChanges.map((c) => (
-                          <tr key={c.id} style={{ borderBottom: "1px solid var(--color-border)" }}>
-                            <td style={{ padding: "6px 10px", fontWeight: 600 }}>
-                              {c.field === "plannedContribution" && (language === "en" ? "Savings" : "Đóng góp tích lũy")}
-                              {c.field === "livingExpense" && (language === "en" ? "Living" : "Sinh hoạt")}
-                              {c.field === "income" && (language === "en" ? "Income" : "Thu nhập")}
-                              {c.field === "additionalExpense" && (language === "en" ? "Additional" : "Chi bổ sung")}
-                            </td>
-                            <td style={{ padding: "6px 10px" }} className="font-mono">{c.startMonth} → {c.endMonth}</td>
-                            <td style={{ padding: "6px 10px", fontWeight: 600, color: "var(--color-primary-700)" }} className="font-mono">{formatVND(Number(c.amount))}</td>
-                            <td style={{ padding: "6px 10px", color: "var(--color-text-muted)" }}>{c.reason}</td>
-                            <td style={{ padding: "6px 10px" }}>
-                              <IconButton icon="trash" label="Xóa" onClick={() => handleRemoveFutureChange(c.id)} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "16px" }}>
-                  <Button
-                    variant="primary"
-                    onClick={handlePreviewCandidate}
-                    loading={previewingCandidate}
-                    disabled={!activePlan?.id || !currentVersion?.id}
-                  >
-                    <Icon name="sparkles" size="small" /> {language === "en" ? "Preview Scenario Candidate" : "Xem trước kịch bản điều chỉnh"}
-                  </Button>
-                </div>
-
-                {candidateError && (
-                  <div style={{ marginTop: "16px" }}>
-                    <Alert tone="danger" title={language === "en" ? "Preview Error" : "Lỗi xem trước"}>{candidateError}</Alert>
-                  </div>
-                )}
-
-                {/* Non-READY candidate warning banner (FE-03) */}
-                {reforecastCandidate && reforecastCandidate.status !== "READY" && (
-                  <div style={{ marginTop: "16px" }}>
-                    <Alert
-                      tone={reforecastCandidate.status === "BLOCKED" ? "danger" : "info"}
-                      title={reforecastCandidate.status === "BLOCKED" ? (language === "en" ? "Reforecast Blocked" : "Dự báo bị chặn") : (language === "en" ? "Horizon Complete" : "Đã hoàn thành chân trời")}
-                    >
-                      <p style={{ margin: 0, fontSize: "12px" }}>
-                        {reforecastCandidate.status === "BLOCKED"
-                          ? (language === "en" ? "Calculation blocked due to data integrity or validation issues:" : "Dự báo bị chặn do vi phạm tính toàn vẹn hoặc đối soát dữ liệu:")
-                          : (language === "en" ? "The full retirement projection horizon has already completed." : "Toàn bộ chân trời dự phóng đã hoàn thành.")}
-                      </p>
-                      {reforecastCandidate.issues && reforecastCandidate.issues.length > 0 && (
-                        <ul style={{ margin: "6px 0 0", paddingLeft: "20px", fontSize: "12px" }}>
-                          {reforecastCandidate.issues.map((iss: any, i: number) => (
-                            <li key={i}>{iss.month ? `[${iss.month}] ` : ""}{iss.message || iss.code}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </Alert>
-                  </div>
-                )}
-
-                {/* Candidate Result Card */}
-                {reforecastCandidate?.status === "READY" && reforecastCandidate.candidate && (
-                  <div style={{ marginTop: "20px", border: "1.5px solid var(--color-primary-200)", borderRadius: "var(--radius-lg)", padding: "16px", background: "var(--color-surface)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                      <div>
-                        <Badge tone="success">{language === "en" ? "CANDIDATE READY" : "KỊCH BẢN ĐÃ SẴN SÀNG"}</Badge>
-                        <h3 style={{ margin: "4px 0 0" }}>{language === "en" ? "Scenario Preview Comparison" : "So sánh trước và sau điều chỉnh"}</h3>
-                      </div>
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <Button
-                          variant="secondary"
-                          onClick={handleSaveCandidate}
-                          loading={savingCandidate}
-                          disabled={!reforecastCandidate.inputHash}
-                        >
-                          <Icon name="check" size="small" /> {language === "en" ? "Save as New Version" : "Lưu thành phiên bản mới"}
-                        </Button>
-                        {savedCandidateVersion && (
-                          <Button
-                            variant="primary"
-                            onClick={() => handleApplyCandidateVersion(savedCandidateVersion)}
-                            loading={applyingCandidate}
-                          >
-                            <Icon name="compass" size="small" /> {language === "en" ? `Apply v${savedCandidateVersion.version}` : `Áp dụng bản v${savedCandidateVersion.version}`}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
-                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{language === "en" ? "BEFORE ADJUSTMENTS FUND" : "QUỸ TRƯỚC ĐIỀU CHỈNH"}</span>
-                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px" }}>
-                          {formatVND(Number(reforecastCandidate.beforeChanges?.summary.atRetirement.projectedFund || 0))}
-                        </strong>
-                      </div>
-                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{language === "en" ? "AFTER ADJUSTMENTS FUND" : "QUỸ SAU ĐIỀU CHỈNH"}</span>
-                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px", color: "var(--color-primary-700)" }}>
-                          {formatVND(Number(reforecastCandidate.candidate.calculation?.summary.atRetirement.projectedFund || 0))}
-                        </strong>
-                      </div>
-                      <div style={{ padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                        <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{language === "en" ? "COVERAGE RATIO" : "TỶ LỆ BAO PHỦ MỚI"}</span>
-                        <strong className="font-mono" style={{ display: "block", fontSize: "16px", marginTop: "4px" }}>
-                          {reforecastCandidate.candidate.calculation?.summary.atRetirement.coveragePercent}%
-                        </strong>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                </fieldset>
+                {!futureChanges.length ? <p>{language === "en" ? "No adjustments yet. Add a row to preview." : "Chưa có điều chỉnh. Thêm một dòng để xem trước."}</p> : <div className="anchor-table" tabIndex={0} role="region" aria-label={language === "en" ? "Adjustment list" : "Danh sách điều chỉnh"}>
+                  <table><thead><tr>{[language === "en" ? "Field" : "Hạng mục", language === "en" ? "Period" : "Khoảng tháng", language === "en" ? "Replacement amount" : "Số tiền thay thế", language === "en" ? "Reason" : "Lý do", language === "en" ? "Actions" : "Thao tác"].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
+                    <tbody>{futureChanges.map(c => <tr key={c.id}><th scope="row">{futureFieldLabel(c.field)}</th><td>{c.startMonth} → {c.endMonth}</td><td>{futureMoney(c.amount)}</td><td className="future-reason">{c.reason}</td><td><div className="future-actions"><button type="button" className="button button-ghost button-medium" disabled={candidateBusy} aria-label={(language === "en" ? "Edit " : "Sửa ") + futureFieldLabel(c.field) + " " + c.startMonth + " " + c.endMonth} onClick={() => handleEditFutureChange(c)}>{language === "en" ? "Edit" : "Sửa"}</button><button type="button" className="button button-ghost button-medium" disabled={candidateBusy} aria-label={(language === "en" ? "Remove " : "Xóa ") + futureFieldLabel(c.field) + " " + c.startMonth + " " + c.endMonth} onClick={() => handleRemoveFutureChange(c.id)}>{language === "en" ? "Remove" : "Xóa"}</button></div></td></tr>)}</tbody></table>
+                </div>}
+                {loadingPlans ? <p role="status">{language === "en" ? "Loading plan…" : "Đang tải kế hoạch…"}</p> : plansError ? <Alert tone="danger" title={language === "en" ? "Plan load failed" : "Chưa tải được kế hoạch"}>{plansError}<Button onClick={() => void refreshPlans()}>{language === "en" ? "Retry plans" : "Tải lại kế hoạch"}</Button></Alert> : (!activePlan?.id || !currentVersion?.id) && <p><Link to="/user/plan">{language === "en" ? "Create an official plan before previewing." : "Tạo kế hoạch chính thức trước khi xem trước."}</Link></p>}
+                {(!ledgerReady || ledgerDirty || savingActual) && <p>{language === "en" ? "Load and save the actual ledger before previewing." : "Tải và lưu sổ thực tế trước khi xem trước."}</p>}
+                {(fcAmount || fcReason || fcEditingId) && <p role="status">{language === "en" ? "Add/update the draft row or discard it before previewing." : "Thêm/cập nhật dòng đang nhập hoặc bỏ nhập dở trước khi xem trước."}</p>}
+                {profileRevision <= 0 && <p>{language === "en" ? "A saved financial profile is required." : "Cần có hồ sơ tài chính đã lưu."}</p>}
+                <div className="future-actions"><Button variant="primary" onClick={handlePreviewCandidate} loading={previewingCandidate} disabled={!candidateCanPreview || candidateBusy}>{language === "en" ? "Preview adjusted scenario" : "Xem trước kịch bản điều chỉnh"}</Button></div>
+                {candidateError && <Alert tone="danger" title={language === "en" ? "Unable to complete" : "Chưa hoàn tất thao tác"}>{candidateError}</Alert>}
+                {candidateConflict && <Alert tone="warning" title={language === "en" ? "Data changed" : "Dữ liệu đã thay đổi"}>{language === "en" ? "Review the refreshed plan and preview the adjustments again before saving or applying." : "Kiểm tra kế hoạch vừa tải lại và xem trước lại các điều chỉnh trước khi lưu hoặc áp dụng."}</Alert>}
+                {currentCandidate && currentCandidate.status !== "READY" && <Alert tone={currentCandidate.status === "BLOCKED" ? "warning" : "info"} title={currentCandidate.status === "BLOCKED" ? (language === "en" ? "Reforecast blocked" : "Dự báo bị chặn") : (language === "en" ? "Projection period ended" : "Đã hết kỳ dự báo")}>
+                  <p>{currentCandidate.status === "BLOCKED" ? (language === "en" ? "Review the actual ledger and adjustment periods, then retry." : "Kiểm tra sổ thực tế và khoảng tháng điều chỉnh, rồi xem trước lại.") : (language === "en" ? "Create a new plan version to continue." : "Tạo phiên bản kế hoạch mới để tiếp tục.")}</p>
+                  <ul>{currentCandidate.issues?.map((issue, index) => <li key={index}>{issue.month}: {({ MISSING_MONTH: language === "en" ? "Actual month not recorded" : "Chưa khai báo sổ thực tế", UNRECONCILED_MONTH: language === "en" ? "Unreconciled balance" : "Số dư chưa đối soát khớp", OPENING_BALANCE_MISMATCH: language === "en" ? "Opening balance mismatch" : "Số dư đầu kỳ không khớp tháng trước", MONTH_NOT_CLOSED: language === "en" ? "Month has not ended" : "Tháng chưa kết thúc" } as Record<string, string>)[issue.code] ?? ((language === "en" ? "Review month data: " : "Cần kiểm tra dữ liệu tháng: ") + issue.code)}</li>)}</ul>
+                  {currentCandidate.status === "HORIZON_COMPLETE" && <Link to="/user/plan">{language === "en" ? "Open plan" : "Mở kế hoạch"}</Link>}
+                </Alert>}
+                {currentCandidate?.status === "READY" && !candidateComplete && <Alert tone="warning" title={language === "en" ? "Incomplete preview" : "Kết quả xem trước chưa đầy đủ"}>{language === "en" ? "Run preview again before saving." : "Hãy xem trước lại trước khi lưu phiên bản."}</Alert>}
+                {candidateComplete && <div className="future-result">
+                  <h3>{language === "en" ? "Before and after adjustments" : "So sánh trước và sau điều chỉnh"}</h3>
+                  <p>{savedCandidateVersion ? (language === "en" ? "Saved version " : "Đã lưu phiên bản ") + "v" + savedCandidateVersion.version + (language === "en" ? "; not yet applied." : "; chưa áp dụng.") : (language === "en" ? "Preview only; not saved or applied." : "Chỉ là bản xem trước; chưa lưu hoặc áp dụng.")}</p>
+                  <div className="future-grid"><div><span>{language === "en" ? "Fund before adjustments" : "Quỹ trước điều chỉnh"}</span><strong>{futureMoney(currentCandidate!.beforeChanges?.summary?.atRetirement?.projectedFund)}</strong></div><div><span>{language === "en" ? "Fund after adjustments" : "Quỹ sau điều chỉnh"}</span><strong>{futureMoney(currentCandidate!.candidate.calculation.summary.atRetirement.projectedFund)}</strong></div><div><span>{language === "en" ? "Revised coverage" : "Tỷ lệ bao phủ mới"}</span><strong>{currentCandidate!.candidate.calculation.summary.atRetirement.coveragePercent == null ? (language === "en" ? "Unknown" : "Chưa xác định") : currentCandidate!.candidate.calculation.summary.atRetirement.coveragePercent + "%"}</strong></div></div>
+                  <div className="future-actions"><Button variant="secondary" onClick={handleSaveCandidate} loading={savingCandidate} disabled={candidateBusy || Boolean(savedCandidateVersion)}>{savedCandidateVersion ? (language === "en" ? "Version saved" : "Đã lưu phiên bản") : (language === "en" ? "Save as new version" : "Lưu thành phiên bản mới")}</Button>{savedCandidateVersion && <Button variant="primary" disabled={candidateBusy} onClick={() => setConfirmCandidate(true)}>{language === "en" ? "Apply version " : "Áp dụng bản "}v{savedCandidateVersion.version}</Button>}</div>
+                </div>}
+                <Modal open={confirmCandidate} title={language === "en" ? "Confirm scenario application" : "Xác nhận áp dụng điều chỉnh"} onClose={() => { if (!candidateWriting.current) setConfirmCandidate(false); }}>
+                  <p>{language === "en" ? "This will make the saved version your official retirement plan. Your actual ledger stays unchanged." : "Phiên bản đã lưu sẽ trở thành kế hoạch hưu trí chính thức. Sổ thực tế giữ nguyên."}</p>
+                  <p>{language === "en" ? "Version: " : "Phiên bản: "}v{savedCandidateVersion?.version} · {language === "en" ? "Through month: " : "Kỳ đối soát: "}{selectedPeriod}</p>
+                  <div className="future-actions"><Button variant="secondary" disabled={applyingCandidate} onClick={() => setConfirmCandidate(false)}>{language === "en" ? "Cancel" : "Hủy"}</Button><Button variant="primary" loading={applyingCandidate} onClick={handleApplyCandidateVersion}>{language === "en" ? "Confirm application" : "Xác nhận áp dụng"}</Button></div>
+                </Modal>
+              </section>
             )}
 
             {/* ========================================================= */}
@@ -3166,113 +3026,84 @@ export default function SimulationTrackingPage() {
             {/* ========================================================= */}
             {reforecastSubTab === "sources-v4" && (
               <div>
-                {/* 1. Gắn nguồn Lương hưu BHXH (FE-05) */}
-                <div style={{ background: "var(--color-surface-subtle)", padding: "16px", borderRadius: "var(--radius-md)", marginBottom: "16px", border: "1px solid var(--color-primary-200)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <h4 style={{ margin: 0, fontSize: "13px", color: "var(--color-primary-800)" }}>
-                      {language === "en" ? "Statutory Pension Source Selection (FE-05)" : "Gắn nguồn lương hưu từ kết quả BHXH đã lưu (FE-05)"}
-                    </h4>
-                    <Badge tone="soft">{language === "en" ? "FIXED NOMINAL" : "LƯƠNG HƯU DANH NGHĨA"}</Badge>
-                  </div>
-                  <p style={{ margin: "0 0 12px", fontSize: "12px", color: "var(--color-text-muted)" }}>
-                    {language === "en"
-                      ? "Select an eligible saved pension estimate to incorporate into this reforecast plan version with cryptographic integrity verification."
-                      : "Chọn kết quả ước tính hưu trí đủ điều kiện đã lưu để đưa vào phiên bản kế hoạch này với mã băm toàn vẹn (integrity hash)."}
-                  </p>
-
-                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "flex-end" }}>
-                    <div style={{ flex: 1, minWidth: "260px" }}>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                        {language === "en" ? "Eligible Saved Estimates" : "Kết quả ước tính hợp lệ đã lưu"}
-                      </label>
-                      <select
-                        className="input"
-                        value={selectedEstimateId}
-                        onChange={(e) => setSelectedEstimateId(e.target.value)}
-                        style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                      >
-                        {eligibleEstimates.length === 0 ? (
-                          <option value="">{language === "en" ? "No eligible saved estimates found" : "Chưa có kết quả ước tính hưu trí hợp lệ đã lưu"}</option>
-                        ) : (
-                          eligibleEstimates.map((est) => (
-                            <option key={est.id} value={est.id}>
-                              {formatVND(Number(est.assessment.monthlyPension || 0))}/tháng (từ {est.assessment.startMonth || "N/A"}) • Lưu ngày {new Date(est.createdAt).toLocaleDateString()}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </div>
-
-                    <Button
-                      variant="secondary"
-                      onClick={handleAddPensionSelection}
-                      disabled={eligibleEstimates.length === 0}
-                    >
-                      <Icon name="plus" size="small" /> {language === "en" ? "Attach Pension to Plan" : "Gắn vào kế hoạch"}
-                    </Button>
-                  </div>
-
-                  {pensionSelections.length > 0 && (
-                    <div style={{ marginTop: "12px", padding: "10px", background: "var(--color-surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <Badge tone="success">PENSION ATTACHED</Badge>
-                          <strong style={{ fontSize: "12px" }}>
-                            {pensionSelections[0].operation} • {pensionSelections[0].effectiveFromMonth} → {pensionSelections[0].effectiveToMonth}
-                          </strong>
-                        </div>
-                        <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "2px" }} className="font-mono">
-                          Source ID: {pensionSelections[0].sourceId} • Estimate ID: {pensionSelections[0].estimateId.slice(0, 8)}...
-                        </div>
-                      </div>
-                      <IconButton icon="trash" label="Bỏ gắn" onClick={handleRemovePensionSelection} />
-                    </div>
-                  )}
-                </div>
+                <section className="pension-source" aria-labelledby="pension-source-title" aria-busy={pensionLoading}>
+                  <h3 id="pension-source-title">{language === "en" ? "Attach a saved pension estimate" : "Gắn nguồn lương hưu từ kết quả BHXH đã lưu"}</h3>
+                  <p>{language === "en" ? "This is a planning estimate. The monthly amount stays fixed; automatic increases and lump-sum benefits are excluded. Attach, preview, save, then apply in separate steps." : "Đây là khoản dự kiến để lập kế hoạch. Giữ nguyên mức hưởng mỗi tháng, không tự tăng theo năm và không cộng trợ cấp một lần vào quỹ. Gắn vào bản nháp, xem trước, lưu rồi áp dụng là các bước riêng."}</p>
+                  {pensionLoading ? <p role="status">{language === "en" ? "Loading saved estimates…" : "Đang tải kết quả đã lưu…"}</p>
+                    : pensionLoadError ? <Alert tone="danger" title={language === "en" ? "Unable to load estimates" : "Không tải được kết quả BHXH"}>{language === "en" ? "Try loading the list again." : "Thử tải lại danh sách. Chưa thể kết luận bạn không có kết quả đã lưu."}</Alert>
+                    : !eligibleEstimates.length ? <p role="status">{language === "en" ? "No eligible saved estimate with a positive monthly pension and start month. Review and save an estimate in the plan's social insurance section, then reload here." : "Chưa có bản lưu đủ điều kiện với mức hưởng lớn hơn 0 và tháng bắt đầu. Mở phần BHXH trong Kế hoạch hưu trí để kiểm tra, lưu kết quả rồi tải lại tại đây."}</p> : null}
+                  <Button variant="ghost" disabled={pensionLoading || Boolean(pensionSelections.length)} onClick={() => setPensionReload(value => value + 1)}>{language === "en" ? "Reload pension estimates" : "Tải lại kết quả BHXH"}</Button>
+                  {!pensionRegistryReady && <p>{language === "en" ? "Preview once with no commands to load the plan's source list before choosing an estimate." : "Bấm Xem trước nguồn V4 khi danh sách lệnh còn trống để tải danh mục nguồn của kế hoạch trước khi chọn kết quả."}</p>}
+                  <fieldset disabled={pensionLoading || pensionLoadError || !pensionRegistryReady || Boolean(pensionSelections.length)}>
+                    <label htmlFor="pension-estimate">{language === "en" ? "Saved pension estimate" : "Kết quả ước tính hợp lệ đã lưu"}</label>
+                    <select id="pension-estimate" value={selectedEstimateId} onChange={event => setSelectedEstimateId(event.target.value)}>
+                      <option value="">{language === "en" ? "Choose a saved estimate" : "Chọn kết quả đã lưu"}</option>
+                      {eligibleEstimates.map(est => <option key={est.id} value={est.id}>{futureMoney(est.assessment.monthlyPension)} · {est.assessment.startMonth} · {est.createdAt.slice(0, 10)} · {est.id.slice(0, 8)}</option>)}
+                    </select>
+                    {pensionSources.length > 1 && <><label htmlFor="pension-target">{language === "en" ? "Pension source to replace" : "Nguồn lương hưu cần thay thế"}</label><select id="pension-target" value={pensionTargetId} onChange={event => setPensionTargetId(event.target.value)}><option value="">{language === "en" ? "Choose a source" : "Chọn nguồn"}</option>{pensionSources.map(source => <option key={source.sourceId} value={source.sourceId}>{source.sourceId} · r{source.revision}</option>)}</select></>}
+                    {selectedPensionEstimate && <div className="pension-estimate-detail">
+                      <p><strong>{futureMoney(selectedPensionEstimate.assessment.monthlyPension)}{language === "en" ? "/month" : "/tháng"}</strong> · {language === "en" ? "Benefit starts: " : "Bắt đầu hưởng: "}{selectedPensionEstimate.assessment.startMonth}</p>
+                      <p>{language === "en" ? "Estimate: " : "Mã bản lưu: "}{selectedPensionEstimate.id}<br />{language === "en" ? "History revision: " : "Phiên bản lịch đóng: "}{selectedPensionEstimate.historyRevision} · {language === "en" ? "Rule version: " : "Phiên bản bộ luật: "}{selectedPensionEstimate.legalRuleVersion} · {language === "en" ? "Assessed on: " : "Ngày ước tính: "}{selectedPensionEstimate.assessedOn}</p>
+                      <p>{pensionTarget ? (language === "en" ? "Replace existing source: " : "Thay thế nguồn đang có: ") + pensionTarget.sourceId + " · r" + pensionTarget.revision : pensionSources.length ? (language === "en" ? "Choose which source to replace." : "Chọn rõ nguồn cần thay thế.") : (language === "en" ? "Create a pension source." : "Tạo một nguồn lương hưu mới.")}</p>
+                      <p>{language === "en" ? "Plan period: " : "Kỳ đưa vào kế hoạch: "}<strong>{pensionFrom} → {pensionTo}</strong>. {language === "en" ? "Only future months after reconciliation are included. Earlier actuals stay unchanged." : "Chỉ tính các tháng tương lai sau kỳ đối soát, giữ nguyên số thực tế đã ghi."}</p>
+                      {!pensionPeriodValid && <p role="alert">{language === "en" ? "No pension months remain within this plan. Review the estimate or plan period." : "Không còn tháng hưởng lương hưu trong kỳ kế hoạch. Kiểm tra kết quả hoặc kỳ kế hoạch."}</p>}
+                      <label className="pension-confirm"><input type="checkbox" checked={pensionConfirmed} onChange={event => setPensionConfirmed(event.target.checked)} />{language === "en" ? "I confirm this estimate, source and fixed monthly amount for the period shown." : "Tôi xác nhận bản ước tính, nguồn và mức hưởng cố định trong kỳ hiển thị."}</label>
+                    </div>}
+                    <Button variant="secondary" onClick={handleAddPensionSelection} disabled={!selectedPensionEstimate || !pensionConfirmed || !pensionPeriodValid || (pensionSources.length > 0 && !pensionTarget)}>{language === "en" ? "Attach to draft" : "Gắn vào bản nháp"}</Button>
+                  </fieldset>
+                  {pensionDraft && <div className="future-actions"><p>{language === "en" ? "Attach or discard this selection before previewing." : "Gắn hoặc bỏ lựa chọn đang chọn trước khi xem trước."}</p><Button variant="ghost" onClick={handleRemovePensionSelection}>{language === "en" ? "Discard pension selection" : "Bỏ lựa chọn BHXH"}</Button></div>}
+                  {pensionError && <Alert tone="danger" title={language === "en" ? "Review pension source" : "Kiểm tra nguồn lương hưu"}>{pensionError}</Alert>}
+                  {pensionSelections.map(selection => <div className="pension-attached" key={selection.commandId} role="status">
+                    <p><strong>{language === "en" ? "Attached to draft" : "Đã gắn vào bản nháp"}</strong> · {selection.operation === "REVISE" ? (language === "en" ? "Replace source" : "Thay nguồn") : (language === "en" ? "New source" : "Nguồn mới")} · {selection.effectiveFromMonth} → {selection.effectiveToMonth}</p>
+                    <p>{language === "en" ? "Source: " : "Nguồn: "}{selection.sourceId} · r{selection.expectedSourceRevision}</p>
+                    <p>{language === "en" ? "To change the estimate, remove this draft attachment first. Removing it does not delete the saved estimate or the current plan's pension." : "Muốn đổi kết quả, bỏ gắn bản nháp trước. Bỏ gắn không xóa bản ước tính đã lưu hoặc lương hưu của kế hoạch hiện tại."}</p>
+                    <Button variant="ghost" onClick={handleRemovePensionSelection}>{language === "en" ? "Remove pension attachment" : "Bỏ gắn lương hưu"}</Button>
+                  </div>)}
+                </section>
 
                 {/* 2. Quản lý lệnh nguồn danh nghĩa (V4) */}
-                <div style={{ background: "var(--color-surface-subtle)", padding: "16px", borderRadius: "var(--radius-md)", marginBottom: "16px" }}>
+                <div className="source-flow-form" style={{ background: "var(--color-surface-subtle)", padding: "16px", borderRadius: "var(--radius-md)", marginBottom: "16px" }}>
                   <h4 style={{ margin: "0 0 8px", fontSize: "13px", color: "var(--color-primary-800)" }}>
-                    {language === "en" ? "Manage Nominal Source Commands (V4)" : "Quản lý lệnh nguồn danh nghĩa (V4)"}
+                    {language === "en" ? "Manage cash flow sources" : "Quản lý nguồn thu chi"}
                   </h4>
                   <p style={{ margin: "0 0 12px", fontSize: "12px", color: "var(--color-text-muted)" }}>
                     {language === "en"
                       ? "Create, revise, or end granular cash flow sources with explicit document verification."
-                      : "Thêm mới (CREATE), cập nhật (REVISE) hoặc kết thúc (END) từng nguồn thu chi chi tiết có chứng từ rõ ràng."}
+                      : "Thêm, sửa hoặc kết thúc từng nguồn thu chi. Ghi rõ căn cứ hoặc giả định trước khi thêm vào kịch bản."}
                   </p>
 
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px" }}>
                     <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                      <label htmlFor="flow-operation" style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                         {language === "en" ? "Operation" : "Thao tác"}
                       </label>
-                      <select
+                      <select id="flow-operation"
                         className="input"
                         value={v4Operation}
-                        onChange={(e) => setV4Operation(e.target.value as "CREATE" | "REVISE" | "END")}
+                        onChange={(e) => { setV4Operation(e.target.value as "CREATE" | "REVISE" | "END"); setV4Amount(""); setV4FlowError(""); }}
                         style={{ width: "100%", height: "34px", fontSize: "12px" }}
                       >
-                        <option value="CREATE">CREATE (Tạo mới)</option>
-                        <option value="REVISE">REVISE (Sửa đổi)</option>
-                        <option value="END">END (Kết thúc)</option>
+                        <option value="CREATE">{language === "en" ? "Create" : "Tạo mới"}</option>
+                        <option value="REVISE">{language === "en" ? "Revise" : "Sửa đổi"}</option>
+                        <option value="END">{language === "en" ? "End" : "Kết thúc"}</option>
                       </select>
                     </div>
 
                     {v4Operation !== "CREATE" && (
-                      <div style={{ gridColumn: "span 2" }}>
-                        <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label htmlFor="flow-source" style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                           {language === "en" ? "Existing Source *" : "Nguồn hiện hữu trong danh mục *"}
                         </label>
-                        <select
+                        <select id="flow-source"
                           className="input"
                           value={selectedSourceId}
                           onChange={(e) => setSelectedSourceId(e.target.value)}
                           style={{ width: "100%", height: "34px", fontSize: "12px" }}
                         >
-                          {activeSources.length === 0 ? (
+                          {flowSources.length === 0 ? (
                             <option value="">{language === "en" ? "No active sources found (run preview first)" : "Chưa có nguồn nào (vui lòng bấm xem trước)"}</option>
                           ) : (
-                            activeSources.map((s) => (
+                            flowSources.map((s) => (
                               <option key={s.sourceId} value={s.sourceId}>
                                 [{s.kind}] {s.sourceId} (r{s.revision}, {s.effectiveFromMonth} → {s.effectiveToMonth})
                               </option>
@@ -3285,27 +3116,28 @@ export default function SimulationTrackingPage() {
                     {v4Operation !== "END" && (
                       <>
                         <div>
-                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                          <label htmlFor="flow-metric" style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Metric" : "Loại nguồn"}
                           </label>
-                          <select
+                          <select id="flow-metric"
                             className="input"
+                            disabled={v4Operation !== "CREATE" && selectedFlowSource?.kind !== "EXPENSE"}
                             value={v4Metric}
                             onChange={(e) => setV4Metric(e.target.value as any)}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           >
-                            <option value="income">{language === "en" ? "Income" : "Thu nhập"}</option>
-                            <option value="livingExpense">{language === "en" ? "Living Expense" : "Chi sinh hoạt"}</option>
-                            <option value="additionalExpense">{language === "en" ? "Additional Expense" : "Chi bổ sung"}</option>
-                            <option value="pension">{language === "en" ? "Pension" : "Lương hưu"}</option>
+                            <option disabled={v4Operation !== "CREATE" && selectedFlowSource?.kind !== "INCOME"} value="income">{language === "en" ? "Income" : "Thu nhập"}</option>
+                            <option disabled={v4Operation !== "CREATE" && selectedFlowSource?.kind !== "EXPENSE"} value="livingExpense">{language === "en" ? "Living Expense" : "Chi sinh hoạt"}</option>
+                            <option disabled={v4Operation !== "CREATE" && selectedFlowSource?.kind !== "EXPENSE"} value="additionalExpense">{language === "en" ? "Additional Expense" : "Chi bổ sung"}</option>
+                            <option disabled={v4Operation !== "CREATE" && selectedFlowSource?.kind !== "PENSION"} value="pension">{language === "en" ? "Pension" : "Lương hưu"}</option>
                           </select>
                         </div>
 
                         <div>
-                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                          <label htmlFor="flow-frequency" style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Frequency" : "Tần suất"}
                           </label>
-                          <select
+                          <select id="flow-frequency"
                             className="input"
                             value={v4Frequency}
                             onChange={(e) => setV4Frequency(e.target.value as "MONTHLY" | "ONCE")}
@@ -3317,11 +3149,11 @@ export default function SimulationTrackingPage() {
                         </div>
 
                         <div>
-                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                          <label htmlFor="flow-amount" style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Amount (VND)" : "Số tiền (VND)"}
                           </label>
-                          <input
-                            type="number"
+                          <input id="flow-amount"
+                            type="text" inputMode="decimal"
                             placeholder="VD: 10000000"
                             className="input"
                             value={v4Amount}
@@ -3333,12 +3165,13 @@ export default function SimulationTrackingPage() {
                     )}
 
                     <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                      <label htmlFor="flow-from" style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                         {language === "en" ? "From Month" : "Từ tháng"}
                       </label>
-                      <input
+                      <input id="flow-from"
                         type="month"
                         className="input"
+                        max={flowEndMonth}
                         value={v4FromMonth}
                         onChange={(e) => setV4FromMonth(e.target.value)}
                         style={{ width: "100%", height: "34px", fontSize: "12px" }}
@@ -3346,12 +3179,13 @@ export default function SimulationTrackingPage() {
                     </div>
 
                     <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                      <label htmlFor="flow-to" style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                         {language === "en" ? "To Month" : "Đến tháng"}
                       </label>
-                      <input
+                      <input id="flow-to"
                         type="month"
                         className="input"
+                        min={v4FromMonth || undefined} max={flowEndMonth}
                         value={v4ToMonth}
                         onChange={(e) => setV4ToMonth(e.target.value)}
                         style={{ width: "100%", height: "34px", fontSize: "12px" }}
@@ -3359,15 +3193,18 @@ export default function SimulationTrackingPage() {
                     </div>
                   </div>
 
-                  <div style={{ marginTop: "12px", display: "flex", gap: "12px", alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                        {language === "en" ? "Document Verification Note *" : "Chứng từ xác nhận *"}
+                {v4Operation !== "CREATE" && <p className="source-flow-note">{language === "en" ? "Revising replaces the future schedule from the start month. Ending stops the source from that month onward; the old schedule does not resume after the end month." : "Sửa đổi thay lịch nguồn từ tháng bắt đầu. Kết thúc dừng nguồn từ tháng đó về sau; lịch cũ không tự chạy lại sau tháng kết thúc."}</p>}
+                {v4Operation !== "END" && <label className="source-flow-basis" htmlFor="flow-confirmation">{language === "en" ? "Basis of this amount" : "Cơ sở số tiền"}<select id="flow-confirmation" className="input" value={v4Confirmation} onChange={e => setV4Confirmation(e.target.value as typeof v4Confirmation)}><option value="HYPOTHETICAL">{language === "en" ? "Hypothetical scenario" : "Giả định để lập kịch bản"}</option><option value="USER_CONFIRMED">{language === "en" ? "Confirmed by me from supporting records" : "Tôi đã xác nhận từ hồ sơ"}</option></select></label>}
+                  <div style={{ marginTop: "12px", display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "flex-end" }}>
+                    <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                      <label htmlFor="flow-document" style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                        {language === "en" ? "Supporting information / assumptions *" : "Căn cứ / mô tả giả định *"}
                       </label>
-                      <input
+                      <input id="flow-document"
                         type="text"
                         placeholder={language === "en" ? "E.g. Verified contract or salary amendment" : "VD: Hợp đồng lao động hoặc phụ lục nguồn thu"}
                         className="input"
+                        maxLength={2000}
                         value={v4Document}
                         onChange={(e) => setV4Document(e.target.value)}
                         style={{ width: "100%", height: "34px", fontSize: "12px" }}
@@ -3379,15 +3216,17 @@ export default function SimulationTrackingPage() {
                   </div>
                 </div>
 
+                {v4FlowError && <Alert tone="danger" title={language === "en" ? "Check source command" : "Kiểm tra lệnh nguồn"}>{v4FlowError}</Alert>}
+                {v4FlowDraft && <div className="future-actions"><p>{language === "en" ? "Add this draft command or discard it before previewing." : "Thêm lệnh đang nhập hoặc bỏ nhập dở trước khi xem trước."}</p><Button variant="ghost" onClick={() => { setV4Amount(""); setV4Document(""); setV4FlowError(""); }}>{language === "en" ? "Discard draft" : "Bỏ nhập dở lệnh nguồn"}</Button></div>}
                 {sourceCommands.length > 0 && (
-                  <div style={{ marginBottom: "16px", overflowX: "auto" }}>
+                  <div className="source-flow-table" role="region" aria-label={language === "en" ? "Flow command list" : "Danh sách lệnh thu chi"} tabIndex={0} style={{ marginBottom: "16px", overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
                       <thead>
                         <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
                           <th style={{ padding: "6px 10px" }}>{language === "en" ? "Op" : "Thao tác"}</th>
                           <th style={{ padding: "6px 10px" }}>{language === "en" ? "Metric" : "Hạng mục"}</th>
                           <th style={{ padding: "6px 10px" }}>{language === "en" ? "Period" : "Khoảng thời gian"}</th>
-                          <th style={{ padding: "6px 10px" }}>{language === "en" ? "Amount" : "Số tiền"}</th>
+                          <th style={{ padding: "6px 10px", textAlign: "right" }}>{language === "en" ? "Amount" : "Số tiền"}</th>
                           <th style={{ padding: "6px 10px" }}>{language === "en" ? "Document" : "Chứng từ"}</th>
                           <th style={{ padding: "6px 10px", width: "40px" }}></th>
                         </tr>
@@ -3396,9 +3235,9 @@ export default function SimulationTrackingPage() {
                         {sourceCommands.map((c) => (
                           <tr key={c.commandId} style={{ borderBottom: "1px solid var(--color-border)" }}>
                             <td style={{ padding: "6px 10px" }}><Badge tone="soft">{c.operation}</Badge></td>
-                            <td style={{ padding: "6px 10px", fontWeight: 600 }}>{c.metric}</td>
+                            <td style={{ padding: "6px 10px", fontWeight: 600 }}>{c.operation === "END" ? (language === "en" ? "Stop source" : "Dừng nguồn") : c.metric === "pension" ? (language === "en" ? "Pension" : "Lương hưu") : futureFieldLabel(c.metric as FutureChangeField)}<small style={{ display: "block", overflowWrap: "anywhere" }}>{c.sourceId} · r{c.expectedSourceRevision}</small></td>
                             <td style={{ padding: "6px 10px" }} className="font-mono">{c.effectiveFromMonth} → {c.effectiveToMonth}</td>
-                            <td style={{ padding: "6px 10px", fontWeight: 600, color: "var(--color-primary-700)" }} className="font-mono">{formatVND(Number(c.amount || 0))}</td>
+                            <td style={{ padding: "6px 10px", fontWeight: 600, color: "var(--color-primary-700)", textAlign: "right" }} className="font-mono">{c.operation === "END" ? (language === "en" ? "Not applicable" : "Không áp dụng") : futureMoney(c.amount)}</td>
                             <td style={{ padding: "6px 10px", color: "var(--color-text-muted)" }}>{c.document}</td>
                             <td style={{ padding: "6px 10px" }}>
                               <IconButton icon="trash" label="Xóa" onClick={() => handleRemoveV4Command(c.commandId)} />
@@ -3410,6 +3249,8 @@ export default function SimulationTrackingPage() {
                   </div>
                 )}
 
+                <EvidenceEditor key={user?.id} title={language === "en" ? "Evidence for the next loan / asset command" : "Căn cứ cho lệnh vay / tài sản tiếp theo"}
+                  value={sourceEvidence} onChange={setSourceEvidence} isVi={language !== "en"} />
                 {/* 3. Quản lý điều chỉnh & tạo khoản vay V2 (FE-07) */}
                 <div style={{ background: "var(--color-surface-subtle)", padding: "16px", borderRadius: "var(--radius-md)", marginBottom: "16px", border: "1px solid var(--color-primary-200)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
@@ -3434,21 +3275,21 @@ export default function SimulationTrackingPage() {
                       <button
                         type="button"
                         className={`button button-small ${loanTab === "create" ? "button-primary" : "button-ghost"}`}
-                        onClick={() => setLoanTab("create")}
+                        disabled={Boolean(loanRevisionDraft)} onClick={() => setLoanTab("create")}
                       >
                         {language === "en" ? "Create New" : "Tạo khoản vay"}
                       </button>
                       <button
                         type="button"
                         className={`button button-small ${loanTab === "refinance" ? "button-primary" : "button-ghost"}`}
-                        onClick={() => setLoanTab("refinance")}
+                        disabled={Boolean(loanRevisionDraft)} onClick={() => setLoanTab("refinance")}
                       >
                         {language === "en" ? "Actual Refinance" : "Tái cấp vốn thực tế"}
                       </button>
                       <button
                         type="button"
                         className={`button button-small ${loanTab === "plannedRefinance" ? "button-primary" : "button-ghost"}`}
-                        onClick={() => setLoanTab("plannedRefinance")}
+                        disabled={Boolean(loanRevisionDraft)} onClick={() => setLoanTab("plannedRefinance")}
                       >
                         {language === "en" ? "Planned Refinance" : "Tái cấp vốn dự kiến"}
                       </button>
@@ -3456,283 +3297,12 @@ export default function SimulationTrackingPage() {
                   </div>
 
                   {loanTab === "revise" ? (
-                    <div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
-                        <div style={{ gridColumn: "span 2" }}>
-                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                            {language === "en" ? "Select Loan from Options *" : "Chọn khoản vay từ danh mục *"}
-                          </label>
-                          <select
-                            className="input"
-                            value={selectedLoanOptionSourceId}
-                            onChange={(e) => setSelectedLoanOptionSourceId(e.target.value)}
-                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                          >
-                            {(v4Candidate?.loanRevisionOptions || []).length === 0 ? (
-                              <option value="">{language === "en" ? "No loan options available (run preview first)" : "Chưa có danh mục khoản vay (vui lòng bấm xem trước)"}</option>
-                            ) : (
-                              (v4Candidate?.loanRevisionOptions || []).map((o) => (
-                                <option key={o.sourceId} value={o.sourceId}>
-                                  {o.sourceId} (r{o.sourceRevision}) {o.legacyOpeningRequired ? (language === "en" ? "• [Legacy V1 Opening Basis Required]" : "• [Cần căn cứ mở đầu V1]") : ""}
-                                </option>
-                              ))
-                            )}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                            {language === "en" ? "Operation" : "Thao tác"}
-                          </label>
-                          <select
-                            className="input"
-                            value={lrOperation}
-                            onChange={(e) => setLrOperation(e.target.value as "REVISE" | "END")}
-                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                          >
-                            <option value="REVISE">{language === "en" ? "REVISE (Update Terms)" : "REVISE (Cập nhật điều khoản)"}</option>
-                            <option value="END">{language === "en" ? "END (Close / Paid off)" : "END (Tất toán / Đóng)"}</option>
-                          </select>
-                        </div>
-
-                        {lrOperation === "REVISE" && (
-                          <>
-                            <div>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                {language === "en" ? "Cutoff Balance (VND) *" : "Dư nợ gốc cuối kỳ đối soát (VND) *"}
-                              </label>
-                              <input
-                                type="number"
-                                placeholder="VD: 500000000"
-                                className="input"
-                                value={lrPrincipal}
-                                onChange={(e) => setLrPrincipal(e.target.value)}
-                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                              />
-                            </div>
-
-                            <div>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                {language === "en" ? "Remaining Term (Months)" : "Thời hạn còn lại (tháng)"}
-                              </label>
-                              <input
-                                type="number"
-                                className="input"
-                                value={lrMaturityMonths}
-                                onChange={(e) => setLrMaturityMonths(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                              />
-                            </div>
-
-                            <div>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                {language === "en" ? "Annual Rate (%/year)" : "Lãi suất (%/năm)"}
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="8.5"
-                                className="input"
-                                value={lrRatePercent}
-                                onChange={(e) => setLrRatePercent(e.target.value)}
-                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                              />
-                            </div>
-
-                            <div>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                {language === "en" ? "Amortization Mode" : "Phương thức trả nợ"}
-                              </label>
-                              <select
-                                className="input"
-                                value={lrMode}
-                                onChange={(e) => setLrMode(e.target.value as any)}
-                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                              >
-                                <option value="REDUCE_PAYMENT_KEEP_TERM">{language === "en" ? "Keep Term (Reduce payment)" : "Giữ thời hạn (Giảm tiền góp)"}</option>
-                                <option value="REDUCE_TERM_KEEP_PAYMENT">{language === "en" ? "Keep Payment (Reduce term)" : "Giữ mức góp (Rút ngắn hạn)"}</option>
-                                <option value="BANK_SCHEDULE">{language === "en" ? "Bank Schedule" : "Lịch theo ngân hàng"}</option>
-                                <option value="RESTRUCTURED">{language === "en" ? "Restructured" : "Cơ cấu lại nợ"}</option>
-                              </select>
-                            </div>
-
-                            {lrMode === "REDUCE_TERM_KEEP_PAYMENT" && (
-                              <div>
-                                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                  {language === "en" ? "Fixed Payment (VND) *" : "Khoản trả cố định (VND) *"}
-                                </label>
-                                <input
-                                  type="number"
-                                  placeholder="VD: 15000000"
-                                  className="input"
-                                  value={lrFixedPayment}
-                                  onChange={(e) => setLrFixedPayment(e.target.value)}
-                                  style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                                />
-                              </div>
-                            )}
-
-                            <div>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                {language === "en" ? "Balance Scope" : "Phạm vi số dư"}
-                              </label>
-                              <select
-                                className="input"
-                                value={lrBalanceScope}
-                                onChange={(e) => setLrBalanceScope(e.target.value as any)}
-                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                              >
-                                <option value="FULL_CONTRACT">{language === "en" ? "Full Contract" : "Toàn hợp đồng"}</option>
-                                <option value="USER_SHARE">{language === "en" ? "User Share (100%)" : "Chỉ phần người dùng"}</option>
-                              </select>
-                            </div>
-
-                            {lrBalanceScope === "FULL_CONTRACT" && (
-                              <div>
-                                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                  {language === "en" ? "Payment Share (0..1)" : "Tỷ lệ trả của bạn (0..1)"}
-                                </label>
-                                <input
-                                  type="text"
-                                  placeholder="1"
-                                  className="input"
-                                  value={lrPaymentShare}
-                                  onChange={(e) => setLrPaymentShare(e.target.value)}
-                                  style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                                />
-                              </div>
-                            )}
-
-                            <div>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                {language === "en" ? "Responsibility Kind" : "Trách nhiệm nghĩa vụ"}
-                              </label>
-                              <select
-                                className="input"
-                                value={lrResponsibilityKind}
-                                onChange={(e) => setLrResponsibilityKind(e.target.value as any)}
-                                style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                              >
-                                <option value="ALLOCATED_SHARE">{language === "en" ? "Allocated Share" : "Theo tỷ lệ phân bổ"}</option>
-                                <option value="CAPPED">{language === "en" ? "Capped (Limited liability)" : "Có trần giới hạn (CAPPED)"}</option>
-                              </select>
-                            </div>
-
-                            {lrResponsibilityKind === "CAPPED" && (
-                              <>
-                                <div>
-                                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                    {language === "en" ? "Cap Limit (VND) *" : "Mức trần nghĩa vụ (VND) *"}
-                                  </label>
-                                  <input
-                                    type="number"
-                                    placeholder="VD: 500000000"
-                                    className="input"
-                                    value={lrCapLimit}
-                                    onChange={(e) => setLrCapLimit(e.target.value)}
-                                    style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                    {language === "en" ? "Previously Paid (VND)" : "Số đã trả theo trần (VND)"}
-                                  </label>
-                                  <input
-                                    type="number"
-                                    placeholder="0"
-                                    className="input"
-                                    value={lrCapPreviouslyPaid}
-                                    onChange={(e) => setLrCapPreviouslyPaid(e.target.value)}
-                                    style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                                  />
-                                </div>
-                              </>
-                            )}
-                          </>
-                        )}
-                      </div>
-
-                      {/* Legacy Opening Basis fields if required */}
-                      {Boolean((v4Candidate?.loanRevisionOptions || []).find(o => o.sourceId === selectedLoanOptionSourceId)?.legacyOpeningRequired) && (
-                        <div style={{ marginTop: "12px", padding: "12px", background: "var(--color-surface)", borderRadius: "var(--radius-sm)", border: "1px dashed var(--color-warning-border)" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-                            <Badge tone="warning">{language === "en" ? "LEGACY V1 OPENING BASIS REQUIRED" : "BẮT BUỘC KHAI BÁO CĂN CỨ MỞ ĐẦU V1"}</Badge>
-                            <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                              {language === "en" ? "Khoản vay kế thừa từ hồ sơ V1 cần xác nhận số dư ban đầu." : "Khoản vay kế thừa từ hồ sơ V1 cần xác nhận số dư ban đầu theo chứng từ."}
-                            </span>
-                          </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "10px" }}>
-                            <div>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                {language === "en" ? "Signed Date" : "Ngày ký hợp đồng"}
-                              </label>
-                              <input
-                                type="date"
-                                className="input"
-                                value={lrLegacySignedOn}
-                                onChange={(e) => setLrLegacySignedOn(e.target.value)}
-                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
-                              />
-                            </div>
-                            <div>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                {language === "en" ? "Effective Date" : "Ngày hiệu lực"}
-                              </label>
-                              <input
-                                type="date"
-                                className="input"
-                                value={lrLegacyEffectiveOn}
-                                onChange={(e) => setLrLegacyEffectiveOn(e.target.value)}
-                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
-                              />
-                            </div>
-                            <div>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                {language === "en" ? "Previously Paid (VND)" : "Đã thanh toán trước đó (VND)"}
-                              </label>
-                              <input
-                                type="number"
-                                className="input"
-                                value={lrLegacyPreviouslyPaid}
-                                onChange={(e) => setLrLegacyPreviouslyPaid(e.target.value)}
-                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
-                              />
-                            </div>
-                            <div>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                                {language === "en" ? "Legacy Opening Evidence" : "Chứng từ căn cứ mở đầu"}
-                              </label>
-                              <input
-                                type="text"
-                                placeholder={language === "en" ? "Bank statement reference" : "Số sao kê ngân hàng xác nhận"}
-                                className="input"
-                                value={lrLegacyDoc}
-                                onChange={(e) => setLrLegacyDoc(e.target.value)}
-                                style={{ width: "100%", height: "32px", fontSize: "12px" }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div style={{ marginTop: "12px", display: "flex", gap: "12px", alignItems: "flex-end" }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                            {language === "en" ? "Loan Revision Document / Verification Note *" : "Chứng từ sửa đổi hợp đồng vay *"}
-                          </label>
-                          <input
-                            type="text"
-                            placeholder={language === "en" ? "E.g. Bank loan statement or repayment receipt" : "VD: Sao kê số dư nợ ngân hàng hoặc biên nhận thanh toán"}
-                            className="input"
-                            value={lrDocument}
-                            onChange={(e) => setLrDocument(e.target.value)}
-                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                          />
-                        </div>
-                        <Button variant="secondary" onClick={handleAddLoanRevision}>
-                          <Icon name="plus" size="small" /> {language === "en" ? "Add Loan Revision" : "Thêm lệnh sửa khoản vay"}
-                        </Button>
-                      </div>
-                    </div>
+                    <LoanRevisionEditor key={JSON.stringify([user?.id, activePlan?.id, currentVersion?.id, currentVersion?.snapshotHash, profileRevision, selectedPeriod])}
+                      planId={activePlan?.id ?? ""}
+                      input={{ ...JSON.parse(v4PayloadJson), expectedRevision: Math.max(activePlan?.revision ?? 0, v4LastSavedRevision.current?.planId === activePlan?.id ? v4LastSavedRevision.current?.revision ?? 0 : 0) }}
+                      profileDebts={v2Profile?.debts} busy={savingV4 || applyingV4}
+                      commands={loanRevisions} onDraftChange={setLoanRevisionDraft}
+                      onAdd={command => { if (!v4Writing.current) setLoanRevisions(previous => [...previous, command]); }} />
                   ) : loanTab === "create" ? (
                     <div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
@@ -3871,19 +3441,7 @@ export default function SimulationTrackingPage() {
                       </div>
 
                       <div style={{ marginTop: "12px", display: "flex", gap: "12px", alignItems: "flex-end" }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
-                            {language === "en" ? "Document Verification Note *" : "Chứng từ hợp đồng vay mới *"}
-                          </label>
-                          <input
-                            type="text"
-                            placeholder={language === "en" ? "E.g. Bank credit contract or disbursement confirmation" : "VD: Hợp đồng tín dụng ngân hàng hoặc thông báo giải ngân"}
-                            className="input"
-                            value={lcDocRef}
-                            onChange={(e) => setLcDocRef(e.target.value)}
-                            style={{ width: "100%", height: "34px", fontSize: "12px" }}
-                          />
-                        </div>
+
                         <Button variant="secondary" onClick={handleAddLoanCreation}>
                           <Icon name="plus" size="small" /> {language === "en" ? "Create Loan" : "Tạo khoản vay mới"}
                         </Button>
@@ -3892,6 +3450,29 @@ export default function SimulationTrackingPage() {
                   ) : loanTab === "refinance" ? (
                     <div>
                       {/* Actual Refinance Form */}
+                      <div style={{ marginTop: "12px" }}>
+                        <label htmlFor="refi-payment-period">{language === "en" ? "Recorded payment month" : "Tháng ghi nhận trả nợ"}</label>
+                        <input id="refi-payment-period" type="month" className="input" value={refiLedgerPeriod} max={selectedPeriod}
+                          onChange={event => { setRefiPaymentPeriod(event.target.value); setRefiPaymentEventId(""); }} />
+                        <label htmlFor="refi-payment-event">{language === "en" ? "Recorded debt payment *" : "Giao dịch trả nợ đã ghi nhận *"}</label>
+                        <select id="refi-payment-event" className="input" value={refiPaymentEventId}
+                          disabled={refiPaymentsLoading || !refiPaymentOptions.length}
+                          onChange={event => setRefiPaymentEventId(event.target.value)}>
+                          <option value="">{language === "en" ? "Select a debt payment" : "Chọn giao dịch trả nợ"}</option>
+                          {refiPaymentOptions.map(entry => <option key={entry.eventId} value={entry.eventId}>
+                            {entry.date} · {entry.amount} VND{entry.note ? ` · ${entry.note}` : ""}
+                          </option>)}
+                        </select>
+                        {refiPaymentsLoading && <p role="status">{language === "en" ? "Loading recorded payments…" : "Đang tải giao dịch đã ghi nhận…"}</p>}
+                        {refiPaymentsError && <p role="alert">{refiPaymentsError}</p>}
+                        {!refiPaymentsLoading && !refiPaymentsError && !refiPaymentOptions.length && <p role="status">
+                          {language === "en" ? "No eligible debt payment. Record and reconcile the actual month, then reload."
+                            : "Chưa có giao dịch trả nợ phù hợp. Hãy ghi nhận, đối soát khớp sổ thực tế rồi tải lại."}
+                        </p>}
+                        <Button variant="ghost" disabled={refiPaymentsLoading} onClick={() => setRefiPaymentReload(value => value + 1)}>
+                          {language === "en" ? "Reload recorded payments" : "Tải lại giao dịch trả nợ"}
+                        </Button>
+                      </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
                         <div style={{ gridColumn: "span 2" }}>
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
@@ -3900,6 +3481,7 @@ export default function SimulationTrackingPage() {
                           <select
                             className="input"
                             value={refiClosingSourceId}
+                            aria-label={language === "en" ? "Closing loan" : "Khoản vay cần tất toán"}
                             onChange={(e) => setRefiClosingSourceId(e.target.value)}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           >
@@ -3920,6 +3502,7 @@ export default function SimulationTrackingPage() {
                             type="text"
                             placeholder="VD: REFI-NEW-2026"
                             className="input"
+                            aria-label={language === "en" ? "New loan agreement" : "Mã hợp đồng vay mới"}
                             value={refiNewAgreementRef}
                             onChange={(e) => setRefiNewAgreementRef(e.target.value)}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
@@ -3989,8 +3572,9 @@ export default function SimulationTrackingPage() {
                           <input
                             type="date"
                             className="input"
-                            value={refiSettledOn}
-                            onChange={(e) => setRefiSettledOn(e.target.value)}
+                            aria-label={language === "en" ? "Settlement date from payment" : "Ngày tất toán theo giao dịch"}
+                            value={refiPayment?.date || ""}
+                            readOnly
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -4095,7 +3679,7 @@ export default function SimulationTrackingPage() {
                       </div>
 
                       <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
-                        <Button variant="secondary" onClick={handleAddRefinance}>
+                        <Button variant="secondary" onClick={handleAddRefinance} disabled={refiPaymentsLoading || !refiPayment || !!refiPaymentsError}>
                           <Icon name="plus" size="small" /> {language === "en" ? "Add Refinance Batch" : "Thêm lệnh tái cấp vốn"}
                         </Button>
                       </div>
@@ -4314,14 +3898,14 @@ export default function SimulationTrackingPage() {
 
                   {/* Bảng danh sách các lệnh khoản vay đã thêm */}
                   {(loanRevisions.length > 0 || loanCreations.length > 0) && (
-                    <div style={{ marginTop: "16px", overflowX: "auto" }}>
+                    <div className="loan-command-table" role="region" aria-label="Danh sách lệnh khoản vay" tabIndex={0} style={{ marginTop: "16px", overflowX: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
                         <thead>
                           <tr style={{ borderBottom: "1.5px solid var(--color-border)", textAlign: "left", color: "var(--color-text-muted)" }}>
                             <th style={{ padding: "6px 10px" }}>{language === "en" ? "Type" : "Loại lệnh"}</th>
                             <th style={{ padding: "6px 10px" }}>{language === "en" ? "Reference / Source ID" : "Mã nguồn / Hợp đồng"}</th>
                             <th style={{ padding: "6px 10px" }}>{language === "en" ? "Mode" : "Chế độ"}</th>
-                            <th style={{ padding: "6px 10px" }}>{language === "en" ? "Principal Balance" : "Dư nợ gốc"}</th>
+                            <th style={{ padding: "6px 10px", textAlign: "right" }}>{language === "en" ? "Principal Balance" : "Dư nợ gốc"}</th>
                             <th style={{ padding: "6px 10px" }}>{language === "en" ? "Maturity" : "Đáo hạn"}</th>
                             <th style={{ padding: "6px 10px", width: "40px" }}></th>
                           </tr>
@@ -4329,15 +3913,15 @@ export default function SimulationTrackingPage() {
                         <tbody>
                           {loanRevisions.map((lr) => (
                             <tr key={lr.commandId} style={{ borderBottom: "1px solid var(--color-border)" }}>
-                              <td style={{ padding: "6px 10px" }}><Badge tone={lr.operation === "END" ? "danger" : "soft"}>{lr.operation}</Badge></td>
-                              <td style={{ padding: "6px 10px", fontWeight: 600 }} className="font-mono">{lr.sourceId}</td>
-                              <td style={{ padding: "6px 10px" }}>{lr.contract.mode}</td>
-                              <td style={{ padding: "6px 10px", fontWeight: 600, color: "var(--color-danger-700)" }} className="font-mono">
-                                {formatVND(Number(lr.contract.principalBalance || 0))}
+                              <td style={{ padding: "6px 10px" }}><Badge tone={lr.operation === "END" ? "danger" : "soft"}>{lr.operation === "END" ? "Kết thúc" : "Sửa đổi"}</Badge></td>
+                              <td style={{ padding: "6px 10px", fontWeight: 600 }} className="font-mono">{lr.sourceId} · r{lr.expectedSourceRevision}<small style={{ display: "block" }}>{lr.allocations.length} phân bổ trả nợ · {lr.principalAdvances.length} khoản giải ngân bổ sung</small>{lr.responsibilityAmendment && <small style={{ display: "block", whiteSpace: "normal" }}>Thay trách nhiệm từ {lr.responsibilityAmendment.effectiveOn}: {lr.contract.responsibility.kind === "CAPPED" ? "trần " + futureMoney(lr.contract.responsibility.limit) : "theo tỷ lệ, không trần"}; tổng đã trả {futureMoney(lr.contract.userPaidToDate!)}</small>}</td>
+                              <td style={{ padding: "6px 10px" }}>{({ REDUCE_PAYMENT_KEEP_TERM: "Giữ thời hạn", REDUCE_TERM_KEEP_PAYMENT: "Giữ tiền góp", BANK_SCHEDULE: "Lịch ngân hàng", RESTRUCTURED: "Cơ cấu lại" })[lr.contract.mode]}</td>
+                              <td style={{ padding: "6px 10px", fontWeight: 600, color: "var(--color-danger-700)", textAlign: "right" }} className="font-mono">
+                                {futureMoney(lr.contract.principalBalance)}
                               </td>
                               <td style={{ padding: "6px 10px" }} className="font-mono">{lr.contract.maturityDate}</td>
                               <td style={{ padding: "6px 10px" }}>
-                                <IconButton icon="trash" label="Xóa" onClick={() => handleRemoveLoanRevision(lr.sourceId)} />
+                                <IconButton icon="trash" label={"Xóa lệnh khoản vay " + lr.sourceId} onClick={() => handleRemoveLoanRevision(lr.sourceId)} />
                               </td>
                             </tr>
                           ))}
@@ -4479,10 +4063,10 @@ export default function SimulationTrackingPage() {
                     <div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginTop: "12px" }}>
                         <div>
-                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }} htmlFor="asset-source">
                             {language === "en" ? "Select Asset to Terminate *" : "Chọn tài sản cần dừng *"}
                           </label>
-                          <select
+                          <select id="asset-source"
                             className="input"
                             value={selectedAssetOptionSourceId}
                             onChange={(e) => setSelectedAssetOptionSourceId(e.target.value)}
@@ -4520,10 +4104,10 @@ export default function SimulationTrackingPage() {
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "12px" }}>
                         {assetTab === "revise" ? (
                           <div style={{ gridColumn: "span 2" }}>
-                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }} htmlFor="asset-source">
                               {language === "en" ? "Select Asset from Options *" : "Chọn tài sản từ danh mục *"}
                             </label>
-                            <select
+                            <select id="asset-source"
                               className="input"
                               value={selectedAssetOptionSourceId}
                               onChange={(e) => setSelectedAssetOptionSourceId(e.target.value)}
@@ -4900,11 +4484,15 @@ export default function SimulationTrackingPage() {
                           </label>
                           {assetHasMissedContribution && (
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "10px", marginTop: "8px" }}>
+                              <div role="status" style={{ gridColumn: "1 / -1" }}>
+                                {assetActualLoading ? "Đang tải sổ tháng đã lưu…" : assetActualError || (assetActualLedger ? `Sổ ${assetActualLedger.period}, phiên bản ${assetActualLedger.revision}: ${assetActualLedger.reconciliation === "MATCHED" ? "đã đối soát" : "chưa đối soát khớp"}` : "Chưa có sổ tháng đã lưu.")}
+                                <Button variant="secondary" size="small" onClick={() => setAssetActualReload(value => value + 1)}>Tải lại sổ tháng</Button>
+                              </div>
                               <div>
-                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }}>
+                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }} htmlFor="asset-missed-month">
                                   {language === "en" ? "Scheduled Month *" : "Tháng đã lỡ hẹn *"}
                                 </label>
-                                <input
+                                <input id="asset-missed-month"
                                   type="month"
                                   className="input"
                                   value={assetMissedScheduledMonth}
@@ -4913,10 +4501,10 @@ export default function SimulationTrackingPage() {
                                 />
                               </div>
                               <div>
-                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }}>
+                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }} htmlFor="asset-missed-amount">
                                   {language === "en" ? "Amount Not Contributed *" : "Số tiền chưa góp *"}
                                 </label>
-                                <input
+                                <input id="asset-missed-amount"
                                   type="number"
                                   className="input"
                                   value={assetMissedAmount}
@@ -4925,10 +4513,10 @@ export default function SimulationTrackingPage() {
                                 />
                               </div>
                               <div style={{ gridColumn: "span 2" }}>
-                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }}>
+                                <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }} htmlFor="asset-missed-reason">
                                   {language === "en" ? "Reason *" : "Lý do chưa góp *"}
                                 </label>
-                                <input
+                                <input id="asset-missed-reason"
                                   type="text"
                                   className="input"
                                   value={assetMissedReason}
@@ -5000,29 +4588,34 @@ export default function SimulationTrackingPage() {
                   )}
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "16px" }}>
+                {v4Candidate && !currentV4Preview && !previewingV4 && <p role="status">
+                  {language === "en" ? "Preview again before saving this command list." : "Cần xem trước lại danh sách lệnh trước khi lưu."}
+                </p>}
+                {currentV4Preview && !v4Ready && <Alert tone="warning" title={language === "en" ? "Preview is not ready to save" : "Chưa đủ kết quả để lưu"}>{currentV4Preview.response.issues?.length ? <ul>{currentV4Preview.response.issues.map((issue, index) => <li key={index}>{issue.month} {issue.message || issue.code}</li>)}</ul> : (language === "en" ? "The forecast period ended or the calculation is incomplete. Review the plan and preview again." : "Kỳ dự báo đã hết hoặc kết quả tính chưa đầy đủ. Kiểm tra kế hoạch và xem trước lại.")}</Alert>}
+                {v4Ready && <div className="source-preview-summary"><h3>{language === "en" ? "Source scenario result" : "Kết quả kịch bản nguồn"}</h3><p>{savedV4Version ? (language === "en" ? "Saved, not yet applied." : "Đã lưu, chưa áp dụng.") : (language === "en" ? "Preview only, not saved or applied." : "Bản xem trước, chưa lưu hoặc áp dụng.")}</p><p>{language === "en" ? "Projected retirement fund: " : "Quỹ dự kiến khi nghỉ hưu: "}<strong>{futureMoney(currentV4Preview!.response.candidate.calculation.summary.atRetirement.projectedFund)}</strong></p><p>{language === "en" ? "Coverage: " : "Tỷ lệ bao phủ: "}<strong>{currentV4Preview!.response.candidate.calculation.summary.atRetirement.coveragePercent == null ? (language === "en" ? "Unknown" : "Chưa xác định") : currentV4Preview!.response.candidate.calculation.summary.atRetirement.coveragePercent + "%"}</strong></p></div>}
+                <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "10px", marginTop: "16px" }}>
                   <Button
                     variant="primary"
                     onClick={handlePreviewV4}
                     loading={previewingV4}
-                    disabled={!activePlan?.id || !currentVersion?.id}
+                    disabled={!activePlan?.id || !currentVersion?.id || savingV4 || applyingV4 || v4FlowDraft || pensionDraft || Boolean(loanRevisionDraft)}
                   >
                     <Icon name="sparkles" size="small" /> {language === "en" ? "Preview V4 Sources" : "Xem trước nguồn V4"}
                   </Button>
-                  {v4Candidate?.status === "READY" && (
+                  {v4Ready && currentV4Preview && (
                     <Button
                       variant="secondary"
                       onClick={handleSaveV4}
                       loading={savingV4}
-                      disabled={!v4Candidate.inputHash}
+                      disabled={!currentV4Preview.response.inputHash || previewingV4 || Boolean(savedV4Version) || applyingV4 || v4FlowDraft || pensionDraft || Boolean(loanRevisionDraft)}
                     >
                       <Icon name="check" size="small" /> {language === "en" ? "Save V4 Version" : "Lưu phiên bản V4"}
                     </Button>
                   )}
-                  {savedV4Version && (
+                  {savedV4Version && currentV4Preview && (
                     <Button
                       variant="primary"
-                      onClick={handleApplyV4Version}
+                      onClick={() => setConfirmV4Apply(true)}
                       loading={applyingV4}
                     >
                       <Icon name="compass" size="small" /> {language === "en" ? `Apply v${savedV4Version.version}` : `Áp dụng bản v${savedV4Version.version}`}
@@ -5035,6 +4628,7 @@ export default function SimulationTrackingPage() {
                     <Alert tone="danger" title={language === "en" ? "V4 Error" : "Lỗi nguồn V4"}>{v4Error}</Alert>
                   </div>
                 )}
+                {v4Conflict && <Alert tone="warning" title={language === "en" ? "Source data changed" : "Dữ liệu nguồn đã thay đổi"}>{language === "en" ? "Review the refreshed plan and preview again before saving or applying." : "Kiểm tra kế hoạch vừa tải lại và xem trước lại trước khi lưu hoặc áp dụng."}</Alert>}
               </div>
             )}
           </Card>
@@ -5066,8 +4660,14 @@ export default function SimulationTrackingPage() {
               </div>
             </Modal>
           )}
+          </fieldset>
         </div>
       )}
+      <Modal open={confirmV4Apply} title={language === "en" ? "Apply saved source version?" : "Áp dụng phiên bản nguồn đã lưu?"} onClose={() => { if (!v4Writing.current) setConfirmV4Apply(false); }}>
+        <p>{language === "en" ? "This saved version will become the official plan. Your actual ledger stays unchanged." : "Phiên bản đã lưu sẽ trở thành kế hoạch chính thức. Sổ thực tế giữ nguyên."}</p>
+        <p>{language === "en" ? "Version " : "Phiên bản "}v{savedV4Version?.version} · {selectedPeriod}</p>
+        <div className="future-actions"><Button variant="secondary" disabled={applyingV4} onClick={() => setConfirmV4Apply(false)}>{language === "en" ? "Cancel" : "Hủy"}</Button><Button loading={applyingV4} onClick={handleApplyV4Version}>{language === "en" ? "Confirm application" : "Xác nhận áp dụng nguồn"}</Button></div>
+      </Modal>
       <Modal open={confirmApply} title={language === "en" ? "Apply this scenario?" : "Áp dụng kịch bản này?"} onClose={() => { if (!applying) setConfirmApply(false); }}>
         <p>{language === "en" ? "This preview will be saved as a version and become the official baseline for your dashboard and tracking." : "Bản xem trước này sẽ được lưu thành phiên bản và trở thành mốc chính thức cho trang tổng quan và theo dõi."}</p>
         <div className="account-save-row"><Button variant="secondary" disabled={applying} onClick={() => setConfirmApply(false)}>{language === "en" ? "Cancel" : "Hủy"}</Button><Button loading={applying} disabled={applying || isSimulating || !simSummary} onClick={async () => { await handleApplyScenario(); setConfirmApply(false); }}>{language === "en" ? "Confirm application" : "Xác nhận áp dụng"}</Button></div>
