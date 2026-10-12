@@ -328,7 +328,11 @@
           <h2>3. Lợi suất danh mục mỗi tháng</h2>
           <p class="idea">Quỹ chia làm hai phần: cổ phiếu (rủi ro, lãi kỳ vọng cao) và kênh an toàn (tiền gửi/trái phiếu). Mỗi tháng đưa tỷ trọng về đúng mức đã chọn (tái cân bằng), nên lãi của quỹ là trung bình có trọng số của hai phần.</p>
           <div class="formula">g<sub>t</sub> = 1 + w × r<sub>cổ phiếu, t</sub> + (1 − w) × r<sub>an toàn, t</sub></div>
-          <div class="example"><strong>Ví dụ:</strong> w = 60%, cổ phiếu tháng này +2%, an toàn +0,4% → 0,6 × 2% + 0,4 × 0,4% = <strong>+1,36%</strong>, tức g = 1,0136.</div>
+          <p class="hint"><strong>Ý nghĩa số 1 đầu tiên:</strong> Đại diện cho <strong>100% tiền vốn gốc ban đầu</strong> (không phải là 1 tháng). Nhờ có số 1, <var>g<sub>t</sub></var> là hệ số nhân gộp cả gốc và lãi: chỉ cần lấy số dư đầu tháng nhân với <var>g<sub>t</sub></var> là ra ngay tổng số dư cuối tháng.</p>
+          <div class="example"><strong>Ví dụ:</strong> w = 60%, cổ phiếu tháng này +2%, an toàn +0,4% → 0,6 × 2% + 0,4 × 0,4% = <strong>+1,36%</strong>, tức g = 1 + 0,0136 = <strong>1,0136</strong>. Đầu tháng có 100 triệu → cuối tháng thành 100 × 1,0136 = <strong>101,36 triệu</strong>.</div>
+          <div class="formula">Lãi / lỗ riêng tháng t: &nbsp;ΔF<sub>t</sub> = F<sub>t−1</sub> × (g<sub>t</sub> − 1)</div>
+          <div class="formula">Tổng lãi / lỗ khối tài sản: &nbsp;Tổng lãi/lỗ = F<sub>t</sub> − (F<sub>0</sub> + Σ C<sub>k</sub>) &nbsp;&nbsp;(Số dư hiện tại − Tổng vốn đã bỏ ra)</div>
+          <div class="formula">Tỷ lệ lãi / lỗ danh mục (%): &nbsp;ROI = [F<sub>t</sub> − (F<sub>0</sub> + Σ C<sub>k</sub>)] ÷ (F<sub>0</sub> + Σ C<sub>k</sub>) × 100%</div>
           <p class="code">Trong code: <code>simulate()</code>, dòng đầu vòng lặp tháng. Lab giả định tái cân bằng hằng tháng, không phí; engine chính thức có lộ trình phân bổ và phí tái cân bằng riêng.</p>
         </article>
 

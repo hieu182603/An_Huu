@@ -59,12 +59,30 @@ function getRouteContext(pathname: string, isEn: boolean) {
         : "Trợ lý AI An Hưu sẽ đưa ra các khuyến nghị hưu trí sát thực tế nhất khi nắm rõ độ tuổi, thu nhập và thời gian đóng BHXH của bạn.",
     };
   }
+  if (pathname.includes("/user/dashboard")) {
+    return {
+      badge: isEn ? "REAL DATA NEEDED · ~5 MINS" : "CẦN DỮ LIỆU THỰC · ~5 PHÚT",
+      title: isEn ? "Personalize Your Financial Dashboard" : "Cá nhân hóa bảng điều khiển tài chính",
+      desc: isEn
+        ? "Your dashboard is currently showing illustrative sample figures. Complete the 5-minute survey to get your real net worth, cashflow, and retirement progress."
+        : "Bảng điều khiển hiện đang hiển thị số liệu mẫu minh họa. Hãy làm khảo sát khoảng 5 phút để hệ thống cập nhật tài sản ròng, dòng tiền và lộ trình hưu trí thực tế của bạn.",
+    };
+  }
+  if (pathname.includes("/user/explore")) {
+    return {
+      badge: isEn ? "BENCHMARK DATA · ~5 MINS" : "ĐỐI SÁNH HỒ SƠ · ~5 PHÚT",
+      title: isEn ? "Compare With Your Financial Profile" : "Đối sánh với hồ sơ tài chính của bạn",
+      desc: isEn
+        ? "Complete your profile survey to compare your assets, income, and pension projection against peers in your age bracket."
+        : "Hoàn tất khảo sát hồ sơ để đối sánh tài sản, thu nhập và dự phóng hưu trí của bạn với nhóm đồng trang lứa chính xác nhất.",
+    };
+  }
   return {
-    badge: isEn ? "QUICK SETUP · ~5 MINUTES" : "KHỞI TẠO HỒ SƠ · KHOẢNG 5 PHÚT",
-    title: isEn ? "Unlock Your Personalized Retirement Plan" : "Khởi tạo hồ sơ tài chính ban đầu",
+    badge: isEn ? "DATA REQUIRED · ~5 MINS" : "CẦN DỮ LIỆU THỰC · ~5 PHÚT",
+    title: isEn ? "Personalize Your Retirement Plan" : "Cá nhân hóa kế hoạch hưu trí",
     desc: isEn
       ? "You haven't completed your baseline financial survey yet. Spend ~5 minutes so An Huu can accurately calculate your net worth, pension, and AI recommendations."
-      : "Bạn chưa hoàn thành khảo sát hồ sơ tài chính ban đầu. Hãy dành khoảng 5 phút để An Hưu có thể tính toán chính xác tài sản ròng, lương hưu BHXH và Trợ lý AI có thể tư vấn riêng cho bạn.",
+      : "Kế hoạch hưu trí hiện đang hiển thị số liệu mẫu minh họa. Hãy làm khảo sát khoảng 5 phút để nhận bảng dòng tiền và chiến lược tích lũy thực tế.",
   };
 }
 
@@ -86,27 +104,16 @@ export default function FinancialProfileGate({
     return sessionStorage.getItem("anhuu_onboarding_all_dismissed") === "true";
   });
 
-  const [dismissedPages, setDismissedPages] = useState<string[]>(() => {
-    try {
-      const stored = sessionStorage.getItem("anhuu_onboarding_dismissed_pages");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [dismissedForPath, setDismissedForPath] = useState<string | null>(null);
 
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  const isPageDismissed = allDismissed || dismissedPages.includes(location.pathname);
+  // Pop up chỉ tạm đóng trên trang hiện tại khi người dùng bấm "Để sau" hoặc "X",
+  // khi chuyển sang trang khác trong /user thì pop up sẽ tiếp tục nhắc nhở nếu chưa làm khảo sát.
+  const isPageDismissed = allDismissed || (dismissedForPath === location.pathname);
 
   const handleDismissThisPage = () => {
-    setDismissedPages((prev) => {
-      const updated = prev.includes(location.pathname) ? prev : [...prev, location.pathname];
-      try {
-        sessionStorage.setItem("anhuu_onboarding_dismissed_pages", JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
+    setDismissedForPath(location.pathname);
   };
 
   const handleDismissAll = () => {
@@ -140,15 +147,8 @@ export default function FinancialProfileGate({
   }
 
   const routeContext = getRouteContext(location.pathname, isEn);
-  const isGatedPlanningRoute = [
-    "/user/goal",
-    "/user/plan",
-    "/user/simulation",
-    "/user/debts",
-    "/user/risk-portfolio",
-    "/user/assistant",
-  ].some((r) => location.pathname.startsWith(r));
-  const showOnboardingPrompt = !loading && !hasProfile && !onboarding && isGatedPlanningRoute;
+  const isUserRoute = location.pathname.startsWith("/user");
+  const showOnboardingPrompt = !loading && !hasProfile && !onboarding && isUserRoute;
 
   return (
     <>
