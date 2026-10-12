@@ -14,6 +14,7 @@ import ResponsiveDialog from "../../components/ResponsiveDialog";
 import { authenticatedRequest } from "../../services/api";
 import { contentKinds, type ContentItem, type ContentPage } from "../../services/content";
 import { useI18n } from "../../i18n";
+import "./admin-content.css";
 
 type ContentForm = {
   title: string;
@@ -60,6 +61,7 @@ export default function AdminContentPage() {
 
   const [editor, setEditor] = useState(false);
   const [editing, setEditing] = useState<ContentItem | null>(null);
+  const [readingItem, setReadingItem] = useState<ContentItem | null>(null);
   const [form, setForm] = useState(initial);
   const [error, setError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -277,10 +279,10 @@ export default function AdminContentPage() {
       )}
 
       {/* Main Table Card */}
-      <Card className="admin-table-card">
+      <Card className="admin-table-card admin-content-table-card">
         {/* Toolbar */}
-        <div className="admin-table-toolbar">
-          <form className="admin-user-search" onSubmit={handleSearchSubmit}>
+        <div className="admin-table-toolbar admin-content-toolbar">
+          <form className="admin-user-search admin-content-search" onSubmit={handleSearchSubmit}>
             <SearchField
               label={isEn ? "Search content" : "Tìm kiếm nội dung"}
               placeholder={isEn ? "Enter title, keyword, author..." : "Nhập tiêu đề, từ khóa, tác giả..."}
@@ -290,7 +292,7 @@ export default function AdminContentPage() {
             />
           </form>
 
-          <div className="admin-filters">
+          <div className="admin-filters admin-content-filters">
             <Select
               label={isEn ? "Content Type" : "Loại nội dung"}
               value={kindLabels[kind]}
@@ -326,16 +328,16 @@ export default function AdminContentPage() {
           </div>
         </div>
 
-        {/* Table View */}
-        <div className="admin-users-table-wrap">
-          <table className="admin-users-table">
+        {/* Desktop & Tablet Responsive Table View */}
+        <div className="admin-content-table-wrap">
+          <table className="admin-content-table">
             <thead>
               <tr>
-                <th>{isEn ? "Title & Excerpt" : "Tiêu đề & Trích dẫn"}</th>
-                <th>{isEn ? "Category" : "Chủ đề"}</th>
-                <th>{isEn ? "Author" : "Tác giả"}</th>
-                <th>{isEn ? "Status" : "Trạng thái"}</th>
-                <th>{isEn ? "Actions" : "Thao tác"}</th>
+                <th style={{ width: "40%", minWidth: "260px" }}>{isEn ? "Title" : "Tiêu đề"}</th>
+                <th style={{ width: "15%", minWidth: "120px" }}>{isEn ? "Category" : "Chủ đề"}</th>
+                <th style={{ width: "15%", minWidth: "130px" }}>{isEn ? "Author" : "Tác giả"}</th>
+                <th style={{ width: "12%", minWidth: "110px" }}>{isEn ? "Status" : "Trạng thái"}</th>
+                <th style={{ width: "18%", minWidth: "120px", textAlign: "right" }}>{isEn ? "Actions" : "Thao tác"}</th>
               </tr>
             </thead>
             <tbody>
@@ -354,17 +356,22 @@ export default function AdminContentPage() {
               ) : (
                 data.items.map((item) => (
                   <tr key={item.id}>
-                    <td style={{ maxWidth: "420px", whiteSpace: "normal" }}>
-                      <div style={{ display: "grid", gap: "3px" }}>
-                        <strong style={{ fontSize: "14px", color: "var(--color-midnight-900)" }}>
+                    <td style={{ maxWidth: "380px" }}>
+                      <div className="admin-content-title-box">
+                        <button
+                          type="button"
+                          className="admin-content-title-text"
+                          onClick={() => setReadingItem(item)}
+                          title={isEn ? "Click to read in popup" : "Bấm để đọc trực tiếp"}
+                        >
                           {item.title}
-                        </strong>
+                        </button>
                         {item.excerpt && (
-                          <small style={{ color: "var(--color-text-muted)", fontSize: "12px", lineHeight: "1.4" }}>
+                          <span className="admin-content-excerpt-text" title={item.excerpt}>
                             {item.excerpt}
-                          </small>
+                          </span>
                         )}
-                        <small style={{ color: "var(--color-primary-700)", fontSize: "11px", fontWeight: 600 }}>
+                        <small className="admin-content-slug-tag">
                           /{item.slug}
                         </small>
                       </div>
@@ -386,26 +393,26 @@ export default function AdminContentPage() {
                       </Badge>
                     </td>
 
-                    <td>
-                      <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-                        <Button
-                          size="small"
-                          variant="secondary"
-                          onClick={() => openEditor(item)}
+                    <td className="actions-cell">
+                      <div className="admin-content-actions">
+                        <button
+                          type="button"
+                          className="admin-action-icon-btn btn-view"
+                          onClick={() => setReadingItem(item)}
+                          title={isEn ? "Read content" : "Xem bài viết"}
+                          aria-label={isEn ? "Read content" : "Xem bài viết"}
                         >
-                          {isEn ? "Edit" : "Sửa nội dung"}
-                        </Button>
-                        {item.status === "PUBLISHED" && (
-                          <a
-                            href={`/kien-thuc/${item.slug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="button button-ghost button-small"
-                            style={{ textDecoration: "none" }}
-                          >
-                            {isEn ? "View ↗" : "Xem ↗"}
-                          </a>
-                        )}
+                          <Icon name="eye" size="small" />
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-action-icon-btn btn-edit"
+                          onClick={() => openEditor(item)}
+                          title={isEn ? "Edit content" : "Chỉnh sửa bài viết"}
+                          aria-label={isEn ? "Edit content" : "Chỉnh sửa bài viết"}
+                        >
+                          <Icon name="edit" size="small" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -413,6 +420,63 @@ export default function AdminContentPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile & Small Screen Cards */}
+        <div className="admin-content-cards">
+          {loading && !data?.items?.length ? (
+            <div style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--color-text-muted)" }}>
+              <Icon name="sparkles" /> {isEn ? "Updating content list..." : "Đang cập nhật danh sách bài viết…"}
+            </div>
+          ) : !data?.items?.length ? (
+            <div style={{ textAlign: "center", padding: "var(--space-6)", color: "var(--color-text-muted)" }}>
+              {isEn ? "No content found matching filter criteria." : "Không có nội dung nào phù hợp với bộ lọc tìm kiếm."}
+            </div>
+          ) : (
+            data.items.map((item) => (
+              <div key={item.id} className="admin-content-card-item">
+                <div className="admin-content-card-header">
+                  <Badge tone="soft">{item.category}</Badge>
+                  <Badge tone={item.status === "PUBLISHED" ? "success" : "neutral"}>
+                    {item.status === "PUBLISHED" ? (isEn ? "Published" : "Đã xuất bản") : (isEn ? "Draft" : "Bản nháp")}
+                  </Badge>
+                </div>
+                <div className="admin-content-card-body">
+                  <button
+                    type="button"
+                    className="admin-content-title-text"
+                    onClick={() => setReadingItem(item)}
+                    style={{ fontSize: "14.5px", marginBottom: "4px" }}
+                  >
+                    {item.title}
+                  </button>
+                  {item.excerpt && <p>{item.excerpt}</p>}
+                  <div className="admin-content-card-meta">
+                    <span><Icon name="users" size="small" /> {item.authorName || (isEn ? "An Huu Editorial" : "Ban biên tập")}</span>
+                    <span><Icon name="compass" size="small" /> /{item.slug}</span>
+                  </div>
+                </div>
+                <div className="admin-content-card-actions">
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    icon="eye"
+                    onClick={() => setReadingItem(item)}
+                  >
+                    {isEn ? "Read" : "Xem"}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    icon="edit"
+                    onClick={() => openEditor(item)}
+                  >
+                    {isEn ? "Edit" : "Sửa"}
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Pagination Footer */}
@@ -576,6 +640,94 @@ export default function AdminContentPage() {
             </div>
           </fieldset>
         </form>
+      </ResponsiveDialog>
+
+      {/* Reader Modal Popup */}
+      <ResponsiveDialog
+        open={Boolean(readingItem)}
+        title={readingItem ? `${kindLabels[readingItem.kind]}: ${readingItem.title}` : (isEn ? "Content Reader" : "Chi tiết nội dung")}
+        onClose={() => setReadingItem(null)}
+      >
+        {readingItem && (
+          <div className="admin-reader-dialog-content">
+            <div className="admin-reader-meta">
+              <div className="admin-reader-badges">
+                <Badge tone="soft">{readingItem.category}</Badge>
+                <Badge tone={readingItem.status === "PUBLISHED" ? "success" : "neutral"}>
+                  {readingItem.status === "PUBLISHED" ? (isEn ? "Published" : "Đã xuất bản") : (isEn ? "Draft" : "Bản nháp")}
+                </Badge>
+                <span className="admin-reader-kind-tag">
+                  <Icon name="file-text" size="small" /> {kindLabels[readingItem.kind]}
+                </span>
+              </div>
+              <div className="admin-reader-byline">
+                <span>
+                  <Icon name="users" size="small" /> <strong>{readingItem.authorName || (isEn ? "An Huu Editorial Team" : "Ban biên tập An Hưu")}</strong>
+                </span>
+                <span>
+                  <Icon name="compass" size="small" /> /{readingItem.slug}
+                </span>
+              </div>
+            </div>
+
+            {readingItem.thumbnail && (
+              <div className="admin-reader-thumbnail-wrap">
+                <img
+                  src={readingItem.thumbnail}
+                  alt={readingItem.title}
+                  className="admin-reader-thumbnail"
+                  loading="lazy"
+                />
+              </div>
+            )}
+
+            {readingItem.excerpt && (
+              <div className="admin-reader-excerpt">
+                <Icon name="sparkles" />
+                <p>{readingItem.excerpt}</p>
+              </div>
+            )}
+
+            <div className="admin-reader-body">
+              {readingItem.content || (isEn ? "(No detailed content)" : "(Chưa có nội dung chi tiết)")}
+            </div>
+
+            <div className="admin-reader-footer">
+              <div className="admin-reader-footer-left">
+                {readingItem.status === "PUBLISHED" && (
+                  <a
+                    href={`/kien-thuc/${readingItem.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="button button-ghost button-small"
+                    style={{ textDecoration: "none" }}
+                  >
+                    <Icon name="arrow-right" size="small" /> {isEn ? "Open public page ↗" : "Mở trang công khai ↗"}
+                  </a>
+                )}
+              </div>
+              <div className="admin-reader-footer-right">
+                <Button
+                  variant="secondary"
+                  icon="edit"
+                  onClick={() => {
+                    const itemToEdit = readingItem;
+                    setReadingItem(null);
+                    openEditor(itemToEdit);
+                  }}
+                >
+                  {isEn ? "Edit Content" : "Chỉnh sửa bài viết"}
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => setReadingItem(null)}
+                >
+                  {isEn ? "Close" : "Đóng"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </ResponsiveDialog>
     </div>
   );

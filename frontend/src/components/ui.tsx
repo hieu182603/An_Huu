@@ -51,6 +51,7 @@ import {
   faWallet,
   faWandMagicSparkles,
   faXmark,
+  faPenToSquare,
   type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -61,7 +62,7 @@ export type IconName =
   | "file-text" | "filter" | "globe" | "grid" | "home" | "info" | "life-buoy" | "log-out"
   | "maximize" | "message" | "mouse-pointer" | "panel-left" | "panel-right"
   | "plus" | "search" | "settings" | "shield" | "sparkles" | "target" | "trash" | "upload" | "users"
-  | "wallet" | "x" | "alert" | "circle-check" | "eye" | "eye-off";
+  | "wallet" | "x" | "alert" | "circle-check" | "eye" | "eye-off" | "edit" | "pen";
 
 export const fontAwesomeIconMap: Record<IconName, IconDefinition> = {
   "angles-left": faAnglesLeft,
@@ -105,6 +106,8 @@ export const fontAwesomeIconMap: Record<IconName, IconDefinition> = {
   "circle-check": faCircleCheck,
   eye: faEye,
   "eye-off": faEyeSlash,
+  edit: faPenToSquare,
+  pen: faPenToSquare,
 };
 
 export { FontAwesomeIcon, type IconDefinition };
