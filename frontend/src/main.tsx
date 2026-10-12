@@ -22,6 +22,30 @@ function AccountProfile({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Vô hiệu hóa toàn bộ tính năng vuốt/cuộn chuột làm tăng giảm giá tiền hoặc số liệu trên các ô input
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "wheel",
+    (event) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement &&
+        (target.type === "number" || target.inputMode === "numeric" || target.getAttribute("inputmode") === "numeric")
+      ) {
+        target.blur();
+      }
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLInputElement &&
+        (active.type === "number" || active.inputMode === "numeric" || active.getAttribute("inputmode") === "numeric")
+      ) {
+        active.blur();
+      }
+    },
+    { passive: true }
+  );
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>

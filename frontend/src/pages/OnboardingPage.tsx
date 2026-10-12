@@ -1,7 +1,8 @@
 import "./onboarding-readability.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
-import { Badge, BrandLogo, Button, Card, Checkbox, Icon, IconButton, Input, Select, useNotification } from "../components/ui";
+import { Badge, BrandLogo, Button, Card, Checkbox, Icon, IconButton, Input, Modal, Select, useNotification } from "../components/ui";
+import { CurrencyInput } from "../components/CurrencyInput";
 import {
   useFinancialProfile,
   EMPTY_PROFILE,
@@ -9,6 +10,76 @@ import {
 } from "../context/FinancialProfileContext";
 import { resumeDestination } from "../services/navigation";
 import { useI18n } from "../i18n";
+
+interface AssetCategoryMaster {
+  id: string;
+  name: string;
+  defaultUnit: string;
+  units: string[];
+  placeholderName: string;
+}
+
+const ASSET_MASTER_DATA: AssetCategoryMaster[] = [
+  {
+    id: "gold",
+    name: "Vàng & Kim loại quý",
+    defaultUnit: "Chỉ",
+    units: ["Chỉ", "Lượng (Cây)", "Gam", "VND"],
+    placeholderName: "Ví dụ: Vàng miếng SJC, Nhẫn vàng 9999",
+  },
+  {
+    id: "stock",
+    name: "Cổ phiếu & Chứng khoán",
+    defaultUnit: "Cổ phiếu",
+    units: ["Cổ phiếu", "Tài khoản CK", "VND"],
+    placeholderName: "Ví dụ: Cổ phiếu FPT, VNM, HPG",
+  },
+  {
+    id: "fund",
+    name: "Chứng chỉ quỹ (Quỹ mở, ETF)",
+    defaultUnit: "CCQ",
+    units: ["CCQ", "Tài khoản quỹ", "VND"],
+    placeholderName: "Ví dụ: Quỹ DCDS, VEOF, Diamond ETF",
+  },
+  {
+    id: "bond",
+    name: "Trái phiếu (Doanh nghiệp, Chính phủ)",
+    defaultUnit: "Trái phiếu",
+    units: ["Trái phiếu", "Hợp đồng", "VND"],
+    placeholderName: "Ví dụ: Trái phiếu Techcombank, Vingroup",
+  },
+  {
+    id: "vehicle",
+    name: "Phương tiện & Xe cộ có giá trị",
+    defaultUnit: "Chiếc",
+    units: ["Chiếc", "Xe", "VND"],
+    placeholderName: "Ví dụ: Xe ô tô cá nhân",
+  },
+  {
+    id: "currency",
+    name: "Ngoại tệ dự trữ",
+    defaultUnit: "USD",
+    units: ["USD", "EUR", "JPY", "VND"],
+    placeholderName: "Ví dụ: Tiền gửi USD",
+  },
+  {
+    id: "other",
+    name: "Tài sản thanh khoản khác",
+    defaultUnit: "VND",
+    units: ["VND", "Hợp đồng", "Món", "Khác"],
+    placeholderName: "Ví dụ: Sổ tiết kiệm khác, chứng chỉ tiền gửi",
+  },
+];
+
+interface CustomAssetItem {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  name: string;
+  unit: string;
+  quantity?: number;
+  valueVnd: number;
+}
 
 type StepId =
   | "welcome"
@@ -67,6 +138,12 @@ export default function OnboardingPage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [working, setWorking] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isCompleted) {
+      navigate("/user/dashboard", { replace: true });
+    }
+  }, [isCompleted, navigate]);
 
   useEffect(() => {
     window.scrollTo({ left: 0, top: 0, behavior: "instant" as ScrollBehavior });
@@ -152,6 +229,68 @@ export default function OnboardingPage() {
     }
   }, [onboardingDraft, initialFromDraft]);
 
+  const [customAssets, setCustomAssets] = useState<CustomAssetItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("anhuu_custom_assets");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [assetModalOpen, setAssetModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("gold");
+  const [newAssetName, setNewAssetName] = useState<string>("");
+  const [selectedUnit, setSelectedUnit] = useState<string>("Chỉ");
+  const [newAssetQuantity, setNewAssetQuantity] = useState<number>(0);
+  const [newAssetValue, setNewAssetValue] = useState<number>(0);
+  const [assetModalError, setAssetModalError] = useState<string>("");
+
+  useEffect(() => {
+    const sum = customAssets.reduce((acc, it) => acc + (it.valueVnd || 0), 0);
+    setFormData((prev) => ({ ...prev, liquidAssets: sum }));
+    try {
+      localStorage.setItem("anhuu_custom_assets", JSON.stringify(customAssets));
+    } catch {}
+  }, [customAssets]);
+
+  const handleCategoryChange = (catId: string) => {
+    setSelectedCategory(catId);
+    const cat = ASSET_MASTER_DATA.find((c) => c.id === catId);
+    if (cat) setSelectedUnit(cat.defaultUnit);
+  };
+
+  const handleAddCustomAsset = () => {
+    if (!newAssetName.trim()) {
+      setAssetModalError(isEn ? "Please enter an asset name." : "Vui lòng nhập tên tài sản.");
+      return;
+    }
+    if (!newAssetValue || newAssetValue <= 0) {
+      setAssetModalError(isEn ? "Please enter a valid value in VND." : "Vui lòng nhập giá trị quy đổi sang VND lớn hơn 0.");
+      return;
+    }
+    const cat = ASSET_MASTER_DATA.find((c) => c.id === selectedCategory) || ASSET_MASTER_DATA[0];
+    const newItem: CustomAssetItem = {
+      id: "ast_" + Date.now(),
+      categoryId: cat.id,
+      categoryName: isEn ? cat.id.toUpperCase() : cat.name,
+      name: newAssetName.trim(),
+      unit: selectedUnit,
+      quantity: newAssetQuantity > 0 ? newAssetQuantity : undefined,
+      valueVnd: newAssetValue,
+    };
+    setCustomAssets((prev) => [...prev, newItem]);
+    setNewAssetName("");
+    setNewAssetQuantity(0);
+    setNewAssetValue(0);
+    setAssetModalError("");
+    setAssetModalOpen(false);
+  };
+
+  const handleRemoveAsset = (id: string) => {
+    setCustomAssets((prev) => prev.filter((it) => it.id !== id));
+  };
+
   const updateField = <K extends keyof typeof formData>(field: K, value: typeof formData[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (fieldErrors[field]) {
@@ -161,6 +300,12 @@ export default function OnboardingPage() {
         return next;
       });
     }
+  };
+
+  const updateNumberField = <K extends keyof typeof formData>(field: K, value: string | number) => {
+    const raw = typeof value === "number" ? value : Number(value) || 0;
+    const nonNegative = Math.max(0, raw);
+    updateField(field, nonNegative as typeof formData[K]);
   };
 
   const validateCurrentStep = (step: StepId): boolean => {
@@ -184,7 +329,7 @@ export default function OnboardingPage() {
         errors.essentialExpense = isEn ? "Essential expense cannot be negative." : "Chi tiêu thiết yếu không được là số âm.";
       }
       if (formData.lifestyleExpense < 0) {
-        errors.lifestyleExpense = isEn ? "Lifestyle expense cannot be negative." : "Chi tiêu phong cách sống không được là số âm.";
+        errors.lifestyleExpense = isEn ? "Monthly estimated expense cannot be negative." : "Dự trù chi tiêu hàng tháng không được là số âm.";
       }
     } else if (step === "assets") {
       if (formData.cashSavings < 0) errors.cashSavings = isEn ? "Savings and cash cannot be negative." : "Tiền gửi và tiền mặt không được là số âm.";
@@ -197,7 +342,6 @@ export default function OnboardingPage() {
         if (formData.monthlyDebtService < 0) errors.monthlyDebtService = isEn ? "Monthly debt service cannot be negative." : "Khoản trả nợ hàng tháng không được là số âm.";
       }
     } else if (step === "invest-social") {
-      if (formData.stockFundValue < 0) errors.stockFundValue = isEn ? "Investment value cannot be negative." : "Giá trị đầu tư không được là số âm.";
       if (formData.socialInsuranceYears < 0) errors.socialInsuranceYears = isEn ? "Social insurance years cannot be negative." : "Số năm đóng BHXH không được là số âm.";
       if (formData.age > 0 && formData.socialInsuranceYears > formData.age) {
         errors.socialInsuranceYears = isEn
@@ -241,10 +385,10 @@ export default function OnboardingPage() {
       case "personal": return formData.age > 0 && Boolean(formData.gender) && Boolean(formData.maritalStatus) && Boolean(formData.city);
       case "income": return formData.primaryIncome > 0 || formData.secondaryIncome > 0;
       case "expense": return formData.essentialExpense > 0 || formData.lifestyleExpense > 0;
-      case "assets": return formData.cashSavings > 0 || formData.realEstateValue > 0 || formData.liquidAssets > 0;
+      case "assets": return formData.cashSavings > 0 || formData.realEstateValue > 0 || formData.liquidAssets > 0 || customAssets.length > 0;
       // "No debt" is a valid answer once the user has actually opened this step.
       case "debt": return formData.hasDebt ? formData.mortgageDebt + formData.consumerDebt > 0 : visitedSteps.includes("debt");
-      case "invest-social": return formData.socialInsuranceYears > 0 || formData.socialInsuranceSalary > 0 || formData.stockFundValue > 0;
+      case "invest-social": return formData.socialInsuranceYears > 0 || formData.socialInsuranceSalary > 0;
       default: return true;
     }
   };
@@ -278,7 +422,7 @@ export default function OnboardingPage() {
     : (isEn ? `Step ${currentStepIndex}/${steps.length - 1}` : `Bước ${currentStepIndex}/${steps.length - 1}`);
 
   const formatVND = (num: number) => {
-    return new Intl.NumberFormat("vi-VN").format(num) + " ₫";
+    return new Intl.NumberFormat("vi-VN").format(Math.max(0, Math.floor(num || 0))) + " VND";
   };
 
   const handleNext = async () => {
@@ -304,11 +448,11 @@ export default function OnboardingPage() {
       } else {
         const ok = await completeOnboarding({ ...formData, step: currentStep, updatedAt: new Date().toISOString() } as OnboardingDraftData);
         if (ok) {
-          setIsCompleted(true);
           notify.success(
             isEn ? "Profile Initialized Successfully" : "Khởi tạo hồ sơ thành công",
             isEn ? "Your financial baseline has been saved to your account." : "Thông tin đã được lưu vào tài khoản của bạn."
           );
+          navigate("/user/dashboard", { replace: true });
         } else {
           const msg = isEn
             ? "Could not complete your profile. Please check your data and retry."
@@ -541,8 +685,10 @@ export default function OnboardingPage() {
                   <Input
                     label={isEn ? "Your Current Age (required to finish)" : "Tuổi hiện tại của bạn (cần để hoàn tất)"}
                     type="number"
+                    min={0}
+                    max={120}
                     value={formData.age === 0 ? "" : String(formData.age)}
-                    onChange={(v) => updateField("age", Number(v) || 0)}
+                    onChange={(v) => updateNumberField("age", v)}
                     error={fieldErrors.age}
                     suffix={isEn ? "yrs old" : "tuổi"}
                   />
@@ -573,8 +719,10 @@ export default function OnboardingPage() {
                   <Input
                     label={isEn ? "Number of Dependents (children, elderly parents)" : "Số người phụ thuộc (con cái, cha mẹ già)"}
                     type="number"
+                    min={0}
+                    max={30}
                     value={String(formData.dependents)}
-                    onChange={(v) => updateField("dependents", Number(v) || 0)}
+                    onChange={(v) => updateNumberField("dependents", v)}
                     error={fieldErrors.dependents}
                     suffix={isEn ? "people" : "người"}
                   />
@@ -617,23 +765,21 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="form-grid">
-                  <Input
+                  <CurrencyInput
                     label={isEn ? "Primary Net Income (Salary / Compensation)" : "Thu nhập chính sau thuế (Lương / Thù lao)"}
-                    type="number"
-                    value={String(formData.primaryIncome)}
-                    onChange={(v) => updateField("primaryIncome", Number(v) || 0)}
+                    value={formData.primaryIncome}
+                    onChange={(v) => updateNumberField("primaryIncome", v)}
                     error={fieldErrors.primaryIncome}
-                    suffix={isEn ? "₫/mo" : "đ/tháng"}
+                    suffix={isEn ? "VND/mo" : "VND/tháng"}
                     helper={isEn ? "Net amount received in your account monthly after taxes and mandatory insurance deductions." : "Số tiền thực nhận vào tài khoản hàng tháng sau khi đã trừ các khoản thuế và bảo hiểm."}
                   />
 
-                  <Input
+                  <CurrencyInput
                     label={isEn ? "Secondary / Investment / Business Income" : "Thu nhập phụ / Đầu tư / Kinh doanh"}
-                    type="number"
-                    value={String(formData.secondaryIncome)}
-                    onChange={(v) => updateField("secondaryIncome", Number(v) || 0)}
+                    value={formData.secondaryIncome}
+                    onChange={(v) => updateNumberField("secondaryIncome", v)}
                     error={fieldErrors.secondaryIncome}
-                    suffix={isEn ? "₫/mo" : "đ/tháng"}
+                    suffix={isEn ? "VND/mo" : "VND/tháng"}
                     helper={isEn ? "Rental income, dividends, freelancing (enter monthly average)." : "Thu nhập từ cho thuê nhà, cổ tức, làm tự do (lấy mức bình quân hàng tháng)."}
                   />
 
@@ -664,24 +810,22 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="form-grid">
-                  <Input
+                  <CurrencyInput
                     label={isEn ? "Monthly Essential Expenses" : "Chi tiêu thiết yếu hàng tháng"}
-                    type="number"
-                    value={String(formData.essentialExpense)}
-                    onChange={(v) => updateField("essentialExpense", Number(v) || 0)}
+                    value={formData.essentialExpense}
+                    onChange={(v) => updateNumberField("essentialExpense", v)}
                     error={fieldErrors.essentialExpense}
-                    suffix={isEn ? "₫/mo" : "đ/tháng"}
+                    suffix={isEn ? "VND/mo" : "VND/tháng"}
                     helper={isEn ? "Includes: food, utilities, rent/HOA, medical care, children's tuition." : "Bao gồm: ăn uống, điện nước, tiền thuê nhà/quản lý, y tế, học phí của con."}
                   />
 
-                  <Input
-                    label={isEn ? "Lifestyle & Discretionary Expenses" : "Chi tiêu phong cách sống & Giải trí"}
-                    type="number"
-                    value={String(formData.lifestyleExpense)}
-                    onChange={(v) => updateField("lifestyleExpense", Number(v) || 0)}
+                  <CurrencyInput
+                    label={isEn ? "Estimated Monthly Discretionary Expenses" : "Dự trù chi tiêu hàng tháng"}
+                    value={formData.lifestyleExpense}
+                    onChange={(v) => updateNumberField("lifestyleExpense", v)}
                     error={fieldErrors.lifestyleExpense}
-                    suffix={isEn ? "₫/mo" : "đ/tháng"}
-                    helper={isEn ? "Includes: shopping, travel, socializing, hobbies." : "Bao gồm: mua sắm, du lịch, giao lưu bạn bè, sở thích cá nhân."}
+                    suffix={isEn ? "VND/mo" : "VND/tháng"}
+                    helper={isEn ? "Includes: shopping, travel, socializing, hobbies. You can always adjust this later if your spending habits change." : "Bao gồm: mua sắm, du lịch, giao lưu bạn bè, sở thích cá nhân. Bạn vẫn có thể chỉnh sửa lại sau này khi có sự thay đổi trong chi tiêu."}
                   />
 
                   <Card className="inline-total-card">
@@ -711,35 +855,89 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="form-grid">
-                  <Input
+                  <CurrencyInput
                     label={isEn ? "Bank Deposits & Cash" : "Tiền gửi ngân hàng & Tiền mặt"}
-                    type="number"
-                    value={String(formData.cashSavings)}
-                    onChange={(v) => updateField("cashSavings", Number(v) || 0)}
+                    value={formData.cashSavings}
+                    onChange={(v) => updateNumberField("cashSavings", v)}
                     error={fieldErrors.cashSavings}
-                    suffix="₫"
+                    suffix="VND"
                     helper={isEn ? "Checking accounts, term savings deposits at banks." : "Tài khoản thanh toán, sổ tiết kiệm có kỳ hạn tại các ngân hàng."}
                   />
 
-                  <Input
+                  <CurrencyInput
                     label={isEn ? "Real Estate Market Value" : "Giá trị Bất động sản đang sở hữu"}
-                    type="number"
-                    value={String(formData.realEstateValue)}
-                    onChange={(v) => updateField("realEstateValue", Number(v) || 0)}
+                    value={formData.realEstateValue}
+                    onChange={(v) => updateNumberField("realEstateValue", v)}
                     error={fieldErrors.realEstateValue}
-                    suffix="₫"
+                    suffix="VND"
                     helper={isEn ? "Estimated market value of owned houses, land, or condominiums." : "Giá thị trường ước tính của nhà ở, đất hoặc căn hộ."}
                   />
 
-                  <Input
-                    label={isEn ? "Gold / Other Liquid Assets" : "Vàng / Tài sản thanh khoản khác"}
-                    type="number"
-                    value={String(formData.liquidAssets)}
-                    onChange={(v) => updateField("liquidAssets", Number(v) || 0)}
-                    error={fieldErrors.liquidAssets}
-                    suffix="₫"
-                    helper={isEn ? "Gold bullion, certificates of deposit, vehicles, or convertible assets." : "Vàng miếng, chứng chỉ tiền gửi, xe cộ hoặc tài sản có giá trị chuyển đổi."}
-                  />
+                  {/* Khu vực tạo thêm tài sản người dùng tự tạo bấm dấu cộng (+) */}
+                  <div className="custom-assets-box">
+                    <div className="custom-assets-header">
+                      <div>
+                        <h3 className="custom-assets-title">{isEn ? "Other Accumulated Assets" : "Tài sản tích lũy khác"}</h3>
+                        <p className="custom-assets-desc">
+                          {isEn
+                            ? "Add gold, stocks, funds, bonds, vehicles, foreign currency, or other assets with master data units."
+                            : "Thêm vàng, cổ phiếu, chứng chỉ quỹ, trái phiếu, xe cộ, ngoại tệ... theo các đơn vị định lượng."}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="small"
+                        onClick={() => {
+                          setAssetModalError("");
+                          setAssetModalOpen(true);
+                        }}
+                      >
+                        <Icon name="plus" size="small" /> {isEn ? "Add asset" : "Thêm tài sản"}
+                      </Button>
+                    </div>
+
+                    {customAssets.length === 0 ? (
+                      <button
+                        type="button"
+                        className="custom-assets-empty"
+                        onClick={() => {
+                          setAssetModalError("");
+                          setAssetModalOpen(true);
+                        }}
+                      >
+                        <Icon name="plus" size="small" />
+                        <span>{isEn ? "+ Click here to add other assets (Gold, Stocks, Funds, Vehicles...)" : "+ Bấm vào đây để thêm tài sản khác (Vàng, Cổ phiếu, Quỹ mở, Trái phiếu, Xe cộ...)"}</span>
+                      </button>
+                    ) : (
+                      <div className="custom-assets-cards">
+                        {customAssets.map((asset) => (
+                          <div key={asset.id} className="custom-asset-card">
+                            <div className="custom-asset-main">
+                              <span className="asset-tag">{asset.categoryName}</span>
+                              <span className="asset-name">{asset.name}</span>
+                              {asset.quantity !== undefined && (
+                                <span className="asset-unit-qty">
+                                  {isEn ? "Quantity:" : "Số lượng:"} {new Intl.NumberFormat("vi-VN").format(asset.quantity)} {asset.unit}
+                                </span>
+                              )}
+                            </div>
+                            <div className="custom-asset-right">
+                              <span className="asset-val">{formatVND(asset.valueVnd)}</span>
+                              <button
+                                type="button"
+                                className="asset-delete-btn"
+                                title={isEn ? "Delete asset" : "Xóa tài sản"}
+                                onClick={() => handleRemoveAsset(asset.id)}
+                              >
+                                <Icon name="trash" size="small" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <Card className="inline-total-card">
                     <span>{isEn ? "Initial Estimated Total Assets:" : "Tổng tài sản ước tính ban đầu:"}</span>
@@ -768,31 +966,28 @@ export default function OnboardingPage() {
 
                   {formData.hasDebt && (
                     <div className="debt-fields">
-                      <Input
+                      <CurrencyInput
                         label={isEn ? "Mortgage / Real Estate Debt" : "Dư nợ vay mua nhà / Bất động sản"}
-                        type="number"
-                        value={String(formData.mortgageDebt)}
-                        onChange={(v) => updateField("mortgageDebt", Number(v) || 0)}
+                        value={formData.mortgageDebt}
+                        onChange={(v) => updateNumberField("mortgageDebt", v)}
                         error={fieldErrors.mortgageDebt}
-                        suffix="₫"
+                        suffix="VND"
                       />
 
-                      <Input
+                      <CurrencyInput
                         label={isEn ? "Consumer Loan / Credit Card Debt" : "Dư nợ vay tiêu dùng / Thẻ tín dụng"}
-                        type="number"
-                        value={String(formData.consumerDebt)}
-                        onChange={(v) => updateField("consumerDebt", Number(v) || 0)}
+                        value={formData.consumerDebt}
+                        onChange={(v) => updateNumberField("consumerDebt", v)}
                         error={fieldErrors.consumerDebt}
-                        suffix="₫"
+                        suffix="VND"
                       />
 
-                      <Input
+                      <CurrencyInput
                         label={isEn ? "Monthly Principal & Interest Payment" : "Số tiền trả nợ cả gốc lẫn lãi hàng tháng"}
-                        type="number"
-                        value={String(formData.monthlyDebtService)}
-                        onChange={(v) => updateField("monthlyDebtService", Number(v) || 0)}
+                        value={formData.monthlyDebtService}
+                        onChange={(v) => updateNumberField("monthlyDebtService", v)}
                         error={fieldErrors.monthlyDebtService}
-                        suffix={isEn ? "₫/mo" : "đ/tháng"}
+                        suffix={isEn ? "VND/mo" : "VND/tháng"}
                         helper={isEn ? "Fixed recurring deduction from income paid to financial institutions." : "Khoản trích cố định từ thu nhập để trả cho các tổ chức tín dụng."}
                       />
                     </div>
@@ -828,32 +1023,22 @@ export default function OnboardingPage() {
 
                 <div className="form-grid">
                   <Input
-                    label={isEn ? "Investment Portfolio Value (Stocks, Mutual Funds, Bonds)" : "Giá trị danh mục đầu tư (Cổ phiếu, Quỹ mở, Trái phiếu)"}
-                    type="number"
-                    value={String(formData.stockFundValue)}
-                    onChange={(v) => updateField("stockFundValue", Number(v) || 0)}
-                    error={fieldErrors.stockFundValue}
-                    suffix="₫"
-                    helper={isEn ? "Current balance across brokerage accounts and investment platforms." : "Số dư hiện tại trong các tài khoản chứng khoán hoặc ứng dụng đầu tư."}
-                  />
-
-                  <Input
                     label={isEn ? "Years of Mandatory / Voluntary Social Insurance Contributions" : "Số năm đã tham gia BHXH bắt buộc / tự nguyện"}
                     type="number"
+                    min={0}
                     value={String(formData.socialInsuranceYears)}
-                    onChange={(v) => updateField("socialInsuranceYears", Number(v) || 0)}
+                    onChange={(v) => updateNumberField("socialInsuranceYears", v)}
                     error={fieldErrors.socialInsuranceYears}
                     suffix={isEn ? "years" : "năm"}
                     helper={isEn ? "Minimum 15 to 20 contribution years required to qualify for a monthly pension." : "Tối thiểu 15 đến 20 năm đóng BHXH để đủ điều kiện hưởng lương hưu hàng tháng."}
                   />
 
-                  <Input
+                  <CurrencyInput
                     label={isEn ? "Average Base Salary for Social Insurance Contributions" : "Mức lương làm căn cứ đóng BHXH bình quân"}
-                    type="number"
-                    value={String(formData.socialInsuranceSalary)}
-                    onChange={(v) => updateField("socialInsuranceSalary", Number(v) || 0)}
+                    value={formData.socialInsuranceSalary}
+                    onChange={(v) => updateNumberField("socialInsuranceSalary", v)}
                     error={fieldErrors.socialInsuranceSalary}
-                    suffix={isEn ? "₫/mo" : "đ/tháng"}
+                    suffix={isEn ? "VND/mo" : "VND/tháng"}
                     helper={isEn ? "Contractual base salary for social insurance (often different from total take-home pay)." : "Mức lương ghi trên hợp đồng lao động đóng BHXH (thường khác với tổng thu nhập thực nhận)."}
                   />
 
@@ -1023,6 +1208,98 @@ export default function OnboardingPage() {
           )}
         </main>
       </div>
+
+      {/* Pop up thêm tài sản tích lũy với master data đơn vị */}
+      <Modal
+        open={assetModalOpen}
+        title={isEn ? "Add Accumulated Asset" : "Thêm tài sản tích lũy"}
+        onClose={() => {
+          setAssetModalOpen(false);
+          setAssetModalError("");
+        }}
+      >
+        <div className="master-asset-modal-form">
+          <Select
+            label={isEn ? "Asset Category" : "Loại danh mục tài sản"}
+            value={selectedCategory}
+            onChange={(v) => handleCategoryChange(v)}
+            options={ASSET_MASTER_DATA.map((cat) => ({
+              value: cat.id,
+              label: cat.name,
+            }))}
+          />
+
+          <Input
+            label={isEn ? "Asset Name / Code" : "Tên tài sản / Mã tài sản"}
+            placeholder={
+              ASSET_MASTER_DATA.find((c) => c.id === selectedCategory)?.placeholderName ||
+              (isEn ? "Enter asset name" : "Nhập tên tài sản")
+            }
+            value={newAssetName}
+            onChange={(v) => {
+              setNewAssetName(v);
+              if (assetModalError) setAssetModalError("");
+            }}
+          />
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <Select
+              label={isEn ? "Master Data Unit" : "Đơn vị tính (Master Data)"}
+              value={selectedUnit}
+              onChange={(v) => setSelectedUnit(v)}
+              options={(
+                ASSET_MASTER_DATA.find((c) => c.id === selectedCategory)?.units || ["Đơn vị"]
+              ).map((u) => ({ value: u, label: u }))}
+            />
+
+            <Input
+              label={isEn ? "Quantity (Optional)" : "Số lượng (Tùy chọn)"}
+              type="number"
+              min={0}
+              placeholder="0"
+              value={newAssetQuantity ? String(newAssetQuantity) : ""}
+              onChange={(v) => setNewAssetQuantity(Math.max(0, Number(v) || 0))}
+            />
+          </div>
+
+          <CurrencyInput
+            label={isEn ? "Estimated Market Value (VND)" : "Giá trị thị trường ước tính (VND)"}
+            value={newAssetValue}
+            onChange={(v) => {
+              setNewAssetValue(v);
+              if (assetModalError) setAssetModalError("");
+            }}
+            suffix="VND"
+            helper={isEn ? "Total converted value in VND" : "Tổng giá trị quy đổi sang VND để tính vào tổng tài sản tích lũy"}
+          />
+
+          {assetModalError && (
+            <div style={{ color: "var(--color-danger, #b42318)", fontSize: "13px", fontWeight: 500 }}>
+              {assetModalError}
+            </div>
+          )}
+
+          <div className="master-asset-modal-actions">
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => {
+                setAssetModalOpen(false);
+                setAssetModalError("");
+              }}
+            >
+              {isEn ? "Cancel" : "Hủy bỏ"}
+            </Button>
+            <Button
+              variant="primary"
+              type="button"
+              onClick={handleAddCustomAsset}
+            >
+              <Icon name="plus" size="small" /> {isEn ? "Add Asset" : "Thêm vào danh mục"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
     </div>
   );

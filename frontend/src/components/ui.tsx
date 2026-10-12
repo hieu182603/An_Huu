@@ -373,9 +373,39 @@ export function Avatar({
   );
 }
 
-export function Input({ label, labelAction, helper, error, suffix, placeholder, defaultValue, value, onChange, type = "text", autoComplete, inputMode, disabled, hideLabel = false }: { label: string; labelAction?: ReactNode; helper?: string; error?: string; suffix?: string; placeholder?: string; defaultValue?: string; value?: string; onChange?: (value: string) => void; type?: "text" | "email" | "password" | "number" | "datetime-local" | "date" | "month"; autoComplete?: string; inputMode?: "numeric" | "decimal" | "text"; disabled?: boolean; hideLabel?: boolean }) {
+export function Input({ label, labelAction, helper, error, suffix, placeholder, defaultValue, value, onChange, type = "text", autoComplete, inputMode, disabled, hideLabel = false, min, max, step }: { label: string; labelAction?: ReactNode; helper?: string; error?: string; suffix?: string; placeholder?: string; defaultValue?: string; value?: string; onChange?: (value: string) => void; type?: "text" | "email" | "password" | "number" | "datetime-local" | "date" | "month"; autoComplete?: string; inputMode?: "numeric" | "decimal" | "text"; disabled?: boolean; hideLabel?: boolean; min?: number | string; max?: number | string; step?: number | string }) {
   const id = useId();
   const messageId = `${id}-message`;
+  const isNonNegative = type === "number" && min !== undefined && Number(min) >= 0;
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isNonNegative && (event.key === "-" || event.key === "Subtract" || event.key === "e" || event.key === "E")) {
+      event.preventDefault();
+    }
+    if (type === "number" && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      event.preventDefault();
+    }
+  };
+
+  const handleWheel = (event: React.WheelEvent<HTMLInputElement>) => {
+    if (type === "number" || inputMode === "numeric" || inputMode === "decimal") {
+      (event.target as HTMLElement).blur();
+    }
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    let val = event.target.value;
+    if (isNonNegative) {
+      if (val.includes("-")) {
+        val = val.replace(/-/g, "");
+      }
+      if (val !== "" && Number(val) < 0) {
+        val = "0";
+      }
+    }
+    onChange?.(val);
+  };
+
   return (
     <div className={`form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`}>
       {!hideLabel ? (
@@ -387,7 +417,24 @@ export function Input({ label, labelAction, helper, error, suffix, placeholder, 
         <label htmlFor={id} className="sr-only">{label}</label>
       )}
       <span className="input-wrap">
-        <input id={id} type={type} disabled={disabled} autoComplete={autoComplete} inputMode={inputMode} placeholder={placeholder} defaultValue={value === undefined ? defaultValue : undefined} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} aria-invalid={Boolean(error)} aria-describedby={helper || error ? messageId : undefined} />
+        <input
+          id={id}
+          type={type}
+          disabled={disabled}
+          autoComplete={autoComplete}
+          inputMode={inputMode}
+          placeholder={placeholder}
+          defaultValue={value === undefined ? defaultValue : undefined}
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          onKeyDown={handleKeyDown}
+          onWheel={handleWheel}
+          onChange={onChange ? handleChange : undefined}
+          aria-invalid={Boolean(error)}
+          aria-describedby={helper || error ? messageId : undefined}
+        />
         {suffix && <span className="input-suffix">{suffix}</span>}
       </span>
       {(helper || error) && <small id={messageId}>{error || helper}</small>}
@@ -405,9 +452,12 @@ export function Textarea({ label, placeholder, value, onChange, rows = 4, hideLa
   );
 }
 
-export function Select({ label, options, value, onChange, helper, error, disabled, hideLabel = false }: { label: string; options: string[]; value?: string; onChange?: (value: string) => void; helper?: string; error?: string; disabled?: boolean; hideLabel?: boolean }) {
+export function Select({ label, options, value, onChange, helper, error, disabled, hideLabel = false }: { label: string; options: (string | { value: string; label: string })[]; value?: string; onChange?: (value: string) => void; helper?: string; error?: string; disabled?: boolean; hideLabel?: boolean }) {
   const id = useId();
   const messageId = `${id}-message`;
+  const normalizedOptions = options.map((option) =>
+    typeof option === "string" ? { value: option, label: option } : option
+  );
   return (
     <div className={`form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`}>
       {!hideLabel ? (
@@ -417,7 +467,7 @@ export function Select({ label, options, value, onChange, helper, error, disable
       )}
       <span className="select-wrap">
         <select id={id} disabled={disabled} value={value} onChange={onChange ? (event) => onChange(event.target.value) : undefined} aria-invalid={Boolean(error)} aria-describedby={helper || error ? messageId : undefined}>
-          {options.map((option) => <option key={option}>{option}</option>)}
+          {normalizedOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
         <Icon name="chevron-down" size="small" />
       </span>
