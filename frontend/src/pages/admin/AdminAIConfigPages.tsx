@@ -13,14 +13,18 @@ import {
   useNotification,
 } from "../../components/ui";
 import { useI18n } from "../../i18n";
+import ResponsiveDialog from "../../components/ResponsiveDialog";
 import {
   approveKnowledgeSource,
   createKnowledgeSource,
+  getKnowledgeSource,
   indexKnowledgeSource,
   listKnowledgeSources,
+  type KnowledgeSourceDetail,
   type KnowledgeSourceInput,
   type KnowledgeSourceItem,
 } from "../../services/adminKnowledge";
+import "./admin-ai.css";
 
 // ==========================================
 // AD07: AI & KNOWLEDGE BASE MANAGEMENT
@@ -75,6 +79,28 @@ const emptyKnowledgeSource: KnowledgeSourceForm = {
   effectiveDate: "",
 };
 
+const categoryLabelMapVi: Record<string, string> = {
+  FINANCIAL_PLANNING_STANDARDS: "Chuẩn mực hoạch định",
+  STATISTICS_DEMOGRAPHICS: "Dân số & Tuổi thọ",
+  LEGAL_PENSION_ADJUSTMENT: "Điều chỉnh lương hưu",
+  LEGAL_RETIREMENT_AGE: "Tuổi nghỉ hưu",
+  LEGAL_SOCIAL_INSURANCE: "Luật BHXH",
+};
+
+const categoryLabelMapEn: Record<string, string> = {
+  FINANCIAL_PLANNING_STANDARDS: "Planning Standards",
+  STATISTICS_DEMOGRAPHICS: "Demographics",
+  LEGAL_PENSION_ADJUSTMENT: "Pension Adjustment",
+  LEGAL_RETIREMENT_AGE: "Retirement Age",
+  LEGAL_SOCIAL_INSURANCE: "Social Insurance Law",
+};
+
+const formatCategory = (category: string, isEn: boolean) => {
+  const map = isEn ? categoryLabelMapEn : categoryLabelMapVi;
+  if (map[category]) return map[category];
+  return category.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+};
+
 export function AdminAIManagementPage() {
   const { notify } = useNotification();
   const { language } = useI18n();
@@ -92,6 +118,9 @@ export function AdminAIManagementPage() {
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState("");
   const [sourceForm, setSourceForm] = useState<KnowledgeSourceForm>(emptyKnowledgeSource);
+  const [viewingSource, setViewingSource] = useState<KnowledgeSourceItem | null>(null);
+  const [sourceDetail, setSourceDetail] = useState<KnowledgeSourceDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -106,7 +135,10 @@ export function AdminAIManagementPage() {
 
   const categoryOptions = useMemo(() => [
     { key: "ALL", label: isEn ? "All sources" : "Tất cả nguồn" },
-    ...Array.from(new Set(sources.map((source) => source.category))).sort().map((category) => ({ key: category, label: category })),
+    ...Array.from(new Set(sources.map((source) => source.category))).sort().map((category) => ({
+      key: category,
+      label: formatCategory(category, isEn),
+    })),
   ], [isEn, sources]);
 
   // Filter sources
@@ -137,7 +169,24 @@ export function AdminAIManagementPage() {
     setEditingRule(rule);
   };
 
-  const replaceSource = (source: KnowledgeSourceItem) => setSources((items) => items.map((item) => item.id === source.id ? source : item));
+  const replaceSource = (source: KnowledgeSourceItem) => {
+    setSources((items) => items.map((item) => (item.id === source.id ? source : item)));
+    setViewingSource((prev) => (prev && prev.id === source.id ? source : prev));
+  };
+
+  const handleViewSource = async (source: KnowledgeSourceItem) => {
+    setViewingSource(source);
+    setLoadingDetail(true);
+    setSourceDetail(null);
+    try {
+      const detail = await getKnowledgeSource(source.id);
+      setSourceDetail(detail);
+    } catch {
+      notify.error(isEn ? "Failed to load document content" : "Không thể tải nội dung văn bản");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   const handleSyncSource = async (source: KnowledgeSourceItem) => {
     setSyncingId(source.id);
@@ -311,36 +360,51 @@ export function AdminAIManagementPage() {
           <table className="ai-source-table">
             <thead>
               <tr>
-                <th>{isEn ? "Document & Code" : "Văn bản & Số hiệu"}</th>
-                <th>{isEn ? "Category" : "Phân loại"}</th>
-                <th>{isEn ? "Version" : "Phiên bản"}</th>
-                <th>{isEn ? "Index Status" : "Trạng thái chỉ mục"}</th>
-                <th>{isEn ? "Effective date" : "Ngày hiệu lực"}</th>
-                <th style={{ textAlign: "right" }}>{isEn ? "Action" : "Thao tác"}</th>
+                <th style={{ width: "38%", minWidth: "260px" }}>{isEn ? "Document & Code" : "Văn bản & Số hiệu"}</th>
+                <th style={{ width: "18%", minWidth: "140px" }}>{isEn ? "Category" : "Phân loại"}</th>
+                <th style={{ width: "10%", minWidth: "85px" }}>{isEn ? "Version" : "Phiên bản"}</th>
+                <th style={{ width: "14%", minWidth: "120px" }}>{isEn ? "Index Status" : "Trạng thái chỉ mục"}</th>
+                <th style={{ width: "10%", minWidth: "95px" }}>{isEn ? "Effective date" : "Ngày hiệu lực"}</th>
+                <th style={{ width: "10%", minWidth: "105px", textAlign: "right" }}>{isEn ? "Action" : "Thao tác"}</th>
               </tr>
             </thead>
             <tbody>
               {!sourceLoading && filteredSources.length === 0 && (
-                <tr><td colSpan={6}>{isEn ? "No knowledge sources found." : "Không tìm thấy nguồn tri thức."}</td></tr>
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "32px", color: "var(--color-text-muted)" }}>
+                    {isEn ? "No knowledge sources found." : "Không tìm thấy nguồn tri thức."}
+                  </td>
+                </tr>
               )}
               {filteredSources.map((item) => (
                 <tr key={item.id}>
                   <td>
-                    <div className="source-name">
-                      <span>
+                    <div className="source-name-box">
+                      <span className="source-icon-badge" title={item.referenceCode || ""}>
                         <Icon name="file-text" />
                       </span>
-                      <div>
-                        <strong>{item.title}</strong>
-                        <small>{isEn ? "Code: " : "Số hiệu: "}{item.referenceCode || (isEn ? "None" : "Không có")} · {item.indexMethod || (isEn ? "Not indexed" : "Chưa lập chỉ mục")}</small>
+                      <div className="source-text-group">
+                        <button
+                          type="button"
+                          className="source-title-btn"
+                          onClick={() => handleViewSource(item)}
+                          title={isEn ? "Click to view full text" : "Bấm để đọc toàn văn"}
+                        >
+                          {item.title}
+                        </button>
+                        <span className="source-sub-text">
+                          {isEn ? "Code: " : "Số hiệu: "}{item.referenceCode || (isEn ? "None" : "Không có")} · {item.indexMethod || (isEn ? "Not indexed" : "Chưa lập chỉ mục")}
+                        </span>
                       </div>
                     </div>
                   </td>
                   <td>
-                    <Badge tone="soft">{item.category}</Badge>
+                    <Badge tone="soft">
+                      {formatCategory(item.category, isEn)}
+                    </Badge>
                   </td>
                   <td>
-                    <strong>{item.version}</strong>
+                    <strong style={{ fontSize: "12.5px", color: "var(--color-primary-800)" }}>{item.version}</strong>
                   </td>
                   <td>
                     <Badge tone={item.status === "INDEXED" ? "success" : item.status === "FAILED" ? "danger" : "warning"}>
@@ -348,20 +412,43 @@ export function AdminAIManagementPage() {
                     </Badge>
                   </td>
                   <td>
-                    <small>{item.effectiveDate ? new Date(item.effectiveDate).toLocaleDateString(isEn ? "en-US" : "vi-VN") : "-"}</small>
+                    <span style={{ fontSize: "12px", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>
+                      {item.effectiveDate ? new Date(item.effectiveDate).toLocaleDateString(isEn ? "en-US" : "vi-VN") : "—"}
+                    </span>
                   </td>
                   <td style={{ textAlign: "right" }}>
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      disabled={syncingId === item.id}
-                      onClick={() => handleSyncSource(item)}
-                    >
-                      {syncingId === item.id ? (isEn ? "Working..." : "Đang xử lý...") : (isEn ? "Index" : "Lập chỉ mục")}
-                    </Button>
-                    <Button variant="secondary" size="small" disabled={syncingId === item.id || item.status !== "INDEXED"} onClick={() => handleApproval(item)}>
-                      {item.isApproved ? (isEn ? "Withdraw" : "Thu hồi") : (isEn ? "Approve" : "Phê duyệt")}
-                    </Button>
+                    <div className="admin-ai-actions">
+                      <button
+                        type="button"
+                        className="ai-action-btn btn-view"
+                        title={isEn ? "Read document" : "Đọc nội dung văn bản"}
+                        onClick={() => handleViewSource(item)}
+                      >
+                        <Icon name="eye" size="small" />
+                      </button>
+                      <button
+                        type="button"
+                        className="ai-action-btn btn-index"
+                        disabled={syncingId === item.id}
+                        title={syncingId === item.id ? (isEn ? "Indexing..." : "Đang lập chỉ mục...") : (isEn ? "Index source" : "Lập chỉ mục")}
+                        onClick={() => handleSyncSource(item)}
+                      >
+                        <Icon name="sparkles" size="small" />
+                      </button>
+                      <button
+                        type="button"
+                        className={`ai-action-btn ${item.isApproved ? "btn-approved" : "btn-approve"}`}
+                        disabled={syncingId === item.id || item.status !== "INDEXED"}
+                        title={
+                          item.isApproved
+                            ? (isEn ? "Approved (Click to withdraw)" : "Đã duyệt (Bấm để thu hồi)")
+                            : (isEn ? "Approve source" : "Phê duyệt nguồn")
+                        }
+                        onClick={() => handleApproval(item)}
+                      >
+                        <Icon name={item.isApproved ? "shield" : "check"} size="small" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -374,28 +461,52 @@ export function AdminAIManagementPage() {
           {filteredSources.map((item) => (
             <Card key={item.id} className="business-mobile-card">
               <header>
-                <Badge tone="soft">{item.category}</Badge>
+                <Badge tone="soft">{formatCategory(item.category, isEn)}</Badge>
                 <Badge tone={item.status === "INDEXED" ? "success" : item.status === "FAILED" ? "danger" : "warning"}>
                   {sourceStatusMap[item.status] || item.status}
                 </Badge>
               </header>
-              <h2>{item.title}</h2>
-              <p>{item.indexMethod || (isEn ? "Not indexed" : "Chưa lập chỉ mục")}</p>
+              <h2
+                style={{ cursor: "pointer", color: "var(--color-primary-800)", marginTop: "6px", fontSize: "14px" }}
+                onClick={() => handleViewSource(item)}
+              >
+                {item.title}
+              </h2>
+              <p style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
+                {item.indexMethod || (isEn ? "Not indexed" : "Chưa lập chỉ mục")}
+              </p>
               <div className="source-detail-grid">
                 <span>
-                  {isEn ? "Document Code:" : "Số hiệu văn bản:"} <strong>{item.referenceCode || "-"}</strong>
+                  {isEn ? "Document Code:" : "Số hiệu văn bản:"} <strong>{item.referenceCode || "—"}</strong>
                 </span>
                 <span>
                   {isEn ? "Version:" : "Phiên bản:"} <strong>{item.version}</strong>
                 </span>
+                <span>
+                  {isEn ? "Effective Date:" : "Ngày hiệu lực:"}{" "}
+                  <strong>{item.effectiveDate ? new Date(item.effectiveDate).toLocaleDateString(isEn ? "en-US" : "vi-VN") : "—"}</strong>
+                </span>
               </div>
-              <Button
-                variant="secondary"
-                disabled={syncingId === item.id}
-                onClick={() => handleSyncSource(item)}
-              >
-                {syncingId === item.id ? (isEn ? "Syncing..." : "Đang đồng bộ...") : (isEn ? "Resync Document" : "Đồng bộ lại tài liệu")}
-              </Button>
+              <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  icon="eye"
+                  onClick={() => handleViewSource(item)}
+                  style={{ flex: 1 }}
+                >
+                  {isEn ? "Read Document" : "Đọc văn bản"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  icon="sparkles"
+                  disabled={syncingId === item.id}
+                  onClick={() => handleSyncSource(item)}
+                >
+                  {syncingId === item.id ? (isEn ? "Syncing..." : "Đang xử lý...") : (isEn ? "Index" : "Lập chỉ mục")}
+                </Button>
+              </div>
             </Card>
           ))}
         </div>
@@ -507,6 +618,109 @@ export function AdminAIManagementPage() {
           </div>
         )}
       </Modal>
+
+      {/* Knowledge Source Reader Dialog */}
+      <ResponsiveDialog
+        open={Boolean(viewingSource)}
+        onClose={() => setViewingSource(null)}
+        title={viewingSource?.title || (isEn ? "Knowledge Source" : "Nguồn tri thức")}
+      >
+        {viewingSource && (
+          <div className="ai-source-reader-content">
+            <div className="ai-source-reader-meta">
+              <div className="ai-source-reader-badges">
+                <Badge tone="info">{formatCategory(viewingSource.category, isEn)}</Badge>
+                <Badge tone={viewingSource.status === "INDEXED" ? "success" : viewingSource.status === "FAILED" ? "danger" : "warning"}>
+                  {sourceStatusMap[viewingSource.status] || viewingSource.status}
+                </Badge>
+                <Badge tone={viewingSource.isApproved ? "success" : "warning"}>
+                  {viewingSource.isApproved ? (isEn ? "Approved" : "Đã phê duyệt") : (isEn ? "Pending Approval" : "Chờ phê duyệt")}
+                </Badge>
+              </div>
+
+              <div className="ai-source-reader-grid">
+                <div>
+                  <span>{isEn ? "Reference Code" : "Số hiệu văn bản"}</span>
+                  <strong>{viewingSource.referenceCode || "—"}</strong>
+                </div>
+                <div>
+                  <span>{isEn ? "Version" : "Phiên bản"}</span>
+                  <strong>{viewingSource.version}</strong>
+                </div>
+                <div>
+                  <span>{isEn ? "Effective Date" : "Ngày hiệu lực"}</span>
+                  <strong>
+                    {viewingSource.effectiveDate
+                      ? new Date(viewingSource.effectiveDate).toLocaleDateString(isEn ? "en-US" : "vi-VN")
+                      : "—"}
+                  </strong>
+                </div>
+                <div>
+                  <span>{isEn ? "Index Method" : "Phương thức chỉ mục"}</span>
+                  <strong>{viewingSource.indexMethod || (isEn ? "Not indexed" : "Chưa lập chỉ mục")}</strong>
+                </div>
+                <div>
+                  <span>{isEn ? "Revision" : "Lần sửa đổi"}</span>
+                  <strong>v{viewingSource.revision}</strong>
+                </div>
+                {viewingSource.validUntil && (
+                  <div>
+                    <span>{isEn ? "Valid Until" : "Hết hiệu lực"}</span>
+                    <strong>{new Date(viewingSource.validUntil).toLocaleDateString(isEn ? "en-US" : "vi-VN")}</strong>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h4 style={{ fontSize: "13px", fontWeight: 600, marginBottom: "8px", color: "var(--color-midnight-900)" }}>
+                {isEn ? "Raw Document Content" : "Toàn văn nội dung tài liệu nguồn"}
+              </h4>
+              {loadingDetail ? (
+                <div style={{ padding: "32px", textAlign: "center", color: "var(--color-text-muted)" }}>
+                  {isEn ? "Loading full document content..." : "Đang tải toàn văn tài liệu..."}
+                </div>
+              ) : sourceDetail?.rawContent ? (
+                <div className="ai-source-raw-body">
+                  {sourceDetail.rawContent}
+                </div>
+              ) : (
+                <div style={{ padding: "24px", textAlign: "center", color: "var(--color-text-muted)", background: "#f8fafc", borderRadius: "8px" }}>
+                  {isEn ? "No text content available for this source." : "Chưa có nội dung văn bản chi tiết cho nguồn này."}
+                </div>
+              )}
+            </div>
+
+            <div className="ai-source-reader-footer">
+              <div style={{ display: "flex", gap: "8px" }}>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  disabled={syncingId === viewingSource.id}
+                  onClick={() => handleSyncSource(viewingSource)}
+                >
+                  {syncingId === viewingSource.id
+                    ? (isEn ? "Indexing..." : "Đang lập chỉ mục...")
+                    : (isEn ? "Index Now" : "Lập chỉ mục ngay")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  disabled={syncingId === viewingSource.id || viewingSource.status !== "INDEXED"}
+                  onClick={() => handleApproval(viewingSource)}
+                >
+                  {viewingSource.isApproved
+                    ? (isEn ? "Withdraw Approval" : "Thu hồi duyệt")
+                    : (isEn ? "Approve Source" : "Phê duyệt nguồn")}
+                </Button>
+              </div>
+              <Button variant="secondary" onClick={() => setViewingSource(null)}>
+                {isEn ? "Close" : "Đóng"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </ResponsiveDialog>
     </div>
   );
 }
