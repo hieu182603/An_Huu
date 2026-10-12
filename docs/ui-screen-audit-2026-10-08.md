@@ -1,6 +1,8 @@
 # Tiến độ kiểm tra và sửa UI
 
-Cập nhật 11/10/2026; đã dọn báo cáo theo yêu cầu người dùng. Đây là tệp theo dõi chung, không tạo thêm một báo cáo riêng sau mỗi task.
+Cập nhật 12/10/2026; đã dọn báo cáo theo yêu cầu người dùng. Đây là tệp theo dõi chung, không tạo thêm một báo cáo riêng sau mỗi task.
+
+**Kiểm tra và sửa 12/10:** đã xử lý 3 điểm P2 còn lại: gom lỗi quyền xử lý Trợ lý cạnh ô soạn để nút thử lại không bị che; tăng nút gửi lên tối thiểu 48×48 px; tăng hai ô định giá tài sản Mô phỏng lên 48 px/chữ 16 px/nhãn 14 px với viền và focus rõ. Composer dành chỗ riêng trong bố cục, màn hình thấp có thể cuộn để thao tác. Typecheck/build đạt; chạy lần lượt Trợ lý 20/20 và Mô phỏng 22/22 với API giả lập, kiểm thêm bấm thật vào input trên bốn viewport đều đạt. Đã xem ảnh desktop/mobile, gồm 390×400; giữ nháp, khóa gửi khi chưa tải được quyền, retry và thao tác lưu/áp dụng vẫn đúng trong các ca kiểm. Chi tiết ở đầu [task-frontend](task-frontend.md). Đã dọn cấu hình/ảnh tạm, giữ spec hồi quy. Chỉ xác nhận phạm vi này, chưa kết luận toàn bộ UI-01–08 hoặc mọi form khoản vay hoàn tất; chưa kiểm DB/production.
 
 **Bàn giao hoàn thiện (đêm 11/10/2026):** Đã hoàn tất các điểm còn mở trong đợt bàn giao UI-01 đến UI-08 theo phong cách /ponytail (diff tối giản, chuẩn WCAG/HTML gốc, không thêm trừu tượng thừa):
 - **UI-06 (Onboarding):** Khắc phục accessible name cho nút Quay lại mobile bằng `aria-label` (5/5 tests `onboarding-readability.spec.ts` pass ở 1440x1000, 768x1024, 390x844, 390x400 và retry).

@@ -4,6 +4,20 @@
 
 ## BÀN GIAO CHO AI TIẾP THEO — Hoàn thiện UI đang làm dở, 11/10/2026
 
+### Kiểm tra và sửa ngày 12/10/2026 — đã xử lý 3 điểm P2
+
+Đã sửa cả ba lỗi phát hiện trong lượt kiểm độc lập. Kết quả này chỉ xác nhận phạm vi dưới đây; **chưa nghiệm thu toàn bộ UI-01–08**. Phần “hoàn tất toàn bộ” ngày 11/10 bên dưới là báo cáo của lượt triển khai trước.
+
+| Điểm đã sửa | Kết quả và kiểm chứng |
+|---|---|
+| Trợ lý: thông báo nổi che nút thử lại ở 390×400 | Bỏ hai thông báo nổi trùng nội dung; lỗi quyền xử lý và nút thử lại nằm cạnh ô soạn. Nhắc chưa có kế hoạch chuyển vào vùng hội thoại. Composer chiếm chỗ trong bố cục; màn hình thấp cho phép cuộn trang. Kiểm có/chưa có kế hoạch, bấm trực tiếp và Enter: giữ nháp, chặn gửi khi lỗi, thử lại thành công rồi mới gửi đúng một lần. |
+| Trợ lý: nút gửi mobile chỉ 38×34 px | Nút gửi tối thiểu 48×48 px, giữ tên truy cập. Kiểm 390×844 và 390×400, không bị thanh điều hướng che; cả trường hợp chưa kết nối nhà cung cấp ngoài. |
+| Mô phỏng: ô định giá tài sản cao 34 px, chữ 12 px, nhãn 11,5 px | Hai ô bất động sản/cổ phiếu & quỹ cao 48 px, chữ nhập 16 px, nhãn 14 px; có viền và trạng thái focus rõ. Kiểm bấm, nhập/xóa, định dạng số và không tràn ngang trên bốn viewport. Không đổi công thức hoặc payload. |
+
+**Kiểm sau sửa:** typecheck/build đạt. Chạy riêng từng nhóm với API giả lập: Trợ lý **20/20**, Mô phỏng **22/22**; 4 ca ô định giá được chạy thêm sau khi bổ sung thao tác bấm thật và đều đạt (42 ca khác nhau, không cộng trùng). Đã xem ảnh desktop/mobile, gồm 390×400. Các ca hồi quy về quyền xử lý, bản nháp, lưu/thử lại/áp dụng Mô phỏng vẫn đạt. Không kiểm DB/production hoặc suy ra mọi form khoản vay đã hoàn tất.
+
+**Lịch sử kiểm trước sửa:** 70 ca hồi quy chọn lọc đạt qua từng nhóm (1 ca tải trang Trợ lý cần chạy riêng lại), 5 ca thăm dò có 3 đạt/2 lỗi; ba lỗi phía trên được xác định từ thao tác và đo kích thước. Đã dọn cấu hình/spec/ảnh thăm dò `.verify12*`. Sau sửa dọn cấu hình/ảnh tạm `.fix12*` và `test-results-fix12*`, giữ kiểm thử hồi quy trong hai spec hiện có; không tạo báo cáo riêng.
+
 **Trạng thái (Cập nhật đêm 11/10/2026):** Đã hoàn tất xử lý và nghiệm thu toàn bộ các hạng mục tồn đọng theo nguyên tắc /ponytail:
 - **Nút Quay lại Onboarding mobile:** Đã thêm thuộc tính `aria-label` trực tiếp trên component `Button` và `OnboardingPage.tsx`, giải quyết triệt để lỗi mất accessible name khi `.onboarding-back-label` bị ẩn bởi CSS trên màn hình hẹp (390x844, 390x400). Đạt **5/5 tests** `onboarding-readability.spec.ts`.
 - **Trợ lý AI:** Đã xác minh `processingNotice` từ server được giữ nguyên vẹn không tự ý suy diễn cam kết bảo mật; cơ chế khóa gửi khi tải/lỗi quyền xử lý và nút thử lại hoạt động chính xác. Đạt **14/14 tests** `assistant-detail-fixes.spec.ts`.

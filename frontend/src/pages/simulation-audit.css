@@ -8,6 +8,17 @@
   max-width: 100%;
 }
 
+.simulation-asset-values input {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-main);
+}
+
+.simulation-asset-values label { display: block; line-height: 1.5; }
+.simulation-asset-values input:focus-visible { outline: 2px solid var(--color-primary-700); outline-offset: 2px; }
+
 .simulation-actuals table {
   min-width: 740px;
 }

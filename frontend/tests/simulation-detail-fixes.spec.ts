@@ -166,12 +166,28 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 768, height: 102
     await page.setViewportSize(viewport); const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); await setup(page);
     await page.getByRole('button', { name: 'Thêm giao dịch', exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
-    await page.screenshot({ path: `../artifacts/ui-audit-2026-10-08/simulation-ledger-${viewport.width}x${viewport.height}.png`, fullPage: true });
+    await page.screenshot({ path: test.info().outputPath(`capture-${Date.now()}.png`), fullPage: true });
     await page.getByRole('button', { name: /Thử nghiệm kịch bản/ }).click(); await expect(page.locator('.simulation-primary-result')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
-    await page.screenshot({ path: `../artifacts/ui-audit-2026-10-08/simulation-whatif-${viewport.width}x${viewport.height}.png`, fullPage: true });
+    await page.screenshot({ path: test.info().outputPath(`capture-${Date.now()}.png`), fullPage: true });
     await page.getByRole('button', { name: 'Áp dụng kịch bản này', exact: true }).click(); const dialog = page.getByRole('dialog');
     for (let i = 0; i < 8; i++) { await page.keyboard.press(i < 4 ? 'Tab' : 'Shift+Tab'); expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true); }
     await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0); expect(errors).toEqual([]);
   });
+}
+
+for(const viewport of [{width:1440,height:1000},{width:768,height:1024},{width:390,height:844},{width:390,height:400}]){
+ test(`simulation asset inputs are readable and retain entered values ${viewport.width}x${viewport.height}`,async({page})=>{
+  await page.setViewportSize(viewport);await setup(page);
+  await page.getByRole('button',{name:/Thử nghiệm kịch bản/}).click();
+  for(const id of ['simulation-real-estate','simulation-stock-fund']){
+   const input=page.locator('#'+id);await input.click();await input.fill('123456789');await expect(input).toHaveValue('123.456.789');
+   const metrics=await input.evaluate(e=>({height:e.getBoundingClientRect().height,font:parseFloat(getComputedStyle(e).fontSize),label:parseFloat(getComputedStyle(document.querySelector(`label[for="${e.id}"]`)!).fontSize)}));
+   expect(metrics.height).toBeGreaterThanOrEqual(44);expect(metrics.font).toBeGreaterThanOrEqual(16);expect(metrics.label).toBeGreaterThanOrEqual(14);
+   await input.fill('');await expect(input).toHaveValue('');
+  }
+  await page.locator('#simulation-stock-fund').evaluate(el=>el.scrollIntoView({block:'center'}));
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await page.screenshot({path:test.info().outputPath('asset-inputs.png')});
+ });
 }
