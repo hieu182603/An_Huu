@@ -165,3 +165,37 @@ for (const options of [{processing:false},{reconsent:true}]) {
     expect(sent).toBe(0);
   });
 }
+
+for (const height of [844,400]) {
+ for (const noPlan of [false,true]) {
+  test(`assistant mobile privacy retry is unobstructed ${height} noPlan=${noPlan}`,async({page})=>{
+   await page.setViewportSize({width:390,height});
+   const options={privacyError:true,noPlan}; await setupAssistant(page,options);
+   let sent=0;
+   await page.route('**/api/v1/me/ai/explain',route=>{sent++;return route.fulfill({json:{data:{answer:'Kết quả kiểm thử',status:'OK',facts:[],citations:[]}}});});
+   const input=page.getByRole('textbox',{name:'Câu hỏi dành cho trợ lý AI'});
+   await input.fill('Giải thích kế hoạch'); await input.press('Enter');
+   await expect(input).toHaveValue('Giải thích kế hoạch'); expect(sent).toBe(0);
+   await expect(page.locator('.composer-send-button')).toBeDisabled();
+   const retry=page.getByRole('button',{name:'Tải lại quyền xử lý',exact:true});
+   await retry.click({trial:true});
+   await page.screenshot({path:test.info().outputPath('privacy-error.png')});
+   options.privacyError=false;
+   if(noPlan){await retry.focus();await page.keyboard.press('Enter');}else await retry.click();
+   const send=page.locator('.composer-send-button'); await expect(send).toBeEnabled();
+   const box=(await send.boundingBox())!; expect(box.width).toBeGreaterThanOrEqual(48);expect(box.height).toBeGreaterThanOrEqual(48);
+   await send.click(); await expect.poll(()=>sent).toBe(1);
+   await expect(page.locator('.codex-turn.user')).toContainText('Giải thích kế hoạch');
+   await expect(page.locator('.codex-turn.assistant').last()).toContainText('Kết quả kiểm thử');
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  });
+ }
+ test(`assistant mobile send remains usable without external provider ${height}`,async({page})=>{
+   await page.setViewportSize({width:390,height});await setupAssistant(page,{noProvider:true});
+   await page.getByRole('textbox',{name:'Câu hỏi dành cho trợ lý AI'}).fill('Câu hỏi đang soạn');
+   const send=page.locator('.composer-send-button');await expect(send).toBeEnabled();await send.click({trial:true});
+   const box=(await send.boundingBox())!,nav=(await page.locator('.user-mobile-nav').boundingBox())!;
+   expect(box.width).toBeGreaterThanOrEqual(48);expect(box.height).toBeGreaterThanOrEqual(48);expect(box.y+box.height).toBeLessThanOrEqual(nav.y+1);
+   await page.screenshot({path:test.info().outputPath('composer.png')});
+ });
+}

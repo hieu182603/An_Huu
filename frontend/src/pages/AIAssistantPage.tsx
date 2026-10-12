@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Alert, Badge, Button, Card, Drawer, Icon, IconButton, Modal, NotificationCard, useNotification } from "../components/ui";
+import { Alert, Badge, Button, Card, Drawer, Icon, IconButton, Modal, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import {
@@ -51,10 +51,6 @@ export default function AIAssistantPage() {
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Floating pop-up dismissal state
-  const [dismissedPlanNotice, setDismissedPlanNotice] = useState(false);
-  const [dismissedPrivacyError, setDismissedPrivacyError] = useState(false);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -113,7 +109,6 @@ export default function AIAssistantPage() {
   const loadPrivacy = async () => {
     setPrivacyLoading(true);
     setPrivacyError(false);
-    setDismissedPrivacyError(false);
     try {
       const p = await getAiPrivacy();
       setPrivacy(p);
@@ -431,54 +426,6 @@ export default function AIAssistantPage() {
 
   return (
     <div className="codex-work-workspace">
-      {/* Floating Pop-up Notifications */}
-      {!currentVersion && !dismissedPlanNotice && (
-        <aside className="codex-floating-popup" aria-label={language === "en" ? "Plan notification" : "Thông báo kế hoạch"}>
-          <NotificationCard
-            tone="info"
-            title={language === "en" ? "No applied plan" : "Chưa có kế hoạch được áp dụng"}
-            description={
-              language === "en"
-                ? "Apply a plan to ask questions about its figures."
-                : "Áp dụng kế hoạch để trợ lý có số liệu giải thích chính xác."
-            }
-            action={
-              <Link
-                className="button button-secondary button-small"
-                to="/user/plan"
-                style={{ textDecoration: "none" }}
-              >
-                {language === "en" ? "Open plan" : "Đến kế hoạch"}
-              </Link>
-            }
-            onClose={() => setDismissedPlanNotice(true)}
-          />
-        </aside>
-      )}
-
-      {privacyError && !dismissedPrivacyError && (
-        <aside
-          className="codex-floating-popup"
-          style={{ top: !currentVersion && !dismissedPlanNotice ? "190px" : "76px" }}
-          aria-label={language === "en" ? "AI preferences error" : "Lỗi tùy chọn AI"}
-        >
-          <NotificationCard
-            tone="danger"
-            title={language === "en" ? "Unable to load AI preferences" : "Không thể tải tùy chọn AI"}
-            description={
-              language === "en"
-                ? "Could not connect to AI service. Please retry."
-                : "Chưa thể kết nối dịch vụ tùy chọn AI. Vui lòng thử lại."
-            }
-            action={
-              <Button variant="secondary" size="small" onClick={loadPrivacy}>
-                {language === "en" ? "Retry" : "Thử lại"}
-              </Button>
-            }
-            onClose={() => setDismissedPrivacyError(true)}
-          />
-        </aside>
-      )}
       {/* Top Header Bar */}
       <header className="codex-topbar">
       <div className="codex-title-wrap">
@@ -548,7 +495,8 @@ export default function AIAssistantPage() {
       <div className="codex-body-layout">
         {/* Chat Feed */}
         <div className="codex-chat-container">
-          {!activePlan && (
+          <div className="conversation-scroll" ref={scrollRef}>
+          {!currentVersion && (
             <div style={{ margin: "16px 20px 0", padding: "12px 16px", borderRadius: "var(--radius-sm)", background: "var(--color-secondary-soft)", border: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--color-primary-700)" }}>
                 <Icon name="info" size="small" />
@@ -558,12 +506,11 @@ export default function AIAssistantPage() {
                     : "Bạn chưa có kế hoạch hưu trí chính thức. Hãy tạo kế hoạch để trợ lý phân tích số liệu cá nhân hóa cho bạn."}
                 </span>
               </div>
-              <Link to="/user/goal" className="button button-primary button-small" style={{ textDecoration: "none", fontSize: "12px" }}>
-                {language === "en" ? "Set Up Goal" : "Thiết lập mục tiêu"}
+              <Link to={activePlan ? "/user/plan" : "/user/goal"} className="button button-primary button-small" style={{ textDecoration: "none", fontSize: "12px" }}>
+                {activePlan ? (language === "en" ? "Open plan" : "Đến kế hoạch") : (language === "en" ? "Set Up Goal" : "Thiết lập mục tiêu")}
               </Link>
             </div>
           )}
-          <div className="conversation-scroll" ref={scrollRef}>
             {messages.map((msg) => (
               <motion.div
                 key={msg.id}

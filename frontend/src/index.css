@@ -3908,7 +3908,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  padding: 24px 32px 160px;
+  padding: 24px 32px;
   background: var(--color-bg);
   scroll-behavior: smooth;
 }
@@ -4456,9 +4456,10 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   background: var(--color-midnight-900);
 }
 
-/* Bottom Floating Composer */
+/* Composer */
 .codex-composer-wrapper {
-  position: absolute;
+  position: relative;
+  flex-shrink: 0;
   bottom: 0;
   left: 0;
   right: 0;
@@ -4635,13 +4636,14 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 38px;
+  min-width: 48px;
+  height: 48px;
   padding: 0 18px;
   border-radius: 9999px;
   border: 1px solid var(--color-border, #d0e4fe);
   background: var(--color-soft, #e8f2fe);
   color: var(--color-text-muted, #456b91);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: not-allowed;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -4700,9 +4702,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 
 @media (max-width: 400px) {
   .composer-send-button {
-    padding: 0 10px !important;
-    height: 34px !important;
-    font-size: 12px !important;
+    padding: 0 12px;
   }
   .composer-send-button .send-btn-label {
     display: none !important;
@@ -4830,7 +4830,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 @media (max-width: 768px) {
   .codex-topbar { padding: 10px 14px; }
   .codex-topbar h1 { font-size: 13.5px; }
-  .codex-chat-container .conversation-scroll { padding: 16px 14px 140px; }
+  .codex-chat-container .conversation-scroll { padding: 16px 14px; }
   .codex-composer-wrapper { padding: 12px 14px 16px; }
   .codex-composer-card { border-radius: 16px; padding: 10px 12px; }
   .composer-shield-badge { display: none; }
@@ -12023,3 +12023,10 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 
 
 .assistant-send-status { pointer-events: auto; max-width: 960px; padding: 12px; border-radius: 12px; background: var(--color-surface); display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: var(--color-text-main); }
+
+/* Low viewports scroll the page instead of clipping permission recovery controls. */
+@media (max-width: 767px) and (max-height: 600px) {
+  .user-dashboard-shell .dashboard-main.dashboard-main-assistant { height: auto; max-height: none; overflow: visible; }
+  .codex-work-workspace:not(.is-fullscreen) { height: auto; }
+  .codex-work-workspace:not(.is-fullscreen) .codex-chat-container { min-height: 520px; }
+}

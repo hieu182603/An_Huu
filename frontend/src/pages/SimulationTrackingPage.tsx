@@ -2226,19 +2226,19 @@ export default function SimulationTrackingPage() {
               </div>
 
               {/* 5. Giả định giá trị tài sản (whatIf.assetValues) */}
-              <div className="simulation-stepper-card" style={{ borderTop: "1px dashed var(--color-border)", paddingTop: "12px" }}>
+              <div className="simulation-stepper-card simulation-asset-values" style={{ borderTop: "1px dashed var(--color-border)", paddingTop: "12px" }}>
                 <div className="stepper-header">
                   <span className="stepper-title">{language === "en" ? "5. Hypothetical Asset Revaluation" : "5. Thử nghiệm định giá lại tài sản"}</span>
                   <Badge tone="soft">T08 What-if</Badge>
                 </div>
-                <p style={{ margin: "4px 0 8px", fontSize: "11px", color: "var(--color-text-muted)" }}>
+                <p style={{ margin: "4px 0 8px", fontSize: "14px", color: "var(--color-text-muted)" }}>
                   {language === "en"
                     ? "Try adjusting hypothetical asset values to see impacts on retirement fund. This does not alter your base profile."
                     : "Thử thay đổi giá trị tài sản giả định để xem tác động lên quỹ hưu. Giá trị này không thay đổi hồ sơ gốc."}
                 </p>
                 <div style={{ display: "grid", gap: "8px" }}>
                   <div>
-                    <label htmlFor="simulation-real-estate" style={{ fontSize: "11.5px", fontWeight: 600, color: "var(--color-text-muted)" }}>
+                    <label htmlFor="simulation-real-estate" style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-muted)" }}>
                       {language === "en" ? "Real Estate" : "Bất động sản"} ({language === "en" ? "original" : "gốc"}: {formatVND(profile.assets.realEstateValue)})
                     </label>
                     <input
@@ -2249,11 +2249,11 @@ export default function SimulationTrackingPage() {
                       value={overrideRealEstate ? new Intl.NumberFormat("vi-VN").format(Number(overrideRealEstate)) : ""}
                       onChange={(e) => setOverrideRealEstate(e.target.value.replace(/\D/g, ""))}
                       className="input font-mono"
-                      style={{ height: "34px", fontSize: "12px", width: "100%", marginTop: "2px" }}
+                      style={{ height: "48px", fontSize: "16px", width: "100%", marginTop: "2px" }}
                     />
                   </div>
                   <div>
-                    <label htmlFor="simulation-stock-fund" style={{ fontSize: "11.5px", fontWeight: 600, color: "var(--color-text-muted)" }}>
+                    <label htmlFor="simulation-stock-fund" style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-muted)" }}>
                       {language === "en" ? "Stocks & Investment Funds" : "Cổ phiếu & Quỹ"} ({language === "en" ? "original" : "gốc"}: {formatVND(profile.assets.stockFundValue)})
                     </label>
                     <input
@@ -2264,7 +2264,7 @@ export default function SimulationTrackingPage() {
                       value={overrideStock ? new Intl.NumberFormat("vi-VN").format(Number(overrideStock)) : ""}
                       onChange={(e) => setOverrideStock(e.target.value.replace(/\D/g, ""))}
                       className="input font-mono"
-                      style={{ height: "34px", fontSize: "12px", width: "100%", marginTop: "2px" }}
+                      style={{ height: "48px", fontSize: "16px", width: "100%", marginTop: "2px" }}
                     />
                   </div>
                 </div>
