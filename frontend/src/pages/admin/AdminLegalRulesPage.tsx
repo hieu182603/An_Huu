@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { faRotateRight } from "@fortawesome/free-solid-svg-icons";
+import AdminActionButton from "./AdminActionButton";
 import {
   Alert,
   Badge,
@@ -115,6 +117,7 @@ export default function AdminLegalRulesPage() {
   const isEn = language === "en";
 
   const [rules, setRules] = useState<AdminLegalRuleItem[]>([]);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -148,7 +151,7 @@ export default function AdminLegalRulesPage() {
   const [publishConfirm, setPublishConfirm] = useState(false);
   const [publishError, setPublishError] = useState("");
 
-  const selectedRule = rules.find((r) => r.id === selectedId) || rules[0] || null;
+  const selectedRule = rules.find((r) => r.id === selectedId) || null;
 
   useEffect(() => {
     let active = true;
@@ -159,9 +162,6 @@ export default function AdminLegalRulesPage() {
         const res = await listAdminLegalRules();
         if (active) {
           setRules(res.items);
-          if (res.items.length > 0 && !selectedId) {
-            setSelectedId(res.items[0].id);
-          }
         }
       } catch (err) {
         if (active) {
@@ -183,6 +183,9 @@ export default function AdminLegalRulesPage() {
 
   // Validation transition
   const handleValidate = async (rule: AdminLegalRuleItem) => {
+    if (busy) return;
+    setSelectedId(rule.id);
+    setDetailOpen(true);
     setBusy(true);
     setError("");
     try {
@@ -288,6 +291,7 @@ export default function AdminLegalRulesPage() {
 
   // Open Edit Draft modal
   const handleOpenEdit = (rule: AdminLegalRuleItem) => {
+    setSelectedId(rule.id);
     setEditEffectiveFrom(rule.draft.effectiveFrom);
     setEditEffectiveTo(rule.draft.effectiveTo || "");
     setEditSupersedesId(rule.draft.supersedesId || "");
@@ -370,6 +374,7 @@ export default function AdminLegalRulesPage() {
       );
       setRules((prev) => [created, ...prev]);
       setSelectedId(created.id);
+      setDetailOpen(true);
       setCreateOpen(false);
       setCreateCode("");
     } catch (err) {
@@ -379,11 +384,27 @@ export default function AdminLegalRulesPage() {
     }
   };
 
+  const ruleActions = (rule: AdminLegalRuleItem, showDetails = true) => (
+    <div className="admin-management-actions">
+      {showDetails && <AdminActionButton icon="eye" label={isEn ? "View details" : "Xem chi tiết"} context={rule.draft.code}
+        disabled={busy} onClick={() => { setSelectedId(rule.id); setDetailOpen(true); }} />}
+      {rule.status !== "PUBLISHED" && <AdminActionButton icon="edit" label={isEn ? "Edit draft" : "Sửa dự thảo"} context={rule.draft.code}
+        disabled={busy} onClick={() => handleOpenEdit(rule)} />}
+      {(rule.status === "DRAFT" || rule.status === "VALIDATED") && <AdminActionButton icon="circle-check"
+        label={isEn ? "Validate rule" : "Kiểm chứng bộ luật"} context={rule.draft.code} disabled={busy} onClick={() => handleValidate(rule)} />}
+      {rule.status === "VALIDATED" && <AdminActionButton icon="shield" label={isEn ? "Independent review" : "Phê duyệt độc lập"} context={rule.draft.code}
+        disabled={busy} onClick={() => { setSelectedId(rule.id); setReviewNote(""); setReviewError(""); setReviewOpen(true); }} />}
+      {rule.status === "REVIEWED" && <AdminActionButton icon="upload" label={isEn ? "Publish rule" : "Công bố luật vận hành"} context={rule.draft.code}
+        emphasis disabled={busy} onClick={() => { setSelectedId(rule.id); setPublishConfirm(false); setPublishError(""); setPublishOpen(true); }} />}
+    </div>
+  );
+
   return (
-    <div className="admin-page legal-rules-page" style={{ padding: "1.5rem" }}>
-      <header className="admin-page-header" style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div className="admin-page legal-rules-page admin-management-page">
+      <header className="admin-page-header">
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>
+          <span>{isEn ? "SOCIAL INSURANCE GOVERNANCE" : "QUẢN TRỊ BẢO HIỂM XÃ HỘI"}</span>
+          <h1>
             {isEn ? "Social Insurance Legal Rules Management" : "Quản trị luật Bảo hiểm xã hội"}
           </h1>
           <p style={{ color: "var(--color-text-muted, #64748b)", margin: "0.25rem 0 0" }}>
@@ -392,14 +413,9 @@ export default function AdminLegalRulesPage() {
               : "Quản trị nghiêm ngặt các bộ luật BHXH, bảng tham số và chiến lược tính lương hưu."}
           </p>
         </div>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
-          <Button variant="secondary" onClick={() => setReloadKey((k) => k + 1)} disabled={loading || busy}>
-            {isEn ? "Refresh" : "Tải lại"}
-          </Button>
-          <Button variant="primary" onClick={() => setCreateOpen(true)} disabled={loading || busy}>
-            <Icon name="plus" size="small" />
-            {isEn ? "Create New Draft" : "Tạo dự thảo luật mới"}
-          </Button>
+        <div className="admin-management-actions">
+          <AdminActionButton icon={faRotateRight} label={isEn ? "Refresh" : "Tải lại"} onClick={() => setReloadKey((k) => k + 1)} disabled={loading || busy} />
+          <AdminActionButton icon="plus" label={isEn ? "Create new draft" : "Tạo dự thảo luật mới"} emphasis onClick={() => setCreateOpen(true)} disabled={loading || busy} />
         </div>
       </header>
 
@@ -409,63 +425,48 @@ export default function AdminLegalRulesPage() {
         </Alert>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "380px 1fr", gap: "1.5rem", alignItems: "start" }}>
-        {/* Left column: List of Legal Rules */}
-        <Card style={{ padding: "1rem" }}>
-          <h3 style={{ margin: "0 0 1rem", fontSize: "1.1rem", fontWeight: 600 }}>
-            {isEn ? "Legal Rule Sets" : "Danh sách bộ luật"}
-          </h3>
-          {loading ? (
-            <p style={{ color: "var(--color-text-muted, #64748b)", textAlign: "center", padding: "1.5rem 0" }}>
-              {isEn ? "Loading legal rules..." : "Đang tải danh sách bộ luật..."}
-            </p>
-          ) : rules.length === 0 ? (
-            <p style={{ color: "var(--color-text-muted, #64748b)", textAlign: "center", padding: "1.5rem 0" }}>
-              {isEn ? "No legal rules found. Click 'Create New Draft' to add." : "Chưa có bộ luật nào. Bấm 'Tạo dự thảo luật mới' để thêm."}
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {rules.map((rule) => {
-                const isSelected = rule.id === selectedRule?.id;
-                return (
-                  <div
-                    key={rule.id}
-                    onClick={() => setSelectedId(rule.id)}
-                    style={{
-                      padding: "0.75rem",
-                      borderRadius: "6px",
-                      border: `1px solid ${isSelected ? "var(--color-primary, #2563eb)" : "var(--color-border, #e2e8f0)"}`,
-                      backgroundColor: isSelected ? "rgba(37, 99, 235, 0.04)" : "transparent",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
-                      <span style={{ fontWeight: 600, fontSize: "0.95rem" }}>{rule.draft.code}</span>
-                      <Badge tone={statusTone(rule.status)}>
-                        v{rule.version} · {rule.status}
-                      </Badge>
-                    </div>
-                    <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted, #64748b)", marginBottom: "0.25rem" }}>
-                      {rule.draft.effectiveFrom} → {rule.draft.effectiveTo || (isEn ? "Ongoing" : "Hiện tại")}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #64748b)", display: "flex", justifyContent: "space-between" }}>
-                      <span>Rev: {rule.revision}</span>
-                      <span title={rule.documentHash}>Hash: {rule.documentHash.slice(0, 8)}…</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
+      <div className="admin-management-summary">
+        <Card><span>{isEn ? "Total rule sets" : "Tổng bộ luật"}</span><strong>{loading ? "…" : rules.length}</strong></Card>
+        <Card><span>{isEn ? "Drafts / pending approval" : "Bản nháp / Chờ duyệt"}</span><strong>{loading ? "…" : rules.filter((rule) => rule.status !== "PUBLISHED").length}</strong></Card>
+        <Card><span>{isEn ? "Published rule sets" : "Đã công bố"}</span><strong>{loading ? "…" : rules.filter((rule) => rule.status === "PUBLISHED").length}</strong></Card>
+      </div>
+      <Card className="admin-management-table-card">
+        <div className="admin-management-section-header">
+          <div><h2>{isEn ? "Legal rule sets" : "Danh sách bộ luật"}</h2><p>{isEn ? "Review each version and its effective period." : "Theo dõi từng phiên bản và thời gian hiệu lực của bộ luật."}</p></div>
+          <Badge tone="soft">{rules.length}</Badge>
+        </div>
+        <div className="table-scroll">
+          <table className="admin-management-table">
+            <thead><tr>
+              <th>{isEn ? "Rule set" : "Bộ luật"}</th><th>{isEn ? "Version" : "Phiên bản"}</th>
+              <th>{isEn ? "Status" : "Trạng thái"}</th><th>{isEn ? "Effective period" : "Thời gian hiệu lực"}</th>
+              <th>{isEn ? "Actions" : "Thao tác"}</th>
+            </tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={5} className="admin-management-empty">{isEn ? "Loading legal rules…" : "Đang tải danh sách bộ luật…"}</td></tr>
+                : !rules.length ? <tr><td colSpan={5} className="admin-management-empty">{isEn ? "No legal rule sets yet." : "Chưa có bộ luật nào."}</td></tr>
+                : rules.map((rule) => <tr key={rule.id}>
+                  <td><strong>{rule.draft.code}</strong><small>{rule.draft.document.citations.length} {isEn ? "legal citations" : "căn cứ pháp lý"}</small></td>
+                  <td><strong>v{rule.version}</strong><small>{isEn ? "Revision" : "Bản sửa"} {rule.revision}</small></td>
+                  <td><Badge tone={statusTone(rule.status)}>{statusLabel(rule.status, isEn)}</Badge></td>
+                  <td>{rule.draft.effectiveFrom}<small>{isEn ? "Until" : "Đến"} {rule.draft.effectiveTo || (isEn ? "Ongoing" : "Không giới hạn")}</small></td>
+                  <td>{ruleActions(rule)}</td>
+                </tr>)}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
+      <Modal open={detailOpen && !editOpen && !reviewOpen && !publishOpen && !createOpen}
+        title={isEn ? "Social insurance rule details" : "Chi tiết bộ luật BHXH"} className="admin-management-modal"
+        onClose={() => !busy && setDetailOpen(false)}>
+        {error && <Alert tone="danger" title={isEn ? "Action failed" : "Không thể thực hiện thao tác"}>{error}</Alert>}
         {/* Right column: Selected Rule Details & Actions */}
         {selectedRule ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             {/* Status & Transitions Header Card */}
             <Card style={{ padding: "1.25rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+              <div className="legal-detail-heading">
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     <h2 style={{ fontSize: "1.25rem", fontWeight: 700, margin: 0 }}>
@@ -480,74 +481,7 @@ export default function AdminLegalRulesPage() {
                   </div>
                 </div>
 
-                {/* Transition Action Buttons */}
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  {selectedRule.status !== "PUBLISHED" && (
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      onClick={() => handleOpenEdit(selectedRule)}
-                      disabled={busy}
-                    >
-                      {isEn ? "Edit Draft" : "Sửa dự thảo"}
-                    </Button>
-                  )}
-
-                  {selectedRule.status === "DRAFT" && (
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      onClick={() => handleValidate(selectedRule)}
-                      disabled={busy}
-                    >
-                      <Icon name="check" size="small" />
-                      {isEn ? "Validate" : "Kiểm chứng"}
-                    </Button>
-                  )}
-
-                  {selectedRule.status === "VALIDATED" && (
-                    <>
-                      <Button
-                        variant="secondary"
-                        size="small"
-                        onClick={() => handleValidate(selectedRule)}
-                        disabled={busy}
-                      >
-                        <Icon name="check" size="small" />
-                        {isEn ? "Re-validate" : "Kiểm chứng lại"}
-                      </Button>
-                      <Button
-                        variant="primary"
-                        size="small"
-                        onClick={() => {
-                          setReviewNote("");
-                          setReviewError("");
-                          setReviewOpen(true);
-                        }}
-                        disabled={busy}
-                      >
-                        <Icon name="file-text" size="small" />
-                        {isEn ? "Review & Approve" : "Phê duyệt độc lập"}
-                      </Button>
-                    </>
-                  )}
-
-                  {selectedRule.status === "REVIEWED" && (
-                    <Button
-                      variant="primary"
-                      size="small"
-                      onClick={() => {
-                        setPublishConfirm(false);
-                        setPublishError("");
-                        setPublishOpen(true);
-                      }}
-                      disabled={busy}
-                    >
-                      <Icon name="shield" size="small" />
-                      {isEn ? "Publish Operational Rule" : "Công bố luật vận hành"}
-                    </Button>
-                  )}
-                </div>
+                {ruleActions(selectedRule, false)}
               </div>
 
               {/* Corpus Status Message Banner */}
@@ -629,7 +563,7 @@ export default function AdminLegalRulesPage() {
                 <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted, #64748b)", marginBottom: "0.5rem" }}>
                   {isEn ? "Engine Code:" : "Mã động cơ:"} <b>{selectedRule.draft.document.engineCode}</b> · Schema Version: <b>{selectedRule.draft.document.schemaVersion}</b>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "0.75rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: "0.75rem" }}>
                   {selectedRule.draft.document.coverage.map((cov, idx) => (
                     <div
                       key={idx}
@@ -687,7 +621,7 @@ export default function AdminLegalRulesPage() {
                 <h4 style={{ fontSize: "1rem", fontWeight: 600, margin: "0 0 0.5rem" }}>
                   {isEn ? "Lookup Tables & Statutory Factors" : "Bảng tra & Hệ số quy định"} ({selectedRule.draft.document.tables.length})
                 </h4>
-                <div style={{ maxHeight: "280px", overflowY: "auto", border: "1px solid var(--color-border, #e2e8f0)", borderRadius: "6px" }}>
+                <div style={{ maxHeight: "280px", overflow: "auto", border: "1px solid var(--color-border, #e2e8f0)", borderRadius: "6px" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ backgroundColor: "var(--color-bg-secondary, #f8fafc)", textAlign: "left" }}>
@@ -716,14 +650,14 @@ export default function AdminLegalRulesPage() {
               </div>
             </Card>
           </div>
-        ) : null}
-      </div>
+        ) : <p>{isEn ? "This rule is no longer available." : "Bộ luật này không còn trong danh sách."}</p>}
+      </Modal>
 
       {/* Review Dialog Modal */}
       {reviewOpen && (
         <Modal
           open={reviewOpen}
-          onClose={() => setReviewOpen(false)}
+          onClose={() => !busy && setReviewOpen(false)}
           title={isEn ? "Independent Legal Review & Approval" : "Phê duyệt pháp lý độc lập"}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -764,7 +698,7 @@ export default function AdminLegalRulesPage() {
       {publishOpen && (
         <Modal
           open={publishOpen}
-          onClose={() => setPublishOpen(false)}
+          onClose={() => !busy && setPublishOpen(false)}
           title={isEn ? "Publish Operational Legal Rule Set" : "Công bố bộ luật vào vận hành"}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -805,7 +739,8 @@ export default function AdminLegalRulesPage() {
       {editOpen && (
         <Modal
           open={editOpen}
-          onClose={() => setEditOpen(false)}
+          className="admin-management-modal"
+          onClose={() => !busy && setEditOpen(false)}
           title={`${isEn ? "Edit Draft" : "Chỉnh sửa dự thảo"}: ${selectedRule?.draft.code}`}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -883,7 +818,8 @@ export default function AdminLegalRulesPage() {
       {createOpen && (
         <Modal
           open={createOpen}
-          onClose={() => setCreateOpen(false)}
+          className="admin-management-modal"
+          onClose={() => !busy && setCreateOpen(false)}
           title={isEn ? "Create New Legal Rule Draft" : "Tạo dự thảo luật BHXH mới"}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>

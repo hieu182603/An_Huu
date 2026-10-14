@@ -7,6 +7,7 @@ import {
   Icon,
   Input,
   Modal,
+  Pagination,
   SearchField,
   Select,
   Textarea,
@@ -119,20 +120,37 @@ export function AdminAIManagementPage() {
   const [sourceDetail, setSourceDetail] = useState<KnowledgeSourceDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [editingSource, setEditingSource] = useState<KnowledgeSourceDetail | null>(null);
-  const [sourceTotal, setSourceTotal] = useState(0);
   const [sourcePage, setSourcePage] = useState(1);
+  const [sourcePageSize, setSourcePageSize] = useState(10);
+  const [sourceReload, setSourceReload] = useState(0);
   const detailRequest = useRef(0);
 
   useEffect(() => {
     let active = true;
     setSourceLoading(true);
     setSourceError("");
-    listKnowledgeSources(1, 50)
-      .then((result) => { if (active) { setSources(result.items); setSourceTotal(result.total); setSourcePage(1); } })
-      .catch((error) => { if (active) setSourceError(error instanceof Error ? error.message : (isEn ? "Could not load knowledge sources." : "Không thể tải nguồn tri thức.")); })
-      .finally(() => { if (active) setSourceLoading(false); });
+    // Filters and summary counts use the complete metadata catalog; full text is fetched on demand.
+    const loadSources = async () => {
+      try {
+        const first = await listKnowledgeSources(1, 50);
+        const pageCount = Math.ceil(first.total / first.limit);
+        // ponytail: fetches every remaining page at once; batch if the catalog grows past a few hundred pages.
+        const rest = await Promise.all(Array.from({ length: Math.max(0, pageCount - 1) }, (_, i) => listKnowledgeSources(i + 2, first.limit)));
+        if (!active) return;
+        const items = [first, ...rest].flatMap((page) => page.items);
+        if (active) {
+          setSources(Array.from(new Map(items.map((item) => [item.id, item])).values()));
+          setSourcePage(1);
+        }
+      } catch (error) {
+        if (active) setSourceError(error instanceof Error ? error.message : (isEn ? "Could not load knowledge sources." : "Không thể tải nguồn tri thức."));
+      } finally {
+        if (active) setSourceLoading(false);
+      }
+    };
+    void loadSources();
     return () => { active = false; };
-  }, [isEn]);
+  }, [isEn, sourceReload]);
 
   const categoryOptions = useMemo(() => [
     { key: "ALL", label: isEn ? "All sources" : "Tất cả nguồn" },
@@ -154,6 +172,16 @@ export function AdminAIManagementPage() {
     });
   }, [sources, searchSource, categoryKey]);
 
+  const sourceTotalPages = Math.max(1, Math.ceil(filteredSources.length / sourcePageSize));
+  const currentSourcePage = Math.min(sourcePage, sourceTotalPages);
+  const paginatedSources = sourceLoading ? [] : filteredSources.slice(
+    (currentSourcePage - 1) * sourcePageSize, currentSourcePage * sourcePageSize,
+  );
+
+  useEffect(() => {
+    setSourcePage((page) => Math.min(page, sourceTotalPages));
+  }, [sourceTotalPages]);
+
   const sourceStatusMap: Record<string, string> = useMemo(() => ({
     INDEXED: isEn ? "Indexed" : "Đã lập chỉ mục",
     PENDING: isEn ? "Pending" : "Chờ lập chỉ mục",
@@ -169,6 +197,10 @@ export function AdminAIManagementPage() {
   const handleOpenEditRule = (rule: PromptRule) => {
     setEditingRule(rule);
   };
+
+  const [approvalTarget, setApprovalTarget] = useState<KnowledgeSourceItem | null>(null);
+  const [approvalNote, setApprovalNote] = useState("");
+  const [approvalError, setApprovalError] = useState("");
 
   const replaceSource = (source: KnowledgeSourceItem) => {
     setSources((items) => items.map((item) => (item.id === source.id ? source : item)));
@@ -206,14 +238,25 @@ export function AdminAIManagementPage() {
     }
   };
 
-  const handleApproval = async (source: KnowledgeSourceItem) => {
-    const reviewNote = window.prompt(isEn ? "Review note" : "Ghi chú kiểm duyệt");
-    if (!reviewNote?.trim()) return;
+  // One dialog at a time: opening from the detail view replaces it.
+  const handleApproval = (source: KnowledgeSourceItem) => {
+    setViewingSource(null);
+    setApprovalNote("");
+    setApprovalError("");
+    setApprovalTarget(source);
+  };
+
+  const confirmApproval = async () => {
+    const source = approvalTarget;
+    if (!source || !approvalNote.trim()) return;
     setSyncingId(source.id);
+    setApprovalError("");
     try {
-      replaceSource(await approveKnowledgeSource(source.id, source.revision, !source.isApproved, reviewNote.trim()));
+      replaceSource(await approveKnowledgeSource(source.id, source.revision, !source.isApproved, approvalNote.trim()));
+      notify.success(source.isApproved ? (isEn ? "Approval withdrawn" : "Đã thu hồi phê duyệt") : (isEn ? "Source approved" : "Đã phê duyệt nguồn"), source.title);
+      setApprovalTarget(null);
     } catch (error) {
-      setServiceNotice(error instanceof Error ? error.message : (isEn ? "Could not update approval." : "Không thể cập nhật phê duyệt."));
+      setApprovalError(error instanceof Error ? error.message : (isEn ? "Could not update approval." : "Không thể cập nhật phê duyệt."));
     } finally {
       setSyncingId(null);
     }
@@ -231,7 +274,7 @@ export function AdminAIManagementPage() {
         effectiveDate: new Date(`${sourceForm.effectiveDate}T00:00:00.000Z`).toISOString(),
       };
       if (editingSource) replaceSource(await editKnowledgeSource(editingSource.id, editingSource.revision, command));
-      else { const created = await createKnowledgeSource(command); setSources((items) => [created, ...items]); setSourceTotal(total => total + 1); }
+      else { const created = await createKnowledgeSource(command); setSources((items) => [created, ...items]); setSourcePage(1); }
       setSourceForm(emptyKnowledgeSource);
       setEditingSource(null);
       setCreateOpen(false);
@@ -240,16 +283,6 @@ export function AdminAIManagementPage() {
     } finally {
       setCreateBusy(false);
     }
-  };
-
-  const loadSourcePage = async (page: number) => {
-    setSourceLoading(true); setSourceError("");
-    try {
-      const result = await listKnowledgeSources(page, 50);
-      setSources(previous => page === 1 ? result.items : [...previous.filter(item => !result.items.some(next => next.id === item.id)), ...result.items]);
-      setSourceTotal(result.total); setSourcePage(page);
-    } catch (e) { setSourceError(e instanceof Error ? e.message : "Chưa tải được tài liệu."); }
-    finally { setSourceLoading(false); }
   };
 
   return (
@@ -347,7 +380,7 @@ export function AdminAIManagementPage() {
             <h2>{isEn ? "Knowledge Sources Directory" : "Danh mục nguồn tri thức"}</h2>
             <p>{isEn ? "Create, index and approve sources stored on the server." : "Tạo, lập chỉ mục và phê duyệt nguồn được lưu trên máy chủ."}</p>
           </div>
-          <Button variant="secondary" icon="plus" onClick={() => { setCreateError(""); setCreateOpen(true); }}>
+          <Button variant="secondary" icon="plus" disabled={sourceLoading} onClick={() => { setCreateError(""); setCreateOpen(true); }}>
             {isEn ? "Add source" : "Thêm nguồn"}
           </Button>
         </div>
@@ -359,7 +392,7 @@ export function AdminAIManagementPage() {
                 label={isEn ? "Search data sources" : "Tìm kiếm nguồn dữ liệu"}
                 placeholder={isEn ? "Search law name, document number..." : "Tìm tên luật, số hiệu văn bản..."}
                 value={searchSource}
-                onChange={setSearchSource}
+                onChange={(value) => { setSearchSource(value); setSourcePage(1); }}
               />
             </div>
             <Select
@@ -369,10 +402,13 @@ export function AdminAIManagementPage() {
               onChange={(val) => {
                 const found = categoryOptions.find((o) => o.label === val);
                 setCategoryKey(found ? found.key : "ALL");
+                setSourcePage(1);
               }}
             />
           </div>
         </header>
+
+        {sourceLoading && <p role="status" style={{ padding: "var(--space-5)" }}>{isEn ? "Loading knowledge sources…" : "Đang tải nguồn tri thức…"}</p>}
 
         {/* Desktop Table */}
         <div className="ai-source-table-scroll">
@@ -395,7 +431,7 @@ export function AdminAIManagementPage() {
                   </td>
                 </tr>
               )}
-              {filteredSources.map((item) => (
+              {paginatedSources.map((item) => (
                 <tr key={item.id}>
                   <td>
                     <div className="source-name-box">
@@ -477,7 +513,7 @@ export function AdminAIManagementPage() {
 
         {/* Mobile View for Sources */}
         <div className="ai-source-mobile-list">
-          {filteredSources.map((item) => (
+          {paginatedSources.map((item) => (
             <Card key={item.id} className="business-mobile-card">
               <header>
                 <Badge tone="soft">{formatCategory(item.category, isEn)}</Badge>
@@ -529,10 +565,19 @@ export function AdminAIManagementPage() {
             </Card>
           ))}
         </div>
+        {!sourceLoading && (
+          <Pagination
+            page={currentSourcePage}
+            totalPages={sourceTotalPages}
+            totalItems={filteredSources.length}
+            pageSize={sourcePageSize}
+            pageSizeOptions={[10, 20, 50, 100]}
+            onPageChange={setSourcePage}
+            onPageSizeChange={(size) => { setSourcePageSize(size); setSourcePage(1); }}
+          />
+        )}
       </Card>
-
-      {sources.length < sourceTotal && <Button loading={sourceLoading} onClick={() => loadSourcePage(sourcePage + 1)}>Xem thêm tài liệu ({sources.length}/{sourceTotal})</Button>}
-      {(sourceError || serviceNotice) && <Alert tone="danger" title={isEn ? "Knowledge service error" : "Lỗi dịch vụ tri thức"}>{sourceError || serviceNotice}<Button onClick={() => loadSourcePage(1)}>Tải lại danh sách</Button></Alert>}
+      {(sourceError || serviceNotice) && <Alert tone="danger" title={isEn ? "Knowledge service error" : "Lỗi dịch vụ tri thức"}>{sourceError || serviceNotice}<Button onClick={() => setSourceReload((value) => value + 1)}>Tải lại danh sách</Button></Alert>}
 
       <Modal open={createOpen} title={editingSource ? "Sửa tài liệu cho trợ lý" : (isEn ? "Add knowledge source" : "Thêm nguồn tri thức")} onClose={() => { if (!createBusy) { setCreateOpen(false); setEditingSource(null); setSourceForm(emptyKnowledgeSource); } }}>
         <div className="rule-editor">
@@ -553,6 +598,33 @@ export function AdminAIManagementPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={!!approvalTarget} title={approvalTarget?.isApproved ? (isEn ? "Withdraw approval" : "Thu hồi phê duyệt") : (isEn ? "Approve knowledge source" : "Phê duyệt nguồn tri thức")} onClose={() => { if (!syncingId) setApprovalTarget(null); }}>
+        {approvalTarget && (
+          <div className="rule-editor">
+            <Alert tone={approvalTarget.isApproved ? "warning" : "info"} title={approvalTarget.title}>
+              {approvalTarget.isApproved
+                ? (isEn ? "The assistant will stop citing this source immediately." : "Trợ lý AI sẽ ngừng sử dụng và trích dẫn nguồn này ngay lập tức.")
+                : (isEn ? "Once approved, the assistant may retrieve and cite this indexed source." : "Sau khi duyệt, trợ lý AI được phép truy xuất và trích dẫn nguồn đã lập chỉ mục này.")}
+            </Alert>
+            <Textarea
+              label={isEn ? "Review note (required)" : "Ghi chú kiểm duyệt (bắt buộc)"}
+              placeholder={isEn ? "E.g. Checked against the official gazette text." : "VD: Đã đối chiếu với văn bản gốc trên Công báo."}
+              rows={4}
+              value={approvalNote}
+              onChange={(value) => setApprovalNote(value.slice(0, 1000))}
+              disabled={!!syncingId}
+            />
+            {approvalError && <Alert tone="danger" title={isEn ? "Could not update approval" : "Không thể cập nhật phê duyệt"}>{approvalError}</Alert>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)" }}>
+              <Button variant="secondary" disabled={!!syncingId} onClick={() => setApprovalTarget(null)}>{isEn ? "Cancel" : "Hủy"}</Button>
+              <Button variant={approvalTarget.isApproved ? "danger" : "primary"} disabled={!!syncingId || !approvalNote.trim()} onClick={confirmApproval}>
+                {syncingId ? (isEn ? "Saving..." : "Đang lưu...") : approvalTarget.isApproved ? (isEn ? "Withdraw approval" : "Thu hồi duyệt") : (isEn ? "Approve" : "Phê duyệt")}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Prompt Rules & Guardrails Card */}

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { faRotateRight, faPrint } from "@fortawesome/free-solid-svg-icons";
+import AdminActionButton from "./AdminActionButton";
 import { Alert, Badge, Button, Card, Icon, Input, Modal, Textarea, useNotification } from "../../components/ui";
 import { useI18n } from "../../i18n";
 import {
@@ -53,6 +55,8 @@ export default function AdminFinancialConfigPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AssumptionDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailError, setDetailError] = useState("");
   const [detailLoading, setDetailLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -96,11 +100,12 @@ export default function AdminFinancialConfigPage() {
   useEffect(() => {
     if (!selectedId) { setDetail(null); return; }
     let active = true;
+    setDetail(null);
     setDetailLoading(true);
-    setError("");
+    setDetailError("");
     fetchAdminAssumptionDetail(selectedId)
       .then((result) => { if (active) setDetail(result); })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : (isEn ? "Could not load assumption details." : "Không thể tải chi tiết bộ giả định.")); })
+      .catch((cause) => { if (active) setDetailError(cause instanceof Error ? cause.message : (isEn ? "Could not load assumption details." : "Không thể tải chi tiết bộ giả định.")); })
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; };
   }, [selectedId, reload, isEn]);
@@ -224,6 +229,7 @@ export default function AdminFinancialConfigPage() {
       setCreateModalOpen(false);
       setReload((v) => v + 1);
       setSelectedId(created.id);
+      setDetailOpen(true);
       notify.success(isEn ? "New assumption version created" : "Đã tạo phiên bản giả định mới", created.data.title);
     } catch (cause) {
       setCreateError(cause instanceof Error ? cause.message : (isEn ? "Failed to create draft." : "Không thể tạo bản nháp."));
@@ -236,12 +242,17 @@ export default function AdminFinancialConfigPage() {
   const publishedCount = versions?.items.filter((item) => item.status === "PUBLISHED").length || 0;
 
   return (
-    <div className="admin-page financial-config-page">
+    <div className="admin-page financial-config-page admin-management-page">
       <header className="admin-page-header">
         <div>
           <span>{isEn ? "RISK GOVERNANCE & MATHEMATICAL MODELS" : "QUẢN TRỊ RỦI RO & MÔ HÌNH TOÁN"}</span>
           <h1>{isEn ? "Financial Assumption Versions" : "Các phiên bản giả định tài chính"}</h1>
           <p>{isEn ? "Review, approve and publish server-managed annual assumption series." : "Rà soát, phê duyệt và công bố chuỗi giả định theo năm được quản lý trên máy chủ."}</p>
+        </div>
+        <div className="admin-management-actions">
+          <AdminActionButton icon={faRotateRight} label={isEn ? "Refresh" : "Làm mới"} disabled={loading || busy} onClick={() => setReload((value) => value + 1)} />
+          <AdminActionButton icon={faPrint} label={isEn ? "Print" : "In danh sách"} onClick={() => window.print()} />
+          <AdminActionButton icon="plus" label={isEn ? "New version" : "Tạo phiên bản mới"} emphasis onClick={openCreateModal} disabled={loading || detailLoading || busy} />
         </div>
       </header>
 
@@ -250,57 +261,37 @@ export default function AdminFinancialConfigPage() {
       </Alert>
       {error && <Alert tone="danger" title={isEn ? "Assumption service error" : "Lỗi dịch vụ giả định"}>{error}</Alert>}
 
-      <div className="financial-version-grid">
-        <Card className="formula-version-card">
-          <span className="formula-icon"><Icon name="target" size="large" /></span>
-          <div>
-            <Badge tone={detail ? statusTone(detail.status) : "neutral"}>{detail?.status || (loading ? (isEn ? "Loading" : "Đang tải") : (isEn ? "Unconfigured" : "Chưa cấu hình"))}</Badge>
-            <h2>{detail?.data.title || (isEn ? "No assumption version selected" : "Chưa chọn phiên bản giả định")}</h2>
-            <p>{detail ? `${isEn ? "Version" : "Phiên bản"} ${detail.version} · ${isEn ? "Revision" : "Bản sửa"} ${detail.revision} · ${detail.data.projectionStartYear}-${detail.data.projectionEndYear}` : (isEn ? "Create a server draft before running the approval workflow." : "Hãy tạo bản nháp trên máy chủ trước khi thực hiện quy trình phê duyệt.")}</p>
-          </div>
-          <Button variant="secondary" icon="download" onClick={() => window.print()}>{isEn ? "Print" : "In"}</Button>
-        </Card>
-
-        <Card className="financial-governance-card">
-          <header><Icon name="circle-check" /><div><h2>{isEn ? "Server workflow" : "Quy trình máy chủ"}</h2><p>{isEn ? "Actual stored versions" : "Phiên bản đang lưu thực tế"}</p></div></header>
-          <div>
-            <span><Icon name="check" /> {versions?.total || 0} {isEn ? "total versions" : "phiên bản"}</span>
-            <span><Icon name="check" /> {publishedCount} {isEn ? "published versions" : "phiên bản đã công bố"}</span>
-            <span><Icon name="check" /> {detail?.data.sources.length || 0} {isEn ? "documented sources" : "nguồn tham chiếu"}</span>
-            <span><Icon name="check" /> {detail?.data.returns.length || 0} {isEn ? "annual return rows" : "dòng lợi suất theo năm"}</span>
-          </div>
-        </Card>
+      <div className="admin-management-summary">
+        <Card><span>{isEn ? "Total versions" : "Tổng phiên bản"}</span><strong>{loading ? "…" : versions?.total || 0}</strong></Card>
+        <Card><span>{isEn ? "Drafts / awaiting publication" : "Bản nháp / Chờ công bố"}</span><strong>{loading ? "…" : versions?.items.filter((item) => item.status !== "PUBLISHED").length || 0}</strong></Card>
+        <Card><span>{isEn ? "Published versions" : "Đã công bố"}</span><strong>{loading ? "…" : publishedCount}</strong></Card>
       </div>
 
       <Card className="financial-assumptions-card">
         <div className="ai-section-header">
           <div>
             <h2>{isEn ? "Stored versions" : "Các phiên bản đã lưu"}</h2>
-            <p>{isEn ? "Select a version to inspect its server document and workflow state." : "Chọn phiên bản để xem tài liệu máy chủ và trạng thái quy trình."}</p>
+            <p>{isEn ? "Open a version to review its configuration, sources and approval status." : "Mở chi tiết để xem cấu hình, nguồn dữ liệu và trạng thái phê duyệt."}</p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <Badge tone="soft">{versions?.total || 0}</Badge>
-            <Button variant="secondary" size="small" onClick={openCreateModal}>
-              {isEn ? "Adjust parameters" : "Điều chỉnh tham số"}
-            </Button>
-            <Button variant="primary" size="small" icon="plus" onClick={openCreateModal}>
-              {isEn ? "New Version" : "Tạo phiên bản mới"}
-            </Button>
+            <AdminActionButton icon="edit" label={isEn ? "Adjust parameters in a new draft" : "Điều chỉnh tham số trong bản nháp mới"} onClick={openCreateModal} disabled={loading || detailLoading || busy} />
           </div>
         </div>
         <div className="financial-table-scroll">
-          <table className="financial-assumptions-table">
-            <thead><tr><th>{isEn ? "Version" : "Phiên bản"}</th><th>{isEn ? "Title" : "Tiêu đề"}</th><th>{isEn ? "Status" : "Trạng thái"}</th><th>{isEn ? "Projection" : "Giai đoạn dự phóng"}</th><th>{isEn ? "Effective" : "Hiệu lực"}</th><th /></tr></thead>
+          <table className="financial-assumptions-table admin-management-table admin-stack-table">
+            <thead><tr><th className="col-optional">{isEn ? "Version" : "Phiên bản"}</th><th>{isEn ? "Title" : "Tiêu đề"}</th><th>{isEn ? "Status" : "Trạng thái"}</th><th className="col-optional">{isEn ? "Projection" : "Giai đoạn dự phóng"}</th><th>{isEn ? "Effective" : "Hiệu lực"}</th><th>{isEn ? "Actions" : "Thao tác"}</th></tr></thead>
             <tbody>
+              {loading && <tr><td colSpan={6} className="admin-management-empty">{isEn ? "Loading versions…" : "Đang tải phiên bản…"}</td></tr>}
               {!loading && !versions?.items.length && <tr><td colSpan={6}>{isEn ? "No assumption versions configured." : "Chưa có phiên bản giả định nào."}</td></tr>}
               {versions?.items.map((item) => (
                 <tr key={item.id}>
-                  <td><strong>v{item.version}</strong><small>r{item.revision}</small></td>
-                  <td><strong>{item.title}</strong></td>
-                  <td><Badge tone={statusTone(item.status)}>{item.status}</Badge></td>
-                  <td>{item.projectionStartYear}-{item.projectionEndYear}</td>
-                  <td>{formatDate(item.effectiveAt)}</td>
-                  <td><Button variant="secondary" size="small" disabled={detailLoading || selectedId === item.id} onClick={() => setSelectedId(item.id)}>{selectedId === item.id ? (isEn ? "Selected" : "Đang chọn") : (isEn ? "View" : "Xem")}</Button></td>
+                  <td className="col-optional"><strong>v{item.version}</strong><small>r{item.revision}</small></td>
+                  <td><strong>{item.title}</strong><small className="stack-only">v{item.version} · r{item.revision}</small></td>
+                  <td data-label={isEn ? "Status" : "Trạng thái"}><Badge tone={statusTone(item.status)}>{item.status}</Badge></td>
+                  <td className="col-optional" data-label={isEn ? "Projection" : "Dự phóng"}>{item.projectionStartYear}-{item.projectionEndYear}</td>
+                  <td data-label={isEn ? "Effective" : "Hiệu lực"}>{formatDate(item.effectiveAt)}</td>
+                  <td data-label={isEn ? "Actions" : "Thao tác"}><AdminActionButton icon="eye" label={isEn ? "View details" : "Xem chi tiết"} context={item.title} onClick={() => { setSelectedId(item.id); setDetailOpen(true); }} /></td>
                 </tr>
               ))}
             </tbody>
@@ -308,7 +299,15 @@ export default function AdminFinancialConfigPage() {
         </div>
       </Card>
 
-      {detail && (
+      <Modal open={detailOpen && !approvalModalOpen && !publishModalOpen && !createModalOpen}
+        title={isEn ? "Financial configuration details" : "Chi tiết cấu hình tài chính"}
+        className="admin-management-modal" onClose={() => !busy && setDetailOpen(false)}>
+        {error && <Alert tone="danger" title={isEn ? "Action failed" : "Không thể thực hiện thao tác"}>{error}</Alert>}
+        {detailError && <Alert tone="danger" title={isEn ? "Could not load details" : "Không thể tải chi tiết"}>{detailError}
+          <AdminActionButton icon={faRotateRight} label={isEn ? "Retry" : "Thử lại"} onClick={() => setReload((value) => value + 1)} />
+        </Alert>}
+        {(detailLoading || (!detailError && detail?.id !== selectedId)) && <p role="status">{isEn ? "Loading details…" : "Đang tải chi tiết…"}</p>}
+      {detail && detail.id === selectedId && !detailLoading && (
         <Card className="change-history-card assumption-detail-card">
           <div className="ai-section-header">
             <div>
@@ -319,9 +318,9 @@ export default function AdminFinancialConfigPage() {
               <p>{detail.data.reason}</p>
             </div>
             <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <Button variant="secondary" disabled={busy} onClick={validateSelected}>{isEn ? "Validate" : "Kiểm tra"}</Button>
-              {detail.status === "DRAFT" && <Button disabled={busy} onClick={approveSelected}>{isEn ? "Review & approve" : "Xem tác động & duyệt"}</Button>}
-              {detail.status === "APPROVED" && <Button disabled={busy} onClick={publishSelected}>{isEn ? "Publish" : "Công bố"}</Button>}
+              <AdminActionButton icon="circle-check" label={isEn ? "Validate" : "Kiểm tra cấu hình"} disabled={busy} onClick={validateSelected} />
+              {detail.status === "DRAFT" && <AdminActionButton icon="shield" label={isEn ? "Review impact and approve" : "Xem tác động và phê duyệt"} disabled={busy} onClick={approveSelected} />}
+              {detail.status === "APPROVED" && <AdminActionButton icon="upload" label={isEn ? "Publish" : "Công bố phiên bản"} emphasis disabled={busy} onClick={publishSelected} />}
             </div>
           </div>
 
@@ -437,6 +436,8 @@ export default function AdminFinancialConfigPage() {
         </Card>
       )}
 
+      </Modal>
+
       {/* U1: Modal Phê Duyệt Thật */}
       <Modal
         open={approvalModalOpen}
@@ -498,6 +499,7 @@ export default function AdminFinancialConfigPage() {
         onClose={() => !publishLoading && setPublishModalOpen(false)}
       >
         <div style={{ display: "grid", gap: "var(--space-4)" }}>
+          {error && <Alert tone="danger" title={error} />}
           <Alert tone="warning" title={isEn ? "Irreversible Governance Action" : "Lưu ý quản trị quan trọng"}>
             {isEn
               ? "Once published, this assumption version becomes permanently immutable. Member retirement plans can select it as an official calculation basis."

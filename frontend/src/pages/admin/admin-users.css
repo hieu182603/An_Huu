@@ -1,0 +1,86 @@
+.admin-users-page .admin-users-table { display: table; }
+.admin-users-page .business-person > div { display: grid; gap: 4px; }
+.admin-users-page .business-person .avatar { flex-shrink: 0; }
+.admin-users-page .admin-users-table .badge { white-space: nowrap; }
+.admin-users-page .admin-users-table th:last-child,
+.admin-users-page .admin-users-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  min-width: 116px;
+  text-align: center;
+  background: var(--color-white);
+  box-shadow: -6px 0 12px -8px rgba(5, 38, 89, 0.25);
+}
+.admin-users-page .admin-users-table tr:hover td:last-child { background: #f0f6fd; }
+
+.admin-user-actions { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.admin-user-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-white);
+  color: var(--color-primary-700);
+  cursor: pointer;
+  transition: background 150ms, border-color 150ms;
+}
+.admin-user-action:hover { background: var(--color-soft); border-color: currentColor; }
+.admin-user-action.is-suspend { color: var(--color-danger); }
+.admin-user-action.is-suspend:hover { background: rgba(var(--color-danger-rgb), 0.08); }
+.admin-user-action.is-restore { color: var(--color-secondary-700); }
+.admin-user-action.is-restore:hover { background: var(--color-success-soft); }
+.admin-user-action:focus-visible { outline: 3px solid var(--color-primary-700); outline-offset: 3px; }
+
+.modal.admin-user-detail-modal {
+  position: relative;
+  inset: auto;
+  display: flex;
+  flex-direction: column;
+  width: min(1200px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  border-radius: var(--radius-lg);
+}
+.admin-user-detail-modal > header { flex-shrink: 0; gap: 16px; }
+.admin-user-detail-modal > .modal-body { min-height: 0; overflow-y: auto; background: var(--color-background, #f6f9fd); }
+.admin-user-essential-info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 40px; margin: 0; }
+.admin-user-essential-info > div { min-width: 0; }
+.admin-user-essential-info dt { color: var(--color-text-muted); font-size: 13px; margin-bottom: 8px; }
+.admin-user-essential-info dd { margin: 0; color: var(--color-primary-700); font-weight: 600; overflow-wrap: anywhere; }
+.admin-user-detail-content .admin-list-card { min-width: 0; }
+.admin-user-detail-content .admin-list-card > header { flex-wrap: wrap; gap: 16px; }
+.admin-user-detail-content .business-person { min-width: 0; }
+.admin-user-detail-content .business-person .avatar { flex-shrink: 0; }
+.admin-user-detail-content .business-person > div { min-width: 0; overflow-wrap: anywhere; }
+.admin-user-detail-content > .alert { margin-bottom: 16px; }
+
+.modal.admin-user-status-modal { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.admin-user-status-form { display: grid; gap: 20px; }
+.admin-user-status-form > p { margin: 0; color: var(--color-text-muted); line-height: 1.7; }
+.admin-user-status-person { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px; border-radius: 12px; background: var(--color-soft); }
+.admin-user-status-person > div { display: grid; gap: 4px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.admin-user-status-person small { color: var(--color-text-muted); }
+.admin-user-status-person .avatar { flex-shrink: 0; }
+.admin-user-status-form .admin-user-status-error { color: var(--color-danger); }
+.admin-user-status-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding-top: 16px; border-top: 1px solid var(--color-border); }
+
+@media (max-width: 760px) {
+  .modal.admin-user-detail-modal { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); }
+  .admin-user-detail-modal > header { padding: 16px; }
+  .admin-user-detail-modal > header h2 { font-size: 18px; }
+  .admin-user-detail-modal > .modal-body { padding: 16px; }
+  .admin-user-action { width: 44px; height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-user-action { transition: none; }
+}
+
+@media (max-width: 600px) {
+  .admin-user-essential-info { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+}

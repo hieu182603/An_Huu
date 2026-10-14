@@ -14,7 +14,7 @@ import { uploadMedia, cloudinary } from "../config/cloudinary";
 import { uploadLimiter } from "../middlewares/rateLimiter";
 import { UsersService, userListSchema, userStatusSchema } from "./users/service";
 import { ContentService, contentQuery, contentInput, contentUpdate } from "./content/service";
-import { CommunityService, listQuery, ticketInput, replyInput, ticketStatusInput } from "./community/service";
+import { CommunityService, listQuery, ticketInput, replyInput, ticketStatusInput, consultInput } from "./community/service";
 import type { CatalogService } from "./catalog/service";
 import { catalogRouter } from "./catalog/router";
 import { notificationSettingsInput } from "./catalog/schema";
@@ -80,6 +80,11 @@ export function createApiRouter(services: Services, config: AppConfig) {
     router.use("/admin/assumptions", ...authenticated, requireRole("ADMIN"), assumptionsRouter(services.assumptions, true));
     router.use("/me/assumptions", ...authenticated, requireRole("USER"), assumptionsRouter(services.assumptions, false));
   }
+  router.get("/admin/reports", ...authenticated, requireRole("ADMIN"), asyncHandler(async (req, res) => {
+    const days = z.coerce.number().pipe(z.union([z.literal(7), z.literal(30), z.literal(90)])).catch(30).parse(req.query.days);
+    sendData(res, await services.operations!.report(days));
+  }));
+  router.get("/admin/overview", ...authenticated, requireRole("ADMIN"), asyncHandler(async (_req, res) => sendData(res, await services.operations!.summary())));
   router.get("/admin/operations", ...authenticated, requireRole("ADMIN"), asyncHandler(async (_req, res) => sendData(res, await services.operations!.overview())));
   router.get("/admin/audit-logs", ...authenticated, requireRole("ADMIN"), asyncHandler(async (req, res) => {
     if (services.settings) {
@@ -99,6 +104,12 @@ export function createApiRouter(services: Services, config: AppConfig) {
   }));
   const uuidParam = (id: unknown) => z.string().uuid().parse(id);
   const listParams = (query: unknown) => listQuery.parse(query);
+  const mediaReady: RequestHandler = (_req, _res, next) => [process.env.CLOUDINARY_CLOUD_NAME, process.env.CLOUDINARY_API_KEY, process.env.CLOUDINARY_API_SECRET].every(Boolean)
+    ? next() : next(new AppError(503, "MEDIA_NOT_CONFIGURED", "Tải ảnh chưa sẵn sàng. Bạn vẫn có thể lưu thông tin."));
+  router.post("/admin/media", ...authenticated, requireRole("ADMIN"), uploadLimiter, mediaReady, uploadMedia.single("file"), asyncHandler(async (req, res) => {
+    if (!req.file) throw new AppError(400, "FILE_REQUIRED", "Vui lòng chọn ảnh JPEG, PNG hoặc WebP.");
+    sendData(res, { url: req.file.path }, 201);
+  }));
   router.use("/admin/support", ...authenticated, requireRole("ADMIN"));
   router.get("/admin/support", asyncHandler(async (req, res) => sendData(res, await services.community!.tickets(null, listParams(req.query)))));
   router.get("/admin/support/:id", asyncHandler(async (req, res) => sendData(res, await services.community!.ticket(null, uuidParam(req.params.id)))));
@@ -172,6 +183,7 @@ export function createApiRouter(services: Services, config: AppConfig) {
   router.get("/me/support/:id", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.ticket(req.user!.userId, uuidParam(req.params.id)))));
   router.post("/me/support/:id/messages", consultationLimiter, validate(replyInput), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.reply(req.user!.userId, false, uuidParam(req.params.id), req.body.message), 201)));
   router.use("/me/consultations", retiredConsultations);
+  router.post("/me/products/:id/consult", requireRole("USER"), consultationLimiter, validate(consultInput), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.consultProduct(req.user!.userId, uuidParam(req.params.id), req.body), 201)));
   if (services.catalog) {
     router.get("/me/notification-settings", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.catalog!.settings(req.user!.userId))));
     router.put("/me/notification-settings", validate(notificationSettingsInput), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.catalog!.saveSettings(req.user!.userId, req.body))));
@@ -183,11 +195,7 @@ export function createApiRouter(services: Services, config: AppConfig) {
   router.get("/me/saved-content", validate(contentQuery, "query"), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.content!.list(req.query as unknown as z.infer<typeof contentQuery>, false, req.user!.userId))));
   router.put("/me/saved-articles/:id", validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.content!.save(req.user!.userId, z.string().uuid().parse(req.params.id), true))));
   router.delete("/me/saved-articles/:id", validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.content!.save(req.user!.userId, z.string().uuid().parse(req.params.id), false))));
-  router.post("/me/avatar", uploadLimiter, (_req, _res, next) => {
-    if (![process.env.CLOUDINARY_CLOUD_NAME, process.env.CLOUDINARY_API_KEY, process.env.CLOUDINARY_API_SECRET].every(Boolean))
-      return next(new AppError(503, "MEDIA_NOT_CONFIGURED", "Tải ảnh chưa sẵn sàng. Bạn vẫn có thể lưu thông tin tài khoản."));
-    next();
-  }, uploadMedia.single("file"), asyncHandler(async (req: AuthenticatedRequest, res) => {
+  router.post("/me/avatar", uploadLimiter, mediaReady, uploadMedia.single("file"), asyncHandler(async (req: AuthenticatedRequest, res) => {
     if (!req.file) throw new AppError(400, "FILE_REQUIRED", "Vui lòng chọn ảnh JPEG, PNG hoặc WebP.");
     try {
       const revision = z.coerce.number().int().min(0).parse(req.body.expectedRevision);
