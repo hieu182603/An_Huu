@@ -24,8 +24,20 @@ export function comparePreviews(baseline: Preview, candidate: Preview) {
     unfundedWithdrawals: subtract(a.unfundedWithdrawals, b.unfundedWithdrawals),
     terminalBalance: subtract(a.terminalBalance, b.terminalBalance),
   } : null;
+  const retirementReasons = [...reasons];
+  if (a && b && a.retirementMonth !== b.retirementMonth) retirementReasons.push("RETIREMENT_MONTH_DIFFERS");
+  const atRetirement = {
+    status: retirementReasons.length ? "NOT_COMPARABLE" : "COMPARABLE", reasons: retirementReasons,
+    basis: "SAME_RETIREMENT_MONTH_NOMINAL", baselineMonth: a?.retirementMonth ?? null, candidateMonth: b?.retirementMonth ?? null,
+    delta: !retirementReasons.length && a && b ? {
+      projectedFund: subtract(a.atRetirement.projectedFund, b.atRetirement.projectedFund),
+      requiredFund: subtract(a.atRetirement.requiredFund, b.atRetirement.requiredFund),
+      fundingGap: subtract(a.atRetirement.fundingGap, b.atRetirement.fundingGap),
+      coveragePercentagePoints: subtract(a.atRetirement.coveragePercent, b.atRetirement.coveragePercent),
+    } : null,
+  };
   return { status: reasons.length ? "NOT_COMPARABLE" : "COMPARABLE", reasons, direction: "CANDIDATE_MINUS_BASELINE",
-    basis: "VALUATION_DATE_EACH_VERSION_DISCOUNT_FACTORS", delta,
+    basis: "VALUATION_DATE_EACH_VERSION_DISCOUNT_FACTORS", delta, atRetirement,
     differences: { profile: baseline.references.profileHash !== candidate.references.profileHash,
       policy: baseline.references.policyHash !== candidate.references.policyHash,
       assumptions: baseline.references.assumptionHash !== candidate.references.assumptionHash,
@@ -69,4 +81,22 @@ export function versionCsv(version: { id: string; planId: string; version: numbe
   return "\uFEFF" + [headers, ...calculation.rows.map(row => [...Object.values(metadata), ...monthlyCsvFields.map(key => row[key]),
     ...(p.modelVersion === "retirement-monthly-v4" ? [p.calculation.sourceRegistryHash, JSON.stringify(p.calculation.attribution.filter(c => c.month === row.month))] : [])])]
     .map(row => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+
+/** Display-only rounding; exact values remain in the saved snapshot/technical CSV. */
+export function versionReadableCsv(version: Parameters<typeof versionCsv>[0]) {
+  const p = version.preview;
+  const money = (value: string) => new D(value).toFixed(0, D.ROUND_HALF_UP);
+  const scenario = { BASE: "Cơ sở", ADVERSE: "Bất lợi", FAVORABLE: "Thuận lợi" }[p.selection.scenario];
+  const headers = ["Phiên bản", "Ngày lập số liệu", "Loại dự báo", "Có giả định thử", "Kịch bản", "Tháng", "Giai đoạn",
+    "Tiền đầu tháng (đồng)", "Thu nhập (đồng)", "Lương hưu (đồng)", "Chi sinh hoạt (đồng)", "Chi thêm (đồng)",
+    "Trả nợ (đồng)", "Tiền góp vào quỹ (đồng)", "Tiền bổ sung từ tài sản (đồng)", "Tiền rút từ quỹ (đồng)",
+    "Lãi hoặc lỗ đầu tư (đồng)", "Số dư dự báo, có thể âm (đồng)", "Tiền chưa đáp ứng được khi rút (đồng)", "Thiếu ngân sách góp quỹ (đồng)"];
+  const rows = p.calculation!.rows.map(row => [String(version.version), p.valuationDate,
+    p.reforecast ? "Dự báo cập nhật từ thực tế" : "Dự báo", hasFutureAssumptions(p) ? "Có" : "Không", scenario,
+    row.month, row.phase === "ACCUMULATION" ? "Trước nghỉ hưu" : "Nghỉ hưu",
+    ...[row.openingBalance, row.income, row.pension, row.livingExpense, row.additionalExpense, row.debtPayment,
+      row.contribution, row.capitalInjection, row.withdrawal, row.investmentChange, row.closingBalance,
+      row.unfundedWithdrawal, row.budgetShortfall].map(money)]);
+  return "\uFEFF" + [headers, ...rows].map(row => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }

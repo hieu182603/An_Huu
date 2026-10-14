@@ -23,8 +23,13 @@ import {
 } from "../services/insurance";
 
 import { EvidenceEditor, emptyEvidence, submittedEvidence, type EvidenceDraft } from "./EvidenceEditor";
+import { formatDateVN } from "../utils/date";
 
-const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " ₫";
+const formatVND = (num: number) => {
+  const rounded = Math.round(num);
+  const isNeg = rounded < 0;
+  return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
+};
 
 interface SocialInsuranceModalProps {
   open: boolean;
@@ -1284,7 +1289,7 @@ export function SocialInsuranceModal({
 
                 <div>
                   <label style={{ display: "block", fontSize: "14px", fontWeight: 600, marginBottom: "4px" }} htmlFor={`${formId}-field-20`}>
-                    {isVi ? "Lịch từ tháng (coverageFrom)" : "Coverage From"}
+                    {isVi ? "Quá trình đóng BHXH bắt đầu từ tháng" : "Coverage Start Month"}
                   </label>
                   <input id={`${formId}-field-20`}
                     type="month"
@@ -1297,7 +1302,7 @@ export function SocialInsuranceModal({
 
                 <div>
                   <label style={{ display: "block", fontSize: "14px", fontWeight: 600, marginBottom: "4px" }} htmlFor={`${formId}-field-21`}>
-                    {isVi ? "Đến tháng (coverageThrough)" : "Coverage Through"}
+                    {isVi ? "Quá trình đóng BHXH đến tháng" : "Coverage End Month"}
                   </label>
                   <input id={`${formId}-field-21`}
                     type="month"
@@ -1580,7 +1585,7 @@ export function SocialInsuranceModal({
                   </div>
                   {historyPreview.inputHash && (
                     <span className="font-mono" style={{ fontSize: "10.5px", color: "var(--color-text-muted)" }}>
-                      Hash: {historyPreview.inputHash.slice(0, 16)}...
+                      {isVi ? "Mã đối chiếu: " : "Check Code: "}{historyPreview.inputHash.slice(0, 16)}...
                     </span>
                   )}
                 </div>
@@ -1684,7 +1689,7 @@ export function SocialInsuranceModal({
                       </span>
                     </div>
                     <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                      {new Date(rec.createdAt).toLocaleDateString(isVi ? "vi-VN" : "en-US")}
+                      {formatDateVN(rec.createdAt)}
                     </span>
                   </div>
 
@@ -1715,7 +1720,7 @@ export function SocialInsuranceModal({
                           <strong>{rec.assessedOn}</strong>
                         </div>
                         <div>
-                          <span style={{ color: "var(--color-text-muted)" }}>{isVi ? "Mã toàn vẹn:" : "Integrity Hash:"}</span>{" "}
+                          <span style={{ color: "var(--color-text-muted)" }}>{isVi ? "Mã đối chiếu bản lưu:" : "Verification Code:"}</span>{" "}
                           <span className="font-mono">{rec.integrityHash.slice(0, 16)}...</span>
                         </div>
                       </div>

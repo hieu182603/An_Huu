@@ -11,10 +11,17 @@ import { downloadCsv } from "../utils/downloads";
 import { getNotificationSettings, updateNotificationSettings, type NotificationSettings } from "../services/notifications";
 import { exportPlanVersionCsv } from "../services/plans";
 import { useI18n } from "../i18n";
+import FinancialProfilePage from "./FinancialProfilePage";
 
 type AccountTab = "profile" | "settings" | "reports";
 
 export default function AccountPage() {
+  const [query] = useSearchParams();
+  return query.get("tab") === "settings" || query.get("tab") === "reports"
+    ? <AccountSettingsPage /> : <FinancialProfilePage />;
+}
+
+function AccountSettingsPage() {
   const { language } = useI18n();
   const [query] = useSearchParams();
   const [activeTab, setActiveTab] = useState<AccountTab>(() => (

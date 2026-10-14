@@ -10,6 +10,7 @@ import {
 } from "../context/FinancialProfileContext";
 import { resumeDestination } from "../services/navigation";
 import { useI18n } from "../i18n";
+import { useAuth } from "../context/AuthContext";
 
 interface AssetCategoryMaster {
   id: string;
@@ -64,7 +65,7 @@ const ASSET_MASTER_DATA: AssetCategoryMaster[] = [
   },
   {
     id: "other",
-    name: "Tài sản thanh khoản khác",
+    name: "Tài sản khác có thể đổi thành tiền",
     defaultUnit: "VND",
     units: ["VND", "Hợp đồng", "Món", "Khác"],
     placeholderName: "Ví dụ: Sổ tiết kiệm khác, chứng chỉ tiền gửi",
@@ -92,6 +93,7 @@ type StepId =
   | "summary";
 
 const INITIAL_FORM_DATA = {
+  fullName: "",
   age: EMPTY_PROFILE.personal.age,
   gender: EMPTY_PROFILE.personal.gender,
   maritalStatus: EMPTY_PROFILE.personal.maritalStatus,
@@ -104,7 +106,7 @@ const INITIAL_FORM_DATA = {
   cashSavings: EMPTY_PROFILE.assets.cashSavings,
   realEstateValue: EMPTY_PROFILE.assets.realEstateValue,
   liquidAssets: EMPTY_PROFILE.assets.liquidAssets,
-  hasDebt: EMPTY_PROFILE.debt.hasDebt,
+  hasDebt: true,
   mortgageDebt: EMPTY_PROFILE.debt.mortgageDebt,
   consumerDebt: EMPTY_PROFILE.debt.consumerDebt,
   monthlyDebtService: EMPTY_PROFILE.debt.monthlyDebtService,
@@ -119,9 +121,12 @@ export default function OnboardingPage() {
   const { notify } = useNotification();
   const { language } = useI18n();
   const isEn = language === "en";
+  const { user } = useAuth();
 
   const {
     onboardingDraft,
+    hasOnboardingDraft,
+    schemaVersion,
     draftSaveStatus,
     lastDraftSavedAt,
     saveOnboardingDraft,
@@ -141,7 +146,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (isCompleted) {
-      navigate("/user/dashboard", { replace: true });
+      navigate(resumeDestination(location.state?.from, "user", "/user/goal"), { replace: true });
     }
   }, [isCompleted, navigate]);
 
@@ -158,7 +163,7 @@ export default function OnboardingPage() {
     { id: "expense" as StepId, number: 3, title: isEn ? "Expenses" : "Chi tiêu", detail: isEn ? "Monthly living costs" : "Chi phí sinh hoạt tháng" },
     { id: "assets" as StepId, number: 4, title: isEn ? "Assets" : "Tài sản", detail: isEn ? "Savings & real estate" : "Tiết kiệm & bất động sản" },
     { id: "debt" as StepId, number: 5, title: isEn ? "Debts" : "Khoản nợ", detail: isEn ? "Mortgage & consumer loans" : "Vay mua nhà & tiêu dùng" },
-    { id: "invest-social" as StepId, number: 6, title: isEn ? "Invest & Pension" : "Đầu tư & BHXH", detail: isEn ? "Portfolio & insurance" : "Danh mục & bảo hiểm" },
+    { id: "invest-social" as StepId, number: 6, title: isEn ? "Social Security (BHXH)" : "Bảo hiểm Xã hội (BHXH)", detail: isEn ? "Contribution history" : "Lịch sử đóng BHXH" },
     { id: "summary" as StepId, number: 7, title: isEn ? "Summary" : "Tổng kết", detail: isEn ? "Net worth overview" : "Bức tranh tài sản ròng" },
   ], [isEn]);
 
@@ -189,8 +194,14 @@ export default function OnboardingPage() {
   // Khôi phục từ bản nháp trên máy chủ
   const initialFromDraft = useMemo(() => {
     const d = onboardingDraft;
+    const hasExplicitNoDebt = typeof window !== "undefined" && localStorage.getItem("anhuu_no_debt_confirmed") === "true";
+    const hasAnyDebtValue = (d.mortgageDebt ?? 0) > 0 || (d.consumerDebt ?? 0) > 0 || (d.monthlyDebtService ?? 0) > 0;
+    const resolvedHasDebt = hasAnyDebtValue ? true : (hasExplicitNoDebt ? false : true);
+    const savedFullName = typeof window !== "undefined" ? localStorage.getItem("anhuu_user_fullname") || "" : "";
+
     return {
       ...INITIAL_FORM_DATA,
+      fullName: (d as any).fullName || savedFullName || user?.name || EMPTY_PROFILE.personal.name || "",
       age: d.age ?? INITIAL_FORM_DATA.age,
       gender: d.gender ?? INITIAL_FORM_DATA.gender,
       maritalStatus: d.maritalStatus ?? INITIAL_FORM_DATA.maritalStatus,
@@ -203,7 +214,7 @@ export default function OnboardingPage() {
       cashSavings: d.cashSavings ?? INITIAL_FORM_DATA.cashSavings,
       realEstateValue: d.realEstateValue ?? INITIAL_FORM_DATA.realEstateValue,
       liquidAssets: d.liquidAssets ?? INITIAL_FORM_DATA.liquidAssets,
-      hasDebt: d.hasDebt ?? INITIAL_FORM_DATA.hasDebt,
+      hasDebt: resolvedHasDebt,
       mortgageDebt: d.mortgageDebt ?? INITIAL_FORM_DATA.mortgageDebt,
       consumerDebt: d.consumerDebt ?? INITIAL_FORM_DATA.consumerDebt,
       monthlyDebtService: d.monthlyDebtService ?? INITIAL_FORM_DATA.monthlyDebtService,
@@ -211,7 +222,7 @@ export default function OnboardingPage() {
       socialInsuranceYears: d.socialInsuranceYears ?? INITIAL_FORM_DATA.socialInsuranceYears,
       socialInsuranceSalary: d.socialInsuranceSalary ?? INITIAL_FORM_DATA.socialInsuranceSalary,
     };
-  }, [onboardingDraft]);
+  }, [onboardingDraft, user?.name]);
 
   // Form states: khởi tạo từ bản nháp đã lưu
   const [formData, setFormData] = useState(initialFromDraft);
@@ -230,12 +241,13 @@ export default function OnboardingPage() {
   }, [onboardingDraft, initialFromDraft]);
 
   const [customAssets, setCustomAssets] = useState<CustomAssetItem[]>(() => {
+    const total = initialFromDraft.liquidAssets;
     try {
-      const saved = localStorage.getItem("anhuu_custom_assets");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+      const saved = JSON.parse(localStorage.getItem(`anhuu_custom_assets:${user?.id}`) || "null");
+      if (Array.isArray(saved) && saved.every(item => item && typeof item.id === "string" && typeof item.name === "string" && Number.isFinite(item.valueVnd) && item.valueVnd >= 0)
+        && saved.reduce((sum, item) => sum + item.valueVnd, 0) === total) return saved;
+    } catch { /* The server total remains authoritative if local details are unavailable. */ }
+    return total > 0 ? [{ id: "saved-total", categoryId: "other", categoryName: isEn ? "Other assets" : "Tài sản khác", name: isEn ? "Previously saved assets (total)" : "Tổng tài sản khác đã lưu", unit: "VND", valueVnd: total }] : [];
   });
 
   const [assetModalOpen, setAssetModalOpen] = useState(false);
@@ -247,12 +259,13 @@ export default function OnboardingPage() {
   const [assetModalError, setAssetModalError] = useState<string>("");
 
   useEffect(() => {
+    if (schemaVersion === 2) return;
     const sum = customAssets.reduce((acc, it) => acc + (it.valueVnd || 0), 0);
     setFormData((prev) => ({ ...prev, liquidAssets: sum }));
     try {
-      localStorage.setItem("anhuu_custom_assets", JSON.stringify(customAssets));
+      localStorage.setItem(`anhuu_custom_assets:${user?.id}`, JSON.stringify(customAssets));
     } catch {}
-  }, [customAssets]);
+  }, [customAssets, schemaVersion, user?.id]);
 
   const handleCategoryChange = (catId: string) => {
     setSelectedCategory(catId);
@@ -386,8 +399,8 @@ export default function OnboardingPage() {
       case "income": return formData.primaryIncome > 0 || formData.secondaryIncome > 0;
       case "expense": return formData.essentialExpense > 0 || formData.lifestyleExpense > 0;
       case "assets": return formData.cashSavings > 0 || formData.realEstateValue > 0 || formData.liquidAssets > 0 || customAssets.length > 0;
-      // "No debt" is a valid answer once the user has actually opened this step.
-      case "debt": return formData.hasDebt ? formData.mortgageDebt + formData.consumerDebt > 0 : visitedSteps.includes("debt");
+      // "No debt" is a valid answer once chosen or opened.
+      case "debt": return !formData.hasDebt || (formData.mortgageDebt > 0 || formData.consumerDebt > 0 || formData.monthlyDebtService > 0) || visitedSteps.includes("debt");
       case "invest-social": return formData.socialInsuranceYears > 0 || formData.socialInsuranceSalary > 0;
       default: return true;
     }
@@ -403,7 +416,7 @@ export default function OnboardingPage() {
     expense: "Separate essential and flexible expenses to understand the amount left after spending.",
     assets: "Record what you currently own. These declarations are separate from the assets allocated to retirement in your detailed profile.",
     debt: "Record outstanding debt and regular repayments to avoid counting repayment money as savings.",
-    "invest-social": "These figures describe your investments and contribution history. Pension estimates still need the detailed contribution record.",
+    "invest-social": "These figures describe your social insurance contribution history. Pension estimates still need the detailed contribution record.",
     summary: "Review your entries before saving the profile. Completing the profile does not mean the retirement plan is fully funded."
   } : {
     welcome: "Chuẩn bị số liệu thu nhập, chi tiêu, tài sản và nợ. Bạn có thể lưu rồi quay lại làm tiếp.",
@@ -412,7 +425,7 @@ export default function OnboardingPage() {
     expense: "Tách chi tiêu thiết yếu và linh hoạt để hiểu khoản còn lại sau chi tiêu.",
     assets: "Khai báo tài sản đang sở hữu. Phần dành cho hưu trí được xác nhận riêng trong hồ sơ chi tiết.",
     debt: "Khai báo dư nợ và số tiền trả định kỳ để không nhầm tiền trả nợ với tiền có thể tích lũy.",
-    "invest-social": "Các số này mô tả đầu tư và lịch sử đóng. Ước tính lương hưu vẫn cần quá trình đóng BHXH chi tiết.",
+    "invest-social": "Các số này mô tả lịch sử đóng bảo hiểm xã hội. Ước tính lương hưu vẫn cần quá trình đóng BHXH chi tiết.",
     summary: "Kiểm tra thông tin trước khi lưu hồ sơ. Hoàn tất hồ sơ không có nghĩa là đã đủ tiền nghỉ hưu."
   };
   const progressPercent = Math.round((currentStepIndex / (steps.length - 1)) * 100);
@@ -422,7 +435,8 @@ export default function OnboardingPage() {
     : (isEn ? `Step ${currentStepIndex}/${steps.length - 1}` : `Bước ${currentStepIndex}/${steps.length - 1}`);
 
   const formatVND = (num: number) => {
-    return new Intl.NumberFormat("vi-VN").format(Math.max(0, Math.floor(num || 0))) + " VND";
+    const rounded = Math.max(0, Math.floor(num || 0));
+    return `${rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
   };
 
   const handleNext = async () => {
@@ -440,25 +454,25 @@ export default function OnboardingPage() {
           setCurrentStep(next);
         } else {
           const msg = isEn
-            ? "Could not save your survey progress due to a connection issue. Please retry."
-            : "Chưa thể lưu tiến độ khảo sát do gián đoạn kết nối. Vui lòng bấm Thử lại.";
+            ? "Your survey progress has not been saved. Please review the message below."
+            : "Tiến độ khảo sát chưa được lưu. Vui lòng xem thông báo bên dưới.";
           setSaveError(msg);
-          notify.error(isEn ? "Save Progress Error" : "Lỗi lưu tiến độ", msg);
         }
       } else {
         const ok = await completeOnboarding({ ...formData, step: currentStep, updatedAt: new Date().toISOString() } as OnboardingDraftData);
         if (ok) {
+          // The survey saves quick totals (profile v1); plan previews need the
+          // detailed profile with a real birth month, so review it next.
           notify.success(
             isEn ? "Profile Initialized Successfully" : "Khởi tạo hồ sơ thành công",
-            isEn ? "Your financial baseline has been saved to your account." : "Thông tin đã được lưu vào tài khoản của bạn."
+            isEn ? "Next, add your birth month and retirement month in the detailed profile so your plan can be calculated." : "Bước tiếp theo: bổ sung tháng sinh và tháng muốn nghỉ hưu trong hồ sơ chi tiết để tính kế hoạch."
           );
-          navigate("/user/dashboard", { replace: true });
+          navigate(resumeDestination(location.state?.from, "user", "/user/account?tab=profile"), { replace: true });
         } else {
           const msg = isEn
             ? "Could not complete your profile. Please check your data and retry."
             : "Chưa thể hoàn tất hồ sơ tài chính. Vui lòng kiểm tra và bấm Thử lại.";
           setSaveError(msg);
-          notify.error(isEn ? "Submission Failed" : "Chưa thể hoàn tất", msg);
         }
       }
     } finally { setWorking(false); }
@@ -473,6 +487,47 @@ export default function OnboardingPage() {
     }
   };
 
+  if (schemaVersion === 2) {
+    const d = onboardingDraft;
+    const draftValues = [
+      [isEn ? "Age" : "Tuổi", d.age],
+      [isEn ? "Gender" : "Giới tính", d.gender],
+      [isEn ? "Marital status" : "Tình trạng hôn nhân", d.maritalStatus],
+      [isEn ? "Dependents" : "Người phụ thuộc", d.dependents],
+      [isEn ? "City" : "Nơi sống", d.city],
+      ...[
+        [isEn ? "Main monthly income" : "Thu nhập chính mỗi tháng", d.primaryIncome],
+        [isEn ? "Other monthly income" : "Thu nhập khác mỗi tháng", d.secondaryIncome],
+        [isEn ? "Essential monthly expenses" : "Chi tiêu thiết yếu mỗi tháng", d.essentialExpense],
+        [isEn ? "Other monthly expenses" : "Chi tiêu khác mỗi tháng", d.lifestyleExpense],
+        [isEn ? "Cash and savings" : "Tiền mặt và tiết kiệm", d.cashSavings],
+        [isEn ? "Real estate" : "Bất động sản", d.realEstateValue],
+        [isEn ? "Other liquid assets" : "Tài sản dễ bán khác", d.liquidAssets],
+        [isEn ? "Stocks and funds" : "Cổ phiếu và quỹ", d.stockFundValue],
+        [isEn ? "Mortgage balance" : "Dư nợ vay mua nhà", d.mortgageDebt],
+        [isEn ? "Consumer loan balance" : "Dư nợ vay tiêu dùng", d.consumerDebt],
+        [isEn ? "Monthly loan payments" : "Trả nợ mỗi tháng", d.monthlyDebtService],
+        [isEn ? "Social insurance salary" : "Lương đóng BHXH", d.socialInsuranceSalary],
+      ].map(([label, value]) => [label, formatVND(Number(value))]),
+      [isEn ? "Social insurance years" : "Số năm đóng BHXH", d.socialInsuranceYears],
+    ];
+    return <main className="profile-complete">
+      <Card className="profile-complete-card">
+        <h1>{isEn ? "Update your existing financial profile" : "Cập nhật hồ sơ tài chính đang có"}</h1>
+        <p>{isEn
+          ? "Your account already has a detailed financial profile. Update it directly to preserve individual assets, loans and dates. This initial survey cannot replace those details."
+          : "Tài khoản đã có hồ sơ tài chính chi tiết. Hãy sửa trực tiếp tại đó để giữ từng tài sản, khoản vay và mốc thời gian. Khảo sát ban đầu này không thể thay thế các thông tin chi tiết đó."}</p>
+        <Link className="button button-primary" to="/user/account?tab=profile">{isEn ? "Open financial profile" : "Mở Hồ sơ tài chính"}</Link>
+        {hasOnboardingDraft && <details>
+          <summary>{isEn ? "Review the saved survey draft" : "Xem lại bản nháp khảo sát đã lưu"}</summary>
+          <p>{isEn ? "This draft is retained but has not been applied. Compare these values when editing your financial profile." : "Bản nháp vẫn được giữ lại, chưa được áp dụng vào hồ sơ. Bạn có thể đối chiếu các số liệu này khi sửa hồ sơ tài chính."}</p>
+          <dl>{draftValues.map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{value === "" ? "—" : value}</dd></div>)}</dl>
+          <Link to="/user/account?tab=profile" target="_blank" rel="noopener noreferrer">{isEn ? "Edit profile in a new tab to compare" : "Mở hồ sơ trong tab mới để đối chiếu"}</Link>
+        </details>}
+      </Card>
+    </main>;
+  }
+
   if (isCompleted) {
     return (
       <div className="profile-complete">
@@ -484,8 +539,8 @@ export default function OnboardingPage() {
           <h1>{isEn ? "Wonderful! Your financial foundation is ready" : "Đã lưu hồ sơ tài chính ban đầu"}</h1>
           <p>
             {isEn
-              ? "An Huu has analyzed your assets, income, and cashflow. Your current estimated net worth:"
-              : "An Hưu đã phân tích đầy đủ tài sản, thu nhập và dòng tiền của bạn. Tài sản ròng ước tính hiện tại:"}
+              ? "An Huu has saved the asset, income, and cashflow details you reported. Your current estimated net worth:"
+              : "An Hưu đã lưu thông tin tài sản, thu nhập và dòng tiền bạn vừa khai báo. Tài sản ròng ước tính hiện tại:"}
           </p>
           <strong>{formatVND(estimatedNetWorth)}</strong>
 
@@ -510,7 +565,6 @@ export default function OnboardingPage() {
   return (
     <div className="onboarding-app">
 
-      {apiSaveError && <p role="alert">{apiSaveError}</p>}
       {/* Mobile progress tracker */}
       <div className="onboarding-progress-mobile">
         <div>
@@ -675,22 +729,24 @@ export default function OnboardingPage() {
             {currentStep === "personal" && (
               <div>
                 <div className="step-heading">
-                  <span className="step-heading-icon"><Icon name="users" /></span>
                   <Badge tone="soft">{isEn ? "STEP 1/7" : "BƯỚC 1/7"}</Badge>
-                  <h1>{isEn ? "Personal & Family Information" : "Thông tin cá nhân & Gia đình"}</h1>
+                  <div className="step-heading-title-row">
+                    <span className="step-heading-icon"><Icon name="users" /></span>
+                    <h1>{isEn ? "Personal & Family Information" : "Thông tin cá nhân & Gia đình"}</h1>
+                  </div>
                   <p>{isEn ? "Age milestones and dependents directly impact your accumulation horizon and retirement fund size." : "Các mốc tuổi và người phụ thuộc ảnh hưởng trực tiếp đến thời gian tích lũy và quy mô quỹ hưu trí."}</p>
                 </div>
 
                 <div className="form-grid">
                   <Input
-                    label={isEn ? "Your Current Age (required to finish)" : "Tuổi hiện tại của bạn (cần để hoàn tất)"}
-                    type="number"
-                    min={0}
-                    max={120}
-                    value={formData.age === 0 ? "" : String(formData.age)}
-                    onChange={(v) => updateNumberField("age", v)}
-                    error={fieldErrors.age}
-                    suffix={isEn ? "yrs old" : "tuổi"}
+                    label={isEn ? "Full Name" : "Họ và tên"}
+                    value={formData.fullName}
+                    onChange={(v) => {
+                      updateField("fullName", v);
+                      try { localStorage.setItem("anhuu_user_fullname", v); } catch {}
+                    }}
+                    placeholder={isEn ? "e.g. Nguyen Van An" : "Ví dụ: Nguyễn Văn An"}
+                    autoComplete="name"
                   />
 
                   <Select
@@ -703,6 +759,17 @@ export default function OnboardingPage() {
                     }}
                     error={fieldErrors.gender}
                     helper={isEn ? "Under Vietnamese labor law, retirement age schedules differ for men and women." : "Theo luật lao động Việt Nam, tuổi nghỉ hưu nam & nữ có lộ trình khác nhau."}
+                  />
+
+                  <Input
+                    label={isEn ? "Your Current Age (required to finish)" : "Tuổi hiện tại của bạn (cần để hoàn tất)"}
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={formData.age === 0 ? "" : String(formData.age)}
+                    onChange={(v) => updateNumberField("age", v)}
+                    error={fieldErrors.age}
+                    suffix={isEn ? "yrs old" : "tuổi"}
                   />
 
                   <Select
@@ -758,9 +825,11 @@ export default function OnboardingPage() {
             {currentStep === "income" && (
               <div>
                 <div className="step-heading">
-                  <span className="step-heading-icon"><Icon name="wallet" /></span>
                   <Badge tone="soft">{isEn ? "STEP 2/7" : "BƯỚC 2/7"}</Badge>
-                  <h1>{isEn ? "Monthly Income Sources" : "Nguồn thu nhập hàng tháng"}</h1>
+                  <div className="step-heading-title-row">
+                    <span className="step-heading-icon"><Icon name="wallet" /></span>
+                    <h1>{isEn ? "Monthly Income Sources" : "Nguồn thu nhập hàng tháng"}</h1>
+                  </div>
                   <p>{isEn ? "Income is the crucial financial inflow determining your ability to accumulate consistently each month." : "Thu nhập là dòng chảy tài chính quan trọng quyết định khả năng tích lũy đều đặn mỗi tháng của bạn."}</p>
                 </div>
 
@@ -803,9 +872,11 @@ export default function OnboardingPage() {
             {currentStep === "expense" && (
               <div>
                 <div className="step-heading">
-                  <span className="step-heading-icon"><Icon name="chart" /></span>
                   <Badge tone="soft">{isEn ? "STEP 3/7" : "BƯỚC 3/7"}</Badge>
-                  <h1>{isEn ? "Expenses & Living Standards" : "Chi tiêu & Mức sống sinh hoạt"}</h1>
+                  <div className="step-heading-title-row">
+                    <span className="step-heading-icon"><Icon name="chart" /></span>
+                    <h1>{isEn ? "Expenses & Living Standards" : "Chi tiêu & Mức sống sinh hoạt"}</h1>
+                  </div>
                   <p>{isEn ? "Current spending is the baseline for projecting living expenses needed in retirement to maintain your lifestyle." : "Chi tiêu hiện tại là thước đo cơ bản để dự toán mức chi phí bạn cần có khi về già để giữ nguyên phong cách sống."}</p>
                 </div>
 
@@ -836,7 +907,7 @@ export default function OnboardingPage() {
                   <div className="context-note">
                     <span><Icon name="info" /></span>
                     <div>
-                      <strong>{isEn ? "70% - 80% Retirement Rule" : "Quy luật hưu trí 70 - 80%"}</strong>
+                      <strong>{isEn ? "70% - 80% Benchmark Reference" : "Gợi ý tham khảo về chi tiêu hưu trí 70 - 80%"}</strong>
                       <p>{isEn ? "In retirement, work-related commute and child-rearing costs disappear; expenses typically equal 70% to 80% of pre-retirement spending." : "Khi nghỉ hưu, bạn không còn các chi phí liên quan công việc và nuôi con nhỏ, mức chi tiêu thường bằng 70 - 80% so với thời điểm đi làm."}</p>
                     </div>
                   </div>
@@ -848,10 +919,12 @@ export default function OnboardingPage() {
             {currentStep === "assets" && (
               <div>
                 <div className="step-heading">
-                  <span className="step-heading-icon"><Icon name="home" /></span>
                   <Badge tone="soft">{isEn ? "STEP 4/7" : "BƯỚC 4/7"}</Badge>
-                  <h1>{isEn ? "Current Accumulated Assets" : "Tài sản tích lũy hiện có"}</h1>
-                  <p>{isEn ? "Existing accumulated assets will compound and serve as the launchpad for your future retirement fund." : "Các tài sản tích lũy hiện thời sẽ tiếp tục sinh lời và tạo thành bệ phóng cho quỹ hưu trí tương lai."}</p>
+                  <div className="step-heading-title-row">
+                    <span className="step-heading-icon"><Icon name="home" /></span>
+                    <h1>{isEn ? "Current Accumulated Assets" : "Tài sản tích lũy hiện có"}</h1>
+                  </div>
+                  <p>{isEn ? "Current assets serve as a key launchpad for your retirement fund; asset values may fluctuate over time." : "Tài sản hiện có là bệ phóng quan trọng cho quỹ hưu trí; giá trị tài sản có thể biến động theo thời gian."}</p>
                 </div>
 
                 <div className="form-grid">
@@ -875,7 +948,7 @@ export default function OnboardingPage() {
 
                   {/* Khu vực tạo thêm tài sản người dùng tự tạo bấm dấu cộng (+) */}
                   <div className="custom-assets-box">
-                    <div className="custom-assets-header">
+                    <div className="custom-assets-top">
                       <div>
                         <h3 className="custom-assets-title">{isEn ? "Other Accumulated Assets" : "Tài sản tích lũy khác"}</h3>
                         <p className="custom-assets-desc">
@@ -897,19 +970,7 @@ export default function OnboardingPage() {
                       </Button>
                     </div>
 
-                    {customAssets.length === 0 ? (
-                      <button
-                        type="button"
-                        className="custom-assets-empty"
-                        onClick={() => {
-                          setAssetModalError("");
-                          setAssetModalOpen(true);
-                        }}
-                      >
-                        <Icon name="plus" size="small" />
-                        <span>{isEn ? "+ Click here to add other assets (Gold, Stocks, Funds, Vehicles...)" : "+ Bấm vào đây để thêm tài sản khác (Vàng, Cổ phiếu, Quỹ mở, Trái phiếu, Xe cộ...)"}</span>
-                      </button>
-                    ) : (
+                    {customAssets.length > 0 && (
                       <div className="custom-assets-cards">
                         {customAssets.map((asset) => (
                           <div key={asset.id} className="custom-asset-card">
@@ -951,20 +1012,76 @@ export default function OnboardingPage() {
             {currentStep === "debt" && (
               <div>
                 <div className="step-heading">
-                  <span className="step-heading-icon"><Icon name="alert" /></span>
                   <Badge tone="soft">{isEn ? "STEP 5/7" : "BƯỚC 5/7"}</Badge>
-                  <h1>{isEn ? "Debts & Financial Obligations" : "Các khoản nợ & Nghĩa vụ tài chính"}</h1>
-                  <p>{isEn ? "Tracking debts ensures accurate calculation of your actual surplus cashflow available for accumulation." : "Nắm rõ các khoản nợ giúp tính toán chính xác dòng tiền thặng dư thực tế có thể dành cho tích lũy."}</p>
+                  <div className="step-heading-title-row">
+                    <span className="step-heading-icon"><Icon name="alert" /></span>
+                    <h1>{isEn ? "Debts & Financial Obligations" : "Các khoản nợ & Nghĩa vụ tài chính"}</h1>
+                  </div>
+                  <p>{isEn ? "Tracking debts ensures accurate calculation of your actual surplus cashflow available for accumulation." : "Nắm rõ các khoản nợ giúp tính toán chính xác số tiền còn lại sau chi tiêu và trả nợ."}</p>
                 </div>
 
                 <div className="form-grid">
-                  <Checkbox
-                    checked={formData.hasDebt}
-                    label={isEn ? "I currently have active debts to repay (mortgage, consumer loans, installments)" : "Tôi hiện đang có các khoản nợ cần trả (vay mua nhà, vay tiêu dùng, trả góp)"}
-                    onChange={(v) => setFormData({ ...formData, hasDebt: v })}
-                  />
+                  <div className="debt-status-selector" role="radiogroup" aria-label={isEn ? "Debt status selection" : "Lựa chọn tình trạng nợ"}>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={formData.hasDebt}
+                      className={`debt-status-card ${formData.hasDebt ? "is-selected" : ""}`}
+                      onClick={() => {
+                        try {
+                          localStorage.removeItem("anhuu_no_debt_confirmed");
+                        } catch {}
+                        setFormData((prev) => ({ ...prev, hasDebt: true }));
+                      }}
+                    >
+                      <div className="debt-status-radio">
+                        <span className="debt-radio-circle">
+                          {formData.hasDebt && <span className="debt-radio-dot" />}
+                        </span>
+                      </div>
+                      <div className="debt-status-content">
+                        <div className="debt-status-title-row">
+                          <Icon name="wallet" size="small" />
+                          <strong>{isEn ? "Currently have active debts" : "Đang có các khoản nợ cần trả"}</strong>
+                        </div>
+                        <p>{isEn ? "Mortgage, car loan, consumer credit, cards, installments" : "Vay mua nhà, mua xe, tiêu dùng, thẻ tín dụng, trả góp..."}</p>
+                      </div>
+                    </button>
 
-                  {formData.hasDebt && (
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={!formData.hasDebt}
+                      className={`debt-status-card ${!formData.hasDebt ? "is-selected" : ""}`}
+                      onClick={() => {
+                        try {
+                          localStorage.setItem("anhuu_no_debt_confirmed", "true");
+                        } catch {}
+                        setFormData((prev) => ({
+                          ...prev,
+                          hasDebt: false,
+                          mortgageDebt: 0,
+                          consumerDebt: 0,
+                          monthlyDebtService: 0,
+                        }));
+                      }}
+                    >
+                      <div className="debt-status-radio">
+                        <span className="debt-radio-circle">
+                          {!formData.hasDebt && <span className="debt-radio-dot" />}
+                        </span>
+                      </div>
+                      <div className="debt-status-content">
+                        <div className="debt-status-title-row">
+                          <Icon name="shield" size="small" />
+                          <strong>{isEn ? "No debts (Debt-free)" : "Không có nợ"}</strong>
+                        </div>
+                        <p>{isEn ? "No mortgages, consumer loans or installment obligations" : "Tôi hiện tại không có bất kỳ khoản vay mượn hay trả góp nào"}</p>
+                      </div>
+                    </button>
+                  </div>
+
+                  {formData.hasDebt ? (
                     <div className="debt-fields">
                       <CurrencyInput
                         label={isEn ? "Mortgage / Real Estate Debt" : "Dư nợ vay mua nhà / Bất động sản"}
@@ -991,14 +1108,24 @@ export default function OnboardingPage() {
                         helper={isEn ? "Fixed recurring deduction from income paid to financial institutions." : "Khoản trích cố định từ thu nhập để trả cho các tổ chức tín dụng."}
                       />
                     </div>
+                  ) : (
+                    <div className="debt-no-debt-banner">
+                      <span className="debt-no-debt-icon"><Icon name="circle-check" /></span>
+                      <div className="debt-no-debt-body">
+                        <strong>{isEn ? "Confirmed: No Active Debts" : "Đã xác nhận: Không có khoản nợ nào"}</strong>
+                        <p>{isEn ? "Great! With no debt burdens, you can flexibly allocate your monthly surplus towards your retirement fund." : "Tuyệt vời! Không có gánh nặng nợ nần giúp bạn có thể chủ động chọn dành phần tiền dư mỗi tháng cho quỹ hưu trí."}</p>
+                      </div>
+                    </div>
                   )}
 
-                  <Card className="inline-total-card">
-                    <span>{isEn ? "Current Total Debt Balance:" : "Tổng dư nợ hiện tại:"}</span>
-                    <strong style={{ color: "var(--color-danger)" }}>
-                      {formatVND(formData.hasDebt ? formData.mortgageDebt + formData.consumerDebt : 0)}
-                    </strong>
-                  </Card>
+                  {formData.hasDebt && (
+                    <Card className="inline-total-card">
+                      <span>{isEn ? "Current Total Debt Balance:" : "Tổng dư nợ hiện tại:"}</span>
+                      <strong style={{ color: formData.mortgageDebt + formData.consumerDebt > 0 ? "var(--color-danger)" : "inherit" }}>
+                        {formatVND(formData.mortgageDebt + formData.consumerDebt)}
+                      </strong>
+                    </Card>
+                  )}
 
                   <div className="context-note">
                     <span><Icon name="circle-check" /></span>
@@ -1015,10 +1142,12 @@ export default function OnboardingPage() {
             {currentStep === "invest-social" && (
               <div>
                 <div className="step-heading">
-                  <span className="step-heading-icon"><Icon name="sparkles" /></span>
                   <Badge tone="soft">{isEn ? "STEP 6/7" : "BƯỚC 6/7"}</Badge>
-                  <h1>{isEn ? "Investments & Social Security (BHXH)" : "Đầu tư & Bảo hiểm Xã hội (BHXH)"}</h1>
-                  <p>{isEn ? "State pension from BHXH and returns from your investment portfolio are the two core pillars supporting your retirement." : "Lương hưu từ BHXH và lợi nhuận từ danh mục đầu tư là hai trụ cột chính nuôi dưỡng quỹ hưu trí."}</p>
+                  <div className="step-heading-title-row">
+                    <span className="step-heading-icon"><Icon name="sparkles" /></span>
+                    <h1>{isEn ? "Social Security (BHXH)" : "Bảo hiểm Xã hội (BHXH)"}</h1>
+                  </div>
+                  <p>{isEn ? "State pension from BHXH is a core pillar supporting your retirement cash flow." : "Lương hưu từ BHXH là trụ cột chính nuôi dưỡng quỹ hưu trí."}</p>
                 </div>
 
                 <div className="form-grid">
@@ -1057,9 +1186,11 @@ export default function OnboardingPage() {
             {currentStep === "summary" && (
               <div className="summary-step">
                 <div className="step-heading">
-                  <span className="step-heading-icon"><Icon name="circle-check" /></span>
                   <Badge tone="success">{isEn ? "STEP 7/7 · SUMMARY" : "BƯỚC 7/7 · TỔNG KẾT"}</Badge>
-                  <h1>{isEn ? "Your Comprehensive Financial Overview" : "Bức tranh tài chính tổng quan của bạn"}</h1>
+                  <div className="step-heading-title-row">
+                    <span className="step-heading-icon"><Icon name="circle-check" /></span>
+                    <h1>{isEn ? "Your Comprehensive Financial Overview" : "Bức tranh tài chính tổng quan của bạn"}</h1>
+                  </div>
                   <p>{isEn ? "Review all key financial metrics before completing your profile and receiving your customized retirement roadmap." : "Hãy xem lại toàn bộ các chỉ số tài chính quan trọng trước khi hoàn tất hồ sơ và tiến hành lập kế hoạch nghỉ hưu chi tiết."}</p>
                 </div>
 
@@ -1148,7 +1279,7 @@ export default function OnboardingPage() {
                   <Card className="summary-metric-card">
                     <span className="summary-metric-icon"><Icon name="target" /></span>
                     <div>
-                      <small>{isEn ? "Monthly Surplus for Accumulation" : "Dòng tiền thặng dư có thể tích lũy"}</small>
+                      <small>{isEn ? "Monthly Surplus for Accumulation" : "Tiền còn lại sau chi tiêu và trả nợ"}</small>
                       <strong style={{ color: totalMonthlySurplus < 0 ? "var(--color-danger)" : undefined }}>
                         {formatVND(totalMonthlySurplus)}
                       </strong>
@@ -1156,7 +1287,7 @@ export default function OnboardingPage() {
                     {totalMonthlySurplus < 0 ? (
                       <Badge tone="danger">{isEn ? "Cashflow Deficit" : "Thiếu hụt dòng tiền"}</Badge>
                     ) : (
-                      <Badge tone="honey">{isEn ? "Accumulation Surplus" : "Thặng dư tích lũy"}</Badge>
+                      <Badge tone="honey">{isEn ? "Accumulation Surplus" : "Tiền còn lại hàng tháng"}</Badge>
                     )}
                   </Card>
                 </div>
@@ -1200,10 +1331,10 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {saveError && (
+          {(apiSaveError || saveError) && (
             <div className="save-error-banner" role="alert">
               <Icon name="alert" />
-              <span>{saveError}</span>
+              <span>{apiSaveError || saveError}</span>
             </div>
           )}
         </main>

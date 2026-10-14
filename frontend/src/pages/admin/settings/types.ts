@@ -80,7 +80,7 @@ export type PaginatedResponse<T> = {
 export const formatDate = (isoString: string | null, isEn: boolean) => {
   if (!isoString) return isEn ? "Not recorded" : "Chưa ghi nhận";
   try {
-    return new Date(isoString).toLocaleString(isEn ? "en-US" : "vi-VN", {
+    return new Date(isoString).toLocaleString("vi-VN", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

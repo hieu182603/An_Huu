@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { Alert, Button, Card, Icon, Modal } from "./ui";
 import { useI18n } from "../i18n";
+import { preloadRoute } from "../services/routePreload";
 
 function getRouteContext(pathname: string, isEn: boolean) {
   if (pathname.includes("/user/goal")) {
@@ -19,17 +20,17 @@ function getRouteContext(pathname: string, isEn: boolean) {
       badge: isEn ? "DATA REQUIRED · ~5 MINS" : "CẦN DỮ LIỆU THỰC · ~5 PHÚT",
       title: isEn ? "Personalize Your Retirement Plan" : "Cá nhân hóa kế hoạch hưu trí",
       desc: isEn
-        ? "The plan is currently showing illustrative sample figures. Complete the 5-minute survey to get your real cashflow and asset allocation roadmap."
-        : "Kế hoạch hưu trí hiện đang hiển thị số liệu mẫu minh họa. Hãy làm khảo sát khoảng 5 phút để nhận bảng dòng tiền và chiến lược tích lũy thực tế.",
+        ? "Complete your financial profile to calculate your plan from your income, spending and assets."
+        : "Bạn chưa có đủ dữ liệu để tính kế hoạch hưu trí. Hãy làm khảo sát khoảng 5 phút để nhận bảng dòng tiền và chiến lược tích lũy thực tế.",
     };
   }
   if (pathname.includes("/user/simulation")) {
     return {
       badge: isEn ? "ACCURACY BOOST · ~5 MINS" : "MÔ PHỎNG CHÍNH XÁC · ~5 PHÚT",
-      title: isEn ? "Real-Life Monte Carlo Simulation" : "Mô phỏng tài chính theo dữ liệu thực",
+      title: isEn ? "Explore your retirement plan" : "Mô phỏng tài chính theo dữ liệu thực",
       desc: isEn
-        ? "Monte Carlo simulations reflect your true retirement readiness when backed by your actual income, expenses, and asset portfolio."
-        : "Biểu đồ mô phỏng Monte Carlo phản ánh chuẩn xác nhất khi có số liệu thu nhập, chi tiêu và danh mục tài sản thực của bạn.",
+        ? "Enter your income, expenses and assets to estimate your retirement plan."
+        : "Biểu đồ ước tính phản ánh chuẩn xác nhất khi có số liệu thu nhập, chi tiêu và danh mục tài sản thực của bạn.",
     };
   }
   if (pathname.includes("/user/debts")) {
@@ -65,7 +66,7 @@ function getRouteContext(pathname: string, isEn: boolean) {
       title: isEn ? "Personalize Your Financial Dashboard" : "Cá nhân hóa bảng điều khiển tài chính",
       desc: isEn
         ? "Your dashboard is currently showing illustrative sample figures. Complete the 5-minute survey to get your real net worth, cashflow, and retirement progress."
-        : "Bảng điều khiển hiện đang hiển thị số liệu mẫu minh họa. Hãy làm khảo sát khoảng 5 phút để hệ thống cập nhật tài sản ròng, dòng tiền và lộ trình hưu trí thực tế của bạn.",
+        : "Bạn chưa có hồ sơ tài chính. Hãy khai báo thu nhập, chi tiêu và tài sản để xem số liệu của mình và lập kế hoạch hưu trí.",
     };
   }
   if (pathname.includes("/user/explore")) {
@@ -82,7 +83,7 @@ function getRouteContext(pathname: string, isEn: boolean) {
     title: isEn ? "Personalize Your Retirement Plan" : "Cá nhân hóa kế hoạch hưu trí",
     desc: isEn
       ? "You haven't completed your baseline financial survey yet. Spend ~5 minutes so An Huu can accurately calculate your net worth, pension, and AI recommendations."
-      : "Kế hoạch hưu trí hiện đang hiển thị số liệu mẫu minh họa. Hãy làm khảo sát khoảng 5 phút để nhận bảng dòng tiền và chiến lược tích lũy thực tế.",
+      : "Bạn chưa có đủ dữ liệu để tính kế hoạch hưu trí. Hãy làm khảo sát khoảng 5 phút để nhận bảng dòng tiền và chiến lược tích lũy thực tế.",
   };
 }
 
@@ -99,6 +100,10 @@ export default function FinancialProfileGate({
   const { loading, loadError, hasProfile, reloadProfile } = useFinancialProfile();
   const { language } = useI18n();
   const isEn = language === "en";
+
+  // Pages stay hidden until the profile loads (they assume a loaded revision),
+  // but their lazy chunk must download in parallel instead of afterwards.
+  useEffect(() => { if (loading) preloadRoute(location.pathname); }, [loading, location.pathname]);
 
   const [allDismissed, setAllDismissed] = useState(() => {
     return sessionStorage.getItem("anhuu_onboarding_all_dismissed") === "true";
@@ -146,8 +151,10 @@ export default function FinancialProfileGate({
     return <>{children}</>;
   }
 
+  if (loading) return <Card><p role="status">{isEn ? "Loading financial profile…" : "Đang tải hồ sơ tài chính…"}</p></Card>;
+
   const routeContext = getRouteContext(location.pathname, isEn);
-  const isUserRoute = location.pathname.startsWith("/user");
+  const isUserRoute = /^\/user\/(dashboard|goal|plan|simulation|debts|risk-portfolio)$/.test(location.pathname);
   const showOnboardingPrompt = !loading && !hasProfile && !onboarding && isUserRoute;
 
   return (
@@ -216,7 +223,7 @@ export default function FinancialProfileGate({
             </div>
 
             <div className="onboarding-popup-footer">
-              <span>{isEn ? "You can keep exploring with sample figures." : "Bạn vẫn xem được trang với số liệu minh họa."}</span>
+              <span>{isEn ? "You can explore the features and add your financial profile later." : "Bạn có thể tìm hiểu các chức năng và bổ sung hồ sơ sau."}</span>
               <button
                 type="button"
                 className="popup-silence-btn"
@@ -237,8 +244,8 @@ export default function FinancialProfileGate({
             <span className="reminder-pill">{isEn ? "SAMPLE DATA" : "DỮ LIỆU MINH HỌA"}</span>
             <span className="reminder-text">
               {isEn
-                ? "You are viewing sample figures. Complete your 5-minute survey to calculate your real plan."
-                : "Bạn đang xem số liệu minh họa. Hãy làm khảo sát hồ sơ (khoảng 5 phút) để hệ thống tính toán kế hoạch thực của bạn."}
+                ? "Add your financial profile to calculate your retirement plan."
+                : "Bạn chưa có hồ sơ tài chính. Hãy khai báo thông tin để tính kế hoạch của mình."}
             </span>
           </div>
           <div className="onboarding-reminder-right">

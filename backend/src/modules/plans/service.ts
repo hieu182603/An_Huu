@@ -13,7 +13,7 @@ import { profileV2Schema } from "../profiles/schema-v2";
 import { ASSUMPTION_SERIES_CODE } from "../assumptions/schema";
 import { PORTFOLIO_POLICY_CODE } from "../portfolios/schema";
 import { createPlanVersionSchema, applyPlanVersionSchema, planListSchema, planKeySchema, planReportQuerySchema, planCompareSchema, planSimulationSchema, SNAPSHOT_FORMAT } from "./schema";
-import { comparePreviews, versionCsv, hasFutureAssumptions } from "./presentation";
+import { comparePreviews, versionCsv, versionReadableCsv, hasFutureAssumptions } from "./presentation";
 import { SOURCE_MODEL, SOURCE_SNAPSHOT_FORMAT } from "../retirement/engine-v4";
 import { replayProjection } from "../retirement/replay";
 import type { PlanPreview } from "../retirement/upgrade";
@@ -30,6 +30,8 @@ const planView = (p: RetirementPlan) => ({ id: p.id, userId: p.userId, revision:
 type Capture = Awaited<ReturnType<RetirementService["capture"]>>;
 type Preview = PlanPreview;
 type Snapshot = { format: typeof SNAPSHOT_FORMAT; capture: Capture; preview: Preview; integrityHash: string };
+type VersionSummaryRow = { id: string; version: number; createdAt: Date; profileRevision: number; snapshotHash: string;
+  references: Preview["references"]; summary: NonNullable<Preview["calculation"]>["summary"] };
 const modelRelease = { code: RETIREMENT_MODEL, snapshotFormat: SNAPSHOT_FORMAT, arithmeticPrecision: 48,
   contributionTiming: ["END_OF_MONTH", "START_OF_MONTH"], surplusPolicy: "EXPLICIT_DEPOSITS_ONLY",
   withdrawalTiming: "END_OF_MONTH", businessParameters: "SEPARATELY_APPROVED_T03_T04" };
@@ -168,47 +170,51 @@ export class PlansService {
     return { ...q, total: await this.db.retirementPlan.count({ where: { userId } }), items: (await this.db.retirementPlan.findMany({
       where: { userId }, orderBy: { createdAt: "desc" }, skip: (q.page - 1) * q.limit, take: q.limit })).map(planView) };
   }
+  // Read-only views below run outside SERIALIZABLE transactions: plan versions
+  // are immutable and every snapshot is integrity-checked on read, so the only
+  // cross-row skew possible is a hint (profileChanged/updates) one request stale.
+  // Independent reads are issued in parallel on separate pool connections.
   async get(userId: string, planId: string) {
-    return transaction(this.db, async tx => {
-      const plan = await this.owned(tx, userId, planId);
-      const row = plan.currentVersionId ? await tx.planVersion.findFirst({ where: { id: plan.currentVersionId, planId } }) : null;
-      const current = row ? this.view(row) : null;
-      const profile = await tx.financialProfile.findUnique({ where: { userId } });
-      const latest = async (modelCode: string) => tx.assumptionSetVersion.findFirst({ where: { modelCode, status: "PUBLISHED", effectiveAt: { lte: new Date() } }, orderBy: { version: "desc" } });
-      const assumptions = await latest(ASSUMPTION_SERIES_CODE), policy = await latest(PORTFOLIO_POLICY_CODE);
-      const refs = current?.preview.references;
-      return { ...planView(plan), current, profileChanged: !!row && profile?.revision !== row.profileRevision,
-        actualSourceChanged: await actualSourceChanged(tx, userId, current?.preview.reforecast),
-        updates: { assumptions: refs && assumptions && assumptions.version > refs.assumptionVersion ? { id: assumptions.id, version: assumptions.version } : null,
-          policy: refs && policy && policy.version > refs.policyVersion ? { id: policy.id, version: policy.version } : null },
-        updatePolicy: "USER_EXPLICIT_CREATE_AND_APPLY" };
-    });
+    const db = this.db;
+    const latest = (modelCode: string) => db.assumptionSetVersion.findFirst({ where: { modelCode, status: "PUBLISHED", effectiveAt: { lte: new Date() } },
+      orderBy: { version: "desc" }, select: { id: true, version: true } });
+    const [plan, profile, assumptions, policy] = await Promise.all([this.owned(db, userId, planId),
+      db.financialProfile.findUnique({ where: { userId }, select: { revision: true } }), latest(ASSUMPTION_SERIES_CODE), latest(PORTFOLIO_POLICY_CODE)]);
+    const row = plan.currentVersionId ? await db.planVersion.findFirst({ where: { id: plan.currentVersionId, planId } }) : null;
+    const current = row ? this.view(row) : null;
+    const refs = current?.preview.references;
+    return { ...planView(plan), current, profileChanged: !!row && profile?.revision !== row.profileRevision,
+      actualSourceChanged: await actualSourceChanged(db, userId, current?.preview.reforecast),
+      updates: { assumptions: refs && assumptions && assumptions.version > refs.assumptionVersion ? { id: assumptions.id, version: assumptions.version } : null,
+        policy: refs && policy && policy.version > refs.policyVersion ? { id: policy.id, version: policy.version } : null },
+      updatePolicy: "USER_EXPLICIT_CREATE_AND_APPLY" };
   }
+  // The list only needs each version's summary, so it reads three JSON paths in
+  // SQL instead of the multi-MB snapshot/result/chart columns. Full snapshot
+  // integrity is still verified by detail/replay/export/compare/apply reads.
   async versions(userId: string, planId: string, query: z.infer<typeof planListSchema>) {
     const q = planListSchema.parse(query);
-    return transaction(this.db, async tx => {
-      await this.owned(tx, userId, planId);
-      const rows = await tx.planVersion.findMany({ where: { planId }, orderBy: { version: "desc" }, skip: (q.page - 1) * q.limit, take: q.limit });
-      return { ...q, total: await tx.planVersion.count({ where: { planId } }), items: rows.map(row => {
-        const v = this.view(row); return { id: v.id, version: v.version, createdAt: v.createdAt, profileRevision: v.profileRevision,
-          snapshotHash: v.snapshotHash, references: v.preview.references, summary: v.preview.calculation!.summary };
-      }) };
-    });
+    const [, total, rows] = await Promise.all([this.owned(this.db, userId, planId), this.db.planVersion.count({ where: { planId } }),
+      this.db.$queryRaw<VersionSummaryRow[]>`SELECT id, version, "createdAt", "profileRevision",
+        "inputSnapshot"->>'integrityHash' AS "snapshotHash", "inputSnapshot"->'preview'->'references' AS "references", "result"->'summary' AS "summary"
+        FROM plan_versions WHERE "planId" = ${planId} ORDER BY version DESC OFFSET ${(q.page - 1) * q.limit} LIMIT ${q.limit}`]);
+    return { ...q, total, items: rows.map(row => ({ id: row.id, version: row.version, createdAt: row.createdAt.toISOString(),
+      profileRevision: row.profileRevision, snapshotHash: row.snapshotHash, references: row.references, summary: row.summary })) };
+  }
+  private async ownedVersion(userId: string, planId: string, versionId: string) {
+    const [plan, row] = await Promise.all([this.owned(this.db, userId, planId), this.db.planVersion.findFirst({ where: { id: versionId, planId } })]);
+    if (!row) throw missing();
+    return { plan, row };
   }
   async version(userId: string, planId: string, versionId: string, replay = false) {
-    return transaction(this.db, async tx => {
-      await this.owned(tx, userId, planId);
-      const row = await tx.planVersion.findFirst({ where: { id: versionId, planId } });
-      if (!row) throw missing();
-      const v = this.view(row);
-      if (!replay) return v;
-      // Dispatch by immutable model code. Future model changes need a new code
-      // and must preserve this implementation for old snapshots.
-      const result = replayProjection(v.preview.modelVersion === SOURCE_MODEL ? SOURCE_SNAPSHOT_FORMAT : SNAPSHOT_FORMAT, v.preview.modelVersion, v.preview.replayInput!);
-      if (digest(result.rows) !== digest(v.preview.calculation!.rows) || digest(result.summary) !== digest(v.preview.calculation!.summary))
-        throw new AppError(409, "SNAPSHOT_REPLAY_MISMATCH", "Bộ tính không tái lập được phiên bản đã lưu.");
-      return { ...v, replay: { matched: true, modelVersion: result.modelVersion, summary: result.summary, rows: result.rows } };
-    });
+    const v = this.view((await this.ownedVersion(userId, planId, versionId)).row);
+    if (!replay) return v;
+    // Dispatch by immutable model code. Future model changes need a new code
+    // and must preserve this implementation for old snapshots.
+    const result = replayProjection(v.preview.modelVersion === SOURCE_MODEL ? SOURCE_SNAPSHOT_FORMAT : SNAPSHOT_FORMAT, v.preview.modelVersion, v.preview.replayInput!);
+    if (digest(result.rows) !== digest(v.preview.calculation!.rows) || digest(result.summary) !== digest(v.preview.calculation!.summary))
+      throw new AppError(409, "SNAPSHOT_REPLAY_MISMATCH", "Bộ tính không tái lập được phiên bản đã lưu.");
+    return { ...v, replay: { matched: true, modelVersion: result.modelVersion, summary: result.summary, rows: result.rows } };
   }
   async readVersion(tx: Prisma.TransactionClient, userId: string, planId: string, versionId: string) {
     const plan = await this.owned(tx, userId, planId);
@@ -218,53 +224,47 @@ export class PlansService {
   }
   async report(userId: string, planId: string, query: z.infer<typeof planReportQuerySchema>) {
     const input = planReportQuerySchema.parse(query);
-    return transaction(this.db, async tx => {
-      const plan = await this.owned(tx, userId, planId);
-      const selected = input.versionId ?? plan.currentVersionId;
-      const row = selected ? await tx.planVersion.findFirst({ where: { id: selected, planId } }) : null;
-      if (selected && !row) throw missing();
-      const version = row ? this.view(row) : null;
-      const profile = await tx.financialProfile.findUnique({ where: { userId } });
-      return { planId, planRevision: plan.revision, currentVersionId: plan.currentVersionId, baselineVersionId: plan.baselineVersionId,
-        status: version ? "AVAILABLE" : "NO_APPLIED_VERSION", valueKind: version?.preview.reforecast ? "REFORECAST" : "FORECAST", version,
-        actualSourceChanged: await actualSourceChanged(tx, userId, version?.preview.reforecast),
-        profileChanged: !!row && row.profileRevision !== profile?.revision,
-        hypothetical: version ? hasFutureAssumptions(version.preview) : false,
-        goal: version ? { retirementMonth: version.preview.reforecast?.originalRetirementMonth ?? version.preview.calculation!.summary.retirementMonth,
-          endMonth: version.preview.selection.endMonth, monthlyExpenseToday: version.preview.selection.monthlyExpenseToday,
-          monthlyContribution: version.preview.selection.monthlyContribution, monthlyReserve: version.preview.selection.monthlyReserve,
-          terminalBalance: version.preview.selection.terminalBalance } : null };
-    });
+    const [plan, profile] = await Promise.all([this.owned(this.db, userId, planId), this.db.financialProfile.findUnique({ where: { userId }, select: { revision: true } })]);
+    const selected = input.versionId ?? plan.currentVersionId;
+    const row = selected ? await this.db.planVersion.findFirst({ where: { id: selected, planId } }) : null;
+    if (selected && !row) throw missing();
+    const version = row ? this.view(row) : null;
+    return { planId, planRevision: plan.revision, currentVersionId: plan.currentVersionId, baselineVersionId: plan.baselineVersionId,
+      status: version ? "AVAILABLE" : "NO_APPLIED_VERSION", valueKind: version?.preview.reforecast ? "REFORECAST" : "FORECAST", version,
+      actualSourceChanged: await actualSourceChanged(this.db, userId, version?.preview.reforecast),
+      profileChanged: !!row && row.profileRevision !== profile?.revision,
+      hypothetical: version ? hasFutureAssumptions(version.preview) : false,
+      goal: version ? { retirementMonth: version.preview.reforecast?.originalRetirementMonth ?? version.preview.calculation!.summary.retirementMonth,
+        endMonth: version.preview.selection.endMonth, monthlyExpenseToday: version.preview.selection.monthlyExpenseToday,
+        monthlyContribution: version.preview.selection.monthlyContribution, monthlyReserve: version.preview.selection.monthlyReserve,
+        terminalBalance: version.preview.selection.terminalBalance } : null };
   }
   async compare(userId: string, planId: string, command: z.infer<typeof planCompareSchema>) {
     const input = planCompareSchema.parse(command);
-    return transaction(this.db, async tx => {
-      await this.owned(tx, userId, planId);
-      const read = async (id: string) => {
-        const row = await tx.planVersion.findFirst({ where: { id, planId } });
-        if (!row) throw missing(); return this.view(row);
-      };
-      const baseline = await read(input.baselineVersionId), candidate = await read(input.candidateVersionId);
-      return { baseline, candidate, comparison: comparePreviews(baseline.preview, candidate.preview) };
-    });
+    const [, baselineRow, candidateRow] = await Promise.all([this.owned(this.db, userId, planId),
+      this.db.planVersion.findFirst({ where: { id: input.baselineVersionId, planId } }), this.db.planVersion.findFirst({ where: { id: input.candidateVersionId, planId } })]);
+    if (!baselineRow || !candidateRow) throw missing();
+    const baseline = this.view(baselineRow), candidate = this.view(candidateRow);
+    return { baseline, candidate, comparison: comparePreviews(baseline.preview, candidate.preview) };
   }
+  // What-if only: nothing is written, so no transaction. Capture starts in
+  // parallel but its errors surface only after ownership/version checks.
   async simulate(userId: string, planId: string, baselineVersionId: string, command: z.infer<typeof planSimulationSchema>) {
     const input = planSimulationSchema.parse(command);
-    const captured = await transaction(this.db, async tx => {
-      await this.owned(tx, userId, planId);
-      const row = await tx.planVersion.findFirst({ where: { id: baselineVersionId, planId } });
-      if (!row) throw missing();
-      if (this.view(row).preview.reforecast) throw new AppError(422, "REFORECAST_USE_ACTUAL_UPDATE", "Dùng xem trước cập nhật từ thực tế với phiên bản nguồn và mốc đối soát để giữ số dư thực tế.");
-      const capture = await new RetirementService(this.db).capture(tx, userId, input.preview);
-      return { baseline: this.view(row), capture };
-    });
-    const candidate = new RetirementService(this.db).evaluate(captured.capture, input.preview);
-    return { baseline: captured.baseline, candidate, comparison: comparePreviews(captured.baseline.preview, candidate),
+    const retirement = new RetirementService(this.db);
+    const capturing = retirement.capture(this.db, userId, input.preview).then(value => ({ value }), (error: unknown) => ({ error }));
+    const baseline = this.view((await this.ownedVersion(userId, planId, baselineVersionId)).row);
+    if (baseline.preview.reforecast) throw new AppError(422, "REFORECAST_USE_ACTUAL_UPDATE", "Dùng xem trước cập nhật từ thực tế với phiên bản nguồn và mốc đối soát để giữ số dư thực tế.");
+    const captured = await capturing;
+    if ("error" in captured) throw captured.error;
+    const candidate = retirement.evaluate(captured.value, input.preview);
+    return { baseline, candidate, comparison: comparePreviews(baseline.preview, candidate),
       saved: false, applied: false };
   }
-  async exportCsv(userId: string, planId: string, versionId: string) {
+  async exportCsv(userId: string, planId: string, versionId: string, format: "technical" | "readable-vi" = "technical") {
     const version = await this.version(userId, planId, versionId);
-    return { filename: `an-huu-${planId}-v${version.version}-${versionId}.csv`, content: versionCsv(version) };
+    return { filename: `an-huu-${planId}-v${version.version}-${versionId}${format === "readable-vi" ? "-tieng-viet" : ""}.csv`,
+      content: format === "readable-vi" ? versionReadableCsv(version) : versionCsv(version) };
   }
   async previewSources(userId: string, planId: string, command: z.infer<typeof sourceReforecastSchema>, client?: Prisma.TransactionClient) {
     const input = sourceReforecastSchema.parse(command);

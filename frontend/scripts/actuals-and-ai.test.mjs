@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { formatAiMoney } from "../src/utils/aiPresentation.ts";
 import { Decimal } from "../src/utils/decimal.ts";
 import {
   calculateLocalReconciliation,
@@ -12,6 +13,15 @@ import {
   generateContractPeriods,
 } from "../src/services/plans.ts";
 import { ApiError, invalidateApiCache } from "../src/services/api.ts";
+
+test("AI formats server money exactly and does not turn missing values into zero", () => {
+  assert.equal(formatAiMoney("9007199254740993.75"), "9.007.199.254.740.994 VND");
+  assert.equal(formatAiMoney("-0.1"), "0 VND");
+  assert.equal(formatAiMoney("-100.5"), "-101 VND");
+  assert.equal(formatAiMoney("0"), "0 VND");
+  assert.equal(formatAiMoney(null), "Chưa xác định");
+  assert.equal(formatAiMoney("bad"), "Chưa xác định");
+});
 
 function mockFetch(handler) {
   const originalFetch = globalThis.fetch;

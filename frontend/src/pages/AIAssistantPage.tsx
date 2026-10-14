@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
-import { motion } from "motion/react";
-import { Alert, Badge, Button, Card, Drawer, Icon, IconButton, Modal, useNotification } from "../components/ui";
+import { Button, Icon, IconButton, Modal, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import {
@@ -14,19 +13,22 @@ import {
   getAiConversation,
   renameAiConversation,
   deleteAiConversation,
-  exportAiConversation,
+  clearAllAiConversations,
+  editAiMessage,
   AI_POLICY_VERSION,
   type AiPrivacyResponse,
   type AiCitation,
   type AiFact,
   type AiProvenance,
   type AiConversationItem,
+  type AiExplainCommand,
 } from "../services/ai";
-import { formatVNDCurrency } from "../services/retirement";
+import { formatAiMoney as formatVNDCurrency } from "../utils/aiPresentation";
 import { useI18n } from "../i18n";
+import { formatDateVN } from "../utils/date";
 import type { SimulatePlanResponse } from "../services/plans";
-
-const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " ₫";
+import { ApiError } from "../services/api";
+import "./ai-assistant.css";
 
 interface ChatMessage {
   id: string;
@@ -40,15 +42,29 @@ interface ChatMessage {
 }
 
 export default function AIAssistantPage() {
-  const { t, language } = useI18n();
+  const [planDetailsOpen, setPlanDetailsOpen] = useState(false);
+  const { language } = useI18n();
   const navigate = useNavigate();
   const { notify } = useNotification();
-  const { profile, profileRevision } = useFinancialProfile();
-  const { activePlan, currentVersion } = useRetirementPlan();
+  const { profileRevision, v2Profile } = useFinancialProfile();
+  const { activePlan, currentVersion, loadingPlans } = useRetirementPlan();
 
   const [inputPrompt, setInputPrompt] = useState("");
-  const [railOpen, setRailOpen] = useState(() => window.innerWidth >= 1024);
   const [isTyping, setIsTyping] = useState(false);
+  const requestEpoch = useRef(0);
+  const sending = useRef(false);
+  const pendingRequest = useRef<{ command: AiExplainCommand; key: string } | null>(null);
+  const [conversationLoading, setConversationLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const historyEpoch = useRef(0);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [editedQuestion, setEditedQuestion] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  useEffect(() => () => { requestEpoch.current++; }, []);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -73,14 +89,27 @@ export default function AIAssistantPage() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [conversationRevision, setConversationRevision] = useState<number>(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const historyToggleRef = useRef<HTMLButtonElement>(null);
+  const historyPanelRef = useRef<HTMLElement>(null);
+  const historyCloseRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (drawerOpen) historyCloseRef.current?.focus({ preventScroll: true });
+    else if (historyPanelRef.current?.contains(document.activeElement)) historyToggleRef.current?.focus({ preventScroll: true });
+  }, [drawerOpen]);
+  const closeHistory = () => {
+    setDrawerOpen(false);
+    historyToggleRef.current?.focus({ preventScroll: true });
+  };
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
 
   // What-if simulation modal state
   const [whatIfModalOpen, setWhatIfModalOpen] = useState(false);
-  const [whatIfRetireAge, setWhatIfRetireAge] = useState<number>(profile.goal.targetRetireAge || 60);
-  const [whatIfMonthlyContribution, setWhatIfMonthlyContribution] = useState<number>(profile.plan.monthlySavings || 5000000);
-  const [whatIfMonthlyExpense, setWhatIfMonthlyExpense] = useState<number>(profile.goal.monthlyExpenseInRetirement || 20000000);
+  const [whatIfRetirementMonth, setWhatIfRetirementMonth] = useState("");
+  const [whatIfMonthlyContribution, setWhatIfMonthlyContribution] = useState("");
+  const [whatIfMonthlyExpense, setWhatIfMonthlyExpense] = useState("");
+  const [simulationError, setSimulationError] = useState("");
+  const simulationEpoch = useRef(0);
   const [whatIfSimulating, setWhatIfSimulating] = useState(false);
   const [whatIfResult, setWhatIfResult] = useState<SimulatePlanResponse | null>(null);
 
@@ -90,7 +119,7 @@ export default function AIAssistantPage() {
     role: "assistant",
     content: language === "en"
       ? "Hello! I am your An Huu explanation assistant. I help explain calculation results, forecasting rules, and regulatory knowledge sources in your retirement plan. Responses are grounded in actual model data without altering your official plan."
-      : "Xin chào! Tôi là trợ lý giải thích của An Hữu. Tôi hỗ trợ giải thích rõ ràng các kết quả tính toán, quy tắc dự báo và các nguồn tri thức pháp lý trong kế hoạch hưu trí của bạn. Phản hồi luôn dựa trên dữ liệu mô hình thực tế và không tự ý thay đổi kế hoạch chính thức.",
+      : "Xin chào! Tôi giúp bạn hiểu tiền cần có khi nghỉ hưu, tháng nào có thể thiếu tiền và các khoản cần góp thêm. Bạn có thể hỏi về kế hoạch đã lưu hoặc mở phần thử thay đổi kế hoạch để tính lại. Tôi không tự sửa hồ sơ hay áp dụng thay đổi.",
     time: new Date().toLocaleTimeString(language === "en" ? "en-US" : "vi-VN", { hour: "2-digit", minute: "2-digit" }),
   }), [language]);
 
@@ -124,12 +153,18 @@ export default function AIAssistantPage() {
   };
 
   // Load conversation list
-  const loadConversations = async () => {
+  const loadConversations = async (page = 1) => {
+    const epoch = ++historyEpoch.current;
+    setHistoryError("");
     try {
-      const res = await listAiConversations(1, 20);
-      setConversations(res.items);
+      const res = await listAiConversations(page, 20);
+      if (epoch !== historyEpoch.current) return;
+      setConversations(previous => page === 1 ? res.items : [...previous.filter(item => !res.items.some(next => next.id === item.id)), ...res.items]);
+      setHistoryTotal(res.total);
+      setHistoryPage(page);
     } catch {
-      // Ignore
+      if (epoch !== historyEpoch.current) return;
+      setHistoryError(language === "en" ? "Could not load conversations. Please retry." : "Chưa tải được hội thoại. Hãy thử lại.");
     }
   };
 
@@ -141,8 +176,8 @@ export default function AIAssistantPage() {
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
+        top: messages.some(message => message.id !== "m-init-assistant") ? scrollRef.current.scrollHeight : 0,
+        behavior: "auto",
       });
     }
   }, [messages, isTyping]);
@@ -158,12 +193,21 @@ export default function AIAssistantPage() {
         saveHistory,
       });
       setPrivacy(updated);
+      requestEpoch.current++;
+      sending.current = false;
+      pendingRequest.current = null;
+      setIsTyping(false);
+      if (!updated.saveHistory) {
+        historyEpoch.current++;
+        setConversations([]); setHistoryTotal(0); setCurrentConversationId(null); setConversationRevision(0); setMessages([initialMessage]);
+      }
       setConsentModalOpen(false);
       notify.success(
         language === "en" ? "Preferences Saved" : "Đã lưu tùy chọn",
         language === "en" ? "Updated AI data processing preferences." : "Đã cập nhật tùy chọn xử lý dữ liệu của trợ lý."
       );
     } catch (e) {
+      if (e instanceof ApiError && e.code === "REVISION_CONFLICT") await loadPrivacy();
       const msg = e instanceof Error ? e.message : (language === "en" ? "Could not update preferences." : "Không thể cập nhật tùy chọn.");
       notify.error(language === "en" ? "Update Error" : "Lỗi cập nhật", msg);
     } finally {
@@ -172,12 +216,15 @@ export default function AIAssistantPage() {
   };
 
   const handleSelectConversation = async (id: string) => {
+    const epoch = ++requestEpoch.current;
+    sending.current = false; pendingRequest.current = null; setIsTyping(false); setConversationLoading(true);
     try {
       const detail = await getAiConversation(id);
+      if (epoch !== requestEpoch.current) return;
       setCurrentConversationId(detail.id);
       setConversationRevision(detail.revision);
       const loaded: ChatMessage[] = detail.messages.map((m) => {
-        const parsedContext = m.context as { response?: { facts?: AiFact[]; citations?: AiCitation[]; provenance?: AiProvenance } } | undefined;
+        const parsedContext = m.context as { response?: { facts?: AiFact[]; citations?: AiCitation[]; provenance?: AiProvenance; status?: string } } | undefined;
         return {
           id: m.id,
           role: m.role,
@@ -186,49 +233,39 @@ export default function AIAssistantPage() {
           facts: parsedContext?.response?.facts,
           citations: m.citedSources || parsedContext?.response?.citations,
           provenance: parsedContext?.response?.provenance,
+          status: parsedContext?.response?.status,
         };
       });
       setMessages(loaded.length > 0 ? loaded : [initialMessage]);
       setDrawerOpen(false);
     } catch (e) {
+      if (epoch !== requestEpoch.current) return;
+      if (e instanceof ApiError && e.status === 404) {
+        setCurrentConversationId(null); setConversationRevision(0); setMessages([initialMessage]);
+        void loadConversations();
+      }
       notify.error(
         language === "en" ? "Failed to Load Conversation" : "Lỗi tải hội thoại",
         e instanceof Error ? e.message : (language === "en" ? "Could not load conversation." : "Không thể tải hội thoại.")
       );
-    }
+    } finally { if (epoch === requestEpoch.current) setConversationLoading(false); }
   };
 
   const handleNewConversation = async () => {
-    try {
-      const created = await createAiConversation();
-      setCurrentConversationId(created.id);
-      setConversationRevision(created.revision);
-      setMessages([initialMessage]);
-      await loadConversations();
-      setDrawerOpen(false);
-      notify.info(
-        language === "en" ? "New Conversation" : "Hội thoại mới",
-        language === "en" ? "Started a new conversation session." : "Đã khởi tạo phiên trò chuyện mới."
-      );
-    } catch (e) {
-      if (privacy?.saveHistory) {
-        notify.error(
-          language === "en" ? "Could Not Create Conversation" : "Không thể khởi tạo hội thoại",
-          e instanceof Error ? e.message : (language === "en" ? "Could not start new conversation on server." : "Không thể khởi tạo cuộc hội thoại trên máy chủ.")
-        );
-      }
-      // Fallback: local session
+      requestEpoch.current++; sending.current = false; pendingRequest.current = null;
+      setIsTyping(false); setConversationLoading(false);
       setCurrentConversationId(null);
       setConversationRevision(0);
       setMessages([initialMessage]);
+      setInputPrompt("");
       setDrawerOpen(false);
-    }
   };
 
   const handleRename = async (id: string, rev: number) => {
     if (!newTitle.trim()) return;
     try {
       await renameAiConversation(id, rev, newTitle.trim());
+      if (id === currentConversationId) setConversationRevision(rev + 1);
       await loadConversations();
       setRenamingId(null);
       setNewTitle("");
@@ -245,12 +282,15 @@ export default function AIAssistantPage() {
   };
 
   const handleDelete = async (id: string) => {
+    setDeleting(true);
     try {
-      await deleteAiConversation(id);
+      if (id === "ALL") await clearAllAiConversations(); else await deleteAiConversation(id);
       await loadConversations();
-      if (currentConversationId === id) {
+      await loadPrivacy();
+      if (id === "ALL" || currentConversationId === id) {
         handleNewConversation();
       }
+      setDeleteTarget(null);
       notify.success(
         language === "en" ? "Deleted" : "Đã xóa",
         language === "en" ? "Conversation deleted." : "Đã xóa cuộc trò chuyện."
@@ -260,44 +300,28 @@ export default function AIAssistantPage() {
         language === "en" ? "Delete Error" : "Lỗi xóa",
         e instanceof Error ? e.message : (language === "en" ? "Could not delete." : "Không thể xóa.")
       );
-    }
+    } finally { setDeleting(false); }
   };
 
-  const handleExportJson = async () => {
-    if (currentConversationId) {
-      try {
-        await exportAiConversation(currentConversationId);
-        notify.success(
-          language === "en" ? "Exported Successfully" : "Xuất thành công",
-          language === "en" ? "AI conversation exported." : "Đã xuất cuộc trò chuyện AI."
-        );
-        return;
-      } catch (e) {
-        notify.error(
-          language === "en" ? "Export Failed" : "Xuất thất bại",
-          e instanceof Error ? e.message : (language === "en" ? "Could not export conversation." : "Không thể xuất cuộc trò chuyện.")
-        );
-      }
-    }
-    const data = {
-      conversationId: currentConversationId,
-      exportedAt: new Date().toISOString(),
-      planId: activePlan?.id,
-      versionId: currentVersion?.id,
-      messages,
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `an-huu-ai-conversation-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleEditMessage = async () => {
+    if (!currentConversationId || !editingMessage || !editedQuestion.trim()) return;
+    setSavingEdit(true);
+    try {
+      await editAiMessage(currentConversationId, editingMessage.id, conversationRevision, editedQuestion.trim());
+      await handleSelectConversation(currentConversationId);
+      setInputPrompt(editedQuestion.trim()); setEditingMessage(null);
+      notify.info(language === "en" ? "Question updated" : "Đã sửa câu hỏi", language === "en" ? "The old answer was removed. Send the edited question for a new answer." : "Đã bỏ câu trả lời cũ. Bấm gửi câu hỏi đã sửa để nhận câu trả lời mới.");
+    } catch (e) { notify.error(language === "en" ? "Could not edit" : "Chưa sửa được", e instanceof Error ? e.message : ""); }
+    finally { setSavingEdit(false); }
   };
 
   const handleSend = async (textToSend?: string) => {
     const question = (textToSend || inputPrompt).trim();
-    if (!question || isTyping || privacyLoading || privacyError || !privacy) return;
+    if (!question || sending.current || conversationLoading || loadingPlans || privacyLoading || privacyError || !privacy) return;
+    if (question.length > 2000) {
+      notify.error(language === "en" ? "Question too long" : "Câu hỏi quá dài", language === "en" ? "Please keep your question within 2,000 characters." : "Vui lòng rút gọn câu hỏi còn tối đa 2.000 ký tự.");
+      return;
+    }
 
     if (!privacy.processing || privacy.reconsentRequired || (privacy.acceptedPolicyVersion && privacy.policyVersion && privacy.acceptedPolicyVersion !== privacy.policyVersion)) {
       setConsentModalOpen(true);
@@ -311,7 +335,9 @@ export default function AIAssistantPage() {
       time: new Date().toLocaleTimeString(language === "en" ? "en-US" : "vi-VN", { hour: "2-digit", minute: "2-digit" }),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const epoch = requestEpoch.current;
+    sending.current = true;
+    if (pendingRequest.current?.command.question !== question) setMessages((prev) => [...prev, userMsg]);
     if (!textToSend) {
       setInputPrompt("");
       if (textareaRef.current) {
@@ -321,13 +347,26 @@ export default function AIAssistantPage() {
     setIsTyping(true);
 
     try {
-      const res = await explainRetirementPlan({
+      let conversationId = privacy.saveHistory ? currentConversationId : null;
+      let revision = conversationRevision;
+      if (privacy.saveHistory && !conversationId) {
+        const conversation = await createAiConversation();
+        if (epoch !== requestEpoch.current) return;
+        conversationId = conversation.id;
+        revision = conversation.revision;
+        setCurrentConversationId(conversationId);
+        setConversationRevision(revision);
+      }
+      const command: AiExplainCommand = {
         question,
-        planId: activePlan?.id,
-        versionId: currentVersion?.id,
-        conversationId: privacy?.saveHistory && currentConversationId ? currentConversationId : undefined,
-        expectedRevision: privacy?.saveHistory && currentConversationId ? conversationRevision : undefined,
-      });
+        // A draft plan has no applied version. Send neither ID in that case.
+        ...(activePlan && currentVersion ? { planId: activePlan.id, versionId: currentVersion.id } : {}),
+        ...(conversationId ? { conversationId, expectedRevision: revision } : {}),
+      };
+      if (JSON.stringify(pendingRequest.current?.command) !== JSON.stringify(command)) pendingRequest.current = { command, key: crypto.randomUUID() };
+      const res = await explainRetirementPlan(command, pendingRequest.current!.key);
+      if (epoch !== requestEpoch.current) return;
+      pendingRequest.current = null;
 
       if (res.conversationId && res.revision !== null) {
         setCurrentConversationId(res.conversationId);
@@ -348,21 +387,37 @@ export default function AIAssistantPage() {
 
       setMessages((prev) => [...prev, aiMsg]);
     } catch (e) {
+      if (epoch !== requestEpoch.current) return;
+      let recoveryEpoch = epoch;
       const msg = e instanceof Error ? e.message : (language === "en" ? "Could not get response from assistant." : "Không thể nhận phản hồi từ trợ lý.");
-      if (typeof msg === "string" && (msg.includes("403") || msg.includes("AI_CONSENT_REQUIRED") || msg.toLowerCase().includes("consent"))) {
+      if (e instanceof ApiError && e.code === "AI_CONSENT_REQUIRED") {
+        await loadPrivacy();
+        if (epoch !== requestEpoch.current) return;
         setConsentModalOpen(true);
       }
+      if (e instanceof ApiError && (e.status === 404 || ["REVISION_CONFLICT", "AI_PRIVACY_CHANGED"].includes(e.code))) {
+        pendingRequest.current = null;
+        if (e.status === 404) { setCurrentConversationId(null); setConversationRevision(0); }
+        else if (currentConversationId) {
+          const recovery = handleSelectConversation(currentConversationId);
+          recoveryEpoch = requestEpoch.current;
+          await recovery;
+        }
+        await loadPrivacy();
+      }
+      if (recoveryEpoch !== requestEpoch.current) return;
       const errorMsg: ChatMessage = {
         id: `m-${Date.now() + 1}`,
         role: "assistant",
         content: language === "en"
-          ? `Sorry, an error occurred: ${msg}. Please retry or start a new conversation.`
-          : `Rất tiếc, đã có lỗi xảy ra: ${msg}. Vui lòng thử lại hoặc làm mới cuộc trò chuyện.`,
+          ? `Your question could not be answered: ${msg}`
+          : `Chưa thể trả lời câu hỏi: ${msg}`,
         time: new Date().toLocaleTimeString(language === "en" ? "en-US" : "vi-VN", { hour: "2-digit", minute: "2-digit" }),
       };
       setMessages((prev) => [...prev, errorMsg]);
+      setInputPrompt(previous => previous || question);
     } finally {
-      setIsTyping(false);
+      if (epoch === requestEpoch.current) { sending.current = false; setIsTyping(false); }
     }
   };
 
@@ -383,6 +438,14 @@ export default function AIAssistantPage() {
     }
   };
 
+  const openSimulation = () => {
+    simulationEpoch.current++;
+    setWhatIfResult(null); setSimulationError(""); setWhatIfSimulating(false);
+    setWhatIfRetirementMonth(currentVersion?.preview.calculation?.summary.retirementMonth ?? "");
+    setWhatIfMonthlyContribution(currentVersion?.preview.selection.monthlyContribution ?? "");
+    setWhatIfMonthlyExpense(currentVersion?.preview.selection.monthlyExpenseToday ?? "");
+    setWhatIfModalOpen(true);
+  };
   const handleRunWhatIfSimulation = async () => {
     if (!activePlan?.id || !currentVersion?.id) {
       notify.error(
@@ -392,899 +455,212 @@ export default function AIAssistantPage() {
       return;
     }
 
+    const moneyPattern = /^(0|[1-9]\d{0,15})(\.\d{1,2})?$/;
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(whatIfRetirementMonth) || !moneyPattern.test(whatIfMonthlyContribution) || !moneyPattern.test(whatIfMonthlyExpense) || profileRevision < 1) {
+      setSimulationError(language === "en" ? "Enter a retirement month and non-negative amounts (up to two decimal places)." : "Hãy nhập tháng nghỉ hưu và số tiền không âm, tối đa hai chữ số sau dấu chấm. Số 0 là hợp lệ.");
+      return;
+    }
+    const epoch = ++simulationEpoch.current;
     setWhatIfSimulating(true);
+    setSimulationError("");
     setWhatIfResult(null);
-
-    const birthYear = new Date().getFullYear() - (profile.personal.age || 30);
-    const retireMonth = `${birthYear + whatIfRetireAge}-12`;
 
     try {
       const res = await simulateViaAi({
         planId: activePlan.id,
         versionId: currentVersion.id,
-        expectedProfileRevision: profileRevision > 0 ? profileRevision : 1,
+        expectedProfileRevision: profileRevision,
         changes: {
-          retirementMonth: retireMonth,
-          monthlyContribution: String(whatIfMonthlyContribution),
-          monthlyExpenseToday: String(whatIfMonthlyExpense),
+          retirementMonth: whatIfRetirementMonth,
+          monthlyContribution: whatIfMonthlyContribution,
+          monthlyExpenseToday: whatIfMonthlyExpense,
         },
       });
+      if (epoch !== simulationEpoch.current) return;
       setWhatIfResult(res);
-      notify.success(
-        language === "en" ? "Simulation Completed" : "Mô phỏng thành công",
-        language === "en" ? "Comparative simulation for experimental scenario finished." : "Đã hoàn thành tính toán so sánh cho phương án thử nghiệm."
-      );
+      if (res.candidate.status !== "READY") {
+        setSimulationError(language === "en" ? "This change cannot be calculated yet. Review the missing data in your plan." : "Chưa đủ dữ liệu để tính thay đổi này. Hãy kiểm tra các mục còn thiếu trong kế hoạch.");
+        return;
+      }
+
     } catch (e) {
+      if (epoch !== simulationEpoch.current) return;
+      setSimulationError(e instanceof Error ? e.message : "Chưa thể tính. Hãy thử lại.");
       notify.error(
         language === "en" ? "Simulation Error" : "Lỗi mô phỏng",
         e instanceof Error ? e.message : (language === "en" ? "Could not run simulation." : "Không thể chạy mô phỏng.")
       );
     } finally {
-      setWhatIfSimulating(false);
+      if (epoch === simulationEpoch.current) setWhatIfSimulating(false);
     }
   };
 
+  const isEn = language === "en";
+  const hasMessages = messages.some(message => message.id !== "m-init-assistant");
+  const canSimulate = !!currentVersion && !currentVersion.preview.reforecast;
+  const suggestions = [
+    { title: isEn ? "Will my retirement fund be enough?" : "Tiền nghỉ hưu của tôi có đủ không?", description: isEn ? "Compare the projected fund with what you need." : "Hiểu số tiền dự kiến có và số tiền cần chuẩn bị.", question: isEn ? "Explain how much of my retirement needs my projected fund covers." : "Tiền dự kiến có đáp ứng bao nhiêu phần trăm số tiền cần khi nghỉ hưu?" },
+    { title: isEn ? "How much more should I contribute?" : "Tôi cần góp thêm bao nhiêu?", description: isEn ? "Understand the contribution in your saved plan." : "Xem khoản góp thêm theo kế hoạch đã lưu.", question: isEn ? "Explain the additional monthly contribution in my saved plan." : "Giải thích số tiền cần góp thêm mỗi tháng theo kế hoạch đã lưu của tôi." },
+    { title: isEn ? "When might I run short?" : "Khi nào tôi có thể thiếu tiền?", description: isEn ? "Find the first projected shortfall month." : "Hiểu thời điểm quỹ dự kiến không đủ chi tiêu.", question: isEn ? "When does my saved plan first project a shortfall?" : "Theo kế hoạch đã lưu, tháng nào tôi bắt đầu thiếu tiền và con số đó có ý nghĩa gì?" },
+  ];
+
+  const historyList = <div className="ai-history-list">
+    {historyError && <div role="alert"><p>{historyError}</p><Button onClick={() => loadConversations()}>{isEn ? "Retry" : "Tải lại hội thoại"}</Button></div>}
+    {conversations.length === 0 && <p className="ai-history-empty">{privacy?.saveHistory ? (isEn ? "Your saved conversations will appear here." : "Hội thoại đã lưu sẽ xuất hiện ở đây.") : (isEn ? "History is off. You can turn it on in privacy settings." : "Bạn đang tắt lưu lịch sử. Có thể bật trong Quyền riêng tư.")}</p>}
+    {conversations.map(c => <div key={c.id} className={`ai-history-item ${c.id === currentConversationId ? "is-active" : ""}`}>
+      {renamingId === c.id ? <div className="ai-history-rename">
+        <input aria-label="Tên hội thoại" className="input" maxLength={120} value={newTitle} onChange={e => setNewTitle(e.target.value)} autoFocus />
+        <Button size="small" onClick={() => handleRename(c.id, c.revision)}>{isEn ? "Save" : "Lưu"}</Button>
+        <Button size="small" variant="ghost" onClick={() => setRenamingId(null)}>{isEn ? "Cancel" : "Hủy"}</Button>
+      </div> : <>
+        <button type="button" className="ai-history-open" aria-current={c.id === currentConversationId ? "true" : undefined} onClick={() => handleSelectConversation(c.id)} title={c.title}><span>{c.title}</span><small>{formatDateVN(c.createdAt)}</small></button>
+        <div className="ai-history-tools"><IconButton icon="edit" label={isEn ? "Rename" : "Đổi tên"} onClick={() => { setRenamingId(c.id); setNewTitle(c.title); }} /><IconButton icon="trash" label={isEn ? "Delete" : "Xóa"} onClick={() => setDeleteTarget(c.id)} /></div>
+      </>}
+    </div>)}
+    {conversations.length < historyTotal && <Button variant="ghost" onClick={() => loadConversations(historyPage + 1)}>{isEn ? "Load more" : "Xem thêm hội thoại"}</Button>}
+    {historyTotal > 0 && <button className="ai-history-clear" onClick={() => setDeleteTarget("ALL")}>{isEn ? "Delete all history" : "Xóa toàn bộ lịch sử"}</button>}
+  </div>;
+
   return (
-    <div className="codex-work-workspace">
-      {/* Top Header Bar */}
-      <header className="codex-topbar">
-      <div className="codex-title-wrap">
-          <span className="codex-folder-icon" aria-hidden="true">
-            <Icon name="sparkles" size="small" />
-          </span>
-          <h1>
-            {t("ai.page_title")}
-            <span className="codex-title-sub">{language === "en" ? " · Calculation Engine" : " · Động cơ An Hữu"}</span>
-          </h1>
-          <span className="codex-status-pill">
-            <span className="codex-pulse" />
-            {privacyLoading
-              ? (language === "en" ? "Checking AI permissions…" : "Đang tải quyền xử lý AI…")
-              : privacyError
-              ? (language === "en" ? "Could not load AI permissions" : "Chưa tải được quyền xử lý AI")
-              : !privacy?.providerConfigured
-              ? (language === "en" ? "External AI not connected · Plan data explanation only" : "Chưa kết nối AI ngoài · Chỉ giải thích số liệu kế hoạch")
-              : !activePlan || !currentVersion
-              ? (language === "en" ? "General explainer (no plan selected)" : "Giải thích chung (Chưa chọn kế hoạch)")
-              : (language === "en" ? "AI Analytical Assistant" : "AI Hỗ trợ phân tích")}
-          </span>
-        </div>
-
-        <div className="codex-actions-wrap">
-          <Button
-            variant="ghost"
-            size="small"
-            onClick={() => setDrawerOpen(true)}
-          >
-            <Icon name="file-text" size="small" /> {language === "en" ? "Conversations" : "Danh sách hội thoại"} ({conversations.length})
-          </Button>
-
-          <button
-            type="button"
-            className="codex-icon-btn"
-            title={language === "en" ? "Export conversation data (JSON)" : "Xuất dữ liệu hội thoại (JSON)"}
-            aria-label={language === "en" ? "Export conversation data" : "Xuất dữ liệu hội thoại"}
-            onClick={handleExportJson}
-          >
-            <Icon name="download" size="small" />
-          </button>
-
-          <button
-            type="button"
-            className={`codex-icon-btn ${railOpen ? "is-active" : ""}`}
-            title={language === "en" ? "Toggle Sources & Context Rail" : "Bật/tắt thanh Nguồn dữ liệu & Ngữ cảnh"}
-            aria-label={language === "en" ? "Toggle Sources & Context Rail" : "Bật/tắt thanh Nguồn dữ liệu & Ngữ cảnh"}
-            onClick={() => setRailOpen(!railOpen)}
-          >
-            <Icon name="panel-right" size="small" />
-          </button>
-
-          <button
-            type="button"
-            className="codex-icon-btn"
-            title={language === "en" ? "Start new conversation" : "Khởi tạo hội thoại mới"}
-            aria-label={language === "en" ? "Start new conversation" : "Khởi tạo hội thoại mới"}
-            onClick={handleNewConversation}
-          >
-            <Icon name="plus" size="small" />
-          </button>
-        </div>
-      </header>
-
-      {/* Main Container: Chat Feed + Right Docked Rail */}
-      <div className="codex-body-layout">
-        {/* Chat Feed */}
-        <div className="codex-chat-container">
-          <div className="conversation-scroll" ref={scrollRef}>
-          {!currentVersion && (
-            <div style={{ margin: "16px 20px 0", padding: "12px 16px", borderRadius: "var(--radius-sm)", background: "var(--color-secondary-soft)", border: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--color-primary-700)" }}>
-                <Icon name="info" size="small" />
-                <span>
-                  {language === "en"
-                    ? "You haven't established an official retirement plan yet. Create one to get personalized AI data insights."
-                    : "Bạn chưa có kế hoạch hưu trí chính thức. Hãy tạo kế hoạch để trợ lý phân tích số liệu cá nhân hóa cho bạn."}
-                </span>
-              </div>
-              <Link to={activePlan ? "/user/plan" : "/user/goal"} className="button button-primary button-small" style={{ textDecoration: "none", fontSize: "12px" }}>
-                {activePlan ? (language === "en" ? "Open plan" : "Đến kế hoạch") : (language === "en" ? "Set Up Goal" : "Thiết lập mục tiêu")}
-              </Link>
-            </div>
-          )}
-            {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                className={`codex-turn ${msg.role}`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
-              >
-                {/* Status Badge */}
-                {msg.role === "assistant" && msg.status && (
-                  <div style={{ marginBottom: "8px" }}>
-                    {msg.status === "AI_ASSISTED" ? (
-                      <Badge tone="success"><Icon name="sparkles" size="small" /> {language === "en" ? "System AI Assisted" : "AI hệ thống hỗ trợ giải thích"}</Badge>
-                    ) : msg.status === "PROVIDER_UNAVAILABLE" ? (
-                      <Badge tone="warning"><Icon name="info" size="small" /> {language === "en" ? "AI Provider Unavailable (System Model)" : "AI tạm không khả dụng (kết quả hệ thống)"}</Badge>
-                    ) : (
-                      <Badge tone="info"><Icon name="shield" size="small" /> {language === "en" ? "System Plan Calculation" : "Giải thích từ mô hình hệ thống"}</Badge>
-                    )}
-                  </div>
-                )}
-
-                {/* Assistant Message Body */}
-                <div className="codex-message-prose">
-                  {msg.content.split("\n\n").map((para, pIdx) => (
-                    <p key={pIdx}>{para}</p>
-                  ))}
-                </div>
-
-                {/* Structured Key Facts Grid */}
-                {msg.facts && msg.facts.length > 0 && (
-                  <div style={{ marginTop: "14px", display: "grid", gap: "8px" }}>
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted)", letterSpacing: "0.04em" }}>
-                      {language === "en" ? "KEY METRICS FROM ENGINE:" : "SỐ LIỆU CHÍNH TỪ MÔ HÌNH:"}
-                    </span>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "8px" }}>
-                      {msg.facts.map((fact) => (
-                        <div
-                          key={fact.key}
-                          style={{
-                            padding: "8px 12px",
-                            borderRadius: "var(--radius-sm)",
-                            background: "rgba(15, 23, 42, 0.03)",
-                            border: "1px solid var(--color-border)",
-                            fontSize: "12px",
-                            lineHeight: "1.45",
-                          }}
-                        >
-                          <strong style={{ display: "block", color: "var(--color-primary-700)", fontSize: "11px", marginBottom: "2px" }}>
-                            {fact.key.toUpperCase()}
-                          </strong>
-                          {fact.text}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Approved Citations from Knowledge Base */}
-                {msg.citations && msg.citations.length > 0 && (
-                  <div style={{ marginTop: "14px", borderTop: "1px dashed var(--color-border)", paddingTop: "10px" }}>
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted)" }}>
-                      {language === "en" ? "LEGAL & REGULATORY CITATIONS:" : "CĂN CỨ VÀ NGUỒN TRI THỨC PHÁP LÝ / CHUẨN MỰC:"}
-                    </span>
-                    <div style={{ display: "grid", gap: "6px", marginTop: "6px" }}>
-                      {msg.citations.map((c) => (
-                        <div
-                          key={c.id}
-                          style={{
-                            padding: "8px 10px",
-                            background: "var(--color-surface-subtle)",
-                            borderRadius: "var(--radius-sm)",
-                            fontSize: "11.5px",
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <strong>{c.title} (v{c.version})</strong>
-                            <small className="font-mono" style={{ color: "var(--color-text-muted)" }}>
-                              {language === "en" ? "Effective" : "Hiệu lực"}: {new Date(c.effectiveDate).toLocaleDateString(language === "en" ? "en-US" : "vi-VN")}
-                            </small>
-                          </div>
-                          <p style={{ margin: "4px 0 0", color: "var(--color-text-muted)", fontStyle: "italic" }}>
-                            "{c.excerpt}"
-                          </p>
-                          {c.url && (
-                            <a
-                              href={c.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ fontSize: "11px", color: "var(--color-primary-600)", marginTop: "4px", display: "inline-block" }}
-                            >
-                              {language === "en" ? "View source text →" : "Xem văn bản gốc →"}
-                            </a>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Provenance Metadata & Simulation Trigger Button */}
-                {msg.role === "assistant" && msg.provenance && (
-                  <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                      <Badge tone="soft">
-                        {language === "en" ? "Plan" : "Kế hoạch"}: {msg.provenance.valueKind}
-                      </Badge>
-                      <small className="font-mono" style={{ fontSize: "10.5px", color: "var(--color-text-muted)" }}>
-                        {language === "en" ? "Model v" : "Mô hình v"}{msg.provenance.modelVersion} • {language === "en" ? "Valuation" : "Định giá"}: {msg.provenance.valuationDate}
-                      </small>
-                    </div>
-
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      onClick={() => setWhatIfModalOpen(true)}
-                    >
-                      <Icon name="sparkles" size="small" /> {language === "en" ? "Test What-if" : "Thử nghiệm What-if"}
-                    </Button>
-                  </div>
-                )}
-              </motion.div>
-            ))}
-
-            {isTyping && (
-              <div className="codex-turn assistant typing">
-                <div className="tool-row">
-                  <span className="tool-icon">✎</span>
-                  <span className="tool-text">
-                    {language === "en" ? "Cross-referencing plan data and regulatory standards..." : "Đang đối chiếu dữ liệu kế hoạch và tri thức chuẩn mực..."}
-                  </span>
-                </div>
-                <div className="typing-pulse-dots">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </div>
-            )}
-
-            {/* Informational Sync Divider */}
-            <div className="codex-sync-divider">
-              <span className="sync-line" />
-              <span className="sync-label">
-                {language === "en"
-                  ? `ⓘ Grounded on active plan for ${profile.personal.name} • Target retire age ${profile.goal.targetRetireAge}`
-                  : `ⓘ Phân tích dựa trên kế hoạch hiện hành của ${profile.personal.name} • Mục tiêu tuổi ${profile.goal.targetRetireAge}`}
-              </span>
-              <span className="sync-line" />
-            </div>
-
-            {/* Quick Suggestions Block */}
-            <div className="codex-suggestions-block">
-              <span className="suggestions-title">
-                {language === "en" ? "FREQUENT PLAN QUESTIONS (CHOOSE TO DRAFT):" : "CÂU HỎI THƯỜNG GẶP (CHỌN ĐỂ ĐIỀN NHÁP):"}
-              </span>
-              <div className="suggestions-pills">
-                <button
-                  type="button"
-                  onClick={() => handleSelectSuggestion(language === "en" ? "Explain my retirement coverage ratio and its most critical driving factors?" : "Giải thích tỷ lệ bao phủ quỹ hưu trí của tôi và các yếu tố ảnh hưởng lớn nhất?")}
-                  title={language === "en" ? "Click to insert into draft" : "Bấm để điền vào ô soạn thảo"}
-                >
-                  <Icon name="sparkles" size="small" />
-                  <span>{language === "en" ? "What is the retirement coverage ratio?" : "Tỷ lệ bao phủ quỹ hưu trí là gì?"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectSuggestion(language === "en" ? "How much more do I need to contribute monthly to retire 2 years earlier?" : "Nếu tôi muốn nghỉ hưu sớm hơn 2 năm thì cần đóng góp thêm bao nhiêu mỗi tháng?")}
-                  title={language === "en" ? "Click to insert into draft" : "Bấm để điền vào ô soạn thảo"}
-                >
-                  <Icon name="target" size="small" />
-                  <span>{language === "en" ? "Retiring 2 years earlier requirements" : "Nghỉ hưu sớm hơn 2 năm cần thêm vốn gì?"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSelectSuggestion(language === "en" ? "How are inflation and investment return assumptions set in this plan?" : "Giả định lạm phát và lợi suất trong phiên bản này được quy định như thế nào?")}
-                  title={language === "en" ? "Click to insert into draft" : "Bấm để điền vào ô soạn thảo"}
-                >
-                  <Icon name="info" size="small" />
-                  <span>{language === "en" ? "Inflation and yield assumptions" : "Quy ước lạm phát và lợi suất đầu tư"}</span>
-                </button>
-              </div>
-            </div>
+    <div className="ai-chat-page">
+      <div className={`ai-chat-workspace ${!hasMessages && !conversationLoading ? "is-empty" : "has-messages"}`}>
+        <header className="ai-chat-header">
+          <div className="ai-chat-heading"><h1>{isEn ? "An Huu assistant" : "Trợ lý An Hưu"}</h1></div>
+          <div className="ai-chat-actions">
+            <button className="ai-plan-trigger" type="button" title={isEn ? "View the retirement plan used for answers" : "Xem kế hoạch nghỉ hưu dùng để trả lời"} aria-haspopup="dialog" onClick={() => setPlanDetailsOpen(true)}><Icon name="file-text" size="small" /><span>{isEn ? "Retirement plan" : "Kế hoạch nghỉ hưu"}</span><span className="ai-plan-version">{loadingPlans ? (isEn ? "Loading…" : "Đang tải…") : currentVersion ? (isEn ? `V${currentVersion.version}` : `Bản ${currentVersion.version}`) : (isEn ? "Not set" : "Chưa có")}</span><Icon name="chevron-down" size="small" /></button>
+            <button ref={historyToggleRef} className="ai-history-toggle" type="button" aria-label={isEn ? "Chat history" : "Lịch sử chat"} aria-expanded={drawerOpen} aria-controls="ai-saved-conversations" onClick={() => setDrawerOpen(open => !open)}><Icon name="message" size="small" /><span>{isEn ? "Chat history" : "Lịch sử chat"}</span></button>
           </div>
-
-          {/* Composer Input Form */}
-          <div className="codex-composer-wrapper">
-            {(privacyLoading || privacyError) && <div className="assistant-send-status" role="status">
-              <span>{privacyLoading
-                ? (language === "en" ? "Checking permissions. You can keep drafting your question." : "Đang tải quyền xử lý. Bạn vẫn có thể soạn câu hỏi.")
-                : (language === "en" ? "Could not load permissions. Your draft is kept; retry before sending." : "Chưa tải được quyền xử lý. Câu hỏi được giữ lại; hãy thử lại trước khi gửi.")}</span>
-              {privacyError && <Button variant="secondary" onClick={loadPrivacy}>{language === "en" ? "Retry permissions" : "Tải lại quyền xử lý"}</Button>}
-            </div>}
-            {!privacyLoading && !privacyError && privacy && !privacy.providerConfigured && <p className="assistant-send-status">{language === "en" ? "External AI is not connected. Only plan data explanations are available." : "Chưa kết nối AI ngoài. Hiện chỉ có thể giải thích từ số liệu kế hoạch."}</p>}
-            <form
-              className="codex-composer-card"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSend();
-              }}
-            >
-              <div className="composer-input-row">
-                <textarea
-                  ref={textareaRef}
-                  aria-label={language === "en" ? "Question for AI assistant" : "Câu hỏi dành cho trợ lý AI"}
-                  placeholder={t("ai.input_placeholder")}
-                  value={inputPrompt}
-                  onChange={(e) => setInputPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  rows={1}
-                  disabled={isTyping}
-                />
-                {inputPrompt.trim().length > 0 && !isTyping && (
-                  <button
-                    type="button"
-                    className="composer-clear-btn"
-                    onClick={() => {
-                      setInputPrompt("");
-                      if (textareaRef.current) {
-                        textareaRef.current.style.height = "44px";
-                        textareaRef.current.focus();
-                      }
-                    }}
-                    title={language === "en" ? "Clear input" : "Xóa câu hỏi"}
-                    aria-label={language === "en" ? "Clear input" : "Xóa câu hỏi"}
-                  >
-                    <Icon name="x" size="small" />
-                  </button>
-                )}
-              </div>
-
-              <div className="composer-bottom-bar">
-                <div className="composer-left-actions">
-                  <div
-                    className="composer-context-badge"
-                    title={language === "en" ? "Grounded on active retirement plan" : "Được tham chiếu từ kế hoạch hưu trí chính thức"}
-                  >
-                    <span className="composer-badge-dot" />
-                    <Icon name="shield" size="small" />
-                    <span className="composer-badge-text">
-                      {privacyError
-                        ? (language === "en" ? "Service connection error" : "Lỗi kết nối máy chủ")
-                        : currentVersion
-                        ? (language === "en" ? `Plan v${currentVersion.version}` : `Kế hoạch v${currentVersion.version}`)
-                        : (language === "en" ? "No plan selected (profile baseline)" : "Chưa chọn kế hoạch (dữ liệu hồ sơ)")}
-                    </span>
-                  </div>
-
-                  <div className="composer-shortcut-hint">
-                    <span className="shortcut-label">{language === "en" ? "Press" : "Nhấn"}</span>
-                    <kbd className="composer-kbd">↵ Enter</kbd>
-                    <span className="shortcut-label">{language === "en" ? "to send" : "để gửi"}</span>
-                    <span className="shortcut-sep">•</span>
-                    <kbd className="composer-kbd">Shift + ↵</kbd>
-                    <span className="shortcut-label">{language === "en" ? "new line" : "xuống dòng"}</span>
-                  </div>
-                </div>
-
-                <div className="composer-right-actions">
-                  <button
-                    type="submit"
-                    className={`composer-send-button ${inputPrompt.trim() && !isTyping && !privacyLoading && !privacyError && privacy ? "is-ready" : ""}`}
-                    disabled={!inputPrompt.trim() || isTyping || privacyLoading || privacyError || !privacy}
-                    aria-label={t("ai.send")}
-                  >
-                    {isTyping ? (
-                      <>
-                        <span className="composer-spin-loader" />
-                        <span className="send-btn-label">{language === "en" ? "Thinking..." : "Đang xử lý..."}</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="send-btn-label">{t("ai.send")}</span>
-                        <Icon name="arrow-right" size="small" />
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
+        </header>
+        <div className="ai-chat-body">
+        <div className="ai-chat-stage">
+          {!hasMessages && !conversationLoading && <section className="ai-chat-welcome"><span className="ai-welcome-kicker">{isEn ? "YOUR RETIREMENT, EXPLAINED" : "HIỂU KẾ HOẠCH, AN TÂM NGHỈ HƯU"}</span><h2>{isEn ? "What would you like to understand?" : "Bạn muốn hiểu rõ điều gì?"}</h2><p>{isEn ? "Let's walk through your retirement plan, one question at a time." : "Cùng bạn giải đáp từng câu hỏi về kế hoạch nghỉ hưu."}</p></section>}
+      <div className="ai-chat-feed" ref={scrollRef} aria-busy={isTyping || conversationLoading}>
+        <div className="ai-chat-content">
+          {conversationLoading && <p role="status" className="ai-chat-notice">{isEn ? "Opening conversation…" : "Đang mở hội thoại…"}</p>}
+          {messages.filter(message => message.id !== "m-init-assistant").map(msg => <article key={msg.id} className={`ai-chat-message ${msg.role}`}>
+            <div className="ai-chat-message-meta"><strong>{msg.role === "user" ? (isEn ? "You" : "Bạn") : (isEn ? "An Huu assistant" : "Trợ lý An Hưu")}</strong><span>{msg.time}</span></div>
+            <div className="ai-chat-message-body">{msg.content.split("\n\n").map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
+            {msg.status === "PROVIDER_UNAVAILABLE" && <p className="ai-chat-response-note">{isEn ? "Gemini is unavailable. This explanation uses system data." : "Gemini đang gián đoạn. Câu trả lời này được tạo từ dữ liệu hệ thống."}</p>}
+            {msg.status === "PROVIDER_NOT_CONFIGURED" && <p className="ai-chat-response-note">{isEn ? "Explanation from system data." : "Giải thích từ số liệu hệ thống."}</p>}
+            {!!msg.citations?.length && <details className="ai-chat-sources"><summary>{isEn ? "Reference documents" : "Tài liệu được dùng"} ({msg.citations.length})</summary>
+              {msg.citations.map(citation => <div key={citation.id}><strong>{citation.title}</strong><small>{isEn ? "Version" : "Bản"} {citation.version} · {isEn ? "Effective" : "Hiệu lực"}: {formatDateVN(citation.effectiveDate)}</small><blockquote>{citation.excerpt}</blockquote>
+                {citation.url?.startsWith("https://") && <a href={citation.url} target="_blank" rel="noreferrer">{isEn ? "Read original document" : "Đọc tài liệu gốc"} ↗</a>}
+              </div>)}
+            </details>}
+            {msg.provenance && <p className="ai-chat-provenance">{isEn ? "Based on saved plan data dated" : "Theo số liệu kế hoạch đã lưu ngày"} {formatDateVN(msg.provenance.valuationDate)}{msg.provenance.valueKind === "REFORECAST" ? (isEn ? " · Updated forecast" : " · Dự báo cập nhật từ thực tế") : ""}.</p>}
+            {msg.role === "user" && currentConversationId && /^[0-9a-f-]{36}$/i.test(msg.id) && <Button variant="ghost" size="small" disabled={isTyping} onClick={() => { setEditingMessage(msg); setEditedQuestion(msg.content); }}>{isEn ? "Edit question" : "Sửa câu hỏi"}</Button>}
+          </article>)}
+          {isTyping && <div className="ai-chat-pending" role="status"><span className="ai-chat-loading" aria-hidden="true" />{isEn ? "Preparing your explanation…" : "Đang chuẩn bị câu trả lời…"}</div>}
         </div>
-
-        {/* Right Docked Rail: Outputs & Sources */}
-        {railOpen && (
-          <aside className="codex-side-rail" aria-label={language === "en" ? "Sources and Context" : "Nguồn dữ liệu và Ngữ cảnh"}>
-            <div className="codex-dock-widget">
-              <header className="dock-widget-header">
-                <h3>{language === "en" ? "Active Plan Context" : "Ngữ cảnh kế hoạch đang phân tích"}</h3>
-              </header>
-
-              <div style={{ padding: "var(--space-4)", display: "grid", gap: "14px" }}>
-                <div>
-                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 600 }}>
-                    {language === "en" ? "PLAN VERSION" : "PHIÊN BẢN KẾ HOẠCH"}
-                  </span>
-                  <div style={{ marginTop: "4px" }}>
-                    <strong>{currentVersion ? (language === "en" ? `Version v${currentVersion.version}` : `Phiên bản v${currentVersion.version}`) : (language === "en" ? "No applied version" : "Chưa có bản áp dụng")}</strong>
-                    <p style={{ margin: "2px 0 0", fontSize: "11.5px", color: "var(--color-text-muted)" }}>
-                      {currentVersion?.snapshotHash ? `Hash: ${currentVersion.snapshotHash.slice(0, 12)}...` : ""}
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 600 }}>
-                    {language === "en" ? "RETIREMENT GOAL" : "MỤC TIÊU HƯU TRÍ"}
-                  </span>
-                  <div style={{ marginTop: "4px" }}>
-                    <strong className="font-mono">
-                      {currentVersion?.preview.calculation ? formatVND(Number(currentVersion.preview.calculation.summary.atRetirement.requiredFund)) : "-"}
-                    </strong>
-                    <p style={{ margin: "2px 0 0", fontSize: "11.5px", color: "var(--color-text-muted)" }}>
-                      {language === "en" ? "Retire age" : "Tuổi hưu"}: {profile.goal.targetRetireAge || 60} • {language === "en" ? "Savings" : "Tích lũy"}: {formatVND(profile.plan.monthlySavings)}/{language === "en" ? "mo" : "tháng"}
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ borderTop: "1px dashed var(--color-border)", paddingTop: "12px" }}>
-                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 600 }}>
-                    {language === "en" ? "PRIVACY & DATA SETTINGS" : "QUYỀN RIÊNG TƯ & DỮ LIỆU"}
-                  </span>
-                  <p style={{ margin: "4px 0", fontSize: "11.5px", color: "var(--color-text-muted)" }}>
-                    {language === "en" ? "Save history" : "Lưu lịch sử"}: <b>{privacy?.saveHistory ? (language === "en" ? "On (auto-purges in 30 days)" : "Bật (tự xóa sau 30 ngày)") : (language === "en" ? "Off" : "Tắt")}</b>
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="small"
-                    onClick={() => setConsentModalOpen(true)}
-                    style={{ paddingLeft: 0, marginTop: "4px" }}
-                  >
-                    {language === "en" ? "Privacy settings →" : "Cài đặt quyền riêng tư →"}
-                  </Button>
-                </div>
-
-                <div style={{ borderTop: "1px dashed var(--color-border)", paddingTop: "12px" }}>
-                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 600 }}>
-                    {language === "en" ? "LEGAL DISCLAIMER" : "GIỚI HẠN PHÁP LÝ (DISCLAIMER)"}
-                  </span>
-                  <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-                    {language === "en"
-                      ? "The assistant explains figures calculated by the formal actuarial engine. Any real-world financial decision requires your independent evaluation and professional verification."
-                      : "Trợ lý chỉ hỗ trợ giải thích dữ liệu từ mô hình tính toán chuẩn mực. Mọi quyết định tài chính thực tế cần bạn cân nhắc riêng và xác nhận độc lập."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </aside>
-        )}
       </div>
 
-      {/* Conversations Drawer */}
-      <Drawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        title={language === "en" ? "Conversation Sessions History" : "Lịch sử các phiên hội thoại"}
-      >
-        <div style={{ display: "grid", gap: "12px", padding: "8px 0" }}>
-          <Button variant="primary" onClick={handleNewConversation}>
-            <Icon name="plus" size="small" /> {language === "en" ? "New Conversation" : "Tạo cuộc trò chuyện mới"}
-          </Button>
-
-          {conversations.length === 0 ? (
-            <p style={{ color: "var(--color-text-muted)", fontSize: "12px", textAlign: "center", margin: "20px 0" }}>
-              {language === "en" ? "No stored conversations yet." : "Chưa có cuộc trò chuyện nào được lưu."}
-            </p>
-          ) : (
-            <div style={{ display: "grid", gap: "8px", marginTop: "12px" }}>
-              {conversations.map((c) => (
-                <div
-                  key={c.id}
-                  style={{
-                    padding: "10px 12px",
-                    border: `1.5px solid ${c.id === currentConversationId ? "var(--color-primary-700)" : "var(--color-border)"}`,
-                    borderRadius: "var(--radius-md)",
-                    background: c.id === currentConversationId ? "var(--color-surface-subtle)" : "var(--color-white)",
-                  }}
-                >
-                  {renamingId === c.id ? (
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                      <input
-                        type="text"
-                        value={newTitle}
-                        onChange={(e) => setNewTitle(e.target.value)}
-                        className="input"
-                        style={{ height: "30px", fontSize: "12px" }}
-                      />
-                      <Button size="small" variant="primary" onClick={() => handleRename(c.id, c.revision)}>
-                        {language === "en" ? "Save" : "Lưu"}
-                      </Button>
-                      <Button size="small" variant="ghost" onClick={() => setRenamingId(null)}>
-                        {language === "en" ? "Cancel" : "Hủy"}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div
-                        style={{ cursor: "pointer", flex: 1 }}
-                        onClick={() => handleSelectConversation(c.id)}
-                      >
-                        <strong style={{ fontSize: "12.5px", display: "block" }}>{c.title}</strong>
-                        <small style={{ color: "var(--color-text-muted)", fontSize: "11px" }}>
-                          {new Date(c.createdAt).toLocaleDateString(language === "en" ? "en-US" : "vi-VN")} • {language === "en" ? "Expires" : "Tự xóa"}: {new Date(c.expiresAt).toLocaleDateString(language === "en" ? "en-US" : "vi-VN")}
-                        </small>
-                      </div>
-
-                      <div style={{ display: "flex", gap: "4px" }}>
-                        <IconButton
-                          icon="settings"
-                          label={language === "en" ? "Rename" : "Đổi tên"}
-                          onClick={() => {
-                            setRenamingId(c.id);
-                            setNewTitle(c.title);
-                          }}
-                        />
-                        <IconButton
-                          icon="trash"
-                          label={language === "en" ? "Delete" : "Xóa"}
-                          onClick={() => handleDelete(c.id)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+      <div className="ai-chat-bottom">
+        <div className="ai-chat-composer-wrap">
+          {(privacyLoading || privacyError) && <div className="assistant-send-status" role="status"><span>{privacyLoading ? (isEn ? "Checking permissions. You can keep drafting." : "Đang tải quyền xử lý. Bạn vẫn có thể soạn câu hỏi.") : (isEn ? "Could not load permissions. Your draft is kept." : "Chưa tải được quyền xử lý. Câu hỏi được giữ lại; hãy thử lại trước khi gửi.")}</span>{privacyError && <Button variant="secondary" onClick={loadPrivacy}>{isEn ? "Retry permissions" : "Tải lại quyền xử lý"}</Button>}</div>}
+          {!privacyLoading && !privacyError && privacy && !privacy.providerConfigured && <p className="assistant-send-status">{isEn ? "External AI is not connected. Answers use system plan data." : "Chưa kết nối AI ngoài. Hiện trợ lý giải thích từ số liệu kế hoạch."}</p>}
+          <form className="ai-chat-composer" onSubmit={event => { event.preventDefault(); void handleSend(); }}>
+            <label className="sr-only" htmlFor="ai-chat-question">{isEn ? "Question for AI assistant" : "Câu hỏi dành cho trợ lý AI"}</label>
+            <textarea id="ai-chat-question" ref={textareaRef} placeholder={isEn ? "For example: How much more should I contribute each month?" : "Bạn muốn hỏi gì về kế hoạch nghỉ hưu?"} value={inputPrompt} onChange={event => setInputPrompt(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} rows={2} maxLength={2000} disabled={isTyping} />
+            <div className="ai-chat-composer-actions"><span className="ai-chat-shortcut">{isEn ? "Enter to send · Shift + Enter for a new line" : "Enter để gửi · Shift + Enter để xuống dòng"}</span>
+              <div>{inputPrompt.trim() && !isTyping && <button type="button" className="ai-chat-clear" onClick={() => { setInputPrompt(""); textareaRef.current?.focus(); }}>{isEn ? "Clear question" : "Xóa câu hỏi"}</button>}
+                <button type="submit" className="ai-chat-send" disabled={!inputPrompt.trim() || isTyping || conversationLoading || loadingPlans || privacyLoading || privacyError || !privacy}>{isTyping ? (isEn ? "Processing…" : "Đang xử lý…") : (isEn ? "Send question" : "Gửi câu hỏi")}<Icon name="arrow-right" size="small" /></button>
+              </div>
             </div>
-          )}
+          </form>
+          <p className="ai-chat-limits">{isEn ? "The assistant explains projected figures. It does not change your plan or guarantee investment returns." : "Trợ lý giải thích số liệu dự báo, không tự sửa kế hoạch hay cam kết lợi nhuận."}</p>
         </div>
-      </Drawer>
+      </div>
 
-      {/* Privacy Consent Modal */}
-      <Modal
-        open={consentModalOpen}
-        onClose={() => setConsentModalOpen(false)}
-        title={language === "en" ? "AI Privacy & Assistant Consent" : "Quyền riêng tư & Xác nhận Trợ lý AI"}
-      >
-        <div style={{ display: "grid", gap: "16px" }}>
-          {/* Header Security Hero Banner */}
-          <div
-            style={{
-              display: "flex",
-              gap: "14px",
-              padding: "16px",
-              background: "linear-gradient(135deg, rgba(232, 242, 254, 0.8) 0%, rgba(249, 251, 255, 0.95) 100%)",
-              border: "1px solid var(--color-border, #D0E4FE)",
-              borderRadius: "var(--radius-md, 16px)",
-              alignItems: "flex-start",
-            }}
-          >
-            <div
-              style={{
-                width: "42px",
-                height: "42px",
-                borderRadius: "12px",
-                background: "linear-gradient(135deg, #052659 0%, #334DAF 100%)",
-                color: "#FFFFFF",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                boxShadow: "0 4px 12px rgba(5, 38, 89, 0.18)",
-              }}
-            >
-              <Icon name="shield" size="default" />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h4 style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: 700, color: "var(--color-primary-700, #052659)" }}>
-                {language === "en" ? "System AI Security & Privacy Notice" : "Thông báo an toàn & Quyền riêng tư AI"}
-              </h4>
-              <p style={{ margin: 0, fontSize: "13px", lineHeight: 1.55, color: "var(--color-text-muted, #456B91)" }}>
-                {processingNotice ||
-                  (language === "en"
-                    ? "Review the processing purpose, data categories and history preferences below before choosing whether to allow processing."
-                    : "Hãy xem mục đích xử lý, các loại dữ liệu và lựa chọn lưu lịch sử bên dưới trước khi quyết định cho phép xử lý.")}
-              </p>
-            </div>
+
+          {!hasMessages && !conversationLoading && <div className="ai-chat-suggestions" aria-label={isEn ? "Suggested questions" : "Câu hỏi gợi ý"}>{suggestions.map(suggestion => <button key={suggestion.title} type="button" onClick={() => handleSelectSuggestion(suggestion.question)}>{suggestion.title}</button>)}</div>}
+        </div>
+        <p className="ai-workspace-note">{isEn ? "An Huu helps you understand your plan. Check the figures before making a decision." : "An Hưu giúp bạn hiểu kế hoạch. Hãy kiểm tra số liệu trước khi quyết định."}</p>
+          <aside id="ai-saved-conversations" ref={historyPanelRef} className={`ai-history-panel ${drawerOpen ? "is-open" : ""}`} aria-labelledby="ai-history-title" aria-hidden={!drawerOpen} inert={!drawerOpen} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeHistory(); } }}>
+            <div className="ai-history-panel-header"><h2 id="ai-history-title">{isEn ? "Saved conversations" : "Hội thoại đã lưu"}</h2><button ref={historyCloseRef} type="button" className="ai-history-close" aria-label={isEn ? "Close conversation history" : "Đóng danh sách hội thoại"} onClick={closeHistory}><Icon name="x" size="small" /></button></div>
+            <Button variant="secondary" onClick={handleNewConversation}><Icon name="pen" size="small" />{isEn ? "New conversation" : "Cuộc trò chuyện mới"}</Button>
+            {historyList}
+            <div className="ai-sidebar-bottom"><Button variant="ghost" disabled={privacyLoading || privacyError} onClick={() => { setDrawerOpen(false); setConsentModalOpen(true); }}>{isEn ? "Privacy & history" : "Quyền riêng tư & lịch sử"}</Button></div>
+          </aside>
+        </div>
+      </div>
+      <Modal className="ai-plan-dialog" open={planDetailsOpen} onClose={() => setPlanDetailsOpen(false)} title={isEn ? "Plan used for answers" : "Kế hoạch dùng để trả lời"}>
+      <section className="ai-chat-plan" aria-label={isEn ? "Plan used for new questions" : "Kế hoạch dùng cho câu hỏi mới"}>
+        <div className="ai-chat-plan-copy">
+          <Icon name="file-text" />
+          <div><strong className="ai-chat-plan-name">{loadingPlans ? (isEn ? "Loading your plan…" : "Đang tải kế hoạch…") : currentVersion ? (isEn ? `Using plan version ${currentVersion.version}` : `Đang dùng kế hoạch phiên bản ${currentVersion.version}`) : (isEn ? "No applied plan yet" : "Bạn chưa có kế hoạch đang áp dụng")}</strong>
+            <p>{currentVersion ? (isEn ? "Answers use this saved version, including its assumptions." : "Trả lời theo số liệu của bản đã lưu, gồm cả các giả định trong bản này.") : (isEn ? "Save and apply a plan to explain your own figures." : "Cần lưu và áp dụng kế hoạch để giải thích số tiền của bạn.")}</p>
           </div>
+        </div>
+        <div className="ai-chat-plan-actions">
+          <Link to={activePlan ? "/user/plan" : "/user/goal"}>{currentVersion ? (isEn ? "View plan" : "Xem kế hoạch") : (isEn ? "Set up plan" : "Lập kế hoạch")}</Link>
+          {canSimulate && <Button variant="secondary" onClick={() => { setPlanDetailsOpen(false); openSimulation(); }}>{isEn ? "Try plan changes" : "Thử thay đổi kế hoạch"}</Button>}
+          {!!currentVersion?.preview.reforecast && <Link to="/user/simulation">{isEn ? "Open updated forecast" : "Mở mô phỏng từ số liệu thực tế"}</Link>}
+        </div>
+      </section>
 
-          {/* 2-Column Policy Breakdown */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: "12px",
-            }}
-          >
-            {/* Column 1: Dữ liệu AI phân tích */}
-            <div
-              style={{
-                padding: "14px",
-                background: "var(--color-bg, #F9FBFF)",
-                border: "1px solid var(--color-border, #D0E4FE)",
-                borderRadius: "var(--radius-md, 16px)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ color: "var(--color-secondary-500, #334DAF)", display: "inline-flex" }}>
-                  <Icon name="circle-check" size="small" />
-                </span>
-                <span
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "var(--color-primary-700, #052659)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                  }}
-                >
-                  {language === "en" ? "Data Processed by AI" : "Dữ liệu AI phân tích"}
-                </span>
-              </div>
-              <ul
-                style={{
-                  margin: 0,
-                  paddingLeft: "18px",
-                  fontSize: "12px",
-                  lineHeight: 1.6,
-                  color: "var(--color-text-primary, #052659)",
-                }}
-              >
-                <li>
-                  {language === "en"
-                    ? "Your questions and explanation prompts"
-                    : "Câu hỏi và yêu cầu giải thích của bạn"}
-                </li>
-                <li>
-                  {language === "en"
-                    ? "Retirement plan summary metrics (goals, years, funds)"
-                    : "Chỉ số tóm tắt kế hoạch hưu trí (mục tiêu, thời hạn, quỹ)"}
-                </li>
-                <li>
-                  {language === "en"
-                    ? "Approved regulatory and financial knowledge citations"
-                    : "Trích đoạn tri thức & căn cứ quy định đã duyệt"}
-                </li>
-              </ul>
-            </div>
 
-            {/* Column 2: Cam kết bảo vệ tuyệt đối */}
-            <div
-              style={{
-                padding: "14px",
-                background: "rgba(230, 248, 240, 0.45)",
-                border: "1px solid rgba(30, 126, 85, 0.25)",
-                borderRadius: "var(--radius-md, 16px)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ color: "var(--color-success, #1E7E55)", display: "inline-flex" }}>
-                  <Icon name="shield" size="small" />
-                </span>
-                <span
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "var(--color-success, #1E7E55)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                  }}
-                >
-                  {language === "en" ? "Strictly Protected" : "Cam kết bảo vệ tuyệt đối"}
-                </span>
-              </div>
-              <ul
-                style={{
-                  margin: 0,
-                  paddingLeft: "18px",
-                  fontSize: "12px",
-                  lineHeight: 1.6,
-                  color: "var(--color-text-primary, #052659)",
-                }}
-              >
-                <li>
-                  {language === "en"
-                    ? "Never transmits full name, email, or phone number"
-                    : "Tuyệt đối không gửi họ tên, email, số điện thoại"}
-                </li>
-                <li>
-                  {language === "en"
-                    ? "No bank accounts or payment credentials"
-                    : "Không truy cập số tài khoản hay thẻ ngân hàng"}
-                </li>
-                <li>
-                  {language === "en"
-                    ? "Granular cashflow transactions remain strictly isolated"
-                    : "Dòng sổ thu chi chi tiết được cách ly nội bộ"}
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Retention Callout */}
-          <div
-            style={{
-              padding: "12px 14px",
-              background: "var(--color-secondary-soft, #E8F2FE)",
-              border: "1px solid var(--color-border, #D0E4FE)",
-              borderRadius: "var(--radius-sm, 12px)",
-              fontSize: "12px",
-              lineHeight: 1.5,
-              color: "var(--color-text-muted, #456B91)",
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "10px",
-            }}
-          >
-            <span style={{ color: "var(--color-secondary-500, #334DAF)", marginTop: "1px", flexShrink: 0 }}>
-              <Icon name="info" size="small" />
-            </span>
-            <div>
-              <strong style={{ color: "var(--color-primary-700, #052659)", display: "block", marginBottom: "2px" }}>
-                {language === "en" ? "Retention & History Options:" : "Chính sách lưu trữ & Quản lý lịch sử:"}
-              </strong>
-              {language === "en"
-                ? "You can choose to save conversation history for 30 days to review anytime (auto-purged after 30 days), or select session-only mode where no conversation data is stored."
-                : "Bạn có thể chọn lưu lịch sử đối thoại trong 30 ngày để xem lại hoặc tiếp tục phiên làm việc (tự động xóa sau 30 ngày), hoặc chọn chỉ giải thích trong phiên mà không lưu lại lịch sử."}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "10px",
-              marginTop: "4px",
-              paddingTop: "12px",
-              borderTop: "1px solid var(--color-border, #D0E4FE)",
-            }}
-          >
-            <Button
-              variant="secondary"
-              onClick={() => handleConsent(false, false)}
-              disabled={updatingConsent}
-            >
-              {language === "en" ? "Decline" : "Từ chối"}
-            </Button>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <Button
-                variant="soft"
-                onClick={() => handleConsent(true, false)}
-                loading={updatingConsent}
-                icon="message"
-              >
-                {language === "en" ? "Explain Only (No History)" : "Chỉ giải thích (Không lưu lịch sử)"}
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => handleConsent(true, true)}
-                loading={updatingConsent}
-                icon="circle-check"
-              >
-                {language === "en" ? "Consent & Save History (30 Days)" : "Đồng ý & Lưu lịch sử (30 ngày)"}
-              </Button>
-            </div>
+      </Modal>
+      <Modal open={consentModalOpen} onClose={() => { if (!updatingConsent) setConsentModalOpen(false); }} title={isEn ? "Privacy & conversation history" : "Quyền riêng tư & lịch sử"}>
+        <div className="ai-chat-privacy">
+          <p>{processingNotice || (isEn ? "Questions, plan summary figures and approved excerpts may be sent to Google Gemini to prepare an explanation." : "Câu hỏi, số liệu tóm tắt kế hoạch và trích đoạn tài liệu đã duyệt có thể được gửi tới Google Gemini để hỗ trợ giải thích.")}</p>
+          <p>{isEn ? "Do not include passwords, identity numbers or sensitive personal details in a question." : "Không nhập mật khẩu, số giấy tờ hoặc thông tin cá nhân nhạy cảm vào câu hỏi."}</p>
+          <h3>{isEn ? "Choose how to keep your conversations" : "Bạn muốn lưu hội thoại như thế nào?"}</h3>
+          <p>{isEn ? "Saved conversations can be reviewed for 30 days from creation. You can delete them at any time." : "Hội thoại được lưu có thể xem lại trong 30 ngày kể từ lúc tạo. Bạn có thể xóa bất cứ lúc nào."}</p>
+          {privacy?.saveHistory && <p className="ai-chat-privacy-warning" role="note">{isEn ? "Choosing no history or declining will delete all saved conversations on An Huu." : "Chọn không lưu hoặc từ chối sẽ xóa toàn bộ hội thoại đã lưu trên An Hưu."}</p>}
+          <div className="ai-chat-privacy-choices">
+            <Button disabled={updatingConsent || !privacy} onClick={() => handleConsent(true, true)}>{isEn ? "Allow & save history (30 days)" : "Đồng ý & Lưu lịch sử (30 ngày)"}</Button>
+            <Button variant="secondary" disabled={updatingConsent || !privacy} onClick={() => handleConsent(true, false)}>{isEn ? "Allow without saving history" : "Đồng ý, không lưu lịch sử"}</Button>
+            <Button variant="ghost" disabled={updatingConsent || !privacy} onClick={() => handleConsent(false, false)}>{isEn ? "Decline processing" : "Từ chối xử lý"}</Button>
           </div>
         </div>
       </Modal>
 
-      {/* What-If Simulation Modal */}
-      <Modal
-        open={whatIfModalOpen}
-        onClose={() => setWhatIfModalOpen(false)}
-        title={language === "en" ? "What-If Simulation from AI Suggestions" : "Mô phỏng thử nghiệm What-if từ gợi ý AI"}
-      >
-        <div style={{ display: "grid", gap: "16px" }}>
-          <p style={{ margin: 0, fontSize: "12.5px", color: "var(--color-text-muted)" }}>
-            {language === "en"
-              ? "Quickly adjust key parameters to recalculate your retirement fund without changing base profile data."
-              : "Điều chỉnh nhanh các thông số để xem động cơ tính toán lại quỹ hưu mà không làm thay đổi hồ sơ gốc."}
-          </p>
-
-          <div style={{ display: "grid", gap: "12px" }}>
-            <div>
-              <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>
-                {language === "en" ? "Target retirement age" : "Tuổi nghỉ hưu mong muốn"}: {whatIfRetireAge} {language === "en" ? "yrs" : "tuổi"}
-              </label>
-              <input
-                type="range"
-                min={(profile.personal.age || 30) + 1}
-                max={75}
-                value={whatIfRetireAge}
-                onChange={(e) => setWhatIfRetireAge(Number(e.target.value))}
-                style={{ width: "100%" }}
-              />
-            </div>
-
-            <div>
-              <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>
-                {language === "en" ? "Monthly contribution amount (₫)" : "Mức tích lũy mỗi tháng (₫)"}: {formatVND(whatIfMonthlyContribution)}
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={new Intl.NumberFormat("vi-VN").format(whatIfMonthlyContribution)}
-                onChange={(e) => setWhatIfMonthlyContribution(Number(e.target.value.replace(/\D/g, "")) || 0)}
-                className="input font-mono"
-                style={{ width: "100%", height: "36px" }}
-              />
-            </div>
-
-            <div>
-              <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>
-                {language === "en" ? "Retirement monthly expense (today's value)" : "Chi tiêu khi hưu (giá trị hôm nay)"}: {formatVND(whatIfMonthlyExpense)}
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={new Intl.NumberFormat("vi-VN").format(whatIfMonthlyExpense)}
-                onChange={(e) => setWhatIfMonthlyExpense(Number(e.target.value.replace(/\D/g, "")) || 0)}
-                className="input font-mono"
-                style={{ width: "100%", height: "36px" }}
-              />
-            </div>
-          </div>
-
-          <Button
-            variant="primary"
-            onClick={handleRunWhatIfSimulation}
-            loading={whatIfSimulating}
-          >
-            <Icon name="sparkles" size="small" /> {language === "en" ? "Run Test Calculation" : "Chạy tính toán thử nghiệm"}
-          </Button>
-
-          {whatIfResult && (
-            <div style={{ marginTop: "12px", padding: "12px", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)", fontSize: "12px" }}>
-              <strong style={{ display: "block", marginBottom: "6px" }}>
-                {language === "en" ? "COMPARISON WITH BASELINE PLAN:" : "KẾT QUẢ SO SÁNH VỚI KẾ HOẠCH GỐC:"}
-              </strong>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }} className="font-mono">
-                <div>
-                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                    {language === "en" ? "Projected Test Fund:" : "Quỹ dự phóng thử nghiệm:"}
-                  </span>
-                  <strong style={{ display: "block" }}>{formatVND(Number(whatIfResult.candidate.calculation?.summary.atRetirement.projectedFund || 0))}</strong>
-                </div>
-                <div>
-                  <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                    {language === "en" ? "Retirement Fund Delta:" : "Chênh lệch quỹ hưu:"}
-                  </span>
-                  <strong style={{ display: "block", color: Number(whatIfResult.comparison.delta?.projectedFundAtValuation || 0) >= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }}>
-                    {Number(whatIfResult.comparison.delta?.projectedFundAtValuation || 0) >= 0 ? "+" : ""}
-                    {formatVND(Number(whatIfResult.comparison.delta?.projectedFundAtValuation || 0))}
-                  </strong>
-                </div>
-              </div>
-
-              <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
-                <Button
-                  variant="secondary"
-                  size="small"
-                  onClick={() => {
-                    setWhatIfModalOpen(false);
-                    navigate("/user/simulation");
-                  }}
-                >
-                  {language === "en" ? "Open Simulation page for details →" : "Mở trang Mô phỏng để xem chi tiết →"}
-                </Button>
-              </div>
-            </div>
+      <Modal open={whatIfModalOpen} onClose={() => { simulationEpoch.current++; setWhatIfModalOpen(false); setWhatIfSimulating(false); }} title={language === "en" ? "Try plan changes" : "Thử thay đổi kế hoạch"}>
+        <div className="ai-simulation-form">
+          <p>Các giá trị dưới đây lấy từ phiên bản đang áp dụng. Kết quả thử không tự lưu hoặc thay đổi kế hoạch của bạn.</p>
+          <label htmlFor="ai-retirement-month">Tháng bắt đầu nghỉ hưu</label>
+          <input id="ai-retirement-month" type="month" className="input" value={whatIfRetirementMonth}
+            min={v2Profile?.valuationDate.slice(0, 7)} max={currentVersion?.preview.selection.endMonth}
+            disabled={whatIfSimulating} onChange={e => { setWhatIfRetirementMonth(e.target.value); setWhatIfResult(null); }} />
+          <label htmlFor="ai-contribution">Tiền góp mỗi tháng (đồng)</label>
+          <input id="ai-contribution" className="input" inputMode="decimal" value={whatIfMonthlyContribution}
+            disabled={whatIfSimulating} onChange={e => { setWhatIfMonthlyContribution(e.target.value); setWhatIfResult(null); }} />
+          <label htmlFor="ai-expense">Chi tiêu mỗi tháng khi nghỉ hưu, theo giá hôm nay (đồng)</label>
+          <input id="ai-expense" className="input" inputMode="decimal" value={whatIfMonthlyExpense}
+            disabled={whatIfSimulating} onChange={e => { setWhatIfMonthlyExpense(e.target.value); setWhatIfResult(null); }} />
+          <p>Nhập số tiền không có dấu phân cách hàng nghìn. Có thể nhập 0; để trống là chưa nhập.</p>
+          {simulationError && <p role="alert">{simulationError}</p>}
+          <Button variant="primary" loading={whatIfSimulating} disabled={!currentVersion || !!currentVersion.preview.reforecast} onClick={handleRunWhatIfSimulation}>Tính phương án thử</Button>
+          {whatIfResult?.candidate.status === "READY" && whatIfResult.candidate.calculation && (
+            <section aria-label="Kết quả mô phỏng">
+              <h3>Kết quả theo giá trị tại ngày lập số liệu</h3>
+              <p>Kế hoạch đang áp dụng: {formatDateVN(whatIfResult.baseline.preview.valuationDate)}. Phương án thử: {formatDateVN(whatIfResult.candidate.valuationDate)}.</p>
+              <table className="ai-comparison-table"><thead><tr><th>Khoản tiền</th><th>Đang áp dụng</th><th>Phương án thử</th><th>Chênh lệch</th></tr></thead>
+                <tbody>{([
+                  ["Tiền dự kiến có", "projectedFund", "projectedFundAtValuation"],
+                  ["Tiền cần có", "requiredFund", "requiredFundAtValuation"],
+                  ["Thiếu hụt (âm là dư)", "fundingGap", "fundingGapAtValuation"],
+                ] as const).map(([label, field, delta]) => <tr key={field}><th>{label}</th>
+                  <td>{formatVNDCurrency(whatIfResult.baseline.preview.calculation?.summary.atValuation[field] ?? null)}</td>
+                  <td>{formatVNDCurrency(whatIfResult.candidate.calculation!.summary.atValuation[field])}</td>
+                  <td>{formatVNDCurrency(whatIfResult.comparison.delta?.[delta] ?? null)}</td></tr>)}</tbody>
+              </table>
+              {whatIfResult.comparison.status !== "COMPARABLE" && <p>Hai phương án khác cơ sở tính nên chưa thể lấy chênh lệch trực tiếp.</p>}
+              <p>Tháng bắt đầu thiếu tiền: {whatIfResult.candidate.calculation.summary.firstShortfallMonth ?? "Chưa thấy trong thời gian đã tính"}.</p>
+              <Button variant="secondary" onClick={() => { setWhatIfModalOpen(false); navigate("/user/simulation"); }}>Mở trang mô phỏng để lập và lưu phương án</Button>
+            </section>
           )}
         </div>
+      </Modal>
+      <Modal open={deleteTarget !== null} onClose={() => { if (!deleting) setDeleteTarget(null); }} title={deleteTarget === "ALL" ? "Xóa toàn bộ lịch sử?" : "Xóa hội thoại này?"}>
+        <p>Nội dung đã xóa không thể khôi phục. Hồ sơ tài chính và kế hoạch của bạn vẫn được giữ nguyên.</p>
+        <Button variant="secondary" disabled={deleting} onClick={() => setDeleteTarget(null)}>Giữ lại</Button>
+        <Button variant="primary" loading={deleting} onClick={() => deleteTarget && handleDelete(deleteTarget)}>Xác nhận xóa</Button>
+      </Modal>
+      <Modal open={editingMessage !== null} onClose={() => { if (!savingEdit) setEditingMessage(null); }} title="Sửa câu hỏi đã lưu">
+        <p>Câu trả lời cũ của câu hỏi này sẽ được bỏ. Sau khi lưu, bạn có thể gửi lại câu hỏi đã sửa.</p>
+        <textarea aria-label="Nội dung câu hỏi đã sửa" className="input" value={editedQuestion} maxLength={2000} onChange={e => setEditedQuestion(e.target.value)} />
+        <Button loading={savingEdit} disabled={!editedQuestion.trim()} onClick={handleEditMessage}>Lưu câu hỏi đã sửa</Button>
       </Modal>
     </div>
   );

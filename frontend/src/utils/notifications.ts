@@ -10,9 +10,9 @@ export function formatRelativeTime(dateString: string, isEn: boolean): string {
     if (hours < 24) return isEn ? `${hours}h ago` : `${hours} giờ trước`;
     const days = Math.floor(hours / 24);
     if (days < 7) return isEn ? `${days}d ago` : `${days} ngày trước`;
-    return new Date(dateString).toLocaleDateString(isEn ? "en-US" : "vi-VN", {
-      month: "short",
-      day: "numeric",
+    return new Date(dateString).toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
     });
   } catch {
     return dateString;

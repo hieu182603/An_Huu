@@ -10969,6 +10969,27 @@ Delta:
       type: string
       pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
       nullable: true
+RetirementComparison:
+  type: object
+  additionalProperties: false
+  required: [status, reasons, basis, baselineMonth, candidateMonth, delta]
+  properties:
+    status: { type: string, enum: [COMPARABLE, NOT_COMPARABLE] }
+    reasons: { type: array, items: { type: string } }
+    basis: { type: string, enum: [SAME_RETIREMENT_MONTH_NOMINAL] }
+    baselineMonth: { type: string, nullable: true }
+    candidateMonth: { type: string, nullable: true }
+    delta:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required: [projectedFund, requiredFund, fundingGap, coveragePercentagePoints]
+          properties:
+            projectedFund: { type: string, nullable: true }
+            requiredFund: { type: string, nullable: true }
+            fundingGap: { type: string, nullable: true }
+            coveragePercentagePoints: { type: string, nullable: true }
+        - { type: object, nullable: true, enum: [null] }
 ComparisonResult:
   type: object
   additionalProperties: false
@@ -10997,6 +11018,8 @@ ComparisonResult:
       type: string
       enum:
         - VALUATION_DATE_EACH_VERSION_DISCOUNT_FACTORS
+    atRetirement:
+      $ref: "#/RetirementComparison"
     delta:
       anyOf:
         - $ref: "#/Delta"

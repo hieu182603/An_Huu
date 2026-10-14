@@ -26,13 +26,43 @@ export const steps = [
   { title: 'Đi từng bước nhỏ', text: 'Lưu kế hoạch và cập nhật khi cuộc sống có thay đổi.', icon: 'circle-check' as const },
 ];
 
-export const assistantExamples = [
+export interface AssistantExample {
+  question: string;
+  tabLabel?: string;
+  takeaway?: string;
+  answer: string;
+  category: string;
+  actionLabel?: string;
+  scenarioName?: string;
+  scenarioParams?: {
+    currentAge?: number;
+    retirementAge?: number;
+    lifeExpectancy?: number;
+    cashSavings?: number;
+    monthlyExpenseToday?: number;
+    monthlyContribution?: number;
+    annualReturnRate?: number;
+    annualInflationRate?: number;
+  };
+}
+
+export const assistantExamples: AssistantExample[] = [
   {
     question: 'Tôi 35 tuổi, nên bắt đầu tích lũy bao nhiêu mỗi tháng?',
     tabLabel: '35 tuổi tích lũy',
     takeaway: 'Tích lũy 15% - 20% thu nhập; sau 25 năm tạo lập quỹ hưu trí nền tảng vững chắc',
     answer: 'Nguyên tắc phổ biến là dành 15% - 20% thu nhập hàng tháng cho hưu trí. Ví dụ với thu nhập 30 triệu/tháng, tích lũy đều đặn 5 - 6 triệu/tháng với lợi suất giả định 7%/năm sau 25 năm sẽ tạo dựng một quỹ hơn 4,8 tỷ đồng. Bạn có thể mở mục Mô phỏng để thử con số chính xác theo thu nhập của mình.',
     category: 'Khởi đầu',
+    actionLabel: 'Áp dụng kịch bản này vào Mô phỏng',
+    scenarioName: '35 tuổi tích lũy 6 triệu/tháng',
+    scenarioParams: {
+      currentAge: 35,
+      retirementAge: 60,
+      monthlyContribution: 6000000,
+      annualReturnRate: 7,
+      cashSavings: 0,
+      monthlyExpenseToday: 20000000,
+    },
   },
   {
     question: 'Nếu tôi muốn nghỉ hưu sớm ở tuổi 50 thì kế hoạch thay đổi ra sao?',
@@ -40,6 +70,16 @@ export const assistantExamples = [
     takeaway: 'Tác động kép: giảm 10 năm tích lũy lãi kép, tăng 10 năm dòng tiền chi trả',
     answer: 'Nghỉ hưu sớm ở tuổi 50 có tác động kép: thời gian tích lũy ngắn đi 10 năm (mất đi giai đoạn lãi kép mạnh nhất) và thời gian quỹ phải chi trả kéo dài thêm 10 năm (từ 25 năm lên 35 năm). Bạn cần tăng tỷ lệ tiết kiệm lên 35% - 45% thu nhập hoặc hạ thấp mức chi tiêu kỳ vọng sau nghỉ hưu.',
     category: 'FIRE / Hưu sớm',
+    actionLabel: 'Áp dụng kịch bản này vào Mô phỏng',
+    scenarioName: 'Nghỉ hưu sớm ở tuổi 50',
+    scenarioParams: {
+      currentAge: 35,
+      retirementAge: 50,
+      lifeExpectancy: 85,
+      monthlyContribution: 12000000,
+      monthlyExpenseToday: 20000000,
+      annualReturnRate: 6,
+    },
   },
   {
     question: 'Lương hưu BHXH đóng 20 năm thì nhận được bao nhiêu % lương?',
@@ -47,6 +87,7 @@ export const assistantExamples = [
     takeaway: 'Mức hưởng 45% - 55% trên lương đóng; cần thêm quỹ tự nguyện để bù đắp thực tế',
     answer: 'Với nam giới đóng 20 năm BHXH, tỷ lệ hưởng là 45% mức bình quân lương đóng; với nữ giới đóng 20 năm, tỷ lệ hưởng là 55%. Do lương đóng thường thấp hơn thu nhập thực nhận, lương hưu BHXH nên được xem là lưới bảo vệ tối thiểu, cần quỹ hưu trí riêng bổ trợ.',
     category: 'An sinh xã hội',
+    actionLabel: 'Mở công cụ mô phỏng',
   },
 ];
 

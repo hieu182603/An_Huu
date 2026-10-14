@@ -4,7 +4,6 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Avatar, Badge, BrandLogo, Drawer, Icon, IconButton, Tooltip, useNotification, type IconName } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
-import { authenticatedRequest } from "../services/api";
 import { UserAccountModal, type AccountModalTab } from "../components/UserAccountModal";
 import AppLoader from "../components/AppLoader";
 import PageTransition from "../components/PageTransition";
@@ -35,7 +34,6 @@ export default function UserLayout() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFeedback, setSearchFeedback] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [unread, setUnread] = useState(0);
 
   const userNavItems: UserNavItem[] = [
     { path: "/user/dashboard", label: t("nav.dashboard"), icon: "home" },
@@ -55,16 +53,8 @@ export default function UserLayout() {
     { path: "/user/account", label: language === "en" ? "Financial Profile" : "Hồ sơ tài chính", icon: "settings" },
   ];
 
-  useEffect(() => {
-    let active = true;
-    const refresh = () => {
-      if (!user || document.visibilityState === "hidden") return;
-      authenticatedRequest<{ unread: number }>("/me/notifications?limit=1").then(v => { if (active) setUnread(v.unread); }).catch(() => {});
-    };
-    refresh(); const timer = window.setInterval(refresh, 60000);
-    window.addEventListener("anhuu:notifications-updated", refresh); window.addEventListener("focus", refresh);
-    return () => { active = false; window.clearInterval(timer); window.removeEventListener("anhuu:notifications-updated", refresh); window.removeEventListener("focus", refresh); };
-  }, [user?.id]);
+  // Unread count and polling live in the shared notification store used by
+  // NotificationDropdown (services/socket.ts); no second poll here.
 
   const openAccountModal = (tab: AccountModalTab) => {
     setAccountModalTab(tab);
@@ -152,18 +142,20 @@ export default function UserLayout() {
         </nav>
 
         {!collapsed && (
-          <div className="sidebar-profile-progress">
-            <div>
-              <span>{t("nav.profile_progress")}</span>
-              <strong>{completenessPercentage}%</strong>
+          <Link to="/user/account" className="sidebar-profile-progress" aria-label={language === "en" ? "View and complete financial profile" : "Xem và hoàn thiện hồ sơ tài chính"}>
+            <div className="sidebar-profile-heading">
+              <Icon name="users" />
+              <span>{language === "en" ? "Financial profile" : "Hồ sơ tài chính"}</span>
             </div>
+            <div className="sidebar-profile-status"><span>{language === "en" ? "Completed" : "Đã hoàn thiện"}</span><strong>{completenessPercentage}%</strong></div>
             <div className="progress-track" role="progressbar" aria-label={t("nav.profile_progress")} aria-valuenow={completenessPercentage} aria-valuemin={0} aria-valuemax={100}>
               <span style={{ "--progress": `${completenessPercentage}%` } as React.CSSProperties} />
             </div>
-            <small>{language === "en" ? "Projections are indicative estimates." : "Số liệu dự phóng mang tính tham khảo."}</small>
-          </div>
+            <span className="sidebar-profile-action"><Icon name="edit" size="small" /><span>{language === "en" ? "Edit profile" : "Chỉnh sửa hồ sơ"}</span><Icon name="chevron-right" size="small" /></span>
+          </Link>
         )}
 
+        {collapsed && <Link to="/user/account" className="sidebar-profile-compact" aria-label={language === "en" ? "View and complete financial profile" : "Xem và hoàn thiện hồ sơ tài chính"} title={language === "en" ? "Financial profile" : "Hồ sơ tài chính"}><Icon name="users" /><span>{completenessPercentage}%</span></Link>}
       </aside>
 
       {/* Main Workspace */}

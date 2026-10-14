@@ -84,6 +84,13 @@ Vào trang quản trị của App Service vừa tạo > Menu bên trái chọn *
 
 Nhớ bấm **Apply** để lưu cấu hình.
 
+### `TRUST_PROXY_HOPS` và giới hạn tần suất (rate limit)
+
+- Mặc định `TRUST_PROXY_HOPS=0`: Express không tin `X-Forwarded-For`, nên `req.ip` là IP của proxy gần nhất. Khi frontend Vercel rewrite `/api` sang Azure App Service, mọi người dùng ẩn danh có thể bị gộp vào **một** bucket IP (ví dụ `authLimiter` 10 lần/15 phút ở production cho đăng nhập/đăng ký/quên mật khẩu).
+- Từ 14/10/2026, các route đã đăng nhập được giới hạn theo `userId` lấy từ JWT đã xác minh chữ ký (`user:<id>`), không còn phụ thuộc IP. Chỉ request ẩn danh (hoặc token không hợp lệ) mới dùng IP (`ip:<req.ip>`).
+- **Trước khi đặt `TRUST_PROXY_HOPS` khác 0, phải xác minh số hop proxy thực tế** trên môi trường đang chạy, ví dụ tạm log `req.socket.remoteAddress` và header `X-Forwarded-For` của một request đi qua Vercel và một request gọi thẳng `*.azurewebsites.net`, rồi đếm số proxy đáng tin (Vercel edge, front end của App Service) đứng trước Node. Đặt sai (quá lớn) cho phép client giả mạo `X-Forwarded-For` để né rate limit; đặt đúng nhưng vẫn mở đường gọi thẳng Azure thì client cũng giả mạo được. Vì vậy cần chặn truy cập trực tiếp bỏ qua proxy (Access Restrictions/header bí mật) trước, rồi mới đặt giá trị (xem thêm `docs/FOUNDATION.md`).
+- Không đổi biến này trên production nếu chưa có bằng chứng đo đạc ở trên.
+
 ---
 
 ## 5. Bước 4: Thiết Lập Startup Command Trên Azure

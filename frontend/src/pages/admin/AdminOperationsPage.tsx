@@ -7,7 +7,7 @@ type AuditEntry = { id: string; action: string; targetType: string; targetId: st
 type AuditPage = { items: AuditEntry[]; total: number; page: number; limit: number };
 
 const formatDate = (v: string | null, isEn: boolean) =>
-  v ? new Date(v).toLocaleString(isEn ? "en-US" : "vi-VN") : isEn ? "Not recorded" : "Chưa ghi nhận";
+  v ? new Date(v).toLocaleString("vi-VN") : isEn ? "Not recorded" : "Chưa ghi nhận";
 
 const targetsVi: Record<string, string> = { USER: "Tài khoản", ARTICLE: "Nội dung", SUPPORT: "Hỗ trợ", CONSULTATION: "Tư vấn" };
 const targetsEn: Record<string, string> = { USER: "User Account", ARTICLE: "Article", SUPPORT: "Support Ticket", CONSULTATION: "Consultation" };

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { ApiError, endSession, clearAccessToken, ensureFreshSession, sessionRefreshDelay, refreshSession, startSession, type ApiUser } from "../services/api";
 
 export type UserRole = "user" | "admin";
@@ -113,7 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAccessToken(); setUser(null);
     broadcastSession("logout");
   }, []);
-  return <AuthContext.Provider value={{ user, isAuthenticated: !!user, initializing, restoreError, retrySession, login, loginWithGoogle, logout }}>{children}</AuthContext.Provider>;
+  const value = useMemo(() => ({ user, isAuthenticated: !!user, initializing, restoreError, retrySession, login, loginWithGoogle, logout }),
+    [user, initializing, restoreError, retrySession, login, loginWithGoogle, logout]);
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);

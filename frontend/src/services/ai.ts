@@ -200,22 +200,4 @@ export async function clearAllAiConversations(): Promise<{ deleted: number }> {
   return authenticatedRequest<{ deleted: number }>("/me/ai/conversations", {}, "DELETE");
 }
 
-export async function exportAiConversation(id: string): Promise<AiConversationDetail> {
-  const result = await authenticatedRequest<AiConversationDetail>(
-    `/me/ai/conversations/${encodeURIComponent(id)}/export`
-  );
-  if (typeof window !== "undefined" && window.URL && document) {
-    const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json;charset=utf-8" });
-    const filename = `an-huu-ai-conversation-${id}.json`;
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  }
-  return result;
-}
 

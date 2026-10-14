@@ -4,10 +4,12 @@ import { z } from "zod";
 import { AppError } from "../../common/errors";
 import { transaction } from "../../common/transaction";
 import { audit } from "../../common/audit";
+import { PublishedCache } from "../../common/published-cache";
 import { AssumptionsService } from "../assumptions/service";
 import { assumptionsListSchema, publishAssumptionsSchema } from "../assumptions/schema";
 import { portfolioDocumentSchema, writePortfolioSchema, approvePortfolioSchema, portfolioPreviewSchema, PORTFOLIO_POLICY_CODE, type PortfolioDocument, type PortfolioPreview } from "./schema";
 import { validatePortfolioPolicy, previewPortfolio } from "./engine";
+import { previewGuidance } from "./guidance";
 
 const json = (data: unknown) => JSON.parse(JSON.stringify(data)) as Prisma.InputJsonObject;
 const hash = (data: unknown) => createHash("sha256").update(JSON.stringify(data)).digest("hex");
@@ -21,6 +23,7 @@ function stored(row: AssumptionSetVersion) {
   return { id: row.id, version: row.version, revision: row.revision, status: row.status, data: data.data, documentHash: hash(data.data),
     approval: workflow.data.approval, createdBy: row.createdBy, publishedBy: row.publishedBy, createdAt: row.createdAt.toISOString(), effectiveAt: row.effectiveAt?.toISOString() ?? null };
 }
+export const publishedPolicies = new PublishedCache<ReturnType<typeof stored>>();
 export class PortfoliosService {
   constructor(private db: PrismaClient, private now: () => Date = () => new Date()) {}
   private async row(client: Prisma.TransactionClient, id: string) {
@@ -29,9 +32,16 @@ export class PortfoliosService {
     return row;
   }
   async get(id: string, publishedOnly = false) {
+    const cached = publishedPolicies.get(id);
+    if (cached) {
+      if (publishedOnly && (!cached.effectiveAt || new Date(cached.effectiveAt) > this.now())) throw new AppError(404, "NOT_FOUND", "Chính sách chưa công bố hoặc chưa có hiệu lực.");
+      return cached;
+    }
     const row = await this.row(this.db, id);
     if (publishedOnly && (row.status !== "PUBLISHED" || !row.effectiveAt || row.effectiveAt > this.now())) throw new AppError(404, "NOT_FOUND", "Chính sách chưa công bố hoặc chưa có hiệu lực.");
-    return stored(row);
+    const result = stored(row);
+    if (row.status === "PUBLISHED") publishedPolicies.set(id, result);
+    return result;
   }
   async list(command: z.infer<typeof assumptionsListSchema>, publishedOnly = false) {
     const query = assumptionsListSchema.parse(command), where = { modelCode: PORTFOLIO_POLICY_CODE,
@@ -111,8 +121,9 @@ export class PortfoliosService {
     const input = portfolioPreviewSchema.parse(command), version = await this.get(input.policyVersionId, true);
     const assumptions = await this.dependency(this.db, version.data);
     if (version.approval?.assumptionHash !== assumptions.documentHash) throw new AppError(409, "POLICY_REVIEW_REQUIRED", "Bộ giả định không khớp bản đã duyệt.");
+    const result = previewPortfolio(version.data, assumptions.data, input);
     return { policyVersionId: version.id, policyVersion: version.version, policyHash: version.documentHash,
       assumptionVersionId: assumptions.id, assumptionHash: assumptions.documentHash, answerBasis: "USER_DECLARED_NOT_INDEPENDENTLY_VERIFIED",
-      ...previewPortfolio(version.data, assumptions.data, input) };
+      ...result, guidance: previewGuidance(version.data, assumptions.data, input, result.issues) };
   }
 }

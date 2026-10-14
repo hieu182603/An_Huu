@@ -1,5 +1,6 @@
+import { profileCompletionItems } from "../utils/profileCompletion";
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
-import { authenticatedRequest } from "../services/api";
+import { ApiError, authenticatedRequest } from "../services/api";
 import {
   financialData,
   profileFromData,
@@ -17,6 +18,7 @@ import {
 } from "../services/financialProfile";
 import { useAuth } from "./AuthContext";
 import { calculateRetirement, inputFromProfile } from "../domain/retirementCalculator";
+import { useStableValue } from "../utils/useStableValue";
 
 // Trạng thái lưu dữ liệu cho UI: idle = chưa có thay đổi; dirty = có thay đổi chưa lưu;
 // saving = đang ghi; saved = vừa ghi thành công; error = lỗi lưu.
@@ -170,17 +172,7 @@ function loadedProfile(base: FinancialProfile, record: ProfileRecord): { profile
 
 export function calculateProfileCompleteness(v2: ProfileV2 | null, p?: FinancialProfile): number {
   if (v2) {
-    const checks = [
-      v2.personal.birthMonth.status === "KNOWN",
-      v2.personal.desiredRetirementMonth.status === "KNOWN",
-      Boolean(v2.personal.gender && v2.personal.gender !== "UNDISCLOSED"),
-      v2.personal.pensionStartMonth.status !== "UNKNOWN",
-      v2.income.status !== "UNKNOWN",
-      v2.expenses.status !== "UNKNOWN",
-      v2.assets.status !== "UNKNOWN",
-      v2.debts.status !== "UNKNOWN",
-      Boolean(v2.pension && v2.pension.status !== "UNKNOWN"),
-    ];
+    const checks = profileCompletionItems(v2).map(item => item.complete);
     const completed = checks.filter(Boolean).length;
     return Math.round((completed / checks.length) * 100);
   }
@@ -262,9 +254,9 @@ function useProfileState() {
     busy.current = true; setSaveStatus("saving"); setSaveError(null);
     try {
       const isV2Server = recordRef.current.schemaVersion === 2 || isProfileV2(recordRef.current.data);
-      const changes = isV2Server
-        ? createDefaultProfileV2(next)
-        : financialData(next, recordRef.current.data as FinancialData);
+      // A v1-shaped update must never overwrite a detailed v2 profile with converted defaults.
+      if (isV2Server) throw new Error("Hồ sơ chi tiết chỉ cập nhật được trong biểu mẫu hồ sơ tài chính.");
+      const changes = financialData(next, recordRef.current.data as FinancialData);
       const record = await authenticatedRequest<ProfileRecord>("/me/financial-profile", { expectedRevision: recordRef.current.revision, changes }, "PATCH");
       recordRef.current = record;
       const { profile: nextProfile, v2 } = loadedProfile(base, record);
@@ -312,6 +304,10 @@ function useProfileState() {
     return persistProfile({ ...profile, ...updates });
   };
   const writeDraft = async (draft: OnboardingDraftData) => {
+    // This wizard only collects legacy totals; converting them would discard V2 entries and contracts.
+    if (recordRef.current?.schemaVersion === 2 || isProfileV2(recordRef.current?.data)) {
+      throw new Error("Bạn đã có hồ sơ tài chính chi tiết. Hãy mở Hồ sơ tài chính để cập nhật; bản nháp khảo sát vẫn được giữ lại.");
+    }
     const source = profileFromDraft(base, draft);
     const data: DraftRecord["data"] = financialData(source);
     if (!draft.age) delete data.personal!.age;
@@ -362,10 +358,20 @@ function useProfileState() {
     } catch (e) {
       // Network errors may follow a successful commit: retain the same idempotency key.
       if (e instanceof Error && "status" in e && Number(e.status) >= 400 && Number(e.status) < 500) pendingCompletion.current = null;
+      if (e instanceof ApiError && e.code === "PROFILE_SCHEMA_MISMATCH") {
+        // Another tab may have upgraded the profile while this survey was open.
+        // Refresh only the profile: the saved survey must remain available for review.
+        try {
+          const record = await authenticatedRequest<ProfileRecord>("/me/financial-profile", undefined, "GET", undefined, { skipCache: true });
+          recordRef.current = record;
+          const next = loadedProfile(base, record);
+          setProfile(next.profile); setV2Profile(next.v2); setSchemaVersion(record.schemaVersion ?? (next.v2 ? 2 : 1)); setHasProfile(true);
+        } catch { /* Keep the draft and report the original failure if the refresh fails. */ }
+      }
       setDraftSaveStatus("error"); setSaveError(failure(e)); return false;
     } finally { busy.current = false; }
   };
-  const completenessPercentage = useMemo(() => calculateProfileCompleteness(v2Profile, profile), [v2Profile, profile]);
+  const completenessPercentage = useMemo(() => hasProfile ? calculateProfileCompleteness(v2Profile, profile) : 0, [hasProfile, v2Profile, profile]);
   return {
     profile,
     v2Profile,
@@ -373,6 +379,7 @@ function useProfileState() {
     completenessPercentage,
     profileRevision: recordRef.current?.revision ?? 0,
     onboardingDraft,
+    hasOnboardingDraft: !!draftRef.current,
     loading,
     loadError,
     hasProfile,
@@ -436,7 +443,8 @@ function useProfileState() {
   };
 }
 export function FinancialProfileProvider({ children }: { children: ReactNode }) {
-  const value = useProfileState();
+  // Stable identity unless profile data changes, so typing elsewhere does not re-render every consumer.
+  const value = useStableValue(useProfileState());
   return <FinancialProfileContext.Provider value={value}>{children}</FinancialProfileContext.Provider>;
 }
 export function useFinancialProfile() {

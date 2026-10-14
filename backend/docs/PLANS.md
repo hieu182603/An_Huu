@@ -49,7 +49,7 @@ API đọc:
 | --- | --- |
 | `GET /?page=1&limit=20` | Danh sách kế hoạch của chính người dùng; current/baseline/revision/stale |
 | `GET /:planId` | current đã lưu, profileChanged và updates.assumptions/policy |
-| `GET /:planId/versions?page=1&limit=20` | Lịch sử từ mới xuống cũ, summary/nguồn/hash của từng snapshot |
+| `GET /:planId/versions?page=1&limit=20` | Lịch sử từ mới xuống cũ, summary/nguồn/hash của từng snapshot. Từ 14/10/2026 đọc bằng phép chiếu JSON trong SQL và **không** kiểm toàn vẹn từng snapshot (chỉ là danh sách); chi tiết/replay/CSV/so sánh/mô phỏng/áp dụng vẫn kiểm đầy đủ và trả 409 SNAPSHOT_INTEGRITY_FAILED nếu lệch |
 | `GET /:planId/versions/:versionId` | Toàn bộ preview đã lưu, không tính bằng cấu hình hiện hành |
 | `POST /:planId/versions/:versionId/replay` với `{}` | Chạy lại core từ dòng tháng snapshot; xác nhận matched hoặc báo mismatch |
 

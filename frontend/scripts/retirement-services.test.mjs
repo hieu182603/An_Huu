@@ -4,8 +4,8 @@ import { formatCompactVND, formatFullVND } from "../src/utils/currency.ts";
 
 test("shared chart currency formatters handle locale, scale and negative values", () => {
   assert.equal(formatCompactVND(1_500_000_000, true), "1.5 tỷ");
-  assert.equal(formatCompactVND(-2_000_000, false), "-2M ₫");
-  assert.equal(formatFullVND(25_000_000.5, true), "25.000.001 ₫");
+  assert.equal(formatCompactVND(-2_000_000, false), "-2M VND");
+  assert.equal(formatFullVND(25_000_000.5, true), "25.000.001 VND");
 });
 
 // Currency and percent formatting tests

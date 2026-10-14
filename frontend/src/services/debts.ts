@@ -19,31 +19,43 @@ export interface DebtPreviewInput {
 export interface DebtScheduleRow {
   month: string;
   debtPayment: string;
-  remainingPrincipal: string;
-  cashflowStatus: "DEFICIT" | "BALANCED" | "SURPLUS" | "UNKNOWN";
-  remainingCash: string | null;
-  ratioPercent: string | null;
+  availableForRetirement: string | null;
+  pressure: {
+    ratioPercent: string | null;
+    remainingCash: string | null;
+    cashflowStatus: "DEFICIT" | "BALANCED" | "SURPLUS" | "UNKNOWN";
+    status: string;
+  };
   income: string | null;
   nonDebtExpense: string | null;
 }
 
 export interface DebtSimulationResult {
-  status: "CALCULATED" | "INCOMPLETE";
+  status: "CALCULATED" | "HORIZON_LIMIT";
   totals: {
     principal: string;
     interest: string;
     fees: string;
     interestAndFees: string;
     extraPrincipal: string;
+    debtFreeDate: string | null;
+    firstShortfallMonth: string | null;
+    closingLoanBalance: string;
   };
   rows: DebtScheduleRow[];
-  debtFreeDate: string | null;
-  firstShortfallMonth: string | null;
+  cashflowAssessment: {
+    status: "COMPLETE" | "PARTIAL" | "UNAVAILABLE";
+    evaluatedMonths: number;
+    totalMonths: number;
+    firstUnknownMonth: string | null;
+    shortfallStatus: "DETECTED" | "UNKNOWN" | "NOT_DETECTED_IN_HORIZON";
+    issues: string[];
+  };
 }
 
 export interface DebtAlternativeStrategy {
   strategy: "AVALANCHE" | "SNOWBALL" | "SELECTED_PAYOFF";
-  status: "CALCULATED" | "INCOMPLETE";
+  status: "CALCULATED" | "HORIZON_LIMIT" | "INCOMPLETE";
   comparisonScope: "FULL_TERM" | "SAME_HORIZON_ONLY" | "UNAVAILABLE";
   result: DebtSimulationResult | null;
   interestAndFeesSaved: string | null;

@@ -34,7 +34,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 export function validateRetirementInput(input: RetirementCalculationInput): string[] {
   const errors: string[] = [];
   if (!Number.isFinite(input.currentAge) || input.currentAge < 18 || input.currentAge > 74) errors.push("Tuổi hiện tại phải từ 18 đến 74.");
-  if (!Number.isFinite(input.retirementAge) || input.retirementAge <= input.currentAge || input.retirementAge > 75) errors.push("Tuổi nghỉ hưu phải lớn hơn tuổi hiện tại và không quá 75.");
+  if (!Number.isFinite(input.retirementAge) || input.retirementAge < input.currentAge || input.retirementAge > 75) errors.push("Tuổi nghỉ hưu phải từ tuổi hiện tại và không quá 75.");
   if (!Number.isFinite(input.lifeExpectancy) || input.lifeExpectancy <= input.retirementAge || input.lifeExpectancy > 110) errors.push("Tuổi thọ phải lớn hơn tuổi nghỉ hưu và không quá 110.");
   if (!Number.isFinite(input.annualInflationRate) || input.annualInflationRate < 0 || input.annualInflationRate > 20) errors.push("Lạm phát phải nằm trong khoảng 0% đến 20%.");
   if (!Number.isFinite(input.annualReturnRate) || input.annualReturnRate < 0 || input.annualReturnRate > 30) errors.push("Lợi suất phải nằm trong khoảng 0% đến 30%.");
@@ -72,7 +72,7 @@ function requiredFundAtRetirement(monthlyExpense: number, monthlyPension: number
 
 export function calculateRetirement(input: RetirementCalculationInput): RetirementCalculation {
   const currentAge = clamp(input.currentAge, 18, 74);
-  const retirementAge = clamp(input.retirementAge, currentAge + 1, 75);
+  const retirementAge = clamp(input.retirementAge, currentAge, 75);
   const lifeExpectancy = clamp(input.lifeExpectancy, retirementAge + 1, 110);
   const annualReturn = clamp(input.annualReturnRate, 0, 30);
   const annualInflation = clamp(input.annualInflationRate, 0, 20);

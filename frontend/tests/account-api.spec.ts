@@ -13,11 +13,16 @@ test("account edits persist through API, preserve form on conflict and update id
     await route.fulfill({ json: { data: account } });
   });
   await page.goto("/user/account");
+  await page.getByRole("button", { name: /^Tài khoản:/ }).click();
+  await page.getByRole("menuitem", { name: "Hồ sơ", exact: true }).click();
   await expect(page.getByLabel("Email tài khoản")).toBeDisabled();
   await page.getByLabel("Họ và tên", { exact: true }).fill("Tên mới");
   await page.getByRole("button", { name: "Lưu thông tin cá nhân" }).click();
   await expect(page.getByRole("button", { name: "Tài khoản: Tên mới" })).toBeVisible();
-  await page.reload(); await expect(page.getByLabel("Họ và tên", { exact: true })).toHaveValue("Tên mới");
+  await page.reload();
+  await page.getByRole("button", { name: /^Tài khoản:/ }).click();
+  await page.getByRole("menuitem", { name: "Hồ sơ", exact: true }).click();
+  await expect(page.getByLabel("Họ và tên", { exact: true })).toHaveValue("Tên mới");
   conflict = true;
   await page.getByLabel("Họ và tên", { exact: true }).fill("Bản đang sửa");
   await page.getByRole("button", { name: "Lưu thông tin cá nhân" }).click();
@@ -30,7 +35,8 @@ test("change password shows server failures and logs out only after API success"
   let fail = true;
   await page.route("**/api/v1/auth/change-password", r => r.fulfill({ status: fail ? 400 : 200, json: fail ? { error: { message: "Mật khẩu hiện tại không đúng." } } : { data: { changed: true } } }));
   await page.goto("/user/account");
-  await page.getByRole("navigation", { name: "Menu tài khoản" }).getByRole("button", { name: "Cài đặt", exact: true }).click();
+  await page.getByRole("button", { name: /^Tài khoản:/ }).click();
+  await page.getByRole("menuitem", { name: "Cài đặt", exact: true }).click();
   await page.getByLabel("Mật khẩu hiện tại", { exact: true }).fill("wrong-password-123");
   await page.getByLabel("Mật khẩu mới", { exact: true }).fill("replacement-password-123");
   await page.getByLabel("Xác nhận mật khẩu mới", { exact: true }).fill("replacement-password-123");

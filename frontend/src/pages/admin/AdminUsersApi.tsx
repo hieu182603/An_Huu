@@ -29,7 +29,7 @@ const formatDate = (value: string | null | undefined, language: "vi" | "en") => 
   if (!value) return language === "en" ? "Not recorded" : "Chưa ghi nhận";
   try {
     const d = new Date(value);
-    return d.toLocaleString(language === "en" ? "en-US" : "vi-VN", {
+    return d.toLocaleString("vi-VN", {
       hour: "2-digit",
       minute: "2-digit",
       day: "2-digit",

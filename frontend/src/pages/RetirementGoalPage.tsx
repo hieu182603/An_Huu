@@ -1,28 +1,22 @@
+import PlanSyncStatus from "../components/PlanSyncStatus";
 import { profileDisplayStatus } from "../services/profileDisplay";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Alert, Badge, Button, Card, Icon, Input, Tooltip, useNotification } from "../components/ui";
+import { Alert, Badge, Button, Card, Icon, Input, Tooltip } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { fetchUserAssumptions } from "../services/assumptions";
-import { getPlanReport, type PlanReport } from "../services/plans";
 import { useI18n } from "../i18n";
-
-const formatVND = (num: number) => new Intl.NumberFormat("vi-VN").format(num) + " ₫";
+import { formatNumberWithDots, formatVND } from "../utils/currency";
 
 export default function RetirementGoalPage() {
   const { t, language } = useI18n();
   const navigate = useNavigate();
-  const { notify } = useNotification();
-  const { profile, v2Profile, updateProfileLocal, updateProfileV2, saveStatus, saveError } = useFinancialProfile();
+  const { profile, v2Profile, updateProfileV2, saveStatus, saveError } = useFinancialProfile();
   const cashflowKnown = profileDisplayStatus(v2Profile).surplus;
-  const { activePlan, currentVersion, loadingPlans, plansError, refreshPlans } = useRetirementPlan();
+  const { synchronization, currentVersion, loadingPlans, plansError, refreshPlans, draftSelection, updateDraft } = useRetirementPlan();
 
-  const [report, setReport] = useState<PlanReport | null>(null);
-  const [reportError, setReportError] = useState("");
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportAttempt, setReportAttempt] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const saving = useRef(false);
   const fields = useRef<HTMLFieldSetElement>(null);
@@ -54,6 +48,18 @@ export default function RetirementGoalPage() {
   const [lifeExpectancy, setLifeExpectancy] = useState<number>(
     profile.goal.lifeExpectancy > targetAge ? profile.goal.lifeExpectancy : Math.max(80, targetAge + 15)
   );
+  const edited = useRef(false);
+  useEffect(() => {
+    if (loadingPlans || edited.current) return;
+    const selection = { ...currentVersion?.preview.selection, ...draftSelection };
+    const birth = v2Profile?.personal.birthMonth;
+    const birthYear = birth?.status === "KNOWN" ? Number(birth.value.slice(0, 4)) : null;
+    const retirementMonth = draftSelection?.whatIf?.retirementMonth ?? (v2Profile?.personal.desiredRetirementMonth.status === "KNOWN" ? v2Profile.personal.desiredRetirementMonth.value : selection.whatIf?.retirementMonth ?? currentVersion?.preview.calculation?.summary.retirementMonth);
+    setCurrentAge(profile.personal.age);
+    if (birthYear && retirementMonth) setTargetAge(Number(retirementMonth.slice(0, 4)) - birthYear);
+    if (birthYear && selection.endMonth) setLifeExpectancy(Number(selection.endMonth.slice(0, 4)) - birthYear);
+    if (selection.monthlyExpenseToday !== undefined) setMonthlyExpenseInRetirement(Number(selection.monthlyExpenseToday));
+  }, [loadingPlans, currentVersion?.id, draftSelection, v2Profile?.personal.birthMonth, profile.personal.age]);
   const [preparedInput, setPreparedInput] = useState("");
   const [validationError, setValidationError] = useState("");
   const [validationField, setValidationField] = useState("");
@@ -79,53 +85,43 @@ export default function RetirementGoalPage() {
     return () => { active = false; };
   }, [assumptionsAttempt]);
 
-  useEffect(() => {
-    let active = true;
-    setReport(null); setReportError(""); setReportLoading(Boolean(activePlan?.id));
-    if (activePlan?.id) getPlanReport(activePlan.id)
-      .then(res => { if (active) setReport(res); })
-      .catch(error => { if (active) setReportError(error instanceof Error ? error.message : String(error)); })
-      .finally(() => { if (active) setReportLoading(false); });
-    return () => { active = false; };
-  }, [activePlan?.id, activePlan?.currentVersionId, reportAttempt]);
-
   const yearsLeft = Math.max(0, targetAge - (currentAge || 18));
   const retirementDuration = Math.max(0, lifeExpectancy - targetAge);
 
-  const planSummary = report?.version?.preview?.calculation?.summary ?? currentVersion?.preview?.calculation?.summary;
+  const planSummary = synchronization.preview?.calculation?.summary;
   const estimatedTargetFund = planSummary?.atRetirement.requiredFund != null ? Number(planSummary.atRetirement.requiredFund) : null;
   const currentSurplus = profile.income.primaryIncome + profile.income.secondaryIncome - currentTotalExpense - (profile.debt.hasDebt ? profile.debt.monthlyDebtService : 0);
-  const fail = (field: string, message: string) => {
+  const fail = (field: string, message: string, focus = true) => {
     setValidationField(field); setValidationError(message);
-    fields.current?.querySelector<HTMLInputElement>(field === 'expense' ? '.goal-spending-field input' : `#goal-${field}`)?.focus();
+    if (focus) fields.current?.querySelector<HTMLInputElement>(field === 'expense' ? '.goal-spending-field input' : `#goal-${field}`)?.focus();
     return false;
   };
 
-  const handleSaveGoal = async () => {
-    if (saving.current || saveStatus === "saving") return false;
+  const handleSaveGoal = async (automatic = false) => {
+    if (loadingPlans || saving.current || saveStatus === "saving") return false;
     if (!Number.isInteger(currentAge) || currentAge < 18 || currentAge > 74) {
       const err = language === "en"
         ? "Current age must be a whole number between 18 and 74."
         : "Tuổi hiện tại phải là số nguyên từ 18 đến 74.";
-      return fail('current-age', err);
+      return fail('current-age', err, !automatic);
     }
-    if (!Number.isInteger(targetAge) || targetAge <= currentAge || targetAge > 75) {
+    if (!Number.isInteger(targetAge) || targetAge < currentAge || targetAge > 75) {
       const err = language === "en"
-        ? "Target retirement age must be a whole number above your current age and no greater than 75."
-        : "Tuổi nghỉ hưu mục tiêu phải là số nguyên, lớn hơn tuổi hiện tại và không vượt quá 75.";
-      return fail('target-age', err);
+        ? "Target retirement age must be a whole number from your current age up to 75."
+        : "Tuổi nghỉ hưu mục tiêu phải là số nguyên từ tuổi hiện tại đến 75.";
+      return fail('target-age', err, !automatic);
     }
     if (!Number.isInteger(lifeExpectancy) || lifeExpectancy <= targetAge || lifeExpectancy > 110) {
       const err = language === "en"
         ? "Plan end age must be a whole number above retirement age and no greater than 110."
         : "Tuổi kết thúc kế hoạch phải là số nguyên, lớn hơn tuổi nghỉ hưu và không vượt quá 110.";
-      return fail('life-age', err);
+      return fail('life-age', err, !automatic);
     }
     if (!Number.isSafeInteger(monthlyExpenseInRetirement) || monthlyExpenseInRetirement <= 0) {
       const err = language === "en"
         ? "Enter a positive whole VND amount within the supported numeric range."
         : "Nhập số tiền nguyên dương trong giới hạn số được hỗ trợ.";
-      return fail('expense', err);
+      return fail('expense', err, !automatic);
     }
     setValidationError("");
 
@@ -140,9 +136,15 @@ export default function RetirementGoalPage() {
     }
     // Persist only the field covered by the profile contract. Goal assumptions
     // remain a session preview until the user saves a plan version.
-    const retirementMonth = targetAge === profile.goal.targetRetireAge && v2Profile?.personal.desiredRetirementMonth.status === "KNOWN"
-      ? v2Profile.personal.desiredRetirementMonth.value
-      : `${birthYear + targetAge}-${birthMonthStr?.slice(5, 7) || "12"}`;
+    const savedSelection = { ...currentVersion?.preview.selection, ...draftSelection };
+    const savedRetirementMonth = savedSelection.whatIf?.retirementMonth ?? currentVersion?.preview.calculation?.summary.retirementMonth;
+    const retirementMonth = savedRetirementMonth && Number(savedRetirementMonth.slice(0, 4)) - birthYear === targetAge
+      ? savedRetirementMonth
+      : targetAge === profile.goal.targetRetireAge && v2Profile?.personal.desiredRetirementMonth.status === "KNOWN"
+        ? v2Profile.personal.desiredRetirementMonth.value
+        : `${birthYear + targetAge}-${birthMonthStr?.slice(5, 7) || "12"}`;
+    const endMonth = savedSelection.endMonth && Number(savedSelection.endMonth.slice(0, 4)) - birthYear === lifeExpectancy
+      ? savedSelection.endMonth : `${birthYear + lifeExpectancy}-${birthMonthStr?.slice(5, 7) || "12"}`;
     saving.current = true; setIsSaving(true);
     try {
       if (v2Profile && (v2Profile.personal.desiredRetirementMonth.status !== "KNOWN" || v2Profile.personal.desiredRetirementMonth.value !== retirementMonth)) {
@@ -154,19 +156,31 @@ export default function RetirementGoalPage() {
           return false;
         }
       }
-      updateProfileLocal({
-        personal: { ...profile.personal, age: currentAge },
-        goal: { ...profile.goal, targetRetireAge: targetAge, lifeExpectancy, lifestyle, monthlyExpenseInRetirement },
+      updateDraft({
+        monthlyExpenseToday: String(monthlyExpenseInRetirement),
+        endMonth,
+        whatIf: { ...currentVersion?.preview.selection.whatIf, ...draftSelection?.whatIf, retirementMonth: v2Profile ? undefined : retirementMonth },
       });
 
       setPreparedInput(inputKey);
-      notify.info(
-        language === "en" ? "Ready to preview" : "Đã chuẩn bị đầu vào xem trước",
-        language === "en" ? "Save a plan version on the next screen to keep these assumptions in your account." : "Chi tiêu và tuổi kết thúc kế hoạch đang dùng để thử trong phiên này. Hãy lưu phiên bản ở trang Kế hoạch để giữ các giả định trong tài khoản."
-      );
       return true;
+    } catch {
+      setValidationError(language === "en" ? "Changes could not be saved. Keep this page open and try Preview again." : "Chưa lưu được thay đổi. Hãy giữ trang này và bấm Xem trước kế hoạch để thử lại.");
+      return false;
     } finally { saving.current = false; setIsSaving(false); }
   };
+
+  const latestSave = useRef(handleSaveGoal);
+  latestSave.current = handleSaveGoal;
+  const attemptedInput = useRef("");
+  useEffect(() => {
+    if (!edited.current || loadingPlans || isSaving || saveStatus === "saving" || preparedInput === inputKey || attemptedInput.current === inputKey) return;
+    const timer = window.setTimeout(() => {
+      attemptedInput.current = inputKey;
+      void latestSave.current(true);
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [inputKey, loadingPlans, isSaving, saveStatus, preparedInput]);
 
   const handleProceedToPlan = async () => {
     if (await handleSaveGoal()) navigate("/user/plan");
@@ -196,7 +210,6 @@ export default function RetirementGoalPage() {
         </div>
       </div>
 
-      {v2Profile && <p className="goal-profile-age-note">{language === "en" ? "Current age is based on your saved birth month." : "Tuổi hiện tại được tính từ tháng sinh đã lưu."} <Link to="/user/account">{language === "en" ? "Update Financial Profile" : "Cập nhật Hồ sơ tài chính"}</Link></p>}
       {!hasValidProfileAge && !v2Profile && (
         <div style={{ marginBottom: "var(--space-4)" }}>
           <Alert
@@ -230,7 +243,7 @@ export default function RetirementGoalPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
         >
-          <fieldset ref={fields} className="goal-edit-fields" disabled={isSaving || saveStatus === "saving"}>
+          <fieldset onChange={() => { edited.current = true; }} onClick={() => { edited.current = true; }} ref={fields} className="goal-edit-fields" disabled={loadingPlans}>
           {/* Section 1: Age Controls */}
           <Card className="goal-form-card">
             <header>
@@ -318,8 +331,8 @@ export default function RetirementGoalPage() {
                     type="button"
                     className="age-stepper-btn"
                     aria-label={language === "en" ? "Decrease retirement age" : "Giảm 1 tuổi hưu"}
-                    disabled={targetAge <= currentAge + 1}
-                    onClick={() => setTargetAge(Math.max(currentAge + 1, targetAge - 1))}
+                    disabled={targetAge <= currentAge}
+                    onClick={() => setTargetAge(Math.max(currentAge, targetAge - 1))}
                   >
                     <Icon name="chevron-left" />
                   </button>
@@ -330,7 +343,7 @@ export default function RetirementGoalPage() {
                       id="goal-target-age"
                       aria-invalid={validationField === 'target-age'}
                       aria-describedby={validationField === 'target-age' ? 'goal-target-error' : undefined}
-                      min={currentAge + 1}
+                      min={currentAge}
                       max={75}
                       value={targetAge || ""}
                       onChange={(e) => setTargetAge(Number(e.target.value))}
@@ -346,7 +359,7 @@ export default function RetirementGoalPage() {
                     className="age-stepper-btn"
                     aria-label={language === "en" ? "Increase retirement age" : "Tăng 1 tuổi hưu"}
                     disabled={targetAge >= 75}
-                    onClick={() => setTargetAge(Math.min(75, Math.max(currentAge + 1, targetAge + 1)))}
+                    onClick={() => setTargetAge(Math.min(75, Math.max(currentAge, targetAge + 1)))}
                   >
                     <Icon name="chevron-right" />
                   </button>
@@ -470,13 +483,13 @@ export default function RetirementGoalPage() {
                 }
                 type="text"
                 inputMode="numeric"
-                value={monthlyExpenseInRetirement ? new Intl.NumberFormat("vi-VN").format(monthlyExpenseInRetirement) : ""}
+                value={monthlyExpenseInRetirement ? formatNumberWithDots(monthlyExpenseInRetirement) : ""}
                 error={validationField === 'expense' ? validationError : undefined}
                 onChange={(v) => {
                   const clean = v.replace(/\D/g, "");
                   setMonthlyExpenseInRetirement(clean ? parseInt(clean, 10) : 0);
                 }}
-                suffix={language === "en" ? "VND / month" : "đ / tháng"}
+                suffix={language === "en" ? "VND / month" : "VND / tháng"}
                 helper={language === "en" ? "Average monthly amount desired to cover all living costs in old age." : "Số tiền trung bình bạn muốn có mỗi tháng để chi trả toàn bộ chi phí cuộc sống tuổi già."}
               />
             </div>
@@ -679,16 +692,28 @@ export default function RetirementGoalPage() {
                 <small>{currentAge} {language === "en" ? "years old" : "tuổi"}</small>
               </div>
 
-              <div className="age-marker marker-mid">
-                <span>{Math.round((currentAge + targetAge) / 2)}</span>
-                <strong>{language === "en" ? "Midpoint" : "Giai đoạn giữa"}</strong>
-                <small>{language === "en" ? "Accelerate accumulation" : "Bứt phá tích lũy"}</small>
-              </div>
+              {yearsLeft > 0 ? (
+                <div className="age-marker marker-mid">
+                  <span>{Math.round((currentAge + targetAge) / 2)}</span>
+                  <strong>{language === "en" ? "Midpoint" : "Giai đoạn giữa"}</strong>
+                  <small>{language === "en" ? "Time remaining before retirement" : "Thời gian còn lại trước khi nghỉ hưu"}</small>
+                </div>
+              ) : (
+                <div className="age-marker marker-mid">
+                  <span>{targetAge}</span>
+                  <strong>{language === "en" ? "Retiree" : "Đã nghỉ hưu"}</strong>
+                  <small>{language === "en" ? "Start retirement drawdown" : "Bắt đầu chi tiêu hưu trí"}</small>
+                </div>
+              )}
 
               <div className="age-marker marker-target">
                 <span>{targetAge}</span>
                 <strong>{language === "en" ? "Retirement" : "Nghỉ hưu"}</strong>
-                <small>{targetAge} {language === "en" ? "years old" : "tuổi"} ({yearsLeft} {language === "en" ? "years to go" : "năm nữa"})</small>
+                <small>
+                  {yearsLeft === 0
+                    ? (language === "en" ? `${targetAge} years old (Retired now)` : `${targetAge} tuổi (Đã nghỉ hưu)`)
+                    : `${targetAge} ${language === "en" ? "years old" : "tuổi"} (${yearsLeft} ${language === "en" ? "years to go" : "năm nữa"})`}
+                </small>
               </div>
 
               <div className="age-marker">
@@ -721,22 +746,14 @@ export default function RetirementGoalPage() {
           <Card className="goal-summary-card">
             {loadingPlans && <p role="status">{language === "en" ? "Loading saved plan…" : "Đang tải kế hoạch đã lưu…"}</p>}
             {plansError && <Alert tone="warning" title={language === "en" ? "Could not load plans" : "Chưa tải được kế hoạch"} action={<Button onClick={() => void refreshPlans()}>{language === "en" ? "Retry plans" : "Tải lại kế hoạch"}</Button>}>{plansError}</Alert>}
-            {reportLoading && <p role="status">{language === "en" ? "Loading plan report…" : "Đang tải báo cáo kế hoạch…"}</p>}
-            {reportError && <Alert tone="warning" title={language === "en" ? "Could not load plan report" : "Chưa tải được báo cáo kế hoạch"} action={<Button onClick={() => setReportAttempt(value => value + 1)}>{language === "en" ? "Retry report" : "Tải lại báo cáo"}</Button>}>{reportError}</Alert>}
-            {report?.profileChanged && <Alert tone="warning" title={language === "en" ? "Profile has changed" : "Hồ sơ đã thay đổi"}>{language === "en" ? "The saved plan has not been recalculated for your current profile." : "Kế hoạch đã lưu chưa được tính lại theo hồ sơ hiện tại."}</Alert>}
+            <PlanSyncStatus />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
               <Badge tone="soft">{language === "en" ? "GOALS SUMMARY" : "TỔNG HỢP MỤC TIÊU"}</Badge>
-              {(report?.version ?? currentVersion) && <Badge tone="info">v{(report?.version ?? currentVersion)?.version}</Badge>}
+              {currentVersion && <Badge tone="info">v{currentVersion.version}</Badge>}
             </div>
 
-            {report?.hypothetical && (
-              <div style={{ marginBottom: "12px" }}>
-                <Badge tone="warning">{language === "en" ? "Plan with personal assumptions" : "Kế hoạch có giả định cá nhân"}</Badge>
-              </div>
-            )}
-
             <div className="goal-summary-main">
-              {planSummary && <p>{language === "en" ? "The fund and future expense below come from the saved version. Editing inputs here does not recalculate them." : "Quỹ và chi tiêu lúc hưu bên dưới lấy từ phiên bản đã lưu. Thay đổi đầu vào tại đây chưa tính lại các số này."}</p>}
+              {planSummary && <p>{language === "en" ? "Calculated from the same profile and choices as the Plan page." : "Tính từ cùng hồ sơ và lựa chọn với trang Kế hoạch."}</p>}
               <span>{language === "en" ? "TARGET RETIREMENT FUND (K)" : "QUỸ NGHỈ HƯU CẦN ĐẠT (K)"}</span>
               {estimatedTargetFund != null && Number.isFinite(estimatedTargetFund) ? (
                 <>
@@ -791,26 +808,18 @@ export default function RetirementGoalPage() {
               </small>
             </div>
 
-            <p className="goal-draft-note">{v2Profile ? (language === "en" ? "Continuing saves your desired retirement date to your profile. Spending and plan end age stay in this session until you save a plan version." : "Khi tiếp tục, thời điểm nghỉ hưu được lưu vào hồ sơ. Chi tiêu và tuổi kết thúc kế hoạch chỉ giữ trong phiên cho đến khi bạn lưu phiên bản kế hoạch.") : (language === "en" ? "These inputs stay in this session. Save a version on the Plan screen to retain your goal." : "Đầu vào chỉ giữ trong phiên. Lưu phiên bản tại trang Kế hoạch để giữ mục tiêu trong tài khoản.")}</p>
-            {preparedInput === inputKey && <p role="status">{language === "en" ? "Inputs are ready for preview." : "Đã giữ đầu vào để thử trong phiên."}</p>}
+            <p className="goal-draft-note">{language === "en" ? "Changes save automatically. Preview your plan when you are ready." : "Thay đổi được tự động lưu. Bạn có thể xem trước kế hoạch khi đã chỉnh xong."}</p>
+            <p role="status" aria-live="polite" className="goal-autosave-status">{isSaving ? (language === "en" ? "Saving…" : "Đang lưu thay đổi…") : validationError ? (language === "en" ? "Changes not saved" : "Thay đổi chưa được lưu") : preparedInput === inputKey ? (language === "en" ? "Changes saved" : "Đã lưu thay đổi") : edited.current ? (language === "en" ? "Waiting to save…" : "Đang chờ lưu…") : (language === "en" ? "Autosave is on" : "Đã bật tự động lưu")}</p>
+            <small className="goal-autosave-scope">{v2Profile ? (language === "en" ? "Retirement date saves to your profile. Other inputs are saved in this browser tab until you save a plan version." : "Thời điểm nghỉ hưu lưu vào hồ sơ. Các lựa chọn khác được lưu nháp trong tab này, chờ bạn lưu phiên bản kế hoạch.") : (language === "en" ? "Your draft is saved in this browser tab until you save a plan version." : "Bản nháp được lưu trong tab này, chờ bạn lưu phiên bản kế hoạch.")}</small>
             {validationError && <div id="goal-validation"><Alert tone="danger" title={language === "en" ? "Could not continue" : "Chưa thể tiếp tục"}>{validationError}{saveStatus === 'error' && saveError && <p>{saveError}</p>}</Alert></div>}
 
             <div className="goal-summary-actions">
-              <Button
-                variant="secondary"
-                size="medium"
-                onClick={handleSaveGoal}
-                className="goal-save-btn"
-                loading={isSaving || saveStatus === "saving"}
-              >
-                <Icon name="check" size="small" /> {v2Profile ? (language === "en" ? "Save date & prepare inputs" : "Lưu mốc hưu & giữ đầu vào") : (language === "en" ? "Use for this preview" : "Giữ để thử trong phiên")}
-              </Button>
               <Button
                 variant="primary"
                 size="large"
                 onClick={handleProceedToPlan}
                 className="goal-proceed-btn"
-                disabled={isSaving || saveStatus === "saving"}
+                disabled={loadingPlans || isSaving || saveStatus === "saving"}
               >
                 {language === "en" ? "Preview retirement plan" : "Xem trước kế hoạch"} <Icon name="arrow-right" />
               </Button>

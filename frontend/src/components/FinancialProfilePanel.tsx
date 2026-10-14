@@ -1,4 +1,7 @@
-import { useState, useEffect, type FormEvent } from "react";
+import ProfileFormattedInput from "./ProfileFormattedInput";
+import { Link } from "react-router";
+import { profileCompletionItems } from "../utils/profileCompletion";
+import { useState, useEffect, useRef, type FormEvent, type ComponentProps } from "react";
 import { useFinancialProfile, type FinancialProfile } from "../context/FinancialProfileContext";
 import {
   type ProfileV2,
@@ -14,9 +17,25 @@ import {
   fetchPublishedAssumptions,
   type PensionPreviewResponse,
 } from "../services/pensions";
-import { Alert, Badge, Button, Card, Checkbox, Icon, Input, Select, useNotification } from "./ui";
+import { Alert, Badge, Button, Card, Checkbox, Icon, Input as BaseInput, Select as BaseSelect, useNotification } from "./ui";
 import { useI18n } from "../i18n";
 import { SocialInsuranceModal } from "./SocialInsuranceModal";
+import { formatDateVN, formatMonthVN } from "../utils/date";
+import ResponsiveDialog from "./ResponsiveDialog";
+
+// Missing values are highlighted within this financial form only. Zero is a valid answer.
+function Input({ money, ...props }: ComponentProps<typeof BaseInput> & { money?: boolean }) {
+  const { language } = useI18n();
+  const optional = /kết thúc|end month|không bắt buộc|optional/i.test(props.label);
+  const error = props.error || (!optional && props.value === "" ? (language === "en" ? "Not filled in yet" : "Chưa điền thông tin") : undefined);
+  if (money || props.type === "date" || props.type === "month") return <ProfileFormattedInput {...props} error={error} format={money ? "money" : props.type as "date" | "month"} />;
+  return <BaseInput {...props} step={props.step ?? (props.type === "number" ? "any" : undefined)} error={error} />;
+}
+function Select(props: ComponentProps<typeof BaseSelect>) {
+  const { language } = useI18n();
+  const missing = !props.value || props.value === "UNDISCLOSED" || /UNKNOWN/.test(props.value);
+  return <BaseSelect {...props} error={props.error || (missing ? (language === "en" ? "Please select an answer" : "Chưa xác nhận thông tin") : undefined)} />;
+}
 
 const PENSION_ISSUE_LABELS: Record<string, { vi: string; en: string }> = {
   PENSION_NOT_INCLUDED: {
@@ -28,8 +47,8 @@ const PENSION_ISSUE_LABELS: Record<string, { vi: string; en: string }> = {
     en: "Missing pension start month in personal profile.",
   },
   PUBLISHED_INFLATION_REQUIRED: {
-    vi: "Cần có bộ giả định vĩ mô (T03) đã công bố để quy đổi giá trị hôm nay sang tương lai.",
-    en: "Published macroeconomic assumptions (T03) required to convert today values into future values.",
+    vi: "Cần có bộ dữ liệu ước tính lạm phát và đầu tư đã công bố để quy đổi giá trị hôm nay sang tương lai.",
+    en: "Published macroeconomic assumptions required to convert today values into future values.",
   },
   INFLATION_YEAR_MISSING: {
     vi: "Bộ giả định thiếu dữ liệu lạm phát cho các năm dự phóng.",
@@ -51,12 +70,12 @@ const PENSION_LIMITATIONS_LABELS: Record<string, { vi: string; en: string }> = {
     en: "Pensions do not automatically adjust with CPI without an explicit nominal adjustment decree.",
   },
   PERSONAL_PLAN_INTEGRATION_AWAITING_T06: {
-    vi: "Dòng tiền xem trước mang tính độc lập; kế hoạch cá nhân tổng thể sẽ tích hợp tại engine T06.",
-    en: "Preview cash flow is standalone; overall personal retirement plan integrates via engine T06.",
+    vi: "Dòng tiền xem trước mang tính độc lập; kế hoạch cá nhân tổng thể sẽ tích hợp tại bộ tính kế hoạch hưu trí.",
+    en: "Preview cash flow is standalone; overall personal retirement plan integrates via the retirement calculator.",
   },
 };
 
-type PanelTab = "basic" | "v2-timing" | "v2-cashflow" | "v2-assets" | "v2-pension";
+type PanelTab = "basic" | "v2-timing" | "v2-cashflow" | "v2-assets" | "v2-pension" | "v2-debts";
 
 export default function FinancialProfilePanel() {
   const { language } = useI18n();
@@ -77,11 +96,19 @@ export default function FinancialProfilePanel() {
   } = useFinancialProfile();
   const { notify } = useNotification();
 
-  const [activeTab, setActiveTab] = useState<PanelTab>("basic");
+  const sectionTabsRef = useRef<HTMLDivElement>(null);
+  const openSection = (tab: PanelTab) => {
+    setActiveTab(tab);
+    requestAnimationFrame(() => {
+      sectionTabsRef.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    });
+  };
+  const [activeTab, setActiveTab] = useState<PanelTab>(schemaVersion === 2 ? "v2-timing" : "basic");
   const [form, setForm] = useState<FinancialProfile>(profile);
   const [v2Form, setV2Form] = useState<ProfileV2 | null>(v2Profile);
   const [error, setError] = useState("");
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [showAssetReviewModal, setShowAssetReviewModal] = useState(false);
 
   // Pension simulation preview state
   const [pensionPreview, setPensionPreview] = useState<PensionPreviewResponse | null>(null);
@@ -102,6 +129,9 @@ export default function FinancialProfilePanel() {
     setV2Form(v2Profile);
   }, [profile, v2Profile]);
 
+  useEffect(() => { if (schemaVersion === 2) setActiveTab(tab => tab === "basic" ? "v2-timing" : tab); }, [schemaVersion]);
+  const completion = v2Form ? profileCompletionItems(v2Form) : [];
+  const missingCount = completion.filter(item => !item.complete).length;
   const busy = saveStatus === "saving" || isUpgrading;
 
   const handleUpgrade = async () => {
@@ -116,7 +146,7 @@ export default function FinancialProfilePanel() {
             ? "Hồ sơ của bạn đã được nâng cấp lên chuẩn chi tiết phiên bản 2."
             : "Your profile has been upgraded to detailed version 2 standards."
         );
-        setActiveTab("v2-timing");
+        setShowAssetReviewModal(true);
       }
     } catch (e) {
       setError(
@@ -170,7 +200,7 @@ export default function FinancialProfilePanel() {
 
   const saveBasic = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy) return;
+    if (busy || schemaVersion === 2) return;
     setError("");
     const { personal, income, expenses, assets, debt, socialSecurity } = form;
     if (personal.age < 18 || personal.age > 74 || !Number.isInteger(personal.age)) {
@@ -198,6 +228,7 @@ export default function FinancialProfilePanel() {
     // Validate asset shares sum to 100%
     if (v2Form.assets.status === "KNOWN") {
       for (const asset of v2Form.assets.entries) {
+        if ([asset.retirementShare, asset.emergencyShare, asset.otherGoalsShare].some(share => share.status !== "KNOWN")) continue;
         const retShare = asset.retirementShare.status === "KNOWN" ? parseFloat(asset.retirementShare.value) : 0;
         const emgShare = asset.emergencyShare.status === "KNOWN" ? parseFloat(asset.emergencyShare.value) : 0;
         const othShare = asset.otherGoalsShare.status === "KNOWN" ? parseFloat(asset.otherGoalsShare.value) : 0;
@@ -284,7 +315,7 @@ export default function FinancialProfilePanel() {
     const ok = await updateProfileV2(v2Form);
     if (ok) {
       notify.success(
-        isVi ? "Lưu hồ sơ v2 thành công" : "Profile v2 Saved",
+        isVi ? "Đã lưu hồ sơ" : "Profile v2 Saved",
         isVi ? "Các tham số tài chính chi tiết đã được cập nhật." : "Detailed financial parameters have been updated."
       );
       if (activeTab === "v2-pension") {
@@ -351,7 +382,7 @@ export default function FinancialProfilePanel() {
       fields: {
         cashSavings: isVi ? "Tiền tiết kiệm" : "Savings & Cash",
         realEstateValue: isVi ? "Bất động sản" : "Real Estate Value",
-        liquidAssets: isVi ? "Tài sản thanh khoản khác" : "Other Liquid Assets",
+        liquidAssets: isVi ? "Tài sản khác có thể đổi thành tiền" : "Other Liquid Assets",
         stockFundValue: isVi ? "Cổ phiếu và quỹ" : "Stocks & Funds",
       },
     },
@@ -389,33 +420,35 @@ export default function FinancialProfilePanel() {
   ];
 
   return (
-    <Card className="account-card">
+    <Card className="account-card financial-profile-editor">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}>
-            <h2>{isVi ? "Hồ sơ tài chính cá nhân" : "Personal Financial Profile"}</h2>
-            {schemaVersion === 2 ? (
-              <Badge tone="success">{isVi ? "Phiên bản 2 (Chi tiết)" : "Version 2 (Detailed)"}</Badge>
-            ) : (
-              <Badge tone="neutral">{isVi ? "Phiên bản 1 (Cơ bản)" : "Version 1 (Basic)"}</Badge>
-            )}
+            <h2>{isVi ? "Thông tin của bạn" : "Your information"}</h2>
           </div>
           <p style={{ margin: 0, color: "var(--color-text-muted)" }}>
             {isVi
-              ? "Dữ liệu định lượng làm cơ sở tính toán kế hoạch hưu trí, dự báo dòng tiền và quản lý nợ."
+              ? "Các mục màu đỏ cần được bổ sung. Bạn có thể chỉnh sửa mọi thông tin đã khai và bấm Lưu khi hoàn tất."
               : "Quantitative baseline for retirement planning calculations, cash flow projections, and debt management."}
           </p>
         </div>
 
         {schemaVersion !== 2 && (
           <Button variant="secondary" onClick={handleUpgrade} loading={isUpgrading}>
-            <Icon name="sparkles" size="small" /> {isVi ? "Nâng cấp lên Hồ sơ v2" : "Upgrade to Profile v2"}
+            <Icon name="sparkles" size="small" /> {isVi ? "Bổ sung hồ sơ chi tiết" : "Upgrade to Detailed Profile"}
           </Button>
         )}
       </div>
 
+      {v2Form && <section className="profile-checklist" aria-label={isVi ? "Kiểm tra độ hoàn thiện hồ sơ" : "Profile completion checklist"}>
+        <div className="profile-checklist-heading"><h3>{missingCount ? (isVi ? `Còn ${missingCount} mục cần bổ sung` : `${missingCount} items to complete`) : (isVi ? "Bạn đã khai đủ các mục chính" : "Your main profile items are complete")}</h3><span>{isVi ? "Chọn một mục để xem hoặc sửa" : "Select an item to view or edit"}</span></div>
+        <div className="profile-checklist-grid">{completion.map(item => <button type="button" key={item.key} className={item.complete ? "is-complete" : "is-missing"} onClick={() => openSection(item.tab)}><Icon name={item.complete ? "circle-check" : "alert"} size="small" /><span>{isVi ? item.vi : item.en}<small>{item.complete ? (isVi ? "Đã khai · Có thể sửa" : "Completed · Edit") : (isVi ? "Cần bổ sung" : "Needs information")}</small></span><Icon name="chevron-right" size="small" /></button>)}</div>
+        <p>{isVi ? "Sau khi chỉnh sửa, hãy bấm Lưu ở cuối mỗi phần. Độ hoàn thiện hồ sơ sẽ cập nhật khi lưu thành công." : "Completed fields are not saved automatically. The page percentage updates after a successful save."}</p>
+      </section>}
+      {saveStatus === "saved" && activeTab !== "basic" && <p role="status" className="profile-save-success">{isVi ? "Đã lưu hồ sơ vào tài khoản" : "Profile saved to your account"}{lastSavedAt ? ` · ${lastSavedAt}` : ""}</p>}
       {/* Tabs */}
-      <div style={{ display: "flex", gap: "var(--space-2)", borderBottom: "1px solid var(--color-border)", paddingBottom: "var(--space-2)", marginBottom: "var(--space-4)", overflowX: "auto" }}>
+      <div ref={sectionTabsRef} className="profile-section-tabs" style={{ display: "flex", gap: "var(--space-2)", borderBottom: "1px solid var(--color-border)", paddingBottom: "var(--space-2)", marginBottom: "var(--space-4)", overflowX: "auto" }}>
+        {schemaVersion !== 2 && <>
         <button
           type="button"
           className={`btn-filter ${activeTab === "basic" ? "is-active" : ""}`}
@@ -423,6 +456,7 @@ export default function FinancialProfilePanel() {
         >
           {isVi ? "Tổng quan cơ bản" : "Basic Overview"}
         </button>
+        </>}
         {schemaVersion === 2 && (
           <>
             <button
@@ -430,22 +464,23 @@ export default function FinancialProfilePanel() {
               className={`btn-filter ${activeTab === "v2-timing" ? "is-active" : ""}`}
               onClick={() => setActiveTab("v2-timing")}
             >
-              {isVi ? "Mốc thời gian (v2)" : "Timeline & Dates (v2)"}
+              {isVi ? "Thông tin & thời gian" : "Personal details & dates"}
             </button>
             <button
               type="button"
               className={`btn-filter ${activeTab === "v2-cashflow" ? "is-active" : ""}`}
               onClick={() => setActiveTab("v2-cashflow")}
             >
-              {isVi ? "Thu & Chi chi tiết (v2)" : "Detailed Cash Flow (v2)"}
+              {isVi ? "Thu nhập & chi tiêu" : "Income & expenses"}
             </button>
             <button
               type="button"
               className={`btn-filter ${activeTab === "v2-assets" ? "is-active" : ""}`}
               onClick={() => setActiveTab("v2-assets")}
             >
-              {isVi ? "Phân bổ Tài sản mục tiêu (v2)" : "Target Asset Allocation (v2)"}
+              {isVi ? "Tài sản" : "Assets"}
             </button>
+            <button type="button" className={`btn-filter ${activeTab === "v2-debts" ? "is-active" : ""}`} onClick={() => setActiveTab("v2-debts")}>{isVi ? "Khoản nợ" : "Debts"}</button>
             <button
               type="button"
               className={`btn-filter ${activeTab === "v2-pension" ? "is-active" : ""}`}
@@ -456,14 +491,14 @@ export default function FinancialProfilePanel() {
                 }
               }}
             >
-              {isVi ? "Lương hưu & Tuổi luật định (v2)" : "Pension & Statutory Age (v2)"}
+              {isVi ? "Lương hưu" : "Pension"}
             </button>
           </>
         )}
       </div>
 
       {/* Tab 1: Basic View */}
-      {activeTab === "basic" && (
+      {activeTab === "basic" && schemaVersion !== 2 && (
         <form onSubmit={saveBasic}>
           <fieldset className="account-api-fields" disabled={busy}>
             <div className="account-form-grid">
@@ -529,6 +564,7 @@ export default function FinancialProfilePanel() {
                   {Object.entries(group.fields).map(([key, label]) => (
                     <Input
                       key={key}
+                      money={key !== "socialInsuranceYears"}
                       label={label}
                       type="number"
                       value={String((form[group.key] as unknown as Record<string, number>)[key])}
@@ -591,15 +627,18 @@ export default function FinancialProfilePanel() {
             <div style={{ marginBottom: "var(--space-3)" }}>
               <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
                 {isVi
-                  ? "Phiên bản 2 chuẩn hóa các mốc thời gian thành định dạng tháng năm (YYYY-MM) chính xác để dự phóng dòng tiền từng kỳ thay vì chỉ tính theo số năm tròn."
+                  ? "Các mốc thời gian giúp tính kế hoạch nghỉ hưu của bạn theo từng tháng. Nhập ngày sinh và thời điểm bạn dự định nghỉ hưu."
                   : "Version 2 standardizes timeline milestones into exact year-month format (YYYY-MM) to project periodic cash flows instead of rounded years."}
               </p>
             </div>
 
             <div className="account-form-grid">
+              <Select label={isVi ? "Giới tính" : "Gender"} options={[{ value: "UNDISCLOSED", label: isVi ? "Chưa cung cấp" : "Not provided" }, { value: "MALE", label: isVi ? "Nam" : "Male" }, { value: "FEMALE", label: isVi ? "Nữ" : "Female" }, { value: "OTHER", label: isVi ? "Khác" : "Other" }]} value={v2Form.personal.gender ?? "UNDISCLOSED"} onChange={value => setV2Form({ ...v2Form, personal: { ...v2Form.personal, gender: value as NonNullable<ProfileV2["personal"]["gender"]> } })} />
+              <Input label={isVi ? "Nơi sinh sống (không bắt buộc)" : "Place of living (optional)"} value={v2Form.personal.city ?? ""} onChange={city => setV2Form({ ...v2Form, personal: { ...v2Form.personal, city } })} />
+
               <Input
                 type="month"
-                label={isVi ? "Tháng năm sinh (YYYY-MM)" : "Birth Month (YYYY-MM)"}
+                label={isVi ? "Tháng năm sinh" : "Birth Month (YYYY-MM)"}
                 value={v2Form.personal.birthMonth.status === "KNOWN" ? v2Form.personal.birthMonth.value : ""}
                 onChange={(val) =>
                   setV2Form({
@@ -613,7 +652,7 @@ export default function FinancialProfilePanel() {
               />
               <Input
                 type="month"
-                label={isVi ? "Tháng năm dự kiến nghỉ hưu (YYYY-MM)" : "Expected Retirement Month (YYYY-MM)"}
+                label={isVi ? "Tháng dự kiến nghỉ hưu" : "Expected Retirement Month (YYYY-MM)"}
                 value={
                   v2Form.personal.desiredRetirementMonth.status === "KNOWN"
                     ? v2Form.personal.desiredRetirementMonth.value
@@ -631,7 +670,7 @@ export default function FinancialProfilePanel() {
               />
               <Input
                 type="date"
-                label={isVi ? "Ngày chốt định giá tài sản" : "Asset Valuation Cut-off Date"}
+                label={isVi ? "Ngày cập nhật số liệu tài chính" : "Asset Valuation Cut-off Date"}
                 value={v2Form.valuationDate}
                 onChange={(val) => setV2Form({ ...v2Form, valuationDate: val })}
               />
@@ -645,12 +684,24 @@ export default function FinancialProfilePanel() {
 
             <div style={{ marginTop: "var(--space-4)" }}>
               <Button type="submit" variant="primary" loading={busy}>
-                {isVi ? "Lưu mốc thời gian v2" : "Save Timeline v2"}
+                {isVi ? "Lưu thông tin & thời gian" : "Save Timeline v2"}
               </Button>
             </div>
           </fieldset>
         </form>
       )}
+
+      {activeTab === "v2-debts" && v2Form && <form onSubmit={saveV2}><fieldset className="account-api-fields" disabled={busy}>
+        <h3>{isVi ? "Các khoản nợ của bạn" : "Your debts"}</h3>
+        {v2Form.debts.status === "UNKNOWN" && <p className="profile-missing-note">{isVi ? "Bạn chưa xác nhận có khoản nợ hay không." : "Please confirm whether you have debts."}</p>}
+        {v2Form.debts.status === "NOT_APPLICABLE" && <p>{isVi ? "Bạn đã xác nhận không có khoản nợ." : "You have confirmed that you have no debts."}</p>}
+        {v2Form.debts.status === "KNOWN" && <div className="profile-debt-list">{v2Form.debts.entries.map(debt => <div key={debt.id}><strong>{debt.label}</strong><span>{isVi ? "Đã khai trong hồ sơ" : "Recorded in your profile"}</span></div>)}</div>}
+        <p>{isVi ? "Thêm hoặc sửa khoản vay tại trang Khoản vay & Nợ để giữ đúng lịch trả nợ và hợp đồng." : "Add or edit loans on Loans & Debts to keep repayment schedules and contracts consistent."}</p>
+        <div className="profile-debt-actions"><Link className="button button-secondary" to="/user/debts">{isVi ? "Thêm / sửa khoản vay" : "Add / edit loans"}</Link>
+        {v2Form.debts.status !== "KNOWN" && <Button variant="secondary" onClick={() => setV2Form({ ...v2Form, debts: { status: "NOT_APPLICABLE", reason: "Người dùng xác nhận không có khoản nợ" } })}>{isVi ? "Tôi không có khoản nợ" : "I have no debts"}</Button>}
+        <Button type="submit" loading={busy}>{isVi ? "Lưu thông tin khoản nợ" : "Save debt information"}</Button></div>
+        {(error || saveError) && <p role="alert">{error || saveError}</p>}
+      </fieldset></form>}
 
       {/* Tab 3: V2 Cashflow */}
       {activeTab === "v2-cashflow" && v2Form && (
@@ -684,10 +735,12 @@ export default function FinancialProfilePanel() {
               </Button>
             </div>
 
+            {v2Form.income.status === "UNKNOWN" && <p className="profile-missing-note">{isVi ? "Chưa khai báo nguồn thu nhập. Hãy thêm thông tin hoặc xác nhận không có." : "Information is missing. Add an entry or confirm none."}</p>}
+            {v2Form.income.status !== "KNOWN" && <Button variant="ghost" onClick={() => setV2Form({ ...v2Form, income: { status: "NOT_APPLICABLE", reason: "Người dùng xác nhận không có nguồn thu nhập" } })}>{isVi ? "Tôi không có nguồn thu nhập" : "I have none"}</Button>}
             {v2Form.income.status === "KNOWN" && v2Form.income.entries.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
                 {v2Form.income.entries.map((inc, idx) => (
-                  <div key={inc.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr auto", gap: "var(--space-2)", alignItems: "end" }}>
+                  <div key={inc.id} className="profile-cashflow-row">
                     <Input
                       label={isVi ? `Khoản thu #${idx + 1}` : `Income #${idx + 1}`}
                       value={inc.label}
@@ -699,7 +752,11 @@ export default function FinancialProfilePanel() {
                     />
                     <Select
                       label={isVi ? "Phân loại" : "Category"}
-                      options={["FIXED", "BONUS", "IRREGULAR"]}
+                      options={[
+                        { value: "FIXED", label: isVi ? "Thu nhập cố định" : "Fixed Income" },
+                        { value: "BONUS", label: isVi ? "Tiền thưởng" : "Bonus" },
+                        { value: "IRREGULAR", label: isVi ? "Thu nhập không đều" : "Irregular" },
+                      ]}
                       value={inc.kind}
                       onChange={(k) => {
                         const entries = [...(v2Form.income as { status: "KNOWN"; entries: IncomeEntry[] }).entries];
@@ -709,11 +766,12 @@ export default function FinancialProfilePanel() {
                     />
                     <Input
                       type="number"
+                      money
                       label={isVi ? "Số tiền (VND)" : "Amount (VND)"}
-                      value={inc.amount.status === "KNOWN" ? inc.amount.value : "0"}
+                      value={inc.amount.status === "KNOWN" ? inc.amount.value : ""}
                       onChange={(amt) => {
                         const entries = [...(v2Form.income as { status: "KNOWN"; entries: IncomeEntry[] }).entries];
-                        entries[idx] = { ...entries[idx], amount: { status: "KNOWN", value: parseFloat(amt || "0").toFixed(2) } };
+                        entries[idx] = { ...entries[idx], amount: amt === "" ? { status: "UNKNOWN" } : { status: "KNOWN", value: amt } };
                         setV2Form({ ...v2Form, income: { status: "KNOWN", entries } });
                       }}
                     />
@@ -762,10 +820,12 @@ export default function FinancialProfilePanel() {
               </Button>
             </div>
 
+            {v2Form.expenses.status === "UNKNOWN" && <p className="profile-missing-note">{isVi ? "Chưa khai báo khoản chi tiêu. Hãy thêm thông tin hoặc xác nhận không có." : "Information is missing. Add an entry or confirm none."}</p>}
+            {v2Form.expenses.status !== "KNOWN" && <Button variant="ghost" onClick={() => setV2Form({ ...v2Form, expenses: { status: "NOT_APPLICABLE", reason: "Người dùng xác nhận không có khoản chi tiêu" } })}>{isVi ? "Tôi không có khoản chi tiêu" : "I have none"}</Button>}
             {v2Form.expenses.status === "KNOWN" && v2Form.expenses.entries.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
                 {v2Form.expenses.entries.map((exp, idx) => (
-                  <div key={exp.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr auto", gap: "var(--space-2)", alignItems: "end" }}>
+                  <div key={exp.id} className="profile-cashflow-row">
                     <Input
                       label={isVi ? `Khoản chi #${idx + 1}` : `Expense #${idx + 1}`}
                       value={exp.label}
@@ -777,7 +837,14 @@ export default function FinancialProfilePanel() {
                     />
                     <Select
                       label={isVi ? "Nhóm chi" : "Group"}
-                      options={["ESSENTIAL", "OPTIONAL", "HEALTH", "INSURANCE", "DEPENDENT", "DEBT_PAYMENT"]}
+                      options={[
+                        { value: "ESSENTIAL", label: isVi ? "Chi thiết yếu" : "Essential" },
+                        { value: "OPTIONAL", label: isVi ? "Chi có thể điều chỉnh" : "Discretionary" },
+                        { value: "HEALTH", label: isVi ? "Y tế" : "Healthcare" },
+                        { value: "INSURANCE", label: isVi ? "Bảo hiểm" : "Insurance" },
+                        { value: "DEPENDENT", label: isVi ? "Chi cho người phụ thuộc" : "Dependent" },
+                        { value: "DEBT_PAYMENT", label: isVi ? "Trả nợ" : "Debt Service" },
+                      ]}
                       value={exp.category}
                       onChange={(cat) => {
                         const entries = [...(v2Form.expenses as { status: "KNOWN"; entries: ExpenseEntry[] }).entries];
@@ -787,11 +854,12 @@ export default function FinancialProfilePanel() {
                     />
                     <Input
                       type="number"
+                      money
                       label={isVi ? "Số tiền (VND)" : "Amount (VND)"}
-                      value={exp.amount.status === "KNOWN" ? exp.amount.value : "0"}
+                      value={exp.amount.status === "KNOWN" ? exp.amount.value : ""}
                       onChange={(amt) => {
                         const entries = [...(v2Form.expenses as { status: "KNOWN"; entries: ExpenseEntry[] }).entries];
-                        entries[idx] = { ...entries[idx], amount: { status: "KNOWN", value: parseFloat(amt || "0").toFixed(2) } };
+                        entries[idx] = { ...entries[idx], amount: amt === "" ? { status: "UNKNOWN" } : { status: "KNOWN", value: amt } };
                         setV2Form({ ...v2Form, expenses: { status: "KNOWN", entries } });
                       }}
                     />
@@ -822,7 +890,7 @@ export default function FinancialProfilePanel() {
 
             <div style={{ marginTop: "var(--space-4)" }}>
               <Button type="submit" variant="primary" loading={busy}>
-                {isVi ? "Lưu thu chi v2" : "Save Cash Flow v2"}
+                {isVi ? "Lưu thu nhập & chi tiêu" : "Save Cash Flow v2"}
               </Button>
             </div>
           </fieldset>
@@ -836,7 +904,7 @@ export default function FinancialProfilePanel() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)", flexWrap: "wrap", gap: "var(--space-2)" }}>
               <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--color-text-muted)" }}>
                 {isVi
-                  ? "Quy định chuẩn T01: Phân tách rõ mục đích tài sản (Hưu trí, Dự phòng, Mục tiêu khác) và tính thanh khoản để tối ưu hóa kế hoạch."
+                  ? "Chọn tài sản dành cho hưu trí, dự phòng hoặc mục tiêu khác. Chỉ phần bạn dành cho hưu trí mới được đưa vào kế hoạch."
                   : "Standard T01: Clearly segregate asset purposes (Retirement, Emergency, Other Goals) and liquidity to optimize planning."}
               </p>
               <Button type="button" variant="secondary" onClick={handleAddAsset}>
@@ -844,10 +912,12 @@ export default function FinancialProfilePanel() {
               </Button>
             </div>
 
+            {v2Form.assets.status === "UNKNOWN" && <p className="profile-missing-note">{isVi ? "Chưa khai báo tài sản. Hãy thêm thông tin hoặc xác nhận không có." : "Information is missing. Add an entry or confirm none."}</p>}
+            {v2Form.assets.status !== "KNOWN" && <Button variant="ghost" onClick={() => setV2Form({ ...v2Form, assets: { status: "NOT_APPLICABLE", reason: "Người dùng xác nhận không có tài sản" } })}>{isVi ? "Tôi không có tài sản" : "I have none"}</Button>}
             {v2Form.assets.status === "KNOWN" && v2Form.assets.entries.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
                 {v2Form.assets.entries.map((asset, idx) => (
-                  <Card key={asset.id} style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+                  <Card key={asset.id} className="profile-entry-card" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
                       <strong style={{ fontSize: "var(--text-base)" }}>
                         #{idx + 1}: {asset.label}
@@ -873,7 +943,14 @@ export default function FinancialProfilePanel() {
                       />
                       <Select
                         label={isVi ? "Loại tài sản" : "Asset Type"}
-                        options={["CASH", "DEPOSIT", "STOCK_FUND", "PRIMARY_HOME", "REAL_ESTATE", "OTHER"]}
+                        options={[
+                          { value: "CASH", label: isVi ? "Tiền mặt" : "Cash" },
+                          { value: "DEPOSIT", label: isVi ? "Tiền gửi" : "Savings Deposit" },
+                          { value: "STOCK_FUND", label: isVi ? "Cổ phiếu và quỹ" : "Stock / Fund" },
+                          { value: "PRIMARY_HOME", label: isVi ? "Nhà đang ở" : "Primary Residence" },
+                          { value: "REAL_ESTATE", label: isVi ? "Bất động sản khác" : "Other Real Estate" },
+                          { value: "OTHER", label: isVi ? "Khác" : "Other" },
+                        ]}
                         value={asset.type}
                         onChange={(t) => {
                           const entries = [...(v2Form.assets as { status: "KNOWN"; entries: AssetEntry[] }).entries];
@@ -883,62 +960,73 @@ export default function FinancialProfilePanel() {
                       />
                       <Input
                         type="number"
-                        label={isVi ? "Giá trị (VND)" : "Value (VND)"}
-                        value={asset.value.status === "KNOWN" ? asset.value.value : "0"}
+                        money
+                      label={isVi ? "Giá trị (VND)" : "Value (VND)"}
+                        value={asset.value.status === "KNOWN" ? asset.value.value : ""}
                         onChange={(val) => {
                           const entries = [...(v2Form.assets as { status: "KNOWN"; entries: AssetEntry[] }).entries];
-                          entries[idx] = { ...entries[idx], value: { status: "KNOWN", value: parseFloat(val || "0").toFixed(2) } };
+                          entries[idx] = { ...entries[idx], value: val === "" ? { status: "UNKNOWN" } : { status: "KNOWN", value: val } };
                           setV2Form({ ...v2Form, assets: { status: "KNOWN", entries } });
                         }}
                       />
                       <Select
-                        label={isVi ? "Thanh khoản" : "Liquidity"}
-                        options={["LIQUID", "ILLIQUID", "LOCKED"]}
-                        value={asset.liquidity.status === "KNOWN" ? asset.liquidity.value : "LIQUID"}
+                        label={isVi ? "Khả năng đổi thành tiền" : "Liquidity"}
+                        options={[
+                          { value: "UNKNOWN", label: isVi ? "Chưa xác định" : "Not specified" },
+                          { value: "LIQUID", label: isVi ? "Dễ đổi thành tiền" : "Liquid" },
+                          { value: "ILLIQUID", label: isVi ? "Khó đổi thành tiền" : "Illiquid" },
+                          { value: "LOCKED", label: isVi ? "Chưa thể rút hoặc bán" : "Locked" },
+                        ]}
+                        value={asset.liquidity.status === "KNOWN" ? asset.liquidity.value : "UNKNOWN"}
                         onChange={(l) => {
                           const entries = [...(v2Form.assets as { status: "KNOWN"; entries: AssetEntry[] }).entries];
-                          entries[idx] = { ...entries[idx], liquidity: { status: "KNOWN", value: l as any } };
+                          entries[idx] = { ...entries[idx], liquidity: l === "UNKNOWN" ? { status: "UNKNOWN" } : { status: "KNOWN", value: l as "LIQUID" | "ILLIQUID" | "LOCKED" } };
                           setV2Form({ ...v2Form, assets: { status: "KNOWN", entries } });
                         }}
                       />
                     </div>
 
+                    <div className="account-form-grid" style={{ marginBottom: 20 }}>
+                      <Input type="date" label={isVi ? "Ngày xác định giá trị tài sản" : "Asset valuation date"} value={asset.valuedOn.status === "KNOWN" ? asset.valuedOn.value : ""} onChange={value => { const entries = [...(v2Form.assets as {status: "KNOWN"; entries: AssetEntry[]}).entries]; entries[idx] = {...asset, valuedOn: value ? {status: "KNOWN", value} : {status: "UNKNOWN"}}; setV2Form({...v2Form, assets: {status: "KNOWN", entries}}); }} />
+                      <Input type="number" min={0} max={100} step="any" label={isVi ? "Phần tài sản thuộc sở hữu của bạn (%)" : "Your ownership share (%)"} value={asset.ownershipShare.status === "KNOWN" ? String(Number(asset.ownershipShare.value) * 100) : ""} onChange={value => { const entries = [...(v2Form.assets as {status: "KNOWN"; entries: AssetEntry[]}).entries]; entries[idx] = {...asset, ownershipShare: value !== "" ? {status: "KNOWN", value: String(Number(value) / 100)} : {status: "UNKNOWN"}}; setV2Form({...v2Form, assets: {status: "KNOWN", entries}}); }} />
+                      <Input type="month" label={isVi ? "Tháng có thể sử dụng tài sản" : "Available from month"} value={asset.availableFromMonth.status === "KNOWN" ? asset.availableFromMonth.value : ""} onChange={value => { const entries = [...(v2Form.assets as {status: "KNOWN"; entries: AssetEntry[]}).entries]; entries[idx] = {...asset, availableFromMonth: value ? {status: "KNOWN", value} : {status: "UNKNOWN"}}; setV2Form({...v2Form, assets: {status: "KNOWN", entries}}); }} />
+                    </div>
                     {/* Purpose shares */}
                     <div style={{ background: "var(--color-surface-subtle)", padding: "var(--space-3)", borderRadius: "var(--radius-md)" }}>
                       <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--color-text-muted)", marginBottom: "var(--space-2)" }}>
-                        {isVi ? "PHÂN BỔ MỤC ĐÍCH SỬ DỤNG (TỔNG PHẢI BẰNG 100%)" : "PURPOSE ALLOCATION (MUST SUM TO 100%)"}
+                        {isVi ? "Bạn dành tài sản này cho mục đích nào? (Tổng 100%)" : "PURPOSE ALLOCATION (MUST SUM TO 100%)"}
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-3)" }}>
+                      <div className="profile-allocation-grid">
                         <Input
                           type="number"
-                          label={isVi ? "Dành cho Hưu trí (%)" : "Retirement Share (%)"}
-                          value={String(Math.round((asset.retirementShare.status === "KNOWN" ? parseFloat(asset.retirementShare.value) : 0) * 100))}
+                          label={isVi ? "Dành cho nghỉ hưu (%)" : "Retirement Share (%)"}
+                          value={asset.retirementShare.status === "KNOWN" ? String(Number(asset.retirementShare.value) * 100) : ""}
                           onChange={(pct) => {
                             const entries = [...(v2Form.assets as { status: "KNOWN"; entries: AssetEntry[] }).entries];
                             const fraction = (Math.max(0, Math.min(100, parseFloat(pct || "0"))) / 100).toFixed(4);
-                            entries[idx] = { ...entries[idx], retirementShare: { status: "KNOWN", value: fraction } };
+                            entries[idx] = { ...entries[idx], retirementShare: pct === "" ? { status: "UNKNOWN" } : { status: "KNOWN", value: fraction } };
                             setV2Form({ ...v2Form, assets: { status: "KNOWN", entries } });
                           }}
                         />
                         <Input
                           type="number"
                           label={isVi ? "Quỹ dự phòng (%)" : "Emergency Fund (%)"}
-                          value={String(Math.round((asset.emergencyShare.status === "KNOWN" ? parseFloat(asset.emergencyShare.value) : 0) * 100))}
+                          value={asset.emergencyShare.status === "KNOWN" ? String(Number(asset.emergencyShare.value) * 100) : ""}
                           onChange={(pct) => {
                             const entries = [...(v2Form.assets as { status: "KNOWN"; entries: AssetEntry[] }).entries];
                             const fraction = (Math.max(0, Math.min(100, parseFloat(pct || "0"))) / 100).toFixed(4);
-                            entries[idx] = { ...entries[idx], emergencyShare: { status: "KNOWN", value: fraction } };
+                            entries[idx] = { ...entries[idx], emergencyShare: pct === "" ? { status: "UNKNOWN" } : { status: "KNOWN", value: fraction } };
                             setV2Form({ ...v2Form, assets: { status: "KNOWN", entries } });
                           }}
                         />
                         <Input
                           type="number"
                           label={isVi ? "Mục tiêu khác (%)" : "Other Goals (%)"}
-                          value={String(Math.round((asset.otherGoalsShare.status === "KNOWN" ? parseFloat(asset.otherGoalsShare.value) : 0) * 100))}
+                          value={asset.otherGoalsShare.status === "KNOWN" ? String(Number(asset.otherGoalsShare.value) * 100) : ""}
                           onChange={(pct) => {
                             const entries = [...(v2Form.assets as { status: "KNOWN"; entries: AssetEntry[] }).entries];
                             const fraction = (Math.max(0, Math.min(100, parseFloat(pct || "0"))) / 100).toFixed(4);
-                            entries[idx] = { ...entries[idx], otherGoalsShare: { status: "KNOWN", value: fraction } };
+                            entries[idx] = { ...entries[idx], otherGoalsShare: pct === "" ? { status: "UNKNOWN" } : { status: "KNOWN", value: fraction } };
                             setV2Form({ ...v2Form, assets: { status: "KNOWN", entries } });
                           }}
                         />
@@ -961,7 +1049,7 @@ export default function FinancialProfilePanel() {
 
             <div style={{ marginTop: "var(--space-4)" }}>
               <Button type="submit" variant="primary" loading={busy}>
-                {isVi ? "Lưu phân bổ tài sản v2" : "Save Asset Allocation v2"}
+                {isVi ? "Lưu thông tin tài sản" : "Save Asset Allocation v2"}
               </Button>
             </div>
           </fieldset>
@@ -974,7 +1062,7 @@ export default function FinancialProfilePanel() {
           <fieldset className="account-api-fields" disabled={busy}>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
               {/* Section 1: Khai báo lương hưu dự kiến & Tháng nhận */}
-              <Card>
+              <Card className="profile-entry-card">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)", flexWrap: "wrap", gap: "var(--space-2)" }}>
                   <div>
                     <h3 style={{ fontSize: "var(--text-base)", margin: 0 }}>
@@ -989,24 +1077,18 @@ export default function FinancialProfilePanel() {
                   <Select
                     label={isVi ? "Trạng thái khai báo lương hưu" : "Pension Declaration Status"}
                     options={[
-                      isVi ? "Chưa khai báo (UNKNOWN)" : "Not Declared (UNKNOWN)",
-                      isVi ? "Có ước tính lương hưu (KNOWN)" : "Has Pension Estimate (KNOWN)",
-                      isVi ? "Không áp dụng (NOT_APPLICABLE)" : "Not Applicable (NOT_APPLICABLE)",
+                      { value: "UNKNOWN", label: isVi ? "Chưa khai báo" : "Not Declared" },
+                      { value: "KNOWN", label: isVi ? "Có ước tính lương hưu" : "Has Pension Estimate" },
+                      { value: "NOT_APPLICABLE", label: isVi ? "Không áp dụng" : "Not Applicable" },
                     ]}
-                    value={
-                      !v2Form.pension || v2Form.pension.status === "UNKNOWN"
-                        ? isVi ? "Chưa khai báo (UNKNOWN)" : "Not Declared (UNKNOWN)"
-                        : v2Form.pension.status === "KNOWN"
-                        ? isVi ? "Có ước tính lương hưu (KNOWN)" : "Has Pension Estimate (KNOWN)"
-                        : isVi ? "Không áp dụng (NOT_APPLICABLE)" : "Not Applicable (NOT_APPLICABLE)"
-                    }
+                    value={!v2Form.pension || v2Form.pension.status === "UNKNOWN" ? "UNKNOWN" : v2Form.pension.status}
                     onChange={(val) => {
-                      if (val.includes("KNOWN")) {
+                      if (val === "KNOWN") {
                         setV2Form({
                           ...v2Form,
                           pension: {
                             status: "KNOWN",
-                            monthlyAmount: v2Form.pension?.status === "KNOWN" ? v2Form.pension.monthlyAmount : "5000000.00",
+                            monthlyAmount: v2Form.pension?.status === "KNOWN" ? v2Form.pension.monthlyAmount : "",
                             currency: "VND",
                             priceBasis: "TODAY",
                             basisMonth: v2Form.valuationDate.slice(0, 7),
@@ -1015,7 +1097,7 @@ export default function FinancialProfilePanel() {
                             adjustment: { kind: "NONE" },
                           },
                         });
-                      } else if (val.includes("NOT_APPLICABLE")) {
+                      } else if (val === "NOT_APPLICABLE" || val.includes("NOT_APPLICABLE")) {
                         setV2Form({
                           ...v2Form,
                           pension: {
@@ -1036,21 +1118,15 @@ export default function FinancialProfilePanel() {
                 <div style={{ marginTop: "var(--space-3)", padding: "var(--space-3)", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-sm)" }}>
                   <div className="account-form-grid">
                     <Select
-                      label={isVi ? "Tháng bắt đầu nhận lương hưu (personal.pensionStartMonth)" : "Pension Start Month Status"}
+                      label={isVi ? "Thông tin tháng nhận lương hưu" : "Pension Start Month Status"}
                       options={[
-                        isVi ? "Đã xác định tháng nhận (KNOWN)" : "Confirmed Start Month (KNOWN)",
-                        isVi ? "Chưa rõ tháng nhận (UNKNOWN)" : "Unconfirmed Start Month (UNKNOWN)",
-                        isVi ? "Không áp dụng nhận lương hưu (NOT_APPLICABLE)" : "Not Applicable (NOT_APPLICABLE)",
+                        { value: "KNOWN", label: isVi ? "Đã biết tháng bắt đầu nhận" : "Start month is known" },
+                        { value: "UNKNOWN", label: isVi ? "Chưa biết tháng bắt đầu nhận" : "Start month is not known" },
+                        { value: "NOT_APPLICABLE", label: isVi ? "Tôi không nhận lương hưu" : "I will not receive a pension" },
                       ]}
-                      value={
-                        v2Form.personal.pensionStartMonth.status === "KNOWN"
-                          ? isVi ? "Đã xác định tháng nhận (KNOWN)" : "Confirmed Start Month (KNOWN)"
-                          : v2Form.personal.pensionStartMonth.status === "NOT_APPLICABLE"
-                          ? isVi ? "Không áp dụng nhận lương hưu (NOT_APPLICABLE)" : "Not Applicable (NOT_APPLICABLE)"
-                          : isVi ? "Chưa rõ tháng nhận (UNKNOWN)" : "Unconfirmed Start Month (UNKNOWN)"
-                      }
+                      value={v2Form.personal.pensionStartMonth.status}
                       onChange={(val) => {
-                        if (val.includes("KNOWN")) {
+                        if (val.includes("KNOWN") && !val.includes("UNKNOWN")) {
                           setV2Form({
                             ...v2Form,
                             personal: {
@@ -1059,7 +1135,7 @@ export default function FinancialProfilePanel() {
                                 status: "KNOWN",
                                 value: v2Form.personal.desiredRetirementMonth.status === "KNOWN"
                                   ? v2Form.personal.desiredRetirementMonth.value
-                                  : "2050-01",
+                                  : "",
                               },
                             },
                           });
@@ -1094,7 +1170,7 @@ export default function FinancialProfilePanel() {
                     {v2Form.personal.pensionStartMonth.status === "KNOWN" && (
                       <Input
                         type="month"
-                        label={isVi ? "Tháng bắt đầu nhận (YYYY-MM)" : "Start Month (YYYY-MM)"}
+                        label={isVi ? "Tháng bắt đầu nhận lương hưu" : "Start Month (YYYY-MM)"}
                         value={v2Form.personal.pensionStartMonth.value}
                         onChange={(m) => {
                           if (v2Form.personal.pensionStartMonth.status === "KNOWN") {
@@ -1143,7 +1219,8 @@ export default function FinancialProfilePanel() {
                       <div className="account-form-grid" style={{ marginTop: "var(--space-3)" }}>
                         <Input
                           type="number"
-                          label={isVi ? "Mức lương hưu dự kiến (VND / tháng)" : "Expected Pension Amount (VND / month)"}
+                          money
+                      label={isVi ? "Mức lương hưu dự kiến (VND / tháng)" : "Expected Pension Amount (VND / month)"}
                           value={p.monthlyAmount}
                           onChange={(v) => updatePensionKnown((prev) => ({ ...prev, monthlyAmount: v }))}
                           helper={
@@ -1155,28 +1232,17 @@ export default function FinancialProfilePanel() {
                         <Select
                           label={isVi ? "Cơ sở định giá tiền" : "Price Basis"}
                           options={[
-                            isVi ? "Theo giá trị tiền hôm nay (TODAY)" : "Today's Purchasing Power (TODAY)",
-                            isVi
-                              ? "Số tiền dự kiến tại tháng bắt đầu nhận (NOMINAL_AT_START)"
-                              : "Nominal Amount at Start (NOMINAL_AT_START)",
+                            { value: "TODAY", label: isVi ? "Theo mức giá hôm nay" : "Today's Purchasing Power" },
+                            { value: "NOMINAL_AT_START", label: isVi ? "Số tiền tại tháng bắt đầu nhận" : "Nominal Amount at Start" },
                           ]}
-                          value={
-                            p.priceBasis === "TODAY"
-                              ? isVi
-                                ? "Theo giá trị tiền hôm nay (TODAY)"
-                                : "Today's Purchasing Power (TODAY)"
-                              : isVi
-                              ? "Số tiền dự kiến tại tháng bắt đầu nhận (NOMINAL_AT_START)"
-                              : "Nominal Amount at Start (NOMINAL_AT_START)"
-                          }
-                          onChange={(v) => {
-                            const pb = v.includes("TODAY") ? "TODAY" : "NOMINAL_AT_START";
-                            updatePensionKnown((prev) => ({ ...prev, priceBasis: pb }));
+                          value={p.priceBasis}
+                          onChange={(pb) => {
+                            updatePensionKnown((prev) => ({ ...prev, priceBasis: pb as "TODAY" | "NOMINAL_AT_START" }));
                           }}
                           helper={
                             isVi
-                              ? "Chọn 'TODAY' nếu bạn ước tính theo sức mua hiện tại; máy chủ sẽ điều chỉnh lạm phát theo chuỗi công bố."
-                              : "Select 'TODAY' for today purchasing power; server will project inflation accordingly."
+                              ? "Chọn 'Theo mức giá hôm nay' nếu bạn ước tính theo sức mua hiện tại; hệ thống sẽ điều chỉnh lạm phát theo các năm dự phóng."
+                              : "Select 'Today's Purchasing Power' for today purchasing power; system will project inflation accordingly."
                           }
                         />
                         <Input
@@ -1203,11 +1269,11 @@ export default function FinancialProfilePanel() {
                       </div>
 
                       <div style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
-                        {isVi ? "Cơ sở tháng (basisMonth):" : "Basis Month (basisMonth):"} <strong>{p.basisMonth}</strong>.
+                        {isVi ? "Tháng dùng làm mốc tính số tiền:" : "Calculation Basis Month:"} <strong>{p.basisMonth}</strong>.
                         {p.priceBasis === "TODAY"
                           ? isVi
-                            ? " Khớp với tháng định giá hồ sơ. Máy chủ áp dụng tỷ lệ lạm phát từ bộ T03 công bố."
-                            : " Matches profile valuation month. Server applies inflation rate from published T03 assumptions."
+                            ? " Khớp với tháng định giá hồ sơ. Máy chủ áp dụng tỷ lệ lạm phát từ bộ dữ liệu ước tính công bố."
+                            : " Matches profile valuation month. Server applies inflation rate from published assumptions."
                           : isVi
                           ? " Khớp với tháng bắt đầu nhận lương hưu danh nghĩa. Nếu đang nhận từ trước tháng định giá, hướng dẫn khuyến nghị khai theo giá trị này."
                           : " Matches nominal start month. If receiving prior to valuation month, recommended to declare at this value."}
@@ -1219,8 +1285,8 @@ export default function FinancialProfilePanel() {
                           <Select
                             label={
                               isVi
-                                ? "Liên kết dòng thu nhập tham chiếu (Chống tính trùng - FE-T05-04)"
-                                : "Link Reference Income Stream (Anti Double-Count - FE-T05-04)"
+                                ? "Khoản lương hưu đã khai trong Thu nhập (Tránh tính hai lần)"
+                                : "Link Reference Income Stream (Avoid Double-Counting)"
                             }
                             options={[
                               isVi ? "Không liên kết (khoản độc lập)" : "No Link (Standalone Item)",
@@ -1254,38 +1320,26 @@ export default function FinancialProfilePanel() {
                       <div style={{ marginTop: "var(--space-3)", padding: "var(--space-3)", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-sm)" }}>
                         <h4 style={{ margin: "0 0 var(--space-2)", fontSize: "var(--text-sm)" }}>
                           {isVi
-                            ? "Lịch điều chỉnh mức lương hưu danh nghĩa (Adjustment)"
-                            : "Nominal Pension Adjustment Schedule (Adjustment)"}
+                            ? "Lịch điều chỉnh mức lương hưu danh nghĩa"
+                            : "Nominal Pension Adjustment Schedule"}
                         </h4>
                         <Select
                           label={isVi ? "Chính sách điều chỉnh lương hưu" : "Pension Adjustment Policy"}
                           options={[
-                            isVi
-                              ? "Giữ nguyên mức danh nghĩa sau khi nhận (NONE)"
-                              : "Maintain Nominal Level After Receipt (NONE)",
-                            isVi
-                              ? "Khai báo lịch điều chỉnh cụ thể theo từng mốc (EXPLICIT_SCHEDULE)"
-                              : "Declare Explicit Periodic Adjustment Schedule (EXPLICIT_SCHEDULE)",
+                            { value: "NONE", label: isVi ? "Giữ nguyên số tiền sau khi nhận" : "Maintain Nominal Level After Receipt" },
+                            { value: "EXPLICIT_SCHEDULE", label: isVi ? "Thay đổi theo các mốc đã khai" : "Declare Explicit Periodic Adjustment Schedule" },
                           ]}
-                          value={
-                            p.adjustment.kind === "EXPLICIT_SCHEDULE"
-                              ? isVi
-                                ? "Khai báo lịch điều chỉnh cụ thể theo từng mốc (EXPLICIT_SCHEDULE)"
-                                : "Declare Explicit Periodic Adjustment Schedule (EXPLICIT_SCHEDULE)"
-                              : isVi
-                              ? "Giữ nguyên mức danh nghĩa sau khi nhận (NONE)"
-                              : "Maintain Nominal Level After Receipt (NONE)"
-                          }
+                          value={p.adjustment.kind}
                           onChange={(v) => {
-                            if (v.includes("EXPLICIT_SCHEDULE")) {
+                            if (v === "EXPLICIT_SCHEDULE" || v.includes("EXPLICIT_SCHEDULE")) {
                               updatePensionKnown((prev) => ({
                                 ...prev,
                                 adjustment: {
                                   kind: "EXPLICIT_SCHEDULE",
                                   entries: [
                                     {
-                                      effectiveMonth: "2050-01",
-                                      monthlyAmount: prev.monthlyAmount || "6000000.00",
+                                      effectiveMonth: "",
+                                      monthlyAmount: prev.monthlyAmount || "",
                                       source: isVi ? "Dự kiến điều chỉnh lương hưu định kỳ" : "Expected periodic pension adjustment",
                                     },
                                   ],
@@ -1297,8 +1351,8 @@ export default function FinancialProfilePanel() {
                           }}
                           helper={
                             isVi
-                              ? "Hệ thống không tự sinh lịch tăng CPI tự động. Chỉ khi có văn bản điều chỉnh danh nghĩa cụ thể mới áp dụng EXPLICIT_SCHEDULE."
-                              : "The system does not generate automatic CPI bumps. EXPLICIT_SCHEDULE applies only when explicit nominal adjustment decisions exist."
+                              ? "Hệ thống không tự sinh lịch tăng CPI tự động. Chỉ khi có văn bản điều chỉnh danh nghĩa cụ thể mới áp dụng lịch điều chỉnh."
+                              : "The system does not generate automatic CPI bumps. Explicit schedule applies only when nominal adjustment decisions exist."
                           }
                         />
 
@@ -1307,10 +1361,10 @@ export default function FinancialProfilePanel() {
                           return (
                             <div style={{ marginTop: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
                               {adj.entries.map((entry, idx) => (
-                                <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.5fr auto", gap: "var(--space-2)", alignItems: "end" }}>
+                                <div key={idx} className="profile-cashflow-row">
                                   <Input
                                     type="month"
-                                    label={isVi ? "Tháng áp dụng (YYYY-MM)" : "Effective Month (YYYY-MM)"}
+                                    label={isVi ? "Tháng áp dụng" : "Effective Month (YYYY-MM)"}
                                     value={entry.effectiveMonth}
                                     onChange={(m) => {
                                       const nextEntries = [...adj.entries];
@@ -1320,7 +1374,8 @@ export default function FinancialProfilePanel() {
                                   />
                                   <Input
                                     type="number"
-                                    label={isVi ? "Mức tiền mới (VND/tháng)" : "New Amount (VND/month)"}
+                                    money
+                      label={isVi ? "Mức tiền mới (VND/tháng)" : "New Amount (VND/month)"}
                                     value={entry.monthlyAmount}
                                     onChange={(a) => {
                                       const nextEntries = [...adj.entries];
@@ -1396,7 +1451,7 @@ export default function FinancialProfilePanel() {
               </Card>
 
               {/* Section 2: Working Conditions & Statutory Retirement Age */}
-              <Card>
+              <Card className="profile-entry-card">
                 <div style={{ marginBottom: "var(--space-3)" }}>
                   <h3 style={{ fontSize: "var(--text-base)", margin: 0 }}>
                     {isVi ? "Điều kiện lao động & Tuổi nghỉ hưu luật định" : "Working Conditions & Statutory Retirement Age"}
@@ -1412,18 +1467,16 @@ export default function FinancialProfilePanel() {
                   <Select
                     label={isVi ? "Giới tính pháp lý" : "Legal Gender"}
                     options={[
-                      isVi ? "Nam (MALE)" : "Male (MALE)",
-                      isVi ? "Nữ (FEMALE)" : "Female (FEMALE)",
+                      { value: "UNDISCLOSED", label: isVi ? "Chưa cung cấp" : "Not provided" },
+                      { value: "OTHER", label: isVi ? "Khác" : "Other" },
+                      { value: "MALE", label: isVi ? "Nam" : "Male" },
+                      { value: "FEMALE", label: isVi ? "Nữ" : "Female" },
                     ]}
-                    value={
-                      v2Form.personal.gender === "FEMALE"
-                        ? isVi ? "Nữ (FEMALE)" : "Female (FEMALE)"
-                        : isVi ? "Nam (MALE)" : "Male (MALE)"
-                    }
+                    value={v2Form.personal.gender ?? "UNDISCLOSED"}
                     onChange={(g) =>
                       setV2Form({
                         ...v2Form,
-                        personal: { ...v2Form.personal, gender: g.includes("FEMALE") ? "FEMALE" : "MALE" },
+                        personal: { ...v2Form.personal, gender: g as "MALE" | "FEMALE" },
                       })
                     }
                   />
@@ -1431,26 +1484,20 @@ export default function FinancialProfilePanel() {
                   <Select
                     label={isVi ? "Điều kiện lao động thực tế" : "Actual Working Conditions"}
                     options={[
-                      isVi ? "Điều kiện bình thường (NORMAL)" : "Normal Conditions (NORMAL)",
-                      isVi ? "Nghỉ hưu sớm theo Điều 5 NĐ 135 (ARTICLE_5_DECLARED)" : "Early Retirement per Article 5 (ARTICLE_5_DECLARED)",
-                      isVi ? "Trường hợp đặc thù khác (OTHER)" : "Other Specific Condition (OTHER)",
+                      { value: "NORMAL", label: isVi ? "Điều kiện bình thường" : "Normal Conditions" },
+                      { value: "ARTICLE_5_DECLARED", label: isVi ? "Nghỉ hưu sớm theo Điều 5 NĐ 135" : "Early Retirement per Article 5" },
+                      { value: "OTHER", label: isVi ? "Trường hợp đặc thù khác" : "Other Specific Condition" },
                     ]}
-                    value={
-                      v2Form.personal.retirementCondition?.kind === "ARTICLE_5_DECLARED"
-                        ? isVi ? "Nghỉ hưu sớm theo Điều 5 NĐ 135 (ARTICLE_5_DECLARED)" : "Early Retirement per Article 5 (ARTICLE_5_DECLARED)"
-                        : v2Form.personal.retirementCondition?.kind === "OTHER"
-                        ? isVi ? "Trường hợp đặc thù khác (OTHER)" : "Other Specific Condition (OTHER)"
-                        : isVi ? "Điều kiện bình thường (NORMAL)" : "Normal Conditions (NORMAL)"
-                    }
+                    value={v2Form.personal.retirementCondition?.kind || "NORMAL"}
                     onChange={(c) => {
                       let nextCond: RetirementCondition = { kind: "NORMAL" };
-                      if (c.includes("ARTICLE_5_DECLARED")) {
+                      if (c === "ARTICLE_5_DECLARED" || c.includes("ARTICLE_5_DECLARED")) {
                         nextCond = {
                           kind: "ARTICLE_5_DECLARED",
                           basis: "HAZARDOUS_15_YEARS",
                           evidence: isVi ? "Hồ sơ công việc nặng nhọc độc hại" : "Hazardous working environment documentation",
                         };
-                      } else if (c.includes("OTHER")) {
+                      } else if (c === "OTHER" || c.includes("OTHER")) {
                         nextCond = {
                           kind: "OTHER",
                           description: isVi ? "Trường hợp đặc thù" : "Special case",
@@ -1471,26 +1518,14 @@ export default function FinancialProfilePanel() {
                       <Select
                         label={isVi ? "Căn cứ áp dụng Điều 5" : "Article 5 Qualification Basis"}
                         options={[
-                          isVi ? "15 năm nghề nặng nhọc, độc hại, nguy hiểm (HAZARDOUS_15_YEARS)" : "15 years hazardous/heavy labor (HAZARDOUS_15_YEARS)",
-                          isVi ? "15 năm vùng KTXH đặc biệt khó khăn (DIFFICULT_REGION_15_YEARS)" : "15 years socio-economically difficult region (DIFFICULT_REGION_15_YEARS)",
-                          isVi ? "15 năm kết hợp cả hai điều kiện trên (COMBINED_15_YEARS)" : "15 years combining both conditions (COMBINED_15_YEARS)",
-                          isVi ? "Suy giảm khả năng lao động từ 61% trở lên (WORK_CAPACITY_LOSS_61_PERCENT)" : "Work capacity loss >= 61% (WORK_CAPACITY_LOSS_61_PERCENT)",
+                          { value: "HAZARDOUS_15_YEARS", label: isVi ? "15 năm nghề nặng nhọc, độc hại, nguy hiểm" : "15 years hazardous/heavy labor" },
+                          { value: "DIFFICULT_REGION_15_YEARS", label: isVi ? "15 năm vùng KTXH đặc biệt khó khăn" : "15 years socio-economically difficult region" },
+                          { value: "COMBINED_15_YEARS", label: isVi ? "15 năm kết hợp cả hai điều kiện trên" : "15 years combining both conditions" },
+                          { value: "WORK_CAPACITY_LOSS_61_PERCENT", label: isVi ? "Suy giảm khả năng lao động từ 61% trở lên" : "Work capacity loss >= 61%" },
                         ]}
-                        value={
-                          cond.basis === "DIFFICULT_REGION_15_YEARS"
-                            ? isVi ? "15 năm vùng KTXH đặc biệt khó khăn (DIFFICULT_REGION_15_YEARS)" : "15 years socio-economically difficult region (DIFFICULT_REGION_15_YEARS)"
-                            : cond.basis === "COMBINED_15_YEARS"
-                            ? isVi ? "15 năm kết hợp cả hai điều kiện trên (COMBINED_15_YEARS)" : "15 years combining both conditions (COMBINED_15_YEARS)"
-                            : cond.basis === "WORK_CAPACITY_LOSS_61_PERCENT"
-                            ? isVi ? "Suy giảm khả năng lao động từ 61% trở lên (WORK_CAPACITY_LOSS_61_PERCENT)" : "Work capacity loss >= 61% (WORK_CAPACITY_LOSS_61_PERCENT)"
-                            : isVi ? "15 năm nghề nặng nhọc, độc hại, nguy hiểm (HAZARDOUS_15_YEARS)" : "15 years hazardous/heavy labor (HAZARDOUS_15_YEARS)"
-                        }
+                        value={cond.basis || "HAZARDOUS_15_YEARS"}
                         onChange={(b) => {
-                          let basis: "HAZARDOUS_15_YEARS" | "DIFFICULT_REGION_15_YEARS" | "COMBINED_15_YEARS" | "WORK_CAPACITY_LOSS_61_PERCENT" = "HAZARDOUS_15_YEARS";
-                          if (b.includes("DIFFICULT_REGION_15_YEARS")) basis = "DIFFICULT_REGION_15_YEARS";
-                          else if (b.includes("COMBINED_15_YEARS")) basis = "COMBINED_15_YEARS";
-                          else if (b.includes("WORK_CAPACITY_LOSS_61_PERCENT")) basis = "WORK_CAPACITY_LOSS_61_PERCENT";
-
+                          const basis = b as "HAZARDOUS_15_YEARS" | "DIFFICULT_REGION_15_YEARS" | "COMBINED_15_YEARS" | "WORK_CAPACITY_LOSS_61_PERCENT";
                           setV2Form({
                             ...v2Form,
                             personal: {
@@ -1551,8 +1586,8 @@ export default function FinancialProfilePanel() {
                         }
                         helper={
                           isVi
-                            ? "Trường hợp đặc thù sẽ được đánh dấu REVIEW_REQUIRED và không tự động điền tuổi mặc định."
-                            : "Special conditions are flagged as REVIEW_REQUIRED and do not automatically fill a default age."
+                            ? "Trường hợp đặc thù sẽ được đánh dấu cần kiểm tra thêm và không tự động điền tuổi mặc định."
+                            : "Special conditions are flagged as requiring review and do not automatically fill a default age."
                         }
                       />
                     </div>
@@ -1563,7 +1598,7 @@ export default function FinancialProfilePanel() {
               {/* Action buttons */}
               <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", alignItems: "center" }}>
                 <Button type="submit" variant="primary" loading={busy}>
-                  {isVi ? "Lưu khai báo lương hưu v2" : "Save Pension Declaration v2"}
+                  {isVi ? "Lưu thông tin lương hưu" : "Save Pension Declaration v2"}
                 </Button>
                 <Button
                   type="button"
@@ -1599,8 +1634,8 @@ export default function FinancialProfilePanel() {
                           {pensionPreview.legalRetirementAge.status === "REFERENCE_ONLY"
                             ? isVi ? "THAM CHIẾU LUẬT ĐỊNH" : "STATUTORY REFERENCE"
                             : pensionPreview.legalRetirementAge.status === "REVIEW_REQUIRED"
-                            ? isVi ? "CẦN RÀ SOÁT" : "REVIEW REQUIRED"
-                            : isVi ? "CHƯA XÁC ĐỊNH ĐỦ ĐIỀU KIỆN (NOT_ASSESSED)" : "NOT ASSESSED"}
+                            ? isVi ? "CẦN KIỂM TRA THÊM" : "REVIEW REQUIRED"
+                            : isVi ? "CHƯA ĐÁNH GIÁ ĐIỀU KIỆN HƯỞNG" : "NOT ASSESSED"}
                         </Badge>
                       </div>
                       <h3 style={{ fontSize: "var(--text-lg)", margin: "var(--space-2) 0 var(--space-1)" }}>
@@ -1610,8 +1645,8 @@ export default function FinancialProfilePanel() {
                       </h3>
                       <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
                         {isVi ? "Quy tắc:" : "Rule:"} {pensionPreview.legalRetirementAge.rule.version} (
-                        {isVi ? "Hiệu lực từ" : "Effective from"} {pensionPreview.legalRetirementAge.rule.effectiveFrom}).{" "}
-                        {isVi ? "Ngày định giá:" : "Valuation date:"} {pensionPreview.valuationDate}.
+                        {isVi ? "Hiệu lực từ" : "Effective from"} {formatDateVN(pensionPreview.legalRetirementAge.rule.effectiveFrom)}).{" "}
+                        {isVi ? "Ngày định giá:" : "Valuation date:"} {formatDateVN(pensionPreview.valuationDate)}.
                         {pensionPreview.assumptionVersionId &&
                           ` · ${isVi ? "Bộ giả định vĩ mô:" : "Macro assumption set:"} ${pensionPreview.assumptionVersionId}`}
                       </p>
@@ -1717,8 +1752,8 @@ export default function FinancialProfilePanel() {
                     <div style={{ marginTop: "var(--space-3)" }}>
                       <h4 style={{ fontSize: "var(--text-sm)", fontWeight: 600, marginBottom: "var(--space-2)" }}>
                         {isVi
-                          ? `Dòng tiền lương hưu dự kiến (12 tháng đầu tiên kể từ tháng định giá ${pensionPreview.valuationDate.slice(0, 7)})`
-                          : `Expected Pension Cash Flow (First 12 months from valuation month ${pensionPreview.valuationDate.slice(0, 7)})`}
+                          ? `Dòng tiền lương hưu dự kiến (12 tháng đầu tiên kể từ tháng định giá ${formatMonthVN(pensionPreview.valuationDate.slice(0, 7))})`
+                          : `Expected Pension Cash Flow (First 12 months from valuation month ${formatMonthVN(pensionPreview.valuationDate.slice(0, 7))})`}
                       </h4>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "var(--space-2)" }}>
                         {pensionPreview.rows.slice(0, 12).map((row) => (
@@ -1732,13 +1767,13 @@ export default function FinancialProfilePanel() {
                               fontSize: "var(--text-xs)",
                             }}
                           >
-                            <span style={{ color: "var(--color-text-muted)", display: "block" }}>{row.month}</span>
+                            <span style={{ color: "var(--color-text-muted)", display: "block" }}>{formatMonthVN(row.month)}</span>
                             <strong>
                               {row.amount === null
                                 ? isVi ? "Chưa tính được" : "Indeterminate"
                                 : Number(row.amount) > 0
-                                ? `${new Intl.NumberFormat("vi-VN").format(Number(row.amount))} ₫`
-                                : isVi ? "0 ₫ (trước kỳ nhận)" : "0 ₫ (prior to receipt)"}
+                                ? `${Math.round(Number(row.amount)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`
+                                : isVi ? "0 VND (trước kỳ nhận)" : "0 VND (prior to receipt)"}
                             </strong>
                           </div>
                         ))}
@@ -1781,6 +1816,44 @@ export default function FinancialProfilePanel() {
             : undefined
         }
       />
+
+      {/* FE-07: Review Asset Allocation Confirmation Dialog */}
+      <ResponsiveDialog
+        open={showAssetReviewModal}
+        title={isVi ? "Rà soát phân bổ tài sản (Phiên bản 2)" : "Review Asset Allocation (Version 2)"}
+        onClose={() => {
+          setShowAssetReviewModal(false);
+          setActiveTab("v2-timing");
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          <p style={{ margin: 0, fontSize: "var(--text-base)", color: "var(--color-text)", lineHeight: 1.6 }}>
+            {isVi
+              ? "Hồ sơ của bạn đã được nâng cấp lên phiên bản 2. Các tài sản hiện có đã được tự động phân bổ theo tỷ lệ chuẩn (Dành cho hưu trí, Dự phòng khẩn cấp, Mục tiêu khác). Để kế hoạch nghỉ hưu phản ánh đúng thực tế, bạn nên xem lại và điều chỉnh tỷ lệ này."
+              : "Your financial profile has been upgraded to version 2. Your assets were assigned default allocation shares (Retirement, Emergency, Other Goals). We recommend reviewing these proportions now."}
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowAssetReviewModal(false);
+                setActiveTab("v2-timing");
+              }}
+            >
+              {isVi ? "Để sau (Đến thông tin thời gian)" : "Later (Go to Timeline)"}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setShowAssetReviewModal(false);
+                setActiveTab("v2-assets");
+              }}
+            >
+              <Icon name="check" size="small" /> {isVi ? "Xem và điều chỉnh tài sản ngay" : "Review Assets Now"}
+            </Button>
+          </div>
+        </div>
+      </ResponsiveDialog>
     </Card>
   );
 }

@@ -16,7 +16,6 @@ export function aiRouter(s:AiService){const r=Router();
   r.post("/conversations",aiLimiter,validate(empty),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.createConversation(req.user!.userId),201)));
   r.delete("/conversations",validate(empty),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.remove(req.user!.userId))));
   r.get("/conversations/:id",asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.get(req.user!.userId,id(req.params.id)))));
-  r.get("/conversations/:id/export",asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.get(req.user!.userId,id(req.params.id)))));
   r.patch("/conversations/:id",validate(titleSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.rename(req.user!.userId,id(req.params.id),req.body))));
   r.patch("/conversations/:id/messages/:messageId",validate(messageEditSchema),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.editMessage(req.user!.userId,id(req.params.id),id(req.params.messageId),req.body))));
   r.delete("/conversations/:id",validate(empty),asyncHandler(async(req:AuthenticatedRequest,res)=>sendData(res,await s.remove(req.user!.userId,id(req.params.id)))));

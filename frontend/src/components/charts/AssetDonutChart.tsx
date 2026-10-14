@@ -32,14 +32,14 @@ const CustomTooltip = ({ active, payload, isVi }: any) => {
         <span style={{ fontWeight: 600 }}>{data.name}</span>
       </div>
       <div style={{ color: "#E2E8F0" }}>
-        {data.value.toLocaleString(isVi ? "vi-VN" : "en-US")} ₫ ({data.percent}%)
+        {Math.round(data.value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, isVi ? "." : ",")} VND ({data.percent}%)
       </div>
     </div>
   );
 };
 
 export function AssetDonutChart({ assets }: { assets: AssetProfile }) {
-  const { language } = useI18n();
+  const { language, formatCurrency } = useI18n();
   const isVi = language === "vi";
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
@@ -54,15 +54,15 @@ export function AssetDonutChart({ assets }: { assets: AssetProfile }) {
   if (!totalValue) return <p>{isVi ? "Chưa có tài sản được khai báo." : "No assets declared yet."}</p>;
 
   return (
-    <div style={{ width: "100%", height: 260, position: "relative" }}>
+    <div style={{ width: "100%", height: 280, position: "relative" }}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={assetData}
             cx="50%"
             cy="50%"
-            innerRadius={72}
-            outerRadius={108}
+            innerRadius={78}
+            outerRadius={116}
             paddingAngle={3}
             dataKey="value"
             onMouseEnter={(_, index) => setActiveIndex(index)}
@@ -95,13 +95,24 @@ export function AssetDonutChart({ assets }: { assets: AssetProfile }) {
           transform: "translate(-50%, -50%)",
           textAlign: "center",
           pointerEvents: "none",
+          width: "150px",
         }}
       >
-        <span style={{ fontSize: "11px", color: "#7B8F9D", textTransform: "uppercase", letterSpacing: "0.6px", display: "block", fontWeight: 600 }}>
+        <span style={{ fontSize: "11px", color: "#7B8F9D", textTransform: "uppercase", letterSpacing: "0.8px", display: "block", fontWeight: 600, marginBottom: "3px" }}>
           {isVi ? "Tổng tài sản" : "Total Assets"}
         </span>
-        <strong style={{ fontSize: "20px", color: "var(--color-primary-700, #052659)", fontWeight: 800, display: "block", marginTop: "2px" }}>
-          {new Intl.NumberFormat(isVi ? "vi-VN" : "en-US", { notation: "compact", maximumFractionDigits: 1 }).format(totalValue)} ₫
+        <strong
+          className="font-mono"
+          style={{
+            fontSize: totalValue >= 1_000_000_000 ? "16.5px" : "19px",
+            color: "var(--color-primary-700, #052659)",
+            fontWeight: 800,
+            display: "block",
+            whiteSpace: "nowrap",
+            lineHeight: 1.2,
+          }}
+        >
+          {formatCurrency(totalValue)}
         </strong>
       </div>
     </div>

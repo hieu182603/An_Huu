@@ -80,7 +80,7 @@ async function main() {
         schemaVersion: 2,
         title: "Bộ giả định kinh tế vĩ mô Việt Nam 2026-2040 (Local Dev)",
         currency: "VND",
-        effectiveFrom: "2026-01-01",
+        effectiveFrom: "2026-10-01",
         projectionStartYear: 2026,
         projectionEndYear: 2040,
         sources: [
@@ -139,9 +139,9 @@ async function main() {
         ],
         inflation: projYears.map(y => ({
           year: y,
-          percent: y <= 2028 ? "3.8" : "4.0",
-          sourceId: y <= 2028 ? "GSO_CPI" : "AN_HUU_LONG_TERM",
-          kind: y <= 2028 ? "FORECAST" : "LONG_TERM",
+          percent: "4.0",
+          sourceId: "AN_HUU_LONG_TERM",
+          kind: "LONG_TERM",
           rateType: "EFFECTIVE_ANNUAL",
           priceBasis: "NOMINAL",
           conversionNote: "Tỷ lệ lạm phát hiệu dụng hàng năm phục vụ kế hoạch dòng tiền."

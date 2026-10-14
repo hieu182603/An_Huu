@@ -10,6 +10,7 @@ import { plansFixture } from "./plans-fixtures";
 import { AuthService } from "../modules/auth/service";
 import { createApp } from "../app";
 import { config, token } from "./helpers";
+import { displayDecimal } from "../modules/ai/presentation";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import Ajv from "ajv";
 const consent=(revision=0,saveHistory=false,processing=true)=>({expectedRevision:revision,policyVersion:AI_POLICY_VERSION,processing,saveHistory} as const);
@@ -18,6 +19,35 @@ const provider=(select:ExplanationProvider["select"]):ExplanationProvider=>({nam
 const answer=async(s:AiService,u:string,v:Parameters<AiService["explain"]>[1],key=randomUUID())=>await s.explain(u,v,key) as any;
 beforeEach(()=>{vi.spyOn(console,"info").mockImplementation(()=>{});vi.spyOn(console,"error").mockImplementation(()=>{});});
 describe("T10 explanation/data governance",()=>{
+  it("formats exact amounts for people without converting large integers to floating point",()=>{
+    expect(displayDecimal("9007199254740993.75")).toBe("9.007.199.254.740.994");
+    expect(displayDecimal("-1000000.25")).toBe("-1.000.000");
+    expect(displayDecimal("123.456789",2)).toBe("123,46");
+  });
+  it("answers inflation questions when no plan exists and explains why a what-if needs a new calculation",async()=>{
+    const f=memoryDb(),s=new AiService(f.db);await s.setPrivacy("u",consent());
+    const explanation=await answer(s,"u",{question:"Lạm phát trong kế hoạch là gì?"});
+    expect(explanation.facts.map((fact:any)=>fact.key)).toContain("inflation");
+    expect(explanation.facts.map((fact:any)=>fact.key)).toContain("missing");
+    const pf=await plansFixture(),saved=await pf.create(),ai=new AiService(pf.db,provider(async()=>({factKeys:["fund"],citationIds:[]})));
+    await ai.setPrivacy(pf.owner,consent());
+    const response=await answer(ai,pf.owner,{question:"Nếu tôi nghỉ hưu sớm hơn thì cần bao nhiêu?",planId:saved.planId,versionId:saved.saved.id});
+    expect(response.facts.map((fact:any)=>fact.key)).toContain("simulation");
+    expect(response.answer).toContain("chưa phải kết quả");
+    expect(response.applied).toBe(false);
+  });
+  it("uses matching approved documents during fallback and names new conversations from the first question",async()=>{
+    const f=memoryDb(),k=new KnowledgeService(f.db),s=new AiService(f.db);
+    const doc=await k.create("admin",source());await k.index("admin",doc.id,{expectedRevision:1});
+    await k.approve("admin",doc.id,{expectedRevision:2,approved:true,confirm:true,reviewNote:"Reviewed fixture"});
+    await s.setPrivacy("u",consent(0,true));const c=await s.createConversation("u");
+    const r=await answer(s,"u",{question:"Vốn cần nghỉ hưu?",conversationId:c.id,expectedRevision:0});
+    expect(r.status).toBe("PROVIDER_NOT_CONFIGURED");expect(r.citations[0].sourceId).toBe(doc.id);
+    expect((await s.get("u",c.id)).title).toBe("Vốn cần nghỉ hưu?");
+    await s.rename("u",c.id,{expectedRevision:1,title:"Tên riêng"});
+    await answer(s,"u",{question:"Lạm phát?",conversationId:c.id,expectedRevision:2});
+    expect((await s.get("u",c.id)).title).toBe("Tên riêng");
+  });
   it("defaults consent off and requires explicit current purpose/version",async()=>{const f=memoryDb(),s=new AiService(f.db);
     expect(await s.privacy("u")).toMatchObject({processing:false,saveHistory:false,revision:0,providerConfigured:false});
     await expect(s.explain("u",{question:"Quỹ?"},randomUUID())).rejects.toMatchObject({code:"AI_CONSENT_REQUIRED"});
@@ -117,7 +147,9 @@ describe("T10 explanation/data governance",()=>{
     check("Privacy",await request(app).put(path+"/privacy").set("Authorization",authz).send(consent(0,true)));
     const c=await request(app).post(path+"/conversations").set("Authorization",authz).send({});check("Conversation",c);
     check("Explanation",await request(app).post(path+"/explain").set("Authorization",authz).set("Idempotency-Key",randomUUID()).send({question:"Quỹ?",conversationId:c.body.data.id,expectedRevision:0}));
-    check("History",await request(app).get(path+"/conversations/"+c.body.data.id+"/export").set("Authorization",authz));
+    check("History",await request(app).get(path+"/conversations/"+c.body.data.id).set("Authorization",authz));
+    // The JSON export route was removed; the owned conversation is only read via GET /conversations/:id.
+    expect((await request(app).get(path+"/conversations/"+c.body.data.id+"/export").set("Authorization",authz)).status).toBe(404);
     expect((await request(app).get(path+"/privacy")).status).toBe(401);expect((await request(app).get(path+"/privacy").set("Authorization","Bearer "+token("ADMIN"))).status).toBe(403);
     expect((await request(app).get("/api/v1/admin/knowledge").set("Authorization",authz)).status).toBe(403);
     check("Source",await request(app).post("/api/v1/admin/knowledge").set("Authorization","Bearer "+token("ADMIN")).send(source()));

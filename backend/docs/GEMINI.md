@@ -46,3 +46,7 @@ Kết quả `AI_ASSISTED` chỉ khi selection hợp lệ; HTTP lỗi, timeout, o
 UI/browser, quota/billing theo môi trường, retention worker/backup và P36 trước phát hành vẫn cần nghiệm thu. Bàn giao UI: FE-GEMINI trong `docs/task-frontend.md`.
 
 Tham chiếu giao thức chính thức: [Gemini API](https://ai.google.dev/api), [structured output](https://ai.google.dev/gemini-api/docs/generate-content/structured-output), [thinking](https://ai.google.dev/gemini-api/docs/generate-content/thinking), [Vertex express API](https://cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/vertex-ai-express-mode-api-reference). Khả dụng model ở đây dựa thêm vào phản hồi thật của Google với key hiện tại.
+
+## Kiểm tra lại 13/10/2026
+
+`node scripts/verify-gemini.cjs` đạt với cấu hình hiện có `developer/gemini-3.8-flash`, chỉ dữ liệu giả lập, không đọc DB. Giao diện USER/ADMIN được kiểm tra bằng đăng nhập local; lượt nghiệm thu cuối dùng `AI_PROVIDER=none`, rollback toàn bộ ghi DB. Một lần chạy lại định gửi dữ kiện tài khoản tới Gemini bị cơ chế duyệt tự động chặn; không tiếp tục gửi dữ liệu đó. Chế độ kiểm thử không thay cấu hình Gemini trong `.env`. Xem [báo cáo nghiệm thu](../../docs/AI_COMPLETION_2026-10-13.md).

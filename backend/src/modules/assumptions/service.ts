@@ -4,6 +4,7 @@ import { z } from "zod";
 import { AppError } from "../../common/errors";
 import { audit } from "../../common/audit";
 import { transaction } from "../../common/transaction";
+import { PublishedCache } from "../../common/published-cache";
 import { ASSUMPTION_SERIES_CODE, assumptionDocumentSchema, revisionSchema, approveAssumptionsSchema, publishAssumptionsSchema,
   writeAssumptionsSchema, assumptionsListSchema, seriesRequestSchema, type AssumptionDocument, type SeriesRequest } from "./schema";
 import { validateConfiguration, resolveYearSeries } from "./series";
@@ -32,6 +33,7 @@ function view(row: AssumptionSetVersion) {
     effectiveAt: row.effectiveAt?.toISOString() ?? null, approval: workflow.approval, documentHash: hash(dataOf(row)) };
 }
 type Tx = Prisma.TransactionClient;
+export const publishedAssumptions = new PublishedCache<ReturnType<typeof view>>();
 export class AssumptionsService {
   constructor(private db: PrismaClient, private now: () => Date = () => new Date()) {}
   private async row(tx: Tx, id: string) {
@@ -55,12 +57,20 @@ export class AssumptionsService {
       projectionStartYear: dataOf(row).projectionStartYear, projectionEndYear: dataOf(row).projectionEndYear })), page: input.page, limit: input.limit };
   }
   async get(id: string, publishedOnly = false) {
+    const cached = publishedAssumptions.get(id);
+    if (cached) {
+      if (publishedOnly && (!cached.effectiveAt || new Date(cached.effectiveAt) > this.now()))
+        throw new AppError(404, "NOT_FOUND", "Bộ giả định chưa được công bố hoặc chưa có hiệu lực.");
+      return cached;
+    }
     const row = await this.row(this.db, id);
     if (publishedOnly && (row.status !== "PUBLISHED" || !row.effectiveAt || row.effectiveAt > this.now()))
       throw new AppError(404, "NOT_FOUND", "Bộ giả định chưa được công bố hoặc chưa có hiệu lực.");
     if (row.status === "PUBLISHED" && workflowOf(row).approval?.documentHash !== hash(dataOf(row)))
       throw new AppError(409, "ASSUMPTIONS_DATA_REVIEW_REQUIRED", "Nội dung không khớp bản đã được phê duyệt.");
-    return view(row);
+    const result = view(row);
+    if (row.status === "PUBLISHED") publishedAssumptions.set(id, result);
+    return result;
   }
   create(actor: string, input: AssumptionDocument) {
     const data = assumptionDocumentSchema.parse(input);

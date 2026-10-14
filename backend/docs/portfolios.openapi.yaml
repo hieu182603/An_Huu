@@ -1332,6 +1332,8 @@ Preview:
   type: object
   additionalProperties: false
   properties:
+    guidance:
+      $ref: ./preview-guidance.openapi.yaml#/Guidance
     policyVersionId: *a3
     policyVersion: *a4
     policyHash:

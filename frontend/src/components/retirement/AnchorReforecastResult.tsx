@@ -17,7 +17,8 @@ export function AnchorReforecastResult({ result, language, onSelectMonth }: {
     if (!value || !/^-?\d+(\.\d+)?$/.test(value)) return t("Chưa xác định", "Unknown");
     const [integer, fraction = ""] = value.replace(/^-/, "").split(".");
     const decimal = fraction.replace(/0+$/, "");
-    return `${value.startsWith("-") ? "-" : ""}${BigInt(integer).toLocaleString(en ? "en-US" : "vi-VN")}${decimal ? `${en ? "." : ","}${decimal}` : ""} ₫`;
+    const formatted = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `${value.startsWith("-") ? "-" : ""}${formatted}${decimal ? `,${decimal}` : ""} VND`;
   };
   const issueLabels: Record<string, string> = {
     MISSING_MONTH: t("Chưa khai báo sổ thực tế", "Actual month not recorded"),
