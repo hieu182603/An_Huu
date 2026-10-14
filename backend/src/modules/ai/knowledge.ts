@@ -7,6 +7,40 @@ import { AppError } from "../../common/errors";
 import { sourceInputSchema, sourceEditSchema, sourceApprovalSchema, sourceRevisionSchema, pageSchema } from "./schema";
 const hash = (s: KnowledgeSource) => createHash("sha256").update(JSON.stringify([s.title,s.referenceCode,s.category,s.version,s.rawContent,s.fileUrl,s.effectiveDate,s.validUntil])).digest("hex");
 const tokens = (s: string) => [...new Set(s.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").match(/[a-z0-9]{2,}/g) ?? [])];
+// Retrieval ranking (BM25). Terms are derived from the verified chunk content, so stored LEXICAL_V1 metadata stays valid.
+// Accented words, their unaccented "~" forms and adjacent-word bigrams ("lương hưu", "cơ sở") are separate terms.
+const STOP = new Set(("là của và có được cho các những này đó thì mà với trong khi để theo từ về tại đến bao nhiêu gì nào sao không hiện nay "
+  + "tôi bạn mình ai đâu thế nếu hay hoặc cũng đã đang sẽ rồi nhé ạ ơi vậy như bị phải hãy xin cần muốn biết hỏi").split(" "));
+const ABBR: Record<string,string> = { bhxh:"bảo hiểm xã hội",bhyt:"bảo hiểm y tế",bhtn:"bảo hiểm thất nghiệp",tncn:"thu nhập cá nhân",
+  tctd:"tổ chức tín dụng",nlđ:"người lao động",nđ:"nghị định",tt:"thông tư",qđ:"quyết định" };
+const WEIGHT = { word:1, folded:0.5, pair:1.5, foldedPair:0.75 }, TITLE_WEIGHT = 0.5, MIN_RELATIVE = 0.4, K1 = 1.2, B = 0.75;
+const folded = new Map<string,string>();
+const fold = (w: string) => { let f = folded.get(w); if (f === undefined) { if (folded.size > 50000) folded.clear();
+  folded.set(w, f = w.normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d")); } return f; };
+/** Lowercase words in reading order; "" (punctuation, line break or 1-letter word) breaks bigrams. */
+const words = (s: string, max = Infinity) => {
+  const ws: string[] = [];
+  for (const seg of s.toLowerCase().normalize("NFC").replace(/%/g, " phần trăm ").split(/[^\p{L}\p{N}\s]+|\n/u)) {
+    for (const raw of seg.match(/[\p{L}\p{N}]+/gu) ?? []) for (const w of (ABBR[raw] ?? raw).split(" ")) ws.push(w.length < 2 ? "" : w);
+    if (ws.length >= max) break; ws.push("");
+  }
+  return ws.slice(0, max);
+};
+type Words = { ws: string[]; fs: string[]; stop: boolean[] };
+const prepare = (s: string, max?: number): Words => { const ws = words(s, max);
+  return { ws, fs: ws.map(w => w && "~" + fold(w)), stop: ws.map(w => STOP.has(w)) }; };
+// Chunk content is fixed for a chunk id + indexed source hash (retrieve verifies it), so its words can be reused.
+const prepared = new Map<string, Words>();
+const chunkWords = (key: string, content: string) => { let p = prepared.get(key); if (!p) { if (prepared.size >= 5000) prepared.clear();
+  prepared.set(key, p = prepare(content)); } return p; };
+/** Calls visit(term, weight) for each term; `want` limits bigram construction to first words that can match. */
+const scan = ({ ws, fs, stop }: Words, visit: (term: string, weight: number) => void, want?: Set<string>) => {
+  for (let i = 0; i < ws.length; i++) { const w = ws[i]; if (!w) continue;
+    if (!stop[i]) { visit(w, WEIGHT.word); visit(fs[i], WEIGHT.folded); }
+    if (!ws[i + 1] || (stop[i] && stop[i + 1])) continue;
+    if (!want || want.has(w)) visit(`${w} ${ws[i + 1]}`, WEIGHT.pair);
+    if (!want || want.has(fs[i])) visit(`${fs[i]} ${fs[i + 1].slice(1)}`, WEIGHT.foldedPair); }
+};
 const missing = () => new AppError(404, "NOT_FOUND", "Không tìm thấy nguồn tri thức.");
 const conflict = () => new AppError(409, "REVISION_CONFLICT", "Nguồn đã thay đổi. Hãy tải lại.");
 const dto = (s: KnowledgeSource) => ({ id:s.id,title:s.title,referenceCode:s.referenceCode,category:s.category,version:s.version,
@@ -53,16 +87,31 @@ export class KnowledgeService {
       return dto((await tx.knowledgeSource.findUnique({where:{id}}))!); });
   }
   async retrieve(tx:Prisma.TransactionClient,question:string) {
-    const now=new Date(), query=tokens(question).slice(0,50);
+    const now=new Date(), query=new Map<string,number>(), firsts=new Set<string>();
+    scan(prepare(question,64),(t,w)=>{query.set(t,w);if(t.includes(" "))firsts.add(t.slice(0,t.indexOf(" ")));});
     const sources=await tx.knowledgeSource.findMany({where:{isApproved:true,status:"INDEXED",effectiveDate:{lte:now},OR:[{validUntil:null},{validUntil:{gt:now}}]},orderBy:{updatedAt:"desc"},take:100});
-    const selected=[],eligible=sources.filter(s=>s.effectiveDate&&s.indexedHash&&s.indexedHash===hash(s));
-    const chunks=await tx.knowledgeChunk.findMany({where:{sourceId:{in:eligible.map(s=>s.id)}},orderBy:{chunkIndex:"asc"},take:4000});
-    for(const c of chunks){const s=eligible.find(s=>s.id===c.sourceId)!; const m=c.metadata as {method?:string;sourceHash?:string;tokens?:string[]}|null;
+    const eligible=new Map(sources.filter(s=>s.effectiveDate&&s.indexedHash&&s.indexedHash===hash(s)).map(s=>[s.id,s]));
+    const chunks=await tx.knowledgeChunk.findMany({where:{sourceId:{in:[...eligible.keys()]}},orderBy:{chunkIndex:"asc"},take:4000});
+    // IDF and average length are computed over the eligible, verified chunks only.
+    const docs=[],df=new Map<string,number>();let total=0;
+    for(const c of chunks){const s=eligible.get(c.sourceId)!; const m=c.metadata as {method?:string;sourceHash?:string;tokens?:string[]}|null;
         if(m?.method!=="LEXICAL_V1" || m.sourceHash!==s.indexedHash || !Array.isArray(m.tokens))continue;
         if(c.chunkIndex<0 || c.content!==s.rawContent?.slice(c.chunkIndex*1500,(c.chunkIndex+1)*1500))continue;
-        const score=query.filter(t=>m.tokens!.includes(t)).length;if(!score)continue;
+        const tf=new Map<string,number>();let length=0;
+        scan(chunkWords(`${c.id}:${s.indexedHash}`,c.content),(t,w)=>{if(w===WEIGHT.word)length++;if(query.has(t))tf.set(t,(tf.get(t)??0)+1);},firsts);
+        for(const t of tf.keys())df.set(t,(df.get(t)??0)+1);total+=length;docs.push({c,s,tf,length}); }
+    const idf=(t:string)=>Math.log(1+(docs.length-(df.get(t)??0)+0.5)/((df.get(t)??0)+0.5)),avg=total/Math.max(docs.length,1);
+    const titles=new Map<string,number>();
+    const titleScore=(s:KnowledgeSource)=>{let v=titles.get(s.id);if(v===undefined){const own=new Set<string>();scan(prepare(`${s.title}\n${s.referenceCode??""}`),t=>own.add(t));
+      titles.set(s.id,v=[...query].reduce((sum,[t,w])=>own.has(t)&&df.has(t)?sum+w*idf(t):sum,0));}return v;};
+    const selected=[];
+    for(const {c,s,tf,length} of docs){if(!tf.size)continue;
+        let bm25=0;for(const [t,w] of query){const f=tf.get(t);if(f)bm25+=w*idf(t)*f*(K1+1)/(f+K1*(1-B+B*length/avg));}
+        const score=Math.round((bm25+TITLE_WEIGHT*titleScore(s))*1e6)/1e6;
         selected.push({id:c.id,sourceId:s.id,sourceRevision:s.revision,title:s.title,version:s.version,url:s.fileUrl,
-          content:c.content,contentHash:s.indexedHash,effectiveDate:s.effectiveDate!.toISOString(),validUntil:s.validUntil?.toISOString()??null,score}); }
-    return selected.sort((a,b)=>b.score-a.score || a.id.localeCompare(b.id)).slice(0,4);
+          content:c.content,contentHash:s.indexedHash!,effectiveDate:s.effectiveDate!.toISOString(),validUntil:s.validUntil?.toISOString()??null,score}); }
+    // Up to 4; drop weak tail matches far below the best chunk.
+    const ranked=selected.sort((a,b)=>b.score-a.score || a.id.localeCompare(b.id)).slice(0,4);
+    return ranked.filter(r=>r.score>=ranked[0].score*MIN_RELATIVE);
   }
 }
