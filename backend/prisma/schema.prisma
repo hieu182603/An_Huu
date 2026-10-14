@@ -445,6 +445,7 @@ model PartnerProduct {
   annualFee      String?   @db.Text
   conditions     String?   @db.Text
   disclosure     String?   @db.Text
+  imageUrl       String?   // Cloudinary URL
   isVisible      Boolean   @default(false)
   revision       Int       @default(0)
   updatedAt      DateTime  @default(now()) @updatedAt

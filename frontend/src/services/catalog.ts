@@ -28,6 +28,7 @@ export interface ProductItem {
   annualFee: string | null;
   conditions: string | null;
   disclosure: string | null;
+  imageUrl?: string | null;
   isVisible: boolean;
   revision?: number;
   createdAt?: string;
@@ -62,6 +63,7 @@ export interface ProductInput {
   annualFee: string | null;
   conditions: string | null;
   disclosure: string | null;
+  imageUrl?: string | null;
   isVisible: boolean;
 }
 
@@ -131,4 +133,15 @@ export async function updateAdminProduct(id: string, expectedRevision: number, d
     { expectedRevision, data },
     "PUT"
   );
+}
+
+export async function uploadAdminImage(file: File): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+  return (await authenticatedRequest<{ url: string }>("/admin/media", form, "POST")).url;
+}
+
+/** Opens a support ticket (category "Tư vấn sản phẩm") that admins handle in Support. */
+export async function requestProductConsult(productId: string, message: string, phone?: string) {
+  return authenticatedRequest<{ id: string }>(`/me/products/${encodeURIComponent(productId)}/consult`, { message, ...(phone ? { phone } : {}) }, "POST");
 }
