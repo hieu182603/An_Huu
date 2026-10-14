@@ -1,5 +1,35 @@
 # Tiến độ triển khai backend An Hưu
 
+## ĐIỀU TRA SYSTEM LOG / ĐĂNG NHẬP LỖI 15/10/2026 (side-session)
+
+Truy vấn chỉ đọc `system_logs`/`login_logs` trên Azure (30 ngày, toàn bộ log từ 06/10 khi có migration 0012): 89 CRITICAL + 5 ERROR, đều `source=API`.
+- 51 CRITICAL = 503 `DATABASE_UNAVAILABLE` (Prisma P1001/P2024… lúc kết nối Azure chập chờn; 38/51 dồn vào 23h–01h giờ VN đêm 11–12/10 và 14–15/10, trùng phiên dev local dùng chung DB Azure — log không ghi môi trường nên chưa tách chắc được); 25 = 503 `NOT_READY` của `/health/ready` (probe quá `HEALTH_TIMEOUT_MS`, rải rác); 13 = 503 `DATABASE_UPDATE_REQUIRED` `GET /products` 17:11–17:13Z ngày 14/10, ngay trước khi migration 0014 xong 17:15:53Z (client có cột `imageUrl` trước khi DB có). Đều là nhiễu/blip, không phải bug nghiệp vụ; lỗi nằm ở cách xếp mức: mọi 5xx khác 500 bị ghi CRITICAL còn 500 thật chỉ là ERROR.
+- 5 ERROR = 500: 3× `POST /auth/refresh` trong cửa sổ mất kết nối 11/10 (khả năng cao P2028 không bắt được transaction trong `maxWait` — chưa chứng minh vì log không lưu nguyên nhân), 1× P2034 ở `findFirst` trong xác thực (bản ghi cũ còn `errorMessage`), 1× `POST /` không xác định được router nào (6 router có `post("/")`).
+- Đăng nhập FAILED 28: 21 vào tài khoản admin, 11 từ 127.0.0.1 (dev local), còn lại theo cặp vài giây từ IP Vercel; tối đa 5/giờ, không có LOCKED → gõ sai, không phải brute-force. Phát hiện bảo mật: `ipAddress` dạng `ip:port` của egress Vercel (16.162.x/16.163.x/43.198.x, AWS HK) → limiter theo IP khoá theo từng kết nối; chưa sửa vì cần quyết định topology (`TRUST_PROXY_HOPS`, bỏ port); limiter theo email + khoá tài khoản vẫn hoạt động.
+- Đã sửa `middlewares/errorHandler.ts`: `DATABASE_UNAVAILABLE`/`NOT_READY` → WARNING, 500 → ERROR, 5xx khác → CRITICAL; thêm P1008/P2028 → 503 và P2034 → 409 `CONCURRENT_UPDATE`; `details.cause` + stderr `cause` chỉ gồm tên lớp lỗi và mã Prisma (không message); `path` giữ template route kèm tiền tố mount (`/api/v1/...`), đường chưa khớp route thì che UUID/số. Không xoá/sửa log, không migration. Test `foundation.test.ts` +1; full 696 tests/62 files PASS, typecheck + typecheck:tests PASS.
+
+## BÁO CÁO THEO KỲ 15/10/2026
+
+`GET /admin/reports?days=7|30|90` (ADMIN, mặc định 30): KPI kỳ này vs kỳ trước cùng độ dài (đăng ký, user có đăng nhập, câu hỏi AI, ticket, tư vấn sản phẩm, bài xuất bản), chuỗi theo ngày giờ VN (dùng lại `dailyBuckets`), phễu (đăng ký → ACTIVE → hồ sơ → kế hoạch → dùng AI), ticket theo trạng thái/nhóm, đăng nhập theo trạng thái, system log theo mức, top 8 audit action. Chỉ đọc. Test `admin-overview.test.ts` +1; full 695 tests/62 files PASS. Chạy thật trên Azure (chỉ đọc) ~2,6s: 30 ngày có 88 log CRITICAL, 28 đăng nhập FAILED — chưa điều tra nguyên nhân.
+
+## GÓI SẢN PHẨM + TƯ VẤN + AI GỢI Ý 15/10/2026
+
+- `partner_products.imageUrl` (migration `202610150014_product_image`, chỉ `ADD COLUMN IF NOT EXISTS`, nullable). **ĐÃ APPLY lên Azure 15/10** theo yêu cầu user (`prisma migrate deploy`, 2 lần đầu lỗi mạng P1001, lần sau thành công); migrate status up to date, cột text nullable, 11 sản phẩm giữ nguyên; `/products` HTTP 200. Không sửa 0001–0013.
+- `POST /admin/media` (ADMIN, uploadLimiter, Cloudinary sẵn có) trả `{url}`; `productInput.imageUrl` optional (bỏ trống = giữ ảnh cũ).
+- Tư vấn sản phẩm = ticket hỗ trợ category "Tư vấn sản phẩm": `POST /me/products/:id/consult` {message, phone?} (USER, consultationLimiter, chỉ sản phẩm đang hiển thị), audit `PRODUCT_CONSULT_REQUESTED`. Không hồi sinh bảng/route Consultation (410 giữ nguyên). `/admin/support?category=` lọc phía server.
+- AI: câu hỏi về sản phẩm thêm fact server `products` = gói đang phân phối lọc rủi ro theo số năm tới tháng muốn nghỉ hưu (<5 thấp, 5–15 thấp/TB, >15 tất cả), có câu miễn trừ; provider chỉ nhận đoạn tóm tắt. Hồ sơ chưa lưu khảo sát rủi ro phía server (ghi chú `ponytail:`).
+- Admin overview `GET /admin/overview` (14/10) đã có từ trước trong phiên.
+- Test: `product-consult.test.ts` (2), `admin-overview.test.ts` (2); full 694 tests/62 files PASS; typecheck PASS. Frontend e2e `tests/product-consult.spec.ts` 2 PASS.
+- Tiếp: admin bật hiển thị sản phẩm (hiện 0/11 đang hiển thị nên `/products` rỗng).
+
+## AI KNOWLEDGE XẾP HẠNG BM25 14/10/2026 (side-session, chỉ backend)
+
+`KnowledgeService.retrieve` thay đếm token trùng bằng BM25 (IDF trên chunk đủ điều kiện), từ có dấu + bỏ dấu + cặp từ liền nhau, stopword hỏi, mở rộng viết tắt (BHXH, TNCN…), "%"→"phần trăm", cộng điểm khi term khớp tiêu đề/số hiệu, bỏ chunk < 40% điểm cao nhất. Term lấy từ nội dung chunk đã kiểm khớp rawContent nên **giữ LEXICAL_V1, không cần reindex** (không đổi metadata/index/loader); điều kiện duyệt/hiệu lực/hash/top 4/hòa theo id giữ nguyên. Từ của chunk được cache trong tiến trình (khóa id+indexedHash). Test mới `src/tests/ai-knowledge-ranking.test.ts` (4 tests; 2 test xếp hạng FAIL với mã V1, PASS với mã mới). Full 690 tests/60 files PASS, source + test typecheck PASS. DB local (30 nguồn, đã duyệt local): văn bản đúng đứng đầu ở cả 7 câu có văn bản tương ứng (câu tăng lương hưu 2026: TT 14/2026 hướng dẫn điều chỉnh đứng đầu, NĐ 162 hạng 2). Chunk chứa đáp án: "tăng thêm 8%" (NĐ 162, hạng 2), "2.530.000 đồng/tháng" (NĐ 161), "đủ 15 năm" (Luật BHXH); câu trả nợ trước hạn ra điều cho vay của Luật TCTD (không có văn bản riêng). Hạn chế: câu thuế TNCN với lương hưu ra đúng Luật 109/2025 nhưng chunk Điều 4 khoản 9 (miễn thuế lương hưu) đứng hạng 17 vì tiêu đề Điều 4 nằm ở chunk trước; cần chia chunk theo Điều (index V2) nếu muốn khắc phục. Ấm ~100 ms/lần như cũ, lần đầu sau khởi động ~300 ms. Chưa ghi gì lên production; production cần deploy mã này rồi admin mới duyệt nguồn.
+
+## AI KNOWLEDGE NẠP PRODUCTION 14/10/2026
+
+Theo yêu cầu người dùng, nạp 13 văn bản chính thức đang hiệu lực (Luật BHXH VBHN 19/VBHN-VPQH, NĐ 158/159/2025, TT 12/2025, NĐ 135/2020, BLLĐ 2019, NĐ 161/162/2026, TT 14/2026, Luật 51/2024 BHYT, Luật TNCN 109/2025, Luật Người cao tuổi, Luật TCTD VBHN 158) thành 30 nguồn qua `scripts/load-knowledge.cjs` + `seed-data/legal-2026/knowledge-manifest.json` (bản gốc + SHA256 trong `sources-kb/`, chữ trích trong `sources-kb-text/`). Production: 30 nguồn INDEXED, 699 chunk LEXICAL_V1, CHƯA duyệt; 2 bản ghi rỗng cũ (Luật 41/2024, NĐ 135) được cập nhật, 3 bản ghi khác (NĐ 75/2024 đã hết hiệu lực, CFA, báo cáo dân số) giữ nguyên. Audit: 28 CREATED, 2 EDITED, 30 INDEXED. Thử truy xuất trên local (duyệt tạm) cho thấy LEXICAL_V1 xếp hạng kém (đếm từ trùng không dấu, không IDF/tiêu đề): câu về tăng lương hưu 2026 không ra NĐ 162, lương cơ sở không ra NĐ 161. Không duyệt nguồn trên production cho tới khi cải thiện truy xuất.
+
 ## AI EXPORT GỠ 14/10/2026
 
 Theo yêu cầu người dùng, gỡ `GET /me/ai/conversations/:id/export` (router, generator OpenAPI, khối path trong docs/openapi.yaml, AI_GOVERNANCE.md) và nút "Tải hội thoại (JSON)" ở frontend (nhánh dự phòng tự ghép JSON từ tin nhắn trên màn hình, không ứng với bản ghi nào). Xem hội thoại vẫn qua `GET /conversations/:id`; test ai.test.ts kiểm route cũ trả 404. Full 686 tests/59 files, source + test typecheck PASS.
