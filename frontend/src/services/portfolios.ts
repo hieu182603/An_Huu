@@ -172,13 +172,19 @@ export interface PortfolioPreviewResult {
   issues?: Array<{ path: string; code: string }>;
 }
 
+const policyDetailCache = new Map<string, { data: PortfolioPolicyDetail; expiresAt: number }>();
+
 // User endpoints
 export async function fetchUserPortfolioPolicies(page = 1, limit = 10): Promise<PortfolioPolicyListResponse> {
-  return authenticatedRequest<PortfolioPolicyListResponse>(`/me/portfolio-policies?page=${page}&limit=${limit}`);
+  return authenticatedRequest<PortfolioPolicyListResponse>(`/me/portfolio-policies?page=${page}&limit=${limit}`, undefined, "GET", undefined, { ttlMs: 120000 });
 }
 
 export async function fetchUserPortfolioPolicyDetail(id: string): Promise<PortfolioPolicyDetail> {
-  return authenticatedRequest<PortfolioPolicyDetail>(`/me/portfolio-policies/${id}`);
+  const cached = policyDetailCache.get(id);
+  if (cached && Date.now() < cached.expiresAt) return cached.data;
+  const res = await authenticatedRequest<PortfolioPolicyDetail>(`/me/portfolio-policies/${id}`, undefined, "GET", undefined, { ttlMs: 120000 });
+  policyDetailCache.set(id, { data: res, expiresAt: Date.now() + 120000 });
+  return res;
 }
 
 export async function previewUserPortfolio(command: PortfolioPreviewCommand): Promise<PortfolioPreviewResult> {

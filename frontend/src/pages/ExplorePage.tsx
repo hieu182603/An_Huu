@@ -54,8 +54,8 @@ export default function ExplorePage() {
         </div>
 
         <div className="phase-eight-switcher">
-          <button type="button" className="is-active">{isEn ? "Explore" : "Khám phá"}</button>
-          <Link className="button button-ghost" to="/user/account">{isEn ? "Account" : "Tài khoản"}</Link>
+          <Link to="/user/explore" className="is-active">{isEn ? "Explore" : "Khám phá"}</Link>
+          <Link to="/user/account">{isEn ? "Account" : "Tài khoản"}</Link>
         </div>
       </div>
 

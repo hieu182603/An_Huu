@@ -4,6 +4,17 @@
 
 Cập nhật 05/10/2026: chủ dự án đã chọn **Google Gemini**, thay lựa chọn chuẩn bị không-provider trước đây. Production composition dùng provider theo env; local developer/gemini-3.8-flash đã gọi thành công bằng dữ liệu mẫu. Contract cấu hình/giới hạn/bằng chứng: [GEMINI.md](GEMINI.md). Không fine-tuning/embedding/tự duyệt nguồn. UI và vận hành trước phát hành còn nghiệm thu.
 
+## Cập nhật trải nghiệm 13/10/2026
+
+- Tiền trong lời giải thích được định dạng tiếng Việt bằng decimal chính xác; chỉ làm tròn khi trình bày. Phân biệt thiếu/dư và mức góp vượt khả năng. Khi hỏi về thay đổi điều kiện, luôn nói rõ cần chạy mô phỏng; số của kế hoạch cũ không được gọi là kết quả mới.
+- Khi provider gián đoạn hoặc chưa cấu hình, chọn dữ kiện theo chủ đề câu hỏi và vẫn dẫn các đoạn nguồn đã duyệt còn hiệu lực. Kiểm tra lại nguồn sau khi provider hoàn tất được giữ nguyên.
+- Hội thoại nhận tên từ câu hỏi đầu tiên, giữ tên người dùng đã sửa. Mỗi lượt mới ghi mốc thời gian tăng dần cho câu hỏi rồi câu trả lời, tránh `now()` PostgreSQL giống nhau trong transaction; dữ liệu cũ có cùng thời điểm ưu tiên user trước assistant.
+- Giao diện có mở/đổi tên/xóa/xóa hết/sửa câu hỏi và tải thêm lịch sử; dùng revision mới sau đổi tên, giữ khóa yêu cầu khi thử lại, bỏ phản hồi đến muộn sau chuyển hội thoại. Sửa câu hỏi gỡ câu trả lời cũ, người dùng quyết định gửi lại.
+- Mô phỏng dùng tháng và chuỗi tiền từ bản đang áp dụng, không tự gán tuổi 60/số tiền mẫu. Số 0 khác để trống; kết quả chưa đủ dữ liệu không hiện thành 0. So sánh dùng `atValuation` và delta tương ứng, ghi rõ ngày số liệu từng cột, giữ null khi không cùng cơ sở.
+- ADMIN có thêm/sửa nội dung, đường dẫn HTTPS, thời hạn, tạo chỉ mục, duyệt/thu hồi và tải thêm nguồn. Sửa hoặc lập lại chỉ mục phải duyệt lại. Mục quy tắc mô tả đúng mã đang thực thi, không giả lập chỉnh prompt hay giám sát lưu lượng.
+
+Bằng chứng và phạm vi nghiệm thu local: [AI_COMPLETION_2026-10-13.md](../../docs/AI_COMPLETION_2026-10-13.md). Đây không phải chứng nhận triển khai vận hành production.
+
 ## API USER
 
 Prefix `/api/v1/me/ai`, Bearer/session, USER only, no-store; ADMIN không được đọc hội thoại của USER. JSON envelope `{data,meta}`. Xem `ai.openapi.yaml`; strict input từ chối trường không khai báo. Các API giải thích/mô phỏng/tạo hội thoại có rate limit hiện tại 15/phút theo IP (memory trong một process; giới hạn nhiều instance cần T12 xác nhận).
@@ -16,7 +27,7 @@ Prefix `/api/v1/me/ai`, Bearer/session, USER only, no-store; ADMIN không đư�
 | POST `/simulate` | `{planId,versionId,expectedProfileRevision,changes:{retirementMonth?,monthlyContribution?,monthlyExpenseToday?}}`, ít nhất một thay đổi. Chạy T08/T06, không gọi provider, không cần AI consent |
 | GET `/conversations?page=1&limit=20` | Chỉ hội thoại còn hạn của user; limit tối đa 50 |
 | POST `/conversations` | Body `{}`, cần processing+saveHistory. Trả id/revision=0/expiresAt, HTTP 201 |
-| GET `/conversations/:id` hoặc `/:id/export` | Nội dung, nguồn và context đã lưu. Export JSON envelope, không CSV; chỉ owner, hội thoại còn hạn |
+| GET `/conversations/:id` | Nội dung, nguồn và context đã lưu; chỉ owner, hội thoại còn hạn. Route `/:id/export` (tải JSON) đã gỡ ngày 14/10/2026 theo yêu cầu người dùng |
 | PATCH `/conversations/:id` | `{expectedRevision,title}` đổi tên và tăng revision |
 | PATCH `/conversations/:id/messages/:messageId` | `{expectedRevision,content}` sửa **câu hỏi USER**; xóa answer/context của lượt tương ứng vì không còn khớp câu hỏi, tăng revision. Không cho sửa kết quả engine hoặc answer thành kết quả giả |
 | DELETE `/conversations/:id` hoặc `/conversations` | Body `{}`. Xóa một/tất cả hội thoại và messages/context, tăng privacy revision để vô hiệu hóa yêu cầu đang chờ. Có thể xóa riêng hội thoại đã hết hạn bằng ID |
@@ -60,7 +71,7 @@ LEXICAL_V1 là matching token bỏ dấu/chữ thường, xếp theo số token 
 
 ## Quyền dữ liệu và lưu trữ
 
-Policy hiện hành `ai-explanation-2026-10-v1`, purpose `EXPLAIN_SERVER_RESULTS`. Processing và saveHistory mặc định tắt, revision chống ghi đè. User bật history riêng; hội thoại hết hạn cố định **30 ngày từ lúc tạo**, không kéo dài khi gửi thêm. Đây là lựa chọn vận hành của bản triển khai, **không phải thời hạn pháp luật quy định**. Mỗi hội thoại tối đa 100 messages (50 cặp nếu không chỉnh sửa).
+Policy hiện hành `ai-explanation-gemini-2026-10-v2`, purpose `EXPLAIN_SERVER_RESULTS`. Processing và saveHistory mặc định tắt, revision chống ghi đè. User bật history riêng; hội thoại hết hạn cố định **30 ngày từ lúc tạo**, không kéo dài khi gửi thêm. Đây là lựa chọn vận hành của bản triển khai, **không phải thời hạn pháp luật quy định**. Mỗi hội thoại tối đa 100 messages (50 cặp nếu không chỉnh sửa).
 
 Hết hạn bị chặn đọc ngay tại API. `purgeExpiredAi` xóa messages/context và conversation trong transaction theo lô; worker outbox chạy sweep mỗi phút, mặc định100 bản ghi/lô và tối đa10lô, log số còn lại. Tác vụ mới `node dist/retention.js` chỉ cần DATABASE_URL và mặc định chỉ đọc; thêm `--execute` mới xóa, dùng độc lập SMTP/outbox/Gemini. Chế độ dừng/giới hạn/exit và hướng dẫn scheduler ở [RETENTION_OPERATIONS.md](RETENTION_OPERATIONS.md). Đã kiểm fixture DB thật có rollback và pg_dump/restore35bảng trên DB tạm, dọn expired sau restore bằng executable thật. Chưa triển khai scheduler Azure hoặc kiểm backup production. Retention bản sao/nhật ký hạ tầng và đối chiếu yêu cầu xóa sau thời điểm backup vẫn cần xử lý trước phát hành; expiry purge không tự giải quyết trường hợp dữ liệu còn hạn đã được xóa sau backup.
 

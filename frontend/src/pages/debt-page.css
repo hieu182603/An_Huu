@@ -115,6 +115,7 @@
 }
 
 /* Hero Right: Visual & DTI Gauge Panel */
+/* Hero Right: Visual & DTI Gauge Panel */
 .debt-hero-visual {
   position: relative;
   z-index: 1;
@@ -122,12 +123,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  border-radius: 20px;
-  background: rgba(16, 45, 61, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(16px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  padding: 26px 24px;
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(5, 38, 89, 0.65) 0%, rgba(2, 16, 36, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 16px 36px -8px rgba(2, 16, 36, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .debt-dti-ring-container {
@@ -137,7 +138,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .debt-dti-svg {
@@ -155,22 +156,30 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  max-width: 130px;
+  padding: 0 4px;
 }
 
 .debt-dti-number {
-  font-size: 34px;
+  font-size: 32px;
   font-weight: 900;
-  line-height: 1;
-  letter-spacing: -0.03em;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: #ffffff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.debt-dti-number.is-compact {
+  font-size: 23px;
+  letter-spacing: -0.01em;
 }
 
 .debt-dti-label {
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--color-mist-300);
   margin-top: 4px;
 }
@@ -178,40 +187,64 @@
 .debt-dti-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
+  gap: 8px;
+  padding: 6px 16px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .debt-dti-badge.is-safe {
-  background: var(--color-success-soft);
-  color: var(--color-secondary-700);
-  border: 1px solid var(--color-border);
+  background: rgba(16, 185, 129, 0.2);
+  color: #6EE7B7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
 }
 
 .debt-dti-badge.is-warning {
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
-  border: 1px solid var(--color-border);
+  background: rgba(245, 158, 11, 0.2);
+  color: #FCD34D;
+  border: 1px solid rgba(245, 158, 11, 0.4);
 }
 
 .debt-dti-badge.is-danger {
-  background: rgba(var(--color-danger-rgb), 0.14);
-  color: var(--color-danger);
-  border: 1px solid var(--color-border);
+  background: rgba(239, 68, 68, 0.2);
+  color: #FCA5A5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.debt-dti-badge.is-neutral {
+  background: rgba(255, 255, 255, 0.12);
+  color: #E2E8F0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.status-pulse {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  flex-shrink: 0;
+  animation: statusPulseGlow 2s infinite ease-in-out;
+}
+
+@keyframes statusPulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
 }
 
 .debt-hero-visual-footer {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--color-mist-300);
   text-align: center;
-  max-width: 280px;
-  line-height: 1.45;
-  margin-top: 6px;
+  max-width: 290px;
+  line-height: 1.5;
+  margin: 0;
 }
 
 /* ==========================================================================
@@ -403,60 +436,281 @@
   justify-content: center;
 }
 
+/* ==========================================================================
+   4.1 SCENARIO BUDGET RESERVE BANNER
+   ========================================================================== */
+.debt-reserve-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, rgba(208, 228, 254, 0.45) 0%, rgba(232, 242, 254, 0.8) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  box-shadow: 0 2px 10px rgba(5, 38, 89, 0.03);
+}
+
+.debt-reserve-banner-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  min-width: 0;
+  flex: 1 1 500px;
+}
+
+.debt-reserve-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(51, 77, 175, 0.12);
+  color: var(--color-primary-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(51, 77, 175, 0.08);
+}
+
+.debt-reserve-banner-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.debt-reserve-banner-title {
+  margin: 0 0 4px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--color-neutral-dark);
+}
+
+.debt-reserve-banner-desc {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.debt-reserve-banner-subnotes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  font-size: 12.5px;
+}
+
+.debt-reserve-subnote-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+}
+
+.debt-reserve-actuals-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-primary-700);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.debt-reserve-actuals-link:hover {
+  color: var(--color-primary-900);
+}
+
+.debt-reserve-banner-action-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.debt-reserve-amount-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.debt-reserve-amount-pill .pill-caption {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.debt-reserve-amount-pill .pill-value {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--color-primary-800);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  .debt-reserve-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .debt-reserve-banner-action-group {
+    align-items: stretch;
+    width: 100%;
+  }
+  .debt-reserve-amount-pill {
+    align-items: flex-start;
+  }
+  .debt-reserve-banner-action-group button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .debt-scenario-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
+  align-items: flex-start;
+}
+
+@media (max-width: 1200px) {
+  .debt-scenario-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .debt-scenario-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.debt-scenario-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.debt-scenario-col-label,
+.debt-scenario-col .form-field .field-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-ink, #0f1d33);
+  min-height: 38px;
+  display: flex;
   align-items: flex-end;
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+
+.debt-scenario-col .form-field {
+  margin: 0;
+  width: 100%;
+  gap: 0;
+}
+
+.debt-scenario-col .form-field input,
+.debt-scenario-col .form-field select {
+  height: 46px;
+  min-height: 46px;
+  max-height: 46px;
+  box-sizing: border-box;
+}
+
+.debt-scenario-col .input-wrap,
+.debt-scenario-col .select-wrap {
+  height: 46px;
+  width: 100%;
 }
 
 .debt-horizon-pills {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   padding: 4px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm, 8px);
   background: var(--color-soft);
-  margin-top: 6px;
+  height: 46px;
+  min-height: 46px;
+  box-sizing: border-box;
+  align-items: center;
+  border: 1px solid var(--color-border-input, #cbd5e1);
+  margin-top: 0;
 }
 
 .debt-horizon-btn {
   flex: 1;
+  height: 100%;
   border: 0;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--color-text-muted);
   background: transparent;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .debt-horizon-btn.is-active {
   background: #ffffff;
   color: var(--color-primary-700);
-  box-shadow: 0 1px 3px rgba(5, 38, 89, 0.1);
+  box-shadow: 0 1px 3px rgba(5, 38, 89, 0.12);
 }
 
 .debt-quick-chips {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .debt-chip {
   border: 1px solid var(--color-border);
   background: #ffffff;
   border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 11px;
+  padding: 6px 10px;
+  min-height: 32px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--color-primary-700);
   cursor: pointer;
   transition: all 0.15s ease;
 }
+
+.debt-calculate-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+}
+.debt-calculate-actions p { flex: 1; min-width: 200px; margin: 0; color: var(--color-text-muted); font-size: 14px; }
+.debt-results-stale { color: var(--color-text-muted); margin: 0 0 16px; }
+.debt-loan-dates { display: grid; gap: 6px; font-size: 13px; color: var(--color-text-muted); margin: 16px 0; }
+.debt-loan-footer { flex-wrap: wrap; gap: 8px; }
+.debt-loan-fields { border: 0; margin: 0; padding: 0; display: grid; gap: 20px; min-width: 0; }
+.debt-loan-fields h3 { margin: 4px 0 0; font-size: 17px; }
+.debt-loan-fields .form-field { margin: 0; }
+.debt-loan-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.debt-loan-date-help { font-size: 14px; line-height: 1.6; color: var(--color-text-muted); margin: 0; }
+.debt-loan-dialog-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+@media (max-width: 640px) { .debt-loan-form-grid { grid-template-columns: 1fr; } }
 
 .debt-chip:hover {
   background: var(--color-accent-soft);

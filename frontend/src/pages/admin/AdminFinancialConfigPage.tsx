@@ -232,7 +232,7 @@ export default function AdminFinancialConfigPage() {
     }
   };
 
-  const formatDate = (value: string | null) => value ? new Date(value).toLocaleDateString(isEn ? "en-US" : "vi-VN") : "-";
+  const formatDate = (value: string | null) => value ? new Date(value).toLocaleDateString("vi-VN") : "-";
   const publishedCount = versions?.items.filter((item) => item.status === "PUBLISHED").length || 0;
 
   return (

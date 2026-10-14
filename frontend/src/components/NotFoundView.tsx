@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
 import { Icon } from "./ui";
-import notFoundArtwork from "../assets/404-artwork.png";
+import notFoundArtwork from "../assets/404-artwork.webp";
 import { useI18n } from "../i18n";
 import { useAuth } from "../context/AuthContext";
 

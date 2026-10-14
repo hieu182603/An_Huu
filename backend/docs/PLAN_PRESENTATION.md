@@ -1,5 +1,13 @@
 # T08 — Báo cáo, so sánh, mô phỏng và xuất tháng
 
+## Cập nhật 13/10/2026 — API cho giao diện desktop
+
+- `comparison.atRetirement` bổ sung `status`, `reasons`, `basis: SAME_RETIREMENT_MONTH_NOMINAL`, `baselineMonth`, `candidateMonth`, `delta`. Các delta là `projectedFund`, `requiredFund`, `fundingGap`, `coveragePercentagePoints`, cùng chiều candidate trừ baseline. Chỉ trả delta khi hai tháng nghỉ hưu bằng nhau và các điều kiện so sánh gốc đều đạt; khác tháng trả `RETIREMENT_MONTH_DIFFERS`. Không dùng `comparison.delta.*AtValuation` cạnh hai cột lấy từ `summary.atRetirement`. `comparison.delta` cũ giữ nguyên.
+- `GET /:planId/versions/:versionId/export.csv?format=readable-vi` xuất 20 cột tiếng Việt theo tháng, tiền làm tròn nửa lên đến đồng ở bước trình bày bằng Decimal; giữ số âm, tháng, phiên bản, ngày số liệu, kịch bản, nhãn giả định/dự báo cập nhật. Số dư âm là thiếu quỹ theo mô phỏng, không phải khoản vay thực tế. Không cộng các số dư tháng thành tổng năm.
+- Bỏ `format` hoặc `format=technical` giữ bản CSV kỹ thuật đầy đủ và chính xác như trước. `format` không hợp lệ trả 400. Cả hai dùng cùng snapshot/ownership/no-store; không sửa số tiền gốc hoặc tạo phiên bản mới khi xuất.
+- Preview nghỉ hưu `INCOMPLETE` có thêm `guidance` như [preview-guidance.openapi.yaml](preview-guidance.openapi.yaml): thời gian yêu cầu, năm bắt đầu/kết thúc bộ giả định, từng khoảng thời hạn của quy tắc, điều kiện không đạt và lời giải thích tiếng Việt cho các mã chặn cấu hình/lựa chọn. Giữ `issues` gốc để xử lý các mã chưa có hướng dẫn. Preview `READY` và snapshot lịch sử giữ cấu trúc/hash cũ, không thêm metadata hướng dẫn.
+- API vẫn hỗ trợ tháng nghỉ hưu bằng tháng định giá (không có giai đoạn tích lũy). Không suy diễn rằng có thể gửi tháng nghỉ hưu trước tháng định giá; v3 hiện vẫn chặn trường hợp đó.
+
 > Cập nhật 05/10/2026: model v3 hỗ trợ góp đầu/cuối tháng; EXPLICIT_DEPOSITS_ONLY đã chốt; có preview/lưu/apply reforecast và giữ replay v2. Contract hiện hành: [CONTRIBUTIONS_REFORECAST.md](CONTRIBUTIONS_REFORECAST.md). Các mô tả chỉ cuối kỳ/reforecast chỉ đọc/chờ Q13–Q15 ở checkpoint cũ bên dưới là lịch sử.
 
 Backend checkpoint 04/10/2026. Nối tiếp [PLANS.md](PLANS.md) và [RETIREMENT_MONTHLY.md](RETIREMENT_MONTHLY.md). Không migration; vẫn dùng schema 0006. Backend có endpoint, contract và kiểm chứng; giao diện do AI frontend xử lý theo FE-T08 trong `docs/task-frontend.md`, chưa nghiệm thu xuyên các màn hình.

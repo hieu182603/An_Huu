@@ -327,7 +327,92 @@
 .mk-range-field > div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 11px; }
 .mk-range-field label { max-width: 65%; }
 .mk-range-field output { font-weight: 600; text-align: right; white-space: nowrap; }
-.mk-range-field input { width: 100%; accent-color: #007763; height: 24px; cursor: pointer; margin-top: 7px; }
+.mk-range-field input[type="range"] { width: 100%; accent-color: #007763; height: 24px; cursor: pointer; margin-top: 7px; }
+
+/* Scenario Banner */
+.mk-scenario-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: #e3f4f2;
+  border: 1px solid #99d5ca;
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin-bottom: 24px;
+}
+.mk-scenario-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #007763;
+  font-size: 13px;
+}
+.mk-scenario-reset {
+  background: #fff;
+  color: #007763;
+  border: 1px solid #99d5ca;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mk-scenario-reset:hover {
+  background: #f0fbf9;
+}
+
+/* Numeric Input beside Slider Header (FE-22) */
+.mk-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.mk-field-header label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #10385b;
+  flex: 1;
+}
+.mk-field-input-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0f6fa;
+  border: 1px solid #dce8f2;
+  border-radius: 8px;
+  padding: 4px 8px;
+  transition: all 0.2s ease;
+}
+.mk-field-input-wrap:focus-within {
+  border-color: #008a75;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(0, 138, 117, 0.15);
+}
+.mk-num-input {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #10385b;
+  text-align: right;
+  width: 105px;
+  font-family: inherit;
+  padding: 0;
+}
+.mk-num-input:focus {
+  outline: none;
+}
+.mk-field-unit {
+  font-size: 11px;
+  color: #536b7e;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .mk-sim-results > p { color: #536b7e; font-size: 13px; }
 .mk-sim-results > strong { display: block; font-size: clamp(24px, 2.6vw, 36px); font-weight: 500; letter-spacing: -.06em; margin-top: 8px; white-space: nowrap; }
 .mk-sim-results dl { display: grid; gap: 19px; margin: 28px 0; }
@@ -340,6 +425,117 @@
 .mk-chart-legend span { display: flex; align-items: center; gap: 7px; }
 .mk-chart-legend i { width: 17px; height: 3px; background: #008a75; }
 .mk-chart-legend span:last-child i { background: #10385b; }
+
+/* Post-Retirement Section (FE-23) */
+.mk-sim-post-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #eef3f7;
+}
+.mk-sim-post-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #10385b;
+}
+.mk-sim-post-period {
+  font-size: 12px;
+  color: #536b7e;
+  margin: 6px 0 12px;
+}
+.mk-sim-status-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.mk-sim-status-box.is-warning {
+  background: #fff8eb;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+.mk-sim-status-box.is-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+.mk-sim-disclaimer-small {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+/* Scope & Limitations Card (FE-25) */
+.mk-sim-scope-card {
+  margin-top: 24px;
+  padding: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+.mk-sim-scope-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 12px;
+}
+.mk-sim-scope-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.mk-sim-scope-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.5;
+}
+.mk-sim-scope-col li {
+  position: relative;
+  padding-left: 14px;
+  margin-bottom: 4px;
+}
+.mk-sim-scope-col li::before {
+  content: "•";
+  position: absolute;
+  left: 2px;
+  color: #64748b;
+}
+.mk-scope-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.mk-scope-pill.is-included {
+  background: #dcfce7;
+  color: #166534;
+}
+.mk-scope-pill.is-excluded {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+@media (max-width: 600px) {
+  .mk-sim-scope-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .mk-assumptions { padding-block: 45px 85px; }
 .mk-assumptions h2 { font-size: 22px; font-weight: 500; margin-bottom: 18px; }
 .mk-assumptions p { font-size: 12px; color: #536b7e; margin-top: 12px; max-width: 950px; }

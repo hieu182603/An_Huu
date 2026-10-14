@@ -4,6 +4,7 @@ import "./plan-dialogs.css";
 import { Badge, Button, Card, Icon } from "../ui";
 import { useI18n } from "../../i18n";
 import { formatVNDCurrency } from "../../services/retirement";
+import { formatDateVN, formatMonthVN } from "../../utils/date";
 import type { PlanDetail, PlanHistoryItem, ReplayResult } from "../../services/plans";
 
 interface PlanVersionDrawerProps {
@@ -68,7 +69,7 @@ export function PlanVersionDrawer({
       setReplayResult({
         id: versionId,
         matched: false,
-        error: e instanceof Error ? e.message : (isEn ? "Cannot verify snapshot." : "Không thể kiểm chứng snapshot."),
+        error: e instanceof Error ? e.message : (isEn ? "Cannot verify snapshot." : "Chưa kiểm tra lại được kết quả đã lưu. Hãy thử lại."),
       });
     } finally {
       if (seq === replaySequence.current) setReplayingId(null);
@@ -84,7 +85,7 @@ export function PlanVersionDrawer({
   };
 
   return (
-    <ResponsiveDialog open={isOpen} title={isEn ? "Saved plan versions" : "Các phiên bản đã lưu"} onClose={() => { if (!isApplying) onClose(); }} className="plan-wide-dialog plan-version-dialog">
+    <ResponsiveDialog open={isOpen} title={isEn ? "Saved plan versions" : "Các phương án đã lưu"} onClose={() => { if (!isApplying) onClose(); }} className="plan-wide-dialog plan-version-dialog">
       <p className="plan-versions-intro">{isEn ? "Review saved results and choose the version you want to use. Applying a version requires confirmation." : "Xem lại kết quả đã lưu và chọn phiên bản bạn muốn sử dụng. Bạn sẽ xác nhận trước khi thay kế hoạch đang áp dụng."}</p>
       <div className="plan-versions-overview">
         <span>{isEn ? "Saved versions: " : "Số phiên bản đã lưu: "}<strong>{versions.length}</strong></span>
@@ -109,13 +110,13 @@ export function PlanVersionDrawer({
                     {isCurrent && <Badge tone="info">{isEn ? "Active" : "Đang áp dụng"}</Badge>}
                     {isBaseline && <Badge tone="success">{isEn ? "Baseline" : "Bản gốc ban đầu"}</Badge>}
                   </div>
-                  <time dateTime={v.createdAt}>{new Date(v.createdAt).toLocaleDateString(isEn ? "en-US" : "vi-VN")}</time>
+                  <time dateTime={v.createdAt}>{formatDateVN(v.createdAt)}</time>
                 </div>
                 <dl className="plan-version-metrics">
                   <div><dt>{isEn ? "Projected fund at retirement" : "Quỹ dự kiến lúc nghỉ hưu"}</dt><dd>{formatVNDCurrency(v.summary.atRetirement.projectedFund)}</dd></div>
                   <div><dt>{isEn ? "Required fund at retirement" : "Quỹ cần lúc nghỉ hưu"}</dt><dd>{formatVNDCurrency(v.summary.atRetirement.requiredFund)}</dd></div>
                   <div><dt>{isEn ? "Fund coverage" : "Mức bao phủ quỹ"}</dt><dd>{formatCoverage(v.summary.atRetirement.coveragePercent)}</dd></div>
-                  <div><dt>{isEn ? "Retirement month" : "Tháng nghỉ hưu"}</dt><dd>{v.summary.retirementMonth}</dd></div>
+                  <div><dt>{isEn ? "Retirement month" : "Tháng nghỉ hưu"}</dt><dd>{formatMonthVN(v.summary.retirementMonth)}</dd></div>
                 </dl>
                 <details className="plan-version-technical">
                   <summary>{isEn ? "Verification details" : "Thông tin đối chiếu"}</summary>
@@ -140,7 +141,7 @@ export function PlanVersionDrawer({
                   <p>{isEn ? `Replace the official plan with saved version v${v.version}?` : `Thay kế hoạch chính thức bằng phiên bản đã lưu v${v.version}?`}</p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     <Button variant="secondary" disabled={isApplying} onClick={() => setConfirmVersion(null)}>{isEn ? "Cancel" : "Hủy bỏ"}</Button>
-                    <Button loading={isApplying} disabled={Boolean(replayingId)} onClick={() => void onApplyVersion(v.id)}>{isEn ? `Confirm apply v${v.version}` : `Xác nhận áp dụng v${v.version}`}</Button>
+                    <Button loading={isApplying} disabled={Boolean(replayingId)} onClick={() => void onApplyVersion(v.id)}>{isEn ? `Confirm apply v${v.version}` : `Dùng làm kế hoạch hiện tại v${v.version}`}</Button>
                   </div>
                 </div>}
               </Card>

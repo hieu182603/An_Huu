@@ -1,0 +1,61 @@
+.debt-results-heading { margin: 8px 0 20px; }
+.debt-results-heading h2 { margin: 0 0 8px; font-size: 22px; }
+.debt-results-heading p { margin: 0; color: #52697e; line-height: 1.65; }
+.debt-results-overview { padding: 28px; margin-bottom: 32px; border: 1px solid #dce5ee; border-radius: 22px; background: #fff; }
+.debt-overview-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 24px; border-bottom: 1px solid #e8edf3; }
+.debt-overview-heading h2 { color: #102c50; margin: 0 0 8px; font-size: 22px; font-weight: 700; line-height: 1.4; }
+.debt-overview-heading p { margin: 0; color: #52697e; font-size: 14px; line-height: 1.6; }
+.debt-overview-tags { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.debt-period-tag { display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; background: #f4f7fb; border-radius: 10px; color: #52697e; font-size: 13px; white-space: nowrap; }
+.debt-period-tag strong { color: #173d67; font-size: 14px; font-weight: 700; }
+.debt-data-status { display: inline-flex; align-items: center; gap: 7px; color: #7c5a24; background: #fff7e8; padding: 9px 12px; border-radius: 10px; font-size: 13px; font-weight: 500; }
+.debt-results-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 24px 0 20px; }
+.debt-results-metrics article { min-width: 0; padding: 20px; border: 1px solid #d6e2ef; border-radius: 14px; background: #fff; }
+.debt-metric-heading { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-bottom: 18px; }
+.debt-result-icon { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; background: #eff5fc; color: #406a94; }
+.debt-results-metrics h3 { margin: 0; color: #37536e; font-size: 15px; font-weight: 600; line-height: 1.5; }
+.debt-results-metrics article > strong { display: block; color: #102c50; font-size: clamp(20px, 1.55vw, 28px); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.4; overflow-wrap: anywhere; }
+.debt-results-metrics article > strong.debt-metric-unavailable { color: #91a2b3; font-size: 30px; font-weight: 500; line-height: 1.3; }
+.debt-metric-note { display: inline-block; font-size: 13px; margin-top: 10px; color: #52697e; }
+.debt-metric-key { margin: 0 0 20px; color: #52697e; font-size: 13px; }
+.debt-results-metrics .has-deficit .debt-result-icon { color: #b12c26; background: #fff1ee; }
+.debt-results-metrics .has-deficit .debt-metric-note { color: #b12c26; }
+.debt-results-strategies article { border: 1px solid #dce5ee; border-radius: 18px; background: #fff; padding: 24px; min-width: 0; }
+.debt-results-metrics p, .debt-results-strategies p { font-size: 14px; color: #52697e; line-height: 1.65; margin: 16px 0 0; }
+.debt-analysis-results .has-deficit > strong { color: #b12c26; }
+.debt-results-missing { padding: 20px 24px; background: #f6f9fc; border: 1px solid #dce5ee; border-radius: 14px; line-height: 1.7; }
+.debt-results-missing h3 { font-size: 18px; margin-top: 0; }
+.debt-results-missing ul, .debt-option-issues { padding-left: 20px; }
+.debt-overview-missing { display: flex; align-items: flex-start; gap: 16px; background: #f5f8fc; border: 1px solid #d6e2ef; padding: 20px; border-radius: 12px; }
+.debt-missing-icon { flex-shrink: 0; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; color: #406a94; background: #e7eff9; }
+.debt-overview-missing h3 { margin: 0 0 10px; color: #173d67; font-size: 16px; font-weight: 650; }
+.debt-overview-missing ul { margin: 0; padding-left: 18px; font-size: 14px; color: #304d69; }
+.debt-overview-missing li + li { margin-top: 8px; }
+.debt-overview-missing p { color: #52697e; font-size: 14px; margin: 8px 0 0; }
+.debt-results-strategies { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 20px; }
+.debt-results-strategies h3 { font-size: 19px; margin: 0; line-height: 1.5; }
+.debt-comparison-scope { display: inline-block; margin-top: 16px; font-size: 13px; color: #335b80; background: #eef4fa; padding: 5px 10px; border-radius: 7px; }
+.debt-comparison-savings { margin-top: 20px; padding: 16px; border-radius: 10px; background: #f5f8fb; display: flex; flex-direction: column; gap: 6px; }
+.debt-comparison-savings span { font-size: 14px; color: #52697e; }
+.debt-comparison-savings strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.debt-results-strategies dl { margin: 20px 0 0; }
+.debt-results-strategies dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 12px 0; border-top: 1px solid #e5ecf2; font-size: 14px; }
+.debt-results-strategies dt { color: #52697e; }
+.debt-results-strategies dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.debt-option-issues { font-size: 14px; line-height: 1.65; }
+@media (max-width: 1200px) {
+  .debt-overview-heading { align-items: flex-start; flex-direction: column; }
+  .debt-overview-tags { justify-content: flex-start; }
+  .debt-results-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .debt-results-overview { padding: 20px; border-radius: 16px; }
+  .debt-overview-heading h2 { font-size: 20px; }
+  .debt-results-metrics { grid-template-columns: 1fr; gap: 12px; padding: 20px 0; }
+  .debt-results-metrics article { padding: 18px; }
+  .debt-metric-heading { margin-bottom: 10px; }
+  .debt-results-metrics p { margin-top: 10px; }
+  .debt-overview-missing { padding: 16px; gap: 12px; }
+  .debt-missing-icon { display: none; }
+  .debt-results-strategies article { padding: 20px; }
+}

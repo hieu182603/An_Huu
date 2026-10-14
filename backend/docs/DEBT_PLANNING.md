@@ -79,3 +79,14 @@ Không nhận userId, hồ sơ thay thế, lợi suất hưu trí hoặc lạm p
 `src/tests/debts.test.ts` kiểm tra số tính độc lập, tỷ lệ 29,99/30/50/50,01%, nợ 5/10/15 triệu, phí làm đổi lợi ích, dữ liệu thiếu, ownership/revision, API và OpenAPI. `node scripts/verify-debts-db.cjs` dùng DB đang cấu hình, HTTP qua AuthService thật, toàn bộ tài khoản/phiên/hồ sơ trong transaction rollback; đối chiếu fingerprint hồ sơ/snapshot trước và sau, không gửi mail. Không chạy integration suite có cleanup toàn bảng trên DB thật.
 
 Đã kiểm chứng checkpoint 04/10/2026: 12 kiểm tra HTTP/PostgreSQL đạt, rollback đạt, 50 hồ sơ và các snapshot cũ không đổi. T02 backend cung cấp dòng tiền để nối T06; chưa thay engine hưu trí cũ, chưa nối giao diện hoặc mô phỏng số dư quỹ hưu trí. F04/F05 toàn sản phẩm vẫn mở đến khi T06 và frontend được kiểm chứng. Chuỗi tháng không bảo đảm thanh khoản từng ngày trong tháng.
+
+## Cập nhật 13/10/2026 — trạng thái đánh giá dòng tiền
+
+Mỗi kết quả có lịch (`baseline`, `alternatives[].result`, `stress.result`) bổ sung `cashflowAssessment`, độc lập với `status` của lịch vay:
+
+- `status`: `COMPLETE` nếu đánh giá đủ các tháng yêu cầu; `PARTIAL` nếu chỉ đánh giá một phần; `UNAVAILABLE` nếu chưa đánh giá được tháng nào.
+- `evaluatedMonths`, `totalMonths`, `firstUnknownMonth`: phạm vi thực sự đánh giá được.
+- `shortfallStatus`: `DETECTED` khi ít nhất một tháng đã biết bị thiếu tiền; `UNKNOWN` khi không thấy thiếu nhưng còn tháng chưa đủ dữ liệu; `NOT_DETECTED_IN_HORIZON` chỉ khi đủ dữ liệu tất cả tháng và không thấy thiếu.
+- `issues`: `CASHFLOW_REQUIRED` nếu thiếu thu/chi; `RESERVE_REQUIRED` nếu chưa xác nhận mức dự phòng. Số 0 đã xác nhận khác với null.
+
+`totals.firstShortfallMonth` vẫn là tháng thiếu sớm nhất trong các tháng đã đánh giá, không chứng minh các tháng chưa biết là an toàn. `READY` ở gốc chỉ nói lịch vay có thể tính; `CALCULATED`/`HORIZON_LIMIT` mô tả trả xong/chưa hết nợ trong kỳ, không phải bảo đảm dòng tiền. `baseline: null` luôn là chưa đánh giá, không dựng kết luận xanh. DTI vẫn đọc từ `rows[i].pressure.ratioPercent`; tiền sau mọi khoản trả và dự phòng là `rows[i].availableForRetirement`, khác với phần dư trước dự phòng/trả thêm trong `pressure.remainingCash`.

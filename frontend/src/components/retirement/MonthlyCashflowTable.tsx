@@ -1,8 +1,10 @@
-import { useState, useMemo } from "react";
-import { Icon, Button, Badge, Pagination } from "../ui";
+import { Fragment, useEffect, useId, useRef, useState, useMemo } from "react";
+import { Icon, Button, Pagination } from "../ui";
 import { useI18n } from "../../i18n";
 import type { RetirementRow, RetirementSummary, RetirementPreviewResult } from "../../services/retirement";
 import { exportPlanVersionCsv } from "../../services/plans";
+import { formatMonthVN } from "../../utils/date";
+import "./monthly-cashflow-table.css";
 
 interface MonthlyCashflowTableProps {
   rows: RetirementRow[];
@@ -15,8 +17,11 @@ interface MonthlyCashflowTableProps {
 
 const formatMoneyCell = (val: string | number) => {
   const num = typeof val === "string" ? parseFloat(val) : val;
-  if (!Number.isFinite(num) || num === 0) return "0";
-  return new Intl.NumberFormat("vi-VN").format(Math.round(num));
+  if (!Number.isFinite(num)) return "—";
+  if (num === 0) return "0";
+  const rounded = Math.round(num);
+  const isNeg = rounded < 0;
+  return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 };
 
 export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplied = false, planId, versionId }: MonthlyCashflowTableProps) {
@@ -27,7 +32,10 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportError, setExportError] = useState("");
-  const pageSize = 24; // 2 years per page for comfortable browsing
+  const pageSize = 12;
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+  const jumpTarget = useRef<string | null>(null);
+  const tableId = useId();
 
   const safeRows = rows || [];
 
@@ -45,10 +53,11 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
   }, [safeRows, selectedYear]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const page = Math.min(currentPage, totalPages);
   const paginatedRows = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
+    const start = (page - 1) * pageSize;
     return filteredRows.slice(start, start + pageSize);
-  }, [filteredRows, currentPage, pageSize]);
+  }, [filteredRows, page, pageSize]);
 
   const handleExportCSV = async () => {
     if (!rows || rows.length === 0 || isExporting) return;
@@ -57,7 +66,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
     if (isApplied && planId && versionId) {
       setIsExporting(true);
       try {
-        await exportPlanVersionCsv(planId, versionId);
+        await exportPlanVersionCsv(planId, versionId, isEn ? "technical" : "readable-vi");
       } catch (err) {
         setExportError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -102,12 +111,12 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
           "Khả năng góp",
           "Thiếu hụt góp",
           "Rút chi tiêu",
-          "Rút ròng (netWithdrawal)",
+          "Tiền rút sau khi trừ tiền góp cùng kỳ",
           "Tiền dư ngoài quỹ",
           "Vốn giải phóng",
           "Lãi/Lỗ đầu tư",
           "Số dư quỹ cuối kỳ",
-          "Số dư thực có (funded)",
+          "Số tiền có thể dùng theo dự tính",
           "Nhu cầu chưa tài trợ",
           "Vốn yêu cầu tối thiểu",
         ];
@@ -133,10 +142,10 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
           `"Tháng hưu: ${summary.retirementMonth}"`,
           `"Tháng kết thúc: ${summary.endMonth}"`,
           `"Phiên bản mô hình: ${previewData?.modelVersion || "retirement-monthly-v2"}"`,
-          `"Mã băm dữ liệu đầu vào (inputHash): ${previewData?.inputHash || "N/A"}"`,
+          `"Mã đối chiếu dữ liệu: ${previewData?.inputHash || "Chưa có"}"`,
           `"Phiên bản hồ sơ: ${previewData?.profileRevision || 0}"`,
-          `"Chính sách danh mục T04: ${previewData?.references.policyVersionId || "N/A"} (v${previewData?.references.policyVersion || 0})"`,
-          `"Giả định vĩ mô T03: ${previewData?.references.assumptionVersionId || "N/A"} (v${previewData?.references.assumptionVersion || 0})"`,
+          `"Chính sách danh mục: ${previewData?.references.policyVersionId || "Chưa có"} (v${previewData?.references.policyVersion || 0})"`,
+          `"Giả định vĩ mô: ${previewData?.references.assumptionVersionId || "Chưa có"} (v${previewData?.references.assumptionVersion || 0})"`,
           "",
         ];
 
@@ -184,187 +193,123 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
     URL.revokeObjectURL(url);
   };
 
+  useEffect(() => {
+    if (selectedYear !== "ALL" && !availableYears.includes(selectedYear)) {
+      setSelectedYear("ALL"); setCurrentPage(1); setExpandedMonth(null);
+    }
+  }, [availableYears, selectedYear]);
+
+  useEffect(() => {
+    if (!jumpTarget.current) return;
+    const button = document.getElementById(`${tableId}-toggle-${jumpTarget.current}`);
+    button?.focus({ preventScroll: true });
+    button?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    jumpTarget.current = null;
+  }, [selectedYear, page, expandedMonth, tableId]);
+
+  const jumpToMonth = (month: string) => {
+    setSelectedYear(month.slice(0, 4)); setCurrentPage(1);
+    setExpandedMonth(month); jumpTarget.current = month;
+  };
+  const detailGroup = (title: string, entries: [string, string | undefined][]) => (
+    <section><h4>{title}</h4><dl>{entries.map(([label, value]) => (
+      <div key={label}><dt>{label}</dt><dd>{value === undefined ? "—" : formatMoneyCell(value)}</dd></div>
+    ))}</dl></section>
+  );
+
   return (
-    <div className="monthly-cashflow-table-component" style={{ marginTop: "24px" }}>
-      {exportError && <p role="alert">{isEn ? "CSV export failed. Retry the export button." : "Chưa xuất được CSV. Hãy bấm xuất để thử lại."} {exportError}</p>}
-      <p>{isApplied ? (isEn ? "Applied version's cashflow." : "Dòng tiền của phiên bản đang áp dụng.") : (isEn ? "Preview cashflow; not the applied plan." : "Dòng tiền bản xem trước; chưa phải kế hoạch đang áp dụng.")}</p>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
+    <section className="monthly-cashflow-table-component" aria-labelledby={`${tableId}-title`}>
+      <header className="cashflow-ledger-header">
         <div>
-          <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "var(--color-text-main)" }}>
-            {isEn ? "Detailed Monthly Cashflow Ledger" : "Bảng kê dòng tiền chi tiết từng tháng"}
-          </h3>
-          <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--color-text-muted)" }}>
-            {isEn
-              ? `Reconciliation of income, pension, living expenses, debt, contributions, and withdrawals across ${rows.length} projection periods.`
-              : `Đối chiếu thu nhập, lương hưu, chi phí, nợ, tiền đóng và tiền rút qua ${rows.length} kỳ dự phóng.`}
-          </p>
+          <h3 id={`${tableId}-title`}>{isEn ? "Your fund, month by month" : "Quỹ hưu trí của bạn qua từng tháng"}</h3>
+          <p>{isEn ? "See how much goes into the fund, how much is needed and what remains." : "Xem mỗi tháng góp vào bao nhiêu, cần rút bao nhiêu và quỹ còn lại bao nhiêu."}</p>
+          <small>{isApplied ? (isEn ? "Forecast from the applied plan" : "Dự tính theo kế hoạch đang áp dụng") : (isEn ? "Preview · Not yet applied" : "Bản xem trước · Chưa áp dụng")}</small>
         </div>
+        <Button variant="ghost" size="small" onClick={handleExportCSV} loading={isExporting} disabled={isExporting || !rows.length}>
+          <Icon name="download" size="small" /> {isExporting ? (isEn ? "Exporting…" : "Đang xuất…") : (isEn ? "Export CSV" : "Xuất file CSV")}
+        </Button>
+      </header>
+      {exportError && <p role="alert">{isEn ? "CSV export failed. Please retry." : "Chưa xuất được CSV. Hãy bấm xuất để thử lại."} {exportError}</p>}
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontSize: "14px", color: "var(--color-text-muted)" }}>{isEn ? "Filter Year:" : "Lọc năm:"}</span>
-            <select
-              aria-label={isEn ? "Filter year" : "Lọc năm"}
-              value={selectedYear}
-              onChange={(e) => {
-                setSelectedYear(e.target.value);
-                setCurrentPage(1);
-              }}
-              style={{
-                background: "var(--color-surface-subtle)",
-                border: "1px solid var(--color-border-subtle)",
-                borderRadius: "6px",
-                color: "var(--color-text-main)",
-                fontSize: "14px",
-                padding: "4px 8px",
-              }}
-            >
-              <option value="ALL">
-                {isEn ? `All (${availableYears.length} years)` : `Tất cả (${availableYears.length} năm)`}
-              </option>
-              {availableYears.map((yr) => (
-                <option key={yr} value={yr}>
-                  {isEn ? `Year ${yr}` : `Năm ${yr}`}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <Button variant="ghost" size="small" onClick={handleExportCSV} loading={isExporting} disabled={isExporting || rows.length === 0}>
-            <Icon name="download" size="small" /> {isExporting ? (isEn ? "Exporting CSV..." : "Đang xuất CSV...") : (isEn ? "Export CSV" : "Xuất file CSV")}
-          </Button>
+      <div className="cashflow-ledger-toolbar">
+        <label>{isEn ? "Year" : "Xem theo năm"}
+          <select aria-label={isEn ? "Filter year" : "Lọc năm"} value={selectedYear} onChange={event => { setSelectedYear(event.target.value); setCurrentPage(1); setExpandedMonth(null); }}>
+            <option value="ALL">{isEn ? "All years" : "Tất cả các năm"}</option>
+            {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+          </select>
+        </label>
+        <div className="cashflow-ledger-milestones">
+          {safeRows.some(row => row.month === summary.retirementMonth) && <button type="button" onClick={() => jumpToMonth(summary.retirementMonth)}>{isEn ? "Retirement starts" : "Bắt đầu nghỉ hưu"} <strong>{formatMonthVN(summary.retirementMonth)}</strong><span aria-hidden="true"> →</span></button>}
+          {summary.firstShortfallMonth && safeRows.some(row => row.month === summary.firstShortfallMonth) && <button type="button" className="is-shortfall" onClick={() => jumpToMonth(summary.firstShortfallMonth!)}>{isEn ? "First fund shortfall" : "Bắt đầu thiếu quỹ"} <strong>{formatMonthVN(summary.firstShortfallMonth)}</strong><span aria-hidden="true"> →</span></button>}
         </div>
       </div>
 
-      <p className="horizontal-scroll-hint" style={{ fontSize: "14px", color: "var(--color-text-muted)", marginBottom: "8px" }}>
-        <Icon name="info" size="small" />{" "}
-        {isEn
-          ? "Scroll horizontally to view all cashflow columns. CSV includes all projection months."
-          : "Cuộn ngang để xem đầy đủ các cột dòng tiền. CSV bao gồm toàn bộ các tháng dự phóng."}
-      </p>
-
-      <div
-        className="table-scroll-container"
-        tabIndex={0}
-        role="region"
-        aria-label={isEn ? "Detailed retirement cashflow table" : "Bảng kê dòng tiền hưu trí chi tiết"}
-        style={{
-          overflowX: "auto",
-          border: "1px solid var(--color-border-subtle)",
-          borderRadius: "8px",
-          background: "var(--color-surface)",
-        }}
-      >
-        <table style={{ width: "100%", minWidth: "1080px", borderCollapse: "collapse", fontSize: "14px", textAlign: "right" }}>
-          <thead>
-            <tr style={{ background: "var(--color-surface-subtle)", borderBottom: "1px solid var(--color-border-subtle)" }}>
-              <th style={{ padding: "10px 12px", textAlign: "left", whiteSpace: "nowrap" }}>{isEn ? "Month" : "Tháng"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "left", whiteSpace: "nowrap" }}>{isEn ? "Phase" : "Giai đoạn"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Income" : "Thu nhập"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Pension" : "Lương hưu"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Living Expenses" : "Chi hoạt động"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Debt" : "Trả nợ"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Actual Contribution" : "Thực góp"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Withdrawal" : "Rút chi tiêu"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Surplus Outside Fund" : "Tiền dư ngoài quỹ"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Net Return" : "Lãi/Lỗ ròng"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Ending Balance" : "Số dư cuối tháng"}</th>
-              <th style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>{isEn ? "Minimum Required" : "Vốn cần tối thiểu"}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedRows.map((r) => {
-              const isRetireStart = r.month === summary.retirementMonth;
-              const isFirstShortfall = r.month === summary.firstShortfallMonth;
-              const isNegative = parseFloat(r.closingBalance) < 0;
-
-              return (
-                <tr
-                  key={r.month}
-                  style={{
-                    borderBottom: "1px solid var(--color-border-subtle)",
-                    background: isRetireStart
-                      ? "rgba(var(--color-warning-rgb), 0.08)"
-                      : isFirstShortfall
-                      ? "rgba(var(--color-danger-rgb), 0.08)"
-                      : undefined,
-                  }}
-                >
-                  <td style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>
-                    {r.month}
-                    {isRetireStart && (
-                      <span style={{ marginLeft: "6px", fontSize: "14px", color: "var(--color-warning)", background: "rgba(var(--color-warning-rgb), 0.18)", padding: "2px 4px", borderRadius: "3px" }}>
-                        {isEn ? "Retirement Starts" : "Bắt đầu hưu"}
-                      </span>
-                    )}
-                    {isFirstShortfall && (
-                      <span style={{ marginLeft: "6px", fontSize: "14px", color: "var(--color-danger)", background: "rgba(var(--color-danger-rgb), 0.14)", padding: "2px 4px", borderRadius: "3px" }}>
-                        {isEn ? "Deficit Starts" : "Bắt đầu thiếu quỹ"}
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ padding: "8px 12px", textAlign: "left", whiteSpace: "nowrap" }}>
-                    <Badge tone={r.phase === "RETIREMENT" ? "warning" : "soft"}>
-                      {r.phase === "RETIREMENT" ? (isEn ? "Retirement" : "Hưu trí") : (isEn ? "Accumulation" : "Tích lũy")}
-                    </Badge>
-                  </td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatMoneyCell(r.income)}</td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: parseFloat(r.pension) > 0 ? "var(--color-secondary-700)" : undefined }}>
-                    {formatMoneyCell(r.pension)}
-                  </td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{formatMoneyCell(r.livingExpense)}</td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: parseFloat(r.debtPayment) > 0 ? "var(--color-warning)" : undefined }}>
-                    {formatMoneyCell(r.debtPayment)}
-                  </td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: 600, color: "var(--color-primary-700)" }}>
-                    {formatMoneyCell(r.contribution)}
-                    {parseFloat(r.budgetShortfall) > 0 && (
-                      <small style={{ display: "block", fontSize: "14px", color: "var(--color-danger)" }}>
-                        {isEn ? "Shortfall: -" : "Thiếu: -"}{formatMoneyCell(r.budgetShortfall)}
-                      </small>
-                    )}
-                  </td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: 600, color: parseFloat(r.withdrawal) > 0 ? "var(--color-warning)" : undefined }}>
-                    {formatMoneyCell(r.withdrawal)}
-                  </td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: "var(--color-text-muted)" }}>
-                    {formatMoneyCell(r.uninvestedSurplus)}
-                  </td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: parseFloat(r.investmentChange) >= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }}>
-                    {formatMoneyCell(r.investmentChange)}
-                  </td>
-                  <td
-                    style={{
-                      padding: "8px 12px",
-                      textAlign: "right",
-                      fontVariantNumeric: "tabular-nums",
-                      whiteSpace: "nowrap",
-                      fontWeight: 700,
-                      color: isNegative ? "var(--color-danger)" : "var(--color-primary-700)",
-                    }}
-                  >
-                    {formatMoneyCell(r.closingBalance)}
-                  </td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: 600, color: "var(--color-secondary-700)" }}>
-                    {formatMoneyCell(r.requiredClosingBalance)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
+      <div className="cashflow-ledger-guide" id={`${tableId}-guide`}>
+        <p>{isEn ? "Unit: VND · All amounts are forecasts." : "Đơn vị: đồng (VND) · Tất cả số tiền là dự tính."}</p>
+        <p>{isEn ? "A negative ending balance shows a projected shortfall, not an actual debt balance. Open a month's details to see income, expenses and debt payments." : "Số dư âm là phần tiền dự tính còn thiếu, không phải số nợ thực tế. Bấm “Chi tiết” để xem thu nhập, chi tiêu và trả nợ của tháng đó."}</p>
+      </div>
+      <div className="cashflow-ledger-scroll" tabIndex={0} role="region" aria-label={isEn ? "Monthly retirement fund table" : "Bảng quỹ hưu trí từng tháng"}>
+        <table className="cashflow-ledger" aria-describedby={`${tableId}-guide`}>
+          <thead><tr>
+            <th scope="col">{isEn ? "Month" : "Tháng"}</th>
+            <th scope="col">{isEn ? "Into the fund" : "Góp vào quỹ"}</th>
+            <th scope="col">{isEn ? "Needed from fund" : "Cần rút từ quỹ"}</th>
+            <th scope="col">{isEn ? "Investment gain / loss" : "Lãi / lỗ dự tính"}</th>
+            <th scope="col" className="cashflow-ledger-balance">{isEn ? "Fund at month end" : "Quỹ cuối tháng"}</th>
+            <th scope="col"><span className="cashflow-visually-hidden">{isEn ? "Month details" : "Chi tiết tháng"}</span></th>
+          </tr></thead>
+          <tbody>{paginatedRows.map(row => {
+            const opened = expandedMonth === row.month;
+            const shortfall = row.month === summary.firstShortfallMonth;
+            const retirement = row.month === summary.retirementMonth;
+            const negative = Number(row.closingBalance) < 0;
+            return <Fragment key={row.month}>
+              <tr className={`${shortfall ? "cashflow-first-shortfall" : ""} ${opened ? "is-expanded" : ""}`}>
+                <th scope="row"><strong>{formatMonthVN(row.month)}</strong><small>{row.phase === "RETIREMENT" ? (isEn ? "Retired" : "Đã nghỉ hưu") : (isEn ? "Before retirement" : "Trước nghỉ hưu")}</small>
+                  {retirement && <span className="cashflow-month-marker">{isEn ? "Retirement starts" : "Bắt đầu nghỉ hưu"}</span>}
+                  {shortfall && <span className="cashflow-month-marker is-shortfall">{isEn ? "First shortfall" : "Bắt đầu thiếu quỹ"}</span>}
+                </th>
+                <td>{formatMoneyCell(row.contribution)}{Number(row.budgetShortfall) > 0 && <small className="cashflow-negative">{isEn ? "Contribution short by " : "Góp thiếu "}{formatMoneyCell(row.budgetShortfall)}</small>}</td>
+                <td>{formatMoneyCell(row.withdrawal)}</td>
+                <td className={Number(row.investmentChange) < 0 ? "cashflow-negative" : undefined}>{formatMoneyCell(row.investmentChange)}</td>
+                <td className={`cashflow-ledger-balance ${negative ? "cashflow-negative" : ""}`}><strong>{formatMoneyCell(row.closingBalance)}</strong>{negative && <small>{isEn ? "Projected shortfall" : "Dự tính còn thiếu"}</small>}</td>
+                <td><button type="button" className="cashflow-detail-toggle" id={`${tableId}-toggle-${row.month}`} aria-expanded={opened} aria-controls={`${tableId}-detail-${row.month}`} aria-label={`${opened ? (isEn ? "Hide details" : "Ẩn chi tiết") : (isEn ? "Details" : "Chi tiết")} ${formatMonthVN(row.month)}`} onClick={() => setExpandedMonth(opened ? null : row.month)}>{opened ? (isEn ? "Hide" : "Thu gọn") : (isEn ? "Details" : "Chi tiết")}<span aria-hidden="true">{opened ? " −" : " +"}</span></button></td>
+              </tr>
+              <tr hidden={!opened} id={`${tableId}-detail-${row.month}`} className="cashflow-detail-row"><td colSpan={6}>
+                {opened && <div className="cashflow-month-detail">
+                  <h4>{isEn ? "Details for " : "Chi tiết tháng "}{formatMonthVN(row.month)} <span>{isEn ? "· VND" : "· Đơn vị: đồng"}</span></h4>
+                  <div className="cashflow-detail-groups">
+                    {detailGroup(isEn ? "Income & spending" : "Thu nhập & chi tiêu", [
+                      [isEn ? "Income" : "Thu nhập", row.income], [isEn ? "Pension" : "Lương hưu", row.pension],
+                      [isEn ? "Living expenses" : "Chi phí sinh hoạt", row.livingExpense], [isEn ? "Additional expenses" : "Chi phí khác", row.additionalExpense],
+                      [isEn ? "Debt payments" : "Tiền trả nợ", row.debtPayment], [isEn ? "Surplus kept outside fund" : "Tiền dư giữ ngoài quỹ", row.uninvestedSurplus],
+                    ])}
+                    {detailGroup(isEn ? "Money into & out of fund" : "Tiền vào & ra khỏi quỹ", [
+                      [isEn ? "Planned contribution" : "Số tiền muốn góp", row.plannedContribution], [isEn ? "Contribution capacity" : "Khả năng góp từ thu nhập", row.contributionCapacity],
+                      [isEn ? "Projected contribution" : "Số tiền dự tính góp được", row.contribution], [isEn ? "Contribution shortfall" : "Phần góp còn thiếu", row.budgetShortfall],
+                      [isEn ? "Capital added" : "Vốn bổ sung vào quỹ", row.capitalInjection], [isEn ? "Needed from fund" : "Số tiền cần rút", row.withdrawal],
+                      [isEn ? "Withdrawals less contributions" : "Tiền rút trừ tiền góp", row.netWithdrawal],
+                    ])}
+                    {detailGroup(isEn ? "Fund balance" : "Số dư & mức quỹ cần có", [
+                      [isEn ? "At start of month" : "Quỹ đầu tháng", row.openingBalance], [isEn ? "Investment gain / loss" : "Lãi / lỗ dự tính", row.investmentChange],
+                      [isEn ? "At end of month" : "Quỹ cuối tháng", row.closingBalance], [isEn ? "Available at month end" : "Tiền có thể dùng cuối tháng", row.fundedClosingBalance],
+                      [isEn ? "Withdrawals not funded" : "Tiền cần rút nhưng quỹ không đủ", row.unfundedWithdrawal],
+                      [isEn ? "Required fund at month end" : "Quỹ cần có cuối tháng", row.requiredClosingBalance],
+                    ])}
+                  </div>
+                  <p>{isEn ? "Required fund: the amount the model estimates is needed to cover the remaining plan, not a payment due this month." : "“Quỹ cần có cuối tháng” là số tiền mô hình tính cần để đáp ứng phần kế hoạch còn lại, không phải khoản phải đóng trong tháng này."}</p>
+                </div>}
+              </td></tr>
+            </Fragment>;
+          })}</tbody>
         </table>
+        {!paginatedRows.length && <p className="cashflow-ledger-empty">{isEn ? "No monthly forecast available." : "Chưa có số liệu dự tính theo tháng."}</p>}
       </div>
-
-      {totalPages > 1 && (
-        <Pagination
-          page={currentPage}
-          totalPages={totalPages}
-          totalItems={filteredRows.length}
-          pageSize={pageSize}
-          onPageChange={setCurrentPage}
-          showRowsPerPage={false}
-        />
-      )}
-    </div>
+      <footer className="cashflow-ledger-footer">
+        <p>{isEn ? `${filteredRows.length} months · Up to 12 months per page` : `${filteredRows.length} tháng · Mỗi trang tối đa 12 tháng`}</p>
+        <small>{isEn ? "CSV includes every month and all details, regardless of the year filter." : "File CSV gồm tất cả các tháng và đầy đủ chi tiết, không phụ thuộc năm đang chọn."}</small>
+      </footer>
+      {totalPages > 1 && <Pagination page={page} totalPages={totalPages} totalItems={filteredRows.length} pageSize={pageSize} onPageChange={next => { setCurrentPage(next); setExpandedMonth(null); }} showRowsPerPage={false} />}
+    </section>
   );
 }

@@ -12,6 +12,7 @@ import {
 import { useI18n } from "../../i18n";
 import type { RetirementRow, RetirementSummary } from "../../services/retirement";
 import { formatCompactVND, formatFullVND } from "../../utils/currency";
+import { formatMonthVN } from "../../utils/date";
 
 interface MonthlyRetirementChartProps {
   rows: RetirementRow[];
@@ -271,7 +272,7 @@ export function MonthlyRetirementChart({ rows, summary }: MonthlyRetirementChart
                 stroke="#A14D47"
                 strokeDasharray="3 3"
                 label={{
-                  value: isEn ? "Deficit Threshold (0 ₫)" : "Ngưỡng thâm hụt (0 ₫)",
+                  value: isEn ? "Deficit Threshold (0 VND)" : "Ngưỡng thâm hụt (0 VND)",
                   fill: "#A14D47",
                   fontSize: 11,
                 }}
@@ -285,7 +286,7 @@ export function MonthlyRetirementChart({ rows, summary }: MonthlyRetirementChart
               strokeWidth={2}
               strokeDasharray="4 4"
               label={{
-                value: isEn ? `Retirement Month (${summary.retirementMonth})` : `Tháng hưu (${summary.retirementMonth})`,
+                value: isEn ? `Retirement Month (${summary.retirementMonth})` : `Tháng hưu (${formatMonthVN(summary.retirementMonth)})`,
                 fill: "#052659",
                 fontSize: 11,
                 position: "insideTopLeft",
@@ -319,11 +320,11 @@ export function MonthlyRetirementChart({ rows, summary }: MonthlyRetirementChart
         <div style={{ display: "flex", gap: "18px", flexWrap: "wrap" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: 10, height: 10, borderRadius: "2px", background: "#052659" }} />
-            {isEn ? "Projected Fund Balance (closingBalance)" : "Số dư quỹ dự phóng (closingBalance)"}
+            {isEn ? "Projected Fund Balance" : "Số tiền dự kiến còn lại cuối tháng"}
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: 10, height: 10, borderRadius: "2px", background: "#334DAF" }} />
-            {isEn ? "Minimum Required Capital (requiredClosingBalance)" : "Vốn yêu cầu tối thiểu (requiredClosingBalance)"}
+            {isEn ? "Minimum Required Capital" : "Số tiền cần còn lại để chi cho các tháng sau"}
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: 12, height: 2, background: "#5483B3" }} />

@@ -553,6 +553,8 @@ Preview:
   type: object
   additionalProperties: false
   properties:
+    guidance:
+      $ref: ./preview-guidance.openapi.yaml#/Guidance
     status:
       type: string
       enum:

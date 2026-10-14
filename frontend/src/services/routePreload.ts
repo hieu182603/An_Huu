@@ -4,6 +4,8 @@ const routes: Record<string, () => Promise<unknown>> = {
   "/user/goal": () => import("../pages/RetirementGoalPage"),
   "/user/plan": () => import("../pages/RetirementPlanPage"),
   "/user/simulation": () => import("../pages/SimulationTrackingPage"),
+  "/user/debts": () => import("../pages/DebtAnalysisPage"),
+  "/user/risk-portfolio": () => import("../pages/RiskPortfolioPage"),
   "/user/assistant": () => import("../pages/AIAssistantPage"),
   "/user/explore": () => import("../pages/ExplorePage"),
   "/user/account": () => import("../pages/AccountPage"),

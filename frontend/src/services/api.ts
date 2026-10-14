@@ -107,6 +107,36 @@ export async function ensureFreshSession() {
     throw error;
   }
 }
+// Which cached GET paths a successful request can make stale.
+// [] = nothing (read-only POST), null = clear everything (unknown or global
+// writes). A trailing "$" means that exact path only, e.g. "/me$" must not
+// clear "/me/notifications".
+const READ_ONLY_POST = /\/(preview|simulate|compare)$/;
+const RULES: Array<[RegExp, string[]]> = [
+  [/^\/me\/notifications(\/|$)/, ["/me/notifications"]],
+  [/^\/me\/notification-settings$/, ["/me/notification-settings"]],
+  [/^\/me\/saved-articles(\/|$)/, ["/me/saved-articles", "/me/saved-content", "/content"]],
+  [/^\/me\/support(\/|$)/, ["/me/support"]],
+  [/^\/me\/ai(\/|$)/, ["/me/ai"]],
+  // Profile changes mark plans stale and change AI/plan context.
+  [/^\/me\/(financial-profile|onboarding-draft|onboarding)(\/|$)/, ["/me/financial-profile", "/me/onboarding-draft", "/me/retirement", "/me/ai", "/me/pension"]],
+  [/^\/me\/retirement(\/|$)/, ["/me/retirement", "/me/ai"]],
+  [/^\/me\/pension(\/|$)/, ["/me/pension", "/me/retirement"]],
+  [/^\/me(\/avatar)?$/, ["/me$", "/auth/me"]],
+];
+export function cacheInvalidationScope(method: string, path: string): string[] | null {
+  const pathname = path.split("?")[0];
+  if (method.toUpperCase() === "POST" && READ_ONLY_POST.test(pathname)) return [];
+  const rule = RULES.find(([pattern]) => pattern.test(pathname));
+  return rule ? rule[1] : null;
+}
+/** Cache keys are `${path}|${headers}`; match on path segment boundaries. */
+export function cacheKeyInScope(key: string, scope: string): boolean {
+  const path = key.slice(0, key.indexOf("|") < 0 ? key.length : key.indexOf("|"));
+  if (scope.endsWith("$")) return path.split("?")[0] === scope.slice(0, -1);
+  return path === scope || path.startsWith(scope + "/") || path.startsWith(scope + "?");
+}
+
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
@@ -184,12 +214,11 @@ export async function authenticatedRequest<T>(
     if (isGet) {
       apiGetCache.set(cacheKey, { data: res, expiresAt: Date.now() + ttlMs });
     } else {
-      const isReadOnlyPost =
-        method?.toUpperCase() === "POST" &&
-        (path.includes("/preview") || path.includes("/simulate") || path.includes("/compare"));
-      if (!isReadOnlyPost) {
-        invalidateApiCache();
-      }
+      // Only drop what this write can make stale (e.g. marking a notification
+      // read must not refetch plans); unknown writes still clear everything.
+      const scope = cacheInvalidationScope(method ?? "POST", path);
+      if (scope === null) invalidateApiCache();
+      else for (const key of [...apiGetCache.keys()]) if (scope.some(s => cacheKeyInScope(key, s))) apiGetCache.delete(key);
     }
     return res;
   };

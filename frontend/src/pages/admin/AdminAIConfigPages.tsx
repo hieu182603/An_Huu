@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   Alert,
   Badge,
@@ -17,6 +17,7 @@ import ResponsiveDialog from "../../components/ResponsiveDialog";
 import {
   approveKnowledgeSource,
   createKnowledgeSource,
+  editKnowledgeSource,
   getKnowledgeSource,
   indexKnowledgeSource,
   listKnowledgeSources,
@@ -40,32 +41,28 @@ export type PromptRule = {
 
 const promptRules: PromptRule[] = [
   {
-    id: "RUL-01",
-    title: "Không cam kết lợi nhuận đầu tư",
-    description: "Ngăn chặn mô hình AI đưa ra các phát biểu đảm bảo lãi suất tương lai đối với sản phẩm đầu tư phi bảo đảm.",
+    id: "RUL-01", title: "Số tiền lấy từ kết quả tính của hệ thống",
+    description: "Gemini chỉ chọn các dữ kiện đã có trong kế hoạch để giải thích.",
     severity: "Bắt buộc tuyệt đối",
-    systemPrompt: "BẠN KHÔNG ĐƯỢC CAM KẾT hoặc dùng từ 'chắc chắn', 'đảm bảo có lãi' với bất kỳ kênh đầu tư quỹ mở nào. Luôn trích dẫn hiệu suất quá khứ không đại diện cho tương lai.",
+    systemPrompt: "Máy chủ kiểm tra danh sách dữ kiện được chọn. Nội dung trả lời và số tiền được dựng từ dữ kiện đã kiểm tra; không dùng số tiền do mô hình tự sinh.",
   },
   {
-    id: "RUL-02",
-    title: "Bắt buộc dẫn số hiệu điều khoản khi giải thích BHXH",
-    description: "Mọi thông tin về năm đóng, tỷ lệ hưởng và tuổi nghỉ hưu phải kèm theo số điều cụ thể trong Luật BHXH 2024.",
+    id: "RUL-02", title: "Chỉ dẫn nguồn tài liệu đã được duyệt",
+    description: "Tài liệu phải được xử lý tìm kiếm, duyệt và còn hiệu lực trước khi được dùng.",
     severity: "Bắt buộc tuyệt đối",
-    systemPrompt: "Khi trả lời về chế độ hưu trí bắt buộc hoặc tự nguyện, luôn ghi rõ: '(Căn cứ Điều X, Luật BHXH số 41/2024/QH15)'.",
+    systemPrompt: "Kiểm tra phiên bản, nội dung và trạng thái nguồn trước khi trả lời. Sửa tài liệu sẽ bỏ phê duyệt cũ; quản trị viên phải xử lý và duyệt lại.",
   },
   {
-    id: "RUL-03",
-    title: "Cảnh báo rủi ro lạm phát và tuổi thọ vượt mức",
-    description: "Tự động cảnh báo nguy cơ thiếu hụt ngân sách hưu trí nếu người dùng đặt mục tiêu lạm phát quá thấp hoặc thời gian hưu trí quá ngắn.",
-    severity: "Cảnh báo người dùng",
-    systemPrompt: "Nếu người dùng chọn tỷ lệ lạm phát dưới 3.5% hoặc tuổi thọ dưới 75 tuổi, giải thích rủi ro bào mòn tài sản thực tế và đề xuất mức an toàn.",
+    id: "RUL-03", title: "Thử thay đổi không tự áp dụng kế hoạch",
+    description: "Thay đổi tháng nghỉ hưu, tiền góp và chi tiêu được tính bằng bộ tính kế hoạch.",
+    severity: "Bắt buộc tuyệt đối",
+    systemPrompt: "Trợ lý không sửa hồ sơ, không tự lưu hoặc áp dụng kết quả mô phỏng. Người dùng quyết định việc lưu và áp dụng trong phần kế hoạch.",
   },
   {
-    id: "RUL-04",
-    title: "Từ chối phán đoán giá cổ phiếu đơn lẻ",
-    description: "Giữ vững vai trò trợ lý hoạch định tài chính hưu trí vĩ mô, không cung cấp 'phím hàng' hay khuyến nghị mã chứng khoán cụ thể.",
+    id: "RUL-04", title: "Người dùng quyết định quyền xử lý và lưu lịch sử",
+    description: "Cần đồng ý chính sách hiện hành trước khi gửi câu hỏi cho AI.",
     severity: "Bắt buộc tuyệt đối",
-    systemPrompt: "Nếu người dùng hỏi về mã cổ phiếu cụ thể (VD: VCB, HPG), từ chối lịch sự và hướng dẫn phân bổ danh mục theo quỹ chỉ số hoặc quỹ mở.",
+    systemPrompt: "Chỉ gửi câu hỏi, dữ kiện được phép và đoạn nguồn đã duyệt cho Gemini; không gửi toàn bộ hồ sơ hoặc lịch sử trò chuyện. Lưu lịch sử là tùy chọn riêng. Tắt lưu sẽ xóa lịch sử đã lưu.",
   },
 ];
 
@@ -121,13 +118,17 @@ export function AdminAIManagementPage() {
   const [viewingSource, setViewingSource] = useState<KnowledgeSourceItem | null>(null);
   const [sourceDetail, setSourceDetail] = useState<KnowledgeSourceDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [editingSource, setEditingSource] = useState<KnowledgeSourceDetail | null>(null);
+  const [sourceTotal, setSourceTotal] = useState(0);
+  const [sourcePage, setSourcePage] = useState(1);
+  const detailRequest = useRef(0);
 
   useEffect(() => {
     let active = true;
     setSourceLoading(true);
     setSourceError("");
     listKnowledgeSources(1, 50)
-      .then((result) => { if (active) setSources(result.items); })
+      .then((result) => { if (active) { setSources(result.items); setSourceTotal(result.total); setSourcePage(1); } })
       .catch((error) => { if (active) setSourceError(error instanceof Error ? error.message : (isEn ? "Could not load knowledge sources." : "Không thể tải nguồn tri thức.")); })
       .finally(() => { if (active) setSourceLoading(false); });
     return () => { active = false; };
@@ -172,19 +173,23 @@ export function AdminAIManagementPage() {
   const replaceSource = (source: KnowledgeSourceItem) => {
     setSources((items) => items.map((item) => (item.id === source.id ? source : item)));
     setViewingSource((prev) => (prev && prev.id === source.id ? source : prev));
+    setSourceDetail(prev => prev?.id === source.id ? { ...prev, ...source } : prev);
   };
 
   const handleViewSource = async (source: KnowledgeSourceItem) => {
+    const epoch = ++detailRequest.current;
     setViewingSource(source);
     setLoadingDetail(true);
     setSourceDetail(null);
     try {
       const detail = await getKnowledgeSource(source.id);
+      if (epoch !== detailRequest.current) return;
       setSourceDetail(detail);
     } catch {
+      if (epoch !== detailRequest.current) return;
       notify.error(isEn ? "Failed to load document content" : "Không thể tải nội dung văn bản");
     } finally {
-      setLoadingDetail(false);
+      if (epoch === detailRequest.current) setLoadingDetail(false);
     }
   };
 
@@ -218,13 +223,17 @@ export function AdminAIManagementPage() {
     setCreateBusy(true);
     setCreateError("");
     try {
-      const created = await createKnowledgeSource({
+      const command: KnowledgeSourceInput = {
         ...sourceForm,
         referenceCode: sourceForm.referenceCode?.trim() || undefined,
+        fileUrl: sourceForm.fileUrl?.trim() || undefined,
+        validUntil: sourceForm.validUntil ? new Date(`${sourceForm.validUntil}T00:00:00.000Z`).toISOString() : null,
         effectiveDate: new Date(`${sourceForm.effectiveDate}T00:00:00.000Z`).toISOString(),
-      });
-      setSources((items) => [created, ...items]);
+      };
+      if (editingSource) replaceSource(await editKnowledgeSource(editingSource.id, editingSource.revision, command));
+      else { const created = await createKnowledgeSource(command); setSources((items) => [created, ...items]); setSourceTotal(total => total + 1); }
       setSourceForm(emptyKnowledgeSource);
+      setEditingSource(null);
       setCreateOpen(false);
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : (isEn ? "Could not create source." : "Không thể tạo nguồn tri thức."));
@@ -233,13 +242,23 @@ export function AdminAIManagementPage() {
     }
   };
 
+  const loadSourcePage = async (page: number) => {
+    setSourceLoading(true); setSourceError("");
+    try {
+      const result = await listKnowledgeSources(page, 50);
+      setSources(previous => page === 1 ? result.items : [...previous.filter(item => !result.items.some(next => next.id === item.id)), ...result.items]);
+      setSourceTotal(result.total); setSourcePage(page);
+    } catch (e) { setSourceError(e instanceof Error ? e.message : "Chưa tải được tài liệu."); }
+    finally { setSourceLoading(false); }
+  };
+
   return (
     <div className="admin-page business-page">
       <header className="admin-page-header">
         <div>
           <span>{isEn ? "ARTIFICIAL INTELLIGENCE & DATA" : "TRÍ TUỆ NHÂN TẠO & DỮ LIỆU"}</span>
           <h1>{isEn ? "AI Assistant & Knowledge Base Management (AD07)" : "Quản lý Trợ lý AI & Cơ sở tri thức (AD07)"}</h1>
-          <p>{isEn ? "Monitor legal knowledge sources, configure safety guardrails, and track advisory traffic." : "Giám sát nguồn tri thức pháp lý, cấu hình guardrails an toàn và giám sát lưu lượng tư vấn."}</p>
+          <p>{isEn ? "Manage approved knowledge sources and review the assistant’s system rules." : "Quản lý tài liệu được phép dùng và xem các quy tắc đang áp dụng cho trợ lý."}</p>
         </div>
       </header>
 
@@ -413,7 +432,7 @@ export function AdminAIManagementPage() {
                   </td>
                   <td>
                     <span style={{ fontSize: "12px", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>
-                      {item.effectiveDate ? new Date(item.effectiveDate).toLocaleDateString(isEn ? "en-US" : "vi-VN") : "—"}
+                      {item.effectiveDate ? new Date(item.effectiveDate).toLocaleDateString("vi-VN") : "—"}
                     </span>
                   </td>
                   <td style={{ textAlign: "right" }}>
@@ -484,7 +503,7 @@ export function AdminAIManagementPage() {
                 </span>
                 <span>
                   {isEn ? "Effective Date:" : "Ngày hiệu lực:"}{" "}
-                  <strong>{item.effectiveDate ? new Date(item.effectiveDate).toLocaleDateString(isEn ? "en-US" : "vi-VN") : "—"}</strong>
+                  <strong>{item.effectiveDate ? new Date(item.effectiveDate).toLocaleDateString("vi-VN") : "—"}</strong>
                 </span>
               </div>
               <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
@@ -512,21 +531,25 @@ export function AdminAIManagementPage() {
         </div>
       </Card>
 
-      {(sourceError || serviceNotice) && <Alert tone="danger" title={isEn ? "Knowledge service error" : "Lỗi dịch vụ tri thức"}>{sourceError || serviceNotice}</Alert>}
+      {sources.length < sourceTotal && <Button loading={sourceLoading} onClick={() => loadSourcePage(sourcePage + 1)}>Xem thêm tài liệu ({sources.length}/{sourceTotal})</Button>}
+      {(sourceError || serviceNotice) && <Alert tone="danger" title={isEn ? "Knowledge service error" : "Lỗi dịch vụ tri thức"}>{sourceError || serviceNotice}<Button onClick={() => loadSourcePage(1)}>Tải lại danh sách</Button></Alert>}
 
-      <Modal open={createOpen} title={isEn ? "Add knowledge source" : "Thêm nguồn tri thức"} onClose={() => { if (!createBusy) setCreateOpen(false); }}>
+      <Modal open={createOpen} title={editingSource ? "Sửa tài liệu cho trợ lý" : (isEn ? "Add knowledge source" : "Thêm nguồn tri thức")} onClose={() => { if (!createBusy) { setCreateOpen(false); setEditingSource(null); setSourceForm(emptyKnowledgeSource); } }}>
         <div className="rule-editor">
+          {editingSource && <Alert tone="warning" title="Cần duyệt lại sau khi sửa">Bản sửa sẽ ngừng được AI sử dụng cho đến khi bạn tạo lại chỉ mục và duyệt nội dung.</Alert>}
           <Input label={isEn ? "Title" : "Tiêu đề"} value={sourceForm.title} onChange={(title) => setSourceForm((form) => ({ ...form, title }))} />
           <Input label={isEn ? "Reference code" : "Số hiệu tham chiếu"} value={sourceForm.referenceCode} onChange={(referenceCode) => setSourceForm((form) => ({ ...form, referenceCode }))} />
           <Input label={isEn ? "Category" : "Phân loại"} value={sourceForm.category} onChange={(category) => setSourceForm((form) => ({ ...form, category }))} />
           <Input label={isEn ? "Version" : "Phiên bản"} value={sourceForm.version} onChange={(version) => setSourceForm((form) => ({ ...form, version }))} />
           <Input label={isEn ? "Effective date" : "Ngày hiệu lực"} type="date" value={sourceForm.effectiveDate} onChange={(effectiveDate) => setSourceForm((form) => ({ ...form, effectiveDate }))} />
+          <Input label={isEn ? "Source URL (HTTPS)" : "Đường dẫn tài liệu gốc (HTTPS)"} value={sourceForm.fileUrl ?? ""} onChange={(fileUrl) => setSourceForm(form => ({ ...form, fileUrl }))} />
+          <Input label={isEn ? "Valid until (optional)" : "Ngày hết hiệu lực (không bắt buộc)"} type="date" value={sourceForm.validUntil ?? ""} onChange={(validUntil) => setSourceForm(form => ({ ...form, validUntil }))} />
           <Textarea label={isEn ? "Source content" : "Nội dung nguồn"} rows={8} value={sourceForm.rawContent} onChange={(rawContent) => setSourceForm((form) => ({ ...form, rawContent }))} />
           {createError && <Alert tone="danger" title={isEn ? "Could not create source" : "Không thể tạo nguồn"}>{createError}</Alert>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)" }}>
-            <Button variant="secondary" disabled={createBusy} onClick={() => setCreateOpen(false)}>{isEn ? "Cancel" : "Hủy"}</Button>
+            <Button variant="secondary" disabled={createBusy} onClick={() => { setCreateOpen(false); setEditingSource(null); setSourceForm(emptyKnowledgeSource); }}>{isEn ? "Cancel" : "Hủy"}</Button>
             <Button disabled={createBusy || !sourceForm.title.trim() || !sourceForm.category.trim() || !sourceForm.version.trim() || sourceForm.rawContent.trim().length < 20 || !sourceForm.effectiveDate} onClick={handleCreateSource}>
-              {createBusy ? (isEn ? "Creating..." : "Đang tạo...") : (isEn ? "Create source" : "Tạo nguồn")}
+              {createBusy ? (isEn ? "Saving..." : "Đang lưu...") : editingSource ? "Lưu bản sửa" : (isEn ? "Create source" : "Tạo nguồn")}
             </Button>
           </div>
         </div>
@@ -536,8 +559,8 @@ export function AdminAIManagementPage() {
       <Card className="ai-rules-card">
         <div className="ai-section-header">
           <div>
-            <h2>{isEn ? "Business Rules & Safety Guardrails" : "Bộ quy tắc nghiệp vụ & Giới hạn an toàn (Guardrails)"}</h2>
-            <p>{isEn ? "Standards for content control, bias prevention, and financial regulatory compliance." : "Quy chuẩn kiểm soát nội dung, chống thiên vị và bảo đảm tuân thủ quy định pháp luật tài chính."}</p>
+            <h2>{isEn ? "Business Rules & Safety Guardrails" : "Quy tắc đang áp dụng"}</h2>
+            <p>{isEn ? "These rules are enforced by the application code." : "Các quy tắc dưới đây được thực thi trong mã hệ thống."}</p>
           </div>
         </div>
 
@@ -545,8 +568,8 @@ export function AdminAIManagementPage() {
           <Icon name="shield" size="small" />
           <small style={{ color: "var(--color-text-muted)" }}>
             {isEn
-              ? "Prompt Guardrails are central read-only system policies. Formal changes require AI Safety & Governance Board approval."
-              : "Các quy tắc an toàn (Prompt Guardrails) là chính sách hệ thống chỉ đọc (Read-only System Policy). Mọi điều chỉnh cần phê duyệt từ Hội đồng An toàn AI."}
+              ? "These descriptions are read-only. Changing their behavior requires an application update."
+              : "Mục này dùng để xem quy tắc. Thay đổi cách hoạt động cần cập nhật mã ứng dụng."}
           </small>
         </div>
 
@@ -573,7 +596,7 @@ export function AdminAIManagementPage() {
                   size="small"
                   onClick={() => handleOpenEditRule(rule)}
                 >
-                  {isEn ? "View Directive" : "Xem chỉ thị"}
+                  {isEn ? "View Directive" : "Xem chi tiết"}
                 </Button>
               </div>
             </div>
@@ -597,14 +620,14 @@ export function AdminAIManagementPage() {
               </div>
             </div>
 
-            <Alert tone="info" title={isEn ? "System Policy Guardrail" : "Chính sách hệ thống Guardrail"}>
+            <Alert tone="info" title={isEn ? "System Policy Guardrail" : "Quy tắc hệ thống"}>
               {isEn
-                ? "This guardrail prompt is managed as an immutable system code policy. Submissions for prompt updates must follow the T03 Governance process."
-                : "Chỉ lệnh guardrail này được quản lý dưới dạng chính sách hệ thống chỉ đọc. Đề xuất cập nhật phải qua quy trình quản trị T03."}
+                ? "This is a description of implemented behavior, not an editable Gemini prompt."
+                : "Đây là mô tả cách hệ thống đang hoạt động, không phải câu lệnh có thể chỉnh sửa để gửi cho Gemini."}
             </Alert>
 
             <Textarea
-              label={isEn ? "System Prompt Guardrail Directive" : "Nội dung chỉ đạo hệ thống (System Prompt Guardrail)"}
+              label={isEn ? "System Prompt Guardrail Directive" : "Cách hệ thống thực hiện"}
               rows={6}
               value={editingRule.systemPrompt}
               disabled
@@ -651,7 +674,7 @@ export function AdminAIManagementPage() {
                   <span>{isEn ? "Effective Date" : "Ngày hiệu lực"}</span>
                   <strong>
                     {viewingSource.effectiveDate
-                      ? new Date(viewingSource.effectiveDate).toLocaleDateString(isEn ? "en-US" : "vi-VN")
+                      ? new Date(viewingSource.effectiveDate).toLocaleDateString("vi-VN")
                       : "—"}
                   </strong>
                 </div>
@@ -666,7 +689,7 @@ export function AdminAIManagementPage() {
                 {viewingSource.validUntil && (
                   <div>
                     <span>{isEn ? "Valid Until" : "Hết hiệu lực"}</span>
-                    <strong>{new Date(viewingSource.validUntil).toLocaleDateString(isEn ? "en-US" : "vi-VN")}</strong>
+                    <strong>{new Date(viewingSource.validUntil).toLocaleDateString("vi-VN")}</strong>
                   </div>
                 )}
               </div>
@@ -714,6 +737,14 @@ export function AdminAIManagementPage() {
                     : (isEn ? "Approve Source" : "Phê duyệt nguồn")}
                 </Button>
               </div>
+              <Button variant="secondary" disabled={!sourceDetail || loadingDetail} onClick={() => {
+                if (!sourceDetail) return;
+                setEditingSource(sourceDetail);
+                setSourceForm({ title: sourceDetail.title, category: sourceDetail.category, version: sourceDetail.version,
+                  referenceCode: sourceDetail.referenceCode ?? "", rawContent: sourceDetail.rawContent, fileUrl: sourceDetail.fileUrl ?? "",
+                  effectiveDate: sourceDetail.effectiveDate?.slice(0, 10) ?? "", validUntil: sourceDetail.validUntil?.slice(0, 10) ?? "" });
+                setCreateError(""); setViewingSource(null); setCreateOpen(true);
+              }}>Sửa tài liệu</Button>
               <Button variant="secondary" onClick={() => setViewingSource(null)}>
                 {isEn ? "Close" : "Đóng"}
               </Button>

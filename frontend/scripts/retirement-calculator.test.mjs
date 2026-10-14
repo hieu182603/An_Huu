@@ -17,11 +17,18 @@ test('higher inflation increases required fund', () => assert.ok(calculateRetire
 test('zero return remains finite', () => Object.values(calculateRetirement({ ...base, annualReturnRate: 0 })).forEach((value) => typeof value !== 'boolean' && assert.ok(Number.isFinite(value))));
 test('home value is deliberately absent from investable input', () => assert.equal('realEstateValue' in base, false));
 test('invalid ages, rates and money are rejected', () => {
-  const errors = validateRetirementInput({ ...base, retirementAge: 32, lifeExpectancy: 30, annualInflationRate: -100, monthlyExpenseToday: Number.NaN });
+  const errors = validateRetirementInput({ ...base, retirementAge: 30, lifeExpectancy: 30, annualInflationRate: -100, monthlyExpenseToday: Number.NaN });
   assert.ok(errors.length >= 4);
 });
 test('investable assets do not double-deduct consumer debt (F04 separation)', () => {
   const withDebt = calculateRetirement({ ...base, consumerDebt: 100_000_000 });
   const withoutDebt = calculateRetirement({ ...base, consumerDebt: 0 });
   assert.equal(withDebt.investableAssetsToday, withoutDebt.investableAssetsToday);
+});
+test('retiring at current age has 0 years to retirement and valid target fund (FE-01)', () => {
+  const retireNow = calculateRetirement({ ...base, currentAge: 50, retirementAge: 50, lifeExpectancy: 80 });
+  assert.equal(retireNow.yearsToRetirement, 0);
+  assert.equal(retireNow.retirementYears, 30);
+  assert.ok(retireNow.targetFund > 0);
+  assert.equal(validateRetirementInput({ ...base, currentAge: 50, retirementAge: 50 }).length, 0);
 });

@@ -9,7 +9,8 @@ import {
   type PortfolioPreviewResult,
   type PortfolioAnswerItem,
 } from "../services/portfolios";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { useAuth } from "../context/AuthContext";
 import { readRiskDraft, writeRiskDraft } from "../services/riskDraft";
 import { useI18n } from "../i18n";
@@ -17,11 +18,11 @@ import { useI18n } from "../i18n";
 const getDimensionLabel = (dimension: string, language: "vi" | "en") => {
   const viMap: Record<string, string> = {
     OBJECTIVE: "Mục tiêu đầu tư",
-    HORIZON: "Thời gian nắm giữ",
-    LIQUIDITY: "Nhu cầu thanh khoản",
+    HORIZON: "Bạn dự định giữ khoản đầu tư bao lâu?",
+    LIQUIDITY: "Nhu cầu giữ tiền sẵn để sử dụng",
     LOSS_TOLERANCE: "Khả năng chịu lỗ",
     EXPERIENCE: "Kinh nghiệm đầu tư",
-    FINANCIAL_CAPACITY: "Năng lực tài chính",
+    FINANCIAL_CAPACITY: "Khả năng dành tiền và chịu lỗ của bạn",
   };
   const enMap: Record<string, string> = {
     OBJECTIVE: "Investment Objective",
@@ -38,7 +39,14 @@ export default function RiskPortfolioPage() {
   const { user } = useAuth();
   const requestSeq = useRef(0);
   const { language } = useI18n();
-  const { v2Profile } = useFinancialProfile();
+  const { v2Profile, profile } = useFinancialProfile();
+  const { currentVersion, draftSelection, updateDraft, loadingPlans } = useRetirementPlan();
+  const navigate = useNavigate();
+  const selection = { ...currentVersion?.preview.selection, ...draftSelection };
+  const birth = v2Profile?.personal.birthMonth;
+  const endMonth = selection.endMonth ?? (birth?.status === "KNOWN" ? `${Number(birth.value.slice(0, 4)) + profile.goal.lifeExpectancy}-${birth.value.slice(5, 7)}` : "");
+  const startMonth = v2Profile?.valuationDate.slice(0, 7) ?? "";
+  const horizonMonths = endMonth && startMonth ? (Number(endMonth.slice(0, 4)) - Number(startMonth.slice(0, 4))) * 12 + Number(endMonth.slice(5, 7)) - Number(startMonth.slice(5, 7)) + 1 : 0;
   const { notify } = useNotification();
 
   const [policyDetail, setPolicyDetail] = useState<PortfolioPolicyDetail | null>(null);
@@ -47,7 +55,6 @@ export default function RiskPortfolioPage() {
 
   // User input answers: map of questionId -> choiceId
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [horizonMonths, setHorizonMonths] = useState<number>(120);
   const [liquidityNeedMonths, setLiquidityNeedMonths] = useState<number>(6);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
 
@@ -59,15 +66,18 @@ export default function RiskPortfolioPage() {
   useEffect(() => {
     let active = true;
     setLoadingPolicy(true);
-    fetchUserPortfolioPolicies(1, 1)
+    if (loadingPlans) return;
+    fetchUserPortfolioPolicies(1, 50)
       .then(async (res) => {
         if (!active) return;
         setPolicyStatus(res.status);
         if (res.status === "AVAILABLE" && res.items.length > 0) {
-          const detail = await fetchUserPortfolioPolicyDetail(res.items[0].id);
+          const detail = await fetchUserPortfolioPolicyDetail(selection.policyVersionId ?? res.items[0].id);
           if (active) {
             setPolicyDetail(detail);
-            if (user) setAnswers(readRiskDraft(user.id, detail.id, detail.data.questions));
+            if (user) setAnswers(selection.answers?.length ? Object.fromEntries(selection.answers.map(a => [a.questionId, a.choiceId])) : readRiskDraft(user.id, detail.id, detail.data.questions));
+            setLiquidityNeedMonths(selection.liquidityNeedMonths ?? 6);
+            setSelectedTemplateId(selection.templateId ?? "");
           }
         }
       })
@@ -82,7 +92,7 @@ export default function RiskPortfolioPage() {
       requestSeq.current++;
       active = false;
     };
-  }, []);
+  }, [loadingPlans, currentVersion?.id]);
 
   const valuationMonth = useMemo(() => {
     return v2Profile?.valuationDate ? v2Profile.valuationDate.slice(0, 7) : new Date().toISOString().slice(0, 7);
@@ -92,9 +102,10 @@ export default function RiskPortfolioPage() {
   const allAnswered = questions.length > 0 && questions.every((q) => q.choices.some(c => c.id === answers[q.id]));
 
   const runPreview = async (overrideTemplateId?: string) => {
-    if (!policyDetail || !allAnswered) return;
+    if (!policyDetail || !allAnswered || horizonMonths <= 0) return;
 
     const seq = ++requestSeq.current;
+    setPreviewResult(null);
     setIsCalculating(true);
     setCalculationError(null);
 
@@ -162,21 +173,74 @@ export default function RiskPortfolioPage() {
 
   return (
     <div className="phase-page risk-portfolio-page" style={{ padding: "var(--space-6) var(--space-4)", maxWidth: "1200px", margin: "0 auto" }}>
-      {allAnswered && <p className="flow-note">{language === "en" ? "Answers are saved on this browser for your account. Continue to preview a retirement plan." : "Câu trả lời được giữ trên trình duyệt này theo tài khoản. Tiếp tục để xem trước kế hoạch hưu trí."} <Link className="button button-primary" to="/user/plan">{language === "en" ? "Preview plan" : "Xem trước kế hoạch"}</Link></p>}
-      {/* Header */}
-      <header style={{ marginBottom: "var(--space-6)" }}>
-        <span className="section-eyebrow" style={{ color: "var(--color-primary)", fontWeight: 600, fontSize: "var(--text-xs)", letterSpacing: "0.08em" }}>
-          {language === "en" ? "INVESTMENT STRATEGY & RISK MANAGEMENT" : "CHIẾN LƯỢC ĐẦU TƯ & QUẢN TRỊ RỦI RO"}
-        </span>
-        <h1 style={{ fontSize: "var(--text-3xl)", fontWeight: 700, margin: "var(--space-1) 0 var(--space-2)" }}>
-          {language === "en" ? "Risk Profile Assessment & Standard Portfolio Selection" : "Khảo sát khẩu vị rủi ro & Lựa chọn danh mục chuẩn"}
-        </h1>
-        <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-base)", maxWidth: "800px", margin: 0 }}>
-          {language === "en"
-            ? "A 6-dimensional risk assessment based on global standards combined with portfolio policies approved by the Risk Management Committee, recommending the optimal asset allocation for your retirement stage."
-            : "Hệ thống khảo sát rủi ro 6 chiều theo chuẩn mực quốc tế kết hợp cùng chính sách danh mục được phê duyệt bởi Hội đồng Quản trị rủi ro, giúp đề xuất cấu trúc phân bổ tài sản phù hợp nhất với giai đoạn tích lũy của bạn."}
-        </p>
-      </header>
+      {/* 1. Standardized Hero Header matching Design System */}
+      <div className="retirement-page-header">
+        <div className="retirement-header-main">
+          <div className="header-status-badge is-goal">
+            <Icon name="shield" size="small" />
+            <span>
+              {language === "en" ? "INVESTMENT STRATEGY & RISK MANAGEMENT" : "CHIẾN LƯỢC ĐẦU TƯ & QUẢN TRỊ RỦI RO"}
+            </span>
+          </div>
+          <h1>
+            {language === "en" ? "Risk Assessment & Benchmark Portfolio Selection" : "Khảo sát mức rủi ro bạn có thể chấp nhận & Phương án đầu tư mẫu"}
+          </h1>
+          <p>
+            {language === "en"
+              ? "A 6-dimensional risk assessment based on global standards combined with portfolio policies approved by the Risk Management Committee, recommending the optimal asset allocation for your retirement stage."
+              : "Hệ thống khảo sát rủi ro 6 chiều theo chuẩn mực quốc tế kết hợp cùng chính sách danh mục được phê duyệt bởi Hội đồng Quản trị rủi ro, giúp đề xuất cấu trúc phân bổ tài sản phù hợp nhất với giai đoạn tích lũy của bạn."}
+          </p>
+        </div>
+
+        <div className="header-quick-stats">
+          <div className="header-quick-stat-item">
+            <span className="stat-label">{language === "en" ? "Survey Progress" : "Tiến độ khảo sát"}</span>
+            <span className="stat-value">
+              {questions.length > 0 ? `${Object.keys(answers).length}/${questions.length} ${language === "en" ? "answered" : "câu"}` : "—"}
+            </span>
+          </div>
+          <div className="header-quick-stat-item">
+            <span className="stat-label">{language === "en" ? "Investment Horizon" : "Thời gian đầu tư"}</span>
+            <span className="stat-value is-safe">
+              {horizonMonths > 0 ? `${horizonMonths} ${language === "en" ? "months" : "tháng"}` : (language === "en" ? "Undetermined" : "Chưa đặt")}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Cohesive Draft Mode & Action Banner */}
+      <div className="risk-portfolio-draft-banner">
+        <div className="draft-banner-content">
+          <div className="draft-banner-icon">
+            <Icon name="sparkles" size="small" />
+          </div>
+          <p className="flow-note">
+            {language === "en"
+              ? "Your choices will be used in a draft. Your current plan changes only after you choose to use the new option."
+              : "Các lựa chọn sẽ chuyển sang bản nháp. Kế hoạch đang dùng chỉ thay đổi khi bạn chọn dùng phương án mới."}
+          </p>
+        </div>
+
+        {allAnswered && (
+          <Button
+            variant="primary"
+            disabled={isCalculating || !previewResult || Boolean(calculationError)}
+            onClick={() => {
+              if (!policyDetail || !previewResult) return;
+              updateDraft({
+                policyVersionId: policyDetail.id,
+                answers: Object.entries(answers).map(([questionId, choiceId]) => ({ questionId, choiceId })),
+                templateId: selectedTemplateId || previewResult.assessment.selectedTemplateId || undefined,
+                liquidityNeedMonths,
+                endMonth,
+              });
+              navigate("/user/plan");
+            }}
+          >
+            {language === "en" ? "Use these choices in plan preview" : "Xem kế hoạch với các lựa chọn này"}
+          </Button>
+        )}
+      </div>
 
       {/* Mandatory Standard Portfolio Disclaimer */}
       <div style={{ marginBottom: "var(--space-6)" }}>
@@ -205,8 +269,8 @@ export default function RiskPortfolioPage() {
           </h3>
           <p style={{ color: "var(--color-text-muted)", margin: "0 auto", maxWidth: "500px" }}>
             {language === "en"
-              ? "The Risk Management Committee has not yet published the standard portfolio policy version on the server (T04). Please return once published."
-              : "Hội đồng quản trị rủi ro chưa công bố phiên bản chính sách danh mục chuẩn trên hệ thống máy chủ (T04). Vui lòng quay lại sau khi chính sách được công bố."}
+              ? "The Risk Management Committee has not yet published the standard portfolio policy version on the server. Please return once published."
+              : "Hội đồng quản trị rủi ro chưa công bố phiên bản chính sách danh mục chuẩn trên hệ thống. Vui lòng quay lại sau khi chính sách phương án đầu tư được công bố."}
           </p>
         </Card>
       ) : (
@@ -218,22 +282,15 @@ export default function RiskPortfolioPage() {
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "var(--space-4)" }}>
               <div>
-                <Select
-                  label={language === "en" ? "Expected Holding Duration" : "Thời gian dự kiến nắm giữ"}
-                  options={language === "en"
-                    ? ["36 months (3 years)", "60 months (5 years)", "120 months (10 years)", "180 months (15 years)", "240 months (20 years)"]
-                    : ["36 tháng (3 năm)", "60 tháng (5 năm)", "120 tháng (10 năm)", "180 tháng (15 năm)", "240 tháng (20 năm)"]}
-                  value={`${horizonMonths} ${language === "en" ? "months" : "tháng"} (${horizonMonths / 12} ${language === "en" ? "years" : "năm"})`}
-                  onChange={(val) => {
-                    const m = parseInt(val, 10);
-                    if (Number.isFinite(m)) setHorizonMonths(m);
-                  }}
-                />
+                <p>{language === "en" ? "Investment period follows your retirement goal:" : "Thời gian đầu tư theo mục tiêu hưu trí:"} <strong>{horizonMonths > 0 ? `${horizonMonths} ${language === "en" ? "months" : "tháng"}` : (language === "en" ? "Set a goal first" : "Cần đặt mục tiêu trước")}</strong></p>
+                <Link to="/user/goal">{language === "en" ? "Change goal dates" : "Sửa thời gian trong Mục tiêu"}</Link>
+
               </div>
               <div>
                 <Input
                   type="number"
-                  label={language === "en" ? "Contingency Liquidity Need (Months of expenses)" : "Nhu cầu thanh khoản dự phòng (Số tháng sinh hoạt)"}
+                  min={0}
+                  label={language === "en" ? "Emergency Fund (Months of expenses)" : "Quỹ dự phòng (đủ chi tiêu bao nhiêu tháng)"}
                   value={String(liquidityNeedMonths)}
                   onChange={(val) => setLiquidityNeedMonths(Math.max(0, parseInt(val || "0", 10)))}
                 />
@@ -262,13 +319,22 @@ export default function RiskPortfolioPage() {
                       {question.prompt}
                     </h3>
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                    <div role="radiogroup" aria-label={question.prompt} style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
                       {question.choices.map((choice) => {
                         const isSelected = selectedChoiceId === choice.id;
                         return (
-                          <div
+                          <button
                             key={choice.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={isSelected}
                             onClick={() => handleSelectChoice(question.id, choice.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSelectChoice(question.id, choice.id);
+                              }
+                            }}
                             style={{
                               display: "flex",
                               alignItems: "center",
@@ -279,6 +345,10 @@ export default function RiskPortfolioPage() {
                               background: isSelected ? "var(--color-surface-subtle)" : "var(--color-surface)",
                               cursor: "pointer",
                               transition: "all 0.15s ease",
+                              width: "100%",
+                              textAlign: "left",
+                              font: "inherit",
+                              color: "inherit",
                             }}
                           >
                             <span style={{ fontSize: "var(--text-sm)", fontWeight: isSelected ? 600 : 400 }}>
@@ -287,7 +357,7 @@ export default function RiskPortfolioPage() {
                             <Badge tone={isSelected ? "success" : "neutral"}>
                               {choice.score} {language === "en" ? "pts" : "điểm"}
                             </Badge>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -369,9 +439,13 @@ export default function RiskPortfolioPage() {
                   )}
 
                   <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", marginTop: "var(--space-2)", margin: 0 }}>
-                    {language === "en"
-                      ? `Rebalancing frequency: every ${selectedTemplate?.rebalance.everyMonths} months (Turnover fee: ${selectedTemplate?.rebalance.turnoverCostPercent}%).`
-                      : `Tần suất tái cân bằng: mỗi ${selectedTemplate?.rebalance.everyMonths} tháng một lần (Phí tái cân bằng: ${selectedTemplate?.rebalance.turnoverCostPercent}%).`}
+                    {selectedTemplate?.rebalance && selectedTemplate.rebalance.everyMonths !== undefined && selectedTemplate.rebalance.turnoverCostPercent !== undefined
+                      ? (language === "en"
+                          ? `Rebalancing frequency: every ${selectedTemplate.rebalance.everyMonths} months (Turnover fee: ${selectedTemplate.rebalance.turnoverCostPercent}%).`
+                          : `Tần suất điều chỉnh tỷ lệ đầu tư: mỗi ${selectedTemplate.rebalance.everyMonths} tháng một lần (Phí điều chỉnh: ${selectedTemplate.rebalance.turnoverCostPercent}%).`)
+                      : (language === "en"
+                          ? "No portfolio rebalancing information available."
+                          : "Chưa có thông tin điều chỉnh danh mục.")}
                   </p>
                 </Card>
               </div>
@@ -380,14 +454,14 @@ export default function RiskPortfolioPage() {
               {selectedTemplate && selectedTemplate.schedule.length > 0 && (
                 <Card style={{ padding: "var(--space-4)", border: "1px solid var(--color-border)", marginBottom: "var(--space-6)" }}>
                   <h3 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>
-                    {language === "en" ? `Asset Allocation Weights (${selectedTemplate.label})` : `Cơ cấu tỷ trọng phân bổ tài sản (${selectedTemplate.label})`}
+                    {language === "en" ? `Asset Allocation Weights (${selectedTemplate.label})` : `Tỷ lệ tiền dành cho từng nhóm tài sản (${selectedTemplate.label})`}
                   </h3>
 
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--space-3)" }}>
                     {selectedTemplate.schedule[0].allocations.map((alloc) => (
                       <div key={alloc.assetClass} style={{ padding: "var(--space-3)", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
                         <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", textTransform: "uppercase" }}>
-                          {language === "en" ? `Asset Class: ${alloc.assetClass}` : `Lớp tài sản: ${alloc.assetClass}`}
+                          {language === "en" ? `Asset Group: ${alloc.assetClass}` : `Nhóm tài sản: ${alloc.assetClass}`}
                         </span>
                         <div style={{ fontSize: "var(--text-2xl)", fontWeight: 700, margin: "var(--space-1) 0" }}>
                           {alloc.weightPercent}%
@@ -409,12 +483,18 @@ export default function RiskPortfolioPage() {
                     {previewResult.scenarios.map((sc) => {
                       const isBase = sc.kind === "BASE";
                       const isAdverse = sc.kind === "ADVERSE";
+                      const scenarioKindLabel =
+                        sc.kind === "BASE"
+                          ? (language === "en" ? "BASE" : "Cơ sở")
+                          : sc.kind === "ADVERSE"
+                          ? (language === "en" ? "ADVERSE" : "Thận trọng")
+                          : (language === "en" ? "OPTIMISTIC" : "Lạc quan");
                       return (
                         <Card key={sc.kind} style={{ padding: "var(--space-4)", border: isBase ? "2px solid var(--color-primary)" : "1px solid var(--color-border)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)" }}>
                             <h4 style={{ margin: 0, fontSize: "var(--text-base)" }}>{sc.label}</h4>
                             <Badge tone={isBase ? "info" : isAdverse ? "danger" : "success"}>
-                              {sc.kind}
+                              {scenarioKindLabel}
                             </Badge>
                           </div>
 

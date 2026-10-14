@@ -5714,8 +5714,9 @@ paths:
       operationId: exportRetirementPlanVersionCsv
       security:
         - bearerAuth: []
-      description: USER only. UTF-8 BOM CSV, exact decimal strings from pinned
-        snapshot, source identifiers on every monthly row. No display rounding.
+      description: USER only. UTF-8 BOM CSV from the pinned snapshot. Default technical
+        format retains exact decimals and source identifiers. Optional readable-vi
+        format has Vietnamese monthly headings and rounds money to whole VND for display only.
         Not a JSON envelope. See PLAN_PRESENTATION.md.
       parameters:
         - name: planId
@@ -5728,6 +5729,12 @@ paths:
           in: path
           required: true
           schema: *a1
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [technical, readable-vi]
+            default: technical
       responses:
         "200":
           description: Monthly forecast CSV
@@ -6658,70 +6665,6 @@ paths:
             application/json:
               schema:
                 $ref: ./ai.openapi.yaml#/DeletedEnvelope
-        "400":
-          description: Request rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "401":
-          description: Request rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "403":
-          description: Request rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "404":
-          description: Request rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "409":
-          description: Request rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "422":
-          description: Request rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "429":
-          description: Request rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-  /api/v1/me/ai/conversations/{id}/export:
-    get:
-      operationId: getmeaiconversationsidexport
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      description: See AI_GOVERNANCE.md. USER-only AI routes; ADMIN-only knowledge
-        routes. No provider configured by default. All calculations come from
-        server snapshots/engine. No AI apply endpoint.
-      responses:
-        "200":
-          description: Owned result
-          content:
-            application/json:
-              schema:
-                $ref: ./ai.openapi.yaml#/HistoryEnvelope
         "400":
           description: Request rejected
           content:

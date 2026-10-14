@@ -303,9 +303,14 @@ export async function simulatePlanVersion(
   );
 }
 
-export async function exportPlanVersionCsv(planId: string, versionId: string): Promise<string> {
+export async function exportPlanVersionCsv(
+  planId: string,
+  versionId: string,
+  format: "technical" | "readable-vi" = "readable-vi"
+): Promise<string> {
+  const query = format ? `?format=${encodeURIComponent(format)}` : "";
   const { blob, filename } = await authenticatedBlobRequest(
-    `/me/retirement/plans/${planId}/versions/${versionId}/export.csv`
+    `/me/retirement/plans/${planId}/versions/${versionId}/export.csv${query}`
   );
   const downloadName = filename || `an-huu-plan-${planId}-v-${versionId}.csv`;
   const url = window.URL.createObjectURL(blob);

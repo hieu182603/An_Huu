@@ -1,0 +1,56 @@
+Guidance:
+  type: object
+  additionalProperties: false
+  required: [requestedPeriod, assumptionPeriod, policyRules, policyChecks, issues]
+  properties:
+    requestedPeriod:
+      type: object
+      additionalProperties: false
+      required: [startMonth, endMonth, horizonMonths]
+      properties:
+        startMonth: { type: string }
+        endMonth: { type: string }
+        horizonMonths: { type: integer }
+    assumptionPeriod:
+      type: object
+      additionalProperties: false
+      required: [startYear, endYear]
+      properties:
+        startYear: { type: integer }
+        endYear: { type: integer }
+    policyRules:
+      type: array
+      description: Separate configured rule ranges, not a guarantee of suitability.
+      items:
+        type: object
+        additionalProperties: false
+        required: [ruleId, templateId, minMonths, maxMonths]
+        properties:
+          ruleId: { type: string }
+          templateId: { type: string }
+          minMonths: { type: integer }
+          maxMonths: { type: integer }
+    policyChecks:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [ruleId, templateId, matched, failed, explanation]
+        properties:
+          ruleId: { type: string }
+          templateId: { type: string }
+          matched: { type: boolean }
+          failed: { type: array, items: { type: string } }
+          explanation: { type: string }
+    issues:
+      type: array
+      description: Vietnamese guidance for supported blocker codes; always retain original preview issues as well.
+      items:
+        type: object
+        additionalProperties: false
+        required: [path, code, action, message]
+        properties:
+          path: { type: string }
+          code: { type: string }
+          action: { type: string, enum: [REVIEW_CONFIGURATION, REVIEW_SELECTION] }
+          message: { type: string }

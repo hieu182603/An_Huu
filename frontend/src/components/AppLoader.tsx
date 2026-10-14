@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
-import loadingWaves from "../assets/loading-waves.png";
-import logoHorizontal from "../assets/logo.png";
+import loadingWaves from "../assets/loading-waves.webp";
+import logoHorizontal from "../assets/logo.webp";
 import { Button, Icon } from "./ui";
 import "./app-loader.css";
 

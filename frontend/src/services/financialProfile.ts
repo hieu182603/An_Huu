@@ -261,12 +261,19 @@ export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialP
   };
 }
 
+// Converts the v1 survey totals into a v2 document. Only values the user actually
+// declared become KNOWN; anything v1 never asked (birth/retirement month, asset
+// allocation and ownership, loan responsibility, pension start) stays UNKNOWN so
+// the v2 review asks for it instead of saving invented defaults.
 export function createDefaultProfileV2(profile: FinancialProfile): ProfileV2 {
   const valuationDate = new Date().toISOString().slice(0, 10);
   const currentMonth = valuationDate.slice(0, 7);
-  const currentYear = new Date().getFullYear();
-  const birthYear = Math.max(1940, currentYear - (profile.personal.age || 30));
-  const retireYear = birthYear + (profile.goal.targetRetireAge || 60);
+  const unknown = { status: "UNKNOWN" } as const;
+  const shares = { ownershipShare: unknown, retirementShare: unknown, emergencyShare: unknown, otherGoalsShare: unknown };
+  // v1 has one total debt service figure; it belongs to a single loan only when there is one.
+  const singleLoan = (profile.debt.mortgageDebt > 0) !== (profile.debt.consumerDebt > 0);
+  const debtPayment = singleLoan && profile.debt.monthlyDebtService > 0
+    ? { status: "KNOWN" as const, value: profile.debt.monthlyDebtService.toFixed(2) } : unknown;
 
   const incomeEntries: IncomeEntry[] = [];
   if (profile.income.primaryIncome > 0) {
@@ -331,10 +338,7 @@ export function createDefaultProfileV2(profile: FinancialProfile): ProfileV2 {
       value: { status: "KNOWN", value: profile.assets.cashSavings.toFixed(2) },
       currency: "VND",
       valuedOn: { status: "KNOWN", value: valuationDate },
-      ownershipShare: { status: "KNOWN", value: "1" },
-      retirementShare: { status: "KNOWN", value: "0.5" },
-      emergencyShare: { status: "KNOWN", value: "0.5" },
-      otherGoalsShare: { status: "KNOWN", value: "0" },
+      ...shares,
       liquidity: { status: "KNOWN", value: "LIQUID" },
       availableFromMonth: { status: "KNOWN", value: currentMonth },
     });
@@ -347,10 +351,7 @@ export function createDefaultProfileV2(profile: FinancialProfile): ProfileV2 {
       value: { status: "KNOWN", value: profile.assets.stockFundValue.toFixed(2) },
       currency: "VND",
       valuedOn: { status: "KNOWN", value: valuationDate },
-      ownershipShare: { status: "KNOWN", value: "1" },
-      retirementShare: { status: "KNOWN", value: "1" },
-      emergencyShare: { status: "KNOWN", value: "0" },
-      otherGoalsShare: { status: "KNOWN", value: "0" },
+      ...shares,
       liquidity: { status: "KNOWN", value: "LIQUID" },
       availableFromMonth: { status: "KNOWN", value: currentMonth },
     });
@@ -363,10 +364,7 @@ export function createDefaultProfileV2(profile: FinancialProfile): ProfileV2 {
       value: { status: "KNOWN", value: profile.assets.liquidAssets.toFixed(2) },
       currency: "VND",
       valuedOn: { status: "KNOWN", value: valuationDate },
-      ownershipShare: { status: "KNOWN", value: "1" },
-      retirementShare: { status: "KNOWN", value: "0.5" },
-      emergencyShare: { status: "KNOWN", value: "0.5" },
-      otherGoalsShare: { status: "KNOWN", value: "0" },
+      ...shares,
       liquidity: { status: "KNOWN", value: "LIQUID" },
       availableFromMonth: { status: "KNOWN", value: currentMonth },
     });
@@ -379,12 +377,9 @@ export function createDefaultProfileV2(profile: FinancialProfile): ProfileV2 {
       value: { status: "KNOWN", value: profile.assets.realEstateValue.toFixed(2) },
       currency: "VND",
       valuedOn: { status: "KNOWN", value: valuationDate },
-      ownershipShare: { status: "KNOWN", value: "1" },
-      retirementShare: { status: "KNOWN", value: "0" },
-      emergencyShare: { status: "KNOWN", value: "0" },
-      otherGoalsShare: { status: "KNOWN", value: "1" },
+      ...shares,
       liquidity: { status: "KNOWN", value: "ILLIQUID" },
-      availableFromMonth: { status: "KNOWN", value: currentMonth },
+      availableFromMonth: unknown,
     });
   }
 
@@ -397,16 +392,11 @@ export function createDefaultProfileV2(profile: FinancialProfile): ProfileV2 {
         outstandingBalance: { status: "KNOWN", value: profile.debt.mortgageDebt.toFixed(2) },
         balanceAsOf: { status: "KNOWN", value: valuationDate },
         currency: "VND",
-        payment: { status: "KNOWN", value: (profile.debt.monthlyDebtService || 0).toFixed(2) },
+        payment: debtPayment,
         paymentShare: { status: "KNOWN", value: "1" },
         balanceShare: { status: "KNOWN", value: "1" },
         contract: { status: "UNKNOWN" },
-        responsibility: {
-          status: "KNOWN",
-          scope: "FULL",
-          confirmedDocument: "Hợp đồng tín dụng ngân hàng",
-          limit: { status: "KNOWN", value: profile.debt.mortgageDebt.toFixed(2) },
-        },
+        responsibility: unknown,
         startMonth: currentMonth,
         endMonth: null,
         frequency: "MONTHLY",
@@ -419,16 +409,11 @@ export function createDefaultProfileV2(profile: FinancialProfile): ProfileV2 {
         outstandingBalance: { status: "KNOWN", value: profile.debt.consumerDebt.toFixed(2) },
         balanceAsOf: { status: "KNOWN", value: valuationDate },
         currency: "VND",
-        payment: { status: "KNOWN", value: "0.00" },
+        payment: debtPayment,
         paymentShare: { status: "KNOWN", value: "1" },
         balanceShare: { status: "KNOWN", value: "1" },
         contract: { status: "UNKNOWN" },
-        responsibility: {
-          status: "KNOWN",
-          scope: "FULL",
-          confirmedDocument: "Sao kê tín dụng cá nhân",
-          limit: { status: "KNOWN", value: profile.debt.consumerDebt.toFixed(2) },
-        },
+        responsibility: unknown,
         startMonth: currentMonth,
         endMonth: null,
         frequency: "MONTHLY",
@@ -442,9 +427,9 @@ export function createDefaultProfileV2(profile: FinancialProfile): ProfileV2 {
     currency: "VND",
     periodUnit: "MONTH",
     personal: {
-      birthMonth: { status: "KNOWN", value: `${birthYear}-01` },
-      desiredRetirementMonth: { status: "KNOWN", value: `${retireYear}-01` },
-      pensionStartMonth: { status: "NOT_APPLICABLE", reason: "Chưa cấu hình nhận lương hưu riêng" },
+      birthMonth: unknown,
+      desiredRetirementMonth: unknown,
+      pensionStartMonth: unknown,
       gender: genders[profile.personal.gender] as any,
       retirementCondition: { kind: "NORMAL" },
       maritalStatus: marriages[profile.personal.maritalStatus] as any,

@@ -128,6 +128,36 @@ describe("T02 disposable-income pressure and joint debt", () => {
 });
 
 describe("T02 debt reduction comparisons", () => {
+  it("never interprets missing income, expenses or reserve as no shortfall", () => {
+    for (const [profile, command, issue] of [
+      [{ ...debtProfile(), income: unknown }, debtCommand, "CASHFLOW_REQUIRED"],
+      [{ ...debtProfile(), expenses: unknown }, debtCommand, "CASHFLOW_REQUIRED"],
+      [debtProfile(), { ...debtCommand, reserveMonthly: null }, "RESERVE_REQUIRED"],
+    ] as const) {
+      const result = previewDebts(profile, command);
+      expect(result.status).toBe("READY"); // contractual schedule remains usable
+      expect(result.baseline).toMatchObject({ totals: { firstShortfallMonth: null }, cashflowAssessment: {
+        status: "UNAVAILABLE", evaluatedMonths: 0, totalMonths: 12, firstUnknownMonth: "2026-10", shortfallStatus: "UNKNOWN", issues: [issue],
+      } });
+    }
+  });
+  it("distinguishes confirmed zero, partial coverage and a known deficit before an unknown month", () => {
+    const p = debtProfile();
+    p.debts = { status: "KNOWN", entries: [] }; p.income = { status: "KNOWN", entries: [] };
+    expect(previewDebts(p, debtCommand).baseline?.cashflowAssessment).toMatchObject({
+      status: "COMPLETE", evaluatedMonths: 12, shortfallStatus: "NOT_DETECTED_IN_HORIZON", firstUnknownMonth: null, issues: [],
+    });
+    const profile = debtProfile();
+    if (profile.income.status !== "KNOWN") throw new Error("fixture");
+    profile.income.entries.push({ ...profile.income.entries[0], id: "future", amount: unknown, startMonth: "2026-11" });
+    expect(previewDebts(profile, debtCommand).baseline?.cashflowAssessment).toMatchObject({
+      status: "PARTIAL", evaluatedMonths: 1, firstUnknownMonth: "2026-11", shortfallStatus: "UNKNOWN",
+    });
+    profile.income.entries[0].amount = known("50");
+    expect(previewDebts(profile, debtCommand).baseline).toMatchObject({
+      cashflowAssessment: { status: "PARTIAL", shortfallStatus: "DETECTED" }, totals: { firstShortfallMonth: "2026-10" },
+    });
+  });
   it("matches independent payoff/interest totals and preserves the source", () => {
     const profile = debtProfile(), before = JSON.stringify(profile);
     const result = previewDebts(profile, debtCommand);

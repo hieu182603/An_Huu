@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import type { Language, I18nContextType } from "./types";
 import { vi } from "./translations/vi";
 import { en } from "./translations/en";
+import { formatDateVN } from "../utils/date";
 
 export * from "./types";
 
@@ -55,16 +56,15 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const formatCurrency = useCallback(
     (amount: number | string | null | undefined): string => {
-      if (amount === null || amount === undefined || amount === "") return "0 ₫";
+      if (amount === null || amount === undefined || amount === "") return "0 VND";
       const num = typeof amount === "string" ? parseFloat(amount) : amount;
-      if (isNaN(num)) return "0 ₫";
+      if (isNaN(num)) return "0 VND";
 
-      const locale = language === "en" ? "en-US" : "vi-VN";
-      const formatted = new Intl.NumberFormat(locale, {
-        maximumFractionDigits: 0,
-      }).format(num);
+      const rounded = Math.round(num);
+      const isNeg = rounded < 0;
+      const formatted = Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
-      return `${formatted} ₫`;
+      return `${isNeg ? "-" : ""}${formatted} VND`;
     },
     [language]
   );
@@ -72,19 +72,15 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const formatDate = useCallback(
     (date: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions): string => {
       if (!date) return "";
+      if (!options) {
+        return formatDateVN(date);
+      }
       const d = typeof date === "string" ? new Date(date) : date;
       if (isNaN(d.getTime())) return String(date);
 
-      const locale = language === "en" ? "en-US" : "vi-VN";
-      const defaultOptions: Intl.DateTimeFormatOptions = options || {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      };
-
-      return d.toLocaleDateString(locale, defaultOptions);
+      return d.toLocaleDateString("vi-VN", options);
     },
-    [language]
+    []
   );
 
   const formatPercent = useCallback(
@@ -131,11 +127,19 @@ export function useI18n(): I18nContextType {
         return text;
       },
       formatCurrency: (amount) => {
-        if (!amount) return "0 ₫";
+        if (!amount) return "0 VND";
         const num = typeof amount === "string" ? parseFloat(amount) : amount;
-        return isNaN(num) ? "0 ₫" : `${new Intl.NumberFormat("vi-VN").format(num)} ₫`;
+        if (isNaN(num)) return "0 VND";
+        const rounded = Math.round(num);
+        const isNeg = rounded < 0;
+        return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
       },
-      formatDate: (date) => (date ? new Date(date).toLocaleDateString("vi-VN") : ""),
+      formatDate: (date, options) => {
+        if (!date) return "";
+        if (!options) return formatDateVN(date);
+        const d = typeof date === "string" ? new Date(date) : date;
+        return isNaN(d.getTime()) ? String(date) : d.toLocaleDateString("vi-VN", options);
+      },
       formatPercent: (val) => `${val || 0}%`,
     };
   }

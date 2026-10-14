@@ -161,6 +161,7 @@ export interface RetirementCalculation {
 }
 
 export interface RetirementPreviewResult {
+  reforecast?: unknown;
   status: "READY" | "INCOMPLETE";
   issues: RetirementIssue[];
   warnings: RetirementIssue[];
@@ -201,7 +202,7 @@ export const WARNING_MESSAGES: Record<string, string> = {
   PENSION_NOT_INCLUDED: "Kế hoạch chưa bao gồm lương hưu do bạn chưa khai báo mức ước tính cụ thể.",
   PARTIAL_FIRST_MONTH_FULL_PERIOD_NO_PRORATION: "Tháng đầu tiên được tính tròn một kỳ theo ngày định giá.",
   DEBT_PAYMENT_OUTSIDE_HORIZON: "Có khoản vay còn lịch trả vượt quá thời gian kế hoạch dự phóng.",
-  ILLIQUID_ASSETS_EXCLUDED: "Các tài sản chưa đủ điều kiện thanh khoản đã được loại trừ khỏi vốn quỹ hưu trí ban đầu.",
+  ILLIQUID_ASSETS_EXCLUDED: "Tài sản chưa thể đổi thành tiền chưa được tính vào số tiền ban đầu của quỹ hưu trí.",
   HYPOTHETICAL_VALUES_PROFILE_UNCHANGED: "Kế hoạch đang sử dụng các giá trị giả định cá nhân (tháng nghỉ hưu hoặc giá trị tài sản mô phỏng), hồ sơ tài chính gốc không bị thay đổi.",
   LOAN_CONTRACT_ESTIMATED: "Khoản vay đang sử dụng mức trả định kỳ tự khai báo để ước tính dòng tiền.",
   HOUSING_NOT_RETIREMENT_CASH: "Bất động sản nhà ở phục vụ sinh hoạt không tính gộp vào vốn tiền mặt hưu trí.",
@@ -214,10 +215,10 @@ export const ISSUE_MESSAGES: Record<string, string> = {
   FULL_LIABILITY_CONFIRMATION_REQUIRED: "Cần xác nhận trách nhiệm nghĩa vụ đối với khoản vay chung.",
   HOUSING_AMOUNT_SCOPE_REQUIRED: "Vui lòng xác nhận phạm vi số tiền phương án nhà ở (Toàn tài sản hoặc Phần sở hữu).",
   HOUSING_AMOUNT_INCOMPLETE: "Số tiền phương án nhà ở chưa hoàn chỉnh.",
-  INVALID_RETIREMENT_INCOME_REFERENCE: "Tham chiếu khoản thu tiếp tục sau hưu không hợp lệ.",
-  PUBLISHED_INFLATION_REQUIRED: "Cần có bộ giả định kinh tế vĩ mô đã được công bố.",
+  INVALID_RETIREMENT_INCOME_REFERENCE: "Khoản thu sau khi nghỉ hưu đã thay đổi hoặc không còn trong hồ sơ. Hãy kiểm tra lại nguồn thu được chọn.",
+  PUBLISHED_INFLATION_REQUIRED: "Hệ thống chưa có dữ liệu kinh tế để tính kế hoạch. Bạn không cần sửa hồ sơ; hãy thử lại sau hoặc liên hệ Hỗ trợ.",
   INFLATION_YEAR_MISSING: "Thiếu dữ liệu lạm phát cho một số năm trong thời gian dự phóng.",
-  ANSWER_REQUIRED: "Chưa hoàn tất các câu hỏi khảo sát khẩu vị rủi ro để xác định danh mục đầu tư chuẩn.",
+  ANSWER_REQUIRED: "Hãy trả lời đủ câu hỏi ở trang Cách đầu tư để tính kế hoạch theo lựa chọn của bạn.",
   POLICY_NOT_COVERED: "Chưa xác định được danh mục đầu tư phù hợp do thiếu thông tin khảo sát rủi ro.",
   UNKNOWN_CHOICE: "Lựa chọn khảo sát không hợp lệ trong chính sách danh mục.",
   DUPLICATE_ANSWER: "Câu hỏi khảo sát bị trùng lặp câu trả lời.",
@@ -271,14 +272,14 @@ export function translateIssueCode(code: string, language: "vi" | "en" = "vi"): 
   if (language === "en") {
     return EN_ISSUE_MESSAGES[code] || `Additional data required: ${code}`;
   }
-  return ISSUE_MESSAGES[code] || `Yêu cầu bổ sung dữ liệu: ${code}`;
+  return ISSUE_MESSAGES[code] || `Cần bổ sung thông tin để tính kế hoạch. Mã hỗ trợ: ${code}`;
 }
 
 export function translateWarningCode(code: string, language: "vi" | "en" = "vi"): string {
   if (language === "en") {
     return EN_WARNING_MESSAGES[code] || `Business notice: ${code}`;
   }
-  return WARNING_MESSAGES[code] || `Lưu ý nghiệp vụ: ${code}`;
+  return WARNING_MESSAGES[code] || `Điều cần biết về kết quả: ${code}`;
 }
 
 export async function previewMonthlyRetirement(input: RetirementPreviewInput): Promise<RetirementPreviewResult> {
@@ -292,8 +293,10 @@ export async function previewMonthlyRetirement(input: RetirementPreviewInput): P
 export function formatVNDCurrency(amount: string | number | null | undefined): string {
   if (amount === null || amount === undefined) return "Chưa xác định";
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (!Number.isFinite(num)) return "0 ₫";
-  return new Intl.NumberFormat("vi-VN").format(Math.round(num)) + " ₫";
+  if (!Number.isFinite(num)) return "0 VND";
+  const rounded = Math.round(num);
+  const isNeg = rounded < 0;
+  return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
 }
 
 export function formatPercentNumber(rate: string | number | null | undefined): string {

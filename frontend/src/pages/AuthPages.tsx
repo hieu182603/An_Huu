@@ -635,6 +635,7 @@ export function RegisterPage() {
 
   const registerSubmitRef = useRef<HTMLButtonElement>(null);
   const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string; sentAt: number } | null>(null);
+  const [activeDocModal, setActiveDocModal] = useState<"terms" | "privacy" | null>(null);
 
   const closeOtpModal = () => {
     setPendingVerification(null);
@@ -854,14 +855,60 @@ export function RegisterPage() {
 
             <div className="auth-options-row">
               <div>
-                <label className="choice-control">
-                  <input id="register-agree" type="checkbox" checked={agree} disabled={loading}
-                    onChange={e => { setAgree(e.target.checked); clearFieldError("agree"); }}
-                    aria-invalid={Boolean(fieldErrors.agree) || undefined}
-                    aria-describedby={fieldErrors.agree ? "register-agree-error" : undefined} />
-                  <span className="checkbox-visual"><Icon name="check" size="small" /></span>
-                  <span>Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của An Hưu</span>
-                </label>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                  <label className="choice-control" htmlFor="register-agree" style={{ flexShrink: 0 }}>
+                    <input
+                      id="register-agree"
+                      type="checkbox"
+                      checked={agree}
+                      disabled={loading}
+                      onChange={e => { setAgree(e.target.checked); clearFieldError("agree"); }}
+                      aria-invalid={Boolean(fieldErrors.agree) || undefined}
+                      aria-describedby={fieldErrors.agree ? "register-agree-error" : undefined}
+                    />
+                    <span className="checkbox-visual"><Icon name="check" size="small" /></span>
+                    <span className="sr-only">Đồng ý điều khoản và chính sách</span>
+                  </label>
+                  <span style={{ fontSize: "13px", lineHeight: "1.5", color: "var(--color-text-secondary, #475569)" }}>
+                    Tôi đồng ý với{" "}
+                    <button
+                      type="button"
+                      onClick={() => setActiveDocModal("terms")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        color: "#008a75",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                        fontWeight: 500,
+                        fontFamily: "inherit",
+                        fontSize: "inherit",
+                      }}
+                    >
+                      Điều khoản dịch vụ
+                    </button>{" "}
+                    và{" "}
+                    <button
+                      type="button"
+                      onClick={() => setActiveDocModal("privacy")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        color: "#008a75",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                        fontWeight: 500,
+                        fontFamily: "inherit",
+                        fontSize: "inherit",
+                      }}
+                    >
+                      Chính sách bảo mật
+                    </button>{" "}
+                    của An Hưu
+                  </span>
+                </div>
                 {fieldError("agree")}
               </div>
             </div>
@@ -923,6 +970,58 @@ export function RegisterPage() {
             onVerified={handleVerified}
             onRequested={requestedAt => verificationRequests.current.set(pendingVerification.email, requestedAt)}
           />
+        )}
+
+        {activeDocModal === "terms" && (
+          <ResponsiveDialog
+            open
+            title="Điều khoản dịch vụ An Hưu"
+            onClose={() => setActiveDocModal(null)}
+          >
+            <div style={{ padding: "8px 0", lineHeight: 1.7, fontSize: "14px", color: "#334155" }}>
+              <div style={{ marginBottom: "16px", padding: "12px 16px", background: "#f8fafc", borderRadius: "8px", borderLeft: "4px solid #008a75" }}>
+                <strong style={{ display: "block", color: "#0f172a", marginBottom: "4px" }}>Thông báo quy chế dịch vụ</strong>
+                <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>
+                  Văn bản pháp lý đầy đủ đang trong quá trình rà soát định kỳ và phê duyệt bởi Ban quản trị nền tảng An Hưu. Dưới đây là các nguyên tắc cốt lõi áp dụng cho phiên bản hiện hành:
+                </p>
+              </div>
+              <h4 style={{ fontSize: "15px", fontWeight: 600, color: "#0f172a", marginTop: "16px", marginBottom: "8px" }}>1. Tôn chỉ độc lập</h4>
+              <p>An Hưu là nền tảng quản trị và mô phỏng kế hoạch hưu trí độc lập. An Hưu không bán bảo hiểm, không phân phối chứng chỉ quỹ và không nhận hoa hồng môi giới từ bất kỳ bên thứ ba nào.</p>
+              <h4 style={{ fontSize: "15px", fontWeight: 600, color: "#0f172a", marginTop: "16px", marginBottom: "8px" }}>2. Bản chất thông tin</h4>
+              <p>Mọi kết quả tính toán, dự phóng dòng tiền và điểm sẵn sàng hưu trí dựa trên các mô hình toán học và giả định do người dùng cung cấp. Các kết quả này mang tính chất tham khảo, không cấu thành lời khuyên đầu tư tài chính được cam kết hay bảo lãnh.</p>
+              <h4 style={{ fontSize: "15px", fontWeight: 600, color: "#0f172a", marginTop: "16px", marginBottom: "8px" }}>3. Trách nhiệm người dùng</h4>
+              <p>Người dùng chịu trách nhiệm bảo mật thông tin tài khoản cá nhân và tính chính xác của các dữ liệu tài chính tự khai báo khi sử dụng công cụ.</p>
+              <div style={{ marginTop: "24px", textAlign: "right" }}>
+                <Button variant="secondary" onClick={() => setActiveDocModal(null)}>Đóng</Button>
+              </div>
+            </div>
+          </ResponsiveDialog>
+        )}
+
+        {activeDocModal === "privacy" && (
+          <ResponsiveDialog
+            open
+            title="Chính sách bảo mật An Hưu"
+            onClose={() => setActiveDocModal(null)}
+          >
+            <div style={{ padding: "8px 0", lineHeight: 1.7, fontSize: "14px", color: "#334155" }}>
+              <div style={{ marginBottom: "16px", padding: "12px 16px", background: "#f8fafc", borderRadius: "8px", borderLeft: "4px solid #008a75" }}>
+                <strong style={{ display: "block", color: "#0f172a", marginBottom: "4px" }}>Cam kết bảo mật dữ liệu</strong>
+                <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>
+                  Chính sách bảo mật toàn văn đang được chuẩn hóa theo quy định bảo vệ dữ liệu cá nhân. Các nguyên tắc xử lý dữ liệu hiện hữu gồm:
+                </p>
+              </div>
+              <h4 style={{ fontSize: "15px", fontWeight: 600, color: "#0f172a", marginTop: "16px", marginBottom: "8px" }}>1. Thu thập dữ liệu tối thiểu</h4>
+              <p>An Hưu chỉ yêu cầu các thông tin cần thiết để khởi tạo tài khoản và tính toán phương án hưu trí. Chúng tôi không yêu cầu và không lưu trữ số CCCD, tài khoản ngân hàng hoặc mật khẩu tài chính cá nhân.</p>
+              <h4 style={{ fontSize: "15px", fontWeight: 600, color: "#0f172a", marginTop: "16px", marginBottom: "8px" }}>2. Không chia sẻ cho bên thứ ba</h4>
+              <p>Thông tin hồ sơ và kế hoạch hưu trí của bạn không bao giờ bị chia sẻ, trao đổi hay bán cho các đại lý bảo hiểm hay đơn vị tiếp thị bên ngoài.</p>
+              <h4 style={{ fontSize: "15px", fontWeight: 600, color: "#0f172a", marginTop: "16px", marginBottom: "8px" }}>3. Quyền kiểm soát dữ liệu</h4>
+              <p>Bạn có toàn quyền chỉnh sửa, xuất dữ liệu kế hoạch ra máy tính cá nhân hoặc yêu cầu xóa vĩnh viễn tài khoản và hồ sơ bất cứ lúc nào trong trang cài đặt tài khoản.</p>
+              <div style={{ marginTop: "24px", textAlign: "right" }}>
+                <Button variant="secondary" onClick={() => setActiveDocModal(null)}>Đóng</Button>
+              </div>
+            </div>
+          </ResponsiveDialog>
         )}
       </main>
     </div>

@@ -2,28 +2,32 @@ export function formatCompactVND(value: number, isVietnamese: boolean, billionFr
   const magnitude = Math.abs(value);
   if (magnitude >= 1_000_000_000) {
     const compact = (value / 1_000_000_000).toFixed(billionFractionDigits);
-    return isVietnamese ? `${compact} tỷ` : `${compact}B ₫`;
+    return isVietnamese ? `${compact} tỷ` : `${compact}B VND`;
   }
   if (magnitude >= 1_000_000) {
     const compact = Math.round(value / 1_000_000);
-    return isVietnamese ? `${compact} tr` : `${compact}M ₫`;
+    return isVietnamese ? `${compact} tr` : `${compact}M VND`;
   }
-  return `${value.toLocaleString(isVietnamese ? "vi-VN" : "en-US")} ₫`;
+  return `${Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
 }
 
-export function formatFullVND(value: number, isVietnamese: boolean): string {
-  return `${Math.round(value).toLocaleString(isVietnamese ? "vi-VN" : "en-US")} ₫`;
+export function formatFullVND(value: number, _isVietnamese = true): string {
+  const rounded = Math.round(value);
+  const isNeg = rounded < 0;
+  return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
 }
 
 export function formatNumberWithDots(value: number | string): string {
   if (value === "" || value === null || value === undefined) return "";
   const clean = typeof value === "number" ? Math.floor(Math.abs(value)) : Math.floor(Math.abs(Number(String(value).replace(/\D/g, "")) || 0));
-  return new Intl.NumberFormat("vi-VN").format(clean);
+  return clean.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 export function formatVND(value: number, suffix = "VND"): string {
-  const clean = Math.max(0, Math.floor(value || 0));
-  return `${new Intl.NumberFormat("vi-VN").format(clean)} ${suffix}`;
+  if (value === null || value === undefined || Number.isNaN(value)) return `0 ${suffix}`;
+  const isNegative = value < 0;
+  const clean = Math.floor(Math.abs(value));
+  return `${isNegative ? "-" : ""}${clean.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} ${suffix}`;
 }
 
 const VIETNAMESE_DIGITS = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];

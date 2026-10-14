@@ -11,7 +11,13 @@ const date = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFi
 const zero = (): LoanComponents => ({ principal: '', interest: '', prepaymentFee: '', otherFee: '' });
 const total = (parts: LoanComponents) => Object.values(parts).reduce<Decimal>((sum, value) => sum.plus(value), new Decimal(0));
 const labels: Record<keyof LoanComponents, string> = { principal: 'Gốc', interest: 'Lãi', prepaymentFee: 'Phí trả trước', otherFee: 'Phí khác' };
-const displayMoney = (value: string) => { const [whole, fraction] = value.split('.'); return BigInt(whole || '0').toLocaleString('vi-VN') + (fraction ? ',' + fraction : '') + ' ₫'; };
+const displayMoney = (value: string) => {
+  const [whole, fraction] = value.split('.');
+  const isNeg = whole?.startsWith('-') ?? false;
+  const digits = (whole || '0').replace(/^-/, '');
+  const formatted = `${isNeg ? '-' : ''}${digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+  return formatted + (fraction ? ',' + fraction : '') + ' VND';
+};
 
 export function LoanRevisionEditor({ planId, input, profileDebts, busy, commands, onDraftChange, onAdd }: Props) {
   const [discovery, setDiscovery] = useState<SourceReforecastPreviewResponse | null>(null);

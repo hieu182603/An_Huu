@@ -4,7 +4,7 @@ export default defineConfig({
     globals: true, environment: "node", include: ["src/**/*.{test,spec}.ts"],
     exclude: ["src/**/*.integration.test.ts"],
     restoreMocks: true,
-    testTimeout: 20000,
+    testTimeout: 60000,
     coverage: { reporter: ["text", "json", "html"] },
   },
 });

@@ -1,8 +1,10 @@
 import express, { type Express, type Router } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import { createErrorHandler } from "./middlewares/errorHandler";
-import { generalLimiter } from "./middlewares/rateLimiter";
+import { createGeneralLimiter } from "./middlewares/rateLimiter";
+import { serverTiming } from "./common/timing";
 import { loadEnv, type AppConfig } from "./config/env";
 import { corsOptions } from "./config/cors";
 import { asyncHandler, notFound, requestContext, sendData } from "./common/http";
@@ -19,6 +21,11 @@ export function createApp(options: AppOptions = {}): Express {
   app.set("trust proxy", config.TRUST_PROXY_HOPS === 0 ? false : config.TRUST_PROXY_HOPS);
   app.locals.draining = false;
   app.use(requestContext, helmet(), cors(corsOptions(config)));
+  // Socket.IO is attached to the HTTP server, not Express; SSE must stream unbuffered.
+  app.use(compression({ filter: (req, res) => !req.path.startsWith("/socket.io") &&
+    !String(req.headers.accept ?? "").includes("text/event-stream") && compression.filter(req, res) }));
+  for (const route of ["/me/retirement/plans", "/me/retirement/preview", "/me/financial-profile"])
+    app.use(`/api/v1${route}`, serverTiming(route));
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: false, limit: "2mb" }));
   const probe = options.databaseProbe ?? (async () => {
@@ -35,7 +42,7 @@ export function createApp(options: AppOptions = {}): Express {
   // Legacy endpoints are liveness only.
   app.get("/health", (_req, res) => res.json({ status: "healthy", service: "An Huu Financial Planning Backend API", timestamp: new Date().toISOString(), uptime: process.uptime() }));
   app.get("/api/health", (_req, res) => res.json({ status: "ok", version: "1.0.0", realtime: "Socket.IO enabled", environment: config.NODE_ENV }));
-  app.use("/api", generalLimiter);
+  app.use("/api", createGeneralLimiter(config));
   const services = options.services ?? (options.apiRouter ? undefined : createServices(prisma, config));
   app.use("/api/v1", options.apiRouter ?? createApiRouter(services!, config));
   const settings = services?.settings;

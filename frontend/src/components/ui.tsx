@@ -6,8 +6,8 @@ import {
   NotificationShowcase,
   type NotificationTone,
 } from "./Notification";
-import logoHorizontal from "../assets/logo.png";
-import logoVertical from "../assets/logo-vertical.png";
+import logoHorizontal from "../assets/logo.webp";
+import logoVertical from "../assets/logo-vertical.webp";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -174,6 +174,7 @@ export function Button({
   style,
   "aria-pressed": ariaPressed,
   "aria-label": ariaLabel,
+  title,
 }: {
   children: ReactNode;
   variant?: "primary" | "secondary" | "soft" | "ghost" | "danger";
@@ -187,6 +188,7 @@ export function Button({
   style?: React.CSSProperties;
   "aria-pressed"?: boolean;
   "aria-label"?: string;
+  title?: string;
 }) {
   return (
     <button
@@ -197,6 +199,7 @@ export function Button({
       style={style}
       aria-pressed={ariaPressed}
       aria-label={ariaLabel}
+      title={title}
     >
       {loading ? <span className="spinner" aria-hidden="true" /> : icon ? <Icon name={icon} size="small" /> : null}
       <span>{children}</span>

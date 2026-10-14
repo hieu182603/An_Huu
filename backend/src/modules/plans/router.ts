@@ -5,7 +5,7 @@ import type { AuthenticatedRequest } from "../../middlewares/authMiddleware";
 import type { PlansService } from "./service";
 import { saveReforecastSchema } from "../actuals/schema";
 import { sourceReforecastSchema, saveSourceReforecastSchema } from "./source-schema";
-import { createPlanVersionSchema, applyPlanVersionSchema, planListSchema, planKeySchema, planReportQuerySchema, planCompareSchema, planSimulationSchema } from "./schema";
+import { createPlanVersionSchema, applyPlanVersionSchema, planListSchema, planKeySchema, planReportQuerySchema, planExportQuerySchema, planCompareSchema, planSimulationSchema } from "./schema";
 export function plansRouter(service: PlansService) {
   const router = Router(), id = (value: unknown) => z.string().uuid().parse(value);
   router.get("/", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.list(req.user!.userId, planListSchema.parse(req.query)))));
@@ -25,7 +25,8 @@ export function plansRouter(service: PlansService) {
   router.post("/:id/versions/:versionId/simulate", validate(planSimulationSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res,
     await service.simulate(req.user!.userId, id(req.params.id), id(req.params.versionId), req.body))));
   router.get("/:id/versions/:versionId/export.csv", asyncHandler(async (req: AuthenticatedRequest, res) => {
-    const result = await service.exportCsv(req.user!.userId, id(req.params.id), id(req.params.versionId));
+    const query = planExportQuerySchema.parse(req.query);
+    const result = await service.exportCsv(req.user!.userId, id(req.params.id), id(req.params.versionId), query.format);
     res.setHeader("Content-Disposition", `attachment; filename="${result.filename}"`);
     res.type("text/csv; charset=utf-8").send(result.content);
   }));

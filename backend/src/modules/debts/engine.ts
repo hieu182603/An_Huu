@@ -118,7 +118,20 @@ function simulate(profile: ProfileV2, loans: ReadyLoan[], input: DebtPreviewInpu
       extraPrincipal: extraPrincipal.toFixed(), prepaymentFees: extraFees.toFixed(), debtPayment: debtPayment.toFixed(), stressIncrease: stressIncrease.toFixed(),
       availableForRetirement: remaining?.toFixed() ?? null, pressure, loans: details, issues: cashflow.issues });
   }
-  return { strategy, status: states.some(state => state.balance.gt(0)) ? "HORIZON_LIMIT" : "CALCULATED", rows,
+  // A valid loan schedule does not imply that household cashflow is known.
+  // Keep a detected deficit visible even if another month cannot be evaluated.
+  const unknownRows = rows.filter(row => row.availableForRetirement === null);
+  const cashflowAssessment = {
+    status: !unknownRows.length ? "COMPLETE" : unknownRows.length === rows.length ? "UNAVAILABLE" : "PARTIAL",
+    evaluatedMonths: rows.length - unknownRows.length, totalMonths: rows.length,
+    firstUnknownMonth: unknownRows[0]?.month ?? null,
+    shortfallStatus: firstShortfallMonth !== null ? "DETECTED" : unknownRows.length ? "UNKNOWN" : "NOT_DETECTED_IN_HORIZON",
+    issues: [
+      ...(rows.some(row => row.income === null || row.nonDebtExpense === null) ? ["CASHFLOW_REQUIRED"] : []),
+      ...(input.reserveMonthly === null ? ["RESERVE_REQUIRED"] : []),
+    ],
+  };
+  return { strategy, status: states.some(state => state.balance.gt(0)) ? "HORIZON_LIMIT" : "CALCULATED", rows, cashflowAssessment,
     totals: { principal: principalTotal.toFixed(), interest: interestTotal.toFixed(), fees: feeTotal.toFixed(), interestAndFees: interestTotal.plus(feeTotal).toFixed(),
       extraPrincipal: extraTotal.toFixed(), totalPaid: principalTotal.plus(interestTotal).plus(feeTotal).toFixed(), peakMonthlyPayment: peak.toFixed(),
       closingLoanBalance: states.reduce((sum, state) => sum.plus(state.balance), new D(0)).toFixed(), debtFreeDate, firstShortfallMonth } };

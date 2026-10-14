@@ -98,6 +98,13 @@ export function memoryDb() {
     };
   }
   db.$queryRaw = async (parts: TemplateStringsArray, ...values: unknown[]) => {
+    // Emulates PlansService.versions() summary projection (verified against PostgreSQL separately).
+    if (/^SELECT id, version, "createdAt", "profileRevision",\s+"inputSnapshot"->>'integrityHash' AS "snapshotHash", "inputSnapshot"->'preview'->'references' AS "references", "result"->'summary' AS "summary"\s+FROM plan_versions WHERE "planId" = \? ORDER BY version DESC OFFSET \? LIMIT \?$/.test(parts.join("?"))) {
+      const [planId, offset, limit] = values as [string, number, number];
+      return tables.planVersion.filter(r => r.planId === planId).sort((a, b) => b.version - a.version).slice(offset, offset + limit)
+        .map(r => structuredClone({ id: r.id, version: r.version, createdAt: r.createdAt, profileRevision: r.profileRevision,
+          snapshotHash: r.inputSnapshot?.integrityHash ?? null, references: r.inputSnapshot?.preview?.references ?? null, summary: r.result?.summary ?? null }));
+    }
     if (parts.join("?") !== "SELECT id FROM users WHERE id = ? FOR UPDATE") throw new Error("Unsupported memory DB SQL");
     return tables.user.filter(u => u.id === values[0]).map(u => ({ id: u.id }));
   };

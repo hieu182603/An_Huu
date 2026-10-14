@@ -473,6 +473,20 @@ Totals:
     - closingLoanBalance
     - debtFreeDate
     - firstShortfallMonth
+CashflowAssessment:
+  type: object
+  additionalProperties: false
+  description: Monthly household cashflow after all debt payments and reserve, only within the requested horizon. Independent of loan schedule readiness.
+  required: [status, evaluatedMonths, totalMonths, firstUnknownMonth, shortfallStatus, issues]
+  properties:
+    status: { type: string, enum: [COMPLETE, PARTIAL, UNAVAILABLE] }
+    evaluatedMonths: { type: integer, minimum: 0 }
+    totalMonths: { type: integer, minimum: 1 }
+    firstUnknownMonth: { type: string, nullable: true }
+    shortfallStatus: { type: string, enum: [DETECTED, UNKNOWN, NOT_DETECTED_IN_HORIZON] }
+    issues:
+      type: array
+      items: { type: string, enum: [CASHFLOW_REQUIRED, RESERVE_REQUIRED] }
 Result:
   type: object
   additionalProperties: false
@@ -496,11 +510,14 @@ Result:
         $ref: "#/Row"
     totals:
       $ref: "#/Totals"
+    cashflowAssessment:
+      $ref: "#/CashflowAssessment"
   required:
     - strategy
     - status
     - rows
     - totals
+    - cashflowAssessment
 Alternative:
   type: object
   additionalProperties: false

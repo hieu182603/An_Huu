@@ -81,6 +81,8 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
 
     // Vào trang tài khoản và xác minh thông tin
     await page.goto("/user/account");
+    await page.getByRole("button", { name: /^Tài khoản:/ }).click();
+    await page.getByRole("menuitem", { name: "Hồ sơ", exact: true }).click();
     const nameInput = page.getByLabel("Họ và tên");
     await expect(nameInput).toBeVisible();
     const nameVal = await nameInput.inputValue();
@@ -91,6 +93,8 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     await page.goto("/user/account");
 
     // Sửa tên thành "Nguyễn Hoàng Nam"
+    await page.getByRole("button", { name: /^Tài khoản:/ }).click();
+    await page.getByRole("menuitem", { name: "Hồ sơ", exact: true }).click();
     const nameInput = page.getByLabel("Họ và tên");
     await nameInput.fill("Nguyễn Hoàng Nam");
 
@@ -161,7 +165,8 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
     await page.goto("/user/account");
 
     // Chọn tab Cài đặt
-    await page.getByRole("navigation", { name: "Menu tài khoản" }).getByRole("button", { name: "Cài đặt", exact: true }).click();
+    await page.getByRole("button", { name: /^Tài khoản:/ }).click();
+    await page.getByRole("menuitem", { name: "Cài đặt", exact: true }).click();
 
     // Bấm Đổi mật khẩu khi form trống
     await page.getByRole("button", { name: "Đổi mật khẩu", exact: true }).click();

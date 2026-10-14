@@ -1,0 +1,29 @@
+.plan-sync-status {
+  margin: 12px 0;
+  color: var(--color-text-muted, #486581);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.plan-sync-status small { display: block; }
+.goal-summary-card .plan-sync-status { color: #d6e8fa; }
+.goal-summary-card .plan-sync-status a { color: #fff; }
+.plan-sync-status a { text-decoration: underline; text-underline-offset: 3px; }
+.plan-explanation-details, .cashflow-review-details {
+  margin: 16px 0;
+  padding: 16px 20px;
+  border: 1px solid var(--color-border, #dce5ed);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--color-text-muted, #486581);
+  line-height: 1.7;
+}
+.plan-explanation-details summary, .cashflow-review-details summary {
+  cursor: pointer;
+  color: var(--color-text, #173653);
+  font-weight: 600;
+}
+.plan-explanation-details summary:focus-visible, .cashflow-review-details summary:focus-visible {
+  outline: 2px solid #376aa0;
+  outline-offset: 5px;
+}
+.plan-explanation-details ul { padding-left: 22px; margin-bottom: 0; }

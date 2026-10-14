@@ -1,6 +1,6 @@
 export { ArticleCards, KnowledgePage, ArticlePage } from "./PublicContent";
-import { useState } from 'react';
-import { Link } from 'react-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { Icon } from '../components/ui';
 import MarketingLayout, { FinalCTA, MarketingButton, PageIntro } from './MarketingLayout';
 import {
@@ -12,7 +12,7 @@ import {
 } from './content';
 import { calculateRetirement, projectBalanceAtAge, type RetirementCalculationInput } from '../domain/retirementCalculator';
 
-const currency = (amount: number) => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(amount)} đ`;
+const currency = (amount: number) => `${Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')} VND`;
 
 export function AssistantPreview({ expanded = false }: { expanded?: boolean }) {
   const [selected, setSelected] = useState(0);
@@ -69,10 +69,25 @@ export function AssistantPreview({ expanded = false }: { expanded?: boolean }) {
       </div>
 
       <div className="mk-chat-footer">
-        <Link to="/mo-phong" className="mk-chat-action-btn">
-          <span>Áp dụng kịch bản này vào Mô phỏng</span>
-          <Icon name="arrow-right" />
-        </Link>
+        {current.scenarioParams ? (
+          <Link
+            to={`/mo-phong?${new URLSearchParams({
+              ...Object.fromEntries(
+                Object.entries(current.scenarioParams).map(([k, v]) => [k, String(v)])
+              ),
+              scenarioName: current.scenarioName || current.tabLabel || 'Kịch bản đề xuất',
+            }).toString()}`}
+            className="mk-chat-action-btn"
+          >
+            <span>{current.actionLabel || 'Áp dụng kịch bản này vào Mô phỏng'}</span>
+            <Icon name="arrow-right" />
+          </Link>
+        ) : (
+          <Link to="/mo-phong" className="mk-chat-action-btn">
+            <span>{current.actionLabel || 'Mở công cụ mô phỏng'}</span>
+            <Icon name="arrow-right" />
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -275,28 +290,410 @@ const defaultInput: RetirementCalculationInput = {
   socialInsuranceYears: 0, socialInsuranceSalary: 0,
 };
 
+function parseScenarioInput(searchParams: URLSearchParams): { input: RetirementCalculationInput; scenarioName: string | null } {
+  const currentAgeParam = searchParams.get('currentAge');
+  const retirementAgeParam = searchParams.get('retirementAge');
+  const lifeExpectancyParam = searchParams.get('lifeExpectancy');
+  const cashSavingsParam = searchParams.get('cashSavings');
+  const monthlyExpenseParam = searchParams.get('monthlyExpenseToday');
+  const monthlyContribParam = searchParams.get('monthlyContribution');
+  const returnRateParam = searchParams.get('annualReturnRate');
+  const inflationParam = searchParams.get('annualInflationRate');
+  const scenarioName = searchParams.get('scenarioName');
+
+  if (!currentAgeParam && !retirementAgeParam && !monthlyContribParam && !scenarioName) {
+    return { input: defaultInput, scenarioName: null };
+  }
+
+  const custom: RetirementCalculationInput = { ...defaultInput };
+  if (currentAgeParam) custom.currentAge = Math.max(18, Math.min(74, Number(currentAgeParam) || defaultInput.currentAge));
+  if (retirementAgeParam) custom.retirementAge = Math.max(custom.currentAge, Math.min(75, Number(retirementAgeParam) || defaultInput.retirementAge));
+  if (lifeExpectancyParam) custom.lifeExpectancy = Math.max(custom.retirementAge + 1, Math.min(110, Number(lifeExpectancyParam) || defaultInput.lifeExpectancy));
+  if (cashSavingsParam !== null) custom.cashSavings = Math.max(0, Number(cashSavingsParam) || 0);
+  if (monthlyExpenseParam !== null) custom.monthlyExpenseToday = Math.max(0, Number(monthlyExpenseParam) || 0);
+  if (monthlyContribParam !== null) custom.monthlyContribution = Math.max(0, Number(monthlyContribParam) || 0);
+  if (returnRateParam !== null) custom.annualReturnRate = Math.max(0, Math.min(30, Number(returnRateParam) || 0));
+  if (inflationParam !== null) custom.annualInflationRate = Math.max(0, Math.min(20, Number(inflationParam) || 0));
+
+  return { input: custom, scenarioName: scenarioName || 'Kịch bản đề xuất' };
+}
+
+function SimFieldInput({
+  id,
+  label,
+  value,
+  min,
+  max,
+  step,
+  unit,
+  isCurrency,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  unit: string;
+  isCurrency?: boolean;
+  onChange: (v: number) => void;
+}) {
+  const formatDisplay = (v: number) => isCurrency ? Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : String(v);
+  const [textValue, setTextValue] = useState(() => formatDisplay(value));
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setTextValue(formatDisplay(value));
+    }
+  }, [value, isCurrency, isFocused]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    setTextValue(raw);
+    if (isCurrency) {
+      const digits = raw.replace(/\D/g, '');
+      if (digits === '') {
+        onChange(0);
+      } else {
+        const num = Number(digits);
+        if (Number.isFinite(num)) {
+          onChange(num);
+        }
+      }
+    } else {
+      const num = Number(raw);
+      if (Number.isFinite(num)) {
+        onChange(num);
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    setTextValue(formatDisplay(value));
+  };
+
+  return (
+    <div className="mk-range-field">
+      <div className="mk-field-header">
+        <label htmlFor={`num-${id}`}>{label}</label>
+        <div className="mk-field-input-wrap">
+          <input
+            id={`num-${id}`}
+            type="text"
+            inputMode={isCurrency ? "numeric" : "decimal"}
+            className="mk-num-input"
+            value={textValue}
+            onFocus={() => setIsFocused(true)}
+            onChange={handleTextChange}
+            onBlur={handleBlur}
+            aria-label={`Nhập giá trị cho ${label}`}
+          />
+          <span className="mk-field-unit">{unit}</span>
+        </div>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={Math.min(max, Math.max(min, value))}
+        onChange={event => onChange(Number(event.target.value))}
+        aria-valuetext={`${value} ${unit}`}
+      />
+    </div>
+  );
+}
+
 export function SimulationPage() {
-  const [input, setInput] = useState(defaultInput);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialData = useMemo(() => parseScenarioInput(searchParams), [searchParams]);
+  const [input, setInput] = useState<RetirementCalculationInput>(initialData.input);
+  const [appliedScenario, setAppliedScenario] = useState<string | null>(initialData.scenarioName);
+
+  // Sync if URL search params change (e.g. back/forward navigation)
+  useEffect(() => {
+    const parsed = parseScenarioInput(searchParams);
+    setInput(parsed.input);
+    setAppliedScenario(parsed.scenarioName);
+  }, [searchParams]);
+
   const result = calculateRetirement(input);
+
   const update = (key: keyof RetirementCalculationInput, value: number) => setInput(current => {
     const next = { ...current, [key]: value };
-    next.retirementAge = Math.max(next.currentAge + 1, next.retirementAge);
+    // Allow retirement age to equal current age (FE-01)
+    next.retirementAge = Math.max(next.currentAge, next.retirementAge);
     next.lifeExpectancy = Math.max(next.retirementAge + 1, next.lifeExpectancy);
     return next;
   });
-  const fields: { key: keyof RetirementCalculationInput; label: string; min: number; max: number; step: number; format: (v: number) => string }[] = [
-    { key: 'currentAge', label: 'Tuổi hiện tại', min: 18, max: 65, step: 1, format: v => `${v} tuổi` },
-    { key: 'retirementAge', label: 'Tuổi nghỉ hưu', min: input.currentAge + 1, max: 75, step: 1, format: v => `${v} tuổi` },
-    { key: 'lifeExpectancy', label: 'Dự trù chi tiêu đến tuổi', min: input.retirementAge + 1, max: 100, step: 1, format: v => `${v} tuổi` },
-    { key: 'cashSavings', label: 'Tài sản ban đầu', min: 0, max: 5000000000, step: 50000000, format: currency },
-    { key: 'monthlyExpenseToday', label: 'Chi tiêu mỗi tháng theo giá hôm nay', min: 5000000, max: 60000000, step: 1000000, format: currency },
-    { key: 'monthlyContribution', label: 'Tích lũy mỗi tháng', min: 0, max: 50000000, step: 500000, format: currency },
-    { key: 'annualReturnRate', label: 'Lợi suất giả định mỗi năm', min: 0, max: 12, step: 0.5, format: v => `${v}%` },
-    { key: 'annualInflationRate', label: 'Lạm phát giả định mỗi năm', min: 0, max: 10, step: 0.5, format: v => `${v}%` },
-  ];
-  const years = Array.from({ length: 7 }, (_, index) => input.currentAge + (result.yearsToRetirement * index / 6));
+
+  const handleReset = () => {
+    setInput(defaultInput);
+    setAppliedScenario(null);
+    setSearchParams({}, { replace: true });
+  };
+
+  // Depletion milestone calculation (FE-23)
+  const postRetirementAnalysis = useMemo(() => {
+    if (result.gap <= 0) {
+      return {
+        depleted: false,
+        depletionAge: null,
+        message: `Quỹ dự kiến đáp ứng chi tiêu đến hết mốc dự trù ${input.lifeExpectancy} tuổi theo các giả định đã chọn.`,
+      };
+    }
+    const monthlyReturn = Math.pow(1 + Math.max(0, input.annualReturnRate) / 100, 1 / 12) - 1;
+    const monthlyInflation = Math.pow(1 + Math.max(0, input.annualInflationRate) / 100, 1 / 12) - 1;
+    let balance = result.projectedFund;
+    const postMonths = (input.lifeExpectancy - input.retirementAge) * 12;
+    for (let m = 0; m < postMonths; m++) {
+      const withdrawal = result.futureMonthlyExpense * Math.pow(1 + monthlyInflation, m);
+      balance = balance * (1 + monthlyReturn) - withdrawal;
+      if (balance <= 0) {
+        const depletionAge = Math.floor(input.retirementAge + (m + 1) / 12);
+        const yearsAfter = Math.max(0, depletionAge - input.retirementAge);
+        return {
+          depleted: true,
+          depletionAge,
+          yearsAfter,
+          message: `Quỹ dự kiến (${currency(result.projectedFund)}) có thể cạn kiệt vào khoảng tuổi ${depletionAge} (sau ${yearsAfter} năm nghỉ hưu) nếu duy trì mức chi tiêu này. Khoảng thiếu hụt cần tích lũy thêm là ${currency(result.gap)}.`,
+        };
+      }
+    }
+    return {
+      depleted: false,
+      depletionAge: null,
+      message: `Quỹ dự kiến đáp ứng chi tiêu đến hết mốc dự trù ${input.lifeExpectancy} tuổi theo các giả định đã chọn.`,
+    };
+  }, [input, result]);
+
+  // Chart calculation covering entire span from currentAge through lifeExpectancy (FE-23)
+  const totalSpan = Math.max(1, input.lifeExpectancy - input.currentAge);
+  const years = Array.from({ length: 7 }, (_, index) => Math.round(input.currentAge + (totalSpan * index / 6)));
   const balances = years.map(age => projectBalanceAtAge(input, age));
   const max = Math.max(1, ...balances, result.targetFund);
   const points = balances.map((balance, index) => `${index * 100},${180 - balance / max * 150}`).join(' ');
-  return <MarketingLayout><PageIntro eyebrow="MÔ PHỎNG HƯU TRÍ" title="Thử hôm nay. Hiểu thêm về ngày mai.">Thay đổi một giả định, nhìn thấy một khả năng. Không cần đăng nhập, không lưu thông tin cá nhân.</PageIntro><section className="mk-container mk-simulator"><div className="mk-sim-inputs"><div className="mk-sim-title"><h2>Kịch bản của bạn</h2><button type="button" onClick={() => setInput(defaultInput)}>Đặt lại</button></div>{fields.map(field => <div className="mk-range-field" key={field.key}><div><label htmlFor={`sim-${field.key}`}>{field.label}</label><output htmlFor={`sim-${field.key}`}>{field.format(input[field.key])}</output></div><input id={`sim-${field.key}`} type="range" min={field.min} max={field.max} step={field.step} value={input[field.key]} aria-valuetext={field.format(input[field.key])} onChange={event => update(field.key, Number(event.target.value))} /></div>)}</div><div className="mk-sim-output"><span className="mk-eyebrow">SAU {result.yearsToRetirement} NĂM TÍCH LŨY</span><div className="mk-sim-results" aria-live="polite" aria-atomic="true"><p>Quỹ dự kiến ở tuổi {input.retirementAge}</p><strong data-testid="projected-fund">{currency(result.projectedFund)}</strong><dl><div><dt>Quỹ mục tiêu ước tính</dt><dd>{currency(result.targetFund)}</dd></div><div><dt>{result.gap > 0 ? 'Khoảng thiếu hụt ước tính' : 'Phần vượt mục tiêu ước tính'}</dt><dd>{currency(Math.abs(result.gap))}</dd></div><div><dt>Chi tiêu mỗi tháng khi nghỉ hưu</dt><dd>{currency(result.futureMonthlyExpense)}</dd></div></dl></div><div className="mk-sim-chart"><svg viewBox="0 0 600 205" role="img" aria-label="Biểu đồ quỹ tích lũy dự kiến theo thời gian"><line x1="0" y1="180" x2="600" y2="180" stroke="#cbdde9" /><polyline points={`0,180 ${points} 600,180`} fill="#e3f4f2" stroke="none" /><polyline points={points} fill="none" stroke="#008a75" strokeWidth="4" strokeLinejoin="round" /><line x1="0" y1={180 - result.targetFund / max * 150} x2="600" y2={180 - result.targetFund / max * 150} stroke="#10385b" strokeDasharray="6 6" strokeWidth="2" /></svg><div className="mk-chart-labels"><span>{input.currentAge} tuổi</span><span>{input.retirementAge} tuổi</span></div><div className="mk-chart-legend"><span><i />Quỹ dự kiến</span><span><i />Quỹ mục tiêu</span></div></div><MarketingButton>Lập kế hoạch của riêng bạn</MarketingButton></div></section><section className="mk-container mk-assumptions"><h2>Hiểu các giả định phía sau kết quả</h2><p>Đây là mô hình minh họa với lợi suất và lạm phát cố định, khoản tích lũy được góp vào cuối mỗi tháng. Chưa tính lương hưu BHXH, thuế, phí, nợ hoặc biến động thị trường. Tài sản ban đầu được xem là toàn bộ phần có thể dùng cho hưu trí.</p><p>Giai đoạn nghỉ hưu dùng lợi suất thấp hơn giai đoạn tích lũy 1,5 điểm phần trăm, tối thiểu 0%. Chi tiêu tăng theo lạm phát cho đến tuổi dự trù. Đây là giả định của công cụ, không phải mức lợi suất được đảm bảo.</p></section></MarketingLayout>;
+
+  return (
+    <MarketingLayout>
+      <PageIntro eyebrow="MÔ PHỎNG HƯU TRÍ" title="Thử hôm nay. Hiểu thêm về ngày mai.">
+        Thay đổi một giả định, nhìn thấy một khả năng. Không cần đăng nhập, không lưu thông tin cá nhân.
+      </PageIntro>
+
+      <section className="mk-container mk-simulator">
+        <div className="mk-sim-inputs">
+          <div className="mk-sim-title">
+            <h2>Kịch bản của bạn</h2>
+            <button type="button" onClick={handleReset}>Đặt lại</button>
+          </div>
+
+          {appliedScenario && (
+            <div className="mk-scenario-banner" role="status">
+              <div className="mk-scenario-banner-text">
+                <Icon name="sparkles" />
+                <span>Đang áp dụng: <strong>{appliedScenario}</strong></span>
+              </div>
+              <button type="button" className="mk-scenario-reset" onClick={handleReset}>
+                Khôi phục mặc định
+              </button>
+            </div>
+          )}
+
+          <SimFieldInput
+            id="sim-currentAge"
+            label="Tuổi hiện tại"
+            value={input.currentAge}
+            min={18}
+            max={74}
+            step={1}
+            unit="tuổi"
+            onChange={v => update('currentAge', v)}
+          />
+
+          <SimFieldInput
+            id="sim-retirementAge"
+            label="Tuổi nghỉ hưu"
+            value={input.retirementAge}
+            min={input.currentAge}
+            max={75}
+            step={1}
+            unit="tuổi"
+            onChange={v => update('retirementAge', v)}
+          />
+
+          <SimFieldInput
+            id="sim-lifeExpectancy"
+            label="Dự trù chi tiêu đến tuổi"
+            value={input.lifeExpectancy}
+            min={input.retirementAge + 1}
+            max={100}
+            step={1}
+            unit="tuổi"
+            onChange={v => update('lifeExpectancy', v)}
+          />
+
+          <SimFieldInput
+            id="sim-cashSavings"
+            label="Tài sản ban đầu"
+            value={input.cashSavings}
+            min={0}
+            max={5000000000}
+            step={10000000}
+            unit="VND"
+            isCurrency
+            onChange={v => update('cashSavings', v)}
+          />
+
+          <SimFieldInput
+            id="sim-monthlyExpenseToday"
+            label="Chi tiêu mỗi tháng theo giá hôm nay"
+            value={input.monthlyExpenseToday}
+            min={0}
+            max={60000000}
+            step={500000}
+            unit="VND"
+            isCurrency
+            onChange={v => update('monthlyExpenseToday', v)}
+          />
+
+          <SimFieldInput
+            id="sim-monthlyContribution"
+            label="Tích lũy mỗi tháng"
+            value={input.monthlyContribution}
+            min={0}
+            max={50000000}
+            step={500000}
+            unit="VND"
+            isCurrency
+            onChange={v => update('monthlyContribution', v)}
+          />
+
+          <SimFieldInput
+            id="sim-annualReturnRate"
+            label="Lợi suất giả định mỗi năm"
+            value={input.annualReturnRate}
+            min={0}
+            max={15}
+            step={0.5}
+            unit="%"
+            onChange={v => update('annualReturnRate', v)}
+          />
+
+          <SimFieldInput
+            id="sim-annualInflationRate"
+            label="Lạm phát giả định mỗi năm"
+            value={input.annualInflationRate}
+            min={0}
+            max={10}
+            step={0.5}
+            unit="%"
+            onChange={v => update('annualInflationRate', v)}
+          />
+        </div>
+
+        <div className="mk-sim-output">
+          <span className="mk-eyebrow">
+            {result.yearsToRetirement > 0 ? `SAU ${result.yearsToRetirement} NĂM TÍCH LŨY` : 'NGHỈ HƯU TẠI TUỔI HIỆN TẠI'}
+          </span>
+
+          <div className="mk-sim-results" aria-live="polite" aria-atomic="true">
+            <p>Quỹ dự kiến ở tuổi {input.retirementAge}</p>
+            <strong data-testid="projected-fund">{currency(result.projectedFund)}</strong>
+            <dl>
+              <div>
+                <dt>Quỹ mục tiêu ước tính</dt>
+                <dd>{currency(result.targetFund)}</dd>
+              </div>
+              <div>
+                <dt>{result.gap > 0 ? 'Khoảng thiếu hụt ước tính' : 'Phần vượt mục tiêu ước tính'}</dt>
+                <dd>{currency(Math.abs(result.gap))}</dd>
+              </div>
+              <div>
+                <dt>Chi tiêu mỗi tháng khi nghỉ hưu</dt>
+                <dd>{currency(result.futureMonthlyExpense)}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="mk-sim-chart">
+            <svg viewBox="0 0 600 205" role="img" aria-label="Biểu đồ quỹ tích lũy dự kiến theo thời gian">
+              <line x1="0" y1="180" x2="600" y2="180" stroke="#cbdde9" />
+              <polyline points={`0,180 ${points} 600,180`} fill="#e3f4f2" stroke="none" />
+              <polyline points={points} fill="none" stroke="#008a75" strokeWidth="4" strokeLinejoin="round" />
+              <line x1="0" y1={180 - result.targetFund / max * 150} x2="600" y2={180 - result.targetFund / max * 150} stroke="#10385b" strokeDasharray="6 6" strokeWidth="2" />
+            </svg>
+            <div className="mk-chart-labels">
+              <span>{input.currentAge} tuổi</span>
+              <span>Hưu: {input.retirementAge} tuổi</span>
+              <span>{input.lifeExpectancy} tuổi</span>
+            </div>
+            <div className="mk-chart-legend">
+              <span><i />Quỹ dự kiến</span>
+              <span><i />Quỹ mục tiêu</span>
+            </div>
+          </div>
+
+          {/* Post-retirement duration & depletion alert (FE-23) */}
+          <div className="mk-sim-post-section" aria-label="Giai đoạn sau nghỉ hưu">
+            <div className="mk-sim-post-header">
+              <Icon name="compass" />
+              <strong>Thời gian hưởng hưu: {result.retirementYears} năm ({result.retirementYears * 12} tháng)</strong>
+            </div>
+            <p className="mk-sim-post-period">
+              Dự trù từ tuổi {input.retirementAge} đến tuổi {input.lifeExpectancy} với mức chi {currency(result.futureMonthlyExpense)}/tháng (đã tính lạm phát).
+            </p>
+            <div className={`mk-sim-status-box ${postRetirementAnalysis.depleted ? 'is-warning' : 'is-success'}`}>
+              <Icon name={postRetirementAnalysis.depleted ? 'alert' : 'circle-check'} />
+              <p>{postRetirementAnalysis.message}</p>
+            </div>
+            <p className="mk-sim-disclaimer-small">
+              <em>Lưu ý quan trọng:</em> Mốc tuổi kết thúc kế hoạch ({input.lifeExpectancy} tuổi) là giả định dự trù tài chính, không phải dự đoán tuổi thọ cá nhân. Việc quỹ không thiếu trong kỳ dự trù không đồng nghĩa đủ vĩnh viễn sau tuổi này.
+            </p>
+          </div>
+
+          {/* Simulation Scope & Limitations placed directly under results (FE-25) */}
+          <div className="mk-sim-scope-card">
+            <div className="mk-sim-scope-title">
+              <Icon name="info" />
+              <strong>Phạm vi và giới hạn của mô phỏng công khai</strong>
+            </div>
+            <div className="mk-sim-scope-grid">
+              <div className="mk-sim-scope-col">
+                <span className="mk-scope-pill is-included">Đã bao gồm trong phép tính</span>
+                <ul>
+                  <li>Tài sản có thể dùng hưu trí đầu kỳ</li>
+                  <li>Tích lũy hàng tháng và lãi kép dự kiến</li>
+                  <li>Lạm phát chi tiêu lũy kế theo từng năm</li>
+                </ul>
+              </div>
+              <div className="mk-sim-scope-col">
+                <span className="mk-scope-pill is-excluded">Chưa bao gồm (cần tạo tài khoản)</span>
+                <ul>
+                  <li>Lương hưu BHXH chính thức (cần số năm đóng)</li>
+                  <li>Thuế, phí quản lý quỹ và nghĩa vụ trả nợ</li>
+                  <li>Biến động thị trường bất thường theo chu kỳ</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <MarketingButton>Lập kế hoạch của riêng bạn</MarketingButton>
+        </div>
+      </section>
+
+      <section className="mk-container mk-assumptions">
+        <h2>Hiểu các giả định phía sau kết quả</h2>
+        <p>
+          Đây là mô hình minh họa với lợi suất và lạm phát cố định, khoản tích lũy được góp vào cuối mỗi tháng. Chưa tính lương hưu BHXH, thuế, phí, nợ hoặc biến động thị trường. Tài sản ban đầu được xem là toàn bộ phần có thể dùng cho hưu trí.
+        </p>
+        <p>
+          Giai đoạn nghỉ hưu dùng cùng mức lợi suất giả định khai báo để tính toán dòng tiền rút dần bù đắp chi tiêu. Chi tiêu tăng theo lạm phát cho đến tuổi dự trù. Đây là giả định toán học của công cụ, không phải mức lợi suất được đảm bảo.
+        </p>
+      </section>
+    </MarketingLayout>
+  );
 }
