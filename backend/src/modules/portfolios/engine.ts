@@ -1,7 +1,33 @@
 import { addMonths } from "../../common/calendar";
 import type { AssumptionDocument } from "../assumptions/schema";
 import { AssumptionDecimal as D, validateConfiguration, resolveYearSeries, normalizedAnnualReturn, type ConfigurationIssue } from "../assumptions/series";
-import { dimensions, portfolioDocumentSchema, portfolioPreviewSchema, type PortfolioDocument, type PortfolioPreview } from "./schema";
+import { dimensions, portfolioDocumentSchema, portfolioPreviewSchema, type PortfolioDocument, type PortfolioPreview, type PortfolioTemplate } from "./schema";
+
+type Allocation = { assetClass: string; weightPercent: string };
+const allocationSets = (template: PortfolioTemplate): Allocation[][] =>
+  "glidePath" in template ? template.glidePath.points.map(p => p.allocations) : template.schedule.map(p => p.allocations);
+const monthNumber = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1;
+
+/** Whole years left until the anchor month (0 at or after it), clamped to the last point. */
+export function glideYears(template: Extract<PortfolioTemplate, { glidePath: unknown }>, month: string, anchorMonth: string) {
+  const months = monthNumber(anchorMonth) - monthNumber(month);
+  const top = Math.max(...template.glidePath.points.map(p => p.yearsToAnchor));
+  return Math.min(top, Math.max(0, Math.floor(months / 12)));
+}
+/** Linear interpolation between the neighbouring points; the last asset absorbs rounding so weights sum to exactly 100. */
+export function glideTargets(template: Extract<PortfolioTemplate, { glidePath: unknown }>, years: number, assetCodes: string[]) {
+  const points = [...template.glidePath.points].sort((a, b) => a.yearsToAnchor - b.yearsToAnchor);
+  const hi = points.find(p => p.yearsToAnchor >= years) ?? points.at(-1)!, lo = [...points].reverse().find(p => p.yearsToAnchor <= years) ?? points[0];
+  const weightOf = (p: typeof points[number], code: string) => new D(p.allocations.find(a => a.assetClass === code)?.weightPercent ?? "0");
+  const share = hi.yearsToAnchor === lo.yearsToAnchor ? new D(0) : new D(years - lo.yearsToAnchor).div(hi.yearsToAnchor - lo.yearsToAnchor);
+  const targets = new Map<string, InstanceType<typeof D>>();
+  let assigned = new D(0);
+  assetCodes.forEach((code, i) => {
+    const percent = i === assetCodes.length - 1 ? new D(100).minus(assigned) : weightOf(lo, code).plus(weightOf(hi, code).minus(weightOf(lo, code)).mul(share));
+    assigned = assigned.plus(percent); targets.set(code, percent.div(100));
+  });
+  return targets;
+}
 
 export function validatePortfolioPolicy(document: PortfolioDocument, assumptions: AssumptionDocument) {
   const data = portfolioDocumentSchema.parse(document), issues: ConfigurationIssue[] = [];
@@ -22,25 +48,36 @@ export function validatePortfolioPolicy(document: PortfolioDocument, assumptions
   if (!data.riskBands.length || nextScore !== maximum + 1) issue("riskBands", "SCORE_RANGE_NOT_COVERED");
   if (!data.templates.length || !data.rules.length) issue("templates", "POLICY_REQUIRED");
   const assets = new Set(assumptions.assetClasses.map(a => a.code));
+  const allocationCheck = (allocations: Allocation[], i: number) => {
+    unique(allocations.map(a => a.assetClass), `templates.${i}.allocations`);
+    if (!allocations.reduce((sum, a) => sum.plus(a.weightPercent), new D(0)).eq(100)) issue(`templates.${i}.allocations`, "WEIGHTS_MUST_SUM_100");
+    if (allocations.some(a => !assets.has(a.assetClass))) issue(`templates.${i}.allocations`, "UNKNOWN_ASSET_CLASS");
+  };
   data.templates.forEach((template, i) => {
+    if ("glidePath" in template) {
+      const years = template.glidePath.points.map(p => p.yearsToAnchor);
+      unique(years.map(String), `templates.${i}.glidePath.points`);
+      if (!years.includes(0)) issue(`templates.${i}.glidePath`, "ZERO_YEAR_POINT_REQUIRED");
+      template.glidePath.points.forEach(p => allocationCheck(p.allocations, i));
+      return;
+    }
     let nextIndex = 1;
     for (const period of [...template.schedule].sort((a, b) => a.fromIndex - b.fromIndex)) {
       if (period.fromIndex !== nextIndex) issue(`templates.${i}.schedule`, "SCHEDULE_GAP_OR_OVERLAP");
       nextIndex = period.toIndex + 1;
-      unique(period.allocations.map(a => a.assetClass), `templates.${i}.allocations`);
-      if (!period.allocations.reduce((sum, a) => sum.plus(a.weightPercent), new D(0)).eq(100)) issue(`templates.${i}.allocations`, "WEIGHTS_MUST_SUM_100");
-      if (period.allocations.some(a => !assets.has(a.assetClass))) issue(`templates.${i}.allocations`, "UNKNOWN_ASSET_CLASS");
+      allocationCheck(period.allocations, i);
     }
     if (!template.schedule.length || nextIndex !== template.coverageMonths + 1) issue(`templates.${i}.schedule`, "TEMPLATE_COVERAGE_REQUIRED");
   });
   data.rules.forEach((rule, i) => {
     unique(rule.riskBandIds, `rules.${i}.riskBandIds`);
     const template = data.templates.find(t => t.id === rule.templateId);
-    if (!template || rule.horizon.max > template.coverageMonths) issue(`rules.${i}`, "TEMPLATE_HORIZON_NOT_COVERED");
+    // A glide path covers any horizon; an indexed schedule only its coverage.
+    if (!template || ("coverageMonths" in template && rule.horizon.max > template.coverageMonths)) issue(`rules.${i}`, "TEMPLATE_HORIZON_NOT_COVERED");
     if (rule.riskBandIds.some(id => !data.riskBands.some(b => b.id === id))) issue(`rules.${i}`, "UNKNOWN_RISK_BAND");
     // Distinct applicable templates may be offered to the user. Without an
     // explicit choice, multiple candidates are reported; no arbitrary priority.
-    if (template) for (const asset of new Set(template.schedule.flatMap(p => p.allocations.filter(a => new D(a.weightPercent).gt(0)).map(a => a.assetClass)))) {
+    if (template) for (const asset of new Set(allocationSets(template).flatMap(p => p.filter(a => new D(a.weightPercent).gt(0)).map(a => a.assetClass)))) {
       const horizons = assumptions.assetClasses.find(a => a.code === asset)?.horizons ?? [];
       for (let month = rule.horizon.min; month <= rule.horizon.max; month++) {
         if (!horizons.some(h => month >= h.minMonths && month <= h.maxMonths)) { issue(`rules.${i}`, "ASSET_HORIZON_NOT_COVERED"); break; }
@@ -112,7 +149,21 @@ export function previewPortfolio(document: PortfolioDocument, assumptions: Assum
   const context = { assessment, limitations: ["UNIT_PORTFOLIO_WITHOUT_PERSONAL_CASHFLOWS", "INITIAL_ALLOCATION_COST_NOT_MODELED", "NO_TRANSACTIONS_OR_PLAN_APPLICATION"], priceBasis: "NOMINAL", timing: "REBALANCE_START_GROWTH_END" };
   if (validation.status !== "VALID" || assessment.status !== "MATCHED") return { ...context, status: "INCOMPLETE", issues: [...validation.issues, ...assessment.issues], scenarios: [] };
   const template = data.templates.find(t => t.id === assessment.selectedTemplateId)!;
-  const assetCodes = [...new Set(template.schedule.flatMap(p => p.allocations.filter(a => new D(a.weightPercent).gt(0)).map(a => a.assetClass)))];
+  const assetCodes = [...new Set(allocationSets(template).flatMap(p => p.filter(a => new D(a.weightPercent).gt(0)).map(a => a.assetClass)))];
+  const glide = "glidePath" in template ? template : null;
+  if (glide && !input.retirementMonth) return { ...context, status: "INCOMPLETE", issues: [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }], scenarios: [] };
+  // v1: indexed period targets. v2: whole-year glide position; a change of
+  // position forces a rebalance exactly like a v1 period boundary.
+  const targetAt = (i: number, month: string) => {
+    if (glide) {
+      const years = glideYears(glide, month, input.retirementMonth!);
+      const previous = i === 0 ? null : glideYears(glide, addMonths(month, -1), input.retirementMonth!);
+      return { targets: glideTargets(glide, years, assetCodes), boundary: previous !== years };
+    }
+    const period = (template as Extract<typeof template, { schedule: unknown }>).schedule.find(p => p.fromIndex <= i + 1 && p.toIndex >= i + 1)!;
+    return { targets: new Map(assetCodes.map(code => [code, new D(period.allocations.find(a => a.assetClass === code)?.weightPercent ?? "0").div(100)])),
+      boundary: period.fromIndex === i + 1 };
+  };
   const endMonth = addMonths(input.startMonth, input.horizonMonths - 1);
   const base = new Map(assetCodes.map(assetClass => [assetClass, resolveYearSeries(assumptions, { versionId: data.assumptionVersionId,
     startMonth: input.startMonth, endMonth, horizonMonths: input.horizonMonths, assetClass })]));
@@ -125,9 +176,8 @@ export function previewPortfolio(document: PortfolioDocument, assumptions: Assum
     const rows = [], factorCache = new Map<string, { growth: InstanceType<typeof D>; inflation: InstanceType<typeof D>; annualReturn: string; annualInflation: string }>();
     for (let i = 0; i < input.horizonMonths; i++) {
       const month = addMonths(input.startMonth, i), year = +month.slice(0, 4), changes = annual.get(year)!;
-      const period = template.schedule.find(p => p.fromIndex <= i + 1 && p.toIndex >= i + 1)!;
-      const rebalance = i === 0 || i % template.rebalance.everyMonths === 0 || period.fromIndex === i + 1;
-      const targets = new Map(assetCodes.map(code => [code, new D(period.allocations.find(a => a.assetClass === code)?.weightPercent ?? "0").div(100)]));
+      const { targets, boundary } = targetAt(i, month);
+      const rebalance = i === 0 || i % template.rebalance.everyMonths === 0 || boundary;
       const turnover = rebalance && i > 0 ? assetCodes.reduce((sum, code) => sum.plus(targets.get(code)!.minus(weights.get(code)!).abs()), new D(0)).div(2) : new D(0);
       if (rebalance) weights = targets;
       const feeFraction = turnover.mul(template.rebalance.turnoverCostPercent).div(100);

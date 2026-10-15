@@ -698,3 +698,19 @@ Backend đã sửa phần của mình (xem `backend/PROGRESS.md`, mục PERF 14/
 Nghiệm thu: đo bằng DevTools Network trên bản deploy (Vercel) cho luồng đăng nhập → dashboard → `/user/plan` → `/user/simulation`: số request API trùng lặp, tổng KB tải đầu, thời gian tới khi bảng kế hoạch hiển thị; ghi số trước/sau. Đọc thêm cột `Server-Timing` (tab Timing) để tách thời gian backend khỏi mạng.
 
 **Trạng thái mục 16 (14/10/2026):** đã thực hiện cả 12 việc theo yêu cầu trực tiếp của người dùng; chi tiết, số liệu trước/sau và các test Playwright lỗi thời có sẵn ở [FRONTEND_PERF_2026-10-14.md](FRONTEND_PERF_2026-10-14.md). Mục 8 mới xóa CSS chết (đã so pixel), chưa tách CSS theo trang.
+
+
+## 17. Chính sách danh mục schemaVersion 2 (lộ trình theo năm tới nghỉ hưu) — bàn giao 15/10/2026
+
+Backend đã thêm `schemaVersion: 2` cho chính sách danh mục (xem `backend/PROGRESS.md` mục ALLOCATION V3/V4 và `docs/BAN_NHAP_GIA_DINH_V3_CHINH_SACH_V4_2026-10-15.md`). Bản v4 đang là **bản nháp, chưa công bố**. **Không được công bố v4 trước khi mục 1–2 dưới đây lên production**, nếu không trang Danh mục sẽ lỗi.
+
+Khác biệt hợp đồng: template v2 **không có** `coverageMonths` và `schedule`; thay vào đó là
+`glidePath: { anchor: "RETIREMENT_MONTH", interpolation: "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR", afterAnchor: "HOLD_ZERO_YEAR_POINT", points: [{ yearsToAnchor, allocations: [{ assetClass, weightPercent }] }] }`.
+Tỷ trọng tại một tháng = nội suy tuyến tính theo số năm nguyên còn lại tới tháng nghỉ hưu (`floor(tháng còn lại / 12)`, chặn trong [0, điểm lớn nhất]); từ 12 tháng trước nghỉ hưu trở đi dùng điểm 0. Mã nhóm tài sản mới: `CASH`, `GOV_BOND`, `EQUITY`, `GOLD` (nhãn lấy từ bộ giả định, không gắn cứng).
+
+1. **`pages/RiskPortfolioPage.tsx` ~454 đọc `selectedTemplate.schedule.length`** → crash với template v2. Phân nhánh theo `"glidePath" in template`: v1 giữ hiển thị cũ; v2 hiển thị bảng/biểu đồ "Số năm tới nghỉ hưu → tỷ trọng" từ `points` và đánh dấu vị trí hiện tại theo `desiredRetirementMonth` của hồ sơ v2 (hoặc `whatIf.retirementMonth` nếu đang mô phỏng).
+2. **`services/portfolios.ts`**: `PortfolioPolicyDocument.schemaVersion` thành `1 | 2`, `PortfolioTemplate` thành union (v1 `coverageMonths`/`schedule` | v2 `glidePath`); `PortfolioPreviewCommand` thêm `retirementMonth?: string` (YYYY-MM).
+3. **Preview độc lập `POST /me/portfolio-policies/preview`** với chính sách v2 bắt buộc gửi `retirementMonth`; thiếu thì trả `INCOMPLETE` với issue `{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }` và guidance tiếng Việt. `POST /me/retirement/preview` tự lấy tháng nghỉ hưu từ hồ sơ, không cần đổi payload.
+4. Trang admin nếu có form sửa chính sách: không giả định mọi template có `schedule`.
+
+Nghiệm thu: với chính sách v2 (dùng bản nháp `backend/seed-data/allocation-2026-10/draft-policy-v4.json` trên môi trường thử), trang Danh mục không lỗi console, hiển thị lộ trình 15→0 năm và vị trí hiện tại; preview độc lập trả `READY` khi có `retirementMonth`; với chính sách v1 hiện tại giao diện không đổi.

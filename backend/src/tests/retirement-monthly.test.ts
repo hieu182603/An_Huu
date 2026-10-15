@@ -6,6 +6,7 @@ import { RetirementDecimal as D, projectRetirement, type ProjectionInput, type M
 import { prepareRetirement } from "../modules/retirement/prepare";
 import { retirementPreviewSchema } from "../modules/retirement/schema";
 import { retirementCommand, retirementConfiguration, retirementProfile } from "./retirement-fixtures";
+import { glidePortfolioFixture } from "./portfolio-fixtures";
 import { known, fixtureAsset, unknown } from "./profile-v2-fixtures";
 import { debtFixture, loanFixture } from "./debt-fixtures";
 import { declaredPension } from "./pension-fixtures";
@@ -123,6 +124,14 @@ describe("T06 profile / debt / assumptions / pension adapter", () => {
     expect(r.calculation?.summary.atRetirement).toMatchObject({ projectedFund: "300", requiredFund: "300", fundingGap: "0", coveragePercent: "100" });
     expect(r.calculation?.rows.map(r => r.closingBalance)).toEqual(["100", "200", "300", "200", "100", "0"]);
     expect(projectRetirement(r.replayInput!).rows).toEqual(r.calculation?.rows);
+  });
+  it("anchors a schema-v2 glide path on the profile's retirement month", () => {
+    const p = retirementProfile(), c = retirementCommand();
+    p.personal.desiredRetirementMonth = known("2027-10"); c.endMonth = "2028-01";
+    const r = prepareRetirement(p, c, glidePortfolioFixture(), retirementConfiguration().assumptions);
+    expect(r.status).toBe("READY");
+    const stock = (i: number) => r.calculation!.marketRows[i].holdings.find(h => h.assetClass === "STOCK")?.startWeightPercent;
+    expect([stock(0), stock(1)]).toEqual(["10", "0"]);
   });
   it("uses annual inflation across January, independently of investment returns", () => {
     const cfg = retirementConfiguration(); cfg.assumptions.inflation.find(r => r.year === 2027)!.percent = "12";

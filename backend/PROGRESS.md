@@ -1,5 +1,23 @@
 # Tiến độ triển khai backend An Hưu
 
+## ALLOCATION V3/V4 15/10/2026 — engine glide path + bản nháp, CHƯA GHI DB
+
+- Engine: chính sách danh mục thêm `schemaVersion: 2` (`glidePath` neo vào tháng nghỉ hưu, nội suy tuyến tính theo số năm nguyên còn lại, sau mốc giữ điểm 0). Schema v1 giữ nguyên thứ tự khóa; hash chính sách v2 đang công bố khi parse bằng schema mới vẫn khớp approval trong DB (kiểm READ ONLY). `prepareRetirement` truyền `retirementMonth`; preview độc lập với chính sách v2 thiếu tháng này trả `RETIREMENT_MONTH_REQUIRED`. OpenAPI portfolios sinh lại (chỉ khác `Document`/`Write`/`Input`; trình sinh bổ sung `guidance` vốn trước đó thêm tay). Không migration.
+- Test: toàn bộ 702/702 (62 file) qua với `node node_modules/vitest/vitest.mjs run --maxWorkers=2`; `tsc --noEmit` và `tsc -p tsconfig.test.json --noEmit` qua.
+- Bản nháp file: `seed-data/allocation-2026-10/draft-assumptions-v3.json` (2026–2110, CASH/GOV_BOND/EQUITY/GOLD, nguồn NSO/IMF WEO 10-2026/HNX/Vietcombank/VN-Index/Dragon Capital truy cập 15/10) và `draft-policy-v4.json` (danh mục nền của tài liệu thuật toán, 2 lộ trình, `assumptionVersionId` là id giữ chỗ). Sinh bằng `scripts/build-allocation-drafts.cjs`; bản công bố hiện tại được xuất ra `published-*.json` để đối chiếu.
+- Chạy thử READ ONLY (`scripts/simulate-allocation-drafts.cjs`): đang công bố 0/52 READY; nháp 52/52 READY, quỹ cần trung vị 8,21 tỷ, độ phủ trung vị 139%.
+- Chặn công bố: frontend `RiskPortfolioPage.tsx` đọc `template.schedule` → bàn giao `docs/task-frontend.md` mục 17. Thứ tự công bố và các điểm CHỜ DUYỆT ở `docs/BAN_NHAP_GIA_DINH_V3_CHINH_SACH_V4_2026-10-15.md`. Bước tiếp theo: chờ user duyệt các điểm đó rồi mới tạo DRAFT trong DB.
+
+## AUDIT CHỈ ĐỌC PHÂN BỔ / GIẢ ĐỊNH / THỜI HẠN KẾ HOẠCH 15/10/2026
+
+Script mới `scripts/audit-allocation-readonly.cjs` (transaction READ ONLY, chỉ in số đếm), chạy trên Azure sau khi user cho phép và thêm IP vào firewall. Không ghi DB, không sửa runtime.
+- Đang công bố: giả định v1 `assumption-series-v2` 2026–2055 (CASH 5,0 / BOND 7,2 / BALANCED 9,5 / STOCK 12,0 / RE 8,5%/năm, lạm phát 3,5–4%) và chính sách v2 `portfolio-policy-v1` (6 câu cộng điểm → 5 band → 5 mẫu cố định, `coverageMonths` 360, quy tắc `horizon` 1–360). Hash phê duyệt khớp, `validatePortfolioPolicy` VALID.
+- Thử `previewPortfolio` từ 2026-10: 120/240 tháng READY; 360 tháng `PROJECTION_NOT_COVERED` (vượt 2055-12, tức trần thực tế 351 tháng); ≥361 tháng `POLICY_NOT_COVERED`. Áp cho cả 5 band.
+- 52 hồ sơ v2 (định giá 2026-10): với `endMonth` mặc định của FE (tháng sinh + `lifeExpectancy`, cả 50 goal đều là 82) thì **0/52 tính ra READY**; 6 hồ sơ có tháng nghỉ hưu sau 2055. Chỉ có 1 plan version, `endMonth` 2055 (bị cắt ngắn).
+- Log 90 ngày không có mã nào ở trên: INCOMPLETE trả 200 kèm guidance, không bị ghi log.
+- Bảng cũ `financial_assumptions` (EQUITY 12, BOND 6,8, SAVINGS 5,2, LIFE_EXPECTANCY 78,5) không còn code nào dùng. 11 `partner_products` đều `isVisible=false`, lợi suất ghi dạng chữ chưa có nguồn (cổ phiếu 12–19%/năm).
+- Chi tiết và phương án sửa: `docs/BAO_CAO_THUAT_TOAN_PHAN_BO_VA_DEMO_2026-10-15.md` mục 8. Chưa sửa gì; chờ user duyệt.
+
 ## ĐIỀU TRA SYSTEM LOG / ĐĂNG NHẬP LỖI 15/10/2026 (side-session)
 
 Truy vấn chỉ đọc `system_logs`/`login_logs` trên Azure (30 ngày, toàn bộ log từ 06/10 khi có migration 0012): 89 CRITICAL + 5 ERROR, đều `source=API`.

@@ -54,7 +54,9 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
   for (const row of input.retirementContributionSchedule) if (row.month < retirementMonth || row.month > input.endMonth)
     issue("retirementContributionSchedule", "CONTRIBUTION_OUTSIDE_RETIREMENT");
   const portfolio = previewPortfolio(policy, assumptions, { policyVersionId: input.policyVersionId, startMonth: firstMonth, horizonMonths: length,
-    answers: input.answers, liquidityNeedMonths: input.liquidityNeedMonths, ...(input.templateId ? { templateId: input.templateId } : {}) });
+    answers: input.answers, liquidityNeedMonths: input.liquidityNeedMonths, ...(input.templateId ? { templateId: input.templateId } : {}),
+    // Glide-path (schema v2) policies de-risk toward this month; v1 policies ignore it.
+    retirementMonth });
   if (portfolio.status !== "READY") { issues.push(...portfolio.issues); return fail(); }
   const scenario = portfolio.scenarios.find(s => s.kind === input.scenario)!;
   // Preserve T04's convention: scenario CPI delta modifies planning inflation;

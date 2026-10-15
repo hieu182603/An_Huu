@@ -16,6 +16,8 @@ export function previewGuidance(policy: PortfolioDocument, assumptions: Assumpti
       message: "Chưa có cách phân bổ đầu tư phù hợp với câu trả lời và thời hạn bạn chọn trong bộ quy tắc hiện có. Cần rà soát cấu hình; không nên đổi câu trả lời chỉ để đi tiếp." },
     PORTFOLIO_CHOICE_REQUIRED: { action: "REVIEW_SELECTION",
       message: "Có nhiều cách phân bổ đầu tư phù hợp. Hãy chọn một phương án để xem kế hoạch." },
+    RETIREMENT_MONTH_REQUIRED: { action: "REVIEW_SELECTION",
+      message: "Cách phân bổ này giảm dần rủi ro theo số năm còn lại tới khi nghỉ hưu. Hãy cho biết tháng dự kiến nghỉ hưu để xem phân bổ." },
     TEMPLATE_NOT_ELIGIBLE: { action: "REVIEW_SELECTION",
       message: "Cách phân bổ đầu tư đang chọn không phù hợp với kết quả khảo sát hoặc thời hạn kế hoạch. Hãy xem các phương án phù hợp để chọn lại." },
   };
