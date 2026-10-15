@@ -30,6 +30,10 @@ export function portfolioAssetLabel(code: string, language: "vi" | "en", labels:
     GOV_BOND: ["Trái phiếu Chính phủ", "Government bonds"],
     EQUITY: ["Cổ phiếu đa dạng hóa", "Diversified equities"],
     GOLD: ["Vàng", "Gold"],
+    BOND: ["Trái phiếu", "Bonds"],
+    STOCK: ["Cổ phiếu", "Equities"],
+    BALANCED: ["Quỹ cân bằng", "Balanced funds"],
+    REAL_ESTATE: ["Bất động sản", "Real estate"],
   };
   return language === "vi"
     ? labels[code] || translations[code]?.[0] || code

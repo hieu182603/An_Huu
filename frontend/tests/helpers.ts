@@ -902,6 +902,8 @@ export async function installFinancialProfileRoutes(page: Page, initial?: { prof
     }
     if (route.request().method() === "PUT") {
       const body = route.request().postDataJSON();
+      if (draft && (draft.data?.schemaVersion === 2) !== (body.data?.schemaVersion === 2)) return route.fulfill({ status: 409, json: { error: { code: "DRAFT_SCHEMA_MISMATCH", message: "Hãy hoàn tất bản nháp hiện có trước khi đổi phiên bản hồ sơ." } } });
+      if (body.expectedRevision !== (draft?.revision ?? 0)) return route.fulfill({ status: 409, json: { error: { code: "REVISION_CONFLICT", message: "Phiên bản nháp đã đổi." } } });
       draft = {
         revision: (draft?.revision || 0) + 1,
         step: body.step,
@@ -918,7 +920,7 @@ export async function installFinancialProfileRoutes(page: Page, initial?: { prof
     profile = {
       revision: nextRevision,
       asOfDate: new Date().toISOString(),
-      schemaVersion: 1,
+      schemaVersion: draft?.data?.schemaVersion === 2 ? 2 : 1,
       data: draft?.data || profile?.data || defaultMockProfile().data,
     };
     draft = null;

@@ -36,7 +36,7 @@ export default function ExplorePage() {
     setLoading(true);
     setError("");
     listPublicProducts(1, 50)
-      .then(res => { if (active) setCatalogProducts(res.items.filter(p => p.isVisible)); })
+      .then(res => { if (active) setCatalogProducts(res.items.filter(p => p.isVisible === true)); })
       .catch(() => { if (active) setError(isEn ? "Unable to load partner products." : "Không thể tải sản phẩm đối tác."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -100,6 +100,7 @@ export default function ExplorePage() {
           <div className="solutions-grid">
             {visibleProducts.map(item => (
               <Card className="solution-card" key={item.id}>
+                <p>{isEn ? "Reference information — not a personal recommendation" : "Thông tin tham khảo — không phải khuyến nghị cá nhân"}</p>
                 {item.imageUrl && <img className="solution-image" src={item.imageUrl} alt="" loading="lazy" />}
                 <header><span className="solution-icon"><Icon name="wallet" /></span><div><strong>{item.name}</strong><small>{item.partner?.name || (isEn ? "Partner" : "Đối tác")}</small></div><Badge tone="soft">{item.riskLevel === "LOW" ? (isEn ? "Low risk" : "Rủi ro thấp") : item.riskLevel === "HIGH" ? (isEn ? "High risk" : "Rủi ro cao") : (isEn ? "Medium risk" : "Rủi ro trung bình")}</Badge></header>
                 <h3>{item.category}</h3><p>{item.description}</p>
@@ -113,6 +114,7 @@ export default function ExplorePage() {
 
       <KnowledgeGlossary />
       <Modal open={Boolean(selectedProduct)} title={selectedProduct?.name || ""} onClose={() => { if (!consult.busy) openProduct(null); }}>
+        <p>{isEn ? "Reference information only. Products are not ranked or matched to your financial profile." : "Chỉ là thông tin tham khảo. Sản phẩm không được xếp hạng hay đề xuất theo hồ sơ tài chính của bạn."}</p>
         {selectedProduct && <div className="product-detail">{selectedProduct.imageUrl && <img className="product-detail-image" src={selectedProduct.imageUrl} alt={selectedProduct.name} />}<p><strong>{selectedProduct.partner?.name}</strong> · {selectedProduct.category}</p><p>{selectedProduct.description}</p>{[
           [isEn ? "Expected return (not guaranteed)" : "Lợi suất kỳ vọng (không cam kết)", selectedProduct.expectedReturn],
           [isEn ? "Annual fee" : "Phí hằng năm", selectedProduct.annualFee],

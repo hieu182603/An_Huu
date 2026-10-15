@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { AssetRoles } from "../components/AssetRoles";
 import { Alert, Badge, Button, Card, Icon, Input, Select, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import {
@@ -479,6 +480,7 @@ export default function RiskPortfolioPage() {
               </div>
 
               {/* Asset Allocations Breakdown */}
+              {selectedTemplate && <AssetRoles codes={("glidePath" in selectedTemplate ? selectedTemplate.glidePath.points : selectedTemplate.schedule).flatMap(point => point.allocations.map(allocation => allocation.assetClass))} language={language} labels={assetLabels} />}
               {selectedTemplate && ("glidePath" in selectedTemplate ? (
                 <PortfolioGlidePath points={selectedTemplate.glidePath.points} month={valuationMonth} retirementMonth={retirementMonth} language={language} assetLabels={assetLabels} />
               ) : selectedTemplate.schedule.length > 0 && (

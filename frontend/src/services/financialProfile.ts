@@ -44,7 +44,8 @@ export type ExpenseEntry = {
 export type AssetEntry = {
   id: string;
   label: string;
-  type: "CASH" | "DEPOSIT" | "STOCK_FUND" | "PRIMARY_HOME" | "REAL_ESTATE" | "OTHER";
+  type: "CASH" | "DEPOSIT" | "STOCK_FUND" | "GOLD" | "BOND" | "PRIMARY_HOME" | "REAL_ESTATE" | "OTHER";
+  costBasis?: KnownOrUnknown<string>;
   value: KnownOrUnknown<string>;
   currency: string;
   valuedOn: KnownOrUnknown<string>;
@@ -94,7 +95,23 @@ export type PersonalProfileV2 = {
   city?: string;
 };
 
-export type ProfileV2 = {
+export type GoalEntry = {
+  id: string; label: string; amountToday: KnownOrUnknown<string>; dueMonth: KnownOrUnknown<string>;
+  inflation?: KnownOrUnknown<string>; priority: KnownOrUnknown<"ESSENTIAL" | "FLEXIBLE" | "LEGACY">;
+  deferrable: KnownOrUnknown<boolean>;
+};
+export type PlanningConstraints = {
+  lossTolerance?: { amountVnd?: KnownOrUnknown<string>; percent?: KnownOrUnknown<string>; reaction?: KnownOrUnknown<"SELL" | "HOLD" | "BUY_MORE"> };
+  incomeStability?: KnownOrUnknown<"STABLE" | "VARIABLE" | "UNCERTAIN">;
+  employerConcentration?: KnownOrUnknown<"LOW" | "MEDIUM" | "HIGH">;
+  liquidityNeeds?: { y1?: KnownOrUnknown<string>; y3?: KnownOrUnknown<string>; y5?: KnownOrUnknown<string> };
+  goals?: ProfileCollection<GoalEntry>;
+};
+export const planningConstraints = (profile: PlanningConstraints): PlanningConstraints => Object.fromEntries(
+  ["lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals"].filter(key => key in profile).map(key => [key, profile[key as keyof PlanningConstraints]])
+);
+
+export type ProfileV2 = PlanningConstraints & {
   schemaVersion: 2;
   valuationDate: string;
   currency: "VND";
@@ -169,7 +186,7 @@ export function profileFromData(base: FinancialProfile, data: DraftRecord["data"
 export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialProfile {
   const currentYear = new Date().getFullYear();
   let age = base.personal.age;
-  if (v2.personal.birthMonth.status === "KNOWN") {
+  if (v2.personal?.birthMonth?.status === "KNOWN") {
     const birthYear = parseInt(v2.personal.birthMonth.value.slice(0, 4), 10);
     if (!Number.isNaN(birthYear)) {
       age = Math.max(18, currentYear - birthYear);
@@ -177,7 +194,7 @@ export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialP
   }
 
   let targetRetireAge = base.goal.targetRetireAge;
-  if (v2.personal.desiredRetirementMonth.status === "KNOWN" && v2.personal.birthMonth.status === "KNOWN") {
+  if (v2.personal?.desiredRetirementMonth?.status === "KNOWN" && v2.personal?.birthMonth?.status === "KNOWN") {
     const retireYear = parseInt(v2.personal.desiredRetirementMonth.value.slice(0, 4), 10);
     const birthYear = parseInt(v2.personal.birthMonth.value.slice(0, 4), 10);
     if (!Number.isNaN(retireYear) && !Number.isNaN(birthYear)) {
@@ -188,9 +205,9 @@ export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialP
   // Aggregate incomes
   let primaryIncome = 0;
   let secondaryIncome = 0;
-  if (v2.income.status === "KNOWN") {
+  if (v2.income?.status === "KNOWN") {
     v2.income.entries.forEach(entry => {
-      const val = entry.amount.status === "KNOWN" ? parseFloat(entry.amount.value) : 0;
+      const val = entry.amount?.status === "KNOWN" ? parseFloat(entry.amount.value) : 0;
       if (entry.kind === "FIXED") primaryIncome += val;
       else secondaryIncome += val;
     });
@@ -199,9 +216,9 @@ export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialP
   // Aggregate expenses
   let essentialExpense = 0;
   let lifestyleExpense = 0;
-  if (v2.expenses.status === "KNOWN") {
+  if (v2.expenses?.status === "KNOWN") {
     v2.expenses.entries.forEach(entry => {
-      const val = entry.amount.status === "KNOWN" ? parseFloat(entry.amount.value) : 0;
+      const val = entry.amount?.status === "KNOWN" ? parseFloat(entry.amount.value) : 0;
       if (entry.category === "ESSENTIAL" || entry.category === "HEALTH" || entry.category === "INSURANCE" || entry.category === "DEPENDENT") {
         essentialExpense += val;
       } else if (entry.category === "OPTIONAL") {
@@ -215,9 +232,9 @@ export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialP
   let realEstateValue = 0;
   let liquidAssets = 0;
   let stockFundValue = 0;
-  if (v2.assets.status === "KNOWN") {
+  if (v2.assets?.status === "KNOWN") {
     v2.assets.entries.forEach(entry => {
-      const val = entry.value.status === "KNOWN" ? parseFloat(entry.value.value) : 0;
+      const val = entry.value?.status === "KNOWN" ? parseFloat(entry.value.value) : 0;
       if (entry.type === "CASH" || entry.type === "DEPOSIT") cashSavings += val;
       else if (entry.type === "REAL_ESTATE" || entry.type === "PRIMARY_HOME") realEstateValue += val;
       else if (entry.type === "STOCK_FUND") stockFundValue += val;
@@ -229,12 +246,12 @@ export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialP
   let mortgageDebt = 0;
   let consumerDebt = 0;
   let monthlyDebtService = 0;
-  const hasDebt = v2.debts.status === "KNOWN" && v2.debts.entries.length > 0;
-  if (hasDebt && v2.debts.status === "KNOWN") {
+  const hasDebt = v2.debts?.status === "KNOWN" && v2.debts.entries.length > 0;
+  if (hasDebt && v2.debts?.status === "KNOWN") {
     v2.debts.entries.forEach(entry => {
-      const balance = entry.outstandingBalance.status === "KNOWN" ? parseFloat(entry.outstandingBalance.value) : 0;
-      const payment = entry.payment.status === "KNOWN" ? parseFloat(entry.payment.value) : 0;
-      if (entry.label.toLowerCase().includes("nhà") || entry.label.toLowerCase().includes("mortgage")) {
+      const balance = entry.outstandingBalance?.status === "KNOWN" ? parseFloat(entry.outstandingBalance.value) : 0;
+      const payment = entry.payment?.status === "KNOWN" ? parseFloat(entry.payment.value) : 0;
+      if ((entry.label ?? "").toLowerCase().includes("nhà") || (entry.label ?? "").toLowerCase().includes("mortgage")) {
         mortgageDebt += balance;
       } else {
         consumerDebt += balance;
@@ -248,10 +265,10 @@ export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialP
     personal: {
       ...base.personal,
       age,
-      gender: v2.personal.gender ? label(genders, v2.personal.gender) : base.personal.gender,
-      maritalStatus: v2.personal.maritalStatus ? label(marriages, v2.personal.maritalStatus) : base.personal.maritalStatus,
-      dependents: v2.personal.dependents?.status === "KNOWN" ? v2.personal.dependents.value : base.personal.dependents,
-      city: v2.personal.city || base.personal.city,
+      gender: v2.personal?.gender ? label(genders, v2.personal?.gender) : base.personal.gender,
+      maritalStatus: v2.personal?.maritalStatus ? label(marriages, v2.personal?.maritalStatus) : base.personal.maritalStatus,
+      dependents: v2.personal?.dependents?.status === "KNOWN" ? v2.personal?.dependents.value : base.personal.dependents,
+      city: v2.personal?.city || base.personal.city,
     },
     income: { primaryIncome, secondaryIncome },
     expenses: { essentialExpense, lifestyleExpense },
@@ -461,5 +478,5 @@ export function profileFromDraft(base: FinancialProfile, d: OnboardingDraftData)
   };
 }
 
-export const serverStep = (step: string) => step === "expense" ? "expenses" : step === "invest-social" ? "socialSecurity" : step;
-export const clientStep = (step: string) => step === "expenses" ? "expense" : ["investment", "socialSecurity"].includes(step) ? "invest-social" : step;
+export const serverStep = (step: string) => step === "contribution" ? "investment" : step === "expense" ? "expenses" : step === "invest-social" ? "socialSecurity" : step;
+export const clientStep = (step: string) => step === "expenses" ? "expense" : step === "investment" ? "contribution" : step === "socialSecurity" ? "invest-social" : step;

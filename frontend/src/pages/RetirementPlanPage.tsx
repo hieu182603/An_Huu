@@ -1,3 +1,9 @@
+import { PreviewInsights, HorizonWarnings } from "../components/retirement/AnalysisResults";
+import { RiskAnalysis, RebalanceProposal } from "../components/retirement/RiskAnalysis";
+import { AdvisoryFeeEditor } from "../components/retirement/AdvisoryFeeEditor";
+import { ProfileReviewPreview } from "../components/retirement/ProfileReviewPreview";
+import { selectionForCurrentProfile } from "../services/profilePlanSelection";
+import { GuidedScenarios } from "../components/retirement/GuidedScenarios";
 import PlanSyncStatus from "../components/PlanSyncStatus";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
@@ -78,6 +84,8 @@ export default function RetirementPlanPage() {
   const [isApplying, setIsApplying] = useState(false);
   const [showApplyConfirm, setShowApplyConfirm] = useState(false);
   const [showInsuranceModal, setShowInsuranceModal] = useState(false);
+  const [reviewMonth, setReviewMonth] = useState<string | null>(null);
+  useEffect(() => { setReviewMonth(null); }, [currentVersion?.id]);
 
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -343,7 +351,17 @@ export default function RetirementPlanPage() {
         </div>
       )}
 
+      <HorizonWarnings warnings={currentVersion?.readWarnings ?? activePlan?.readWarnings} onRecalculate={month => usesActualBalance ? setReviewMonth(month) : updateDraft({ endMonth: month })} />
       <PlanSyncStatus />
+      <AdvisoryFeeEditor value={previewPayload?.advisoryFee} onChange={advisoryFee => updateDraft({ advisoryFee })} disabled={usesActualBalance} />
+      {usesActualBalance && baseline && v2Profile && <>
+        <Button variant="secondary" onClick={() => setReviewMonth(baseline.endMonth)}>{language === "en" ? "Open a fresh profile preview" : "Mở bản xem trước mới từ hồ sơ"}</Button>
+        {reviewMonth && <ProfileReviewPreview input={selectionForCurrentProfile(baseline, { endMonth: reviewMonth }, v2Profile, profileRevision)} onClose={() => setReviewMonth(null)} />}
+      </>}
+      <PreviewInsights preview={displayedPreview ?? (inputMatches && previewStatus === "incomplete" ? previewData : null)} />
+      <RiskAnalysis plan={loadingPlans || plansError ? null : viewingCurrent && currentVersion && activePlan ? { kind: "SAVED_VERSION", planId: activePlan.id, versionId: currentVersion.id } : previewPayload ? { kind: "PREVIEW", preview: previewPayload } : null} />
+      <RebalanceProposal templates={policyDetail?.data.templates} basis={(previewPayload?.templateId || calculation?.assessment?.selectedTemplateId) && previewPayload && summary?.retirementMonth && displayedPreview?.valuationDate ? { policyVersionId: previewPayload.policyVersionId, templateId: previewPayload.templateId ?? calculation?.assessment?.selectedTemplateId, month: displayedPreview.valuationDate.slice(0, 7), retirementMonth: summary.retirementMonth } : null} />
+      {!usesActualBalance && <GuidedScenarios input={!loadingPlans && !plansError ? previewPayload : null} retirementMonth={v2Profile?.personal.desiredRetirementMonth.status === "KNOWN" ? v2Profile.personal.desiredRetirementMonth.value : undefined} />}
       {Boolean(displayedPreview?.warnings.length) && <details className="plan-explanation-details"><summary>{language === "en" ? "How these results are calculated" : "Cách tính và thông tin được dùng"}</summary><ul>{displayedPreview?.warnings.map((warn, idx) => <li key={idx}>{translateWarningCode(warn.code, language)}</li>)}</ul></details>}
 
       {Boolean(activePlan?.actualSourceChanged) && (

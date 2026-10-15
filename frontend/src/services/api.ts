@@ -49,21 +49,27 @@ async function withSessionLock<T>(action: () => Promise<T>): Promise<T> {
     throw error;
   }
 }
-export async function apiRequest<T>(path: string, body?: unknown, method = body === undefined ? "GET" : "POST", extraHeaders: Record<string, string> = {}): Promise<T> {
+export async function apiRequest<T>(path: string, body?: unknown, method = body === undefined ? "GET" : "POST", extraHeaders: Record<string, string> = {}, signal?: AbortSignal): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${baseUrl}${path}`, {
-      method, credentials: "include", signal: AbortSignal.timeout(20000),
+      method, credentials: "include", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000),
       headers: { ...extraHeaders, ...(body instanceof FormData ? {} : { "Content-Type": "application/json" }), "X-CSRF-Protection": "1", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       ...(body === undefined ? {} : { body: body instanceof FormData ? body : JSON.stringify(body) }),
     });
   } catch { throw new ApiError(0, "NETWORK_ERROR", "Không thể kết nối máy chủ. Vui lòng thử lại."); }
   const result = await response.json().catch(() => null);
   if (!response.ok) {
+    if (result?.error?.code === "ADVISORY_FEE_REFORECAST_REVIEW_REQUIRED") {
+      throw new ApiError(response.status, result.error.code, "Kế hoạch có phí tư vấn chưa hỗ trợ tính lại từ số dư thực tế. Hãy tạo bản xem trước mới từ hồ sơ và giữ khoản phí đã chọn; không bỏ phí để vượt kiểm tra.");
+    }
     const fields: Record<string, string> = { fullName: "họ tên", phone: "điện thoại", city: "tỉnh/thành phố", email: "email", password: "mật khẩu", currentPassword: "mật khẩu hiện tại", title: "tiêu đề", slug: "đường dẫn ngắn", excerpt: "mô tả ngắn", content: "nội dung", category: "chủ đề", authorName: "tác giả", thumbnail: "đường dẫn ảnh HTTPS", subject: "tiêu đề yêu cầu", message: "nội dung tin nhắn", details: "nhu cầu cụ thể", topic: "chủ đề tư vấn", reason: "lý do thay đổi", notes: "ghi chú", preferredTime: "thời gian mong muốn", otp: "mã OTP" };
+    Object.assign(fields, { amountVnd: "mức lỗ bằng tiền", percent: "tỷ lệ", lossTolerance: "khả năng chịu lỗ", incomeStability: "độ ổn định thu nhập", employerConcentration: "mức phụ thuộc nơi làm việc", liquidityNeeds: "nhu cầu tiền lũy kế", y1: "tiền cần trong 1 năm", y3: "tiền cần trong 3 năm", y5: "tiền cần trong 5 năm", goals: "mục tiêu", amountToday: "tiền theo giá hôm nay", dueMonth: "tháng cần tiền", priority: "ưu tiên", deferrable: "khả năng hoãn", costBasis: "giá vốn", annualPercent: "phí tư vấn năm", paidFrom: "nguồn trả phí", rows: "chuỗi dữ liệu theo tháng", sources: "nguồn và giấy phép", data: "nội dung tài liệu" });
     const invalid = Object.keys(result?.error?.fieldErrors || {}).map(path => fields[path.split(".").pop() || ""]).filter(Boolean);
     const hint = invalid.length ? ` Kiểm tra: ${[...new Set(invalid)].join(", ")}.` : "";
-    throw new ApiError(response.status, result?.error?.code || "REQUEST_FAILED", (result?.error?.message || "Yêu cầu chưa thành công. Vui lòng thử lại.") + hint, result?.error?.fieldErrors);
+    const planningDetails = /financial-profile|onboarding|market-data|retirement/.test(path)
+      ? Object.entries(result?.error?.fieldErrors || {}).map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join("; ") : String(messages)}`).join(" · ") : "";
+    throw new ApiError(response.status, result?.error?.code || "REQUEST_FAILED", (result?.error?.message || "Yêu cầu chưa thành công. Vui lòng thử lại.") + hint + (planningDetails ? ` ${planningDetails}` : ""), result?.error?.fieldErrors);
   }
   if (!result || !("data" in result)) throw new ApiError(502, "INVALID_RESPONSE", "Máy chủ trả về dữ liệu không hợp lệ.");
   return result.data as T;
@@ -163,7 +169,7 @@ export async function authenticatedRequest<T>(
   body?: unknown,
   method?: string,
   extraHeaders?: Record<string, string>,
-  options?: { skipCache?: boolean; ttlMs?: number }
+  options?: { skipCache?: boolean; ttlMs?: number; signal?: AbortSignal }
 ): Promise<T> {
   const isGet = (method === undefined || method.toUpperCase() === "GET") && body === undefined;
   const ttlMs = options?.ttlMs ?? 45000;
@@ -188,11 +194,12 @@ export async function authenticatedRequest<T>(
 
   const exec = async (): Promise<T> => {
     await ensureFreshSession();
+    options?.signal?.throwIfAborted();
     assertCurrentSession();
     const sentToken = accessToken;
     let res: T;
     try {
-      res = await apiRequest<T>(path, body, method, extraHeaders);
+      res = await apiRequest<T>(path, body, method, extraHeaders, options?.signal);
     } catch (error) {
       assertCurrentSession();
       if (!(error instanceof ApiError) || error.status !== 401) throw error;
@@ -206,7 +213,8 @@ export async function authenticatedRequest<T>(
         throw refreshError;
       }
       assertCurrentSession();
-      res = await apiRequest<T>(path, body, method, extraHeaders);
+      options?.signal?.throwIfAborted();
+      res = await apiRequest<T>(path, body, method, extraHeaders, options?.signal);
     }
 
     assertCurrentSession();

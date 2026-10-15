@@ -539,6 +539,7 @@ export default function AIAssistantPage() {
           {conversationLoading && <p role="status" className="ai-chat-notice">{isEn ? "Opening conversation…" : "Đang mở hội thoại…"}</p>}
           {messages.filter(message => message.id !== "m-init-assistant").map(msg => <article key={msg.id} className={`ai-chat-message ${msg.role}`}>
             <div className="ai-chat-message-meta"><strong>{msg.role === "user" ? (isEn ? "You" : "Bạn") : (isEn ? "An Huu assistant" : "Trợ lý An Hưu")}</strong><span>{msg.time}</span></div>
+            {msg.role === "assistant" && <p className="ai-reference-note">{isEn ? "Reference explanation only; not a recommendation to buy or sell a specific product." : "Giải thích để tham khảo; không phải khuyến nghị mua hoặc bán sản phẩm cụ thể."}</p>}
             <div className="ai-chat-message-body">{msg.content.split("\n\n").map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
             {msg.status === "PROVIDER_UNAVAILABLE" && <p className="ai-chat-response-note">{isEn ? "Gemini is unavailable. This explanation uses system data." : "Gemini đang gián đoạn. Câu trả lời này được tạo từ dữ liệu hệ thống."}</p>}
             {msg.status === "PROVIDER_NOT_CONFIGURED" && <p className="ai-chat-response-note">{isEn ? "Explanation from system data." : "Giải thích từ số liệu hệ thống."}</p>}
