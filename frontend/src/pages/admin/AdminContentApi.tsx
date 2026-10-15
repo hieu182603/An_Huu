@@ -693,19 +693,7 @@ export default function AdminContentPage() {
             </div>
 
             <div className="admin-reader-footer">
-              <div className="admin-reader-footer-left">
-                {readingItem.status === "PUBLISHED" && (
-                  <a
-                    href={`/kien-thuc/${readingItem.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="button button-ghost button-small"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <Icon name="arrow-right" size="small" /> {isEn ? "Open public page ↗" : "Mở trang công khai ↗"}
-                  </a>
-                )}
-              </div>
+              <div className="admin-reader-footer-left" />
               <div className="admin-reader-footer-right">
                 <Button
                   variant="secondary"

@@ -5,7 +5,6 @@ const routes = [
   ['Cách hoạt động', '/cach-hoat-dong', 'Cách hoạt động'],
   ['Mô phỏng', '/mo-phong', 'Mô phỏng hưu trí'],
   ['Trợ lý AI', '/tro-ly-ai', 'Trợ lý AI An Hưu'],
-  ['Kiến thức', '/kien-thuc', 'Kiến thức hưu trí'],
 ];
 
 test('header opens separate pages, preserves active state and supports back navigation', async ({ page }) => {
@@ -23,7 +22,7 @@ test('header opens separate pages, preserves active state and supports back navi
     await expect(page.locator('h1')).toHaveCount(1);
   }
   await page.goBack();
-  await expect(page).toHaveURL(/\/tro-ly-ai$/);
+  await expect(page).toHaveURL(/\/mo-phong$/);
   expect(errors).toEqual([]);
 });
 
@@ -39,7 +38,8 @@ test('dark surfaces keep headings and actions readable', async ({ page }) => {
 test('public pages expose their content and metadata without JavaScript', async ({ browser, request, baseURL }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
-  const paths = [...routes.map(item => item[1]), '/kien-thuc/hieu-ve-lam-phat'];
+  // Only the remaining marketing routes are prerendered.
+  const paths = routes.map(item => item[1]);
   const titles = new Set<string>();
   for (const path of paths) {
     const response = await request.get(path);
@@ -85,20 +85,30 @@ test('simulation responds to keyboard input, enforces ages and resets', async ({
   await contribution.focus();
   await page.keyboard.press('ArrowRight');
   await expect(value).not.toHaveText(initial!);
+  await page.getByRole('button', { name: 'Sửa thông tin', exact: true }).click();
+  await expect(page.getByLabel('Nhập giá trị cho Tuổi hiện tại', { exact: true })).toBeFocused();
   await page.getByRole('slider', { name: 'Tuổi hiện tại', exact: true }).fill('65');
-  await expect(page.getByRole('slider', { name: 'Tuổi nghỉ hưu', exact: true })).toHaveValue('66');
+  await expect(page.getByRole('slider', { name: 'Tuổi nghỉ hưu', exact: true })).toHaveValue('65');
   await page.getByRole('button', { name: 'Đặt lại' }).click();
   await expect(value).toHaveText(initial!);
 });
 
-test('sample assistant and knowledge articles work without authentication', async ({ page }) => {
+test('sample assistant works without authentication', async ({ page }) => {
   await page.goto('/tro-ly-ai');
-  await page.getByRole('button', { name: 'Kết quả có được đảm bảo không?' }).click();
-  await expect(page.locator('.mk-chat-answer')).toContainText('Không. Mô phỏng');
-  await page.goto('/kien-thuc');
-  await page.locator('.mk-article').nth(1).click();
-  await expect(page).toHaveURL(/\/kien-thuc\/hieu-ve-lam-phat$/);
-  await expect(page.getByRole('heading', { name: 'Một ví dụ bằng giả định' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Nghỉ hưu sớm 50t' }).click();
+  await expect(page.locator('.mk-chat-answer')).toContainText('bớt 10 năm tích lũy');
+});
+
+test('removed knowledge routes return home without loading the content API', async ({ page }) => {
+  const contentRequests: string[] = [];
+  page.on('request', request => { if (/\/content(?:[/?]|$)/.test(request.url())) contentRequests.push(request.url()); });
+  for (const path of ['/', '/kien-thuc', '/kien-thuc/hieu-ve-lam-phat', '/#kien-thuc']) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator('.mk-hero h1')).toBeVisible();
+    await expect(page.locator('a[href*="kien-thuc"], #kien-thuc')).toHaveCount(0);
+  }
+  expect(contentRequests).toEqual([]);
 });
 
 test('reduced motion and missing WebGL keep the hero usable', async ({ page }) => {
@@ -128,4 +138,89 @@ test('leaving public pages clears their metadata and old anchors still work', as
   await expect(page).toHaveURL(/\/register$/);
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow');
   await expect(page.locator('#marketing-schema')).toHaveCount(0);
+});
+
+test('demo handles partial scenario URLs, zero rates and invalid numeric entries', async ({ page }) => {
+  await page.goto('/mo-phong?annualReturnRate=0&cashSavings=0&monthlyExpenseToday=1000000');
+  await expect(page.getByLabel('Nhập giá trị cho Lợi suất giả định mỗi năm')).toHaveValue('0');
+  const contribution = page.getByLabel('Nhập giá trị cho Tích lũy mỗi tháng');
+  await contribution.fill('0');
+  await contribution.press('Enter');
+  await expect(page.getByTestId('projected-fund')).toHaveText('0 VND');
+  await page.getByRole('button', { name: 'Thử khoản góp này', exact: true }).click();
+  await expect(page.getByTestId('readiness')).toHaveText('100%');
+  await expect(page.getByTestId('next-action')).toContainText('đáp ứng mục tiêu');
+  await page.getByRole('button', { name: 'Sửa thông tin', exact: true }).click();
+  const age = page.getByLabel('Nhập giá trị cho Tuổi hiện tại', { exact: true });
+  await age.fill('999');
+  await age.press('Enter');
+  await expect(age).toHaveValue('74');
+  await expect(page.getByTestId('next-action')).toContainText('nghỉ hưu ngay');
+  await contribution.fill('-100');
+  await contribution.press('Enter');
+  await expect(contribution).toHaveValue('0');
+  await page.goto('/mo-phong?cashSavings=Infinity&lifeExpectancy=-1');
+  await expect(page.getByTestId('projected-fund')).not.toContainText(/NaN|Infinity/);
+  await expect(page.getByLabel('Nhập giá trị cho Dự trù chi tiêu đến tuổi')).toHaveValue('61');
+});
+
+test('demo compares scenarios, applies a valid allocation and resets all changes', async ({ page }) => {
+  await page.goto('/mo-phong');
+  const initial = await page.getByTestId('projected-fund').textContent();
+  await page.getByRole('button', { name: 'Thử: Nghỉ muộn hơn 5 năm', exact: true }).click();
+  await expect(page.getByRole('slider', { name: 'Tuổi nghỉ hưu', exact: true })).toHaveValue('65');
+  await expect(page.getByTestId('projected-fund')).not.toHaveText(initial!);
+  await page.locator('#phan-bo summary').filter({ hasText: 'Tiết kiệm' }).click();
+  const apply = page.getByRole('button', { name: 'Áp dụng lợi suất vào demo' });
+  await page.getByRole('slider', { name: 'Tỷ trọng Tiết kiệm', exact: true }).fill('20');
+  await expect(apply).toBeDisabled();
+  await expect(page.getByLabel('Nhập giá trị cho Lợi suất giả định mỗi năm')).toHaveValue('6');
+  await page.getByRole('slider', { name: 'Tỷ trọng Tiết kiệm', exact: true }).fill('30');
+  await apply.click();
+  await expect(page.getByLabel('Nhập giá trị cho Lợi suất giả định mỗi năm')).toHaveValue('5.4');
+  await expect(page.getByText('Đã áp dụng 5,4%/năm vào kết quả phía trên.')).toBeVisible();
+  await page.getByRole('button', { name: 'Đặt lại', exact: true }).click();
+  await expect(page.getByTestId('projected-fund')).toHaveText(initial!);
+  await expect(page.getByText('Đã áp dụng 5,4%/năm vào kết quả phía trên.')).toHaveCount(0);
+});
+
+test('homepage opens the allocation demo and expanded controls fit mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Khám phá phân bổ tài sản', exact: true }).click();
+  await expect(page).toHaveURL(/\/mo-phong#phan-bo$/);
+  await expect(page.locator('#allocation-title')).toBeInViewport();
+  for (const details of await page.locator('#phan-bo details').all()) await details.locator('summary').click();
+  await expect(page.getByRole('slider', { name: 'Tỷ trọng Tiết kiệm', exact: true })).toBeVisible();
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px`).toBe(true);
+  }
+  await page.screenshot({ path: 'artifacts/marketing/demo-allocation-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: 'artifacts/marketing/demo-allocation-mobile.png', fullPage: true });
+});
+
+test('redesigned journey leads to the demo and its section links work', async ({ page }) => {
+  await page.goto('/cach-hoat-dong');
+  await expect(page.locator('.mk-how-timeline li')).toHaveCount(4);
+  await page.screenshot({ path: 'artifacts/marketing/how-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: 'artifacts/marketing/how-mobile.png', fullPage: true });
+  await page.getByRole('link', { name: 'Thử kế hoạch của tôi', exact: true }).click();
+  await expect(page.getByTestId('projected-fund')).toBeVisible();
+  const nav = page.getByRole('navigation', { name: 'Các phần mô phỏng' });
+  await nav.getByRole('link', { name: /Thử kịch bản/ }).click();
+  await expect(page.locator('#scenario-title')).toBeInViewport();
+  await nav.getByRole('link', { name: /Phân bổ tài sản/ }).click();
+  await expect(page.locator('#allocation-title')).toBeInViewport();
+  await nav.getByRole('link', { name: /Kế hoạch của bạn/ }).click();
+  await expect(page.locator('.mk-chart-heading')).toBeInViewport();
+  await page.locator('.mk-sim-scope-title').click();
+  await expect(page.getByText('Chưa bao gồm trong demo', { exact: true })).toBeVisible();
+  await page.evaluate(() => { window.scrollTo(0, 0); (document.activeElement as HTMLElement)?.blur(); });
+  await page.screenshot({ path: 'artifacts/marketing/simulation-mobile.png', fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'artifacts/marketing/simulation-desktop.png', fullPage: true });
+  await page.screenshot({ path: 'artifacts/marketing/simulation-desktop-top.png' });
 });

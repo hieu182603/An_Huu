@@ -8,14 +8,14 @@
 | Cách hoạt động | `/cach-hoat-dong` |
 | Mô phỏng | `/mo-phong` |
 | Trợ lý AI | `/tro-ly-ai` |
-| Kiến thức | `/kien-thuc` |
 
-Ba bài viết bên trong trang Kiến thức cũng có URL và HTML riêng. Liên kết neo cũ của bốn mục điều hướng được chuyển sang trang tương ứng. Menu có trạng thái hiện tại, hỗ trợ bàn phím và drawer trên thiết bị nhỏ.
+Trang Kiến thức công khai và mục bài viết trên landing page đã được bỏ theo yêu cầu ngày 15/10/2026. URL `/kien-thuc`, các URL bài viết cũ và neo `/#kien-thuc` chuyển về trang chủ; trang marketing không gọi API bài viết. Dữ liệu bài viết và chức năng quản trị vẫn giữ nguyên. Menu có trạng thái hiện tại, hỗ trợ bàn phím và drawer trên thiết bị nhỏ.
 
 ## Thiết kế
 
+- Cách hoạt động dùng hero ảnh, ba kết quả người dùng nhận được, lộ trình bốn bước và FAQ. Mô phỏng bám bố cục trang `#scenarios` của mẫu khách hàng: dải sức mua, bốn ô chỉ số, biểu đồ lớn bên trái, ba thanh điều chỉnh bên phải và kịch bản so sánh bên dưới. Các thông số khác nằm trong phần mở rộng; nút “Sửa thông tin” mở phần này và đưa bàn phím vào ô tuổi. Style riêng trong `src/marketing/marketing-experience.css`, giới hạn ở hai trang; giữ bảng màu/font và bộ tính kỳ hữu hạn sẵn có, không thêm thư viện. Các thanh trượt chi tiêu/khoản góp dùng khoảng phổ biến, vẫn nhập trực tiếp được đến giới hạn 500 triệu.
 - Hero theo ảnh tham chiếu: tiêu đề căn giữa, thẻ sản phẩm nổi, nền cột Three.js. Giữ navy `#10385b`, midnight `#0b2545`, jade `#008a75` và mint `#83d8c8` của thương hiệu.
-- Sáu phần: hero, tính năng, hành trình, trợ lý, kiến thức, CTA. Footer cuối cùng dùng nền xanh nhạt, bố cục gọn, không dùng dòng thương hiệu khổng lồ.
+- Năm phần: hero, tính năng, hành trình, trợ lý, CTA. Footer cuối cùng dùng nền xanh nhạt, bố cục gọn, không dùng dòng thương hiệu khổng lồ.
 - Tiêu đề trên nền tối dùng màu sáng rõ ràng, không phụ thuộc vào màu tiêu đề mặc định của ứng dụng.
 - Three.js tải riêng, giới hạn pixel ratio và 30 fps, dừng ngoài màn hình/khi ẩn tab, giải phóng geometry/material/renderer khi rời trang. Điện thoại, chế độ giảm chuyển động, tiết kiệm dữ liệu và thiết bị không có WebGL dùng nền CSS.
 - Phông chữ được lưu cùng ứng dụng. Ảnh marketing WebP là bản tối ưu từ ảnh gốc, không thay đổi ảnh của các trang tài khoản.
@@ -23,7 +23,7 @@ Ba bài viết bên trong trang Kiến thức cũng có URL và HTML riêng. Li�
 
 ## SEO và tên miền
 
-Chạy `npm run build` trong `frontend` để xuất HTML tĩnh cho tám URL công khai, title/description riêng, Open Graph, Twitter metadata, JSON-LD và robots.txt. Trang tài khoản/quản trị/lỗi dùng `noindex`.
+Chạy `npm run build` trong `frontend` để xuất HTML tĩnh cho bốn URL công khai, title/description riêng, Open Graph, Twitter metadata, JSON-LD và robots.txt. Trang tài khoản/quản trị/lỗi dùng `noindex`.
 
 Hiện chưa có tên miền chính thức. Khi có, đặt `VITE_SITE_URL` thành origin thực (ví dụ định dạng `https://ten-mien-cua-ban.vn`) trong môi trường build rồi build lại. Khi đó hệ thống mới xuất canonical, các URL chia sẻ tuyệt đối và `sitemap.xml`. Không tự gắn tên miền giả. Gửi sitemap lên Search Console sau khi website được triển khai.
 

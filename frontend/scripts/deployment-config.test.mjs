@@ -26,7 +26,7 @@ for (const [index, config] of configs.entries()) {
   });
 
   test(`config ${index}: public routes serve their own prerendered content`, () => {
-    for (const url of ['/cach-hoat-dong', '/mo-phong', '/tro-ly-ai', '/kien-thuc', '/kien-thuc/hieu-ve-lam-phat']) {
+    for (const url of ['/cach-hoat-dong', '/mo-phong', '/tro-ly-ai']) {
       const first = config.rewrites.find(rule => matches(rule.source, url));
       assert.equal(first.destination, `${url}/index.html`);
       assert.equal(config.rewrites.find(rule => matches(rule.source, `${url}/`)).destination, `${url}/index.html`);
