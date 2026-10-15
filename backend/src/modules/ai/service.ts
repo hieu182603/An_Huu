@@ -9,7 +9,7 @@ import { ActualsService } from "../actuals/service";
 import { assertActualSource } from "../actuals/lineage";
 import { hasFutureAssumptions } from "../plans/presentation";
 import { KnowledgeService } from "./knowledge";
-import { displayDecimal, questionTopics, fallbackFactKeys } from "./presentation";
+import { displayDecimal, questionTopics, fallbackFactKeys, productFactText } from "./presentation";
 import type { ExplanationProvider, ExplanationPacket } from "./provider";
 import { AI_POLICY_VERSION, AI_RETENTION_DAYS, consentSchema, explanationSchema, aiSimulationSchema, titleSchema, messageEditSchema, pageSchema } from "./schema";
 const json=(v:unknown)=>JSON.parse(JSON.stringify(v)) as Prisma.InputJsonObject;
@@ -22,6 +22,15 @@ const privacyView=(p:{revision:number;processing:boolean;saveHistory:boolean;pol
   retentionDays:AI_RETENTION_DAYS,purpose:"EXPLAIN_SERVER_RESULTS",providerData:["QUESTION","SELECTED_RESULT_FACTS","APPROVED_KNOWLEDGE_EXCERPTS"],
   excludedData:["FULL_PROFILE","CONTACT_DETAILS","ACCOUNT_IDS","TRANSACTION_ENTRIES"],historyPolicy:"FIXED_EXPIRY_FROM_CONVERSATION_CREATION"});
 export { purgeExpiredAi } from "./retention";
+/** Visible products + years to the profile's desired retirement month; only this summary reaches the provider. */
+async function productFact(tx:Prisma.TransactionClient,userId:string){
+  const [profile,rows]=await Promise.all([tx.financialProfile.findUnique({where:{userId},select:{profileData:true}}),
+    tx.partnerProduct.findMany({where:{isVisible:true,partner:{isVisible:true},annualFee:{not:null},conditions:{not:null},disclosure:{not:null}},orderBy:{updatedAt:"desc"},take:50,
+      select:{name:true,riskLevel:true,annualFee:true,partner:{select:{name:true}}}})]);
+  const month=(profile?.profileData as {personal?:{desiredRetirementMonth?:{status?:string;value?:string}}}|null)?.personal?.desiredRetirementMonth;
+  const years=month?.status==="KNOWN"&&/^\d{4}-\d{2}$/.test(month.value??"")?Math.max(0,Math.floor((Date.parse(month.value+"-01")-Date.now())/(365.25*86400000))):null;
+  return productFactText(rows.map(r=>({name:r.name,partner:r.partner.name,riskLevel:r.riskLevel,annualFee:r.annualFee})),years);
+}
 export class AiService {
   constructor(private db:PrismaClient,private provider:ExplanationProvider|null=null,private timeoutMs=8000){}
   private async consent(tx:Prisma.TransactionClient,userId:string,history=false){const p=await tx.aiPrivacy.findUnique({where:{userId}});
@@ -96,6 +105,7 @@ export class AiService {
       if(topics.simulation)facts.push({key:"simulation",text:"Câu hỏi này cần tính lại với điều kiện mới. Chọn ‘Thử thay đổi kế hoạch’, nhập tháng nghỉ hưu hoặc số tiền muốn thử rồi bấm tính. Các số liệu đang giải thích vẫn thuộc phiên bản đã chọn, chưa phải kết quả của thay đổi bạn vừa hỏi."});
       if(topics.inflation)facts.push({key:"inflation",text:"Chi tiêu theo giá trị hôm nay được điều chỉnh theo lạm phát từng tháng trong bộ dữ liệu của kế hoạch. Tiền cần chi mỗi tháng khi nghỉ hưu khác với tổng tiền cần có trong quỹ. Bạn có thể xem nguồn và phiên bản dữ liệu ở phần chi tiết kế hoạch."});
       if(topics.returns)facts.push({key:"returns",text:"Lợi suất dự kiến lấy từ bộ dữ liệu và cách phân bổ đầu tư đã chọn cho kế hoạch. Đây là giả định để tính, không phải lãi suất được bảo đảm. Trợ lý không tự thay tỷ lệ này khi bạn đặt câu hỏi."});
+      if(topics.products)facts.push({key:"products",text:await productFact(tx,userId)});
       if(preview && hasFutureAssumptions(preview))facts.push({key:"hypothetical",text:"Phiên bản này chứa đầu vào mô phỏng; các giá trị đó chưa thay đổi hồ sơ gốc."});
       if(preview?.warnings.length)facts.push({key:"warnings",text:"Phiên bản có cảnh báo dữ liệu hoặc quy ước tính. Hãy xem các cảnh báo của phiên bản trước khi sử dụng kết quả."});
       const savedActual=preview?.reforecast, savedAnchor=savedActual?.actualRevisions.at(-1);
@@ -124,7 +134,7 @@ export class AiService {
       const fresh=await knowledge.retrieve(tx,v.question);
       const citations=chosen.citationIds.flatMap(id=>{const s=captured.sources[Number(id.slice(1))];return s&&fresh.some(f=>f.id===s.id&&f.sourceRevision===s.sourceRevision&&f.contentHash===s.contentHash)?[{id:s.id,sourceId:s.sourceId,title:s.title,version:s.version,
         url:s.url?.startsWith("https://")?s.url:null,contentHash:s.contentHash,effectiveDate:s.effectiveDate,excerpt:s.content}]:[];});
-      const facts=captured.facts.filter(f=>chosen.factKeys.includes(f.key)||["limits","hypothetical","warnings","actual-status","missing","simulation"].includes(f.key));
+      const facts=captured.facts.filter(f=>chosen.factKeys.includes(f.key)||["limits","hypothetical","warnings","actual-status","missing","simulation","products"].includes(f.key));
       const response={status,answer:facts.map(f=>f.text).join("\n\n"),facts,citations,provenance:captured.provenance,knowledgeStatus:fresh.length?"AVAILABLE":"NO_APPROVED_MATCH",
         nextAction:"SIMULATE_WITH_USER_INPUTS_THEN_EXPLICIT_APPLY",applied:false,savedHistory:!!v.conversationId,
         conversationId:v.conversationId??null,revision:v.conversationId?v.expectedRevision!+1:null,provider:this.provider?.name??null};

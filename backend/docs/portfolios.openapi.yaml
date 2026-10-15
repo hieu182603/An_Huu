@@ -1,480 +1,6 @@
 Document:
-  type: object
-  additionalProperties: false
-  properties:
-    schemaVersion:
-      type: integer
-      enum:
-        - 1
-    title:
-      type: string
-      minLength: 3
-      maxLength: 200
-    reason:
-      type: string
-      minLength: 3
-      maxLength: 2000
-    effectiveFrom:
-      type: string
-      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
-    assumptionVersionId:
-      type: string
-      format: uuid
-    source:
-      type: object
-      additionalProperties: false
-      properties:
-        title:
-          type: string
-          minLength: 3
-          maxLength: 2000
-        url:
-          type: string
-          format: uri
-          maxLength: 2000
-        release:
-          type: string
-          minLength: 3
-          maxLength: 2000
-        reviewedOn:
-          type: string
-          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
-      required:
-        - title
-        - url
-        - release
-        - reviewedOn
-    questions:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        properties:
-          id:
-            type: string
-            pattern: ^[A-Z][A-Z0-9_]{0,39}$
-          dimension:
-            type: string
-            enum: &a1
-              - OBJECTIVE
-              - HORIZON
-              - LIQUIDITY
-              - LOSS_TOLERANCE
-              - EXPERIENCE
-              - FINANCIAL_CAPACITY
-          prompt:
-            type: string
-            minLength: 3
-            maxLength: 2000
-          choices:
-            type: array
-            items:
-              type: object
-              additionalProperties: false
-              properties:
-                id:
-                  type: string
-                  pattern: ^[A-Z][A-Z0-9_]{0,39}$
-                label:
-                  type: string
-                  minLength: 3
-                  maxLength: 2000
-                score:
-                  type: integer
-                  minimum: 0
-                  maximum: 100
-              required:
-                - id
-                - label
-                - score
-            minItems: 2
-            maxItems: 10
-        required:
-          - id
-          - dimension
-          - prompt
-          - choices
-      maxItems: 30
-    riskBands:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        properties:
-          id:
-            type: string
-            pattern: ^[A-Z][A-Z0-9_]{0,39}$
-          label:
-            type: string
-            minLength: 3
-            maxLength: 2000
-          minScore:
-            type: integer
-            minimum: 0
-            maximum: 3000
-          maxScore:
-            type: integer
-            minimum: 0
-            maximum: 3000
-        required:
-          - id
-          - label
-          - minScore
-          - maxScore
-      maxItems: 20
-    templates:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        properties:
-          id:
-            type: string
-            pattern: ^[A-Z][A-Z0-9_]{0,39}$
-          label:
-            type: string
-            minLength: 3
-            maxLength: 2000
-          coverageMonths:
-            type: integer
-            minimum: 1
-            maximum: 1200
-          rebalance:
-            type: object
-            additionalProperties: false
-            properties:
-              everyMonths:
-                anyOf:
-                  - type: integer
-                    enum:
-                      - 1
-                  - type: integer
-                    enum:
-                      - 3
-                  - type: integer
-                    enum:
-                      - 6
-                  - type: integer
-                    enum:
-                      - 12
-              timing:
-                type: string
-                enum:
-                  - START_OF_MONTH
-              turnoverCostPercent:
-                type: string
-                pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
-              costConvention:
-                type: string
-                enum:
-                  - HALF_L1_TURNOVER_TIMES_COST
-              evidence:
-                type: string
-                minLength: 3
-                maxLength: 2000
-            required:
-              - everyMonths
-              - timing
-              - turnoverCostPercent
-              - costConvention
-              - evidence
-          schedule:
-            type: array
-            items:
-              type: object
-              additionalProperties: false
-              properties:
-                fromIndex:
-                  type: integer
-                  minimum: 1
-                  maximum: 1200
-                toIndex:
-                  type: integer
-                  minimum: 1
-                  maximum: 1200
-                allocations:
-                  type: array
-                  items:
-                    type: object
-                    additionalProperties: false
-                    properties:
-                      assetClass:
-                        type: string
-                        pattern: ^[A-Z][A-Z0-9_]{0,39}$
-                      weightPercent:
-                        type: string
-                        pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
-                    required:
-                      - assetClass
-                      - weightPercent
-                  minItems: 1
-                  maxItems: 20
-              required:
-                - fromIndex
-                - toIndex
-                - allocations
-            maxItems: 120
-        required:
-          - id
-          - label
-          - coverageMonths
-          - rebalance
-          - schedule
-      maxItems: 30
-    rules:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        properties:
-          id:
-            type: string
-            pattern: ^[A-Z][A-Z0-9_]{0,39}$
-          templateId:
-            type: string
-            pattern: ^[A-Z][A-Z0-9_]{0,39}$
-          riskBandIds:
-            type: array
-            items:
-              type: string
-              pattern: ^[A-Z][A-Z0-9_]{0,39}$
-            minItems: 1
-            maxItems: 20
-          explanation:
-            type: string
-            minLength: 3
-            maxLength: 2000
-          horizon:
-            type: object
-            additionalProperties: false
-            properties:
-              min:
-                type: integer
-                minimum: 1
-                maximum: 1200
-              max:
-                type: integer
-                minimum: 1
-                maximum: 1200
-            required:
-              - min
-              - max
-          liquidityNeed:
-            type: object
-            additionalProperties: false
-            properties:
-              min:
-                type: integer
-                minimum: 0
-                maximum: 1200
-              max:
-                type: integer
-                minimum: 0
-                maximum: 1200
-            required:
-              - min
-              - max
-          dimensions:
-            type: object
-            additionalProperties: false
-            properties:
-              OBJECTIVE:
-                type: object
-                additionalProperties: false
-                properties:
-                  min:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                  max:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                required:
-                  - min
-                  - max
-              HORIZON:
-                type: object
-                additionalProperties: false
-                properties:
-                  min:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                  max:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                required:
-                  - min
-                  - max
-              LIQUIDITY:
-                type: object
-                additionalProperties: false
-                properties:
-                  min:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                  max:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                required:
-                  - min
-                  - max
-              LOSS_TOLERANCE:
-                type: object
-                additionalProperties: false
-                properties:
-                  min:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                  max:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                required:
-                  - min
-                  - max
-              EXPERIENCE:
-                type: object
-                additionalProperties: false
-                properties:
-                  min:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                  max:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                required:
-                  - min
-                  - max
-              FINANCIAL_CAPACITY:
-                type: object
-                additionalProperties: false
-                properties:
-                  min:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                  max:
-                    type: integer
-                    minimum: 0
-                    maximum: 3000
-                required:
-                  - min
-                  - max
-            required:
-              - OBJECTIVE
-              - HORIZON
-              - LIQUIDITY
-              - LOSS_TOLERANCE
-              - EXPERIENCE
-              - FINANCIAL_CAPACITY
-        required:
-          - id
-          - templateId
-          - riskBandIds
-          - explanation
-          - horizon
-          - liquidityNeed
-          - dimensions
-      maxItems: 100
-    scenarios:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        properties:
-          kind:
-            type: string
-            enum: &a2
-              - BASE
-              - ADVERSE
-              - FAVORABLE
-          label:
-            type: string
-            minLength: 3
-            maxLength: 2000
-          evidence:
-            type: string
-            minLength: 3
-            maxLength: 2000
-          convention:
-            type: string
-            enum:
-              - DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES
-          years: &a8
-            type: array
-            items:
-              type: object
-              additionalProperties: false
-              properties:
-                year:
-                  type: integer
-                  minimum: 1900
-                  maximum: 2199
-                inflationDeltaPoints:
-                  type: string
-                  pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
-                returns:
-                  type: array
-                  items:
-                    type: object
-                    additionalProperties: false
-                    properties:
-                      assetClass:
-                        type: string
-                        pattern: ^[A-Z][A-Z0-9_]{0,39}$
-                      deltaPoints:
-                        type: string
-                        pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
-                    required:
-                      - assetClass
-                      - deltaPoints
-                  maxItems: 20
-              required:
-                - year
-                - inflationDeltaPoints
-                - returns
-            maxItems: 300
-        required:
-          - kind
-          - label
-          - evidence
-          - convention
-          - years
-      maxItems: 3
-  required:
-    - schemaVersion
-    - title
-    - reason
-    - effectiveFrom
-    - assumptionVersionId
-    - source
-    - questions
-    - riskBands
-    - templates
-    - rules
-    - scenarios
-  description: Draft policy requiring a published/effective T03 assumption
-    version. Approval validates six dimensions, complete score bands, unique
-    IDs, 100% nonnegative weights, continuous indexed schedules, covered asset
-    horizons and all three approved annual scenarios. No policy defaults.
-    Thresholds, allocations and scenario changes require ADMIN review.
-Write:
-  type: object
-  additionalProperties: false
-  properties:
-    expectedRevision:
-      type: integer
-      minimum: 1
-    data:
-      type: object
+  oneOf:
+    - type: object
       additionalProperties: false
       properties:
         schemaVersion:
@@ -530,7 +56,13 @@ Write:
                 pattern: ^[A-Z][A-Z0-9_]{0,39}$
               dimension:
                 type: string
-                enum: *a1
+                enum: &a1
+                  - OBJECTIVE
+                  - HORIZON
+                  - LIQUIDITY
+                  - LOSS_TOLERANCE
+                  - EXPERIENCE
+                  - FINANCIAL_CAPACITY
               prompt:
                 type: string
                 minLength: 3
@@ -861,6 +393,474 @@ Write:
             properties:
               kind:
                 type: string
+                enum: &a2
+                  - BASE
+                  - ADVERSE
+                  - FAVORABLE
+              label:
+                type: string
+                minLength: 3
+                maxLength: 2000
+              evidence:
+                type: string
+                minLength: 3
+                maxLength: 2000
+              convention:
+                type: string
+                enum:
+                  - DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES
+              years: &a8
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    year:
+                      type: integer
+                      minimum: 1900
+                      maximum: 2199
+                    inflationDeltaPoints:
+                      type: string
+                      pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                    returns:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          assetClass:
+                            type: string
+                            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                          deltaPoints:
+                            type: string
+                            pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                        required:
+                          - assetClass
+                          - deltaPoints
+                      maxItems: 20
+                  required:
+                    - year
+                    - inflationDeltaPoints
+                    - returns
+                maxItems: 300
+            required:
+              - kind
+              - label
+              - evidence
+              - convention
+              - years
+          maxItems: 3
+      required:
+        - schemaVersion
+        - title
+        - reason
+        - effectiveFrom
+        - assumptionVersionId
+        - source
+        - questions
+        - riskBands
+        - templates
+        - rules
+        - scenarios
+    - type: object
+      additionalProperties: false
+      properties:
+        schemaVersion:
+          type: integer
+          enum:
+            - 2
+        title:
+          type: string
+          minLength: 3
+          maxLength: 200
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 2000
+        effectiveFrom:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        assumptionVersionId:
+          type: string
+          format: uuid
+        source:
+          type: object
+          additionalProperties: false
+          properties:
+            title:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            url:
+              type: string
+              format: uri
+              maxLength: 2000
+            release:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            reviewedOn:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+          required:
+            - title
+            - url
+            - release
+            - reviewedOn
+        questions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              dimension:
+                type: string
+                enum: *a1
+              prompt:
+                type: string
+                minLength: 3
+                maxLength: 2000
+              choices:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    id:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    label:
+                      type: string
+                      minLength: 3
+                      maxLength: 2000
+                    score:
+                      type: integer
+                      minimum: 0
+                      maximum: 100
+                  required:
+                    - id
+                    - label
+                    - score
+                minItems: 2
+                maxItems: 10
+            required:
+              - id
+              - dimension
+              - prompt
+              - choices
+          maxItems: 30
+        riskBands:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              label:
+                type: string
+                minLength: 3
+                maxLength: 2000
+              minScore:
+                type: integer
+                minimum: 0
+                maximum: 3000
+              maxScore:
+                type: integer
+                minimum: 0
+                maximum: 3000
+            required:
+              - id
+              - label
+              - minScore
+              - maxScore
+          maxItems: 20
+        templates:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              label:
+                type: string
+                minLength: 3
+                maxLength: 2000
+              rebalance:
+                type: object
+                additionalProperties: false
+                properties:
+                  everyMonths:
+                    anyOf:
+                      - type: integer
+                        enum:
+                          - 1
+                      - type: integer
+                        enum:
+                          - 3
+                      - type: integer
+                        enum:
+                          - 6
+                      - type: integer
+                        enum:
+                          - 12
+                  timing:
+                    type: string
+                    enum:
+                      - START_OF_MONTH
+                  turnoverCostPercent:
+                    type: string
+                    pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                  costConvention:
+                    type: string
+                    enum:
+                      - HALF_L1_TURNOVER_TIMES_COST
+                  evidence:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                required:
+                  - everyMonths
+                  - timing
+                  - turnoverCostPercent
+                  - costConvention
+                  - evidence
+              glidePath:
+                type: object
+                additionalProperties: false
+                properties:
+                  anchor:
+                    type: string
+                    enum:
+                      - RETIREMENT_MONTH
+                  interpolation:
+                    type: string
+                    enum:
+                      - LINEAR_BY_WHOLE_YEARS_TO_ANCHOR
+                  afterAnchor:
+                    type: string
+                    enum:
+                      - HOLD_ZERO_YEAR_POINT
+                  points:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        yearsToAnchor:
+                          type: integer
+                          minimum: 0
+                          maximum: 100
+                        allocations:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              assetClass:
+                                type: string
+                                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                              weightPercent:
+                                type: string
+                                pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                            required:
+                              - assetClass
+                              - weightPercent
+                          minItems: 1
+                          maxItems: 20
+                      required:
+                        - yearsToAnchor
+                        - allocations
+                    minItems: 1
+                    maxItems: 40
+                required:
+                  - anchor
+                  - interpolation
+                  - afterAnchor
+                  - points
+            required:
+              - id
+              - label
+              - rebalance
+              - glidePath
+          maxItems: 30
+        rules:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              templateId:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              riskBandIds:
+                type: array
+                items:
+                  type: string
+                  pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                minItems: 1
+                maxItems: 20
+              explanation:
+                type: string
+                minLength: 3
+                maxLength: 2000
+              horizon:
+                type: object
+                additionalProperties: false
+                properties:
+                  min:
+                    type: integer
+                    minimum: 1
+                    maximum: 1200
+                  max:
+                    type: integer
+                    minimum: 1
+                    maximum: 1200
+                required:
+                  - min
+                  - max
+              liquidityNeed:
+                type: object
+                additionalProperties: false
+                properties:
+                  min:
+                    type: integer
+                    minimum: 0
+                    maximum: 1200
+                  max:
+                    type: integer
+                    minimum: 0
+                    maximum: 1200
+                required:
+                  - min
+                  - max
+              dimensions:
+                type: object
+                additionalProperties: false
+                properties:
+                  OBJECTIVE:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      min:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                      max:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                    required:
+                      - min
+                      - max
+                  HORIZON:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      min:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                      max:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                    required:
+                      - min
+                      - max
+                  LIQUIDITY:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      min:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                      max:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                    required:
+                      - min
+                      - max
+                  LOSS_TOLERANCE:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      min:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                      max:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                    required:
+                      - min
+                      - max
+                  EXPERIENCE:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      min:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                      max:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                    required:
+                      - min
+                      - max
+                  FINANCIAL_CAPACITY:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      min:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                      max:
+                        type: integer
+                        minimum: 0
+                        maximum: 3000
+                    required:
+                      - min
+                      - max
+                required:
+                  - OBJECTIVE
+                  - HORIZON
+                  - LIQUIDITY
+                  - LOSS_TOLERANCE
+                  - EXPERIENCE
+                  - FINANCIAL_CAPACITY
+            required:
+              - id
+              - templateId
+              - riskBandIds
+              - explanation
+              - horizon
+              - liquidityNeed
+              - dimensions
+          maxItems: 100
+        scenarios:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              kind:
+                type: string
                 enum: *a2
               label:
                 type: string
@@ -915,6 +915,250 @@ Write:
               - convention
               - years
           maxItems: 3
+        lossStress:
+          type: object
+          additionalProperties: false
+          properties:
+            evidence:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            equityAssetClass:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+            depositAssetClass:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+            shocks:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  assetClass:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  percent:
+                    type: string
+                    pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                required:
+                  - assetClass
+                  - percent
+              minItems: 1
+              maxItems: 20
+          required:
+            - evidence
+            - equityAssetClass
+            - depositAssetClass
+            - shocks
+        allocationRisk:
+          type: object
+          additionalProperties: false
+          properties:
+            evidence:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            blockMonths:
+              type: integer
+              minimum: 12
+              maximum: 36
+            cvarAlpha:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            essentialThreshold:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            equityShiftPoints:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            rebalanceBandPoints:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            stresses:
+              type: object
+              additionalProperties: false
+              properties:
+                HIGH_INFLATION:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    durationMonths:
+                      type: integer
+                      minimum: 1
+                      maximum: 1200
+                    annualDeltaPoints:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - durationMonths
+                    - annualDeltaPoints
+                EQUITY_CRASH:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    assetClass:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    shockPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - assetClass
+                    - shockPercent
+                RATE_RISE:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    assetClass:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    durationYears:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    yieldRisePoints:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - assetClass
+                    - durationYears
+                    - yieldRisePoints
+                CREDIT:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    assetClass:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    defaultPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    recoveryPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - assetClass
+                    - defaultPercent
+                    - recoveryPercent
+                GOLD:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    assetClass:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    shockPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    spreadPoints:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - assetClass
+                    - shockPercent
+                    - spreadPoints
+                PROPERTY_ILLIQUIDITY:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    durationMonths:
+                      type: integer
+                      minimum: 1
+                      maximum: 1200
+                    delayMonths:
+                      type: integer
+                      minimum: 1
+                      maximum: 120
+                    haircutPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - durationMonths
+                    - delayMonths
+                    - haircutPercent
+                INCOME_LOSS:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    durationMonths:
+                      type: integer
+                      minimum: 1
+                      maximum: 1200
+                    lostPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - durationMonths
+                    - lostPercent
+                LONGEVITY:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    extraYears:
+                      type: array
+                      items:
+                        anyOf:
+                          - type: integer
+                            enum:
+                              - 5
+                          - type: integer
+                            enum:
+                              - 10
+                      minItems: 1
+                      maxItems: 2
+                  required:
+                    - extraYears
+          required:
+            - evidence
       required:
         - schemaVersion
         - title
@@ -927,6 +1171,1185 @@ Write:
         - templates
         - rules
         - scenarios
+  description: schemaVersion 1 uses month-indexed schedules with coverageMonths;
+    schemaVersion 2 uses glide paths anchored on the plan retirement month
+    (linear by whole years remaining, zero-year point held after retirement) and
+    requires Input.retirementMonth. Draft policy requiring a published/effective
+    T03 assumption version. Approval validates six dimensions, complete score
+    bands, unique IDs, 100% nonnegative weights, continuous indexed schedules,
+    covered asset horizons and all three approved annual scenarios. No policy
+    defaults. Thresholds, allocations and scenario changes require ADMIN review.
+Write:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    data:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            schemaVersion:
+              type: integer
+              enum:
+                - 1
+            title:
+              type: string
+              minLength: 3
+              maxLength: 200
+            reason:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            effectiveFrom:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            assumptionVersionId:
+              type: string
+              format: uuid
+            source:
+              type: object
+              additionalProperties: false
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                url:
+                  type: string
+                  format: uri
+                  maxLength: 2000
+                release:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                reviewedOn:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              required:
+                - title
+                - url
+                - release
+                - reviewedOn
+            questions:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  dimension:
+                    type: string
+                    enum: *a1
+                  prompt:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  choices:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        id:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        label:
+                          type: string
+                          minLength: 3
+                          maxLength: 2000
+                        score:
+                          type: integer
+                          minimum: 0
+                          maximum: 100
+                      required:
+                        - id
+                        - label
+                        - score
+                    minItems: 2
+                    maxItems: 10
+                required:
+                  - id
+                  - dimension
+                  - prompt
+                  - choices
+              maxItems: 30
+            riskBands:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  label:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  minScore:
+                    type: integer
+                    minimum: 0
+                    maximum: 3000
+                  maxScore:
+                    type: integer
+                    minimum: 0
+                    maximum: 3000
+                required:
+                  - id
+                  - label
+                  - minScore
+                  - maxScore
+              maxItems: 20
+            templates:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  label:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  coverageMonths:
+                    type: integer
+                    minimum: 1
+                    maximum: 1200
+                  rebalance:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      everyMonths:
+                        anyOf:
+                          - type: integer
+                            enum:
+                              - 1
+                          - type: integer
+                            enum:
+                              - 3
+                          - type: integer
+                            enum:
+                              - 6
+                          - type: integer
+                            enum:
+                              - 12
+                      timing:
+                        type: string
+                        enum:
+                          - START_OF_MONTH
+                      turnoverCostPercent:
+                        type: string
+                        pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                      costConvention:
+                        type: string
+                        enum:
+                          - HALF_L1_TURNOVER_TIMES_COST
+                      evidence:
+                        type: string
+                        minLength: 3
+                        maxLength: 2000
+                    required:
+                      - everyMonths
+                      - timing
+                      - turnoverCostPercent
+                      - costConvention
+                      - evidence
+                  schedule:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        fromIndex:
+                          type: integer
+                          minimum: 1
+                          maximum: 1200
+                        toIndex:
+                          type: integer
+                          minimum: 1
+                          maximum: 1200
+                        allocations:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              assetClass:
+                                type: string
+                                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                              weightPercent:
+                                type: string
+                                pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                            required:
+                              - assetClass
+                              - weightPercent
+                          minItems: 1
+                          maxItems: 20
+                      required:
+                        - fromIndex
+                        - toIndex
+                        - allocations
+                    maxItems: 120
+                required:
+                  - id
+                  - label
+                  - coverageMonths
+                  - rebalance
+                  - schedule
+              maxItems: 30
+            rules:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  templateId:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  riskBandIds:
+                    type: array
+                    items:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    minItems: 1
+                    maxItems: 20
+                  explanation:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  horizon:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      min:
+                        type: integer
+                        minimum: 1
+                        maximum: 1200
+                      max:
+                        type: integer
+                        minimum: 1
+                        maximum: 1200
+                    required:
+                      - min
+                      - max
+                  liquidityNeed:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      min:
+                        type: integer
+                        minimum: 0
+                        maximum: 1200
+                      max:
+                        type: integer
+                        minimum: 0
+                        maximum: 1200
+                    required:
+                      - min
+                      - max
+                  dimensions:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      OBJECTIVE:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                      HORIZON:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                      LIQUIDITY:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                      LOSS_TOLERANCE:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                      EXPERIENCE:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                      FINANCIAL_CAPACITY:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                    required:
+                      - OBJECTIVE
+                      - HORIZON
+                      - LIQUIDITY
+                      - LOSS_TOLERANCE
+                      - EXPERIENCE
+                      - FINANCIAL_CAPACITY
+                required:
+                  - id
+                  - templateId
+                  - riskBandIds
+                  - explanation
+                  - horizon
+                  - liquidityNeed
+                  - dimensions
+              maxItems: 100
+            scenarios:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  kind:
+                    type: string
+                    enum: *a2
+                  label:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  evidence:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  convention:
+                    type: string
+                    enum:
+                      - DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES
+                  years:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        year:
+                          type: integer
+                          minimum: 1900
+                          maximum: 2199
+                        inflationDeltaPoints:
+                          type: string
+                          pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                        returns:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              assetClass:
+                                type: string
+                                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                              deltaPoints:
+                                type: string
+                                pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                            required:
+                              - assetClass
+                              - deltaPoints
+                          maxItems: 20
+                      required:
+                        - year
+                        - inflationDeltaPoints
+                        - returns
+                    maxItems: 300
+                required:
+                  - kind
+                  - label
+                  - evidence
+                  - convention
+                  - years
+              maxItems: 3
+          required:
+            - schemaVersion
+            - title
+            - reason
+            - effectiveFrom
+            - assumptionVersionId
+            - source
+            - questions
+            - riskBands
+            - templates
+            - rules
+            - scenarios
+        - type: object
+          additionalProperties: false
+          properties:
+            schemaVersion:
+              type: integer
+              enum:
+                - 2
+            title:
+              type: string
+              minLength: 3
+              maxLength: 200
+            reason:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            effectiveFrom:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+            assumptionVersionId:
+              type: string
+              format: uuid
+            source:
+              type: object
+              additionalProperties: false
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                url:
+                  type: string
+                  format: uri
+                  maxLength: 2000
+                release:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                reviewedOn:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              required:
+                - title
+                - url
+                - release
+                - reviewedOn
+            questions:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  dimension:
+                    type: string
+                    enum: *a1
+                  prompt:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  choices:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        id:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        label:
+                          type: string
+                          minLength: 3
+                          maxLength: 2000
+                        score:
+                          type: integer
+                          minimum: 0
+                          maximum: 100
+                      required:
+                        - id
+                        - label
+                        - score
+                    minItems: 2
+                    maxItems: 10
+                required:
+                  - id
+                  - dimension
+                  - prompt
+                  - choices
+              maxItems: 30
+            riskBands:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  label:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  minScore:
+                    type: integer
+                    minimum: 0
+                    maximum: 3000
+                  maxScore:
+                    type: integer
+                    minimum: 0
+                    maximum: 3000
+                required:
+                  - id
+                  - label
+                  - minScore
+                  - maxScore
+              maxItems: 20
+            templates:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  label:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  rebalance:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      everyMonths:
+                        anyOf:
+                          - type: integer
+                            enum:
+                              - 1
+                          - type: integer
+                            enum:
+                              - 3
+                          - type: integer
+                            enum:
+                              - 6
+                          - type: integer
+                            enum:
+                              - 12
+                      timing:
+                        type: string
+                        enum:
+                          - START_OF_MONTH
+                      turnoverCostPercent:
+                        type: string
+                        pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                      costConvention:
+                        type: string
+                        enum:
+                          - HALF_L1_TURNOVER_TIMES_COST
+                      evidence:
+                        type: string
+                        minLength: 3
+                        maxLength: 2000
+                    required:
+                      - everyMonths
+                      - timing
+                      - turnoverCostPercent
+                      - costConvention
+                      - evidence
+                  glidePath:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      anchor:
+                        type: string
+                        enum:
+                          - RETIREMENT_MONTH
+                      interpolation:
+                        type: string
+                        enum:
+                          - LINEAR_BY_WHOLE_YEARS_TO_ANCHOR
+                      afterAnchor:
+                        type: string
+                        enum:
+                          - HOLD_ZERO_YEAR_POINT
+                      points:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            yearsToAnchor:
+                              type: integer
+                              minimum: 0
+                              maximum: 100
+                            allocations:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                properties:
+                                  assetClass:
+                                    type: string
+                                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                                  weightPercent:
+                                    type: string
+                                    pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                                required:
+                                  - assetClass
+                                  - weightPercent
+                              minItems: 1
+                              maxItems: 20
+                          required:
+                            - yearsToAnchor
+                            - allocations
+                        minItems: 1
+                        maxItems: 40
+                    required:
+                      - anchor
+                      - interpolation
+                      - afterAnchor
+                      - points
+                required:
+                  - id
+                  - label
+                  - rebalance
+                  - glidePath
+              maxItems: 30
+            rules:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  templateId:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  riskBandIds:
+                    type: array
+                    items:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    minItems: 1
+                    maxItems: 20
+                  explanation:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  horizon:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      min:
+                        type: integer
+                        minimum: 1
+                        maximum: 1200
+                      max:
+                        type: integer
+                        minimum: 1
+                        maximum: 1200
+                    required:
+                      - min
+                      - max
+                  liquidityNeed:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      min:
+                        type: integer
+                        minimum: 0
+                        maximum: 1200
+                      max:
+                        type: integer
+                        minimum: 0
+                        maximum: 1200
+                    required:
+                      - min
+                      - max
+                  dimensions:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      OBJECTIVE:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                      HORIZON:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                      LIQUIDITY:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                      LOSS_TOLERANCE:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                      EXPERIENCE:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                      FINANCIAL_CAPACITY:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          min:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                          max:
+                            type: integer
+                            minimum: 0
+                            maximum: 3000
+                        required:
+                          - min
+                          - max
+                    required:
+                      - OBJECTIVE
+                      - HORIZON
+                      - LIQUIDITY
+                      - LOSS_TOLERANCE
+                      - EXPERIENCE
+                      - FINANCIAL_CAPACITY
+                required:
+                  - id
+                  - templateId
+                  - riskBandIds
+                  - explanation
+                  - horizon
+                  - liquidityNeed
+                  - dimensions
+              maxItems: 100
+            scenarios:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  kind:
+                    type: string
+                    enum: *a2
+                  label:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  evidence:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                  convention:
+                    type: string
+                    enum:
+                      - DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES
+                  years:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        year:
+                          type: integer
+                          minimum: 1900
+                          maximum: 2199
+                        inflationDeltaPoints:
+                          type: string
+                          pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                        returns:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              assetClass:
+                                type: string
+                                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                              deltaPoints:
+                                type: string
+                                pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                            required:
+                              - assetClass
+                              - deltaPoints
+                          maxItems: 20
+                      required:
+                        - year
+                        - inflationDeltaPoints
+                        - returns
+                    maxItems: 300
+                required:
+                  - kind
+                  - label
+                  - evidence
+                  - convention
+                  - years
+              maxItems: 3
+            lossStress:
+              type: object
+              additionalProperties: false
+              properties:
+                evidence:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                equityAssetClass:
+                  type: string
+                  pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                depositAssetClass:
+                  type: string
+                  pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                shocks:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      assetClass:
+                        type: string
+                        pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                      percent:
+                        type: string
+                        pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                    required:
+                      - assetClass
+                      - percent
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - evidence
+                - equityAssetClass
+                - depositAssetClass
+                - shocks
+            allocationRisk:
+              type: object
+              additionalProperties: false
+              properties:
+                evidence:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                blockMonths:
+                  type: integer
+                  minimum: 12
+                  maximum: 36
+                cvarAlpha:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                essentialThreshold:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                equityShiftPoints:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                rebalanceBandPoints:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                stresses:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    HIGH_INFLATION:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        durationMonths:
+                          type: integer
+                          minimum: 1
+                          maximum: 1200
+                        annualDeltaPoints:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - durationMonths
+                        - annualDeltaPoints
+                    EQUITY_CRASH:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        assetClass:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        shockPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - assetClass
+                        - shockPercent
+                    RATE_RISE:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        assetClass:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        durationYears:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                        yieldRisePoints:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - assetClass
+                        - durationYears
+                        - yieldRisePoints
+                    CREDIT:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        assetClass:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        defaultPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                        recoveryPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - assetClass
+                        - defaultPercent
+                        - recoveryPercent
+                    GOLD:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        assetClass:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        shockPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                        spreadPoints:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - assetClass
+                        - shockPercent
+                        - spreadPoints
+                    PROPERTY_ILLIQUIDITY:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        durationMonths:
+                          type: integer
+                          minimum: 1
+                          maximum: 1200
+                        delayMonths:
+                          type: integer
+                          minimum: 1
+                          maximum: 120
+                        haircutPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - durationMonths
+                        - delayMonths
+                        - haircutPercent
+                    INCOME_LOSS:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        durationMonths:
+                          type: integer
+                          minimum: 1
+                          maximum: 1200
+                        lostPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - durationMonths
+                        - lostPercent
+                    LONGEVITY:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        extraYears:
+                          type: array
+                          items:
+                            anyOf:
+                              - type: integer
+                                enum:
+                                  - 5
+                              - type: integer
+                                enum:
+                                  - 10
+                          minItems: 1
+                          maxItems: 2
+                      required:
+                        - extraYears
+              required:
+                - evidence
+          required:
+            - schemaVersion
+            - title
+            - reason
+            - effectiveFrom
+            - assumptionVersionId
+            - source
+            - questions
+            - riskBands
+            - templates
+            - rules
+            - scenarios
   required:
     - expectedRevision
     - data
@@ -1000,6 +2423,9 @@ Input:
           - questionId
           - choiceId
       maxItems: 30
+    retirementMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
   required:
     - policyVersionId
     - startMonth

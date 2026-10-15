@@ -1,0 +1,788 @@
+{
+  "v1": {
+    "schemaVersion": 1,
+    "questions": [
+      {
+        "id": "Q_OBJECTIVE",
+        "prompt": "Mục tiêu tài chính ưu tiên nhất của bạn trong kế hoạch hưu trí là gì?",
+        "choices": [
+          {
+            "id": "OBJ_PRESERVE",
+            "label": "Bảo toàn vốn tối đa, chấp nhận lợi suất vừa phải",
+            "score": 0
+          },
+          {
+            "id": "OBJ_INCOME",
+            "label": "Tạo dòng tiền thu nhập ổn định và có tăng trưởng nhẹ",
+            "score": 10
+          },
+          {
+            "id": "OBJ_BALANCED",
+            "label": "Cân bằng tối ưu giữa tăng trưởng vốn và kiểm soát biến động",
+            "score": 20
+          },
+          {
+            "id": "OBJ_GROWTH",
+            "label": "Tối đa hóa tích lũy tài sản dài hạn để có quỹ hưu trí lớn",
+            "score": 30
+          }
+        ],
+        "dimension": "OBJECTIVE"
+      },
+      {
+        "id": "Q_HORIZON",
+        "prompt": "Thời gian dự kiến từ nay đến khi bạn bắt đầu rút quỹ hưu trí?",
+        "choices": [
+          {
+            "id": "HOR_SHORT",
+            "label": "Dưới 5 năm",
+            "score": 0
+          },
+          {
+            "id": "HOR_MEDIUM",
+            "label": "Từ 5 đến dưới 12 năm",
+            "score": 10
+          },
+          {
+            "id": "HOR_LONG",
+            "label": "Từ 12 đến dưới 20 năm",
+            "score": 20
+          },
+          {
+            "id": "HOR_VERY_LONG",
+            "label": "Từ 20 năm trở lên",
+            "score": 30
+          }
+        ],
+        "dimension": "HORIZON"
+      },
+      {
+        "id": "Q_LIQUIDITY",
+        "prompt": "Mức độ bạn cần rút tiền đột xuất từ quỹ đầu tư hưu trí?",
+        "choices": [
+          {
+            "id": "LIQ_HIGH",
+            "label": "Cao: Có thể cần rút tiền mặt trong vòng 6 tháng tới",
+            "score": 0
+          },
+          {
+            "id": "LIQ_MODERATE",
+            "label": "Trung bình: Đã có quỹ dự phòng riêng, ít khả năng rút",
+            "score": 15
+          },
+          {
+            "id": "LIQ_LOW",
+            "label": "Thấp: Toàn bộ khoản tiền dành riêng cho hưu trí dài hạn",
+            "score": 30
+          }
+        ],
+        "dimension": "LIQUIDITY"
+      },
+      {
+        "id": "Q_LOSS_TOLERANCE",
+        "prompt": "Khi thị trường giảm mạnh khiến giá trị danh mục giảm 15%, bạn sẽ làm gì?",
+        "choices": [
+          {
+            "id": "LOSS_SELL_ALL",
+            "label": "Bán toàn bộ danh mục ngay lập tức để bảo toàn vốn",
+            "score": 0
+          },
+          {
+            "id": "LOSS_SELL_PART",
+            "label": "Bán bớt một phần tài sản rủi ro để chuyển sang tiền gửi",
+            "score": 10
+          },
+          {
+            "id": "LOSS_HOLD",
+            "label": "Bình tĩnh giữ nguyên danh mục và chờ thị trường phục hồi",
+            "score": 20
+          },
+          {
+            "id": "LOSS_BUY_MORE",
+            "label": "Tranh thủ cơ hội tiếp tục mua tích lũy thêm với giá rẻ",
+            "score": 30
+          }
+        ],
+        "dimension": "LOSS_TOLERANCE"
+      },
+      {
+        "id": "Q_EXPERIENCE",
+        "prompt": "Kinh nghiệm đầu tư tài chính thực tế của bạn?",
+        "choices": [
+          {
+            "id": "EXP_NONE",
+            "label": "Chỉ gửi tiết kiệm ngân hàng, chưa đầu tư kênh nào khác",
+            "score": 0
+          },
+          {
+            "id": "EXP_BASIC",
+            "label": "Đã từng mua trái phiếu hoặc tiết kiệm tích lũy",
+            "score": 10
+          },
+          {
+            "id": "EXP_MODERATE",
+            "label": "Đã đầu tư chứng chỉ quỹ mở hoặc cổ phiếu trên 2 năm",
+            "score": 20
+          },
+          {
+            "id": "EXP_ADVANCED",
+            "label": "Có kinh nghiệm sâu rộng về thị trường chứng khoán và quỹ",
+            "score": 30
+          }
+        ],
+        "dimension": "EXPERIENCE"
+      },
+      {
+        "id": "Q_FINANCIAL_CAPACITY",
+        "prompt": "Dòng tiền thặng dư hàng tháng của bạn sau khi trang trải mọi chi phí?",
+        "choices": [
+          {
+            "id": "CAP_TIGHT",
+            "label": "Dưới 10% thu nhập, ít có khả năng chịu rủi ro sụt giảm",
+            "score": 0
+          },
+          {
+            "id": "CAP_STABLE",
+            "label": "Từ 10% đến 25% thu nhập, tài chính ổn định",
+            "score": 15
+          },
+          {
+            "id": "CAP_STRONG",
+            "label": "Trên 25% thu nhập, có tài sản dự phòng và bảo hiểm vững chắc",
+            "score": 30
+          }
+        ],
+        "dimension": "FINANCIAL_CAPACITY"
+      }
+    ],
+    "riskBands": [
+      {
+        "id": "BAND_CONSERVATIVE",
+        "label": "Thận trọng Bảo toàn",
+        "maxScore": 35,
+        "minScore": 0
+      },
+      {
+        "id": "BAND_MODERATE_CONSERVATIVE",
+        "label": "Thận trọng Tăng trưởng",
+        "maxScore": 75,
+        "minScore": 36
+      },
+      {
+        "id": "BAND_BALANCED",
+        "label": "Cân bằng Chiến lược",
+        "maxScore": 115,
+        "minScore": 76
+      },
+      {
+        "id": "BAND_GROWTH",
+        "label": "Tăng trưởng Bền vững",
+        "maxScore": 150,
+        "minScore": 116
+      },
+      {
+        "id": "BAND_AGGRESSIVE_GROWTH",
+        "label": "Tăng trưởng Năng động",
+        "maxScore": 180,
+        "minScore": 151
+      }
+    ],
+    "templates": [
+      {
+        "id": "TPL_CONSERVATIVE",
+        "label": "Danh mục Thận trọng Bảo toàn",
+        "schedule": [
+          {
+            "toIndex": 360,
+            "fromIndex": 1,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "30"
+              },
+              {
+                "assetClass": "BOND",
+                "weightPercent": "60"
+              },
+              {
+                "assetClass": "BALANCED",
+                "weightPercent": "10"
+              },
+              {
+                "assetClass": "STOCK",
+                "weightPercent": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "weightPercent": "0"
+              }
+            ]
+          }
+        ],
+        "rebalance": {
+          "timing": "START_OF_MONTH",
+          "evidence": "Chi phí luân chuyển danh mục bảo toàn ước tính 0.1%.",
+          "everyMonths": 12,
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "turnoverCostPercent": "0.1"
+        },
+        "coverageMonths": 360
+      },
+      {
+        "id": "TPL_MODERATE_CONSERVATIVE",
+        "label": "Danh mục Thận trọng Tăng trưởng",
+        "schedule": [
+          {
+            "toIndex": 360,
+            "fromIndex": 1,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "15"
+              },
+              {
+                "assetClass": "BOND",
+                "weightPercent": "50"
+              },
+              {
+                "assetClass": "BALANCED",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "STOCK",
+                "weightPercent": "10"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "weightPercent": "0"
+              }
+            ]
+          }
+        ],
+        "rebalance": {
+          "timing": "START_OF_MONTH",
+          "evidence": "Chi phí luân chuyển danh mục 0.15%.",
+          "everyMonths": 12,
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "turnoverCostPercent": "0.15"
+        },
+        "coverageMonths": 360
+      },
+      {
+        "id": "TPL_BALANCED",
+        "label": "Danh mục Cân bằng Chiến lược",
+        "schedule": [
+          {
+            "toIndex": 360,
+            "fromIndex": 1,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "10"
+              },
+              {
+                "assetClass": "BOND",
+                "weightPercent": "30"
+              },
+              {
+                "assetClass": "BALANCED",
+                "weightPercent": "35"
+              },
+              {
+                "assetClass": "STOCK",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "weightPercent": "0"
+              }
+            ]
+          }
+        ],
+        "rebalance": {
+          "timing": "START_OF_MONTH",
+          "evidence": "Chi phí luân chuyển danh mục cân bằng 0.2%.",
+          "everyMonths": 6,
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "turnoverCostPercent": "0.2"
+        },
+        "coverageMonths": 360
+      },
+      {
+        "id": "TPL_GROWTH",
+        "label": "Danh mục Tăng trưởng Bền vững",
+        "schedule": [
+          {
+            "toIndex": 360,
+            "fromIndex": 1,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "5"
+              },
+              {
+                "assetClass": "BOND",
+                "weightPercent": "20"
+              },
+              {
+                "assetClass": "BALANCED",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "STOCK",
+                "weightPercent": "50"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "weightPercent": "0"
+              }
+            ]
+          }
+        ],
+        "rebalance": {
+          "timing": "START_OF_MONTH",
+          "evidence": "Chi phí luân chuyển danh mục tăng trưởng 0.25%.",
+          "everyMonths": 6,
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "turnoverCostPercent": "0.25"
+        },
+        "coverageMonths": 360
+      },
+      {
+        "id": "TPL_AGGRESSIVE_GROWTH",
+        "label": "Danh mục Tăng trưởng Năng động",
+        "schedule": [
+          {
+            "toIndex": 360,
+            "fromIndex": 1,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "5"
+              },
+              {
+                "assetClass": "BOND",
+                "weightPercent": "10"
+              },
+              {
+                "assetClass": "BALANCED",
+                "weightPercent": "15"
+              },
+              {
+                "assetClass": "STOCK",
+                "weightPercent": "70"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "weightPercent": "0"
+              }
+            ]
+          }
+        ],
+        "rebalance": {
+          "timing": "START_OF_MONTH",
+          "evidence": "Chi phí luân chuyển danh mục năng động 0.25%.",
+          "everyMonths": 6,
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "turnoverCostPercent": "0.25"
+        },
+        "coverageMonths": 360
+      }
+    ]
+  },
+  "v2": {
+    "schemaVersion": 2,
+    "questions": [
+      {
+        "id": "Q_OBJECTIVE",
+        "dimension": "OBJECTIVE",
+        "prompt": "Mục tiêu tài chính ưu tiên nhất của bạn trong kế hoạch hưu trí là gì?",
+        "choices": [
+          {
+            "id": "OBJ_PRESERVE",
+            "label": "Bảo toàn vốn tối đa, chấp nhận lợi suất vừa phải",
+            "score": 0
+          },
+          {
+            "id": "OBJ_INCOME",
+            "label": "Tạo dòng tiền thu nhập ổn định và có tăng trưởng nhẹ",
+            "score": 10
+          },
+          {
+            "id": "OBJ_BALANCED",
+            "label": "Cân bằng tối ưu giữa tăng trưởng vốn và kiểm soát biến động",
+            "score": 20
+          },
+          {
+            "id": "OBJ_GROWTH",
+            "label": "Tối đa hóa tích lũy tài sản dài hạn để có quỹ hưu trí lớn",
+            "score": 30
+          }
+        ]
+      },
+      {
+        "id": "Q_HORIZON",
+        "dimension": "HORIZON",
+        "prompt": "Thời gian dự kiến từ nay đến khi bạn bắt đầu rút quỹ hưu trí?",
+        "choices": [
+          {
+            "id": "HOR_SHORT",
+            "label": "Dưới 5 năm",
+            "score": 0
+          },
+          {
+            "id": "HOR_MEDIUM",
+            "label": "Từ 5 đến dưới 12 năm",
+            "score": 10
+          },
+          {
+            "id": "HOR_LONG",
+            "label": "Từ 12 đến dưới 20 năm",
+            "score": 20
+          },
+          {
+            "id": "HOR_VERY_LONG",
+            "label": "Từ 20 năm trở lên",
+            "score": 30
+          }
+        ]
+      },
+      {
+        "id": "Q_LIQUIDITY",
+        "dimension": "LIQUIDITY",
+        "prompt": "Mức độ bạn cần rút tiền đột xuất từ quỹ đầu tư hưu trí?",
+        "choices": [
+          {
+            "id": "LIQ_HIGH",
+            "label": "Cao: Có thể cần rút tiền mặt trong vòng 6 tháng tới",
+            "score": 0
+          },
+          {
+            "id": "LIQ_MODERATE",
+            "label": "Trung bình: Đã có quỹ dự phòng riêng, ít khả năng rút",
+            "score": 15
+          },
+          {
+            "id": "LIQ_LOW",
+            "label": "Thấp: Toàn bộ khoản tiền dành riêng cho hưu trí dài hạn",
+            "score": 30
+          }
+        ]
+      },
+      {
+        "id": "Q_LOSS_TOLERANCE",
+        "dimension": "LOSS_TOLERANCE",
+        "prompt": "Khi thị trường giảm mạnh khiến giá trị danh mục giảm 15%, bạn sẽ làm gì?",
+        "choices": [
+          {
+            "id": "LOSS_SELL_ALL",
+            "label": "Bán toàn bộ danh mục ngay lập tức để bảo toàn vốn",
+            "score": 0
+          },
+          {
+            "id": "LOSS_SELL_PART",
+            "label": "Bán bớt một phần tài sản rủi ro để chuyển sang tiền gửi",
+            "score": 10
+          },
+          {
+            "id": "LOSS_HOLD",
+            "label": "Bình tĩnh giữ nguyên danh mục và chờ thị trường phục hồi",
+            "score": 20
+          },
+          {
+            "id": "LOSS_BUY_MORE",
+            "label": "Tranh thủ cơ hội tiếp tục mua tích lũy thêm với giá rẻ",
+            "score": 30
+          }
+        ]
+      },
+      {
+        "id": "Q_EXPERIENCE",
+        "dimension": "EXPERIENCE",
+        "prompt": "Kinh nghiệm đầu tư tài chính thực tế của bạn?",
+        "choices": [
+          {
+            "id": "EXP_NONE",
+            "label": "Chỉ gửi tiết kiệm ngân hàng, chưa đầu tư kênh nào khác",
+            "score": 0
+          },
+          {
+            "id": "EXP_BASIC",
+            "label": "Đã từng mua trái phiếu hoặc tiết kiệm tích lũy",
+            "score": 10
+          },
+          {
+            "id": "EXP_MODERATE",
+            "label": "Đã đầu tư chứng chỉ quỹ mở hoặc cổ phiếu trên 2 năm",
+            "score": 20
+          },
+          {
+            "id": "EXP_ADVANCED",
+            "label": "Có kinh nghiệm sâu rộng về thị trường chứng khoán và quỹ",
+            "score": 30
+          }
+        ]
+      },
+      {
+        "id": "Q_FINANCIAL_CAPACITY",
+        "dimension": "FINANCIAL_CAPACITY",
+        "prompt": "Dòng tiền thặng dư hàng tháng của bạn sau khi trang trải mọi chi phí?",
+        "choices": [
+          {
+            "id": "CAP_TIGHT",
+            "label": "Dưới 10% thu nhập, ít có khả năng chịu rủi ro sụt giảm",
+            "score": 0
+          },
+          {
+            "id": "CAP_STABLE",
+            "label": "Từ 10% đến 25% thu nhập, tài chính ổn định",
+            "score": 15
+          },
+          {
+            "id": "CAP_STRONG",
+            "label": "Trên 25% thu nhập, có tài sản dự phòng và bảo hiểm vững chắc",
+            "score": 30
+          }
+        ]
+      }
+    ],
+    "riskBands": [
+      {
+        "id": "BAND_CONSERVATIVE",
+        "label": "Thận trọng Bảo toàn",
+        "minScore": 0,
+        "maxScore": 35
+      },
+      {
+        "id": "BAND_MODERATE_CONSERVATIVE",
+        "label": "Thận trọng Tăng trưởng",
+        "minScore": 36,
+        "maxScore": 75
+      },
+      {
+        "id": "BAND_BALANCED",
+        "label": "Cân bằng Chiến lược",
+        "minScore": 76,
+        "maxScore": 115
+      },
+      {
+        "id": "BAND_GROWTH",
+        "label": "Tăng trưởng Bền vững",
+        "minScore": 116,
+        "maxScore": 150
+      },
+      {
+        "id": "BAND_AGGRESSIVE_GROWTH",
+        "label": "Tăng trưởng Năng động",
+        "minScore": 151,
+        "maxScore": 180
+      }
+    ],
+    "templates": [
+      {
+        "id": "TPL_BASE_GLIDE",
+        "label": "Danh mục nền theo thời hạn (bảng của tài liệu)",
+        "rebalance": {
+          "everyMonths": 12,
+          "timing": "START_OF_MONTH",
+          "turnoverCostPercent": "0.2",
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "evidence": "Tái cân bằng hằng năm hoặc khi đổi bậc năm; giữ mức chi phí luân chuyển 0,2% của chính sách v2 đã duyệt."
+        },
+        "glidePath": {
+          "anchor": "RETIREMENT_MONTH",
+          "interpolation": "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR",
+          "afterAnchor": "HOLD_ZERO_YEAR_POINT",
+          "points": [
+            {
+              "yearsToAnchor": 15,
+              "allocations": [
+                {
+                  "assetClass": "CASH",
+                  "weightPercent": "10"
+                },
+                {
+                  "assetClass": "GOV_BOND",
+                  "weightPercent": "20"
+                },
+                {
+                  "assetClass": "EQUITY",
+                  "weightPercent": "60"
+                },
+                {
+                  "assetClass": "GOLD",
+                  "weightPercent": "10"
+                }
+              ]
+            },
+            {
+              "yearsToAnchor": 10,
+              "allocations": [
+                {
+                  "assetClass": "CASH",
+                  "weightPercent": "15"
+                },
+                {
+                  "assetClass": "GOV_BOND",
+                  "weightPercent": "30"
+                },
+                {
+                  "assetClass": "EQUITY",
+                  "weightPercent": "45"
+                },
+                {
+                  "assetClass": "GOLD",
+                  "weightPercent": "10"
+                }
+              ]
+            },
+            {
+              "yearsToAnchor": 5,
+              "allocations": [
+                {
+                  "assetClass": "CASH",
+                  "weightPercent": "15"
+                },
+                {
+                  "assetClass": "GOV_BOND",
+                  "weightPercent": "30"
+                },
+                {
+                  "assetClass": "EQUITY",
+                  "weightPercent": "45"
+                },
+                {
+                  "assetClass": "GOLD",
+                  "weightPercent": "10"
+                }
+              ]
+            },
+            {
+              "yearsToAnchor": 3,
+              "allocations": [
+                {
+                  "assetClass": "CASH",
+                  "weightPercent": "25"
+                },
+                {
+                  "assetClass": "GOV_BOND",
+                  "weightPercent": "40"
+                },
+                {
+                  "assetClass": "EQUITY",
+                  "weightPercent": "25"
+                },
+                {
+                  "assetClass": "GOLD",
+                  "weightPercent": "10"
+                }
+              ]
+            },
+            {
+              "yearsToAnchor": 0,
+              "allocations": [
+                {
+                  "assetClass": "CASH",
+                  "weightPercent": "25"
+                },
+                {
+                  "assetClass": "GOV_BOND",
+                  "weightPercent": "40"
+                },
+                {
+                  "assetClass": "EQUITY",
+                  "weightPercent": "25"
+                },
+                {
+                  "assetClass": "GOLD",
+                  "weightPercent": "10"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "TPL_CAUTIOUS_GLIDE",
+        "label": "Danh mục nền thận trọng (lùi một bậc thời hạn)",
+        "rebalance": {
+          "everyMonths": 12,
+          "timing": "START_OF_MONTH",
+          "turnoverCostPercent": "0.2",
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "evidence": "Tái cân bằng hằng năm hoặc khi đổi bậc năm; giữ mức chi phí luân chuyển 0,2% của chính sách v2 đã duyệt."
+        },
+        "glidePath": {
+          "anchor": "RETIREMENT_MONTH",
+          "interpolation": "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR",
+          "afterAnchor": "HOLD_ZERO_YEAR_POINT",
+          "points": [
+            {
+              "yearsToAnchor": 15,
+              "allocations": [
+                {
+                  "assetClass": "CASH",
+                  "weightPercent": "15"
+                },
+                {
+                  "assetClass": "GOV_BOND",
+                  "weightPercent": "30"
+                },
+                {
+                  "assetClass": "EQUITY",
+                  "weightPercent": "45"
+                },
+                {
+                  "assetClass": "GOLD",
+                  "weightPercent": "10"
+                }
+              ]
+            },
+            {
+              "yearsToAnchor": 10,
+              "allocations": [
+                {
+                  "assetClass": "CASH",
+                  "weightPercent": "25"
+                },
+                {
+                  "assetClass": "GOV_BOND",
+                  "weightPercent": "40"
+                },
+                {
+                  "assetClass": "EQUITY",
+                  "weightPercent": "25"
+                },
+                {
+                  "assetClass": "GOLD",
+                  "weightPercent": "10"
+                }
+              ]
+            },
+            {
+              "yearsToAnchor": 0,
+              "allocations": [
+                {
+                  "assetClass": "CASH",
+                  "weightPercent": "25"
+                },
+                {
+                  "assetClass": "GOV_BOND",
+                  "weightPercent": "40"
+                },
+                {
+                  "assetClass": "EQUITY",
+                  "weightPercent": "25"
+                },
+                {
+                  "assetClass": "GOLD",
+                  "weightPercent": "10"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,7 +1,11 @@
+import { PlanningQuestions } from "../components/PlanningQuestions";
+import type { PlanningConstraints } from "../services/financialProfile";
 import "./onboarding-readability.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
 import { Badge, BrandLogo, Button, Card, Checkbox, Icon, IconButton, Input, Modal, Select, useNotification } from "../components/ui";
+import { PurchasingPower } from "../components/PurchasingPower";
+import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { CurrencyInput } from "../components/CurrencyInput";
 import {
   useFinancialProfile,
@@ -84,6 +88,7 @@ interface CustomAssetItem {
 
 type StepId =
   | "welcome"
+  | "contribution"
   | "personal"
   | "income"
   | "expense"
@@ -122,6 +127,14 @@ export default function OnboardingPage() {
   const { language } = useI18n();
   const isEn = language === "en";
   const { user } = useAuth();
+  const { draftSelection, updateDraft } = useRetirementPlan();
+  const planningMonth = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).slice(0, 7);
+  const desiredExpense = Number(draftSelection?.monthlyExpenseToday ?? 0);
+  const retirementMonth = draftSelection?.whatIf?.retirementMonth ?? "";
+  const contribution = Number(draftSelection?.monthlyContribution ?? 0);
+  const [showPower, setShowPower] = useState(false);
+  useEffect(() => { if (showPower) { window.scrollTo(0, 0); document.getElementById("purchasing-power-title")?.focus({ preventScroll: true }); } }, [showPower]);
+
 
   const {
     onboardingDraft,
@@ -129,6 +142,8 @@ export default function OnboardingPage() {
     schemaVersion,
     draftSaveStatus,
     lastDraftSavedAt,
+    legacyOnboardingDraft,
+    onboardingConstraints,
     saveOnboardingDraft,
     completeOnboarding,
     saveError: apiSaveError,
@@ -142,6 +157,8 @@ export default function OnboardingPage() {
   });
   const [isCompleted, setIsCompleted] = useState(false);
   const [working, setWorking] = useState(false);
+  const [constraints, setConstraints] = useState<PlanningConstraints | undefined>(onboardingConstraints);
+  useEffect(() => { setConstraints(onboardingConstraints); }, [onboardingConstraints]);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -157,14 +174,15 @@ export default function OnboardingPage() {
   }, [currentStep]);
 
   const steps = useMemo(() => [
-    { id: "welcome" as StepId, number: 0, title: isEn ? "Welcome" : "Khởi đầu", detail: isEn ? "Intro & preparation" : "Giới thiệu & chuẩn bị" },
-    { id: "personal" as StepId, number: 1, title: isEn ? "Personal" : "Cá nhân", detail: isEn ? "Age & dependents" : "Tuổi & người phụ thuộc" },
+    { id: "welcome" as StepId, number: 0, title: isEn ? "Your wish" : "Mong muốn", detail: isEn ? "Spending at today’s prices" : "Mức chi theo giá hôm nay" },
+    { id: "personal" as StepId, number: 1, title: isEn ? "Timeline" : "Thời gian", detail: isEn ? "Age & retirement month" : "Tuổi & tháng nghỉ hưu" },
     { id: "income" as StepId, number: 2, title: isEn ? "Income" : "Thu nhập", detail: isEn ? "Salary & other sources" : "Lương & nguồn thu khác" },
     { id: "expense" as StepId, number: 3, title: isEn ? "Expenses" : "Chi tiêu", detail: isEn ? "Monthly living costs" : "Chi phí sinh hoạt tháng" },
     { id: "assets" as StepId, number: 4, title: isEn ? "Assets" : "Tài sản", detail: isEn ? "Savings & real estate" : "Tiết kiệm & bất động sản" },
-    { id: "debt" as StepId, number: 5, title: isEn ? "Debts" : "Khoản nợ", detail: isEn ? "Mortgage & consumer loans" : "Vay mua nhà & tiêu dùng" },
-    { id: "invest-social" as StepId, number: 6, title: isEn ? "Social Security (BHXH)" : "Bảo hiểm Xã hội (BHXH)", detail: isEn ? "Contribution history" : "Lịch sử đóng BHXH" },
-    { id: "summary" as StepId, number: 7, title: isEn ? "Summary" : "Tổng kết", detail: isEn ? "Net worth overview" : "Bức tranh tài sản ròng" },
+    { id: "contribution" as StepId, number: 5, title: isEn ? "Contribution" : "Khoản góp", detail: isEn ? "Within your budget" : "Vừa sức với phần dư" },
+    { id: "debt" as StepId, number: 6, title: isEn ? "Debts" : "Khoản nợ", detail: isEn ? "Mortgage & consumer loans" : "Vay mua nhà & tiêu dùng" },
+    { id: "invest-social" as StepId, number: 7, title: isEn ? "Social Security (BHXH)" : "Bảo hiểm Xã hội (BHXH)", detail: isEn ? "Contribution history" : "Lịch sử đóng BHXH" },
+    { id: "summary" as StepId, number: 8, title: isEn ? "Summary" : "Tổng kết", detail: isEn ? "Net worth overview" : "Bức tranh tài sản ròng" },
   ], [isEn]);
 
   const genderOptions = useMemo(() => [
@@ -194,17 +212,18 @@ export default function OnboardingPage() {
   // Khôi phục từ bản nháp trên máy chủ
   const initialFromDraft = useMemo(() => {
     const d = onboardingDraft;
-    const hasExplicitNoDebt = typeof window !== "undefined" && localStorage.getItem("anhuu_no_debt_confirmed") === "true";
+    const hasExplicitNoDebt = hasOnboardingDraft && d.hasDebt === false;
     const hasAnyDebtValue = (d.mortgageDebt ?? 0) > 0 || (d.consumerDebt ?? 0) > 0 || (d.monthlyDebtService ?? 0) > 0;
     const resolvedHasDebt = hasAnyDebtValue ? true : (hasExplicitNoDebt ? false : true);
-    const savedFullName = typeof window !== "undefined" ? localStorage.getItem("anhuu_user_fullname") || "" : "";
+    const savedFullName = user?.name || "";
 
     return {
       ...INITIAL_FORM_DATA,
+      birthMonth: d.birthMonth ?? "",
       fullName: (d as any).fullName || savedFullName || user?.name || EMPTY_PROFILE.personal.name || "",
       age: d.age ?? INITIAL_FORM_DATA.age,
-      gender: d.gender ?? INITIAL_FORM_DATA.gender,
-      maritalStatus: d.maritalStatus ?? INITIAL_FORM_DATA.maritalStatus,
+      gender: d.gender || "Không tiết lộ",
+      maritalStatus: d.maritalStatus || "Khác",
       dependents: d.dependents ?? INITIAL_FORM_DATA.dependents,
       city: d.city ?? INITIAL_FORM_DATA.city,
       primaryIncome: d.primaryIncome ?? INITIAL_FORM_DATA.primaryIncome,
@@ -242,11 +261,6 @@ export default function OnboardingPage() {
 
   const [customAssets, setCustomAssets] = useState<CustomAssetItem[]>(() => {
     const total = initialFromDraft.liquidAssets;
-    try {
-      const saved = JSON.parse(localStorage.getItem(`anhuu_custom_assets:${user?.id}`) || "null");
-      if (Array.isArray(saved) && saved.every(item => item && typeof item.id === "string" && typeof item.name === "string" && Number.isFinite(item.valueVnd) && item.valueVnd >= 0)
-        && saved.reduce((sum, item) => sum + item.valueVnd, 0) === total) return saved;
-    } catch { /* The server total remains authoritative if local details are unavailable. */ }
     return total > 0 ? [{ id: "saved-total", categoryId: "other", categoryName: isEn ? "Other assets" : "Tài sản khác", name: isEn ? "Previously saved assets (total)" : "Tổng tài sản khác đã lưu", unit: "VND", valueVnd: total }] : [];
   });
 
@@ -262,9 +276,7 @@ export default function OnboardingPage() {
     if (schemaVersion === 2) return;
     const sum = customAssets.reduce((acc, it) => acc + (it.valueVnd || 0), 0);
     setFormData((prev) => ({ ...prev, liquidAssets: sum }));
-    try {
-      localStorage.setItem(`anhuu_custom_assets:${user?.id}`, JSON.stringify(customAssets));
-    } catch {}
+
   }, [customAssets, schemaVersion, user?.id]);
 
   const handleCategoryChange = (catId: string) => {
@@ -323,9 +335,15 @@ export default function OnboardingPage() {
 
   const validateCurrentStep = (step: StepId): boolean => {
     const errors: Record<string, string> = {};
-    if (step === "personal") {
-      if (formData.age !== 0 && (formData.age < 18 || formData.age > 74)) {
-        errors.age = isEn ? "Current age must be between 18 and 74." : "Tuổi hiện tại phải từ 18 đến 74 tuổi.";
+    if (step === "welcome" && (!Number.isSafeInteger(desiredExpense) || desiredExpense <= 0)) {
+      errors.goal = isEn ? "Choose a positive monthly spending amount." : "Chọn mức chi mỗi tháng lớn hơn 0.";
+    } else if (step === "contribution" && (!Number.isSafeInteger(contribution) || contribution < 0)) {
+      errors.contribution = isEn ? "Enter a non-negative whole VND amount." : "Nhập số tiền nguyên từ 0 trở lên.";
+    } else if (step === "personal") {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(retirementMonth) || retirementMonth < planningMonth) errors.retirementMonth = isEn ? "Choose a retirement month from this month onward." : "Chọn tháng nghỉ hưu từ tháng hiện tại trở đi.";
+
+      if (!Number.isInteger(formData.age) || formData.age < 18 || formData.age > 74) {
+        errors.age = isEn ? "Current age must be between 18 and 74." : "Tuổi hiện tại phải là số nguyên từ 18 đến 74.";
       }
       if (formData.dependents < 0 || formData.dependents > 30) {
         errors.dependents = isEn ? "Number of dependents must be between 0 and 30." : "Số người phụ thuộc phải từ 0 đến 30.";
@@ -363,7 +381,7 @@ export default function OnboardingPage() {
       }
       if (formData.socialInsuranceSalary < 0) errors.socialInsuranceSalary = isEn ? "Social insurance base salary cannot be negative." : "Mức lương làm căn cứ đóng BHXH không được là số âm.";
     } else if (step === "summary") {
-      if (!formData.age || formData.age < 18 || formData.age > 74) {
+      if (legacyOnboardingDraft && (!formData.age || formData.age < 18 || formData.age > 74)) {
         errors.summary = isEn ? "Please enter a valid age (18 - 74) in the Personal step." : "Vui lòng nhập tuổi hiện tại hợp lệ (18 - 74 tuổi) ở bước Cá nhân.";
       } else if (formData.socialInsuranceYears > formData.age) {
         errors.summary = isEn ? "Social insurance years cannot exceed your current age." : "Số năm đóng BHXH không được lớn hơn tuổi hiện tại.";
@@ -395,7 +413,7 @@ export default function OnboardingPage() {
 
   const isStepFilled = (id: StepId): boolean => {
     switch (id) {
-      case "personal": return formData.age > 0 && Boolean(formData.gender) && Boolean(formData.maritalStatus) && Boolean(formData.city);
+      case "personal": return formData.age > 0 && Boolean(retirementMonth);
       case "income": return formData.primaryIncome > 0 || formData.secondaryIncome > 0;
       case "expense": return formData.essentialExpense > 0 || formData.lifestyleExpense > 0;
       case "assets": return formData.cashSavings > 0 || formData.realEstateValue > 0 || formData.liquidAssets > 0 || customAssets.length > 0;
@@ -407,11 +425,12 @@ export default function OnboardingPage() {
   };
 
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep);
-  const stageIndex = currentStepIndex <= 1 ? 0 : currentStepIndex <= 5 ? 1 : 2;
-  const stageLabels = isEn ? ["About you", "Income & assets", "Retirement & review"] : ["Thông tin của bạn", "Thu chi & tài sản", "Hưu trí & kiểm tra"];
+  const stageIndex = currentStepIndex <= 1 ? 0 : currentStepIndex <= 6 ? 1 : 2;
+  const stageLabels = isEn ? ["Your wish & timeline", "Income & assets", "Pension & review"] : ["Mong muốn & thời gian", "Thu chi & tài sản", "Lương hưu & kiểm tra"];
   const stepPurpose: Record<StepId, string> = isEn ? {
-    welcome: "Prepare your income, expenses, assets and debt figures. You can save and return later.",
-    personal: "Your age sets the planning timeline; dependents help describe household needs. A valid age is required before completing your profile.",
+    contribution: "Choose how much to contribute; the amount left over is not invested automatically.",
+    welcome: "Start with the life you want. Suggested amounts are examples, not recommendations.",
+    personal: "Your age and retirement date set the time available to prepare.",
     income: "Enter the income available for spending and saving, so the plan can distinguish incoming money from expenses.",
     expense: "Separate essential and flexible expenses to understand the amount left after spending.",
     assets: "Record what you currently own. These declarations are separate from the assets allocated to retirement in your detailed profile.",
@@ -419,8 +438,9 @@ export default function OnboardingPage() {
     "invest-social": "These figures describe your social insurance contribution history. Pension estimates still need the detailed contribution record.",
     summary: "Review your entries before saving the profile. Completing the profile does not mean the retirement plan is fully funded."
   } : {
-    welcome: "Chuẩn bị số liệu thu nhập, chi tiêu, tài sản và nợ. Bạn có thể lưu rồi quay lại làm tiếp.",
-    personal: "Tuổi giúp xác định thời gian lập kế hoạch; người phụ thuộc giúp mô tả nhu cầu gia đình. Cần có tuổi hợp lệ trước khi hoàn tất hồ sơ.",
+    contribution: "Chọn khoản góp vừa sức; phần dư không tự động được đầu tư.",
+    welcome: "Bắt đầu từ cuộc sống bạn mong muốn. Các mức gợi ý là ví dụ để chọn, không phải khuyến nghị.",
+    personal: "Tuổi và tháng nghỉ hưu giúp xác định thời gian bạn còn để chuẩn bị.",
     income: "Khai báo khoản thu dành cho chi tiêu và tích lũy, để phân biệt tiền vào với các khoản phải chi.",
     expense: "Tách chi tiêu thiết yếu và linh hoạt để hiểu khoản còn lại sau chi tiêu.",
     assets: "Khai báo tài sản đang sở hữu. Phần dành cho hưu trí được xác nhận riêng trong hồ sơ chi tiết.",
@@ -435,7 +455,7 @@ export default function OnboardingPage() {
     : (isEn ? `Step ${currentStepIndex}/${steps.length - 1}` : `Bước ${currentStepIndex}/${steps.length - 1}`);
 
   const formatVND = (num: number) => {
-    const rounded = Math.max(0, Math.floor(num || 0));
+    const rounded = Math.floor(num || 0);
     return `${rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
   };
 
@@ -445,12 +465,14 @@ export default function OnboardingPage() {
       requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
       return;
     }
+    if (currentStep === "personal" && !showPower) { setShowPower(true); return; }
     setWorking(true); setSaveError(null);
     try {
       if (currentStepIndex < steps.length - 1) {
         const next = steps[currentStepIndex + 1].id;
-        const ok = await saveOnboardingDraft({ step: next, ...formData });
+        const ok = await saveOnboardingDraft({ step: next, ...formData, desiredRetirementMonth: retirementMonth }, constraints);
         if (ok) {
+          setShowPower(false);
           setCurrentStep(next);
         } else {
           const msg = isEn
@@ -459,7 +481,7 @@ export default function OnboardingPage() {
           setSaveError(msg);
         }
       } else {
-        const ok = await completeOnboarding({ ...formData, step: currentStep, updatedAt: new Date().toISOString() } as OnboardingDraftData);
+        const ok = await completeOnboarding({ ...formData, desiredRetirementMonth: retirementMonth, step: currentStep, updatedAt: new Date().toISOString() } as OnboardingDraftData, constraints);
         if (ok) {
           // The survey saves quick totals (profile v1); plan previews need the
           // detailed profile with a real birth month, so review it next.
@@ -479,6 +501,7 @@ export default function OnboardingPage() {
   };
 
   const handlePrev = () => {
+    if (showPower) { setShowPower(false); return; }
     if (currentStepIndex > 0) {
       setCurrentStep(steps[currentStepIndex - 1].id);
       window.scrollTo({ left: 0, top: 0, behavior: "instant" as ScrollBehavior });
@@ -606,7 +629,7 @@ export default function OnboardingPage() {
               ) : (
                 <>
                   <Icon name="circle-check" size="small" />
-                  <span>{isEn ? "Draft is saved to your account as you proceed" : "Bản nháp được lưu vào tài khoản khi bạn tiếp tục"}</span>
+                  <span>{isEn ? "Draft is saved to your account as you proceed" : "Số liệu hồ sơ được lưu vào tài khoản khi tiếp tục"}</span>
                 </>
               )}
             </div>
@@ -633,7 +656,7 @@ export default function OnboardingPage() {
                   key={s.id}
                   type="button"
                   className={`${isActive ? "is-active" : ""} ${isDone ? "is-done" : ""} ${isSkipped ? "is-skipped" : ""}`}
-                  onClick={() => setCurrentStep(s.id)}
+                  onClick={() => { setShowPower(false); setCurrentStep(s.id); }}
                   aria-current={isActive ? "step" : undefined}
                 >
                   <span>{isDone ? <Icon name="check" size="small" /> : isSkipped ? <Icon name="x" size="small" /> : index}</span>
@@ -661,106 +684,26 @@ export default function OnboardingPage() {
               {currentStep !== "welcome" && currentStep !== "summary" && <p className="onboarding-unknown-help">{isEn ? "Not sure of a figure? Choose Save & finish later. Do not use zero to mean unknown." : "Chưa biết số liệu? Chọn “Lưu & làm sau”. Không nhập 0 để thay cho thông tin chưa biết."}</p>}
             </div>
             {/* STEP 0: WELCOME - REDESIGNED PREMIUM FINTECH ONBOARDING */}
-            {currentStep === "welcome" && (
-              <div className="welcome-step-v3">
-                <header className="welcome-v3-header">
-                  <span className="welcome-badge-pill">
-                    <span className="welcome-badge-dot" aria-hidden="true" />
-                    {isEn ? `3 stages · ${steps.length - 1} steps` : `3 chặng · ${steps.length - 1} bước`}
-                  </span>
-                  <h1 className="welcome-v3-title">
-                    {isEn ? "Set up your financial profile" : "Thiết lập hồ sơ tài chính"}
-                  </h1>
-                  <p className="welcome-v3-lead">
-                    {isEn
-                      ? "An Huu uses these figures to project your retirement plan month by month. Rough estimates are fine and everything can be edited later."
-                      : "An Hưu dùng các số liệu này để dự phóng kế hoạch hưu trí theo từng tháng. Số ước lượng là đủ, bạn có thể sửa lại bất cứ lúc nào."}
-                  </p>
-                </header>
-
-                <div className="welcome-v3-grid">
-                  <section className="welcome-v3-plan" aria-labelledby="welcome-plan-title">
-                    <h2 id="welcome-plan-title">{isEn ? "What you will fill in" : "Bạn sẽ khai báo"}</h2>
-                    <ol>
-                      {steps.slice(1).map((s) => (
-                        <li key={s.id}>
-                          <span className="welcome-v3-step-no" aria-hidden="true">{s.number}</span>
-                          <span className="welcome-v3-step-text">
-                            <strong>{s.title}</strong>
-                            <small>{s.detail}</small>
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
-                  </section>
-
-                  <aside className="welcome-v3-side">
-                    <section className="welcome-v3-prep" aria-labelledby="welcome-prep-title">
-                      <h2 id="welcome-prep-title">{isEn ? "Have these ready" : "Nên chuẩn bị sẵn"}</h2>
-                      <ul>
-                        <li><Icon name="wallet" size="small" />{isEn ? "Monthly income after tax" : "Thu nhập hàng tháng (sau thuế)"}</li>
-                        <li><Icon name="chart" size="small" />{isEn ? "Average monthly spending" : "Chi tiêu trung bình mỗi tháng"}</li>
-                        <li><Icon name="home" size="small" />{isEn ? "Savings, investments and property" : "Tiền tiết kiệm, đầu tư, bất động sản"}</li>
-                        <li><Icon name="file-text" size="small" />{isEn ? "Loan balances and monthly payments" : "Dư nợ và số tiền trả nợ mỗi tháng"}</li>
-                        <li><Icon name="shield" size="small" />{isEn ? "Years of social insurance (BHXH)" : "Số năm đã đóng BHXH"}</li>
-                      </ul>
-                    </section>
-
-                    <ul className="welcome-v3-assurances">
-                      <li>
-                        <Icon name="circle-check" size="small" />
-                        <span>{isEn ? "Estimates are enough, no need to be exact." : "Không cần chính xác từng đồng, ước lượng là đủ."}</span>
-                      </li>
-                      <li>
-                        <Icon name="circle-check" size="small" />
-                        <span>{isEn ? "Your draft is saved as you go." : "Bản nháp được lưu khi bạn chuyển bước."}</span>
-                      </li>
-                      <li>
-                        <Icon name="circle-check" size="small" />
-                        <span>{isEn ? "Used only for your projections, never sold or shared." : "Chỉ dùng để tính toán cho bạn, không bán hay chia sẻ."}</span>
-                      </li>
-                    </ul>
-                  </aside>
-                </div>
-              </div>
-            )}
-
-            {/* STEP 1: PERSONAL INFO */}
-            {currentStep === "personal" && (
+            {currentStep === "welcome" && <section className="onboarding-question">
+              <h1>{isEn ? "How much would you like to spend each month in retirement?" : "Bạn muốn chi bao nhiêu mỗi tháng khi nghỉ hưu?"}</h1>
+              <p>{isEn ? "Use today's prices, for the lifestyle you want." : "Tính theo giá hôm nay, cho mức sống bạn mong muốn."}</p>
+              <CurrencyInput label={isEn ? "Desired monthly spending at today's prices" : "Mức chi mong muốn mỗi tháng theo giá hôm nay"} value={desiredExpense} onChange={value => updateDraft({ monthlyExpenseToday: String(value) })} error={fieldErrors.goal} suffix={isEn ? "VND/month" : "đồng/tháng"} />
+              <div className="onboarding-suggestions">{[15, 20, 30, 40].map(amount => <Button key={amount} variant={desiredExpense === amount * 1000000 ? "primary" : "secondary"} onClick={() => updateDraft({ monthlyExpenseToday: String(amount * 1000000) })}>{amount} {isEn ? "million" : "triệu"}</Button>)}</div>
+            </section>}
+            <p className="onboarding-draft-note">{isEn ? "Spending goals, retirement month and contributions stay in the existing session plan draft until you save a plan version. Profile figures are saved to your account when you continue." : "Mức chi mục tiêu, tháng nghỉ hưu và khoản góp được giữ trong nháp kế hoạch của phiên này đến khi bạn lưu phiên bản kế hoạch. Số liệu hồ sơ được lưu vào tài khoản khi tiếp tục."}</p>
+            {currentStep === "personal" && showPower && <PurchasingPower expense={desiredExpense} startMonth={planningMonth} retirementMonth={retirementMonth} />}
+            {currentStep === "personal" && !showPower && (
               <div>
                 <div className="step-heading">
-                  <Badge tone="soft">{isEn ? "STEP 1/7" : "BƯỚC 1/7"}</Badge>
+                  <Badge tone="soft">{stepLabel}</Badge>
                   <div className="step-heading-title-row">
                     <span className="step-heading-icon"><Icon name="users" /></span>
-                    <h1>{isEn ? "Personal & Family Information" : "Thông tin cá nhân & Gia đình"}</h1>
+                    <h1>{isEn ? "When would you like to retire?" : "Bạn muốn bắt đầu cuộc sống ấy khi nào?"}</h1>
                   </div>
-                  <p>{isEn ? "Age milestones and dependents directly impact your accumulation horizon and retirement fund size." : "Các mốc tuổi và người phụ thuộc ảnh hưởng trực tiếp đến thời gian tích lũy và quy mô quỹ hưu trí."}</p>
+                  <p>{isEn ? "Your retirement date sets the time available to prepare." : "Mốc nghỉ hưu giúp xác định thời gian bạn còn để chuẩn bị."}</p>
                 </div>
 
                 <div className="form-grid">
-                  <Input
-                    label={isEn ? "Full Name" : "Họ và tên"}
-                    value={formData.fullName}
-                    onChange={(v) => {
-                      updateField("fullName", v);
-                      try { localStorage.setItem("anhuu_user_fullname", v); } catch {}
-                    }}
-                    placeholder={isEn ? "e.g. Nguyen Van An" : "Ví dụ: Nguyễn Văn An"}
-                    autoComplete="name"
-                  />
-
-                  <Select
-                    label={isEn ? "Gender" : "Giới tính"}
-                    options={genderOptions.map((o) => o.label)}
-                    value={genderOptions.find((o) => o.value === formData.gender)?.label || genderOptions[0].label}
-                    onChange={(v) => {
-                      const found = genderOptions.find((o) => o.label === v);
-                      updateField("gender", found ? found.value : "");
-                    }}
-                    error={fieldErrors.gender}
-                    helper={isEn ? "Under Vietnamese labor law, retirement age schedules differ for men and women." : "Theo luật lao động Việt Nam, tuổi nghỉ hưu nam & nữ có lộ trình khác nhau."}
-                  />
-
                   <Input
                     label={isEn ? "Your Current Age (required to finish)" : "Tuổi hiện tại của bạn (cần để hoàn tất)"}
                     type="number"
@@ -772,51 +715,8 @@ export default function OnboardingPage() {
                     suffix={isEn ? "yrs old" : "tuổi"}
                   />
 
-                  <Select
-                    label={isEn ? "Marital Status" : "Tình trạng hôn nhân"}
-                    options={maritalOptions.map((o) => o.label)}
-                    value={maritalOptions.find((o) => o.value === formData.maritalStatus)?.label || maritalOptions[0].label}
-                    onChange={(v) => {
-                      const found = maritalOptions.find((o) => o.label === v);
-                      updateField("maritalStatus", found ? found.value : "");
-                    }}
-                    error={fieldErrors.maritalStatus}
-                  />
-
-                  <Input
-                    label={isEn ? "Number of Dependents (children, elderly parents)" : "Số người phụ thuộc (con cái, cha mẹ già)"}
-                    type="number"
-                    min={0}
-                    max={30}
-                    value={String(formData.dependents)}
-                    onChange={(v) => updateNumberField("dependents", v)}
-                    error={fieldErrors.dependents}
-                    suffix={isEn ? "people" : "người"}
-                  />
-
-                  <Select
-                    label={isEn ? "Expected Retirement Location" : "Nơi sinh sống dự kiến khi nghỉ hưu"}
-                    options={cityOptions.map((o) => o.label)}
-                    value={cityOptions.find((o) => o.value === formData.city)?.label || cityOptions[0].label}
-                    onChange={(v) => {
-                      const found = cityOptions.find((o) => o.label === v);
-                      updateField("city", found ? found.value : "");
-                    }}
-                    error={fieldErrors.city}
-                    helper={isEn ? "Cost of living in major cities is typically 30-40% higher than other regions." : "Mức chi phí sinh hoạt tại các thành phố lớn thường cao hơn 30-40% so với khu vực khác."}
-                  />
-
-                  <div className="context-note">
-                    <span><Icon name="info" /></span>
-                    <div>
-                      <strong>{isEn ? "Plan Impact" : "Tác động đến kế hoạch"}</strong>
-                      <p>
-                        {isEn
-                          ? `If you are ${formData.age} and plan to retire at 60, you have ${Math.max(0, 60 - formData.age)} golden years left to build your wealth.`
-                          : `Nếu bạn ${formData.age} tuổi và dự kiến nghỉ hưu ở tuổi 60, bạn còn đúng ${Math.max(0, 60 - formData.age)} năm vàng để tạo lập tài sản.`}
-                      </p>
-                    </div>
-                  </div>
+                  <Input type="month" label={isEn ? "Desired retirement month" : "Tháng bạn muốn nghỉ hưu"} value={retirementMonth} min={planningMonth} error={fieldErrors.retirementMonth} onChange={value => updateDraft({ whatIf: { ...draftSelection?.whatIf, retirementMonth: value } })} />
+                  <p>{isEn ? "Choose the date you want. Your exact birth month can be added to the detailed profile later." : "Chọn mốc thời gian bạn mong muốn. Bạn sẽ bổ sung tháng sinh chính xác trong hồ sơ chi tiết."}</p>
                 </div>
               </div>
             )}
@@ -825,10 +725,10 @@ export default function OnboardingPage() {
             {currentStep === "income" && (
               <div>
                 <div className="step-heading">
-                  <Badge tone="soft">{isEn ? "STEP 2/7" : "BƯỚC 2/7"}</Badge>
+                  <Badge tone="soft">{stepLabel}</Badge>
                   <div className="step-heading-title-row">
                     <span className="step-heading-icon"><Icon name="wallet" /></span>
-                    <h1>{isEn ? "Monthly Income Sources" : "Nguồn thu nhập hàng tháng"}</h1>
+                    <h1>{isEn ? "What is your monthly take-home income?" : "Mỗi tháng bạn thực nhận bao nhiêu?"}</h1>
                   </div>
                   <p>{isEn ? "Income is the crucial financial inflow determining your ability to accumulate consistently each month." : "Thu nhập là dòng chảy tài chính quan trọng quyết định khả năng tích lũy đều đặn mỗi tháng của bạn."}</p>
                 </div>
@@ -861,7 +761,7 @@ export default function OnboardingPage() {
                     <span><Icon name="sparkles" /></span>
                     <div>
                       <strong>{isEn ? "Expert Insight" : "Gợi ý từ chuyên gia"}</strong>
-                      <p>{isEn ? "Individuals with stable monthly incomes over 30 million typically allocate 20% to 30% to retirement to achieve financial comfort." : "Người có nguồn thu nhập ổn định trên 30 triệu/tháng thường dành 20 - 30% cho quỹ hưu trí để đạt mức sống thoải mái."}</p>
+                      <p>{isEn ? "After declaring expenses, you can choose a contribution that fits the amount left over." : "Sau khi khai chi tiêu, bạn có thể chọn khoản góp phù hợp với phần còn dư."}</p>
                     </div>
                   </div>
                 </div>
@@ -872,10 +772,10 @@ export default function OnboardingPage() {
             {currentStep === "expense" && (
               <div>
                 <div className="step-heading">
-                  <Badge tone="soft">{isEn ? "STEP 3/7" : "BƯỚC 3/7"}</Badge>
+                  <Badge tone="soft">{stepLabel}</Badge>
                   <div className="step-heading-title-row">
                     <span className="step-heading-icon"><Icon name="chart" /></span>
-                    <h1>{isEn ? "Expenses & Living Standards" : "Chi tiêu & Mức sống sinh hoạt"}</h1>
+                    <h1>{isEn ? "How much do you spend each month?" : "Mỗi tháng bạn chi bao nhiêu?"}</h1>
                   </div>
                   <p>{isEn ? "Current spending is the baseline for projecting living expenses needed in retirement to maintain your lifestyle." : "Chi tiêu hiện tại là thước đo cơ bản để dự toán mức chi phí bạn cần có khi về già để giữ nguyên phong cách sống."}</p>
                 </div>
@@ -907,8 +807,8 @@ export default function OnboardingPage() {
                   <div className="context-note">
                     <span><Icon name="info" /></span>
                     <div>
-                      <strong>{isEn ? "70% - 80% Benchmark Reference" : "Gợi ý tham khảo về chi tiêu hưu trí 70 - 80%"}</strong>
-                      <p>{isEn ? "In retirement, work-related commute and child-rearing costs disappear; expenses typically equal 70% to 80% of pre-retirement spending." : "Khi nghỉ hưu, bạn không còn các chi phí liên quan công việc và nuôi con nhỏ, mức chi tiêu thường bằng 70 - 80% so với thời điểm đi làm."}</p>
+                      <strong>{isEn ? "Your retirement spending goal" : "Mức chi hưu trí bạn đã chọn"}</strong>
+                      <p>{isEn ? "Your desired retirement spending is separate from current expenses. Review both against the lifestyle you want." : "Mức chi mong muốn khi nghỉ hưu tách biệt với chi tiêu hiện tại. Hãy đối chiếu cả hai với cuộc sống bạn mong muốn."}</p>
                     </div>
                   </div>
                 </div>
@@ -919,10 +819,10 @@ export default function OnboardingPage() {
             {currentStep === "assets" && (
               <div>
                 <div className="step-heading">
-                  <Badge tone="soft">{isEn ? "STEP 4/7" : "BƯỚC 4/7"}</Badge>
+                  <Badge tone="soft">{stepLabel}</Badge>
                   <div className="step-heading-title-row">
                     <span className="step-heading-icon"><Icon name="home" /></span>
-                    <h1>{isEn ? "Current Accumulated Assets" : "Tài sản tích lũy hiện có"}</h1>
+                    <h1>{isEn ? "What assets do you have for the future?" : "Bạn đang có tài sản nào cho tương lai?"}</h1>
                   </div>
                   <p>{isEn ? "Current assets serve as a key launchpad for your retirement fund; asset values may fluctuate over time." : "Tài sản hiện có là bệ phóng quan trọng cho quỹ hưu trí; giá trị tài sản có thể biến động theo thời gian."}</p>
                 </div>
@@ -938,12 +838,12 @@ export default function OnboardingPage() {
                   />
 
                   <CurrencyInput
-                    label={isEn ? "Real Estate Market Value" : "Giá trị Bất động sản đang sở hữu"}
+                    label={isEn ? "Other real estate (exclude your home)" : "Bất động sản khác (không tính nhà đang ở)"}
                     value={formData.realEstateValue}
                     onChange={(v) => updateNumberField("realEstateValue", v)}
                     error={fieldErrors.realEstateValue}
                     suffix="VND"
-                    helper={isEn ? "Estimated market value of owned houses, land, or condominiums." : "Giá thị trường ước tính của nhà ở, đất hoặc căn hộ."}
+                    helper={isEn ? "Exclude the home you live in. Other property is recorded separately; it is not cash available for retirement." : "Không tính nhà đang ở. Bất động sản khác được ghi riêng, chưa phải tiền có thể dùng ngay cho hưu trí."}
                   />
 
                   {/* Khu vực tạo thêm tài sản người dùng tự tạo bấm dấu cộng (+) */}
@@ -1009,13 +909,24 @@ export default function OnboardingPage() {
             )}
 
             {/* STEP 5: DEBT */}
+            {currentStep === "contribution" && <section className="onboarding-question">
+              <h1>{isEn ? "How much would you like to set aside each month?" : "Bạn muốn dành bao nhiêu mỗi tháng cho ngày mai?"}</h1>
+              <p>{isEn ? "Surplus = income − living expenses" : "Phần còn dư = thu − chi sinh hoạt"}: <strong>{new Intl.NumberFormat(isEn ? "en-US" : "vi-VN").format(totalMonthlyIncome - totalMonthlyExpense)} {isEn ? "VND/month" : "đồng/tháng"}</strong></p>
+              <p>{isEn ? "After declared debt payments" : "Sau khoản trả nợ đã khai"}: {new Intl.NumberFormat(isEn ? "en-US" : "vi-VN").format(totalMonthlySurplus)} {isEn ? "VND/month" : "đồng/tháng"}</p>
+              <CurrencyInput label={isEn ? "Chosen monthly contribution" : "Khoản góp mỗi tháng bạn chọn"} value={contribution} onChange={value => updateDraft({ monthlyContribution: String(value), contributionSchedule: [] })} error={fieldErrors.contribution} />
+              {contribution > Math.max(0, totalMonthlySurplus) && <p role="alert">{isEn ? "Your contribution exceeds the amount left over. Consider a lower amount or review income, expenses and debt." : "Khoản góp vượt phần còn dư. Cân nhắc giảm khoản góp hoặc kiểm tra lại thu nhập, chi tiêu và nợ."}</p>}
+              <p>{isEn ? "Zero means you have not chosen to contribute yet. Debt declared next may reduce your available budget." : "Mức 0 nghĩa là bạn chưa chọn góp tiền. Khoản nợ ở bước sau có thể làm giảm ngân sách còn lại."}</p>
+            </section>}
+            {currentStep === "personal" && !showPower && !legacyOnboardingDraft && <section className="onboarding-question"><Input label={isEn ? "Birth month for the detailed profile (unknown allowed)" : "Tháng sinh cho hồ sơ chi tiết (có thể chưa biết)"} type="month" value={formData.birthMonth} onChange={birthMonth => setFormData(prev => ({ ...prev, birthMonth }))} /><p>{isEn ? "These answers use the detailed profile. Age alone does not identify your birth month; leave blank if unknown. Pension history totals require review in the detailed pension declaration." : "Các câu trả lời này dùng hồ sơ chi tiết. Tuổi không đủ để xác định tháng sinh; để trống nếu chưa biết. Tổng năm và lương đóng BHXH cần đối chiếu lại trong khai báo lương hưu chi tiết."}</p></section>}
+            {currentStep === "contribution" && legacyOnboardingDraft && <p className="onboarding-question">{isEn ? "This saved survey uses the earlier format. Complete it first, then open Constraints and goals in your detailed profile to answer the four protection questions. Your existing draft is preserved." : "Bản khảo sát đã lưu dùng định dạng cũ. Hãy hoàn tất trước, rồi mở Ràng buộc và mục tiêu trong hồ sơ chi tiết để trả lời bốn câu hỏi bảo vệ vốn. Bản nháp hiện có được giữ nguyên."}</p>}
+            {currentStep === "contribution" && !legacyOnboardingDraft && <PlanningQuestions data={constraints ?? {}} onChange={setConstraints} valuationMonth={planningMonth} />}
             {currentStep === "debt" && (
               <div>
                 <div className="step-heading">
-                  <Badge tone="soft">{isEn ? "STEP 5/7" : "BƯỚC 5/7"}</Badge>
+                  <Badge tone="soft">{stepLabel}</Badge>
                   <div className="step-heading-title-row">
                     <span className="step-heading-icon"><Icon name="alert" /></span>
-                    <h1>{isEn ? "Debts & Financial Obligations" : "Các khoản nợ & Nghĩa vụ tài chính"}</h1>
+                    <h1>{isEn ? "What debts do you need to repay?" : "Bạn còn những khoản nợ nào cần trả?"}</h1>
                   </div>
                   <p>{isEn ? "Tracking debts ensures accurate calculation of your actual surplus cashflow available for accumulation." : "Nắm rõ các khoản nợ giúp tính toán chính xác số tiền còn lại sau chi tiêu và trả nợ."}</p>
                 </div>
@@ -1029,7 +940,7 @@ export default function OnboardingPage() {
                       className={`debt-status-card ${formData.hasDebt ? "is-selected" : ""}`}
                       onClick={() => {
                         try {
-                          localStorage.removeItem("anhuu_no_debt_confirmed");
+
                         } catch {}
                         setFormData((prev) => ({ ...prev, hasDebt: true }));
                       }}
@@ -1055,7 +966,7 @@ export default function OnboardingPage() {
                       className={`debt-status-card ${!formData.hasDebt ? "is-selected" : ""}`}
                       onClick={() => {
                         try {
-                          localStorage.setItem("anhuu_no_debt_confirmed", "true");
+
                         } catch {}
                         setFormData((prev) => ({
                           ...prev,
@@ -1142,14 +1053,75 @@ export default function OnboardingPage() {
             {currentStep === "invest-social" && (
               <div>
                 <div className="step-heading">
-                  <Badge tone="soft">{isEn ? "STEP 6/7" : "BƯỚC 6/7"}</Badge>
+                  <Badge tone="soft">{stepLabel}</Badge>
                   <div className="step-heading-title-row">
                     <span className="step-heading-icon"><Icon name="sparkles" /></span>
-                    <h1>{isEn ? "Social Security (BHXH)" : "Bảo hiểm Xã hội (BHXH)"}</h1>
+                    <h1>{isEn ? "Do you expect a pension after retirement?" : "Sau nghỉ việc, bạn dự kiến có lương hưu không?"}</h1>
                   </div>
                   <p>{isEn ? "State pension from BHXH is a core pillar supporting your retirement cash flow." : "Lương hưu từ BHXH là trụ cột chính nuôi dưỡng quỹ hưu trí."}</p>
                 </div>
 
+                <Button variant="secondary" onClick={handleNext} disabled={working}>{isEn ? "Not sure yet — add later" : "Chưa biết, bổ sung sau"}</Button>
+                <p>{isEn ? "This step records contribution history only. No pension estimate is included until you declare it in the detailed profile." : "Bước này chỉ ghi lịch sử đóng. Chưa đưa lương hưu vào kế hoạch đến khi bạn khai báo trong hồ sơ chi tiết."}</p>
+                <details><summary>{isEn ? "Personal details for social insurance" : "Thông tin cá nhân dùng cho BHXH"}</summary><div className="form-grid">
+                  <Input
+                    label={isEn ? "Full Name" : "Họ và tên"}
+                    value={formData.fullName}
+                    onChange={(v) => {
+                      updateField("fullName", v);
+
+                    }}
+                    placeholder={isEn ? "e.g. Nguyen Van An" : "Ví dụ: Nguyễn Văn An"}
+                    autoComplete="name"
+                  />
+
+                  <Select
+                    label={isEn ? "Gender" : "Giới tính"}
+                    options={genderOptions.map((o) => o.label)}
+                    value={genderOptions.find((o) => o.value === formData.gender)?.label || genderOptions[0].label}
+                    onChange={(v) => {
+                      const found = genderOptions.find((o) => o.label === v);
+                      updateField("gender", found ? found.value : "");
+                    }}
+                    error={fieldErrors.gender}
+                    helper={isEn ? "Under Vietnamese labor law, retirement age schedules differ for men and women." : "Theo luật lao động Việt Nam, tuổi nghỉ hưu nam & nữ có lộ trình khác nhau."}
+                  />
+
+                  <Select
+                    label={isEn ? "Marital Status" : "Tình trạng hôn nhân"}
+                    options={maritalOptions.map((o) => o.label)}
+                    value={maritalOptions.find((o) => o.value === formData.maritalStatus)?.label || maritalOptions[0].label}
+                    onChange={(v) => {
+                      const found = maritalOptions.find((o) => o.label === v);
+                      updateField("maritalStatus", found ? found.value : "");
+                    }}
+                    error={fieldErrors.maritalStatus}
+                  />
+
+                  <Input
+                    label={isEn ? "Number of Dependents (children, elderly parents)" : "Số người phụ thuộc (con cái, cha mẹ già)"}
+                    type="number"
+                    min={0}
+                    max={30}
+                    value={String(formData.dependents)}
+                    onChange={(v) => updateNumberField("dependents", v)}
+                    error={fieldErrors.dependents}
+                    suffix={isEn ? "people" : "người"}
+                  />
+
+                  <Select
+                    label={isEn ? "Expected Retirement Location" : "Nơi sinh sống dự kiến khi nghỉ hưu"}
+                    options={cityOptions.map((o) => o.label)}
+                    value={cityOptions.find((o) => o.value === formData.city)?.label || cityOptions[0].label}
+                    onChange={(v) => {
+                      const found = cityOptions.find((o) => o.label === v);
+                      updateField("city", found ? found.value : "");
+                    }}
+                    error={fieldErrors.city}
+                    helper={isEn ? "Location helps you consider your actual spending needs." : "Nơi sống giúp bạn cân nhắc nhu cầu chi tiêu thực tế."}
+                  />
+
+                </div></details>
                 <div className="form-grid">
                   <Input
                     label={isEn ? "Years of Mandatory / Voluntary Social Insurance Contributions" : "Số năm đã tham gia BHXH bắt buộc / tự nguyện"}
@@ -1159,7 +1131,7 @@ export default function OnboardingPage() {
                     onChange={(v) => updateNumberField("socialInsuranceYears", v)}
                     error={fieldErrors.socialInsuranceYears}
                     suffix={isEn ? "years" : "năm"}
-                    helper={isEn ? "Minimum 15 to 20 contribution years required to qualify for a monthly pension." : "Tối thiểu 15 đến 20 năm đóng BHXH để đủ điều kiện hưởng lương hưu hàng tháng."}
+                    helper={isEn ? "Use your social insurance record; eligibility is checked in the detailed profile." : "Đối chiếu quá trình đóng BHXH; điều kiện hưởng được kiểm tra trong hồ sơ chi tiết."}
                   />
 
                   <CurrencyInput
@@ -1194,6 +1166,7 @@ export default function OnboardingPage() {
                   <p>{isEn ? "Review all key financial metrics before completing your profile and receiving your customized retirement roadmap." : "Hãy xem lại toàn bộ các chỉ số tài chính quan trọng trước khi hoàn tất hồ sơ và tiến hành lập kế hoạch nghỉ hưu chi tiết."}</p>
                 </div>
 
+                {contribution > Math.max(0, totalMonthlySurplus) && <p role="alert">{isEn ? "Your chosen contribution exceeds the amount left after expenses and declared debt payments. Review the contribution step." : "Khoản góp bạn chọn vượt phần dư sau chi tiêu và trả nợ đã khai. Hãy kiểm tra lại bước Khoản góp."}</p>}
                 {skippedSteps.length > 0 && (
                   <div className="onboarding-skipped-card" role="status">
                     <div>
@@ -1202,7 +1175,7 @@ export default function OnboardingPage() {
                     </div>
                     <div className="onboarding-skipped-list">
                       {skippedSteps.map((s) => (
-                        <button key={s.id} type="button" onClick={() => setCurrentStep(s.id)}>
+                        <button key={s.id} type="button" onClick={() => { setShowPower(false); setCurrentStep(s.id); }}>
                           <Icon name="x" size="small" /> {s.title}
                         </button>
                       ))}
@@ -1313,7 +1286,7 @@ export default function OnboardingPage() {
                 onClick={async () => {
                   if (working) return;
                   setWorking(true);
-                  try { if (await saveOnboardingDraft({ step: currentStep, ...formData })) navigate("/user/dashboard"); }
+                  try { if (await saveOnboardingDraft({ step: currentStep, ...formData, desiredRetirementMonth: retirementMonth }, constraints)) navigate("/user/dashboard"); }
                   finally { setWorking(false); }
                 }}
               >
@@ -1335,6 +1308,7 @@ export default function OnboardingPage() {
             <div className="save-error-banner" role="alert">
               <Icon name="alert" />
               <span>{apiSaveError || saveError}</span>
+              <Button variant="secondary" onClick={() => window.location.reload()}>{isEn ? "Reload saved draft to compare" : "Tải lại nháp đã lưu để đối chiếu"}</Button>
             </div>
           )}
         </main>

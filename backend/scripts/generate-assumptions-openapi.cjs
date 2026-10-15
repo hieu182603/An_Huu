@@ -32,6 +32,7 @@ function schema(z) {
       return s;
     }
     case "ZodArray": return { type: "array", items: schema(d.type), ...(d.minLength ? { minItems: d.minLength.value } : {}), ...(d.maxLength ? { maxItems: d.maxLength.value } : {}) };
+    case "ZodRecord": return { type: "object", additionalProperties: schema(d.valueType) };
     case "ZodObject": {
       const properties = {}, required = [];
       for (const [key, value] of Object.entries(d.shape())) { properties[key] = schema(value); if (!value.isOptional()) required.push(key); }

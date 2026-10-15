@@ -1,4 +1,4 @@
-import { dimensions, portfolioDocumentSchema, type PortfolioPreview } from "../modules/portfolios/schema";
+import { dimensions, portfolioDocumentV1Schema, portfolioDocumentV2Schema, type PortfolioPreview } from "../modules/portfolios/schema";
 import { assumptionFixture } from "./assumptions-fixtures";
 export function portfolioAssumptionsFixture() {
   const data = assumptionFixture();
@@ -8,7 +8,7 @@ export function portfolioAssumptionsFixture() {
   return data;
 }
 export function portfolioFixture(assumptionVersionId = "00000000-0000-4000-8000-000000000001") {
-  return portfolioDocumentSchema.parse({ schemaVersion: 1, title: "Fixture portfolio policy", reason: "Testing only; do not publish to production", effectiveFrom: "2026-10-04", assumptionVersionId,
+  return portfolioDocumentV1Schema.parse({ schemaVersion: 1, title: "Fixture portfolio policy", reason: "Testing only; do not publish to production", effectiveFrom: "2026-10-04", assumptionVersionId,
     source: { title: "Fixture review source", url: "https://example.invalid/policy", release: "fixture-v1", reviewedOn: "2026-10-01" },
     questions: dimensions.map(d => ({ id: d, dimension: d, prompt: "Fixture question " + d,
       choices: [{ id: "LOW", label: "Fixture low choice", score: 0 }, { id: "HIGH", label: "Fixture high choice", score: 10 }] })),
@@ -25,6 +25,17 @@ export function portfolioFixture(assumptionVersionId = "00000000-0000-4000-8000-
       years: [2026, 2027, 2028].map(year => ({ year, inflationDeltaPoints: kind === "BASE" ? "0" : kind === "ADVERSE" ? "1" : "-1",
         returns: ["BOND", "STOCK"].map(assetClass => ({ assetClass, deltaPoints: kind === "BASE" ? "0" : kind === "ADVERSE" ? "-2" : "2" })) })),
     })),
+  });
+}
+/** Same questions/bands/scenarios, but retirement-anchored glide paths (schema v2). */
+export function glidePortfolioFixture(assumptionVersionId?: string) {
+  const { templates, rules, ...rest } = portfolioFixture(assumptionVersionId);
+  return portfolioDocumentV2Schema.parse({ ...rest, schemaVersion: 2,
+    templates: templates.map(t => ({ id: t.id, label: t.label, rebalance: t.rebalance, glidePath: { anchor: "RETIREMENT_MONTH",
+      interpolation: "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR", afterAnchor: "HOLD_ZERO_YEAR_POINT",
+      points: [[10, "80"], [5, "50"], [0, "0"]].map(([yearsToAnchor, stock]) => ({ yearsToAnchor,
+        allocations: [{ assetClass: "BOND", weightPercent: String(100 - Number(stock)) }, { assetClass: "STOCK", weightPercent: stock }] })) } })),
+    rules: rules.map(r => ({ ...r, horizon: { min: 1, max: 1200 } })),
   });
 }
 export function portfolioCommand(policyVersionId = "00000000-0000-4000-8000-000000000002", high = true): PortfolioPreview {

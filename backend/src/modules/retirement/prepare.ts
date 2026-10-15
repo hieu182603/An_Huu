@@ -12,6 +12,7 @@ import type { PortfolioDocument } from "../portfolios/schema";
 import type { AssumptionDocument } from "../assumptions/schema";
 import { retirementPreviewSchema, RETIREMENT_MODEL, type RetirementPreview } from "./schema";
 import { RetirementDecimal as D, projectRetirement, type MonthlyInput, type ProjectionInput } from "./engine";
+import { applyAdvisoryFee } from "./advisory-fee";
 
 type Issue = { path: string; code: string };
 const monthIndex = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1;
@@ -54,7 +55,9 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
   for (const row of input.retirementContributionSchedule) if (row.month < retirementMonth || row.month > input.endMonth)
     issue("retirementContributionSchedule", "CONTRIBUTION_OUTSIDE_RETIREMENT");
   const portfolio = previewPortfolio(policy, assumptions, { policyVersionId: input.policyVersionId, startMonth: firstMonth, horizonMonths: length,
-    answers: input.answers, liquidityNeedMonths: input.liquidityNeedMonths, ...(input.templateId ? { templateId: input.templateId } : {}) });
+    answers: input.answers, liquidityNeedMonths: input.liquidityNeedMonths, ...(input.templateId ? { templateId: input.templateId } : {}),
+    // Glide-path (schema v2) policies de-risk toward this month; v1 policies ignore it.
+    retirementMonth });
   if (portfolio.status !== "READY") { issues.push(...portfolio.issues); return fail(); }
   const scenario = portfolio.scenarios.find(s => s.kind === input.scenario)!;
   // Preserve T04's convention: scenario CPI delta modifies planning inflation;
@@ -191,7 +194,8 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
   if (issues.length) return fail();
   const replayInput: ProjectionInput = { valuationDate: data.valuationDate, retirementMonth, initialCapital,
     modelVersion: RETIREMENT_MODEL, contributionStartMonth,
-    terminalBalance: input.terminalBalance, monthlyContribution: input.monthlyContribution, contributionTiming: input.contributionTiming, rows };
+    terminalBalance: input.terminalBalance, monthlyContribution: input.monthlyContribution, contributionTiming: input.contributionTiming,
+    rows: applyAdvisoryFee(rows, initialCapital, retirementMonth, input) };
   return { status: "READY" as const, issues: [], warnings: unique(warnings), replayInput,
     calculation: { ...projectRetirement(replayInput), netWorth: summary.values.netWorth,
       assessment: portfolio.assessment, marketRows: scenario.rows, scenario: { kind: scenario.kind, label: scenario.label, evidence: scenario.evidence, changes: scenario.changes },

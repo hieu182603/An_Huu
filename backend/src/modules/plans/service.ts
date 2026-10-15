@@ -20,6 +20,7 @@ import type { PlanPreview } from "../retirement/upgrade";
 import { readSourceSnapshot, serializeSourceSnapshot, type SourceSnapshot } from "./source-snapshot";
 import { sourceReforecastSchema, saveSourceReforecastSchema } from "./source-schema";
 import { PensionEstimateService } from "../pensions/estimate-service";
+import { planHorizonWarnings } from "./read-warnings";
 
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonObject;
 // PostgreSQL JSONB reorders object keys; integrity must not depend on that order.
@@ -63,6 +64,13 @@ export class PlansService {
     const snapshot = this.snapshot(row);
     return { id: row.id, planId: row.planId, version: row.version, createdAt: row.createdAt.toISOString(),
       profileRevision: row.profileRevision, snapshotHash: snapshot.integrityHash, preview: snapshot.preview };
+  }
+  private async readWarnings(userId: string, row: PlanVersion | null) {
+    if (!row) return {};
+    const snapshot = this.snapshot(row);
+    const goal = await this.db.retirementGoal.findUnique({ where: { userId }, select: { lifeExpectancy: true, revision: true } });
+    const readWarnings = planHorizonWarnings(snapshot.capture.profile, snapshot.preview.selection.endMonth, goal);
+    return readWarnings.length ? { readWarnings } : {};
   }
   // Both commands persist the response in the same transaction as their writes.
   // Unique-key races retry so an identical concurrent request receives the first
@@ -183,7 +191,7 @@ export class PlansService {
     const row = plan.currentVersionId ? await db.planVersion.findFirst({ where: { id: plan.currentVersionId, planId } }) : null;
     const current = row ? this.view(row) : null;
     const refs = current?.preview.references;
-    return { ...planView(plan), current, profileChanged: !!row && profile?.revision !== row.profileRevision,
+    return { ...planView(plan), current, ...await this.readWarnings(userId, row), profileChanged: !!row && profile?.revision !== row.profileRevision,
       actualSourceChanged: await actualSourceChanged(db, userId, current?.preview.reforecast),
       updates: { assumptions: refs && assumptions && assumptions.version > refs.assumptionVersion ? { id: assumptions.id, version: assumptions.version } : null,
         policy: refs && policy && policy.version > refs.policyVersion ? { id: policy.id, version: policy.version } : null },
@@ -207,7 +215,8 @@ export class PlansService {
     return { plan, row };
   }
   async version(userId: string, planId: string, versionId: string, replay = false) {
-    const v = this.view((await this.ownedVersion(userId, planId, versionId)).row);
+    const row = (await this.ownedVersion(userId, planId, versionId)).row;
+    const v = { ...this.view(row), ...await this.readWarnings(userId, row) };
     if (!replay) return v;
     // Dispatch by immutable model code. Future model changes need a new code
     // and must preserve this implementation for old snapshots.
@@ -230,6 +239,7 @@ export class PlansService {
     if (selected && !row) throw missing();
     const version = row ? this.view(row) : null;
     return { planId, planRevision: plan.revision, currentVersionId: plan.currentVersionId, baselineVersionId: plan.baselineVersionId,
+      ...await this.readWarnings(userId, row),
       status: version ? "AVAILABLE" : "NO_APPLIED_VERSION", valueKind: version?.preview.reforecast ? "REFORECAST" : "FORECAST", version,
       actualSourceChanged: await actualSourceChanged(this.db, userId, version?.preview.reforecast),
       profileChanged: !!row && row.profileRevision !== profile?.revision,

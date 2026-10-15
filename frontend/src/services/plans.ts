@@ -20,6 +20,7 @@ export interface PlanHistoryItem {
 }
 
 export interface PlanVersion {
+  readWarnings?: import("./planningAnalysis").ReadWarning[];
   id: string;
   planId: string;
   version: number;
@@ -45,6 +46,7 @@ export interface PlanUpdateInfo {
 }
 
 export interface PlanDetail {
+  readWarnings?: import("./planningAnalysis").ReadWarning[];
   id: string;
   userId: string;
   currentVersionId: string | null;
@@ -76,6 +78,7 @@ export interface ApplyPlanInput {
 }
 
 export interface ReplayResult {
+  readWarnings?: import("./planningAnalysis").ReadWarning[];
   id: string;
   planId: string;
   version: number;
@@ -101,6 +104,7 @@ export interface PlanGoal {
 }
 
 export interface PlanReport {
+  readWarnings?: import("./planningAnalysis").ReadWarning[];
   planId: string;
   planRevision: number;
   currentVersionId: string | null;

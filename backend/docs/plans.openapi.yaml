@@ -501,6 +501,21 @@ CreateInput:
               - amountScope
           maxItems: 200
           default: &a9 []
+        advisoryFee:
+          type: object
+          additionalProperties: false
+          properties:
+            annualPercent:
+              type: string
+              pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+            paidFrom:
+              type: string
+              enum:
+                - FUND
+                - EXTERNAL
+          required:
+            - annualPercent
+            - paidFrom
       required:
         - expectedProfileRevision
         - policyVersionId
@@ -778,6 +793,21 @@ SimulationInput:
               - amountScope
           maxItems: 200
           default: *a9
+        advisoryFee:
+          type: object
+          additionalProperties: false
+          properties:
+            annualPercent:
+              type: string
+              pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+            paidFrom:
+              type: string
+              enum:
+                - FUND
+                - EXTERNAL
+          required:
+            - annualPercent
+            - paidFrom
       required:
         - expectedProfileRevision
         - policyVersionId
@@ -819,6 +849,30 @@ Version:
       oneOf:
         - $ref: ./retirement.openapi.yaml#/Preview
         - $ref: ./source-snapshot.openapi.yaml#/Preview
+    readWarnings:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          code:
+            type: string
+            enum:
+              - PLAN_HORIZON_TRUNCATED
+          message:
+            type: string
+          endMonth:
+            type: string
+          expectedEndMonth:
+            type: string
+          goalRevision:
+            type: integer
+        required:
+          - code
+          - message
+          - endMonth
+          - expectedEndMonth
+          - goalRevision
 SourcePreviewInput:
   type: object
   additionalProperties: false
@@ -10767,6 +10821,30 @@ Detail:
       type: string
       enum:
         - USER_EXPLICIT_CREATE_AND_APPLY
+    readWarnings:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          code:
+            type: string
+            enum:
+              - PLAN_HORIZON_TRUNCATED
+          message:
+            type: string
+          endMonth:
+            type: string
+          expectedEndMonth:
+            type: string
+          goalRevision:
+            type: integer
+        required:
+          - code
+          - message
+          - endMonth
+          - expectedEndMonth
+          - goalRevision
 List:
   type: object
   additionalProperties: false
@@ -10858,6 +10936,30 @@ Replay:
           type: array
           items:
             $ref: ./retirement.openapi.yaml#/Row
+    readWarnings:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          code:
+            type: string
+            enum:
+              - PLAN_HORIZON_TRUNCATED
+          message:
+            type: string
+          endMonth:
+            type: string
+          expectedEndMonth:
+            type: string
+          goalRevision:
+            type: integer
+        required:
+          - code
+          - message
+          - endMonth
+          - expectedEndMonth
+          - goalRevision
 Goal:
   type: object
   additionalProperties: false
@@ -10924,6 +11026,30 @@ Report:
           nullable: true
           enum:
             - null
+    readWarnings:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          code:
+            type: string
+            enum:
+              - PLAN_HORIZON_TRUNCATED
+          message:
+            type: string
+          endMonth:
+            type: string
+          expectedEndMonth:
+            type: string
+          goalRevision:
+            type: integer
+        required:
+          - code
+          - message
+          - endMonth
+          - expectedEndMonth
+          - goalRevision
 Delta:
   type: object
   additionalProperties: false
@@ -10972,24 +11098,24 @@ Delta:
 RetirementComparison:
   type: object
   additionalProperties: false
-  required: [status, reasons, basis, baselineMonth, candidateMonth, delta]
+  required: [ status, reasons, basis, baselineMonth, candidateMonth, delta ]
   properties:
-    status: { type: string, enum: [COMPARABLE, NOT_COMPARABLE] }
+    status: { type: string, enum: [ COMPARABLE, NOT_COMPARABLE ] }
     reasons: { type: array, items: { type: string } }
-    basis: { type: string, enum: [SAME_RETIREMENT_MONTH_NOMINAL] }
+    basis: { type: string, enum: [ SAME_RETIREMENT_MONTH_NOMINAL ] }
     baselineMonth: { type: string, nullable: true }
     candidateMonth: { type: string, nullable: true }
     delta:
       anyOf:
         - type: object
           additionalProperties: false
-          required: [projectedFund, requiredFund, fundingGap, coveragePercentagePoints]
+          required: [ projectedFund, requiredFund, fundingGap, coveragePercentagePoints ]
           properties:
             projectedFund: { type: string, nullable: true }
             requiredFund: { type: string, nullable: true }
             fundingGap: { type: string, nullable: true }
             coveragePercentagePoints: { type: string, nullable: true }
-        - { type: object, nullable: true, enum: [null] }
+        - { type: object, nullable: true, enum: [ null ] }
 ComparisonResult:
   type: object
   additionalProperties: false

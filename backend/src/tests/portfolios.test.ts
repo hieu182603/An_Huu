@@ -7,10 +7,10 @@ import { AuthService } from "../modules/auth/service";
 import { ProfileService } from "../modules/profiles/service";
 import { AssumptionsService } from "../modules/assumptions/service";
 import { PortfoliosService } from "../modules/portfolios/service";
-import { assessPortfolio, previewPortfolio, validatePortfolioPolicy } from "../modules/portfolios/engine";
+import { assessPortfolio, glideTargets, glideYears, previewPortfolio, validatePortfolioPolicy } from "../modules/portfolios/engine";
 import { portfolioDocumentSchema, portfolioPreviewSchema } from "../modules/portfolios/schema";
 import { AssumptionDecimal as D } from "../modules/assumptions/series";
-import { portfolioAssumptionsFixture, portfolioFixture, portfolioCommand } from "./portfolio-fixtures";
+import { glidePortfolioFixture, portfolioAssumptionsFixture, portfolioFixture, portfolioCommand } from "./portfolio-fixtures";
 import { memoryDb } from "./memory-db";
 import { config, token } from "./helpers";
 const now = () => new Date("2026-10-04T12:00:00Z");
@@ -108,6 +108,51 @@ describe("T04 multi-factor policy and scenarios", () => {
     const assumptions = portfolioAssumptionsFixture(); assumptions.assetClasses[0].horizons[0].maxMonths = 12;
     expect(validatePortfolioPolicy(portfolioFixture(), assumptions).issues.map(i => i.code)).toContain("ASSET_HORIZON_NOT_COVERED");
     expect(portfolioPreviewSchema.safeParse({ ...portfolioCommand(), startMonth: "2199-12" }).success).toBe(false);
+  });
+});
+
+describe("Schema v2 glide path anchored on the retirement month", () => {
+  const assumptions = portfolioAssumptionsFixture();
+  const stockOf = (row: { holdings: Array<{ assetClass: string; startWeightPercent: string }> }) => row.holdings.find(h => h.assetClass === "STOCK")!.startWeightPercent;
+  it("validates glide points and covers horizons beyond any indexed schedule", () => {
+    expect(validatePortfolioPolicy(glidePortfolioFixture(), assumptions)).toEqual({ status: "VALID", issues: [] });
+    const noZero = glidePortfolioFixture(); noZero.templates[0].glidePath.points.pop();
+    expect(validatePortfolioPolicy(noZero, assumptions).issues).toContainEqual({ path: "templates.0.glidePath", code: "ZERO_YEAR_POINT_REQUIRED" });
+    const duplicate = glidePortfolioFixture(); duplicate.templates[0].glidePath.points.push(duplicate.templates[0].glidePath.points[0]);
+    expect(validatePortfolioPolicy(duplicate, assumptions).issues.map(i => i.code)).toContain("DUPLICATE_ENTRY");
+    const uneven = glidePortfolioFixture(); uneven.templates[1].glidePath.points[1].allocations[0].weightPercent = "49";
+    expect(validatePortfolioPolicy(uneven, assumptions).issues.map(i => i.code)).toContain("WEIGHTS_MUST_SUM_100");
+  });
+  it("interpolates whole years linearly and holds the end points", () => {
+    const template = glidePortfolioFixture().templates[1];
+    const percent = (years: number) => Object.fromEntries([...glideTargets(template, years, ["BOND", "STOCK"])].map(([k, v]) => [k, v.mul(100).toFixed()]));
+    expect(percent(7)).toEqual({ BOND: "38", STOCK: "62" });
+    expect(percent(1)).toEqual({ BOND: "90", STOCK: "10" });
+    expect(percent(0)).toEqual({ BOND: "100", STOCK: "0" });
+    expect(glideYears(template, "2026-10", "2046-10")).toBe(10);
+    expect(glideYears(template, "2026-10", "2027-09")).toBe(0);
+    expect(glideYears(template, "2030-01", "2027-09")).toBe(0);
+  });
+  it("requires the retirement month instead of guessing an age-based default", () => {
+    const result = previewPortfolio(glidePortfolioFixture(), assumptions, portfolioCommand());
+    expect(result).toMatchObject({ status: "INCOMPLETE", issues: [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }], scenarios: [] });
+  });
+  it("rebalances exactly when the whole-year position changes, charging turnover", () => {
+    const policy = glidePortfolioFixture(); policy.templates[1].rebalance.turnoverCostPercent = "1";
+    const result = previewPortfolio(policy, assumptions, { ...portfolioCommand(), horizonMonths: 3, retirementMonth: "2027-10" });
+    expect(result.status).toBe("READY");
+    const rows = result.scenarios.find(s => s.kind === "BASE")!.rows;
+    expect(rows[0]).toMatchObject({ rebalanced: true, turnoverFraction: "0" });
+    expect(stockOf(rows[0])).toBe("10");
+    expect(rows[1].rebalanced).toBe(true);
+    expect(stockOf(rows[1])).toBe("0");
+    expect(new D(rows[1].rebalanceCostFraction).eq(new D(rows[1].turnoverFraction).div(100))).toBe(true);
+    expect(rows[2].rebalanced).toBe(false);
+  });
+  it("leaves schema v1 results unchanged when a retirement month is supplied", () => {
+    const command = { ...portfolioCommand(), horizonMonths: 6 };
+    expect(previewPortfolio(portfolioFixture(), assumptions, { ...command, retirementMonth: "2027-01" }))
+      .toEqual(previewPortfolio(portfolioFixture(), assumptions, command));
   });
 });
 

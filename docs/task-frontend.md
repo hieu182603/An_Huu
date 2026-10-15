@@ -698,3 +698,291 @@ Backend đã sửa phần của mình (xem `backend/PROGRESS.md`, mục PERF 14/
 Nghiệm thu: đo bằng DevTools Network trên bản deploy (Vercel) cho luồng đăng nhập → dashboard → `/user/plan` → `/user/simulation`: số request API trùng lặp, tổng KB tải đầu, thời gian tới khi bảng kế hoạch hiển thị; ghi số trước/sau. Đọc thêm cột `Server-Timing` (tab Timing) để tách thời gian backend khỏi mạng.
 
 **Trạng thái mục 16 (14/10/2026):** đã thực hiện cả 12 việc theo yêu cầu trực tiếp của người dùng; chi tiết, số liệu trước/sau và các test Playwright lỗi thời có sẵn ở [FRONTEND_PERF_2026-10-14.md](FRONTEND_PERF_2026-10-14.md). Mục 8 mới xóa CSS chết (đã so pixel), chưa tách CSS theo trang.
+
+
+## 17. Chính sách danh mục schemaVersion 2 (lộ trình theo năm tới nghỉ hưu) — bàn giao 15/10/2026
+
+Backend đã thêm `schemaVersion: 2` cho chính sách danh mục (xem `backend/PROGRESS.md` mục ALLOCATION V3/V4 và `docs/BAN_NHAP_GIA_DINH_V3_CHINH_SACH_V4_2026-10-15.md`). Bản v4 đang là **bản nháp, chưa công bố**. **Không được công bố v4 trước khi mục 1–2 dưới đây lên production**, nếu không trang Danh mục sẽ lỗi.
+
+Khác biệt hợp đồng: template v2 **không có** `coverageMonths` và `schedule`; thay vào đó là
+`glidePath: { anchor: "RETIREMENT_MONTH", interpolation: "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR", afterAnchor: "HOLD_ZERO_YEAR_POINT", points: [{ yearsToAnchor, allocations: [{ assetClass, weightPercent }] }] }`.
+Tỷ trọng tại một tháng = nội suy tuyến tính theo số năm nguyên còn lại tới tháng nghỉ hưu (`floor(tháng còn lại / 12)`, chặn trong [0, điểm lớn nhất]); khi còn dưới 12 tháng (11 tháng trở xuống) và sau khi nghỉ hưu thì dùng điểm 0; còn đúng 12 tháng vẫn là bậc 1 năm. Mã nhóm tài sản mới: `CASH`, `GOV_BOND`, `EQUITY`, `GOLD` (nhãn lấy từ bộ giả định, không gắn cứng).
+
+1. **`pages/RiskPortfolioPage.tsx` ~454 đọc `selectedTemplate.schedule.length`** → crash với template v2. Phân nhánh theo `"glidePath" in template`: v1 giữ hiển thị cũ; v2 hiển thị bảng/biểu đồ "Số năm tới nghỉ hưu → tỷ trọng" từ `points` và đánh dấu vị trí hiện tại theo `desiredRetirementMonth` của hồ sơ v2 (hoặc `whatIf.retirementMonth` nếu đang mô phỏng).
+2. **`services/portfolios.ts`**: `PortfolioPolicyDocument.schemaVersion` thành `1 | 2`, `PortfolioTemplate` thành union (v1 `coverageMonths`/`schedule` | v2 `glidePath`); `PortfolioPreviewCommand` thêm `retirementMonth?: string` (YYYY-MM).
+3. **Preview độc lập `POST /me/portfolio-policies/preview`** với chính sách v2 bắt buộc gửi `retirementMonth`; thiếu thì trả `INCOMPLETE` với issue `{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }` và guidance tiếng Việt. `POST /me/retirement/preview` tự lấy tháng nghỉ hưu từ hồ sơ, không cần đổi payload.
+4. Trang admin nếu có form sửa chính sách: không giả định mọi template có `schedule`.
+
+Nghiệm thu: với chính sách v2 (dùng bản nháp `backend/seed-data/allocation-2026-10/draft-policy-v4.json` trên môi trường thử), trang Danh mục không lỗi console, hiển thị lộ trình 15→0 năm và vị trí hiện tại; preview độc lập trả `READY` khi có `retirementMonth`; với chính sách v1 hiện tại giao diện không đổi.
+
+
+## 18. Luồng câu hỏi dẫn dắt và trình bày kết quả theo tài liệu thuật toán — bàn giao 15/10/2026
+
+Nguồn: `docs/BAO_CAO_THUAT_TOAN_PHAN_BO_VA_DEMO_2026-10-15.md` (mục 1 phân tích demo, mục 5 FE-1 → FE-6). Mục này **chỉ gồm phần làm được với API hiện có**. Các câu hỏi cần backend mới (mức lỗ chịu được bằng tiền, độ ổn định thu nhập, tiền cần trong 1/3/5 năm, danh sách mục tiêu có hạn và ưu tiên) **chưa có chỗ lưu**: không thêm vào UI, không lưu vào localStorage hay trường tự đặt để "giả" lưu; backend sẽ bàn giao hợp đồng ở mục sau (P1-1/P1-2/P1-3).
+
+1. **Thứ tự onboarding theo hướng "mong muốn trước, dữ liệu sau" (FE-1/FE-2).** `pages/OnboardingPage.tsx` hiện: Cá nhân → Thu nhập → Chi tiêu → Tài sản → Nợ → BHXH → Tổng kết. Đổi trình tự và cách hỏi, chỉ dùng các trường đã có trong hồ sơ: (a) mức chi mong muốn khi nghỉ hưu **theo giá hôm nay** (mục tiêu `monthlyExpense`/`monthlyExpenseInRetirement`), có chip gợi ý; (b) tuổi hiện tại/tháng sinh và tuổi/tháng muốn nghỉ hưu; (c) thu nhập và chi tiêu; (d) tài sản (ghi rõ không tính nhà đang ở); (e) khoản góp mỗi tháng, hiển thị ngay "phần còn dư = thu − chi" và cảnh báo khi khoản góp vượt phần dư; (f) nợ; (g) BHXH/lương hưu, cho phép "chưa biết, bổ sung sau". Giới tính và tình trạng hôn nhân đưa xuống sau hoặc chỉ hỏi khi bước BHXH cần. Mỗi màn một câu chính, có giá trị mặc định hợp lý và câu giải thích ngắn. Giữ nguyên việc lưu nháp và hợp đồng API; không đổi cách lưu `schemaVersion`.
+2. **Màn "Mức sống hôm nay, sức mua ngày mai" (FE-3).** Sau bước tuổi nghỉ hưu, hiển thị `chi hôm nay × (1 + lạm phát)^số năm = chi tại tuổi nghỉ hưu` với lạm phát lấy từ bộ giả định đang công bố (`GET /me/assumptions/:id`, chuỗi `inflation` theo năm: nhân lũy kế từng năm, không tự đặt 4%). Có khối "Vì sao An Hưu dùng con số này?" nêu nguồn (`sources`) của bộ giả định.
+3. **Ba thẻ so sánh kịch bản ở trang kế hoạch (FE-4).** "Giữ kế hoạch đã khai", "Nghỉ muộn hơn 5 năm" (`whatIf.retirementMonth` + 60 tháng, không vượt `endMonth`), "Chi ít hơn 15%" (`monthlyExpenseToday` × 0,85). Gọi `POST /me/retirement/preview` cho từng thẻ (debounce, hủy request cũ), hiển thị quỹ cần, quỹ dự kiến và khoản góp cần (`summary.atRetirement`, `requiredConstantMonthlyContribution`). Chỉ là xem trước, không lưu phiên bản.
+4. **Trang danh mục (FE-5).** Với mỗi nhóm tài sản hiển thị **vai trò** (tiền gửi = giữ chủ động/khoản sắp cần; TPCP = gắn kỳ hạn với nhu cầu tiền; cổ phiếu = tăng trưởng dài hạn; vàng = đa dạng hóa) thay vì chỉ mã. Không tự tính "mức lỗ khi có cú sốc" ở frontend; backend sẽ trả số này sau (P1-6).
+5. **Không hiển thị sản phẩm cụ thể như khuyến nghị (FE-6).** Rà các trang người dùng (`ExplorePage`, trang danh mục, AI): sản phẩm đối tác chỉ hiện khi API trả `isVisible`, luôn kèm nhãn thông tin tham khảo/không phải khuyến nghị; không xếp hạng hay gợi ý sản phẩm theo hồ sơ người dùng.
+
+Nghiệm thu: `npm run typecheck`, `npm run test:assets`, `npm run build` đều qua; Playwright (mock API như `tests/portfolio-policy-v2.spec.ts`) cho onboarding mới, màn sức mua và 3 thẻ kịch bản; giao diện vẫn đúng với chính sách v1 đang công bố. Liệt kê rõ những câu hỏi đã bỏ lại vì thiếu backend.
+
+## 19. P1-1 / P1-2 / P1-3: hồ sơ ràng buộc, mục tiêu và thông tin tách vốn — bàn giao 15/10/2026
+
+Backend đã hỗ trợ các câu hỏi còn thiếu được ghi trong `frontend/GUIDED_PLANNING.md`. Phần này thay ghi chú “chưa có chỗ lưu” tại mục 18; chưa sửa hoặc nghiệm thu frontend. Không cần migration (profile JSONB). Các trường mới đều **tùy chọn**, không gán mặc định khi đọc hồ sơ cũ. Khảo sát và engine hưu trí hiện tại giữ nguyên; các ràng buộc mới chưa dùng để áp trần cổ phiếu/cú sốc (P1-6).
+
+**Lưu và đọc:** tiếp tục API hồ sơ v2 hiện tại: `GET/PATCH /api/v1/me/financial-profile`, `GET/PUT /api/v1/me/onboarding-draft`, `POST /api/v1/me/onboarding/complete`. PATCH dùng `{ expectedRevision, changes: { schemaVersion: 2, ... } }`; nháp dùng `{ expectedRevision, step, data: { schemaVersion: 2, ... } }`. Giữ các giá trị `step` hiện có, ví dụ `investment` cho rủi ro/mục tiêu, không tự gửi step mới. Xử lý conflict 409 bằng tải lại/đối chiếu, không ghi đè. Gửi toàn bộ nhóm `lossTolerance`, `liquidityNeeds` hoặc danh sách `goals` khi sửa nhóm đó: merge hiện tại thay thế nhóm, chỉ `personal` được merge từng khóa. Bỏ trường trong PATCH nghĩa là giữ dữ liệu cũ; muốn xóa câu trả lời dùng `UNKNOWN`.
+
+Quy ước `K<T> = { status: "KNOWN", value: T } | { status: "UNKNOWN" }`. Không gửi value kèm UNKNOWN, không gửi null/chuỗi rỗng thay cho UNKNOWN. Mọi object strict; số tiền/tỷ lệ là **decimal string**, không phải JSON number.
+
+| Trường mới tại gốc profile v2 | Kiểu / validation | Ý nghĩa hiển thị |
+|---|---|---|
+| `lossTolerance.amountVnd?` | `K<money>` | Mức lỗ tối đa chịu được, VND ≥ 0 |
+| `lossTolerance.percent?` | `K<percent>`; 0–100, tối đa 10 chữ số lẻ | `"20"` nghĩa là 20%, **khác** asset share `"0.2"` |
+| `lossTolerance.reaction?` | `K<SELL / HOLD / BUY_MORE>` | Khi tài sản giảm: bán / giữ / mua thêm |
+| `incomeStability?` | `K<STABLE / VARIABLE / UNCERTAIN>` | Ổn định / biến động / có thể gián đoạn; lần lượt dự phòng 6/9/12 tháng |
+| `employerConcentration?` | `K<LOW / MEDIUM / HIGH>` | Mức phụ thuộc vào cùng ngành/nơi làm việc do người dùng tự đánh giá. Chưa có ngưỡng % hay phép chấm điểm suy ra tự động |
+| `liquidityNeeds.y1?`, `.y3?`, `.y5?` | `K<money>` | Tổng tiền chắc chắn cần **lũy kế** trong 1/3/5 năm, theo giá hôm nay. Các mốc KNOWN phải không giảm: y1 ≤ y3 ≤ y5; so cả y1/y5 nếu y3 chưa biết |
+| `goals?` | `{status:"KNOWN",entries:Goal[]}` / `{status:"UNKNOWN"}` / `{status:"NOT_APPLICABLE",reason:string}` | `KNOWN` + `[]` xác nhận không có mục tiêu; thiếu/UNKNOWN nghĩa là chưa biết |
+
+Hai nhóm `lossTolerance?`, `liquidityNeeds?` cũng tùy chọn, các khóa con tùy chọn. Money dùng validation sẵn có: không âm, không ký hiệu khoa học, tối đa 16 chữ số nguyên và 2 chữ số thập phân. Không tự gán 0 khi người dùng bỏ qua.
+
+Mỗi Goal khi hoàn tất hồ sơ có các trường sau (tối đa 200 mục tiêu):
+
+| Trường | Kiểu / validation |
+|---|---|
+| `id` | Chuỗi ổn định 1–100 ký tự `[a-zA-Z0-9_-]+`, không trùng trong goals |
+| `label` | Chuỗi có nội dung 1–120 ký tự |
+| `amountToday` | `K<money>`; VND theo giá tại tháng định giá hồ sơ |
+| `dueMonth` | `K<YYYY-MM>`; 1900–2199, không trước tháng định giá, được bằng tháng định giá |
+| `inflation?` | `K<decimal string>`; > −100% và ≤ 100%, tối đa 10 số lẻ. **Bỏ trường** để dùng chuỗi CPI của bộ giả định đã ghim; explicit UNKNOWN yêu cầu bổ sung, không tự thay bằng CPI |
+| `priority` | `K<ESSENTIAL / FLEXIBLE / LEGACY>`; thiết yếu / linh hoạt / để lại |
+| `deferrable` | `K<boolean>`; có thể hoãn hay không |
+
+Nháp cho phép từng Goal chỉ có `id`; khi complete phải có các trường bắt buộc, nhưng có thể trả UNKNOWN cho câu chưa biết. Lạm phát riêng là ngoại lệ được cho phép **chỉ trong mục tiêu**, không phải override CPI/lợi suất của engine hoặc preview. Priority/deferrable được lưu để dùng tiếp; hiện mọi mục tiêu ≤60 tháng đều giữ vốn, không tự bỏ/hoãn mục tiêu FLEXIBLE/LEGACY.
+
+Ví dụ phần bổ sung vào `changes` hoặc `data`:
+
+```json
+{
+  "schemaVersion": 2,
+  "lossTolerance": {
+    "amountVnd": { "status": "KNOWN", "value": "100000000" },
+    "percent": { "status": "KNOWN", "value": "20" },
+    "reaction": { "status": "KNOWN", "value": "HOLD" }
+  },
+  "incomeStability": { "status": "KNOWN", "value": "VARIABLE" },
+  "employerConcentration": { "status": "UNKNOWN" },
+  "liquidityNeeds": {
+    "y1": { "status": "KNOWN", "value": "0" },
+    "y3": { "status": "KNOWN", "value": "300000000" },
+    "y5": { "status": "KNOWN", "value": "300000000" }
+  },
+  "goals": { "status": "KNOWN", "entries": [{
+    "id": "tuition", "label": "Học phí", "amountToday": { "status": "KNOWN", "value": "300000000" },
+    "dueMonth": { "status": "KNOWN", "value": "2029-10" },
+    "priority": { "status": "KNOWN", "value": "ESSENTIAL" },
+    "deferrable": { "status": "KNOWN", "value": false }
+  }] }
+}
+```
+
+**Hiển thị tách vốn:** `POST /api/v1/me/retirement/preview` giữ nguyên request và thêm `data.capitalSeparation`, ngang hàng với `calculation`. Trường này **không có trên kết quả kế hoạch đã lưu/replay**; frontend phải kiểm tra tồn tại. Không gửi nó ngược vào lệnh save. `inputHash` preview vẫn dùng nguyên cơ chế cũ; phần bổ sung không được ghi vào snapshot, không đổi `calculation`, `replayInput` hoặc `initialRetirementCapital`.
+
+| Trường kết quả | Cách hiển thị |
+|---|---|
+| `status: READY / INCOMPLETE`, `issues`, `warnings` | Trạng thái riêng của tách vốn; INCOMPLETE không tự làm preview hưu trí INCOMPLETE. Hiển thị yêu cầu bổ sung theo path; null = chưa tính được, không đổi thành 0 |
+| `informationalOnly: true`, `assumptionBasis: PINNED_BASE`, `valuationMonth`, `currency: VND` | Nhãn “Thông tin tách vốn — chưa áp dụng vào quỹ hưu trí đang tính”. Dùng giả định cơ sở đã ghim trong `data.references`, độc lập kịch bản BASE/ADVERSE/FAVORABLE |
+| `essentialMonthlyExpense`, `reserveMonths`, `requiredEmergencyReserve` | Chi ESSENTIAL đang hiệu lực tại tháng định giá × 6/9/12. Bao gồm khoản ONCE đúng tháng đó theo quy ước cashflow hiện có; không dùng tỷ lệ 70%, không cộng HEALTH/OPTIONAL nếu chúng không được khai ESSENTIAL |
+| `declaredEmergencyReserve`, `emergencyShortfall` | Tổng tài sản LIQUID có sẵn × ownershipShare × emergencyShare; thiếu = max(0, dự phòng cần − đã khai). Chỉ tài sản VND đúng ngày định giá, loại nhà/BĐS/LOCKED/ILLIQUID/tài sản tương lai như summary hiện tại |
+| `retirementLiquidAssets` | Chỉ phần retirementShare, cùng cơ sở như `profile.summary.values.retirementLiquidAssets`; giữ để tham chiếu engine hưu trí hiện tại, không dùng làm cơ sở trừ dự phòng/mục tiêu lần nữa. Khi what-if giá tài sản, dùng giá giả định của preview |
+| `declaredOtherGoalsCapital` | Tổng tài sản LIQUID có sẵn × ownershipShare × otherGoalsShare, cùng quy tắc loại trừ và định giá với hai phần còn lại; null nếu thiếu dữ liệu cần tính |
+| `investableLiquidAssets` | Tổng `retirementLiquidAssets + declaredEmergencyReserve + declaredOtherGoalsCapital`: toàn bộ vốn đầu tư thanh khoản thuộc cả ba phần đã khai, tính phần sở hữu đúng một lần. Bất kỳ phần cần tính nào null thì tổng này và growthCapital null, có issue; không suy phần chưa biết từ hai tỷ lệ còn lại |
+| `nearTermGoalsPresentValue` | Tổng PV các mục tiêu 0–60 tháng, gồm mục tiêu sau tháng nghỉ hưu nếu vẫn trong 60 tháng; mục tiêu tháng hiện tại PV = amountToday |
+| `growthCapital` | **investableLiquidAssets − requiredEmergencyReserve − nearTermGoalsPresentValue**. Trừ mỗi nhu cầu bảo vệ đúng một lần từ tổng vốn đầu tư, không trừ lần nữa từ phần retirementShare vốn đã loại dự phòng/mục tiêu. Giữ số âm để thấy thiếu vốn; không đổi số vốn đầu vào của engine hưu trí |
+| `goals[]` | `id`, `dueMonth`, `monthsUntilDue`, `treatment: RESERVED/LONG_TERM`, `futureAmount`, `presentValue`, `inflationBasis`, `inflationSourceIds`, `depositSourceIds`. LONG_TERM (>60 tháng) không tính FV/PV trong lớp này, các số đó null |
+
+PV dùng đúng số tháng giữa tháng định giá và tháng cần tiền (không làm tròn năm): nhân `(1+g_năm)^(số_tháng_trong_năm/12)` và chia hệ số tiền gửi tương ứng, từ tháng định giá **đến trước** tháng cần tiền. Tiền gửi là nhóm `CASH` trong bộ giả định đã ghim, chọn duy nhất horizon bao phủ thời hạn mục tiêu, chuẩn hóa danh nghĩa/thực, ghép lãi, phí và thuế bằng helper hiện có. CPI chuyển lợi suất REAL luôn là CPI thị trường, không dùng lạm phát riêng của mục tiêu. Không extrapolate năm hay lấy “lãi suất hiện tại” ngoài bộ đã ghim. Chỉ làm tròn khi trình bày; API giữ Decimal precision 48, không làm tròn trung gian.
+
+Thông điệp cần có cho frontend:
+
+- `INCOME_STABILITY_REQUIRED`, `GOALS_REQUIRED`, `GOAL_AMOUNT_REQUIRED`, `GOAL_DUE_MONTH_REQUIRED`, `GOAL_INFLATION_REQUIRED`: hỏi đúng câu còn thiếu. Hồ sơ cũ vẫn dùng được cho engine hưu trí.
+- `UNKNOWN_VALUE`, `VALUATION_DATE_REQUIRED`, `FX_RULE_REQUIRED`: dữ liệu tiền/định giá chưa đủ, không ước lượng thay.
+- `DEPOSIT_HORIZON_NOT_COVERED`, `GOAL_ASSUMPTIONS_NOT_COVERED`, `DEPOSIT_NET_RETURN_REQUIRED`: cấu hình đã ghim thiếu nhóm/kỳ hạn/năm hoặc phí thuế; hiển thị chưa đủ cấu hình, không cho người dùng tự nhập lãi tiền gửi để né lỗi.
+- `EMERGENCY_RESERVE_SHORTFALL`: hiển thị phần dự phòng cần bổ sung.
+- `OTHER_GOALS_CAPITAL_SHORTFALL`: `declaredOtherGoalsCapital < nearTermGoalsPresentValue`; hiển thị vốn dành cho mục tiêu khác đã khai chưa đủ PV mục tiêu gần hạn. So sánh số chưa làm tròn; nếu một bên null thì không kết luận thiếu hoặc đủ.
+- `PROTECTED_CAPITAL_EXCEEDS_RETIREMENT_ASSETS`: vốn tăng trưởng âm, tổng vốn đầu tư thanh khoản không đủ dự phòng và PV mục tiêu; giữ mã cảnh báo cũ để tương thích. Không hiện biểu đồ phân bổ với tỷ trọng từ số âm.
+- `LIQUIDITY_NEEDS_REQUIRE_GOAL_RECONCILIATION`: tiền chắc chắn cần 1/3/5 năm chỉ là khai báo ràng buộc, **không tự cộng thêm vào PV goals** vì có thể trùng mục tiêu. Hướng dẫn nhập/đối chiếu danh sách mục tiêu tương ứng. Không tuyên bố mọi nhu cầu thanh khoản đã được bảo đảm chỉ vì `status=READY`.
+
+**Bốn câu hỏi onboarding cần bổ sung** (thay danh sách đang để lại trong GUIDED_PLANNING):
+
+1. “Bạn chịu được mất tối đa bao nhiêu tiền?” → amountVnd; hỏi thêm %/phản ứng khi giảm và mức tập trung ngành/nơi làm việc trong cùng bước rủi ro. Không suy câu trả lời từ riskLevel cũ.
+2. “Thu nhập của bạn ổn định đến mức nào?” → incomeStability, giải thích số tháng dự phòng tương ứng. Không chọn sẵn STABLE.
+3. “Trong 1/3/5 năm tới, bạn chắc chắn cần bao nhiêu tiền?” → liquidityNeeds, giải thích lũy kế và cảnh báo dữ liệu mâu thuẫn.
+4. “Bạn còn mục tiêu nào cần tiền vào một tháng cụ thể?” → goals; hỏi tiền theo giá hôm nay, tháng, ưu tiên, có thể hoãn; lạm phát riêng tùy chọn, mặc định UI là “Dùng bộ giả định”, tức **không gửi inflation**. Phải có lựa chọn “không có mục tiêu khác” khác với “chưa biết”.
+
+Nghiệm thu frontend tiếp theo: round-trip nháp/complete/PATCH/GET cả UNKNOWN và số 0; hồ sơ cũ không tự thêm dữ liệu; phần tách vốn READY/INCOMPLETE/âm/cảnh báo thiếu dự phòng; 60/61 tháng; không lỗi khi kế hoạch đã lưu thiếu capitalSeparation; các bảng/biểu đồ quỹ cũ không bị thay bằng growthCapital; không gọi DB/script seed để tạo demo. Golden backend tham số 2 tỷ, chi 25 triệu, VARIABLE, mục tiêu 300 triệu sau 36 tháng, CPI 4%, tiền gửi 4,5%: dự phòng 225 triệu; FV 337,46 triệu; PV 295,71 triệu; vốn tăng trưởng 1.479,29 triệu. Các mức lãi này là fixture kiểm thử, không phải mặc định production. OpenAPI: `backend/docs/profile-v2.openapi.yaml`, `backend/docs/retirement.openapi.yaml`.
+
+**Sửa theo review 16/10/2026:** công thức dùng retirementLiquidAssets ở bản bàn giao đầu đã trừ hai lần phần vốn bảo vệ người dùng khai; dùng investableLiquidAssets theo bảng trên. Golden thứ hai chia 2 tỷ thành ba tài sản: 225 triệu emergencyShare=1, 295,71 triệu otherGoalsShare=1, 1.479,29 triệu retirementShare=1; tổng vốn đầu tư vẫn 2 tỷ và growthCapital vẫn **1.479,29 triệu** sau làm tròn, bằng trường hợp khai toàn bộ vào retirementShare. Chuyển phần khai giữa ba mục đích không đổi growthCapital nếu tổng vốn đầu tư/sở hữu/thanh khoản không đổi. Khai 295,71 triệu cho mục tiêu vẫn có thể thiếu một khoản nhỏ so với PV chính xác, vì vậy frontend không làm tròn trước khi quyết định cảnh báo. Thiếu bất kỳ phần vốn cần tính → null/issue, không hiển thị tổng vốn từng phần như tổng đầy đủ.
+
+## 20. BACKEND đợt A — ràng buộc lỗ, thiết yếu, điều chỉnh, phí và cảnh báo (16/10/2026)
+
+Phạm vi: P1-4/P1-6→P1-10/P0-4/P0-5. Đây là hợp đồng backend; chưa sửa hoặc nghiệm thu frontend. P1-1→P1-3 ở mục 19 giữ nguyên. Không gọi DB/seed hoặc tự công bố cấu hình để tích hợp UI.
+
+### 20.1 Hồ sơ GOLD/BOND
+
+- `assetEntry.type` thêm `GOLD`, `BOND` cho cả hồ sơ đầy đủ và nháp.
+- `costBasis?: {status: "KNOWN", value: "80000000"} | {status: "UNKNOWN"}` cùng đơn vị/currency với tài sản. Đây là thông tin giá vốn, không thay `value`, không suy thuế/lợi nhuận.
+- Không gửi mặc định vào hồ sơ cũ. GOLD/BOND dùng đúng quy tắc STOCK_FUND: nhân ownershipShare/retirementShare, kiểm currency/valuedOn; LIQUID có thể vào vốn, LOCKED/ILLIQUID bị loại; availableFromMonth tương lai là vốn chờ khả dụng, không vừa vốn đầu kỳ vừa injection. Các luồng nguồn/reconcile actuals dùng cùng quy tắc.
+
+### 20.2 Các trường mới chỉ bổ sung vào POST /me/retirement/preview
+
+Không thay `status` READY/INCOMPLETE cấp ngoài, `inputHash`, `replayInput` hay số tiền hiện có khi không gửi phí. READY nghĩa là tính được, không có nghĩa mọi ràng buộc đều đạt. Kế hoạch đã lưu/replay có thể không có các trường bổ sung dưới đây; UI phải hỗ trợ thiếu trường.
+
+**`lossConstraint`**:
+
+- `informationalOnly: true`; `status`: WITHIN_LIMIT / REDUCE_RISK / NOT_FEASIBLE / REVIEW_REQUIRED; `message` tiếng Việt và `issues[]`.
+- `growthCapital`, `lossAmount`, `allowedLossAmount`, `lossPercentOfGrowth`, `lossPercentOfInvestableAssets`, `exceedsTolerance`. Các số là chuỗi thập phân chưa làm tròn; dữ liệu thiếu là null, không phải 0.
+- Cú sốc tức thì ở tháng định giá dùng `calculation.marketRows[0].holdings[].startWeightPercent` của danh mục được chọn, trên growthCapital. Không dùng tổng tài sản hoặc retirementLiquidAssets làm mẫu số ràng buộc. `allowedLossAmount = min(percent / 100 × growthCapital, amountVnd)`.
+- Tỷ lệ sốc và vai trò tài sản lấy từ **chính sách đã duyệt/công bố**, optional `schemaVersion: 2.lossStress = {evidence, equityAssetClass, depositAssetClass, shocks: [{assetClass, percent}]}`. Percent cú sốc thuộc [-100,0], đơn vị điểm phần trăm. Cấu hình thiếu/không phủ đủ tài sản → REVIEW_REQUIRED; không có tỷ lệ dự phòng trong code. Schema 1 cũ không tự thêm trường.
+- `maxEquityWeightPercent` là mức cổ phiếu tối đa **trong phạm vi chỉ giảm từ tỷ trọng hiện tại**, giữ trái phiếu/vàng và chuyển phần giảm sang tiền gửi; `proposedAllocations`, `proposedLossAmount` là minh họa, không tự áp dụng/lưu. Nếu chuyển hết cổ phiếu vẫn vượt: NOT_FEASIBLE, trần khả thi null, phương án trả về thể hiện cổ phiếu bằng 0 nhưng vẫn không đạt.
+- Thiếu tolerance vẫn có thể tính số tiền sốc nếu đủ capital/policy; `exceedsTolerance = null`. Vốn âm/thiếu → REVIEW_REQUIRED.
+- Nháp v4 đã thêm CASH 0%, GOV_BOND -5%, EQUITY -35%, GOLD -10% từ tài liệu khách. **Chưa duyệt/công bố trong DB**. Giữ assumptionVersionId `d9b30f3b-8a8a-443c-9294-c4e88a26adb6`; assumptions v3 không đổi byte. Không diễn giải preview với chính sách v2 cũ thiếu lossStress thành đã vượt qua ràng buộc lỗ.
+
+**Thiếu hụt thiết yếu**:
+
+- `calculation.summary.essentialShortfall`, `firstEssentialShortfallMonth`; mỗi `calculation.rows[]` thêm `essentialShortfall`, `otherShortfall`.
+- `essentialCoverage = {basis: "ESSENTIAL_FIRST_CLASSIFICATION_ONLY", essentialShortfall, firstEssentialShortfallMonth, rows: [{month, essentialExpense, essentialShortfall, otherShortfall}]}` cho biết cơ sở phân loại.
+- Trước hưu: chi ESSENTIAL đang hiệu lực. Sau hưu: toàn bộ `livingExpense` (chi hưu đã theo CPI) + ESSENTIAL trong `retirementAdditionalExpenseIds` đã chọn. Không tự cộng các chi chưa chọn sau hưu vào mô phỏng.
+- Đo bằng sổ quỹ thực có, ưu tiên phân loại nguồn còn lại cho thiết yếu; không lấy số dư âm giả định làm khoản vay, không đếm thiếu hụt tháng trước lần nữa. Đây là phân loại kết quả, không sửa thứ tự giao dịch của engine.
+- `essentialShortfall + otherShortfall = unfundedWithdrawal` từng tháng. `otherShortfall` gồm toàn bộ phần chi ngoài ESSENTIAL (có thể gồm nợ, phí, y tế chưa được phân loại ESSENTIAL); nhãn UI nên là **“Thiếu hụt chi khác”**, không gọi toàn bộ là chi có thể bỏ. Chi thiết yếu chưa đủ dữ liệu → null.
+
+**`adjustmentOptions`**:
+
+- Có đủ ba hướng: `requiredMonthlyContribution` + `contributionWithinCapacity`; `earliestFeasibleRetirementMonth`; `maximumFeasibleMonthlyExpenseToday`.
+- Thêm `retirementSearchStatus`, `expenseSearchStatus` (NOT_NEEDED / FOUND / NOT_FEASIBLE / REVIEW_REQUIRED), `feasibleRetirementCandidate`, `endMonth`, `evaluations`, `issues`; status chung READY / NOT_NEEDED / NOT_FEASIBLE / REVIEW_REQUIRED.
+- Điều kiện đạt: không thiếu rút quỹ, không thiếu mục tiêu cuối kỳ và không thiếu ngân sách góp đã khai. Kết quả xác định, không phải xác suất thành công.
+- Tìm tháng từ tháng hưu đang chọn đến endMonth, dùng what-if trên cùng engine và chính sách, không kéo dài endMonth, không kéo dài hợp đồng lương/pension/lịch góp. Chia đôi tìm ứng viên, kiểm tra các tháng sớm hơn để không giả định quan hệ đơn điệu khi lộ trình/dòng tiền thay đổi. Tối đa **64 phép tính tháng ứng viên**; chưa chứng minh được sớm nhất hoặc có tháng thiếu dữ liệu → REVIEW_REQUIRED, earliest null. `feasibleRetirementCandidate` chỉ là ứng viên đã kiểm chứng, **không gắn nhãn “sớm nhất”**.
+- Chi hưu: chia đôi trong [0, mức chi đang không đạt], tối đa 64 vòng, giữ cận dưới khả thi đến 0,01 VND theo độ chính xác input. Zero cũng không đạt → NOT_FEASIBLE/null. Không nâng lợi suất, không suy thêm thu nhập. Không tự bỏ lịch góp có ngày cố định để làm phương án hợp lệ.
+- Đây là các hướng sửa độc lập, chưa phải phép tối ưu đồng thời vừa đạt mục tiêu vừa giảm rủi ro. Nếu lossConstraint yêu cầu giảm, UI không được tuyên bố phương án dòng tiền đã được kiểm lại ở danh mục giảm rủi ro.
+
+**`decisionExplanations[]`**:
+
+- Mỗi phần tử `{code, parameters, text}`; parameters chứa số liệu nguồn (Decimal là string), câu tiếng Việt làm tròn tiền để hiển thị.
+- Mã hiện có: GOAL_CAPITAL_RESERVED, GROWTH_CAPITAL, PORTFOLIO_HORIZON, LOSS_CONSTRAINT, PLAN_FUNDED / PLAN_NOT_FUNDED, REVIEW_REQUIRED.
+- PORTFOLIO_HORIZON có templateId, retirementMonth, years và JSON-string `startAllocations`/`endAllocations` (assetClass, weightPercent) từ lộ trình thực tính. Không parse câu text để lấy số liệu.
+- Chưa có ngưỡng được duyệt cho employerConcentration hoặc quy tắc đối chiếu liquidityNeeds với goals: giữ REVIEW_REQUIRED; không tự đặt trần cổ phiếu, không cộng thêm liquidityNeeds vào PV.
+- Các giải thích/thông tin rủi ro/thiết yếu/điều chỉnh bổ sung hiện chỉ ở preview HTTP, không hồi tố vào snapshot cũ và không tham gia inputHash.
+
+### 20.3 Phí tư vấn tùy chọn
+
+Input mới: `advisoryFee?: {annualPercent: "1", paidFrom: "FUND" | "EXTERNAL"}`. Không gửi = không phí; **không prefill mức phí**, không gửi `{annualPercent:"0"}` thay cho việc bỏ trường. Chỉ nhập khoản phí tư vấn bổ sung, không nhập lại phí quản lý đã phản ánh trong NAV/giả định lợi suất.
+
+- Kỳ là một tháng đầy đủ theo engine hiện có (kể cả kỳ định giá lẻ ngày): `fee = annualPercent / 100 × averageFund × 1/12`.
+- `averageFund = (funded opening + max(0, funded closing trước phí tư vấn kỳ này)) / 2`. Số cuối tham chiếu gồm lãi, khoản góp đúng START/END, injection và rút của kỳ; không tính AUM trên đường số dư âm. Phí các kỳ trước đã giảm vốn đầu kỳ hiện tại. Đây là bình quân hai đầu kỳ, không phải bình quân NAV theo ngày.
+- FUND: phí cộng vào khoản rút quỹ cuối tháng. EXTERNAL: cộng vào chi ngân sách hộ, giảm khả năng góp và phần dư. Nếu ngân sách hộ âm, thiếu hụt đi qua quy tắc rút quỹ hiện có; EXTERNAL không có nghĩa miễn trừ kiểm tra thiếu tiền.
+- Mỗi row có `advisoryFeeAmount`, `advisoryFeeAverageFund`, `advisoryFeePaidFrom` **chỉ khi có input**. `netWithdrawal` vẫn là dòng thu chi hộ; phí FUND thể hiện trong withdrawal và advisoryFeeAmount, không đổi nghĩa netWithdrawal cũ.
+- Input có phí làm inputHash thay đổi; bỏ phí giữ đường hash cũ. Save tạo kế hoạch mới ghim các dòng phí/cashflow đã tính, replay v3 tái lập chính xác; không sửa kế hoạch đã lưu.
+- Khoản góp cần của engine là nghiệm với lịch phí hiện tại đã ghim, vì đổi khoản góp có thể đổi AUM/phí. `CONTRIBUTION_ESTIMATE_USES_CURRENT_FEE_SCHEDULE_REPREVIEW_REQUIRED` yêu cầu preview lại trước khi chấp nhận mức góp. Hai phép tìm tháng/chi chạy lại prepare nên tính lại phí mỗi ứng viên.
+- **Giới hạn luồng mới**: cập nhật từ actuals/source-reforecast đối với kế hoạch mới có advisoryFee trả 422 `ADVISORY_FEE_REFORECAST_REVIEW_REQUIRED`; chưa được giữ nguyên khoản phí tính từ vốn cũ khi vốn thực tế đổi. Replay/read và các kế hoạch không có phí vẫn hoạt động như cũ. Giao diện cần hướng dẫn tạo preview mới; không tự bỏ phí để né guard.
+
+### 20.4 Cảnh báo cấu hình và kế hoạch cũ
+
+- Preview retirement/portfolio trả POLICY_NOT_COVERED, PROJECTION_NOT_COVERED, ASSET_HORIZON_NOT_COVERED sẽ ghi structured logger mức `warn`, event `preview.coverage_warning`; mỗi code tối đa một lần/phản hồi. Chỉ có time/level/event/route/code, không userId, profile, số tiền, answers hay ngày cá nhân. Không ghi DB/systemLog riêng trong tính năng này.
+- GET plan detail, GET version, replay version và GET report có optional `readWarnings[]` khi thực sự bị cắt ngắn. Mỗi cảnh báo `{code:"PLAN_HORIZON_TRUNCATED", message:"Kế hoạch bị cắt ngắn, nên tính lại.", endMonth, expectedEndMonth, goalRevision}`.
+- So endMonth đã lưu với **birthMonth trong snapshot + lifeExpectancy của RetirementGoal hiện tại**. Không có birthMonth/tuổi thọ → không suy mặc định. Bằng mốc thì không cảnh báo. Cảnh báo nằm ngoài preview/snapshot và không đổi hash/kết quả đã lưu. Không có cảnh báo thì trường bị lược bỏ để giữ hình dạng phản hồi cũ.
+- Hành động UI: gợi ý tính lại tới expectedEndMonth với cấu hình được phép; không tự chỉnh endMonth/apply kế hoạch. Nếu chính sách chưa phủ thời hạn thì hiện lỗi cấu hình đúng như backend, không cắt ngắn để né lỗi.
+
+### 20.5 Nghiệm thu UI trên mock/local
+
+1. GOLD/BOND + KNOWN/UNKNOWN costBasis round-trip draft/complete/PATCH; tài sản LOCKED/future không vào vốn ngay.
+2. Golden 2 tỷ: loss 340,24 triệu, 17,01% vốn đầu tư, 23% tăng trưởng; tolerance bằng mức sốc không bị coi vượt. Thiếu policy/tolerance/capital không hiện “đạt”.
+3. REDUCE_RISK hiển thị trần cổ phiếu và danh mục đề xuất, không thay danh mục đã lưu; NOT_FEASIBLE vẫn hiển thị lỗ còn lại sau khi cổ phiếu về 0.
+4. Thiếu chi khác nhưng không thiếu thiết yếu; thiếu thiết yếu ở một tháng về sau; snapshot/replay cũ thiếu trường mới vẫn đọc được.
+5. Ba hướng sửa có số hoặc trạng thái rõ ràng; chỉ FOUND mới ghi “sớm nhất/tối đa”; REVIEW_REQUIRED không biến null thành 0. Giữ endMonth và lịch hợp đồng khi thử phương án.
+6. Không gửi phí / phí 0 / FUND / EXTERNAL; invalidate preview khi đổi phí, đọc đúng phần tiền bị trừ, không trừ NAV hai lần; xử lý guard reforecast mới.
+7. Đọc kế hoạch cũ bị cắt ngắn hiện banner và nút tính lại; kiểm tra snapshotHash, saved version và replay không bị sửa.
+
+OpenAPI được sinh bằng các script generate: profile-v2, portfolios, retirement, plans. Hợp đồng cũ comparison.atRetirement và export.csv format technical/readable-vi được giữ nguyên. Kết quả test backend và danh sách file ở đầu `backend/PROGRESS.md`; không dùng test backend thay bằng chứng UI/browser.
+
+## 21. BACKEND đợt B (P2) — mô phỏng, thử thách, chọn danh mục, tái cân bằng (16/10/2026)
+
+Backend đã thêm API phân tích riêng; không đổi request/response lưu kế hoạch, inputHash hay replay v2/v3/v4. **Chưa có bộ dữ liệu thị trường thật được công bố trong đợt này.** Không tự dựng dữ liệu hay xác suất để lấp màn hình. Chi tiết: `backend/docs/ALLOCATION_RISK_P2.md`; hợp đồng sinh tự động: `backend/docs/allocation-risk.openapi.yaml`.
+
+### 21.1 API USER chỉ đọc
+
+POST `/api/v1/me/retirement/risk/simulation`, `/scenarios`, `/selection`:
+
+```json
+{
+  "plan": { "kind": "PREVIEW", "preview": "<object retirement preview hiện có, không phải string>" },
+  "marketVersionId": "<UUID bộ đã công bố, có thể bỏ để server chọn bản hiệu lực mới nhất>",
+  "paths": 100
+}
+```
+
+Kế hoạch đã lưu thay `plan` bằng `{kind:"SAVED_VERSION",planId,versionId}`. Backend kiểm chủ sở hữu, integrity snapshot, dùng hồ sơ/giả định/chính sách đã ghim. Không gửi returns/CPI/seed/alpha/block/threshold/weights; strict schema sẽ từ chối. POST chỉ truyền lựa chọn, không ghi DB. Chọn lại dataset ID từ phản hồi để tái lập cùng kết quả; không tự thay phiên bản chính sách đang công bố cho kế hoạch cũ.
+
+| Trạng thái | UI phải làm |
+|---|---|
+| DATA_REQUIRED | Thông báo chưa có chuỗi tổng lợi nhuận tháng được cấp phép/công bố/đủ cột; không hiện 0%, biểu đồ giả hay gọi đây là minh họa |
+| REVIEW_REQUIRED | Hiện issues về tham số chính sách, phân loại chi hoặc lịch nguồn; không dùng default tự đặt |
+| LIMIT_EXCEEDED | Cho giảm paths hoặc thử lại; không hiện thống kê đường đi chạy dở |
+| INSUFFICIENT | Không có phương án đạt ngưỡng; hiện adjustmentOptions và ba hướng góp thêm/nghỉ muộn/chi ít |
+| READY | Hiện kết quả theo đúng basis/disclosure; với scenarios vẫn phải kiểm từng tình huống |
+
+`paths` mặc định 100, tối đa 500; tổng candidate-path-months ≤200000, deadline tính số 10 giây; một phiên chạy/user, hai/process, sáu request/phút/IP. Deadline hợp tác kiểm giữa các đường đi; không phải bảo đảm thời gian HTTP kể cả đọc DB. Không tự tăng N hoặc retry vòng lặp khi bị giới hạn.
+
+### 21.2 Hiển thị mô phỏng và chọn phương án
+
+- `pEssential` là số trong [0,1], tỷ lệ đường đi không thiếu **bất kỳ tháng chi thiết yếu nào**, không phải bảo đảm đủ mọi khoản chi/mục tiêu cuối kỳ. Hiển thị `display.pEssentialPercent` nguyên phần trăm cùng `display.wilsonLowerPercent/UpperPercent`; giải thích Wilson 95% chỉ phản ánh sai số lấy mẫu mô phỏng.
+- `cvarEssentialShortfallToday` là chuỗi VND chính xác của thiếu hụt thiết yếu ở đuôi xấu theo `cvarAlpha`. Hiển thị `display.cvarVnd` đã làm tròn triệu đồng. Không đặt nhãn CVaR95 cố định nếu alpha khác .95.
+- `bands[].p10/p50/p90`: số dư **được tài trợ** theo sức mua tại ngày định giá, làm tròn triệu; không phải ba danh mục, lợi suất hay số dư âm giả định. Dùng dữ liệu server, không tính lại percentile ở frontend.
+- Công khai dataset ID/version/hash, sources/license, period, historyMonths, paths, seed, blockMonths và hạn chế. Bootstrap lịch sử không bảo đảm xác suất tương lai. Chưa có dữ liệu → DATA_REQUIRED.
+- `/selection` trả `selectedId`, `candidates`, `rejected`, `threshold`, `rule`. Ưu tiên p đạt ngưỡng → CVaR nhỏ nhất → thay đổi danh mục ít nhất. Không xếp theo Sharpe/lợi suất cao nhất. Không tự áp selectedId vào kế hoạch đã lưu; đây là dữ liệu phân tích.
+- `adjustmentOptions` dùng hợp đồng P1-8 mục 20.2; các số là điều chỉnh tất định, cần chạy lại mô phỏng sau khi chọn. Kế hoạch reforecast chưa đủ phân loại/lịch nguồn có thể chỉ trả ba hướng và REVIEW_REQUIRED, không suy null thành 0.
+
+### 21.3 Tám tình huống
+
+`scenarios` có HIGH_INFLATION, EQUITY_CRASH, RATE_RISE, CREDIT, GOLD, PROPERTY_ILLIQUIDITY, INCOME_LOSS. Tình huống thứ tám là `longevity`, có các results extraYears=5/10 được duyệt. Mỗi entry có READY/REVIEW_REQUIRED/NOT_APPLICABLE riêng; bao ngoài READY không có nghĩa cả tám đã chạy. Không có tham số → REVIEW_REQUIRED; không có bán BĐS trong cửa sổ → NOT_APPLICABLE. Sống lâu thiếu dữ liệu năm hoặc lịch nguồn mở rộng cũng REVIEW_REQUIRED, không kéo dài tự động lương hưu/nợ/thu nhập. Không diễn giải thử thách tất định thành xác suất.
+
+Bản draft v4 chỉ có block=12 (trong khoảng 12–36), alpha=.95, ngưỡng=.90 CHỜ DUYỆT, dải=5 điểm %, longevity=[5,10]. Bước dịch cổ phiếu và bảy cú sốc khác còn trống. Các trường này chỉ dùng khi chính sách được ADMIN duyệt/công bố; không lấy trực tiếp file draft để hiển thị kết quả thật.
+
+### 21.4 Đề xuất tái cân bằng
+
+POST `/api/v1/me/retirement/risk/rebalance`:
+
+```json
+{
+  "policyVersionId": "<UUID>", "templateId": "<mẫu glide được công bố>",
+  "month": "2026-10", "retirementMonth": "2050-05",
+  "holdings": [{ "assetClass": "CASH", "value": "100000000", "maturedAmount": "0" }],
+  "newContribution": "0"
+}
+```
+
+Ví dụ trên chỉ minh họa shape, không phải bộ dữ liệu thị trường hay phương án đề xuất. Gửi toàn bộ nhóm thực tế; nhóm mục tiêu vắng trong holdings có nghĩa người dùng xác nhận không nắm giữ. `maturedAmount` là phần nằm **trong value**, không cộng lại tổng tài sản. Target lấy từ policy, client không gửi target/cost/band. Vượt tuyệt đối **hơn** dải mới đề xuất; bằng dải trả WITHIN_BAND. Ưu tiên tiền góp/đáo hạn trước rồi mua bán còn thiếu; chi phí theo half-L1 của phần mua bán còn lại.
+
+Hiện `oldWeights`, `targetWeights/newWeights`, `reason`, `trades` (cashAllocated/buy/sell/newValue), `cost`, `netValue`, `assumptions`. Nhãn rõ **đề xuất, chưa giao dịch, chưa lưu nhật ký** (`persisted:false`). WITHIN_BAND chưa phân bổ tiền góp mới. Không sửa ActualMonth hoặc giả lập nút đã áp dụng. Nếu cần nhật ký gắn ActualMonth, yêu cầu thiết kế bảng riêng ở đợt sau; không có migration trong P2.
+
+### 21.5 ADMIN — tài liệu dữ liệu thị trường
+
+GET/POST `/api/v1/admin/market-data`; GET/PATCH `/:id`; POST `/:id/validate`, `/:id/approve`, `/:id/publish`. DRAFT→APPROVED→PUBLISHED, expectedRevision bắt buộc khi sửa/duyệt/công bố. Approval `{expectedRevision,confirm:true,reviewNote}`; publish `{expectedRevision,confirm:true}`. Không có impact-token cho model này (giống portfolio policy). Đã duyệt/công bố thì tạo draft mới để sửa; không ghi đè chuỗi.
+
+Form/JSON import phải có title/reason/effectiveFrom; period; sources URL/ngày/license/quyền mô phỏng và kết quả dẫn xuất; nhóm tài sản/sourceId/chứng cứ total return/fees/taxTreatment; CPI source; quality review; rows theo tháng. Unit cố định DECIMAL_MONTHLY_TOTAL_RETURN (`0.01`=1%), CPI là thay đổi tháng so tháng trước, VND danh nghĩa. NET không trừ phí lần nữa; GROSS phải có monthlyDrag được duyệt. Không dùng chuỗi tăng giá chỉ số thay tổng lợi nhuận có cổ tức. ADMIN chịu trách nhiệm chứng minh nguồn/quyền sử dụng; backend không tự xác minh giấy phép nhà cung cấp.
+
+Chặn tháng thiếu/trùng/không liên tục, thiếu/thừa cột, thiếu nguồn/license; **không điền 0 hoặc nội suy**. Không tự upload fixture unit test hoặc draft giả vào môi trường thật. Chưa có dữ liệu đã công bố thì để USER thấy DATA_REQUIRED.
+
+### 21.6 Nghiệm thu UI mock/local
+
+1. Không có dataset, dataset chưa hiệu lực, thiếu tham số và timeout: mỗi trạng thái có thông báo đúng, không số giả.
+2. Cùng savedVersion/dataset/model/seed/path count cho kết quả giống nhau; đổi hồ sơ hiện tại không sửa kết quả snapshot đã ghim.
+3. Hiện tỷ lệ + Wilson + CVaR + dải tiền với đơn vị/làm tròn/disclosure đúng; raw values chỉ dùng kỹ thuật, không hiển thị xác suất nhiều chữ số.
+4. Không có ứng viên đạt thì có hướng điều chỉnh; không gọi selectedId null là danh mục khuyến nghị; không tự apply.
+5. Bảy scenarios và longevity mỗi kết quả có trạng thái riêng; thiếu lịch 5/10 năm không hiển thị đường kéo dài giả.
+6. Rebalance dùng tiền góp mới trước: trường hợp đủ tiền mặt không có bán hoặc chi phí; đáo hạn không tăng tài sản hai lần; đúng bằng 5 điểm % không kích hoạt.
+7. ADMIN revision cũ trả conflict; USER bị chặn mọi route ADMIN; request nhét returns/CPI/policy bị từ chối; token ADMIN không dùng endpoint USER.
+8. Snapshot/replay v2/v3/v4, inputHash và kế hoạch đã lưu giữ nguyên. Bộ test backend không thay bằng chứng nghiệm thu frontend/browser.
+
+**Trạng thái mục 19–21 (16/10/2026):** Codex đã làm phần frontend cho cả ba mục (4 câu hỏi ràng buộc trong `PlanningQuestions.tsx`, `RiskAnalysis.tsx`, `AnalysisResults.tsx`, `AdvisoryFeeEditor.tsx`, `ProfileReviewPreview.tsx`, `AdminMarketDataPage.tsx`, `services/planningAnalysis.ts`; luồng nháp tuân theo guard `DRAFT_SCHEMA_MISMATCH` thật của backend) rồi dừng vì hết hạn mức trước khi viết báo cáo. Đã kiểm lại: `typecheck`, `test:assets` 75/75, `build`, Playwright `guided-planning` + `onboarding-readability` + `portfolio-policy-v2` + `market-data-admin` + `planning-contracts` 45/45 (một test của `planning-contracts` được sửa nhãn cho khớp UI thật: "Tháng cần kiểm tra số dư (giờ Việt Nam)", "Tính lại từ số dư đã ghi"). Việc Codex đang làm dở khi dừng: thêm kiểm thử nháp → lưu → mở lại 4 câu hỏi trên màn 375px. Chưa commit.

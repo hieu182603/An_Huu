@@ -1,0 +1,3799 @@
+{
+  "id": "b57f1133-0336-429c-b79e-77d1667ff01e",
+  "version": 1,
+  "modelCode": "assumption-series-v2",
+  "status": "PUBLISHED",
+  "effectiveAt": "2026-10-01T00:00:00.000Z",
+  "values": {
+    "title": "Bộ giả định kinh tế vĩ mô và thị trường vốn Việt Nam 2026-2055",
+    "reason": "Ban hành bộ giả định vĩ mô và thị trường vốn chuẩn 2026-2055 phục vụ hoạch định tài chính hưu trí.",
+    "returns": [
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2026,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2026,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2026,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2026,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2026,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2027,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2027,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2027,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2027,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2027,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2028,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2028,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2028,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2028,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2028,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2029,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2029,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2029,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2029,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2029,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2030,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2030,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2030,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2030,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2030,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2031,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2031,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2031,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2031,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2031,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2032,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2032,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2032,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2032,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2032,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2033,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2033,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2033,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2033,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2033,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2034,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2034,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2034,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2034,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2034,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2035,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2035,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2035,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2035,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2035,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2036,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2036,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2036,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2036,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2036,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2037,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2037,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2037,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2037,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2037,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2038,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2038,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2038,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2038,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2038,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2039,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2039,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2039,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2039,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2039,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2040,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2040,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2040,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2040,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2040,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2041,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2041,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2041,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2041,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2041,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2042,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2042,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2042,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2042,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2042,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2043,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2043,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2043,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2043,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2043,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2044,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2044,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2044,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2044,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2044,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2045,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2045,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2045,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2045,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2045,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2046,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2046,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2046,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2046,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2046,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2047,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2047,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2047,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2047,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2047,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2048,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2048,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2048,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2048,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2048,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2049,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2049,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2049,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2049,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2049,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2050,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2050,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2050,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2050,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2050,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2051,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2051,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2051,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2051,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2051,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2052,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2052,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2052,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2052,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2052,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2053,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2053,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2053,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2053,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2053,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2054,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2054,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2054,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2054,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2054,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "evidence": "Lãi suất tiền gửi đã trừ phí quản lý tài khoản.",
+          "treatment": "INCLUDED"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "5.0"
+        },
+        "year": 2055,
+        "taxes": {
+          "evidence": "Lãi tiền gửi ngân hàng của cá nhân cư trú thuộc diện miễn thuế TNCN.",
+          "treatment": "INCLUDED"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "CASH",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.8",
+          "evidence": "Phí quản lý quỹ mở trái phiếu bình quân 0.8%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "7.2"
+        },
+        "year": 2055,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BOND",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.2",
+          "evidence": "Phí quản lý quỹ mở cân bằng 1.2%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "9.5"
+        },
+        "year": 2055,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng chỉ quỹ 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "BALANCED",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "1.5",
+          "evidence": "Phí quản lý quỹ mở cổ phiếu bình quân 1.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "12.0"
+        },
+        "year": 2055,
+        "taxes": {
+          "percent": "0.1",
+          "evidence": "Thuế chuyển nhượng chứng khoán 0.1%.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "STOCK",
+        "priceBasis": "NOMINAL"
+      },
+      {
+        "fees": {
+          "percent": "0.5",
+          "evidence": "Chi phí bảo dưỡng và quản lý vận hành bất động sản 0.5%/năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "rate": {
+          "type": "EFFECTIVE_ANNUAL",
+          "percent": "8.5"
+        },
+        "year": 2055,
+        "taxes": {
+          "percent": "0.4",
+          "evidence": "Thuế chuyển nhượng bất động sản 2% phân bổ đều cho chu kỳ 5 năm.",
+          "treatment": "EXPLICIT_ANNUAL_DRAG",
+          "convention": "PERCENTAGE_POINTS_AFTER_NOMINAL_CONVERSION"
+        },
+        "sourceId": "ASSET_RESEARCH_2026",
+        "horizonId": "ALL",
+        "assetClass": "REAL_ESTATE",
+        "priceBasis": "NOMINAL"
+      }
+    ],
+    "sources": [
+      {
+        "id": "GSO_CPI_HISTORICAL",
+        "url": "https://www.gso.gov.vn/du-lieu-va-so-lieu-thong-ke/2026/01/chi-so-gia-tieu-dung-cpi-nam-2025",
+        "kind": "HISTORICAL_OFFICIAL",
+        "note": "Dữ liệu chỉ số giá tiêu dùng CPI bình quân năm chính thức từ Tổng cục Thống kê, dùng để tham chiếu lịch sử biến động giá cả.",
+        "title": "Chỉ số giá tiêu dùng (CPI) lịch sử Việt Nam 2015-2025",
+        "toYear": 2025,
+        "release": "Nien-giam-thong-ke-2025",
+        "fromYear": 2015,
+        "publisher": "Tổng cục Thống kê Việt Nam (GSO)",
+        "publishedOn": "2026-01-10",
+        "retrievedOn": "2026-10-01"
+      },
+      {
+        "id": "IMF_WEO_FORECAST",
+        "url": "https://www.imf.org/en/Publications/WEO/weo-database/2025/October",
+        "kind": "FORECAST",
+        "note": "Dự báo lạm phát tiêu dùng bình quân hàng năm của Việt Nam giai đoạn 2026-2030 từ cơ sở dữ liệu World Economic Outlook.",
+        "title": "IMF World Economic Outlook - Vietnam Inflation Projections 2026-2030",
+        "toYear": 2030,
+        "release": "WEO-OCT-2025",
+        "fromYear": 2026,
+        "publisher": "International Monetary Fund (IMF)",
+        "publishedOn": "2025-10-15",
+        "retrievedOn": "2026-10-01"
+      },
+      {
+        "id": "AN_HUU_LONG_TERM",
+        "url": "https://anhuu.vn/governance/assumptions/2026-v2-macro",
+        "kind": "AN_HUU_LONG_TERM",
+        "note": "Giả định dài hạn do An Hưu phê duyệt dựa trên định hướng kiểm soát lạm phát dưới 4.0% của Ngân hàng Nhà nước; không gắn nguồn IMF cho giai đoạn này.",
+        "title": "Giả định lạm phát dài hạn An Hưu 2031-2055 (Khung mục tiêu kiểm soát lạm phát NHNN)",
+        "toYear": 2055,
+        "release": "AH-MACRO-2026-V2",
+        "fromYear": 2031,
+        "publisher": "Hội đồng Nghiên cứu Kinh tế An Hưu",
+        "publishedOn": "2026-09-20",
+        "retrievedOn": "2026-10-01"
+      },
+      {
+        "id": "ASSET_RESEARCH_2026",
+        "url": "https://anhuu.vn/research/capital-market-assumptions-2026",
+        "kind": "ASSET_RESEARCH",
+        "note": "Nghiên cứu lợi suất dài hạn các nhóm tài sản tài chính Việt Nam (Tiền gửi, Trái phiếu, Quỹ cân bằng, Quỹ cổ phiếu, Bất động sản).",
+        "title": "Báo cáo Nghiên cứu Lợi suất Kỳ vọng Các Lớp Tài sản Đầu tư Việt Nam",
+        "toYear": 2055,
+        "release": "CMA-VN-2026-FINAL",
+        "fromYear": 2026,
+        "publisher": "Khối Nghiên cứu Thị trường Vốn An Hưu & FiinGroup",
+        "publishedOn": "2026-09-25",
+        "retrievedOn": "2026-10-01"
+      }
+    ],
+    "currency": "VND",
+    "inflation": [
+      {
+        "kind": "FORECAST",
+        "year": 2026,
+        "percent": "3.8",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "IMF_WEO_FORECAST",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "FORECAST",
+        "year": 2027,
+        "percent": "3.7",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "IMF_WEO_FORECAST",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "FORECAST",
+        "year": 2028,
+        "percent": "3.6",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "IMF_WEO_FORECAST",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "FORECAST",
+        "year": 2029,
+        "percent": "3.5",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "IMF_WEO_FORECAST",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "FORECAST",
+        "year": 2030,
+        "percent": "3.5",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "IMF_WEO_FORECAST",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2031,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2032,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2033,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2034,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2035,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2036,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2037,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2038,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2039,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2040,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2041,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2042,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2043,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2044,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2045,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2046,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2047,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2048,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2049,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2050,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2051,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2052,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2053,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2054,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      },
+      {
+        "kind": "LONG_TERM",
+        "year": 2055,
+        "percent": "4.0",
+        "rateType": "EFFECTIVE_ANNUAL",
+        "sourceId": "AN_HUU_LONG_TERM",
+        "priceBasis": "NOMINAL",
+        "conversionNote": "Chuyển đổi tỷ lệ lạm phát bình quân năm sang tỷ lệ hiệu dụng phục vụ kế hoạch dòng tiền."
+      }
+    ],
+    "assetClasses": [
+      {
+        "code": "CASH",
+        "label": "Tiền gửi thanh khoản & Tiết kiệm",
+        "horizons": [
+          {
+            "id": "ALL",
+            "maxMonths": 1200,
+            "minMonths": 1
+          }
+        ]
+      },
+      {
+        "code": "BOND",
+        "label": "Trái phiếu & Quỹ mở trái phiếu",
+        "horizons": [
+          {
+            "id": "ALL",
+            "maxMonths": 1200,
+            "minMonths": 1
+          }
+        ]
+      },
+      {
+        "code": "BALANCED",
+        "label": "Quỹ mở cân bằng",
+        "horizons": [
+          {
+            "id": "ALL",
+            "maxMonths": 1200,
+            "minMonths": 1
+          }
+        ]
+      },
+      {
+        "code": "STOCK",
+        "label": "Cổ phiếu & Quỹ mở cổ phiếu",
+        "horizons": [
+          {
+            "id": "ALL",
+            "maxMonths": 1200,
+            "minMonths": 1
+          }
+        ]
+      },
+      {
+        "code": "REAL_ESTATE",
+        "label": "Bất động sản đầu tư",
+        "horizons": [
+          {
+            "id": "ALL",
+            "maxMonths": 1200,
+            "minMonths": 1
+          }
+        ]
+      }
+    ],
+    "effectiveFrom": "2026-10-01",
+    "historicalCpi": [
+      {
+        "year": 2015,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "0.63",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      },
+      {
+        "year": 2016,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "2.66",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      },
+      {
+        "year": 2017,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "3.53",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      },
+      {
+        "year": 2018,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "3.54",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      },
+      {
+        "year": 2019,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "2.79",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      },
+      {
+        "year": 2020,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "3.23",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      },
+      {
+        "year": 2021,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "1.84",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      },
+      {
+        "year": 2022,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "3.15",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      },
+      {
+        "year": 2023,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "3.25",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      },
+      {
+        "year": 2024,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "3.63",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      },
+      {
+        "year": 2025,
+        "measure": "ANNUAL_AVERAGE_CHANGE",
+        "percent": "3.80",
+        "sourceId": "GSO_CPI_HISTORICAL"
+      }
+    ],
+    "schemaVersion": 2,
+    "projectionEndYear": 2055,
+    "projectionStartYear": 2026
+  }
+}

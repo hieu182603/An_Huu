@@ -17,8 +17,6 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 const HowItWorksPage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.HowItWorksPage })));
 const SimulationPage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.SimulationPage })));
 const AssistantPage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.AssistantPage })));
-const KnowledgePage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.KnowledgePage })));
-const ArticlePage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.ArticlePage })));
 import { applyPageSeo } from './marketing/seo';
 import { initGoogleAnalytics, trackPageView } from "./services/googleAnalytics";
 const ForgotPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.ForgotPage })));
@@ -42,6 +40,7 @@ const AdminUserDetailPage = lazy(() => import("./pages/admin/AdminUsersApi").the
 const AdminContentPage = lazy(() => import("./pages/admin/AdminContentApi"));
 const AdminPartnersPage = lazy(() => import("./pages/admin/AdminBusinessPages").then(module => ({ default: module.AdminPartnersPage })));
 const AdminAIManagementPage = lazy(() => import("./pages/admin/AdminAIConfigPages").then(module => ({ default: module.AdminAIManagementPage })));
+const AdminMarketDataPage = lazy(() => import("./pages/admin/AdminMarketDataPage"));
 const AdminFinancialConfigPage = lazy(() => import("./pages/admin/AdminFinancialConfigPage"));
 const AdminLegalRulesPage = lazy(() => import("./pages/admin/AdminLegalRulesPage"));
 import { useAuth, type UserRole } from "./context/AuthContext";
@@ -65,7 +64,7 @@ function RouteEffects() {
   }, []);
 
   useEffect(() => {
-    const legacy: Record<string, string> = { '#quy-trinh': '/cach-hoat-dong', '#mo-phong': '/mo-phong', '#tro-ly-ai': '/tro-ly-ai', '#kien-thuc': '/kien-thuc' };
+    const legacy: Record<string, string> = { '#quy-trinh': '/cach-hoat-dong', '#mo-phong': '/mo-phong', '#tro-ly-ai': '/tro-ly-ai', '#kien-thuc': '/' };
     if (pathname === '/' && legacy[hash]) navigate(legacy[hash], { replace: true });
   }, [pathname, hash, navigate]);
 
@@ -77,11 +76,13 @@ function RouteEffects() {
   useEffect(() => {
     // Private layouts focus/scroll only once the new route has finished loading.
     if (pathname.startsWith("/user/") || pathname.startsWith("/admin/")) return;
-    window.scrollTo({ top: 0, behavior: "instant" });
-    const heading = document.querySelector<HTMLElement>("h1");
+    const anchor = pathname === '/mo-phong' && ['#ke-hoach', '#kich-ban', '#phan-bo'].includes(hash) ? document.getElementById(hash.slice(1)) : null;
+    if (anchor) anchor.scrollIntoView({ block: 'start', behavior: 'instant' });
+    else window.scrollTo({ top: 0, behavior: "instant" });
+    const heading = anchor?.querySelector<HTMLElement>('h2') ?? document.querySelector<HTMLElement>("h1");
     heading?.setAttribute("tabindex", "-1");
     heading?.focus({ preventScroll: true });
-  }, [pathname]);
+  }, [pathname, hash]);
   return null;
 }
 
@@ -99,8 +100,7 @@ export default function App() {
         <Route path="/cach-hoat-dong" element={<HowItWorksPage />} />
         <Route path="/mo-phong" element={<SimulationPage />} />
         <Route path="/tro-ly-ai" element={<AssistantPage />} />
-        <Route path="/kien-thuc" element={<KnowledgePage />} />
-        <Route path="/kien-thuc/:slug" element={<ArticlePage />} />
+        <Route path="/kien-thuc/*" element={<Navigate to="/" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPage />} />
@@ -132,6 +132,7 @@ export default function App() {
           <Route path="content" element={<AdminContentPage />} />
           <Route path="partners" element={<AdminPartnersPage />} />
           <Route path="ai" element={<AdminAIManagementPage />} />
+          <Route path="market-data" element={<AdminMarketDataPage />} />
           <Route path="financial-config" element={<AdminFinancialConfigPage />} />
           <Route path="legal-rules" element={<AdminLegalRulesPage />} />
           <Route path="support" element={<SupportPage admin />} />

@@ -2896,6 +2896,22 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   min-width: 0;
 }
 
+/* Admin: one darker border token gives every card, table and divider a visible edge. */
+.admin-app-shell { --color-border: #BCD2F0; }
+.admin-topbar { border-bottom-color: var(--color-border); }
+.admin-main .card:not(.card-dark) { transition: border-color var(--duration-fast), box-shadow var(--duration-fast); }
+.admin-main .card:not(.card-dark):hover { border-color: #9DBCE6; }
+
+/* Settings rows (general / security / notifications) had no styles at all. */
+.system-settings-card { padding: var(--space-2) var(--space-6) var(--space-5); }
+.system-setting-item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: center; gap: var(--space-6); padding: var(--space-5) 0; border-bottom: 1px solid var(--color-border); }
+.system-setting-item.is-switch-item { grid-template-columns: minmax(0, 1fr) auto; }
+.system-setting-item-meta strong { display: block; color: var(--color-midnight-900); font-size: 14px; }
+.system-setting-item-meta p { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: 13px; }
+.system-settings-form > .system-setting-item:last-of-type { border-bottom: 0; }
+.system-settings-form > .alert { margin: var(--space-4) 0; }
+@media (max-width: 767px) { .system-setting-item { grid-template-columns: 1fr; gap: var(--space-3); } }
+
 .admin-page-header {
   display: flex;
   align-items: flex-end;
@@ -2943,7 +2959,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   flex-direction: column;
   padding: var(--space-5);
   background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
@@ -3001,7 +3017,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .admin-list-card {
   padding: var(--space-6);
   background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
 }
@@ -3072,7 +3088,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .admin-table-card {
   overflow: hidden;
   background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
 }
@@ -3172,7 +3188,8 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
-.admin-table-card > .admin-pagination-bar {
+.admin-table-card > .admin-pagination-bar,
+.business-table-card > .admin-pagination-bar {
   margin-top: 0;
   border-top: 1px solid var(--color-border);
   border-left: none;
@@ -3379,7 +3396,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .detail-data-card {
   padding: var(--space-6);
   background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
 }
@@ -3825,7 +3842,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .assumption-detail-card {
   box-shadow: var(--shadow-card);
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid var(--color-border);
   background: #ffffff;
 }
 
@@ -3836,7 +3853,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-md);
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid var(--color-border);
   background: var(--color-bg);
 }
 
@@ -4085,7 +4102,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .system-setting-footer button {
   margin-left: auto;
 }
-.audit-log-card { overflow: hidden; box-shadow: var(--shadow-card); border: 1px solid rgba(226, 232, 240, 0.85); border-radius: var(--radius-md); background: #ffffff; }
+.audit-log-card { overflow: hidden; box-shadow: var(--shadow-card); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: #ffffff; }
 .audit-log-card > header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-5); padding: var(--space-5); border-bottom: 1px solid var(--color-border); }
 .audit-log-card > header > div:last-child { display: flex; align-items: flex-end; gap: var(--space-2); }
 .audit-log-card .form-field { min-width: 190px; }
@@ -6869,3 +6886,57 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   }
 }
 
+
+/* Product packages: admin editor, user image + consultation */
+.product-editor { display: grid; gap: var(--space-3); }
+.product-editor-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); }
+.product-editor-image { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3); border: 1px dashed var(--color-border); border-radius: var(--radius-sm); }
+.product-editor-image img { width: 160px; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); object-fit: cover; }
+.product-editor-image > span { display: grid; width: 160px; aspect-ratio: 16 / 9; place-items: center; border-radius: var(--radius-sm); color: var(--color-text-muted); background: var(--color-bg); font-size: 12px; }
+.product-editor-image label { cursor: pointer; }
+.product-editor-actions, .product-consult-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.solution-image { width: calc(100% + 2 * var(--space-5, 20px)); max-width: none; margin: calc(-1 * var(--space-5, 20px)) calc(-1 * var(--space-5, 20px)) var(--space-3); aspect-ratio: 16 / 9; border-radius: var(--radius-lg) var(--radius-lg) 0 0; object-fit: cover; }
+.product-detail-image { width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-md); object-fit: cover; }
+.product-consult-form { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg); }
+@media (max-width: 560px) { .product-editor-row { grid-template-columns: minmax(0, 1fr); } }
+.product-detail { display: grid; gap: var(--space-3); }
+.product-detail p { margin: 0; }
+.product-detail > section { padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+.product-detail > section > h3 { margin: 0 0 var(--space-1); color: var(--color-text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.product-detail > .product-consult-form { border-top: 1px solid var(--color-border); }
+
+/* ===== Admin lists: filters in their own card, essential columns only, stacked rows on phones ===== */
+.admin-filter-card { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); padding: var(--space-4) var(--space-5); }
+.admin-filter-card > .content-type-tabs { flex: 1 1 100%; }
+.admin-filter-card > .admin-table-toolbar { flex: 1 1 100%; padding: 0; border: 0; background: none; }
+.admin-filter-card .admin-user-search { flex: 1 1 280px; width: auto; max-width: 480px; }
+.admin-filter-card .admin-filters { flex-wrap: wrap; margin-left: auto; }
+.admin-row-actions { display: inline-flex; gap: var(--space-2); }
+.admin-users-table, .admin-management-table, .business-table, .product-table { min-width: 0; }
+.stack-only { display: none; }
+@media (max-width: 1279px) {
+  .admin-kpi-grid, .business-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .col-optional { display: none; }
+  .stack-only { display: block; }
+}
+@media (max-width: 767px) {
+  .admin-filter-card { padding: var(--space-4); }
+  .admin-filter-card .admin-user-search, .admin-filter-card .admin-filters { flex: 1 1 100%; max-width: none; margin-left: 0; }
+  table.admin-stack-table { display: block; min-width: 0; }
+  .admin-stack-table thead { display: none; }
+  .admin-stack-table tbody, .admin-stack-table tr { display: block; }
+  .admin-stack-table tr { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--color-border); }
+  .admin-stack-table tr:first-child { border-top: 0; }
+  .admin-stack-table tr > td, .admin-stack-table tr > td:last-child { display: flex; width: auto; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 6px 0; border: 0; white-space: normal; background: none; }
+  .admin-stack-table tr > td:first-child { display: block; padding-bottom: var(--space-2); }
+  .admin-stack-table tr > td.col-optional { display: none; }
+  .admin-stack-table td[data-label]::before { content: attr(data-label); flex-shrink: 0; color: var(--color-text-muted); font-size: 12px; font-weight: 600; }
+  .admin-stack-table td[colspan] { display: block; text-align: center; }
+  /* Undo desktop cell height and the sticky action column inside stacked cards. */
+  /* Repeated class outranks the page-scoped sticky rule in admin-users.css. */
+  table.admin-stack-table.admin-stack-table.admin-stack-table tr > td { position: static; height: auto; min-width: 0; box-shadow: none; background: none; text-align: left; }
+}
+.business-table .badge { white-space: nowrap; }
+.business-table td:last-child, .business-table th:last-child { width: 1%; white-space: nowrap; }
+/* Clip table header/cell backgrounds to the card radius so the border shows on all four corners. */
+.business-table-card, .financial-assumptions-card, .admin-management-table-card { overflow: hidden; }

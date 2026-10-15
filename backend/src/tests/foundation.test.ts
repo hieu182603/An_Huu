@@ -14,6 +14,7 @@ import { config, testEnv, token } from "./helpers";
 import { createServices } from "../modules/services";
 import { memoryDb } from "./memory-db";
 import { prisma } from "../config/prisma";
+import { Prisma } from "@prisma/client";
 
 beforeEach(() => { vi.spyOn(console, "info").mockImplementation(() => {}); vi.spyOn(console, "error").mockImplementation(() => {}); });
 const errorShape = z.object({
@@ -61,12 +62,42 @@ describe("HTTP foundation", () => {
     const response = await request(app).get("/api/v1/failure/private-id?token=do-not-retain");
     expect(response.status).toBe(500); expect(globalWrite).not.toHaveBeenCalled();
     const logs = f.rows("systemLog"); expect(logs).toHaveLength(1);
-    expect(logs[0]).toMatchObject({ source: "API", level: "ERROR", path: "/failure/:id", details: { code: "INTERNAL_ERROR", method: "GET" } });
+    expect(logs[0]).toMatchObject({ source: "API", level: "ERROR", path: "/api/v1/failure/:id", details: { code: "INTERNAL_ERROR", method: "GET", cause: "Error" } });
     expect(JSON.stringify(logs)).not.toMatch(/do-not-retain|private-record|private-id|password|token/);
     const isolated = await request(createApp({ config, apiRouter: router })).get("/api/v1/failure/private-id");
     expect(isolated.status).toBe(500); expect(globalWrite).not.toHaveBeenCalled();
     vi.spyOn(services.settings, "recordSystemLog").mockRejectedValue(new Error("logging unavailable"));
     expect((await request(app).get("/api/v1/failure/private-id")).status).toBe(500);
+  });
+  it("grades system logs by cause, keeps routes attributable and maps transient Prisma failures", async () => {
+    const f = memoryDb(), services = createServices(f.db, config), router = Router(), nested = Router();
+    const prismaError = (code: string) => new Prisma.PrismaClientKnownRequestError("SELECT * FROM users WHERE email='private@x.test'", { code, clientVersion: "test" });
+    router.get("/db/:code", asyncHandler(async req => { throw prismaError(String(req.params.code)); }));
+    router.get("/drift", asyncHandler(async () => { throw prismaError("P2021"); }));
+    nested.post("/", asyncHandler(async () => { throw new Error("private-detail"); }));
+    router.use("/plans", nested);
+    router.use("/guarded", asyncHandler(async () => { throw new Error("before route"); }));
+    const app = createApp({ config, apiRouter: router, services, databaseProbe: async () => { throw new Error("db down"); } });
+    for (const code of ["P1001", "P2024", "P2028", "P1008"])
+      expect((await request(app).get(`/api/v1/db/${code}`)).body.error.code).toBe("DATABASE_UNAVAILABLE");
+    expect((await request(app).get("/api/v1/db/P2034")).status).toBe(409);
+    expect((await request(app).get("/health/ready")).status).toBe(503);
+    expect((await request(app).get("/api/v1/drift")).status).toBe(503);
+    expect((await request(app).post("/api/v1/plans")).status).toBe(500);
+    expect((await request(app).get("/api/v1/guarded/3f0c9a52-8d7e-4b1a-9c2d-1e2f3a4b5c6d/report")).status).toBe(500);
+    const logs = f.rows("systemLog");
+    expect(logs.map(l => [l.level, l.path, (l.details as { cause?: string }).cause])).toEqual([
+      ["WARNING", "/api/v1/db/:code", "PrismaClientKnownRequestError:P1001"],
+      ["WARNING", "/api/v1/db/:code", "PrismaClientKnownRequestError:P2024"],
+      ["WARNING", "/api/v1/db/:code", "PrismaClientKnownRequestError:P2028"],
+      ["WARNING", "/api/v1/db/:code", "PrismaClientKnownRequestError:P1008"],
+      ["WARNING", "/health/ready", undefined],
+      ["CRITICAL", "/api/v1/drift", "PrismaClientKnownRequestError:P2021"],
+      ["ERROR", "/api/v1/plans", "Error"],
+      ["ERROR", "/api/v1/guarded/:id/report", "Error"],
+    ]);
+    expect(JSON.stringify(logs)).not.toMatch(/private|before route|SELECT/);
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain("PrismaClientKnownRequestError:P2028");
   });
   it("keeps health endpoints, request IDs and security headers", async () => {
     const app = fixture();

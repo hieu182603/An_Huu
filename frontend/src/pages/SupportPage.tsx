@@ -68,6 +68,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
 
   const categoryOptions = useMemo(() => [
     { key: "ALL", label: isEn ? "All categories" : "Tất cả nhóm" },
+    { key: "Tư vấn sản phẩm", label: isEn ? "Product consultation" : "Tư vấn sản phẩm" },
     { key: "Tài khoản", label: isEn ? "Account" : "Tài khoản" },
     { key: "Sử dụng website", label: isEn ? "Website Usage" : "Sử dụng website" },
     { key: "Nội dung", label: isEn ? "Content" : "Nội dung" },
@@ -98,6 +99,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
     if (statusFilterKey !== "ALL") {
       query.set("status", statusFilterKey);
     }
+    if (categoryFilterKey !== "ALL") query.set("category", categoryFilterKey);
 
     authenticatedRequest<{ items: Ticket[]; total: number; limit: number }>(base + "?" + query)
       .then((v) => {
@@ -110,7 +112,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
     return () => {
       active = false;
     };
-  }, [base, page, statusFilterKey, reload]);
+  }, [base, page, statusFilterKey, categoryFilterKey, reload]);
 
   // Load ticket detail
   useEffect(() => {

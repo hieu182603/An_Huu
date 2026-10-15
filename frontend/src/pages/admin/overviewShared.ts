@@ -1,46 +1,24 @@
-import type { ApiUser } from "../../services/api";
-
-export type Page<T> = { items: T[]; total: number };
-export type RecentUser = ApiUser & { createdAt: string; name?: string };
-export type Audit = { id: string; action: string; targetType: string; createdAt: string };
-export type OperationsOverview = {
-  uptimeSeconds: number;
-  mailJobs: Record<string, number>;
-  configuration: { email: boolean; encryption: boolean; google: boolean; media: boolean };
-  database?: string;
-  api?: string;
+// Human-readable labels for audit-log action codes (overview + reports).
+const ACTION_TITLES: Record<string, [string, string]> = {
+  KNOWLEDGE_CREATED: ["Thêm nguồn tri thức AI", "Knowledge source added"], KNOWLEDGE_EDITED: ["Sửa nguồn tri thức AI", "Knowledge source edited"],
+  KNOWLEDGE_INDEXED: ["Lập chỉ mục nguồn tri thức", "Knowledge source indexed"], KNOWLEDGE_APPROVED: ["Phê duyệt nguồn tri thức", "Knowledge source approved"],
+  KNOWLEDGE_WITHDRAWN: ["Thu hồi duyệt nguồn tri thức", "Knowledge approval withdrawn"],
+  LEGAL_RULE_DRAFT_CREATED: ["Tạo bản nháp luật BHXH", "Legal rule draft created"], LEGAL_RULE_DRAFT_CHANGED: ["Cập nhật luật BHXH", "Legal rule updated"],
+  ASSUMPTIONS_DRAFT_CREATED: ["Tạo bản nháp giả định", "Assumption draft created"], ASSUMPTIONS_DRAFT_UPDATED: ["Sửa bản nháp giả định", "Assumption draft updated"],
+  ASSUMPTIONS_APPROVED: ["Phê duyệt giả định tài chính", "Assumptions approved"], ASSUMPTIONS_PUBLISHED: ["Ban hành giả định tài chính", "Assumptions published"],
+  ASSUMPTIONS_IMPACT_REVIEWED: ["Rà soát tác động giả định", "Assumption impact reviewed"],
+  PORTFOLIO_DRAFT_CREATED: ["Tạo bản nháp danh mục", "Portfolio draft created"], PORTFOLIO_DRAFT_UPDATED: ["Sửa bản nháp danh mục", "Portfolio draft updated"],
+  PORTFOLIO_APPROVED: ["Phê duyệt danh mục đầu tư", "Portfolio approved"], PORTFOLIO_PUBLISHED: ["Ban hành danh mục đầu tư", "Portfolio published"],
+  SUPPORT_STATUS: ["Đổi trạng thái ticket", "Ticket status changed"], SETTINGS_UPDATED: ["Cập nhật cấu hình hệ thống", "System settings updated"],
+  AUTH_CHANGE_PASSWORD: ["Đổi mật khẩu", "Password changed"], AUTH_RESET_PASSWORD: ["Đặt lại mật khẩu", "Password reset"],
+  AUTH_LOGOUT: ["Đăng xuất", "Logged out"], AUTH_LOGOUT_ALL: ["Đăng xuất mọi thiết bị", "Logged out everywhere"],
+  AUTH_REFRESH_REUSE: ["Phát hiện dùng lại phiên (nghi vấn)", "Session token reuse detected"],
+  AI_PRIVACY_UPDATED: ["Cập nhật quyền riêng tư AI", "AI privacy updated"], AI_HISTORY_DELETED: ["Xóa lịch sử trợ lý AI", "AI history deleted"],
+  PRODUCT_CREATED: ["Thêm gói sản phẩm", "Product added"], PRODUCT_UPDATED: ["Cập nhật gói sản phẩm", "Product updated"],
+  PARTNER_CREATED: ["Thêm đối tác", "Partner added"], PARTNER_UPDATED: ["Cập nhật đối tác", "Partner updated"],
+  PRODUCT_CONSULT_REQUESTED: ["Yêu cầu tư vấn sản phẩm", "Product consultation requested"],
+  PLAN_CALCULATED: ["Tính kế hoạch hưu trí", "Retirement plan calculated"], GOAL_UPDATED: ["Cập nhật mục tiêu hưu trí", "Retirement goal updated"],
 };
-
-export const metricRoutes = [
-  "/admin/users?limit=1",
-  "/admin/users?limit=1&status=ACTIVE",
-  "/admin/users?limit=1&status=PENDING_VERIFICATION",
-  "/admin/users?limit=1&status=SUSPENDED",
-  "/admin/support?limit=1&status=OPEN",
-  "/admin/support?limit=1&status=IN_PROGRESS",
-  "/admin/content?limit=1&kind=ARTICLE&status=PUBLISHED",
-] as const;
-
-export type Snapshot = {
-  counts: number[];
-  users: RecentUser[];
-  audit: Audit[];
-  uptimeSeconds: number;
-  outboxJobs: Record<string, number>;
-  configuration: { email: boolean; encryption: boolean; google: boolean; media: boolean } | null;
-  fetchedAt: string;
-};
-
-// In-memory cache to prevent 429 Rate Limiting on repeated navigations
-export let cachedSnapshot: Snapshot | null = null;
-export let lastFetchTimestamp = 0;
-export const CACHE_TTL_MS = 30000; // 30s cache
-
-export function updateSnapshotCache(snapshot: Snapshot) {
-  cachedSnapshot = snapshot;
-  lastFetchTimestamp = Date.now();
-}
-
 export function getActionLabel(action: string, isEn: boolean): { title: string; icon: "users" | "settings" | "file-text" | "life-buoy" | "shield" } {
   switch (action) {
     case "AUTH_LOGIN":
@@ -65,7 +43,9 @@ export function getActionLabel(action: string, isEn: boolean): { title: string; 
       return { title: isEn ? "Support Ticket Activity" : "Xử lý yêu cầu hỗ trợ", icon: "life-buoy" };
     case "ADMIN_USER_STATUS":
       return { title: isEn ? "User Status Changed" : "Điều chỉnh trạng thái tài khoản", icon: "shield" };
-    default:
-      return { title: action, icon: "shield" };
+    default: {
+      const label = ACTION_TITLES[action];
+      return { title: label ? label[isEn ? 1 : 0] : action, icon: "shield" };
+    }
   }
 }

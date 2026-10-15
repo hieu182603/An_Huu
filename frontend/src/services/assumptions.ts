@@ -141,3 +141,7 @@ export async function publishAssumption(id: string, expectedRevision: number): P
 export async function fetchUserAssumptions(): Promise<AssumptionsListResponse> {
   return authenticatedRequest<AssumptionsListResponse>("/me/assumptions");
 }
+
+export async function fetchUserAssumptionDetail(id: string): Promise<AssumptionDetail> {
+  return authenticatedRequest<AssumptionDetail>(`/me/assumptions/${id}`, undefined, "GET", undefined, { ttlMs: 120000 });
+}

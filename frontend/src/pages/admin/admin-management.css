@@ -1,0 +1,61 @@
+.admin-management-page { display: grid; gap: 24px; }
+.admin-management-page .admin-page-header { margin-bottom: 0; }
+.admin-management-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.admin-action-button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; flex-shrink: 0; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-white); color: var(--color-primary-700); cursor: pointer; transition: background 150ms, border-color 150ms; }
+.admin-action-button:hover:not(:disabled) { background: var(--color-soft); border-color: var(--color-primary-700); }
+.admin-action-button.is-primary { background: var(--color-primary-700); color: white; border-color: var(--color-primary-700); }
+.admin-action-button.is-primary:hover:not(:disabled) { background: var(--color-midnight-900); }
+.admin-action-button:focus-visible { outline: 3px solid var(--color-primary-700); outline-offset: 3px; }
+.admin-action-button:disabled { opacity: .45; cursor: not-allowed; }
+.admin-management-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.admin-management-summary > .card { padding: 20px 24px; display: grid; gap: 10px; }
+.admin-management-summary span { color: var(--color-text-muted); font-size: 13px; }
+.admin-management-summary strong { color: var(--color-primary-700); font-size: 28px; }
+.admin-management-table-card { overflow: hidden; }
+.financial-config-page .financial-table-scroll, .admin-management-modal .financial-table-scroll { display: block; }
+.admin-management-table.financial-assumptions-table td:first-child { min-width: 80px; }
+.admin-management-section-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--color-border); }
+.admin-management-section-header h2 { margin: 0; font-size: 18px; }
+.admin-management-section-header p { margin: 6px 0 0; color: var(--color-text-muted); font-size: 13px; }
+.admin-management-table { width: 100%; min-width: 900px; border-collapse: separate; border-spacing: 0; }
+.admin-management-table th { padding: 16px; text-align: left; font-size: 12px; color: var(--color-text-muted); background: #f7f9fc; white-space: nowrap; }
+.admin-management-table td { padding: 16px; border-top: 1px solid var(--color-border); font-size: 13px; }
+.admin-management-table td small { display: block; margin-top: 4px; color: var(--color-text-muted); }
+.admin-management-table tr:hover td { background: #f7faff; }
+.admin-management-table th:last-child, .admin-management-table td:last-child,
+.admin-management-page .audit-table th:last-child, .admin-management-page .audit-table td:last-child { position: sticky; right: 0; z-index: 1; background: var(--color-white); box-shadow: -6px 0 12px -8px rgba(5, 38, 89, .25); }
+.admin-management-table td:last-child { width: 1%; white-space: nowrap; }
+.admin-management-table td:last-child .admin-management-actions { flex-wrap: nowrap; }
+.admin-management-empty { padding: 36px 24px; text-align: center; color: var(--color-text-muted); }
+.modal.admin-management-modal { position: relative; inset: auto; width: min(1200px, calc(100vw - 48px)); max-height: calc(100dvh - 48px); border-radius: var(--radius-lg); }
+.admin-management-modal > header { gap: 16px; }
+.admin-management-modal > .modal-body { background: #f6f9fd; overflow-y: auto; }
+.admin-management-modal .card { min-width: 0; }
+.admin-management-modal .ai-section-header { flex-wrap: wrap; gap: 16px; }
+.admin-management-modal .ai-section-header > div:first-child { min-width: 0; flex: 1; }
+.admin-management-modal h2, .admin-management-modal code, .admin-management-modal a { overflow-wrap: anywhere; }
+.admin-management-modal pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
+.admin-management-modal .financial-version-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-management-modal .assumption-detail-card { padding: 24px; }
+.admin-management-modal .legal-detail-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.admin-management-modal .legal-detail-heading > div:first-child { min-width: 0; flex: 1; }
+.admin-management-modal .legal-detail-heading > div:first-child > div:first-child { flex-wrap: wrap; }
+.admin-log-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 32px; padding: 24px; margin: 0; background: var(--color-white); border: 1px solid var(--color-border); border-radius: 16px; }
+.admin-log-details > div { min-width: 0; overflow-wrap: anywhere; }
+.admin-log-details dt { margin-bottom: 8px; font-size: 12px; color: var(--color-text-muted); }
+.admin-log-details dd { margin: 0; font-size: 14px; }
+.admin-log-details .is-full { grid-column: 1 / -1; }
+.admin-log-diff { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.admin-log-diff > div { min-width: 0; }
+.admin-management-page .audit-filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; margin: 20px 0; padding: 20px; background: #f7f9fc; border: 1px solid var(--color-border); border-radius: 12px; }
+.admin-management-page .audit-filter-bar > .form-field { flex: 1; min-width: 180px; }
+@media (max-width: 760px) {
+  .admin-management-summary { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .admin-management-summary > .card { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; }
+  .admin-management-section-header { padding: 16px; }
+  .admin-action-button { width: 44px; height: 44px; }
+  .modal.admin-management-modal { max-height: calc(100dvh - 24px); }
+  .admin-management-modal > .modal-body, .admin-management-modal .assumption-detail-card { padding: 16px; }
+  .admin-management-modal .financial-version-grid, .admin-log-details, .admin-log-diff { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .admin-action-button { transition: none; } }

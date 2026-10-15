@@ -5,7 +5,9 @@ import { transaction } from "../../common/transaction";
 import { audit } from "../../common/audit";
 import { AppError } from "../../common/errors";
 import { SocketService } from "../../services/socketService";
-export const listQuery = paginationSchema(["createdAt", "updatedAt"]).extend({ status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]).optional() });
+export const PRODUCT_CONSULT = "Tư vấn sản phẩm";
+export const listQuery = paginationSchema(["createdAt", "updatedAt"]).extend({ status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]).optional(), category: z.string().trim().max(80).optional() });
+export const consultInput = z.object({ message: z.string().trim().min(3).max(2000), phone: z.string().trim().regex(/^[0-9+().\s-]{8,20}$/).optional() }).strict();
 export const ticketInput = z.object({ subject: z.string().trim().min(3).max(200), category: z.enum(["Tài khoản", "Sử dụng website", "Nội dung", "Khác"]), message: z.string().trim().min(3).max(5000) }).strict();
 export const replyInput = z.object({ message: z.string().trim().min(1).max(5000) }).strict();
 export const ticketStatusInput = z.object({ expectedRevision: z.number().int().min(0), status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]) }).strict();
@@ -20,7 +22,7 @@ const notify = async (tx: Prisma.TransactionClient, userId: string, title: strin
 export class CommunityService {
   constructor(private db: PrismaClient) {}
   async tickets(userId: string | null, query: z.infer<typeof listQuery>) {
-    const where = { ...(userId ? { userId } : {}), ...(query.status ? { status: query.status } : {}) };
+    const where = { ...(userId ? { userId } : {}), ...(query.status ? { status: query.status } : {}), ...(query.category ? { category: query.category } : {}) };
     const [items, total] = await Promise.all([this.db.supportTicket.findMany({ where, select: ticketSelect, orderBy: [{ [query.sortBy]: query.order }, { id: "asc" }], skip: (query.page - 1) * query.limit, take: query.limit }), this.db.supportTicket.count({ where })]);
     return { items, total, page: query.page, limit: query.limit };
   }
@@ -36,6 +38,19 @@ export class CommunityService {
       const ticket = await tx.supportTicket.create({ data: { userId, subject: input.subject, category: input.category }, select: ticketSelect });
       await tx.supportMessage.create({ data: { ticketId: ticket.id, authorId: userId, body: input.message } });
       await audit(tx, userId, "SUPPORT_CREATED", "SUPPORT", ticket.id);
+      return ticket;
+    });
+  }
+  /** Product consultations reuse the ticket thread, status and notification flow. */
+  async consultProduct(userId: string, productId: string, input: z.infer<typeof consultInput>) {
+    const product = await this.db.partnerProduct.findFirst({ where: { id: productId, isVisible: true, partner: { isVisible: true } }, select: { name: true, partner: { select: { name: true } } } });
+    if (!product) throw new AppError(404, "NOT_FOUND", "Sản phẩm không còn được phân phối.");
+    const subject = `Tư vấn: ${product.name} (${product.partner.name})`.slice(0, 200);
+    const body = `Sản phẩm: ${product.name}\nĐối tác: ${product.partner.name}${input.phone ? `\nSố điện thoại liên hệ: ${input.phone}` : ""}\n\n${input.message}`;
+    return transaction(this.db, async tx => {
+      const ticket = await tx.supportTicket.create({ data: { userId, subject, category: PRODUCT_CONSULT }, select: ticketSelect });
+      await tx.supportMessage.create({ data: { ticketId: ticket.id, authorId: userId, body } });
+      await audit(tx, userId, "PRODUCT_CONSULT_REQUESTED", "PRODUCT", productId, { ticketId: ticket.id });
       return ticket;
     });
   }

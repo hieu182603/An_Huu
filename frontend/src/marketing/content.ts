@@ -5,16 +5,15 @@ export const marketingNavigation = [
   { path: '/cach-hoat-dong', label: 'Cách hoạt động' },
   { path: '/mo-phong', label: 'Mô phỏng' },
   { path: '/tro-ly-ai', label: 'Trợ lý AI' },
-  { path: '/kien-thuc', label: 'Kiến thức' },
 ];
 
 export const features: { title: string; text: string; icon: IconName; path: string }[] = [
-  { title: 'Mục tiêu của riêng bạn', text: 'Bắt đầu từ tuổi nghỉ hưu và cuộc sống bạn mong muốn.', icon: 'target', path: '/cach-hoat-dong' },
+  { title: 'Biết mình cần bao nhiêu', text: 'Từ mức chi theo giá hôm nay, ước tính quỹ cần có khi nghỉ hưu.', icon: 'target', path: '/mo-phong' },
   { title: 'Bức tranh tài chính', text: 'Kết nối thu nhập, chi tiêu và tài sản trong một kế hoạch.', icon: 'wallet', path: '/cach-hoat-dong' },
-  { title: 'Tích lũy từng tháng', text: 'Nhìn rõ tác động của những khoản dành dụm hôm nay.', icon: 'chart', path: '/mo-phong' },
+  { title: 'Chọn bước từ tháng này', text: 'Xem khoản góp cần thiết và thử điều chỉnh theo khả năng của bạn.', icon: 'chart', path: '/mo-phong' },
   { title: 'Thử nhiều kịch bản', text: 'Thay đổi tuổi nghỉ hưu, so sánh những hướng đi khác nhau.', icon: 'compass', path: '/mo-phong' },
   { title: 'Trợ lý dễ trò chuyện', text: 'Khám phá các câu hỏi thường gặp về kế hoạch hưu trí.', icon: 'sparkles', path: '/tro-ly-ai' },
-  { title: 'Kiến thức dễ hiểu', text: 'Hiểu những khái niệm tài chính, từng bài viết một.', icon: 'file-text', path: '/kien-thuc' },
+  { title: 'Hiểu năm nhóm tài sản', text: 'Hiểu vai trò từng nhóm và thử tỷ trọng trong phần quỹ hưu trí.', icon: 'file-text', path: '/mo-phong#phan-bo' },
   { title: 'Theo dõi hành trình', text: 'Xem lại mục tiêu khi thu nhập và cuộc sống thay đổi.', icon: 'circle-check', path: '/cach-hoat-dong' },
   { title: 'Chủ động bắt đầu', text: 'Thử mô phỏng ngay, chưa cần tạo tài khoản.', icon: 'mouse-pointer', path: '/mo-phong' },
 ];
@@ -50,8 +49,8 @@ export const assistantExamples: AssistantExample[] = [
   {
     question: 'Tôi 35 tuổi, nên bắt đầu tích lũy bao nhiêu mỗi tháng?',
     tabLabel: '35 tuổi tích lũy',
-    takeaway: 'Tích lũy 15% - 20% thu nhập; sau 25 năm tạo lập quỹ hưu trí nền tảng vững chắc',
-    answer: 'Nguyên tắc phổ biến là dành 15% - 20% thu nhập hàng tháng cho hưu trí. Ví dụ với thu nhập 30 triệu/tháng, tích lũy đều đặn 5 - 6 triệu/tháng với lợi suất giả định 7%/năm sau 25 năm sẽ tạo dựng một quỹ hơn 4,8 tỷ đồng. Bạn có thể mở mục Mô phỏng để thử con số chính xác theo thu nhập của mình.',
+    takeaway: 'Bắt đầu từ mức chi mong muốn và khoản có thể dành ra mỗi tháng',
+    answer: 'Cùng thử một ví dụ: 35 tuổi, nghỉ ở tuổi 60, chưa có vốn ban đầu và góp 6 triệu đồng mỗi tháng. Với lợi suất giả định 7%/năm, công cụ sẽ so sánh quỹ tích lũy với mục tiêu chi 20 triệu đồng/tháng theo giá hôm nay. Mở mô phỏng để xem khoảng thiếu và thử khoản góp khác theo ngân sách của bạn.',
     category: 'Khởi đầu',
     actionLabel: 'Áp dụng kịch bản này vào Mô phỏng',
     scenarioName: '35 tuổi tích lũy 6 triệu/tháng',
@@ -68,7 +67,7 @@ export const assistantExamples: AssistantExample[] = [
     question: 'Nếu tôi muốn nghỉ hưu sớm ở tuổi 50 thì kế hoạch thay đổi ra sao?',
     tabLabel: 'Nghỉ hưu sớm 50t',
     takeaway: 'Tác động kép: giảm 10 năm tích lũy lãi kép, tăng 10 năm dòng tiền chi trả',
-    answer: 'Nghỉ hưu sớm ở tuổi 50 có tác động kép: thời gian tích lũy ngắn đi 10 năm (mất đi giai đoạn lãi kép mạnh nhất) và thời gian quỹ phải chi trả kéo dài thêm 10 năm (từ 25 năm lên 35 năm). Bạn cần tăng tỷ lệ tiết kiệm lên 35% - 45% thu nhập hoặc hạ thấp mức chi tiêu kỳ vọng sau nghỉ hưu.',
+    answer: 'Nếu giữ mốc dự trù đến tuổi 85, nghỉ ở tuổi 50 thay vì 60 nghĩa là bớt 10 năm tích lũy và thêm 10 năm cần chi trả. Hãy thử mức góp 12 triệu đồng/tháng và chi tiêu 20 triệu đồng/tháng theo giá hôm nay, rồi so sánh với khả năng thực tế. Đây là kịch bản để khám phá, chưa phải kế hoạch được khuyến nghị.',
     category: 'FIRE / Hưu sớm',
     actionLabel: 'Áp dụng kịch bản này vào Mô phỏng',
     scenarioName: 'Nghỉ hưu sớm ở tuổi 50',
@@ -113,25 +112,11 @@ export const assistantFaqs = [
   { q: 'Khi nào tôi nên cập nhật lại kế hoạch hưu trí?', a: 'Bạn nên rà soát lại kế hoạch khi có thay đổi lớn trong cuộc sống: tăng lương, chuyển việc, lập gia đình, sinh con, hoàn tất trả nợ mua nhà, hoặc định kỳ mỗi năm một lần.' },
 ];
 
-export const knowledgePillars = [
-  { step: '01', title: 'Sức mạnh thời gian', highlight: 'Bắt đầu sớm hơn quan trọng hơn bắt đầu nhiều hơn', text: 'Nhờ lãi kép, người bắt đầu tích lũy 3 triệu/tháng ở tuổi 25 thường có quỹ hưu trí lớn hơn người bắt đầu 7 triệu/tháng ở tuổi 40, dù tổng số tiền bỏ ra ít hơn gần một nửa.' },
-  { step: '02', title: 'Đo lường theo sức mua', highlight: 'Đừng nhìn số tiền danh nghĩa, hãy nhìn giá trị bữa ăn', text: '1 tỷ đồng hôm nay mua được một căn hộ nhỏ, nhưng sau 25 năm với lạm phát 4% chỉ còn sức mua tương đương 375 triệu. Mọi kế hoạch hưu trí bắt buộc phải neo theo sức mua thực tế.' },
-  { step: '03', title: 'Chiến lược kiềng ba chân', highlight: 'Không đặt toàn bộ niềm tin vào một nguồn duy nhất', text: 'Tuổi già bền vững cần kiềng 3 chân: Lương hưu BHXH (nền an sinh), Quỹ tích lũy cá nhân (tự do tài chính), và Bảo hiểm y tế (bảo vệ nguồn tiền trước viện phí).' },
-];
-
-export const retirementGlossary = [
-  { term: 'Tỷ lệ thay thế thu nhập (Income Replacement Rate)', meaning: 'Tỷ lệ phần trăm thu nhập cần duy trì sau khi nghỉ hưu so với thu nhập trước đó. Mức chuẩn quốc tế khuyến nghị là 70% - 75% để giữ trọn vẹn chất lượng sống.' },
-  { term: 'Quỹ hưu trí mục tiêu (Target Nest Egg)', meaning: 'Tổng số tiền cần tích lũy tính đến ngày đầu tiên nghỉ hưu, đủ để chi trả sinh hoạt phí cho suốt những năm còn lại kết hợp với lợi suất an toàn.' },
-  { term: 'Khoảng thiếu hụt hưu trí (Retirement Gap)', meaning: 'Chênh lệch âm giữa số tiền bạn dự kiến có được và số tiền thực sự cần để nghỉ hưu theo mong muốn. Nhận diện gap càng sớm thì chi phí bù đắp mỗi tháng càng thấp.' },
-  { term: 'Lạm phát chăm sóc sức khỏe (Healthcare Inflation)', meaning: 'Tốc độ tăng chi phí dịch vụ y tế, thuốc men và viện phí. Chỉ số này thường tăng từ 6% - 10%/năm, cao hơn mức lạm phát hàng tiêu dùng thông thường.' },
-];
-
 export const pageMetadata: Record<string, { title: string; description: string }> = {
   '/': { title: 'An Hưu | Lập kế hoạch tài chính hưu trí cho người Việt', description: 'Chủ động chuẩn bị cho tuổi hưu cùng An Hưu. Khám phá lộ trình tích lũy, thử mô phỏng hưu trí và tìm hiểu kiến thức tài chính dễ hiểu.' },
   '/cach-hoat-dong': { title: 'Cách hoạt động | Lập kế hoạch hưu trí với An Hưu', description: 'Tìm hiểu bốn bước lập kế hoạch với An Hưu: tổng hợp tài chính, xác định mục tiêu, mô phỏng kịch bản và theo dõi hành trình hưu trí.' },
   '/mo-phong': { title: 'Mô phỏng hưu trí | Tính quỹ tích lũy cùng An Hưu', description: 'Thử mô phỏng hưu trí miễn phí. Điều chỉnh tuổi nghỉ hưu, tích lũy hàng tháng, lợi suất và lạm phát để so sánh quỹ dự kiến với mục tiêu.' },
   '/tro-ly-ai': { title: 'Trợ lý AI An Hưu | Tìm hiểu kế hoạch hưu trí', description: 'Khám phá trợ lý An Hưu qua các câu hỏi mẫu về mục tiêu, tích lũy và mô phỏng hưu trí. Nội dung minh họa minh bạch, dễ hiểu.' },
-  '/kien-thuc': { title: 'Kiến thức hưu trí và tài chính cá nhân | An Hưu', description: 'Đọc kiến thức nền tảng về lập kế hoạch hưu trí, lạm phát và tích lũy dài hạn. Những bài viết dễ hiểu để bắt đầu cùng An Hưu.' },
 };
 
 export function normalizePublicPath(path: string) { return path.replace(/\/+$/, '') || '/'; }

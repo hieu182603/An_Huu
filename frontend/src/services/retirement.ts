@@ -25,6 +25,7 @@ export interface HousingPlanItem {
 }
 
 export interface RetirementPreviewInput {
+  advisoryFee?: { annualPercent: string; paidFrom: "FUND" | "EXTERNAL" };
   expectedProfileRevision: number;
   policyVersionId: string;
   scenario: "BASE" | "ADVERSE" | "FAVORABLE";
@@ -62,6 +63,11 @@ export interface RetirementIssue {
 }
 
 export interface RetirementRow {
+  essentialShortfall?: string | null;
+  otherShortfall?: string | null;
+  advisoryFeeAmount?: string;
+  advisoryFeeAverageFund?: string;
+  advisoryFeePaidFrom?: "FUND" | "EXTERNAL";
   month: string;
   growthFactor: string;
   inflationFactor: string;
@@ -96,6 +102,8 @@ export interface RetirementComparison {
 }
 
 export interface RetirementSummary {
+  essentialShortfall?: string | null;
+  firstEssentialShortfallMonth?: string | null;
   valuationDate: string;
   retirementMonth: string;
   endMonth: string;
@@ -161,6 +169,11 @@ export interface RetirementCalculation {
 }
 
 export interface RetirementPreviewResult {
+  capitalSeparation?: import("./planningAnalysis").CapitalSeparation;
+  lossConstraint?: import("./planningAnalysis").LossConstraint;
+  essentialCoverage?: import("./planningAnalysis").EssentialCoverage;
+  adjustmentOptions?: import("./planningAnalysis").AdjustmentOptions;
+  decisionExplanations?: Array<{ code: string; parameters: Record<string, string | number | boolean | null>; text: string }>;
   reforecast?: unknown;
   status: "READY" | "INCOMPLETE";
   issues: RetirementIssue[];
@@ -199,6 +212,7 @@ export interface RetirementPreviewEnvelope {
 }
 
 export const WARNING_MESSAGES: Record<string, string> = {
+  CONTRIBUTION_ESTIMATE_USES_CURRENT_FEE_SCHEDULE_REPREVIEW_REQUIRED: "Khoản góp cần dùng lịch phí hiện tại. Hãy xem trước lại khi đổi khoản góp để tính lại phí tư vấn.",
   PENSION_NOT_INCLUDED: "Kế hoạch chưa bao gồm lương hưu do bạn chưa khai báo mức ước tính cụ thể.",
   PARTIAL_FIRST_MONTH_FULL_PERIOD_NO_PRORATION: "Tháng đầu tiên được tính tròn một kỳ theo ngày định giá.",
   DEBT_PAYMENT_OUTSIDE_HORIZON: "Có khoản vay còn lịch trả vượt quá thời gian kế hoạch dự phóng.",
@@ -219,7 +233,9 @@ export const ISSUE_MESSAGES: Record<string, string> = {
   PUBLISHED_INFLATION_REQUIRED: "Hệ thống chưa có dữ liệu kinh tế để tính kế hoạch. Bạn không cần sửa hồ sơ; hãy thử lại sau hoặc liên hệ Hỗ trợ.",
   INFLATION_YEAR_MISSING: "Thiếu dữ liệu lạm phát cho một số năm trong thời gian dự phóng.",
   ANSWER_REQUIRED: "Hãy trả lời đủ câu hỏi ở trang Cách đầu tư để tính kế hoạch theo lựa chọn của bạn.",
-  POLICY_NOT_COVERED: "Chưa xác định được danh mục đầu tư phù hợp do thiếu thông tin khảo sát rủi ro.",
+  POLICY_NOT_COVERED: "Chính sách đã ghim chưa bao phủ kế hoạch này. Cần quản trị viên kiểm tra cấu hình; không tự cắt ngắn thời hạn.",
+  PROJECTION_NOT_COVERED: "Bộ giả định chưa phủ đủ thời gian kế hoạch. Cần bổ sung cấu hình đã duyệt, không giảm thời hạn để né lỗi.",
+  ASSET_HORIZON_NOT_COVERED: "Giả định tài sản chưa phủ kỳ hạn yêu cầu. Cần kiểm tra bộ giả định đã ghim.",
   UNKNOWN_CHOICE: "Lựa chọn khảo sát không hợp lệ trong chính sách danh mục.",
   DUPLICATE_ANSWER: "Câu hỏi khảo sát bị trùng lặp câu trả lời.",
   UNKNOWN_QUESTION: "Câu hỏi khảo sát không tồn tại trong chính sách danh mục hiện hành.",
@@ -244,7 +260,9 @@ export const EN_ISSUE_MESSAGES: Record<string, string> = {
   PUBLISHED_INFLATION_REQUIRED: "Published macroeconomic assumption set is required.",
   INFLATION_YEAR_MISSING: "Inflation data missing for projection years.",
   ANSWER_REQUIRED: "Risk tolerance survey questions need to be answered to determine benchmark portfolio.",
-  POLICY_NOT_COVERED: "Portfolio strategy cannot be determined without risk assessment.",
+  POLICY_NOT_COVERED: "The pinned policy does not cover this plan. Administrator review is needed; do not shorten the horizon automatically.",
+  PROJECTION_NOT_COVERED: "The assumptions do not cover the full plan period. Approved configuration is required; do not shorten the plan to bypass this.",
+  ASSET_HORIZON_NOT_COVERED: "Asset assumptions do not cover the required horizon. Review the pinned assumption set.",
   UNKNOWN_CHOICE: "Invalid choice in survey answers.",
   DUPLICATE_ANSWER: "Duplicate answer for survey question.",
   UNKNOWN_QUESTION: "Survey question not found in current policy.",
@@ -259,6 +277,7 @@ export const EN_ISSUE_MESSAGES: Record<string, string> = {
 };
 
 export const EN_WARNING_MESSAGES: Record<string, string> = {
+  CONTRIBUTION_ESTIMATE_USES_CURRENT_FEE_SCHEDULE_REPREVIEW_REQUIRED: "The required contribution uses the current fee schedule. Preview again after changing contributions to recalculate advisory fees.",
   PENSION_NOT_INCLUDED: "Retirement plan currently excludes state pension because specific estimates are not declared.",
   PARTIAL_FIRST_MONTH_FULL_PERIOD_NO_PRORATION: "First month is treated as a full period based on valuation date.",
   DEBT_PAYMENT_OUTSIDE_HORIZON: "Some loan payments extend beyond the plan projection horizon.",
@@ -282,11 +301,11 @@ export function translateWarningCode(code: string, language: "vi" | "en" = "vi")
   return WARNING_MESSAGES[code] || `Điều cần biết về kết quả: ${code}`;
 }
 
-export async function previewMonthlyRetirement(input: RetirementPreviewInput): Promise<RetirementPreviewResult> {
+export async function previewMonthlyRetirement(input: RetirementPreviewInput, signal?: AbortSignal): Promise<RetirementPreviewResult> {
   return await authenticatedRequest<RetirementPreviewResult>(
     "/me/retirement/preview",
     input,
-    "POST"
+    "POST", undefined, { signal }
   );
 }
 

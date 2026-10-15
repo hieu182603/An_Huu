@@ -1,0 +1,13 @@
+.portfolio-glide-table th,
+.portfolio-glide-table td {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.portfolio-glide-table [aria-current="true"] th,
+.portfolio-glide-table [aria-current="true"] td {
+  background: var(--color-surface-subtle);
+  font-weight: 700;
+}

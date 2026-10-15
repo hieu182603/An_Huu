@@ -33,38 +33,6 @@
       "destination": "/tro-ly-ai/index.html"
     },
     {
-      "source": "/kien-thuc",
-      "destination": "/kien-thuc/index.html"
-    },
-    {
-      "source": "/kien-thuc/",
-      "destination": "/kien-thuc/index.html"
-    },
-    {
-      "source": "/kien-thuc/bat-dau-ke-hoach-huu-tri",
-      "destination": "/kien-thuc/bat-dau-ke-hoach-huu-tri/index.html"
-    },
-    {
-      "source": "/kien-thuc/bat-dau-ke-hoach-huu-tri/",
-      "destination": "/kien-thuc/bat-dau-ke-hoach-huu-tri/index.html"
-    },
-    {
-      "source": "/kien-thuc/hieu-ve-lam-phat",
-      "destination": "/kien-thuc/hieu-ve-lam-phat/index.html"
-    },
-    {
-      "source": "/kien-thuc/hieu-ve-lam-phat/",
-      "destination": "/kien-thuc/hieu-ve-lam-phat/index.html"
-    },
-    {
-      "source": "/kien-thuc/hieu-ve-tich-luy",
-      "destination": "/kien-thuc/hieu-ve-tich-luy/index.html"
-    },
-    {
-      "source": "/kien-thuc/hieu-ve-tich-luy/",
-      "destination": "/kien-thuc/hieu-ve-tich-luy/index.html"
-    },
-    {
       "source": "/api/(.*)",
       "destination": "https://anhuu-backend-addwbfcshng0hcf7.japaneast-01.azurewebsites.net/api/$1"
     },

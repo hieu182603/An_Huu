@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router";
-import { Alert, Badge, Button, Card, Icon, Modal } from "../components/ui";
+import { Alert, Badge, Button, Card, Icon, Input, Modal, Textarea, useNotification } from "../components/ui";
 import KnowledgeLibrary, { KnowledgeGlossary } from "../components/KnowledgeLibraryApi";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n";
-import { listPublicProducts, type ProductItem } from "../services/catalog";
+import { listPublicProducts, requestProductConsult, type ProductItem } from "../services/catalog";
 
 export default function ExplorePage() {
   const { user } = useAuth();
@@ -17,13 +16,27 @@ export default function ExplorePage() {
   const [error, setError] = useState("");
   const [reload, setReload] = useState(0);
   const [catalogProducts, setCatalogProducts] = useState<ProductItem[]>([]);
+  const { notify } = useNotification();
+  const [consult, setConsult] = useState({ open: false, message: "", phone: "", busy: false, error: "" });
+  const openProduct = (item: ProductItem | null) => { setSelectedProduct(item); setConsult({ open: false, message: "", phone: "", busy: false, error: "" }); };
+  const sendConsult = async () => {
+    if (!selectedProduct) return;
+    setConsult(c => ({ ...c, busy: true, error: "" }));
+    try {
+      await requestProductConsult(selectedProduct.id, consult.message.trim(), consult.phone.trim() || undefined);
+      notify.success(isEn ? "Consultation requested" : "Đã gửi yêu cầu tư vấn", isEn ? "Track replies in Support." : "Theo dõi phản hồi tại mục Hỗ trợ.");
+      openProduct(null);
+    } catch (e) {
+      setConsult(c => ({ ...c, busy: false, error: e instanceof Error ? e.message : (isEn ? "Could not send the request." : "Không gửi được yêu cầu.") }));
+    }
+  };
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
     listPublicProducts(1, 50)
-      .then(res => { if (active) setCatalogProducts(res.items.filter(p => p.isVisible)); })
+      .then(res => { if (active) setCatalogProducts(res.items.filter(p => p.isVisible === true)); })
       .catch(() => { if (active) setError(isEn ? "Unable to load partner products." : "Không thể tải sản phẩm đối tác."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -51,11 +64,6 @@ export default function ExplorePage() {
               ? "Explore financial products from our partner network (investment funds, health insurance, banks) and retirement accumulation handbooks."
               : "Khám phá các sản phẩm tài chính từ mạng lưới đối tác liên kết (quỹ đầu tư, bảo hiểm y tế, ngân hàng) và cẩm nang tích lũy hưu trí."}
           </p>
-        </div>
-
-        <div className="phase-eight-switcher">
-          <Link to="/user/explore" className="is-active">{isEn ? "Explore" : "Khám phá"}</Link>
-          <Link to="/user/account">{isEn ? "Account" : "Tài khoản"}</Link>
         </div>
       </div>
 
@@ -92,10 +100,12 @@ export default function ExplorePage() {
           <div className="solutions-grid">
             {visibleProducts.map(item => (
               <Card className="solution-card" key={item.id}>
+                <p>{isEn ? "Reference information — not a personal recommendation" : "Thông tin tham khảo — không phải khuyến nghị cá nhân"}</p>
+                {item.imageUrl && <img className="solution-image" src={item.imageUrl} alt="" loading="lazy" />}
                 <header><span className="solution-icon"><Icon name="wallet" /></span><div><strong>{item.name}</strong><small>{item.partner?.name || (isEn ? "Partner" : "Đối tác")}</small></div><Badge tone="soft">{item.riskLevel === "LOW" ? (isEn ? "Low risk" : "Rủi ro thấp") : item.riskLevel === "HIGH" ? (isEn ? "High risk" : "Rủi ro cao") : (isEn ? "Medium risk" : "Rủi ro trung bình")}</Badge></header>
                 <h3>{item.category}</h3><p>{item.description}</p>
                 <div className="solution-details"><span><small>{isEn ? "Annual fee" : "Phí hằng năm"}</small><strong>{item.annualFee || (isEn ? "Not provided" : "Chưa công bố")}</strong></span></div>
-                <Button variant="secondary" onClick={() => setSelectedProduct(item)}>{isEn ? "View solution details" : "Xem chi tiết giải pháp"}<Icon name="arrow-right" size="small" /></Button>
+                <Button variant="secondary" onClick={() => openProduct(item)}>{isEn ? "View solution details" : "Xem chi tiết giải pháp"}<Icon name="arrow-right" size="small" /></Button>
               </Card>
             ))}
           </div>)}
@@ -103,13 +113,30 @@ export default function ExplorePage() {
       )}
 
       <KnowledgeGlossary />
-      <Modal open={Boolean(selectedProduct)} title={selectedProduct?.name || ""} onClose={() => setSelectedProduct(null)}>
-        {selectedProduct && <div className="product-detail"><p>{selectedProduct.description}</p>{[
+      <Modal open={Boolean(selectedProduct)} title={selectedProduct?.name || ""} onClose={() => { if (!consult.busy) openProduct(null); }}>
+        <p>{isEn ? "Reference information only. Products are not ranked or matched to your financial profile." : "Chỉ là thông tin tham khảo. Sản phẩm không được xếp hạng hay đề xuất theo hồ sơ tài chính của bạn."}</p>
+        {selectedProduct && <div className="product-detail">{selectedProduct.imageUrl && <img className="product-detail-image" src={selectedProduct.imageUrl} alt={selectedProduct.name} />}<p><strong>{selectedProduct.partner?.name}</strong> · {selectedProduct.category}</p><p>{selectedProduct.description}</p>{[
           [isEn ? "Expected return (not guaranteed)" : "Lợi suất kỳ vọng (không cam kết)", selectedProduct.expectedReturn],
           [isEn ? "Annual fee" : "Phí hằng năm", selectedProduct.annualFee],
           [isEn ? "Conditions" : "Điều kiện", selectedProduct.conditions],
           [isEn ? "Disclosure" : "Thông tin công bố", selectedProduct.disclosure],
-        ].map(([label, value]) => <section key={label}><h3>{label}</h3><p>{value || (isEn ? "Not provided" : "Chưa công bố")}</p></section>)}</div>}
+        ].map(([label, value]) => <section key={label}><h3>{label}</h3><p>{value || (isEn ? "Not provided" : "Chưa công bố")}</p></section>)}
+          {!consult.open ? (
+            <Button onClick={() => setConsult(c => ({ ...c, open: true }))}><Icon name="message" size="small" />{isEn ? "Request a consultation" : "Yêu cầu tư vấn gói này"}</Button>
+          ) : (
+            <section className="product-consult-form">
+              <h3>{isEn ? "Request a consultation" : "Yêu cầu tư vấn"}</h3>
+              <Textarea label={isEn ? "What would you like to know?" : "Bạn muốn được tư vấn điều gì?"} rows={3} value={consult.message} disabled={consult.busy}
+                onChange={message => setConsult(c => ({ ...c, message: message.slice(0, 2000) }))} />
+              <Input label={isEn ? "Phone (optional)" : "Số điện thoại liên hệ (không bắt buộc)"} inputMode="numeric" value={consult.phone} disabled={consult.busy}
+                onChange={phone => setConsult(c => ({ ...c, phone }))} />
+              {consult.error && <Alert tone="danger" title={consult.error} />}
+              <div className="product-consult-actions">
+                <Button variant="secondary" disabled={consult.busy} onClick={() => setConsult(c => ({ ...c, open: false }))}>{isEn ? "Cancel" : "Hủy"}</Button>
+                <Button disabled={consult.busy || consult.message.trim().length < 3} onClick={sendConsult}>{consult.busy ? (isEn ? "Sending…" : "Đang gửi…") : (isEn ? "Send request" : "Gửi yêu cầu")}</Button>
+              </div>
+            </section>
+          )}</div>}
       </Modal>
     </div>
   );

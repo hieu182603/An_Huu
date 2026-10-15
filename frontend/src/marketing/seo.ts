@@ -22,8 +22,7 @@ export function structuredData(pathname: string, origin = configuredOrigin) {
       { '@type': 'WebPage', name: meta.title, description: meta.description, inLanguage: 'vi-VN', ...(origin ? { url: `${origin}${path}`, isPartOf: { '@id': `${origin}/#website` } } : {}) },
       ...(origin && path !== '/' ? [{ '@type': 'BreadcrumbList', itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${origin}/` },
-        ...(path.startsWith('/kien-thuc/') ? [{ '@type': 'ListItem', position: 2, name: 'Kiến thức', item: `${origin}/kien-thuc` }] : []),
-        { '@type': 'ListItem', position: path.startsWith('/kien-thuc/') ? 3 : 2, name: meta.title.split(' | ')[0], item: `${origin}${path}` },
+        { '@type': 'ListItem', position: 2, name: meta.title.split(' | ')[0], item: `${origin}${path}` },
       ] }] : []),
     ],
   };

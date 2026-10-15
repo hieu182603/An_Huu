@@ -337,6 +337,8 @@ AssetEntry:
         - PRIMARY_HOME
         - REAL_ESTATE
         - OTHER
+        - GOLD
+        - BOND
     value:
       $ref: "#/Amount"
     valuedOn:
@@ -372,6 +374,30 @@ AssetEntry:
       $ref: "#/KnownMonth"
     housingPlan:
       $ref: "#/HousingPlan"
+    costBasis:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            value:
+              type: string
+              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+          required:
+            - status
+            - value
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
   required:
     - id
     - label
@@ -653,6 +679,395 @@ FinancialDataV2:
             - source
             - estimatedOn
             - adjustment
+    lossTolerance:
+      type: object
+      additionalProperties: false
+      properties:
+        amountVnd:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+        percent:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+        reaction:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  enum:
+                    - SELL
+                    - HOLD
+                    - BUY_MORE
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+    incomeStability:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            value:
+              type: string
+              enum:
+                - STABLE
+                - VARIABLE
+                - UNCERTAIN
+          required:
+            - status
+            - value
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
+    employerConcentration:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            value:
+              type: string
+              enum:
+                - LOW
+                - MEDIUM
+                - HIGH
+          required:
+            - status
+            - value
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
+    liquidityNeeds:
+      type: object
+      additionalProperties: false
+      properties:
+        y1:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+        y3:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+        y5:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+    goals:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            entries:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    pattern: ^[a-zA-Z0-9_-]+$
+                  label:
+                    type: string
+                    minLength: 1
+                    maxLength: 120
+                  amountToday:
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - KNOWN
+                          value:
+                            type: string
+                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        required:
+                          - status
+                          - value
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - UNKNOWN
+                        required:
+                          - status
+                  dueMonth:
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - KNOWN
+                          value:
+                            type: string
+                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                        required:
+                          - status
+                          - value
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - UNKNOWN
+                        required:
+                          - status
+                  inflation:
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - KNOWN
+                          value:
+                            type: string
+                            pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                        required:
+                          - status
+                          - value
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - UNKNOWN
+                        required:
+                          - status
+                  priority:
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - KNOWN
+                          value:
+                            type: string
+                            enum:
+                              - ESSENTIAL
+                              - FLEXIBLE
+                              - LEGACY
+                        required:
+                          - status
+                          - value
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - UNKNOWN
+                        required:
+                          - status
+                  deferrable:
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - KNOWN
+                          value:
+                            type: boolean
+                        required:
+                          - status
+                          - value
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - UNKNOWN
+                        required:
+                          - status
+                required:
+                  - id
+                  - label
+                  - amountToday
+                  - dueMonth
+                  - priority
+                  - deferrable
+              maxItems: 200
+          required:
+            - status
+            - entries
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - NOT_APPLICABLE
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 300
+          required:
+            - status
+            - reason
   required:
     - schemaVersion
     - valuationDate
@@ -886,6 +1301,390 @@ ProfileChangesV2:
             - source
             - estimatedOn
             - adjustment
+    lossTolerance:
+      type: object
+      additionalProperties: false
+      properties:
+        amountVnd:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+        percent:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+        reaction:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  enum:
+                    - SELL
+                    - HOLD
+                    - BUY_MORE
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+    incomeStability:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            value:
+              type: string
+              enum:
+                - STABLE
+                - VARIABLE
+                - UNCERTAIN
+          required:
+            - status
+            - value
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
+    employerConcentration:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            value:
+              type: string
+              enum:
+                - LOW
+                - MEDIUM
+                - HIGH
+          required:
+            - status
+            - value
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
+    liquidityNeeds:
+      type: object
+      additionalProperties: false
+      properties:
+        y1:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+        y3:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+        y5:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+    goals:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            entries:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    pattern: ^[a-zA-Z0-9_-]+$
+                  label:
+                    type: string
+                    minLength: 1
+                    maxLength: 120
+                  amountToday:
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - KNOWN
+                          value:
+                            type: string
+                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        required:
+                          - status
+                          - value
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - UNKNOWN
+                        required:
+                          - status
+                  dueMonth:
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - KNOWN
+                          value:
+                            type: string
+                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                        required:
+                          - status
+                          - value
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - UNKNOWN
+                        required:
+                          - status
+                  inflation:
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - KNOWN
+                          value:
+                            type: string
+                            pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                        required:
+                          - status
+                          - value
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - UNKNOWN
+                        required:
+                          - status
+                  priority:
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - KNOWN
+                          value:
+                            type: string
+                            enum:
+                              - ESSENTIAL
+                              - FLEXIBLE
+                              - LEGACY
+                        required:
+                          - status
+                          - value
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - UNKNOWN
+                        required:
+                          - status
+                  deferrable:
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - KNOWN
+                          value:
+                            type: boolean
+                        required:
+                          - status
+                          - value
+                      - type: object
+                        additionalProperties: false
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - UNKNOWN
+                        required:
+                          - status
+                required:
+                  - id
+              maxItems: 200
+          required:
+            - status
+            - entries
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - NOT_APPLICABLE
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 300
+          required:
+            - status
+            - reason
   required:
     - schemaVersion
 SummaryV2:

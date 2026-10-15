@@ -5,6 +5,7 @@ import { dateSchema, monthSchema } from "../../common/calendar";
 import { contractDeclarationSchema } from "../debts/schema";
 import { buildContractSchedule } from "../debts/loan";
 import { pensionSchema, retirementConditionSchema } from "../pensions/schema";
+import { ratePercentSchema } from "../assumptions/schema";
 export { dateSchema, monthSchema } from "../../common/calendar";
 const PreciseDecimal = Prisma.Decimal.clone({ precision: 48 });
 
@@ -51,11 +52,12 @@ export const housingPlanSchema = z.discriminatedUnion("status", [
 ]);
 export const assetEntrySchema = z.object({
   id, label: z.string().trim().min(1).max(120),
-  type: z.enum(["CASH", "DEPOSIT", "STOCK_FUND", "PRIMARY_HOME", "REAL_ESTATE", "OTHER"]),
+  type: z.enum(["CASH", "DEPOSIT", "STOCK_FUND", "PRIMARY_HOME", "REAL_ESTATE", "OTHER", "GOLD", "BOND"]),
   value: amountSchema, currency, valuedOn: knownOrUnknown(dateSchema), ownershipShare: share,
   retirementShare: share, emergencyShare: share, otherGoalsShare: share,
   liquidity: knownOrUnknown(z.enum(["LIQUID", "ILLIQUID", "LOCKED"])),
   availableFromMonth: knownOrUnknown(monthSchema), housingPlan: housingPlanSchema.optional(),
+  costBasis: amountSchema.optional(),
 }).strict().superRefine((value, ctx) => {
   const shares = [value.retirementShare, value.emergencyShare, value.otherGoalsShare];
   const sum = shares.reduce((total, item) => item.status === "KNOWN" ? total.plus(item.value) : total, new Prisma.Decimal(0));
@@ -85,11 +87,25 @@ const personalV2 = z.object({
   maritalStatus: z.enum(["SINGLE", "MARRIED", "OTHER"]).optional(),
   dependents: knownOrUnknown(z.number().int().min(0).max(30)).optional(), city: z.string().trim().max(120).optional(),
 }).strict();
+// Percent points (20 means 20%), unlike the existing asset shares in [0, 1].
+const lossPercent = ratePercentSchema.refine(v => new Prisma.Decimal(v).gte(0), "Tỷ lệ phải từ 0 đến 100%.");
+export const goalEntrySchema = z.object({
+  id, label: z.string().trim().min(1).max(120), amountToday: amountSchema,
+  dueMonth: knownOrUnknown(monthSchema), inflation: knownOrUnknown(ratePercentSchema).optional(),
+  priority: knownOrUnknown(z.enum(["ESSENTIAL", "FLEXIBLE", "LEGACY"])),
+  deferrable: knownOrUnknown(z.boolean()),
+}).strict();
 export const profileV2Object = z.object({
   schemaVersion: z.literal(2), valuationDate: dateSchema, currency: z.literal("VND").default("VND"), periodUnit: z.literal("MONTH"),
   personal: personalV2, income: collectionSchema(incomeEntrySchema), expenses: collectionSchema(expenseEntrySchema),
   assets: collectionSchema(assetEntrySchema), debts: collectionSchema(debtEntrySchema),
   pension: pensionSchema.optional(),
+  lossTolerance: z.object({ amountVnd: amountSchema.optional(), percent: knownOrUnknown(lossPercent).optional(),
+    reaction: knownOrUnknown(z.enum(["SELL", "HOLD", "BUY_MORE"])).optional() }).strict().optional(),
+  incomeStability: knownOrUnknown(z.enum(["STABLE", "VARIABLE", "UNCERTAIN"])).optional(),
+  employerConcentration: knownOrUnknown(z.enum(["LOW", "MEDIUM", "HIGH"])).optional(),
+  liquidityNeeds: z.object({ y1: amountSchema.optional(), y3: amountSchema.optional(), y5: amountSchema.optional() }).strict().optional(),
+  goals: collectionSchema(goalEntrySchema).optional(),
 }).strict();
 function referencesCheck(data: z.infer<typeof profileV2Object> | z.infer<typeof partialProfileV2Object>, ctx: z.RefinementCtx) {
   const pension = data.pension, pensionStart = data.personal?.pensionStartMonth;
@@ -121,7 +137,7 @@ function referencesCheck(data: z.infer<typeof profileV2Object> | z.infer<typeof 
   });
   if (pension?.status === "NOT_APPLICABLE" && pensionStart?.status === "KNOWN")
     issue(["personal", "pensionStartMonth"], "Lương hưu không áp dụng không được có tháng nhận đã xác nhận.");
-  for (const key of ["income", "expenses", "assets", "debts"] as const) {
+  for (const key of ["income", "expenses", "assets", "debts", "goals"] as const) {
     const group = data[key];
     if (group?.status !== "KNOWN") continue;
     const seen = new Set<string>();
@@ -129,6 +145,16 @@ function referencesCheck(data: z.infer<typeof profileV2Object> | z.infer<typeof 
       if (seen.has(entry.id)) ctx.addIssue({ code: "custom", path: [key, "entries", index, "id"], message: "ID không được trùng trong một nhóm." });
       seen.add(entry.id);
     });
+  }
+  if (data.goals?.status === "KNOWN") data.goals.entries.forEach((goal, index) => {
+    if (goal.dueMonth?.status === "KNOWN" && data.valuationDate && goal.dueMonth.value < data.valuationDate.slice(0, 7))
+      issue(["goals", "entries", index, "dueMonth"], "Mục tiêu phải từ tháng định giá trở đi.");
+  });
+  const needs = data.liquidityNeeds;
+  for (const [earlier, later] of [["y1", "y3"], ["y1", "y5"], ["y3", "y5"]] as const) {
+    const a = needs?.[earlier], b = needs?.[later];
+    if (a?.status === "KNOWN" && b?.status === "KNOWN" && new Prisma.Decimal(a.value).gt(b.value))
+      issue(["liquidityNeeds", later], "Nhu cầu tiền lũy kế không được giảm theo thời hạn.");
   }
   if (data.debts?.status === "KNOWN") {
     const ids = new Set<string>();
@@ -184,6 +210,7 @@ export const partialProfileV2Object = profileV2Object.partial().extend({
   expenses: collectionSchema(expenseEntrySchema.innerType().partial().required({ id: true })).optional(),
   assets: collectionSchema(assetEntrySchema.innerType().partial().required({ id: true })).optional(),
   debts: collectionSchema(debtEntrySchema.innerType().partial().required({ id: true })).optional(),
+  goals: collectionSchema(goalEntrySchema.partial().required({ id: true })).optional(),
 }).strict();
 export const profileV2Schema = profileV2Object.superRefine(referencesCheck);
 export const partialProfileV2Schema = partialProfileV2Object.superRefine(referencesCheck);

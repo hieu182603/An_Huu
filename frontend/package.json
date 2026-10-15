@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/validate-assets.mjs && vite build && node scripts/prerender-marketing.mjs",
-    "test:assets": "node --experimental-strip-types --test scripts/validate-assets.test.mjs scripts/deployment-config.test.mjs scripts/retirement-calculator.test.mjs scripts/retirement-services.test.mjs scripts/actuals-and-ai.test.mjs scripts/i18n.test.mjs scripts/insurance-services.test.mjs scripts/cache-scope.test.mjs scripts/profile-v2-defaults.test.mjs scripts/socket-origin.test.mjs",
+    "test:assets": "node --experimental-strip-types --test scripts/validate-assets.test.mjs scripts/deployment-config.test.mjs scripts/retirement-calculator.test.mjs scripts/retirement-services.test.mjs scripts/actuals-and-ai.test.mjs scripts/i18n.test.mjs scripts/insurance-services.test.mjs scripts/cache-scope.test.mjs scripts/profile-v2-defaults.test.mjs scripts/socket-origin.test.mjs scripts/portfolio-glide-path.test.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test:marketing": "npm run build && node --test scripts/marketing-seo.test.mjs && playwright test --config playwright.marketing.config.ts",

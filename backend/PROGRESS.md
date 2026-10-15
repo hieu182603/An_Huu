@@ -1,4 +1,208 @@
+## BACKEND đợt B — P2-1 đến P2-5 (16/10/2026)
+
+Đợt P2 triển khai riêng, giữ nguyên thay đổi chưa commit đợt A. Không đọc backend/.env, không kết nối/ghi DB thật, không migration/seed/script *-db, không sửa frontend, không commit/push/deploy. Có API ADMIN quản lý dữ liệu nhưng **không tạo/duyệt/công bố bất kỳ dữ liệu production nào trong lượt này**. Không kèm chuỗi thị trường trong code production; tất cả số tổng lợi nhuận mới trong tests đều ghi rõ synthetic fixture.
+
+### Hành vi và quyết định
+
+- P2-1: bộ dữ liệu tháng dùng `assumption_set_versions`, modelCode `monthly-total-return-data-v1`; DRAFT→APPROVED→PUBLISHED, CAS revision/audit/hash canonical, metadata nguồn/kỳ/license/đơn vị/phí/thuế/quality. Bắt buộc tháng liên tục, đủ đúng các cột tài sản+CPI, không điền 0/interpolate. Chưa có bộ công bố và hiệu lực → DATA_REQUIRED. Client không thể gửi chuỗi lợi suất/CPI hoặc policy override.
+- Bootstrap khối toàn véc-tơ (non-circular moving blocks), block 12–36 từ policy, seed 20261016 gắn model allocation-risk-v1. Gọi lại monthly kernel hiện có; recompute CPI living expense, contribution capacity, advisory fees; đọc funded ledger, không dùng số dư âm giả định và không xóa thiếu hụt cũ. pEssential mọi tháng + Wilson95; CVaR thực với fractional tail; bands p10/p50/p90 funded balance theo giá hôm nay; display tiền triệu và % nguyên, chọn phương án dùng raw values. N≤500, tổng candidate-path-months≤200000, deadline 10s kiểm giữa đường đi, 1 run/user/2 process, 6 request/phút/IP; giới hạn trả LIMIT_EXCEEDED không trả kết quả dở.
+- P2-2: đủ tám loại thử thách; bảy entries scenarios và longevity.results cho +5/+10 năm. Tham số từng loại lấy từ policy; thiếu → REVIEW_REQUIRED, ngoài cửa sổ/thiếu coverage cũng review. Dùng giả định tất định đã ghim. BĐS chỉ dịch dòng bán đã xác định, không đổi vốn khác; +5/+10 xây lại lịch từ hồ sơ với engine, không tự kéo lịch nguồn hết hạn. Golden rút đầu năm: 775 triệu/820 triệu đạt.
+- P2-3: BASE và ±bước cổ phiếu đổi sang tiền gửi, kiểm tỷ trọng và ràng buộc lỗ đợt A tại mọi target tháng; đạt ngưỡng p → CVaR thấp nhất → ít đổi nhất (half-L1 so baseline), cùng seed, không Sharpe. Không đạt → INSUFFICIENT + P1-8/ba hướng điều chỉnh. Bước dịch chưa xác nhận từ khách nên không tự điền ±10 dù báo cáo nêu như ý tưởng thực hiện.
+- P2-4: drift tuyệt đối >band (bằng không kích hoạt), ưu tiên tiền góp/đáo hạn rồi phần giao dịch còn lại; maturities nằm trong giá trị holdings, không cộng hai lần; half-L1 cost theo policy và solve target sau phí. Bản ghi có old/new/target weights, lý do, tiền mặt phân bổ, buy/sell, cost/assumptions; persisted=false, không bảng mới. Chi phí mua ban đầu/đầu tư tiền góp mới chưa nằm trong turnover cost này, được công khai.
+- P2-5: total return, CAGR, mean shrinkage, Ledoit–Wolf centered ML covariance→mu*I, real/FX exact bằng Decimal48. Đối chiếu numeric với scikit-learn 1.8.0 thực thi local trên fixture riêng, không tạo expected từ implementation mới. Các hàm này chưa thay annual assumptions đã công bố.
+- Draft v4 thêm block12 (trong 12–36), alpha .95, p .90 CHỜ DUYỆT, band5, longevity[5,10]. Các số còn thiếu để absent. Sinh lại draft-assumptions-v3 có hash byte vẫn `d54c4369f356f01427565abf612ecc1cff09eae0f2d9acc5c5cff76ca11bf69b`; published-policy-v2 byte vẫn `92f6e08b7db2318ab7bdec6bd362ea6a6910ea20212c8bf363f05146cde031da`. Parser HEAD và parser hiện tại cho cùng JSON/hash approval `f0ba2b90cf2ef46c7b32d20cf2588452502c073001a5bbc3697ac28eb7be52b4`.
+- API USER `/api/v1/me/retirement/risk/{simulation,scenarios,selection,rebalance}`, POST chỉ đọc. PREVIEW nhận existing preview; SAVED_VERSION nhận planId/versionId và dùng PlansService ownership/integrity. Không sửa preview/replay snapshot/inputHash cũ. ADMIN `/api/v1/admin/market-data` cùng get/patch/validate/approve/publish. Approval giống portfolio (không impact token); không áp dataset lên kế hoạch hiện có.
+
+### Giới hạn cần chốt
+
+Dữ liệu thị trường thật/quyền sử dụng, bước dịch cổ phiếu và bảy bộ tham số stress cần ADMIN/chủ nghiệp vụ xác minh trước công bố. Chưa có dữ liệu thì không chạy, không dùng minh họa giả. Số 90% là lựa chọn draft chờ duyệt, không bảo đảm xác suất tương lai. Wilson chỉ đo sai số mô phỏng.
+
+Kế hoạch v4 dùng lịch nguồn đã ghim; chi phí mới/legacy aggregate không có phân loại essential hoặc retirement living bị thay đổi quy ước → REVIEW_REQUIRED thay vì đoán. Kịch bản tài sản và kéo dài tuổi thọ của reforecast cần lịch/attribution bổ sung; điều chỉnh P1-8 số cụ thể của reforecast cần source rebuild (vẫn trả ba hướng). Replay v2/v3/v4 giữ nguyên. Đường đi dùng CPI đầu tháng (tháng đầu index1) như prepare hiện tại; thu nhập/lương hưu/nợ khai báo vẫn nominal. Mô hình stress duration bậc nhất, gold spread là mark khi thanh lý tại cú sốc; đây là các quy ước công khai để duyệt. Deadline là cooperative giữa đường đi, không hard kill, không bao gồm thời gian đọc DB. Chưa kiểm PostgreSQL/concurrency thật, license vendor, production hoặc UI/browser.
+
+### File riêng đợt B
+
+Mới trong `src/modules/allocation-risk/`: `market-schema.ts`, `market-service.ts`, `policy.ts`, `schema.ts`, `simulation.ts`, `stresses.ts`, `selection.ts`, `rebalance.ts`, `estimation.ts`, `service.ts`, `router.ts`.
+
+Sửa nối module: `src/modules/services.ts`, `src/modules/router.ts`; mở rộng optional v2/validation: `src/modules/portfolios/schema.ts`, `src/modules/portfolios/engine.ts`. Builder `scripts/build-allocation-drafts.cjs`, output `seed-data/allocation-2026-10/draft-policy-v4.json`; `.gitignore` whitelist generator mới. Thêm `scripts/generate-allocation-risk-openapi.cjs`, `docs/allocation-risk.openapi.yaml`, `docs/ALLOCATION_RISK_P2.md`; sinh lại `docs/openapi.yaml` (chỉ thêm route, không format churn), `docs/portfolios.openapi.yaml`. Test mới `src/tests/allocation-risk-fixtures.ts`, `allocation-risk.test.ts`, `allocation-risk-api.test.ts`. Bàn giao frontend `../docs/task-frontend.md` mục21; cập nhật PROGRESS này.
+
+Không thay byte các file đợt A: capital/separation.ts, capital/loss-constraint.ts, retirement/advisory-fee.ts, retirement/preview-insights.ts, plans/read-warnings.ts, cũng như cả ba engine v2/v3/v4. Kiểm bằng SHA256 so trước đợt B. Các diff khác có sẵn trong working tree không thuộc đợt này.
+
+### Kiểm chứng thực thi
+
+Lượt full đầu: 778/778 test, 66 file, 123,73s, exit0; source/test typecheck PASS. Sau đó bổ sung 3 test có ý nghĩa (constraint trên growthCapital dương, phí từng path, optional-only deficit) và dùng monthSchema chuẩn cho rebalance. Focused cuối 37/37 PASS, 2 file, 5,44s. 37 test mới gồm numeric/statistics, seed, chất lượng dữ liệu, workflow/hash/roles, read-only preview/saved, v4 nguồn/replay, chọn phương án, tái cân bằng và OpenAPI. Lượt full kế tiếp đạt 781/781 (126,77s). Rà soát sau đó chuyển chuẩn bị preview xuống sau cổng dataset: không gọi evaluate khi DATA_REQUIRED; test hiện có thêm assertion spy cho điều kiện này. Lượt nghiệm thu sau sửa ghi ở bảng dưới.
+
+Lượt Vitest sandbox đầu gặp EPERM cache rename/worker termination, 0 test chạy; đã kết thúc exit1. Các lượt chạy thành công dùng cùng unit config ngoài sandbox đã được tool phê duyệt, loại trừ *.integration.test.ts; chỉ memory DB/fixtures. Không chạy *-db hay nạp .env.
+
+Nghiệm thu cuối sau sửa cổng DATA_REQUIRED, tất cả tiến trình kết thúc exit0:
+
+| Lệnh (trong backend, trừ git) | Kết quả |
+|---|---|
+| `node node_modules/typescript/bin/tsc --noEmit` | PASS, exit0 |
+| `node node_modules/typescript/bin/tsc -p tsconfig.test.json --noEmit` | PASS, exit0 |
+| `node node_modules/vitest/vitest.mjs run --maxWorkers=2` | **781/781 PASS, 66 files, 126,18s**, gồm 744 cũ +37 mới, exit0 |
+| `node scripts/build-allocation-drafts.cjs` | PASS; sinh local draft; assumptions byte giữ nguyên |
+| `node scripts/generate-allocation-risk-openapi.cjs` | PASS; OpenAPI SwaggerParser/Ajv được kiểm trong suite |
+| `node scripts/generate-portfolios-openapi.cjs` | PASS; optional v2 fields |
+| `node --check scripts/generate-allocation-risk-openapi.cjs` và `node --check scripts/build-allocation-drafts.cjs` | PASS |
+| Sinh lại cả ba script + so SHA256 trước/sau | PASS; 5 output draft/OpenAPI không đổi byte |
+| Parser chính sách tại git HEAD so parser hiện tại trên published-policy-v2 | PASS; JSON và approval hash giống hệt |
+| So SHA256 trước/sau của 10 file cần giữ | PASS; 2 JSON +5 module đợt A +3 engine đều nguyên byte |
+| `git diff --check -- backend .gitignore docs/task-frontend.md` | PASS; chỉ cảnh báo quy ước LF/CRLF |
+
+Lượt kiểm cuối bắt đầu 01:45:13 theo máy chạy; ngày nghiệm thu theo client 16/10/2026. Không còn session kiểm tra đang chạy. Mã/bản nháp chưa commit và chưa công bố. Bước tiếp là review nghiệp vụ/license + bổ sung bộ dữ liệu thật/tham số còn trống qua ADMIN khi được yêu cầu riêng; frontend triển khai mục21 trên mock/local. Không tự kích hoạt production từ kết quả unit test.
+
+
 # Tiến độ triển khai backend An Hưu
+
+## BACKEND đợt A — P1-4/P1-6→P1-10/P0-4/P0-5 (16/10/2026)
+
+Tiếp nối và giữ nguyên P1-1→P1-3 chưa commit, đặc biệt công thức chống trừ vốn bảo vệ hai lần trong `capital/separation.ts`. Không đọc `.env`, không kết nối/ghi DB, migration, seed, script `*-db`, frontend, commit/push/deploy. Các file frontend và thay đổi có sẵn ngoài phạm vi được giữ nguyên. Cấu hình v3/v4 vẫn là DRAFT/chưa công bố theo checkpoint trước.
+
+### Kết quả và quyết định thiết kế
+
+- **P1-6:** optional `schemaVersion:2.lossStress` trong tài liệu chính sách chứa evidence, equityAssetClass/depositAssetClass và shocks theo assetClass. Kiểm duyệt cấu hình bắt trùng/thiếu/nhóm lạ, chiều chuyển cổ phiếu sang tiền gửi phải giảm sốc. V1 không đổi key/order/default; không có tỷ lệ sốc dự phòng trong runtime. Preview tính mức sốc theo holdings đầu kỳ thực áp dụng × growthCapital, so `min(percent/100 × growthCapital, amountVnd)`. Trả số tiền, hai mẫu số tỷ lệ, có vượt không, đề xuất chỉ giảm cổ phiếu chuyển tiền gửi; chuyển hết vẫn không đạt → NOT_FEASIBLE, maxEquityWeightPercent null. Không tự sửa phân bổ hoặc vốn của engine/snapshot.
+- **Draft:** cập nhật `build-allocation-drafts.cjs`, mặc định đúng id v3 `d9b30f3b-8a8a-443c-9294-c4e88a26adb6`, sinh lại `draft-policy-v4.json` có CASH 0 / GOV_BOND -5 / EQUITY -35 / GOLD -10 (%). Đây là dữ liệu chính sách lấy từ tài liệu khách, phải qua approve/publish trước khi preview production dùng; không công bố trong lượt này. SHA-256 `draft-assumptions-v3.json` trước/sau đều **d54c4369f356f01427565abf612ecc1cff09eae0f2d9acc5c5cff76ca11bf69b**, không đổi byte.
+- **P1-7:** chỉ bổ sung HTTP preview: essentialShortfall từng tháng, tổng và firstEssentialShortfallMonth. Trước hưu dùng ESSENTIAL; sau hưu dùng livingExpense đã theo CPI + ESSENTIAL bổ sung được chọn trong retirementAdditionalExpenseIds. Phân loại nguồn thực có ưu tiên thiết yếu, không dùng số dư âm giả định và không cộng lại thiếu hụt cũ. `otherShortfall` là phần chi khác, có thể gồm nợ/phí, không đồng nghĩa toàn bộ là chi có thể bỏ. Không thay số cũ/recurrence/replay.
+- **P1-8:** preview có đủ ba hướng khoản góp / tháng hưu / mức chi, trạng thái riêng cho thiếu dữ liệu hoặc không có nghiệm. Hai phép tìm gọi lại prepare/engine với cùng assumptions/scenario/endMonth; không kéo dài hợp đồng lương hoặc thay lợi suất. Chi hưu chia đôi tối đa 64 vòng, cận dưới khả thi tới 0,01 VND. Tháng hưu chia đôi rồi kiểm chứng các tháng sớm hơn vì dòng tiền/lộ trình không nhất thiết đơn điệu; giới hạn 64 phép thử tháng. Chưa chứng minh sớm nhất → REVIEW_REQUIRED và earliest null, có thể trả feasibleRetirementCandidate đã kiểm chứng. Không gắn nhãn ứng viên là sớm nhất. Điều kiện đạt gồm không thiếu rút, mục tiêu cuối kỳ và ngân sách góp.
+- **P1-9:** optional advisoryFee `{annualPercent, paidFrom:FUND|EXTERNAL}` không default; vắng không thêm key vào hash/rows. Phí tháng = annualPercent/100 × bình quân quỹ thực có đầu/cuối kỳ trước phí tư vấn kỳ này × 1/12; dùng quy ước full-month sẵn có, không NAV theo ngày, không tính phí trên số dư âm. FUND cộng withdrawal cuối kỳ; EXTERNAL cộng chi hộ, giảm khả năng góp/phần dư, thiếu ngân sách theo cơ chế rút quỹ hiện có. Không trừ thêm phí quản lý trong NAV. Dòng phí mới được ghim khi save và replay v3 khớp. Khoản góp cần với fee là nghiệm lịch phí hiện tại, phải preview lại khi đổi mức góp. Actual/source reforecast của **kế hoạch mới có advisoryFee** chặn 422 ADVISORY_FEE_REFORECAST_REVIEW_REQUIRED để không dùng AUM/phí cũ cho số dư thực tế mới; kế hoạch không phí và replay cũ giữ nguyên.
+- **P1-10:** danh sách code/parameters/text tiếng Việt từ goal PV, vốn bảo vệ/tăng trưởng, template/thời hạn/tỷ trọng đầu-cuối lộ trình, ràng buộc lỗ và kết quả dòng tiền. Parameters giữ số thập phân nguồn; câu tiền hiển thị theo VND làm tròn. Metadata bổ sung chỉ ở HTTP preview, không hồi tố vào snapshot/hash.
+- **P1-4:** assetEntry thêm GOLD/BOND và optional costBasis theo KNOWN/UNKNOWN amount hiện có (giá vốn là metadata, không đổi giá trị/thuế). Kiểm tra prepare, summary, actuals/source-changes, source-profile: các nhánh đều loại bất động sản và kiểm liquidity/ownership/date/currency, nên GOLD/BOND tự đi đúng nhánh STOCK_FUND; không thêm bảng mapping hoặc công thức riêng. Test chứng minh vốn đầu kỳ/future injection/LOCKED/ownership/realized không đếm đôi.
+- **P0-4:** structured logger thêm warn + event preview.coverage_warning tại retirement/portfolio HTTP preview, deduplicate ba code POLICY_NOT_COVERED/PROJECTION_NOT_COVERED/ASSET_HORIZON_NOT_COVERED. Chỉ route và code; không PII, số tiền, answers, request body, userId; không tự ghi DB.
+- **P0-5:** đọc detail/version/replay/report thêm readWarnings chỉ khi endMonth đã lưu < birthMonth trong snapshot + tuổi thọ trong RetirementGoal hiện tại. Cờ PLAN_HORIZON_TRUNCATED, câu “Kế hoạch bị cắt ngắn, nên tính lại.”, expectedEndMonth và goalRevision; không có dữ liệu thì không suy tuổi thọ. Bằng mốc không cảnh báo. Không cảnh báo thì giữ nguyên hình dạng phản hồi cũ; không sửa snapshot/hash/result.
+- **Chưa có nghiệp vụ được duyệt:** ngưỡng định lượng employerConcentration và quy tắc đối chiếu liquidityNeeds với goals giữ REVIEW_REQUIRED. Không đặt trần rủi ro mới, không cộng liquidityNeeds lần nữa. Tìm phương án dòng tiền và kiểm lỗ là hai thông tin riêng, chưa phải tối ưu đồng thời danh mục sau giảm rủi ro.
+- **OpenAPI:** sinh từ script, thêm đúng optional fields; sửa generator plans để giữ hợp đồng atRetirement và CSV readable-vi vốn đã có nhưng thiếu trong generator cũ. Đồng bộ YAML giữ anchors ở phần không đổi; root `docs/openapi.yaml` không có diff nội dung. Thêm whitelist các script build-allocation/generate-portfolios vốn đang bị ignore. Bàn giao đầy đủ tại `docs/task-frontend.md` mục **20**.
+
+### File thay đổi trong đợt A (không tính các thay đổi đã có từ P1-1→P1-3/frontend)
+
+- Runtime mới: `src/modules/capital/loss-constraint.ts`; `src/modules/retirement/advisory-fee.ts`, `preview-insights.ts`; `src/modules/plans/read-warnings.ts`.
+- Runtime sửa: `src/modules/profiles/schema-v2.ts`; `src/modules/portfolios/schema.ts`, `engine.ts`, `service.ts`; `src/modules/retirement/schema.ts`, `prepare.ts`, `service.ts`; `src/modules/plans/service.ts`; `src/modules/actuals/service.ts`; `src/common/logger.ts`.
+- Tests: mới `src/tests/backend-batch-a.test.ts`; sửa `src/tests/memory-db.ts` thêm RetirementGoal test double; `src/tests/capital-separation.test.ts` cho phép metadata bổ sung bằng toMatchObject, vẫn đối chiếu toàn bộ các giá trị cũ.
+- Scripts/data: `scripts/build-allocation-drafts.cjs`; `scripts/generate-profile-v2-openapi.cjs`, `generate-portfolios-openapi.cjs`, `generate-retirement-openapi.cjs`, `generate-plans-openapi.cjs`, `generate-assumptions-openapi.cjs` (hỗ trợ ZodRecord); `seed-data/allocation-2026-10/draft-policy-v4.json`.
+- Contract/docs: `docs/profile-v2.openapi.yaml`, `portfolios.openapi.yaml`, `retirement.openapi.yaml`, `plans.openapi.yaml`; `PROGRESS.md`; repo-root `docs/task-frontend.md`, `.gitignore`.
+- Không sửa `capital/separation.ts`, các numerical kernel `engine.ts`/`engine-v2.ts`/`engine-v4.ts` trong retirement, assumptions v3, migration hoặc frontend. Không commit/push.
+
+### Kiểm chứng offline
+
+- Golden mới: vốn đầu tư 2 tỷ, dự phòng 225 triệu, PV mục tiêu 295,71 triệu, growth 1.479,29 triệu; danh mục 10/20/60/10, sốc **340,24 triệu = 17,01% vốn đầu tư = 23% vốn dài hạn**. Equality là WITHIN_LIMIT; min theo tiền hoặc %; giảm đúng cổ phiếu và phần rủi ro còn lại khi cổ phiếu 0.
+- 22 tests mới: policy thiếu/trùng/sốc -100/không có fallback; hash/byte pin; GOLD/BOND và nguồn actual; thiết yếu/chi khác/sổ funded; nghiệm tháng/chi, ngày không đơn điệu, endMonth, giới hạn tìm kiếm; fee FUND/EXTERNAL/START/zero/negative-fund/no-default/save-replay; giải thích; log không PII; cảnh báo tuổi thọ ngoài snapshot; OpenAPI và hash cũ.
+- So offline bằng module schema lấy trực tiếp từ `git HEAD` (transpile in-memory, không DB) với schema hiện tại trên published-policy-v2.json: hash parse **giữ nguyên f0ba2b90cf2ef46c7b32d20cf2588452502c073001a5bbc3697ac28eb7be52b4**.
+- Lượt Vitest trong sandbox gặp EPERM rename cache, **0 test chạy**. Các lượt sau dùng đúng unit config ngoài sandbox, chỉ memory/offline, không integration/DB. Lượt full đầu **738 PASS / 4 FAIL**: hai assertion phát hiện readWarnings rỗng làm đổi response cũ, hai contract phát hiện generator bỏ atRetirement. Đã sửa nguồn/generator; không nới assertion các test đó. Focused 57/57 PASS sau sửa; suite mới cuối 22/22 PASS (fixture giới hạn tìm kiếm ban đầu thiếu source-year coverage đã được sửa).
+- Nghiệm thu cuối trên mã nguồn ổn định: **744/744 tests PASS, 64 file, 120,32 giây**, gồm toàn bộ 722 test trước và 22 test mới. Hai typecheck PASS. Các tiến trình kiểm tra đã kết thúc exit 0; không còn session kiểm tra chạy.
+
+| Lệnh (trong backend trừ dòng git) | Kết quả cuối |
+|---|---|
+| `node node_modules/typescript/bin/tsc --noEmit` | PASS, exit 0 |
+| `node node_modules/typescript/bin/tsc -p tsconfig.test.json --noEmit` | PASS, exit 0 |
+| `node node_modules/vitest/vitest.mjs run --maxWorkers=2` | **744/744 PASS**, 64 file, 120,32s, exit 0 |
+| `node scripts/generate-profile-v2-openapi.cjs` | PASS |
+| `node scripts/generate-portfolios-openapi.cjs` | PASS |
+| `node scripts/generate-retirement-openapi.cjs` | PASS |
+| `node scripts/generate-plans-openapi.cjs` | PASS; giữ comparison.atRetirement và readable-vi; root OpenAPI không có diff nội dung |
+| `$env:ASSUMPTION_V3_ID='d9b30f3b-8a8a-443c-9294-c4e88a26adb6'; node scripts/build-allocation-drafts.cjs` | PASS; chỉ sinh file JSON, không seed/DB; assumptions byte hash giữ nguyên |
+| `node --check` scripts build-allocation-drafts / generate-plans-openapi / generate-portfolios-openapi | PASS |
+| `git diff --check -- backend .gitignore docs/task-frontend.md` (repo root) | PASS; chỉ thông báo quy ước LF/CRLF của Git, không lỗi whitespace |
+
+OpenAPI được kiểm bằng SwaggerParser/Ajv trong unit suite, gồm payload mới và payload cũ. Regression replay v2/v3/v4, save/apply/report/compare/actuals hiện có đều nằm trong suite PASS; không suy từ đây rằng đã kiểm tra DB production, browser hoặc công bố chính sách.
+
+Điểm cần theo dõi: phê duyệt/công bố lossStress trong chính sách v4; UX cho REVIEW_REQUIRED/cận tìm kiếm; đối chiếu thanh khoản–goals/tập trung nơi làm việc; phí AUM theo ngày và reforecast có phí thuộc bước tiếp theo. Không dùng kết quả này để tuyên bố xác suất thành công, tối ưu đồng thời ràng buộc lỗ, hoặc đã nghiệm thu production/frontend.
+
+## REVIEW P1-3 — sửa trừ vốn bảo vệ hai lần (16/10/2026)
+
+- Review phát hiện công thức cũ lấy retirementLiquidAssets đã loại emergencyShare/otherGoalsShare rồi lại trừ dự phòng/PV mục tiêu. Sửa module thuần `capital/separation.ts`: thêm `declaredOtherGoalsCapital` và `investableLiquidAssets = retirementLiquidAssets + declaredEmergencyReserve + declaredOtherGoalsCapital`; dùng cùng quy tắc sở hữu/thanh khoản/ngày định giá/tiền tệ/loại trừ nhà và vốn chưa sẵn có. Nếu phần cần tính null, tổng vốn đầu tư và growthCapital null, kèm issue; không suy tỷ lệ chưa khai.
+- `growthCapital = investableLiquidAssets - requiredEmergencyReserve - nearTermGoalsPresentValue`; retirementLiquidAssets chỉ giữ tham chiếu. Thêm `OTHER_GOALS_CAPITAL_SHORTFALL` khi phần mục tiêu đã khai thấp hơn PV, so sánh Decimal chưa làm tròn. Mã cảnh báo vốn âm cũ giữ nguyên để tương thích, nay so nhu cầu bảo vệ với tổng vốn đầu tư.
+- Regression: golden 2 tỷ chia riêng 225 triệu dự phòng, 295,71 triệu mục tiêu, 1.479,29 triệu hưu vẫn ra growthCapital 1.479,29 triệu; cả trường hợp chỉ tách dự phòng cũng bằng golden gốc. Kiểm tra khai mục tiêu thấp hơn/bằng/cao hơn PV, các phần UNKNOWN, sở hữu/thanh khoản và vốn âm. 295,71 triệu là con số khai đã làm tròn nên có cảnh báo thiếu nhẹ so với PV chính xác.
+- Cập nhật `docs/task-frontend.md` mục 19 và sinh lại retirement OpenAPI; engine, inputHash, snapshot/replay giữ nguyên. Không DB/.env/migration/seed/verify-db/frontend/commit/push/deploy.
+- Nghiệm thu bản sửa trong `backend/`: `node node_modules/typescript/bin/tsc --noEmit` PASS; `node node_modules/typescript/bin/tsc -p tsconfig.test.json --noEmit` PASS; `node node_modules/vitest/vitest.mjs run --maxWorkers=2` **722/722 PASS, 63 file, 118,52 giây**, tất cả exit 0. Focused `src/tests/capital-separation.test.ts` **20/20 PASS** (8 case thêm so với lượt trước). Vitest chạy ngoài sandbox do EPERM cache/worker đã xác nhận ở lượt trước, chỉ unit/memory DB, loại trừ integration tests. `node scripts/generate-retirement-openapi.cjs` PASS; root OpenAPI không có diff. `git diff --check` phạm vi bản sửa PASS. Mọi tiến trình kiểm tra đã kết thúc.
+
+## P1-1 / P1-2 / P1-3 — hồ sơ ràng buộc, mục tiêu, tách vốn (15–16/10/2026)
+
+Phạm vi riêng theo yêu cầu backend hiện tại; giữ nguyên việc tạm dừng push/deploy/công bố v3/v4 bên dưới. **Không đọc backend/.env, không kết nối hoặc ghi DB, không migration, seed hay verify-*-db; không sửa frontend, commit, push hoặc deploy.** Profile vẫn lưu JSONB, không cần migration.
+
+- Profile v2 thêm tùy chọn `lossTolerance` (tiền VND, percent 0–100, SELL/HOLD/BUY_MORE), `incomeStability` (STABLE/VARIABLE/UNCERTAIN), `employerConcentration` (LOW/MEDIUM/HIGH tự khai), `liquidityNeeds` (y1/y3/y5 lũy kế, không giảm), và `goals` theo collection KNOWN/UNKNOWN/NOT_APPLICABLE hiện có. Trường câu trả lời theo KNOWN/UNKNOWN; goal có id/label, amountToday, dueMonth, inflation riêng tùy chọn, priority, deferrable. Nháp cho phép goal chưa đủ trường nhưng phải có id; complete kiểm đầy đủ shape, id duy nhất và dueMonth không trước tháng định giá. Không thêm default vào hồ sơ cũ.
+- Module thuần mới `src/modules/capital/separation.ts`: dự phòng 6/9/12 × chi ESSENTIAL đang hiệu lực tại tháng định giá, không giả định 70%. Tài sản sử dụng cùng quy tắc ownership/liquidity/date/currency như summary hiện có. So dự phòng cần với `emergencyShare`, trả số thiếu/cảnh báo. **Công thức trừ vốn ở bản đầu đã được sửa theo review 16/10 phía trên:** dùng tổng `investableLiquidAssets` của cả ba phần, trừ dự phòng và PV goals ≤60 tháng đúng một lần, giữ giá trị âm.
+- PV ghép đúng số tháng `[valuationMonth, dueMonth)`, theo từng năm của bộ giả định đã ghim; `CASH` phải có một horizon phù hợp, chuẩn hóa lãi danh nghĩa/thực/ghép lãi/phí/thuế bằng `normalizedAnnualReturn`. Lạm phát riêng chỉ đổi giá mục tiêu, không đổi CPI chuyển lợi suất REAL. Không gán cứng CPI/lãi suất; thiếu năm/kỳ hạn/phí thuế hoặc câu trả lời cần cho tính toán trả issue/null. Mục tiêu 0 tháng không cần lãi suất; >60 tháng giữ thông tin LONG_TERM, không tính PV trong lớp này; không tự hoãn/bỏ mục tiêu theo priority.
+- Chỉ `RetirementService.preview` thêm `capitalSeparation` độc lập (`informationalOnly`, `PINNED_BASE`, trạng thái/issues riêng), phản ánh what-if giá tài sản. `evaluate`, `prepareRetirement`, engine, snapshot/save/replay và công thức inputHash giữ nguyên. Kế hoạch đã lưu/replay v2/v3/v4 không có trường bổ sung. Hồ sơ cũ vẫn có thể preview READY dù tách vốn INCOMPLETE. Giá trị rủi ro mới chưa áp vào chọn danh mục/cú sốc; P1-6 ngoài phạm vi.
+- `liquidityNeeds` là khai báo tổng hợp có thể trùng goals: không cộng thêm vào PV, trả `LIQUIDITY_NEEDS_REQUIRE_GOAL_RECONCILIATION` nếu có số dương. Frontend phải hướng dẫn đối chiếu goals, không diễn giải READY thành bảo đảm đủ mọi nhu cầu tiền. Priority/deferrable và mức tập trung ngành/nơi làm việc hiện chỉ lưu thông tin; chưa có ngưỡng phân loại định lượng hoặc thuật toán tự hoãn.
+- OpenAPI sinh bằng `node scripts/generate-profile-v2-openapi.cjs` (mới, whitelist trong `.gitignore`) và `node scripts/generate-retirement-openapi.cjs`. Generator retirement giữ lại `guidance` vốn đã có trong spec và không ghi lại `docs/openapi.yaml` khi nội dung không đổi. Diff spec chỉ thêm schema/properties mới, không giữ thay đổi chỉ do format.
+- Bàn giao đầy đủ tại `docs/task-frontend.md` **mục 19**: endpoint/payload/validation/merge, trạng thái thiếu dữ liệu, đơn vị %, nguồn giả định, cách hiển thị, bốn câu hỏi còn thiếu trong `frontend/GUIDED_PLANNING.md`, và tiêu chí nghiệm thu UI. Không tuyên bố frontend đã tích hợp.
+
+Kiểm chứng offline (chỉ memory DB):
+
+- Golden theo tham số fixture: 2 tỷ, chi 25 triệu, VARIABLE, 300 triệu sau 36 tháng, CPI 4%, tiền gửi 4,5% → dự phòng **225 triệu**, FV **337,46 triệu**, PV **295,71 triệu**, tăng trưởng **1.479,29 triệu**. Không số demo nào đặt trong code nghiệp vụ.
+- 12 test mới trong `src/tests/capital-separation.test.ts`: tương thích profile/engine cũ, ràng buộc và nháp, golden, 3 mức dự phòng, 0/60/61 tháng/kể cả sau hưu, chuỗi lãi theo năm/lạm phát riêng/REAL/phí, thiếu dữ liệu, tỷ lệ sở hữu/tài sản loại trừ/thiếu dự phòng/vốn âm, contract OpenAPI, profile round-trip/PATCH/GET, preview không ghi DB memory/không đổi hash-snapshot/replay, what-if và kịch bản.
+- Đối chiếu offline trực tiếp module ở `git HEAD` với working tree trên fixture cũ: JSON bytes sau parse profile, toàn bộ `evaluate`, inputHash/references/replayInput/calculation giống hệt. InputHash fixture: `d4c0f8dc63dd8ad05edc8a9e84d9990b83e242e67b9eac7efb768826ff328e78`. Không dùng dữ liệu hoặc kết nối DB thật.
+- Lượt Vitest đầu trong sandbox lỗi **EPERM cache rename/worker kill**, chưa chạy test; chạy lại cùng unit suite ngoài sandbox thành công, không dùng cấu hình integration. Focused 54/54 qua; lượt toàn bộ đầu 713/713 (63 file) qua trước khi bổ sung case what-if; focused 12/12 qua. Lượt toàn bộ kế tiếp ghi 713 qua/1 lỗi ở regression đường dẫn issue expenses sau lọc ESSENTIAL (test vừa bổ sung trong khi worker đang dùng bản module trước sửa); đã ánh xạ lại chỉ số dòng chi gốc và chạy lại toàn bộ trên bản cuối ổn định. Typecheck nguồn và test cuối đều exit 0; kết quả suite cuối ghi ngay dưới.
+
+Nghiệm thu cuối trong `backend/` (16/10/2026, bản mã nguồn đã ổn định):
+
+| Lệnh | Kết quả |
+|---|---|
+| `node node_modules/typescript/bin/tsc --noEmit` | PASS, exit 0 |
+| `node node_modules/typescript/bin/tsc -p tsconfig.test.json --noEmit` | PASS, exit 0 |
+| `node node_modules/vitest/vitest.mjs run --maxWorkers=2` | **714/714 PASS, 63 file**, 127,27 giây, exit 0 (702 cũ + 12 mới) |
+| `node scripts/generate-profile-v2-openapi.cjs` | PASS; chỉ thêm các properties mới vào full/draft profile |
+| `node scripts/generate-retirement-openapi.cjs` | PASS; chỉ thêm CapitalSeparation và optional preview property; giữ guidance, root openapi không có diff |
+| `git diff --check -- ...` (phạm vi các file task này, từ repo root) | PASS |
+
+Mọi tiến trình kiểm tra đã kết thúc. Không có migration/DB/network/provider/frontend acceptance trong lượt này; regression unit hiện có cho kế hoạch/replay v2/v3/v4 đều nằm trong suite PASS nêu trên.
+
+Bước tiếp: frontend triển khai mục 19 trên mock/local; sau đó mới xét P1-4/P1-6 theo yêu cầu mới. Không tự công bố bộ giả định/chính sách hoặc chạy kiểm tra DB. Cần chốt nghiệp vụ ở giai đoạn tiếp theo: thang định lượng tập trung rủi ro, cách đối chiếu liquidityNeeds với từng goal, và cách tích hợp vốn tách vào engine (hiện chỉ thông tin bổ sung theo yêu cầu).
+
+## TẠM DỪNG 15/10/2026 — chưa push, chưa công bố
+
+Frontend mục 17 đã xong (ChatGPT/Codex làm, đã review: `tsc`, `test:assets` 75/75, build, Playwright `tests/portfolio-policy-v2.spec.ts` 4/4), commit `77d01ba` trên develop. User yêu cầu TẠM DỪNG: chưa push develop, chưa deploy, v3 vẫn DRAFT, v4 chưa tạo trong DB. Khi tiếp tục: push/deploy frontend → xác nhận bản mới chạy trên production → previewImpact/approve/publish v3 → tạo v4 từ `seed-data/allocation-2026-10/draft-policy-v4.json` → approve/publish ngay sau.
+
+## ALLOCATION V3 DRAFT TRONG DB 15/10/2026
+
+User duyệt 7 điểm CHỜ DUYỆT như đề xuất. Engine commit `001a87b` (develop). Đã tạo bằng `AssumptionsService.create` (actor = tài khoản ADMIN duy nhất) bộ giả định **v3 DRAFT rev1, id `d9b30f3b-8a8a-443c-9294-c4e88a26adb6`**: trùng hash file `seed-data/allocation-2026-10/draft-assumptions-v3.json`, `validateConfiguration` VALID, audit `ASSUMPTIONS_DRAFT_CREATED`. Giả định v1 và chính sách v2 vẫn PUBLISHED rev3, không đổi. Chưa previewImpact/approve/publish. `draft-policy-v4.json` sinh lại với `ASSUMPTION_V3_ID` thật, kiểm VALID với v3; chính sách v4 CHƯA tạo trong DB (chỉ duyệt được sau khi v3 công bố). Còn chặn: frontend `task-frontend.md` mục 17. Bước tiếp theo: khi frontend xong → previewImpact → approve → publish v3, rồi ngay sau đó tạo/duyệt/công bố v4.
+
+## ALLOCATION V3/V4 15/10/2026 — engine glide path + bản nháp, CHƯA GHI DB
+
+- Engine: chính sách danh mục thêm `schemaVersion: 2` (`glidePath` neo vào tháng nghỉ hưu, nội suy tuyến tính theo số năm nguyên còn lại, sau mốc giữ điểm 0). Schema v1 giữ nguyên thứ tự khóa; hash chính sách v2 đang công bố khi parse bằng schema mới vẫn khớp approval trong DB (kiểm READ ONLY). `prepareRetirement` truyền `retirementMonth`; preview độc lập với chính sách v2 thiếu tháng này trả `RETIREMENT_MONTH_REQUIRED`. OpenAPI portfolios sinh lại (chỉ khác `Document`/`Write`/`Input`; trình sinh bổ sung `guidance` vốn trước đó thêm tay). Không migration.
+- Test: toàn bộ 702/702 (62 file) qua với `node node_modules/vitest/vitest.mjs run --maxWorkers=2`; `tsc --noEmit` và `tsc -p tsconfig.test.json --noEmit` qua.
+- Bản nháp file: `seed-data/allocation-2026-10/draft-assumptions-v3.json` (2026–2110, CASH/GOV_BOND/EQUITY/GOLD, nguồn NSO/IMF WEO 10-2026/HNX/Vietcombank/VN-Index/Dragon Capital truy cập 15/10) và `draft-policy-v4.json` (danh mục nền của tài liệu thuật toán, 2 lộ trình, `assumptionVersionId` là id giữ chỗ). Sinh bằng `scripts/build-allocation-drafts.cjs`; bản công bố hiện tại được xuất ra `published-*.json` để đối chiếu.
+- Chạy thử READ ONLY (`scripts/simulate-allocation-drafts.cjs`): đang công bố 0/52 READY; nháp 52/52 READY, quỹ cần trung vị 8,21 tỷ, độ phủ trung vị 139%.
+- Chặn công bố: frontend `RiskPortfolioPage.tsx` đọc `template.schedule` → bàn giao `docs/task-frontend.md` mục 17. Thứ tự công bố và các điểm CHỜ DUYỆT ở `docs/BAN_NHAP_GIA_DINH_V3_CHINH_SACH_V4_2026-10-15.md`. Bước tiếp theo: chờ user duyệt các điểm đó rồi mới tạo DRAFT trong DB.
+
+## AUDIT CHỈ ĐỌC PHÂN BỔ / GIẢ ĐỊNH / THỜI HẠN KẾ HOẠCH 15/10/2026
+
+Script mới `scripts/audit-allocation-readonly.cjs` (transaction READ ONLY, chỉ in số đếm), chạy trên Azure sau khi user cho phép và thêm IP vào firewall. Không ghi DB, không sửa runtime.
+- Đang công bố: giả định v1 `assumption-series-v2` 2026–2055 (CASH 5,0 / BOND 7,2 / BALANCED 9,5 / STOCK 12,0 / RE 8,5%/năm, lạm phát 3,5–4%) và chính sách v2 `portfolio-policy-v1` (6 câu cộng điểm → 5 band → 5 mẫu cố định, `coverageMonths` 360, quy tắc `horizon` 1–360). Hash phê duyệt khớp, `validatePortfolioPolicy` VALID.
+- Thử `previewPortfolio` từ 2026-10: 120/240 tháng READY; 360 tháng `PROJECTION_NOT_COVERED` (vượt 2055-12, tức trần thực tế 351 tháng); ≥361 tháng `POLICY_NOT_COVERED`. Áp cho cả 5 band.
+- 52 hồ sơ v2 (định giá 2026-10): với `endMonth` mặc định của FE (tháng sinh + `lifeExpectancy`, cả 50 goal đều là 82) thì **0/52 tính ra READY**; 6 hồ sơ có tháng nghỉ hưu sau 2055. Chỉ có 1 plan version, `endMonth` 2055 (bị cắt ngắn).
+- Log 90 ngày không có mã nào ở trên: INCOMPLETE trả 200 kèm guidance, không bị ghi log.
+- Bảng cũ `financial_assumptions` (EQUITY 12, BOND 6,8, SAVINGS 5,2, LIFE_EXPECTANCY 78,5) không còn code nào dùng. 11 `partner_products` đều `isVisible=false`, lợi suất ghi dạng chữ chưa có nguồn (cổ phiếu 12–19%/năm).
+- Chi tiết và phương án sửa: `docs/BAO_CAO_THUAT_TOAN_PHAN_BO_VA_DEMO_2026-10-15.md` mục 8. Chưa sửa gì; chờ user duyệt.
+
+## ĐIỀU TRA SYSTEM LOG / ĐĂNG NHẬP LỖI 15/10/2026 (side-session)
+
+Truy vấn chỉ đọc `system_logs`/`login_logs` trên Azure (30 ngày, toàn bộ log từ 06/10 khi có migration 0012): 89 CRITICAL + 5 ERROR, đều `source=API`.
+- 51 CRITICAL = 503 `DATABASE_UNAVAILABLE` (Prisma P1001/P2024… lúc kết nối Azure chập chờn; 38/51 dồn vào 23h–01h giờ VN đêm 11–12/10 và 14–15/10, trùng phiên dev local dùng chung DB Azure — log không ghi môi trường nên chưa tách chắc được); 25 = 503 `NOT_READY` của `/health/ready` (probe quá `HEALTH_TIMEOUT_MS`, rải rác); 13 = 503 `DATABASE_UPDATE_REQUIRED` `GET /products` 17:11–17:13Z ngày 14/10, ngay trước khi migration 0014 xong 17:15:53Z (client có cột `imageUrl` trước khi DB có). Đều là nhiễu/blip, không phải bug nghiệp vụ; lỗi nằm ở cách xếp mức: mọi 5xx khác 500 bị ghi CRITICAL còn 500 thật chỉ là ERROR.
+- 5 ERROR = 500: 3× `POST /auth/refresh` trong cửa sổ mất kết nối 11/10 (khả năng cao P2028 không bắt được transaction trong `maxWait` — chưa chứng minh vì log không lưu nguyên nhân), 1× P2034 ở `findFirst` trong xác thực (bản ghi cũ còn `errorMessage`), 1× `POST /` không xác định được router nào (6 router có `post("/")`).
+- Đăng nhập FAILED 28: 21 vào tài khoản admin, 11 từ 127.0.0.1 (dev local), còn lại theo cặp vài giây từ IP Vercel; tối đa 5/giờ, không có LOCKED → gõ sai, không phải brute-force. Phát hiện bảo mật: `ipAddress` dạng `ip:port` của egress Vercel (16.162.x/16.163.x/43.198.x, AWS HK) → limiter theo IP khoá theo từng kết nối; chưa sửa vì cần quyết định topology (`TRUST_PROXY_HOPS`, bỏ port); limiter theo email + khoá tài khoản vẫn hoạt động.
+- Đã sửa `middlewares/errorHandler.ts`: `DATABASE_UNAVAILABLE`/`NOT_READY` → WARNING, 500 → ERROR, 5xx khác → CRITICAL; thêm P1008/P2028 → 503 và P2034 → 409 `CONCURRENT_UPDATE`; `details.cause` + stderr `cause` chỉ gồm tên lớp lỗi và mã Prisma (không message); `path` giữ template route kèm tiền tố mount (`/api/v1/...`), đường chưa khớp route thì che UUID/số. Không xoá/sửa log, không migration. Test `foundation.test.ts` +1; full 696 tests/62 files PASS, typecheck + typecheck:tests PASS.
+
+## BÁO CÁO THEO KỲ 15/10/2026
+
+`GET /admin/reports?days=7|30|90` (ADMIN, mặc định 30): KPI kỳ này vs kỳ trước cùng độ dài (đăng ký, user có đăng nhập, câu hỏi AI, ticket, tư vấn sản phẩm, bài xuất bản), chuỗi theo ngày giờ VN (dùng lại `dailyBuckets`), phễu (đăng ký → ACTIVE → hồ sơ → kế hoạch → dùng AI), ticket theo trạng thái/nhóm, đăng nhập theo trạng thái, system log theo mức, top 8 audit action. Chỉ đọc. Test `admin-overview.test.ts` +1; full 695 tests/62 files PASS. Chạy thật trên Azure (chỉ đọc) ~2,6s: 30 ngày có 88 log CRITICAL, 28 đăng nhập FAILED — chưa điều tra nguyên nhân.
+
+## GÓI SẢN PHẨM + TƯ VẤN + AI GỢI Ý 15/10/2026
+
+- `partner_products.imageUrl` (migration `202610150014_product_image`, chỉ `ADD COLUMN IF NOT EXISTS`, nullable). **ĐÃ APPLY lên Azure 15/10** theo yêu cầu user (`prisma migrate deploy`, 2 lần đầu lỗi mạng P1001, lần sau thành công); migrate status up to date, cột text nullable, 11 sản phẩm giữ nguyên; `/products` HTTP 200. Không sửa 0001–0013.
+- `POST /admin/media` (ADMIN, uploadLimiter, Cloudinary sẵn có) trả `{url}`; `productInput.imageUrl` optional (bỏ trống = giữ ảnh cũ).
+- Tư vấn sản phẩm = ticket hỗ trợ category "Tư vấn sản phẩm": `POST /me/products/:id/consult` {message, phone?} (USER, consultationLimiter, chỉ sản phẩm đang hiển thị), audit `PRODUCT_CONSULT_REQUESTED`. Không hồi sinh bảng/route Consultation (410 giữ nguyên). `/admin/support?category=` lọc phía server.
+- AI: câu hỏi về sản phẩm thêm fact server `products` = gói đang phân phối lọc rủi ro theo số năm tới tháng muốn nghỉ hưu (<5 thấp, 5–15 thấp/TB, >15 tất cả), có câu miễn trừ; provider chỉ nhận đoạn tóm tắt. Hồ sơ chưa lưu khảo sát rủi ro phía server (ghi chú `ponytail:`).
+- Admin overview `GET /admin/overview` (14/10) đã có từ trước trong phiên.
+- Test: `product-consult.test.ts` (2), `admin-overview.test.ts` (2); full 694 tests/62 files PASS; typecheck PASS. Frontend e2e `tests/product-consult.spec.ts` 2 PASS.
+- Tiếp: admin bật hiển thị sản phẩm (hiện 0/11 đang hiển thị nên `/products` rỗng).
+
+## AI KNOWLEDGE XẾP HẠNG BM25 14/10/2026 (side-session, chỉ backend)
+
+`KnowledgeService.retrieve` thay đếm token trùng bằng BM25 (IDF trên chunk đủ điều kiện), từ có dấu + bỏ dấu + cặp từ liền nhau, stopword hỏi, mở rộng viết tắt (BHXH, TNCN…), "%"→"phần trăm", cộng điểm khi term khớp tiêu đề/số hiệu, bỏ chunk < 40% điểm cao nhất. Term lấy từ nội dung chunk đã kiểm khớp rawContent nên **giữ LEXICAL_V1, không cần reindex** (không đổi metadata/index/loader); điều kiện duyệt/hiệu lực/hash/top 4/hòa theo id giữ nguyên. Từ của chunk được cache trong tiến trình (khóa id+indexedHash). Test mới `src/tests/ai-knowledge-ranking.test.ts` (4 tests; 2 test xếp hạng FAIL với mã V1, PASS với mã mới). Full 690 tests/60 files PASS, source + test typecheck PASS. DB local (30 nguồn, đã duyệt local): văn bản đúng đứng đầu ở cả 7 câu có văn bản tương ứng (câu tăng lương hưu 2026: TT 14/2026 hướng dẫn điều chỉnh đứng đầu, NĐ 162 hạng 2). Chunk chứa đáp án: "tăng thêm 8%" (NĐ 162, hạng 2), "2.530.000 đồng/tháng" (NĐ 161), "đủ 15 năm" (Luật BHXH); câu trả nợ trước hạn ra điều cho vay của Luật TCTD (không có văn bản riêng). Hạn chế: câu thuế TNCN với lương hưu ra đúng Luật 109/2025 nhưng chunk Điều 4 khoản 9 (miễn thuế lương hưu) đứng hạng 17 vì tiêu đề Điều 4 nằm ở chunk trước; cần chia chunk theo Điều (index V2) nếu muốn khắc phục. Ấm ~100 ms/lần như cũ, lần đầu sau khởi động ~300 ms. Chưa ghi gì lên production; production cần deploy mã này rồi admin mới duyệt nguồn.
+
+## AI KNOWLEDGE NẠP PRODUCTION 14/10/2026
+
+Theo yêu cầu người dùng, nạp 13 văn bản chính thức đang hiệu lực (Luật BHXH VBHN 19/VBHN-VPQH, NĐ 158/159/2025, TT 12/2025, NĐ 135/2020, BLLĐ 2019, NĐ 161/162/2026, TT 14/2026, Luật 51/2024 BHYT, Luật TNCN 109/2025, Luật Người cao tuổi, Luật TCTD VBHN 158) thành 30 nguồn qua `scripts/load-knowledge.cjs` + `seed-data/legal-2026/knowledge-manifest.json` (bản gốc + SHA256 trong `sources-kb/`, chữ trích trong `sources-kb-text/`). Production: 30 nguồn INDEXED, 699 chunk LEXICAL_V1, CHƯA duyệt; 2 bản ghi rỗng cũ (Luật 41/2024, NĐ 135) được cập nhật, 3 bản ghi khác (NĐ 75/2024 đã hết hiệu lực, CFA, báo cáo dân số) giữ nguyên. Audit: 28 CREATED, 2 EDITED, 30 INDEXED. Thử truy xuất trên local (duyệt tạm) cho thấy LEXICAL_V1 xếp hạng kém (đếm từ trùng không dấu, không IDF/tiêu đề): câu về tăng lương hưu 2026 không ra NĐ 162, lương cơ sở không ra NĐ 161. Không duyệt nguồn trên production cho tới khi cải thiện truy xuất.
 
 ## AI EXPORT GỠ 14/10/2026
 

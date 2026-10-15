@@ -7,7 +7,7 @@ import { catalogQuery, partnerInput, productInput, notificationSettingsInput } f
 const missing = () => new AppError(404, "NOT_FOUND", "Không tìm thấy đối tác hoặc sản phẩm.");
 const conflict = () => new AppError(409, "REVISION_CONFLICT", "Dữ liệu đã thay đổi. Hãy tải lại trước khi lưu.");
 const partnerSelect = { id: true, name: true, type: true, logoUrl: true, website: true, isHighlight: true, isVisible: true, revision: true, updatedAt: true } as const;
-const productSelect = { id: true, partnerId: true, name: true, category: true, expectedReturn: true, riskLevel: true, description: true, annualFee: true, conditions: true, disclosure: true, isVisible: true, revision: true, updatedAt: true, partner: { select: partnerSelect } } as const;
+const productSelect = { id: true, partnerId: true, name: true, category: true, expectedReturn: true, riskLevel: true, description: true, annualFee: true, conditions: true, disclosure: true, imageUrl: true, isVisible: true, revision: true, updatedAt: true, partner: { select: partnerSelect } } as const;
 export class CatalogService {
   constructor(private db: PrismaClient) {}
   async partners(query: z.infer<typeof catalogQuery>, admin = false, id?: string) {

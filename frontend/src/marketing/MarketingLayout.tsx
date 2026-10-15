@@ -34,7 +34,7 @@ export default function MarketingLayout({ children, home = false }: { children: 
       <div className="mk-footer-top">
         <div className="mk-footer-brand"><Link to="/" aria-label="An Hưu - về trang chủ" className="mk-footer-logo"><BrandLogo inverted height={46} /></Link><p>Chuẩn bị hôm nay.<br /><span>An yên cho ngày mai.</span></p><small>Đồng hành cùng bạn trên hành trình chuẩn bị tài chính cho tuổi hưu.</small></div>
         <nav className="mk-footer-links" aria-label="Khám phá An Hưu"><h2>Khám phá</h2>{marketingNavigation.map(item => <Link key={item.path} to={item.path}>{item.label}</Link>)}</nav>
-        <nav className="mk-footer-links" aria-label="Kiến thức và tài khoản"><h2>Hiểu để chủ động</h2><Link to="/kien-thuc">Thư viện kiến thức</Link><Link to="/login">Đăng nhập tài khoản<Icon name="arrow-right" /></Link></nav>
+        <nav className="mk-footer-links" aria-label="Tài khoản"><h2>Kế hoạch của bạn</h2><Link to="/register">Tạo tài khoản</Link><Link to="/login">Đăng nhập tài khoản<Icon name="arrow-right" /></Link></nav>
         <div className="mk-footer-start"><span className="mk-footer-start-icon"><Icon name="compass" /></span><h2>Bắt đầu thật đơn giản.</h2><p>Thử một kịch bản hưu trí.<br />Chưa cần tạo tài khoản.</p><Link to="/mo-phong">Thử mô phỏng<span><Icon name="arrow-right" /></span></Link></div>
       </div>
       <div className="mk-footer-bottom">

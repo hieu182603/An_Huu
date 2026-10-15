@@ -18,8 +18,76 @@ import {
   type IconName,
 } from "../../components/ui";
 import { downloadCsv } from "../../utils/downloads";
+import AdminActionButton from "./AdminActionButton";
 import { useI18n } from "../../i18n";
-import { listAdminPartners, listAdminProducts, updateAdminProduct, type PartnerItem, type ProductItem } from "../../services/catalog";
+import { createAdminProduct, listAdminPartners, listAdminProducts, updateAdminProduct, uploadAdminImage, type PartnerItem, type ProductInput, type ProductItem } from "../../services/catalog";
+
+const emptyProduct: ProductInput = { partnerId: "", name: "", category: "", expectedReturn: "", riskLevel: "MEDIUM", description: null, annualFee: null, conditions: null, disclosure: null, imageUrl: null, isVisible: false };
+const RISK_OPTIONS = [{ value: "LOW", label: "Rủi ro thấp" }, { value: "MEDIUM", label: "Rủi ro trung bình" }, { value: "HIGH", label: "Rủi ro cao" }];
+
+/** Create / edit a product package: content, image and visibility. */
+function ProductEditor({ product, onClose, onSaved }: { product: ProductItem | null; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState<ProductInput>(() => product ? {
+    partnerId: product.partnerId, name: product.name, category: product.category, expectedReturn: product.expectedReturn, riskLevel: product.riskLevel,
+    description: product.description, annualFee: product.annualFee, conditions: product.conditions, disclosure: product.disclosure, imageUrl: product.imageUrl ?? null, isVisible: product.isVisible,
+  } : emptyProduct);
+  const [partners, setPartners] = useState<PartnerItem[]>([]);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => { listAdminPartners(1, 100).then((r) => setPartners(r.items)).catch(() => setError("Không tải được danh sách đối tác.")); }, []);
+  const set = (patch: Partial<ProductInput>) => setForm((f) => ({ ...f, ...patch }));
+  const text = (v: string) => v.trim() ? v : null;
+
+  const upload = async (file?: File) => {
+    if (!file) return;
+    setBusy("upload"); setError("");
+    try { set({ imageUrl: await uploadAdminImage(file) }); }
+    catch (e) { setError(e instanceof Error ? e.message : "Không thể tải ảnh lên."); }
+    finally { setBusy(""); }
+  };
+  const save = async () => {
+    setBusy("save"); setError("");
+    try {
+      if (product) await updateAdminProduct(product.id, product.revision ?? 0, form);
+      else await createAdminProduct(form);
+      onSaved();
+    } catch (e) { setError(e instanceof Error ? e.message : "Không thể lưu sản phẩm."); }
+    finally { setBusy(""); }
+  };
+  const ready = form.partnerId && form.name.trim().length >= 2 && form.category.trim().length >= 2;
+
+  return (
+    <Modal open title={product ? "Sửa gói sản phẩm" : "Thêm gói sản phẩm"} onClose={() => { if (!busy) onClose(); }}>
+      <div className="product-editor">
+        <Select label="Đối tác phát hành" options={[{ value: "", label: "— Chọn đối tác —" }, ...partners.map((p) => ({ value: p.id, label: p.name + (p.isVisible ? "" : " (đang ẩn)") }))]} value={form.partnerId} onChange={(partnerId) => set({ partnerId })} />
+        <Input label="Tên gói sản phẩm" value={form.name} onChange={(name) => set({ name })} />
+        <div className="product-editor-row">
+          <Input label="Loại hình" placeholder="VD: Bảo hiểm hưu trí tự nguyện" value={form.category} onChange={(category) => set({ category })} />
+          <Select label="Mức rủi ro" options={RISK_OPTIONS} value={form.riskLevel} onChange={(riskLevel) => set({ riskLevel: riskLevel as ProductInput["riskLevel"] })} />
+        </div>
+        <div className="product-editor-image">
+          {form.imageUrl ? <img src={form.imageUrl} alt="Ảnh gói sản phẩm" /> : <span>Chưa có ảnh</span>}
+          <label className="button button-secondary button-small">
+            {busy === "upload" ? "Đang tải ảnh…" : form.imageUrl ? "Đổi ảnh" : "Tải ảnh lên"}
+            <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={!!busy} onChange={(e) => upload(e.target.files?.[0])} />
+          </label>
+          {form.imageUrl && <Button variant="ghost" size="small" disabled={!!busy} onClick={() => set({ imageUrl: null })}>Gỡ ảnh</Button>}
+        </div>
+        <Textarea label="Mô tả gói" rows={4} value={form.description ?? ""} onChange={(v) => set({ description: text(v) })} />
+        <Input label="Lợi suất kỳ vọng (không cam kết)" value={form.expectedReturn} onChange={(expectedReturn) => set({ expectedReturn })} />
+        <Input label="Phí hằng năm" value={form.annualFee ?? ""} onChange={(v) => set({ annualFee: text(v) })} />
+        <Textarea label="Điều kiện tham gia" rows={3} value={form.conditions ?? ""} onChange={(v) => set({ conditions: text(v) })} />
+        <Textarea label="Công bố rủi ro & hoa hồng" rows={3} value={form.disclosure ?? ""} onChange={(v) => set({ disclosure: text(v) })} />
+        <Switch label="Hiển thị cho người dùng (cần đủ phí, điều kiện, công bố rủi ro)" checked={form.isVisible} onChange={(isVisible) => set({ isVisible })} />
+        {error && <Alert tone="danger" title="Chưa lưu được">{error}</Alert>}
+        <div className="product-editor-actions">
+          <Button variant="secondary" disabled={!!busy} onClick={onClose}>Hủy</Button>
+          <Button disabled={!!busy || !ready} onClick={save}>{busy === "save" ? "Đang lưu…" : "Lưu gói sản phẩm"}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
 export { default as AdminContentPage } from "./AdminContentApi";
 
@@ -72,6 +140,7 @@ export function AdminPartnersPage() {
   const [search, setSearch] = useState("");
   const [riskFilterKey, setRiskFilterKey] = useState<string>("ALL");
   const [selectedProduct, setSelectedProduct] = useState<FinancialProduct | null>(null);
+  const [editing, setEditing] = useState<ProductItem | "new" | null>(null);
 
   const riskOptions = useMemo(
     () => [
@@ -167,7 +236,7 @@ export function AdminPartnersPage() {
       } finally {
         if (active) setLoading(false);
       }
-    }, 200);
+    }, search ? 200 : 0); // debounce typing only, not first load or tab switch
 
     return () => {
       active = false;
@@ -266,6 +335,7 @@ export function AdminPartnersPage() {
               : "Quản lý tổ chức liên kết, phân phối sản phẩm quỹ mở, bảo hiểm và minh bạch hoa hồng."}
           </p>
         </div>
+        <Button onClick={() => setEditing("new")}><Icon name="plus" size="small" />{isEn ? "Add product" : "Thêm gói sản phẩm"}</Button>
       </header>
 
       {/* KPI Cards */}
@@ -313,7 +383,7 @@ export function AdminPartnersPage() {
       </div>
 
       {/* Main Container */}
-      <Card className="business-table-card">
+      <Card className="admin-filter-card">
         <div className="content-type-tabs">
           <Tabs
             active={activeTabKey === "products" ? tabProductsLabel : tabPartnersLabel}
@@ -362,6 +432,9 @@ export function AdminPartnersPage() {
             )}
           </div>
         </header>
+      </Card>
+
+      <Card className="business-table-card">
 
         {/* FINANCIAL PRODUCTS VIEW */}
         {activeTabKey === "products" && (
@@ -371,11 +444,9 @@ export function AdminPartnersPage() {
                 <thead>
                   <tr>
                     <th>{isEn ? "Product / Issuer" : "Sản phẩm / Tổ chức"}</th>
-                    <th>{isEn ? "Category" : "Loại hình"}</th>
+                    <th className="col-optional">{isEn ? "Category" : "Loại hình"}</th>
                     <th>{isEn ? "Risk Tier" : "Mức độ rủi ro"}</th>
-                    <th>{isEn ? "Annual Mgmt Fee" : "Phí quản lý / năm"}</th>
-                    <th>{isEn ? "Eligibility" : "Điều kiện tham gia"}</th>
-                    <th>{isEn ? "Commission & Risk Disclosure" : "Minh bạch hoa hồng & Rủi ro"}</th>
+                    <th className="col-optional">{isEn ? "Annual Mgmt Fee" : "Phí quản lý / năm"}</th>
                     <th>{isEn ? "Visibility" : "Hiển thị"}</th>
                     <th style={{ textAlign: "right" }}>{isEn ? "Action" : "Thao tác"}</th>
                   </tr>
@@ -394,20 +465,14 @@ export function AdminPartnersPage() {
                           </div>
                         </div>
                       </td>
-                      <td>
+                      <td className="col-optional">
                         <Badge tone="soft">{formatCategory(item.category)}</Badge>
                       </td>
                       <td>
                         <Badge tone={getRiskTone(item.riskTier)}>{formatRiskTier(item.riskTier)}</Badge>
                       </td>
-                      <td>
+                      <td className="col-optional">
                         <strong style={{ color: "var(--color-midnight-900)" }}>{item.annualFee}</strong>
-                      </td>
-                      <td className="conditions-cell">
-                        <small>{item.conditions}</small>
-                      </td>
-                      <td className="disclosure-cell">
-                        <small style={{ color: "var(--color-text-muted)" }}>{item.disclosure}</small>
                       </td>
                       <td>
                         <Switch
@@ -418,13 +483,10 @@ export function AdminPartnersPage() {
                         />
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <Button
-                          variant="secondary"
-                          size="small"
-                          onClick={() => setSelectedProduct(item)}
-                        >
-                          {isEn ? "Details" : "Chi tiết"}
-                        </Button>
+                        <div className="admin-row-actions">
+                          <AdminActionButton icon="eye" label={isEn ? "Details" : "Chi tiết"} context={item.name} onClick={() => setSelectedProduct(item)} />
+                          <AdminActionButton icon="edit" label={isEn ? "Edit" : "Sửa"} context={item.name} onClick={() => setEditing(rawProductsRef.current.get(item.id) ?? null)} />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -471,8 +533,7 @@ export function AdminPartnersPage() {
                     <th>{isEn ? "Partner Organization" : "Tổ chức đối tác"}</th>
                     <th>{isEn ? "Institution Type" : "Loại hình định chế"}</th>
                     <th>{isEn ? "Listed Products" : "Số sản phẩm niêm yết"}</th>
-                    <th>{isEn ? "Contact Representative" : "Đại diện liên hệ"}</th>
-                    <th>{isEn ? "Credit Rating" : "Hạng tín nhiệm"}</th>
+                    <th className="col-optional">{isEn ? "Contact" : "Liên hệ"}</th>
                     <th>{isEn ? "Partnership Status" : "Trạng thái hợp tác"}</th>
                   </tr>
                 </thead>
@@ -486,7 +547,6 @@ export function AdminPartnersPage() {
                           </span>
                           <div>
                             <strong>{item.name}</strong>
-                            <small>{item.id}</small>
                           </div>
                         </div>
                       </td>
@@ -496,17 +556,7 @@ export function AdminPartnersPage() {
                       <td>
                         <strong>{isEn ? `${item.productsCount} products` : `${item.productsCount} sản phẩm`}</strong>
                       </td>
-                      <td>
-                        <div>
-                          <strong>{item.contactPerson}</strong>
-                          <small style={{ display: "block", color: "var(--color-text-muted)" }}>
-                            {item.contactEmail}
-                          </small>
-                        </div>
-                      </td>
-                      <td>
-                        <Badge tone="info">{item.rating}</Badge>
-                      </td>
+                      <td className="col-optional">{item.contactEmail}</td>
                       <td>
                         <Badge tone={item.status === "Đang hợp tác" ? "success" : "warning"}>
                           {item.status === "Đang hợp tác" ? (isEn ? "Active Partner" : "Đang hợp tác") : (isEn ? "Under Review" : "Đang rà soát hợp đồng")}
@@ -558,6 +608,8 @@ export function AdminPartnersPage() {
           }}
         />
       </Card>
+
+      {editing && <ProductEditor product={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); setReload((n) => n + 1); }} />}
 
       {/* Product Detail Modal */}
       <Modal

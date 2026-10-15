@@ -12,6 +12,12 @@ const arr = items => ({ type: "array", items });
 const ref = name => ({ $ref: "#/" + name });
 const nullableRef = name => ({ anyOf: [ref(name), { type: "object", nullable: true, enum: [null] }] });
 const s = { Input: schema(retirementPreviewSchema) };
+s.CapitalSeparation = schema(require("../src/modules/capital/separation").capitalSeparationSchema);
+const insights = require("../src/modules/retirement/preview-insights");
+s.LossConstraint = schema(require("../src/modules/capital/loss-constraint").lossConstraintSchema);
+s.EssentialCoverage = schema(insights.essentialCoverageSchema);
+s.AdjustmentOptions = schema(insights.adjustmentOptionsSchema);
+s.DecisionExplanation = schema(insights.decisionExplanationSchema);
 s.Issue = obj({ path: str, code: str });
 const row = { month: str };
 for (const name of ["growthFactor", "inflationFactor", "income", "pension", "livingExpense", "additionalExpense", "debtPayment", "plannedContribution", "contribution", "contributionCapacity", "withdrawal", "uninvestedSurplus", "capitalInjection"]) row[name] = decimal;
@@ -32,6 +38,10 @@ s.Summary = obj({ valuationDate: str, retirementMonth: str, endMonth: str, accum
   requiredContributionWithinCapacity: { ...bool, nullable: true }, retirementFundingShortfall: decimal, excessAtRetirement: decimal,
   firstShortfallMonth: nullableStr, firstBudgetShortfallMonth: nullableStr, unfundedWithdrawals: decimal,
   terminalBalance: decimal, fundedTerminalBalance: decimal, terminalTarget: decimal, terminalTargetShortfall: decimal });
+for (const name of ["MonthlyInput", "Row"]) Object.assign(s[name].properties, {
+  advisoryFeeAmount: decimal, advisoryFeeAverageFund: decimal, advisoryFeePaidFrom: en("FUND", "EXTERNAL") });
+Object.assign(s.Row.properties, { essentialShortfall: nullableDecimal, otherShortfall: nullableDecimal });
+Object.assign(s.Summary.properties, { essentialShortfall: nullableDecimal, firstEssentialShortfallMonth: nullableStr });
 s.Conventions = obj({ contributionTiming: en("END_OF_MONTH", "START_OF_MONTH_RESEARCH", "START_OF_MONTH"), withdrawalTiming: en("END_OF_MONTH"),
   capitalReleaseTiming: en("END_OF_MONTH"), surplusPolicy: str, allocationCashflows: str, arithmeticPrecision: num,
   firstPeriod: str, rounding: str, negativeBalance: str, terminalBalanceBasis: str });
@@ -48,6 +58,11 @@ s.Preview.properties.reforecast = obj({ kind: en("ACTUAL_REFORECAST"), sourceVer
   actualRevisions: arr(obj({period:str,revision:num,closingBalance:decimal})) });
 s.Preview.properties.futureChanges = arr(schema(require('../src/modules/actuals/schema').futureChangeSchema));
 s.Preview.properties.sourceChanges = arr(schema(require('../src/modules/actuals/schema').sourceChangeSchema));
+s.Preview.properties.capitalSeparation = ref("CapitalSeparation");
+Object.assign(s.Preview.properties, { lossConstraint: ref("LossConstraint"), essentialCoverage: ref("EssentialCoverage"),
+  adjustmentOptions: ref("AdjustmentOptions"), decisionExplanations: arr(ref("DecisionExplanation")) });
+s.Preview.properties.capitalSeparation.description = "Informational only, returned by POST /me/retirement/preview. Pinned base assumptions, independent of scenario. Not saved in plan snapshots or used by the retirement engine. Missing on saved/replayed plans.";
+s.Preview.properties = { guidance: { $ref: "./preview-guidance.openapi.yaml#/Guidance" }, ...s.Preview.properties };
 s.Envelope = obj({ data: ref("Preview"), meta: obj({ requestId: { type: "string", format: "uuid" } }) });
 fs.writeFileSync("docs/retirement.openapi.yaml", stringify(s));
 const doc = parseDocument(fs.readFileSync("docs/openapi.yaml", "utf8"));
@@ -57,4 +72,6 @@ doc.setIn(["paths", "/api/v1/me/retirement/preview", "post"], { operationId: "pr
   security: [{ bearerAuth: [] }], description: "USER only. Read-only profile v2 revision and immutable published portfolio/assumption versions. Decimal strings, no intermediate display rounding. No macro overrides, save, apply or worker events. INCOMPLETE is distinct from zero. See RETIREMENT_MONTHLY.md for timing, surplus, capital release and solver conventions.",
   requestBody: { required: true, ...json("Input") }, responses: { 200: { description: "Monthly calculation or explicit missing inputs", ...json("Envelope") },
     ...Object.fromEntries([400, 401, 403, 404, 409, 422, 429, 503].map(status => [status, { description: "Request rejected", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }])) } });
-fs.writeFileSync("docs/openapi.yaml", String(doc));
+// Avoid rewriting unrelated YAML formatting when the route is unchanged.
+const original = fs.readFileSync("docs/openapi.yaml", "utf8");
+if (JSON.stringify(parseDocument(original).toJSON()) !== JSON.stringify(doc.toJSON())) fs.writeFileSync("docs/openapi.yaml", String(doc));

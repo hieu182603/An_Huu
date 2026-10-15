@@ -9013,6 +9013,805 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/market-data:
+    get:
+      operationId: listMarketDatasets
+      summary: listMarketDatasets
+      security:
+        - bearerAuth: []
+      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
+        publication does not change plans.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100000
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/MarketListEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: createMarketDataset
+      summary: createMarketDataset
+      security:
+        - bearerAuth: []
+      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
+        publication does not change plans.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/MarketDocument
+      responses:
+        "201":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/MarketVersionEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/market-data/{id}:
+    get:
+      operationId: getMarketDataset
+      summary: getMarketDataset
+      security:
+        - bearerAuth: []
+      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
+        publication does not change plans.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/MarketVersionEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: editMarketDataset
+      summary: editMarketDataset
+      security:
+        - bearerAuth: []
+      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
+        publication does not change plans.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/MarketWrite
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/MarketVersionEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/market-data/{id}/validate:
+    post:
+      operationId: validateMarketDataset
+      summary: validateMarketDataset
+      security:
+        - bearerAuth: []
+      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
+        publication does not change plans.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/Empty
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/ValidationEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/market-data/{id}/approve:
+    post:
+      operationId: approveMarketDataset
+      summary: approveMarketDataset
+      security:
+        - bearerAuth: []
+      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
+        publication does not change plans.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/MarketApprove
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/MarketVersionEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/market-data/{id}/publish:
+    post:
+      operationId: publishMarketDataset
+      summary: publishMarketDataset
+      security:
+        - bearerAuth: []
+      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
+        publication does not change plans.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/MarketPublish
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/MarketVersionEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/retirement/risk/simulation:
+    post:
+      operationId: allocationRisk_simulation
+      summary: allocationRisk_simulation
+      security:
+        - bearerAuth: []
+      description: USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 500 paths,
+        200000 candidate-path-months, 10 seconds; six requests/minute/IP, one run/user and two runs/process
+        concurrently.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/RiskInput
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/RiskResultEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/retirement/risk/scenarios:
+    post:
+      operationId: allocationRisk_scenarios
+      summary: allocationRisk_scenarios
+      security:
+        - bearerAuth: []
+      description: USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 500 paths,
+        200000 candidate-path-months, 10 seconds; six requests/minute/IP, one run/user and two runs/process
+        concurrently.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/RiskInput
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/RiskResultEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/retirement/risk/selection:
+    post:
+      operationId: allocationRisk_selection
+      summary: allocationRisk_selection
+      security:
+        - bearerAuth: []
+      description: USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 500 paths,
+        200000 candidate-path-months, 10 seconds; six requests/minute/IP, one run/user and two runs/process
+        concurrently.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/RiskInput
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/RiskResultEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/retirement/risk/rebalance:
+    post:
+      operationId: allocationRisk_rebalance
+      summary: allocationRisk_rebalance
+      security:
+        - bearerAuth: []
+      description: USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 500 paths,
+        200000 candidate-path-months, 10 seconds; six requests/minute/IP, one run/user and two runs/process
+        concurrently.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/RebalanceInput
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/RebalanceResultEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 components:
   schemas:
     ErrorEnvelope:

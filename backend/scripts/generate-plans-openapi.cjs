@@ -43,11 +43,33 @@ s.Delta = obj(Object.fromEntries(["projectedFundAtValuation", "requiredFundAtVal
 s.ComparisonResult = obj({ status: { type: "string", enum: ["COMPARABLE", "NOT_COMPARABLE"] }, reasons: arr(str), direction: { type: "string", enum: ["CANDIDATE_MINUS_BASELINE"] },
   basis: { type: "string", enum: ["VALUATION_DATE_EACH_VERSION_DISCOUNT_FACTORS"] }, delta: nullable("Delta"),
   differences: obj({ profile: bool, policy: bool, assumptions: bool, retirementMonth: bool, selectionFields: arr(str) }), limitations: arr(str) });
+s.RetirementComparison = obj({ status: { type: "string", enum: ["COMPARABLE", "NOT_COMPARABLE"] }, reasons: arr(str),
+  basis: { type: "string", enum: ["SAME_RETIREMENT_MONTH_NOMINAL"] }, baselineMonth: { ...str, nullable: true }, candidateMonth: { ...str, nullable: true },
+  delta: { anyOf: [obj(Object.fromEntries(["projectedFund", "requiredFund", "fundingGap", "coveragePercentagePoints"].map(k => [k, { ...str, nullable: true }]))), { type: "object", nullable: true, enum: [null] }] } });
+s.ComparisonResult.properties.atRetirement = ref("RetirementComparison");
 s.Comparison = obj({ baseline: ref("Version"), candidate: ref("Version"), comparison: ref("ComparisonResult") });
 s.Simulation = obj({ baseline: ref("Version"), candidate: retirement("Preview"), comparison: ref("ComparisonResult"), saved: { type: "boolean", enum: [false] }, applied: { type: "boolean", enum: [false] } });
 const responsesToExpose = ["Created", "Applied", "Detail", "List", "History", "Version", "Replay", "Report", "Comparison", "Simulation", "SourcePreview"];
+const readWarnings = arr(schema(require("../src/modules/plans/read-warnings").planReadWarningSchema));
+for (const name of ["Version", "Replay", "Detail", "Report"]) s[name].properties.readWarnings = readWarnings;
 for (const name of responsesToExpose) s[name + "Envelope"] = obj({ data: ref(name), meta: obj({ requestId: uuid }) });
-fs.writeFileSync("docs/plans.openapi.yaml", stringify(s));
+// Preserve anchors/formatting for unchanged contracts, including manually
+// documented fields now represented in this generator.
+const artifactPath = "docs/plans.openapi.yaml";
+if (!fs.existsSync(artifactPath)) fs.writeFileSync(artifactPath, stringify(s));
+else {
+  const artifact = parseDocument(fs.readFileSync(artifactPath, "utf8"));
+  const equal = require("node:util").isDeepStrictEqual;
+  function sync(before, after, path = []) {
+    if (equal(before, after)) return;
+    if (before && after && !Array.isArray(before) && !Array.isArray(after) && typeof before === "object" && typeof after === "object") {
+      for (const key of Object.keys(before)) if (!(key in after)) artifact.deleteIn([...path, key]);
+      for (const key of Object.keys(after)) sync(before[key], after[key], [...path, key]);
+    } else artifact.setIn(path, JSON.parse(JSON.stringify(after)));
+  }
+  sync(artifact.toJSON(), s);
+  fs.writeFileSync(artifactPath, String(artifact));
+}
 const doc = parseDocument(fs.readFileSync("docs/openapi.yaml", "utf8"));
 const json = name => ({ content: { "application/json": { schema: { $ref: "./plans.openapi.yaml#/" + name } } } });
 const root = "/api/v1/me/retirement/plans";
@@ -78,11 +100,13 @@ for (const [suffix, method, operationId, output, input] of [
 }
 doc.setIn(["paths", root + "/{planId}/versions/{versionId}/export.csv", "get"], {
   operationId: "exportRetirementPlanVersionCsv", security: [{ bearerAuth: [] }],
-  description: "USER only. UTF-8 BOM CSV, exact decimal strings from pinned snapshot, source identifiers on every monthly row. No display rounding. Not a JSON envelope. See PLAN_PRESENTATION.md.",
-  parameters: ["planId", "versionId"].map(name => ({ name, in: "path", required: true, schema: uuid })),
+  description: "USER only. UTF-8 BOM CSV from the pinned snapshot. Default technical format retains exact decimals and source identifiers. Optional readable-vi format has Vietnamese monthly headings and rounds money to whole VND for display only. Not a JSON envelope. See PLAN_PRESENTATION.md.",
+  parameters: [...["planId", "versionId"].map(name => ({ name, in: "path", required: true, schema: uuid })),
+    { name: "format", in: "query", schema: { type: "string", enum: ["technical", "readable-vi"], default: "technical" } }],
   responses: { 200: { description: "Monthly forecast CSV", headers: { "Content-Disposition": { schema: str }, "Cache-Control": { schema: str } }, content: { "text/csv": { schema: str } } },
     ...Object.fromEntries([400, 401, 403, 404, 409, 429].map(code => [code, { description: "Request rejected", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }])) }
 });
 for (const name of responsesToExpose)
   doc.setIn(["components", "schemas", "Plan" + name + "Envelope"], { $ref: "./plans.openapi.yaml#/" + name + "Envelope" });
-fs.writeFileSync("docs/openapi.yaml", String(doc));
+const original = fs.readFileSync("docs/openapi.yaml", "utf8");
+if (JSON.stringify(parseDocument(original).toJSON()) !== JSON.stringify(doc.toJSON())) fs.writeFileSync("docs/openapi.yaml", String(doc));

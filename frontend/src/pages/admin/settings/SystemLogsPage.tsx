@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo, type FormEvent } from "react";
+import { faRotateRight } from "@fortawesome/free-solid-svg-icons";
+import AdminActionButton from "../AdminActionButton";
 import {
   Alert,
   Badge,
   Button,
   Card,
-  Drawer,
   Icon,
   Input,
   Modal,
@@ -49,10 +50,10 @@ export default function SystemLogsPage() {
   }, [tabOptions]);
 
   return (
-    <div className="admin-page-section">
+    <div className="admin-page-section admin-management-page">
       <header className="admin-page-header">
         <div>
-          <span>ADMIN AREA</span>
+          <span>{isEn ? "SYSTEM MONITORING" : "GIÁM SÁT HỆ THỐNG"}</span>
           <h1>{isEn ? "System Logs" : "Nhật ký hệ thống"}</h1>
           <p>
             {isEn
@@ -144,9 +145,7 @@ function AuditLogTab({ isEn }: { isEn: boolean }) {
               : "Toàn bộ tác vụ thay đổi cấu hình, phân quyền, bài viết và đối tác do Quản trị viên thực hiện."}
           </p>
         </div>
-        <Button variant="secondary" onClick={() => fetchLogs()} disabled={loading}>
-          <Icon name="upload" size="small" /> {isEn ? "Refresh" : "Làm mới"}
-        </Button>
+        <AdminActionButton icon={faRotateRight} label={isEn ? "Refresh" : "Làm mới"} onClick={() => fetchLogs()} disabled={loading} />
       </div>
 
       {/* BỘ LỌC TÌM KIẾM */}
@@ -189,16 +188,14 @@ function AuditLogTab({ isEn }: { isEn: boolean }) {
             setTargetFilter(val.startsWith("Tất cả") || val.startsWith("All") ? "" : val);
           }}
         />
-        <Button type="submit">{isEn ? "Filter Logs" : "Lọc nhật ký"}</Button>
+        <AdminActionButton type="submit" icon="filter" emphasis label={isEn ? "Filter Logs" : "Lọc nhật ký"} disabled={loading} />
       </form>
 
       {error && (
         <Alert tone="danger" title={isEn ? "Error loading logs" : "Lỗi tải dữ liệu"}>
           {error}
           <div style={{ marginTop: 8 }}>
-            <Button variant="secondary" onClick={fetchLogs}>
-              {isEn ? "Retry" : "Thử lại"}
-            </Button>
+            <AdminActionButton icon={faRotateRight} label={isEn ? "Retry" : "Thử lại"} onClick={fetchLogs} />
           </div>
         </Alert>
       )}
@@ -252,13 +249,7 @@ function AuditLogTab({ isEn }: { isEn: boolean }) {
                       </td>
                       <td>{row.ipAddress || "—"}</td>
                       <td style={{ textAlign: "right" }}>
-                        <Button
-                          variant="secondary"
-                          onClick={() => setSelectedAudit(row)}
-                          style={{ fontSize: 12, padding: "4px 10px" }}
-                        >
-                          {isEn ? "View Details" : "Xem chi tiết"}
-                        </Button>
+                        <AdminActionButton icon="eye" label={isEn ? "View details" : "Xem chi tiết"} context={row.performerName} onClick={() => setSelectedAudit(row)} />
                       </td>
                     </tr>
                   ))
@@ -278,27 +269,23 @@ function AuditLogTab({ isEn }: { isEn: boolean }) {
         </>
       )}
 
-      {/* DRAWER XEM CHI TIẾT AUDIT LOG */}
-      <Drawer
+      {/* Chi tiết nhật ký hoạt động */}
+      <Modal className="admin-management-modal"
         open={Boolean(selectedAudit)}
         title={isEn ? "Audit Record Detail" : "Chi tiết nhật ký hoạt động"}
         onClose={() => setSelectedAudit(null)}
       >
         {selectedAudit && (
           <div style={{ display: "grid", gap: 16 }}>
-            <div>
-              <h4 style={{ fontSize: 13, textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: 4 }}>
-                {isEn ? "General Information" : "Thông tin chung"}
-              </h4>
-              <div style={{ background: "var(--color-bg)", padding: 12, borderRadius: 8, display: "grid", gap: 6, fontSize: 13 }}>
-                <div><strong>{isEn ? "Performer:" : "Người thực hiện:"}</strong> {selectedAudit.performerName} ({selectedAudit.performerId || "System"})</div>
-                <div><strong>{isEn ? "Time:" : "Thời gian:"}</strong> {formatDate(selectedAudit.createdAt, isEn)}</div>
-                <div><strong>{isEn ? "IP Address:" : "Địa chỉ IP:"}</strong> {selectedAudit.ipAddress || "—"}</div>
-                <div><strong>{isEn ? "User Agent:" : "Trình duyệt:"}</strong> {selectedAudit.userAgent || "—"}</div>
-                <div><strong>{isEn ? "Action:" : "Hành động:"}</strong> <Badge tone="info">{actionMap[selectedAudit.action] || selectedAudit.action}</Badge></div>
-                <div><strong>{isEn ? "Resource:" : "Đối tượng:"}</strong> {selectedAudit.targetType} (#{selectedAudit.targetId || "—"})</div>
-              </div>
-            </div>
+            <dl className="admin-log-details">
+              <div><dt>{isEn ? "Performer" : "Người thực hiện"}</dt><dd>{selectedAudit.performerName}</dd></div>
+              <div><dt>{isEn ? "Time" : "Thời gian"}</dt><dd>{formatDate(selectedAudit.createdAt, isEn)}</dd></div>
+              <div><dt>{isEn ? "Action" : "Hành động"}</dt><dd><Badge tone="info">{actionMap[selectedAudit.action] || selectedAudit.action}</Badge></dd></div>
+              <div><dt>{isEn ? "Resource" : "Đối tượng"}</dt><dd>{selectedAudit.targetType} (#{selectedAudit.targetId || "—"})</dd></div>
+              <div><dt>{isEn ? "Performer ID" : "Mã người thực hiện"}</dt><dd>{selectedAudit.performerId || (isEn ? "System" : "Hệ thống")}</dd></div>
+              <div><dt>{isEn ? "IP address" : "Địa chỉ IP"}</dt><dd>{selectedAudit.ipAddress || "—"}</dd></div>
+              <div className="is-full"><dt>{isEn ? "User agent" : "Thiết bị & Trình duyệt"}</dt><dd>{selectedAudit.userAgent || "—"}</dd></div>
+            </dl>
 
             {/* BEFORE / AFTER DIFF */}
             {selectedAudit.details && (selectedAudit.details.before || selectedAudit.details.after) ? (
@@ -306,7 +293,7 @@ function AuditLogTab({ isEn }: { isEn: boolean }) {
                 <h4 style={{ fontSize: 13, textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: 8 }}>
                   {isEn ? "Configuration Diff (Before vs After)" : "So sánh thay đổi (Trước và Sau)"}
                 </h4>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="admin-log-diff">
                   <div>
                     <h5 style={{ fontSize: 12, color: "var(--color-danger)", marginBottom: 4 }}>
                       {isEn ? "Before Update:" : "Trước khi sửa:"}
@@ -337,7 +324,7 @@ function AuditLogTab({ isEn }: { isEn: boolean }) {
             ) : null}
           </div>
         )}
-      </Drawer>
+      </Modal>
     </Card>
   );
 }
@@ -347,6 +334,7 @@ function AuditLogTab({ isEn }: { isEn: boolean }) {
 // ------------------------------------------
 
 function LoginLogTab({ isEn }: { isEn: boolean }) {
+  const [selectedLogin, setSelectedLogin] = useState<LoginLogEntry | null>(null);
   const [data, setData] = useState<PaginatedResponse<LoginLogEntry> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -421,9 +409,7 @@ function LoginLogTab({ isEn }: { isEn: boolean }) {
               : "Theo dõi toàn bộ phiên đăng nhập thành công, đăng nhập sai mật khẩu và các sự kiện khóa tài khoản."}
           </p>
         </div>
-        <Button variant="secondary" onClick={() => fetchLogs()} disabled={loading}>
-          <Icon name="upload" size="small" /> {isEn ? "Refresh" : "Làm mới"}
-        </Button>
+        <AdminActionButton icon={faRotateRight} label={isEn ? "Refresh" : "Làm mới"} onClick={() => fetchLogs()} disabled={loading} />
       </div>
 
       <form onSubmit={handleSearch} className="audit-filter-bar">
@@ -444,16 +430,14 @@ function LoginLogTab({ isEn }: { isEn: boolean }) {
             setStatusFilter(val.startsWith("Tất cả") || val.startsWith("All") ? "" : val);
           }}
         />
-        <Button type="submit">{isEn ? "Filter Logs" : "Lọc lịch sử"}</Button>
+        <AdminActionButton type="submit" icon="filter" emphasis label={isEn ? "Filter Logs" : "Lọc lịch sử"} disabled={loading} />
       </form>
 
       {error && (
         <Alert tone="danger" title={isEn ? "Error loading logs" : "Lỗi tải dữ liệu"}>
           {error}
           <div style={{ marginTop: 8 }}>
-            <Button variant="secondary" onClick={fetchLogs}>
-              {isEn ? "Retry" : "Thử lại"}
-            </Button>
+            <AdminActionButton icon={faRotateRight} label={isEn ? "Retry" : "Thử lại"} onClick={fetchLogs} />
           </div>
         </Alert>
       )}
@@ -477,7 +461,7 @@ function LoginLogTab({ isEn }: { isEn: boolean }) {
                   <th>{isEn ? "Status" : "Trạng thái"}</th>
                   <th>{isEn ? "IP Address" : "Địa chỉ IP"}</th>
                   <th>{isEn ? "Failure Reason" : "Lý do thất bại"}</th>
-                  <th>{isEn ? "User Agent" : "Thiết bị & Trình duyệt"}</th>
+                  <th>{isEn ? "Actions" : "Thao tác"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -514,8 +498,8 @@ function LoginLogTab({ isEn }: { isEn: boolean }) {
                           </span>
                         )}
                       </td>
-                      <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        <small title={row.userAgent || ""}>{row.userAgent || "—"}</small>
+                      <td style={{ textAlign: "right" }}>
+                        <AdminActionButton icon="eye" label={isEn ? "View details" : "Xem chi tiết"} context={row.identifier} onClick={() => setSelectedLogin(row)} />
                       </td>
                     </tr>
                   ))
@@ -534,6 +518,18 @@ function LoginLogTab({ isEn }: { isEn: boolean }) {
           />
         </>
       )}
+      <Modal open={Boolean(selectedLogin)} title={isEn ? "Login record details" : "Chi tiết lượt đăng nhập"}
+        className="admin-management-modal" onClose={() => setSelectedLogin(null)}>
+        {selectedLogin && <dl className="admin-log-details">
+          <div><dt>{isEn ? "Account / Email" : "Tài khoản / Email"}</dt><dd>{selectedLogin.identifier}</dd></div>
+          <div><dt>{isEn ? "Status" : "Trạng thái"}</dt><dd>{renderStatusBadge(selectedLogin.status)}</dd></div>
+          <div><dt>{isEn ? "Full name" : "Họ tên"}</dt><dd>{selectedLogin.user?.fullName || "—"}</dd></div>
+          <div><dt>{isEn ? "Time" : "Thời gian"}</dt><dd>{formatDate(selectedLogin.createdAt, isEn)}</dd></div>
+          <div><dt>{isEn ? "IP address" : "Địa chỉ IP"}</dt><dd>{selectedLogin.ipAddress || "—"}</dd></div>
+          <div><dt>{isEn ? "Failure reason" : "Lý do thất bại"}</dt><dd>{selectedLogin.failureReason || (isEn ? "None" : "Không có")}</dd></div>
+          <div className="is-full"><dt>{isEn ? "User agent" : "Thiết bị & Trình duyệt"}</dt><dd>{selectedLogin.userAgent || "—"}</dd></div>
+        </dl>}
+      </Modal>
     </Card>
   );
 }
@@ -620,9 +616,7 @@ function SystemErrorLogTab({ isEn }: { isEn: boolean }) {
               : "Ghi nhận toàn bộ lỗi ngoại lệ, mã HTTP 5xx và các sự cố phát sinh trong quá trình chạy hệ thống."}
           </p>
         </div>
-        <Button variant="secondary" onClick={() => fetchLogs()} disabled={loading}>
-          <Icon name="upload" size="small" /> {isEn ? "Refresh" : "Làm mới"}
-        </Button>
+        <AdminActionButton icon={faRotateRight} label={isEn ? "Refresh" : "Làm mới"} onClick={() => fetchLogs()} disabled={loading} />
       </div>
 
       <form onSubmit={handleSearch} className="audit-filter-bar">
@@ -643,16 +637,14 @@ function SystemErrorLogTab({ isEn }: { isEn: boolean }) {
             setLevelFilter(val.startsWith("Tất cả") || val.startsWith("All") ? "" : val);
           }}
         />
-        <Button type="submit">{isEn ? "Filter Errors" : "Lọc nhật ký lỗi"}</Button>
+        <AdminActionButton type="submit" icon="filter" emphasis label={isEn ? "Filter Errors" : "Lọc nhật ký lỗi"} disabled={loading} />
       </form>
 
       {error && (
         <Alert tone="danger" title={isEn ? "Error loading logs" : "Lỗi tải dữ liệu"}>
           {error}
           <div style={{ marginTop: 8 }}>
-            <Button variant="secondary" onClick={fetchLogs}>
-              {isEn ? "Retry" : "Thử lại"}
-            </Button>
+            <AdminActionButton icon={faRotateRight} label={isEn ? "Retry" : "Thử lại"} onClick={fetchLogs} />
           </div>
         </Alert>
       )}
@@ -702,13 +694,7 @@ function SystemErrorLogTab({ isEn }: { isEn: boolean }) {
                         {row.path && <small className="target-id-sub">{row.path}</small>}
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <Button
-                          variant="secondary"
-                          onClick={() => setSelectedError(row)}
-                          style={{ fontSize: 12, padding: "4px 10px" }}
-                        >
-                          {isEn ? "View Details" : "Xem chi tiết"}
-                        </Button>
+                        <AdminActionButton icon="eye" label={isEn ? "View details" : "Xem chi tiết"} context={row.source} onClick={() => setSelectedError(row)} />
                       </td>
                     </tr>
                   ))
@@ -729,7 +715,7 @@ function SystemErrorLogTab({ isEn }: { isEn: boolean }) {
       )}
 
       {/* MODAL XEM CHI TIẾT LỖI */}
-      <Modal
+      <Modal className="admin-management-modal"
         open={Boolean(selectedError)}
         title={isEn ? "System Error Details" : "Chi tiết lỗi hệ thống"}
         onClose={() => setSelectedError(null)}

@@ -1,3 +1,5 @@
+import { HorizonWarnings } from "./AnalysisResults";
+import type { ReadWarning } from "../../services/planningAnalysis";
 import { useEffect, useRef, useState } from "react";
 import ResponsiveDialog from "../ResponsiveDialog";
 import "./plan-dialogs.css";
@@ -31,13 +33,14 @@ export function PlanVersionDrawer({
   const { language } = useI18n();
   const isEn = language === "en";
 
+  const [readWarnings, setReadWarnings] = useState<ReadWarning[]>([]);
   const [replayingId, setReplayingId] = useState<string | null>(null);
   const [replayResult, setReplayResult] = useState<{ id: string; matched: boolean; error?: string } | null>(null);
   const [confirmVersion, setConfirmVersion] = useState<string | null>(null);
   const replaySequence = useRef(0);
 
   useEffect(() => {
-    setReplayResult(null); setReplayingId(null); setConfirmVersion(null);
+    setReadWarnings([]); setReplayResult(null); setReplayingId(null); setConfirmVersion(null);
     ++replaySequence.current;
     return () => { ++replaySequence.current; };
   }, [isOpen, plan?.id]);
@@ -47,12 +50,14 @@ export function PlanVersionDrawer({
   const handleReplay = async (versionId: string) => {
     if (replayingId || isApplying) return;
     const seq = ++replaySequence.current;
+    setReadWarnings([]);
     setReplayingId(versionId);
     setReplayResult(null);
     try {
       const res = await onReplayVersion(versionId);
       if (seq !== replaySequence.current) return;
       if (!res) throw new Error(isEn ? "Could not verify. Please check the connection and retry." : "Chưa kiểm chứng được. Hãy kiểm tra kết nối và thử lại.");
+      setReadWarnings(res.readWarnings ?? []);
       if (res && res.replay.matched) {
         setReplayResult({ id: versionId, matched: true });
       } else {
@@ -87,6 +92,7 @@ export function PlanVersionDrawer({
   return (
     <ResponsiveDialog open={isOpen} title={isEn ? "Saved plan versions" : "Các phương án đã lưu"} onClose={() => { if (!isApplying) onClose(); }} className="plan-wide-dialog plan-version-dialog">
       <p className="plan-versions-intro">{isEn ? "Review saved results and choose the version you want to use. Applying a version requires confirmation." : "Xem lại kết quả đã lưu và chọn phiên bản bạn muốn sử dụng. Bạn sẽ xác nhận trước khi thay kế hoạch đang áp dụng."}</p>
+      <HorizonWarnings warnings={readWarnings} />
       <div className="plan-versions-overview">
         <span>{isEn ? "Saved versions: " : "Số phiên bản đã lưu: "}<strong>{versions.length}</strong></span>
         <span>{isEn ? "Currently applied: " : "Đang áp dụng: "}<strong>{activeVersion ? `v${activeVersion.version}` : (isEn ? "Undetermined" : "Chưa xác định")}</strong></span>
