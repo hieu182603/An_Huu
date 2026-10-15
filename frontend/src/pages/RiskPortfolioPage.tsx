@@ -14,6 +14,10 @@ import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { useAuth } from "../context/AuthContext";
 import { readRiskDraft, writeRiskDraft } from "../services/riskDraft";
 import { useI18n } from "../i18n";
+import { fetchUserAssumptionDetail } from "../services/assumptions";
+import { translateIssueCode } from "../services/retirement";
+import { ApiError } from "../services/api";
+import { PortfolioGlidePath } from "../components/PortfolioGlidePath";
 
 const getDimensionLabel = (dimension: string, language: "vi" | "en") => {
   const viMap: Record<string, string> = {
@@ -43,6 +47,8 @@ export default function RiskPortfolioPage() {
   const { currentVersion, draftSelection, updateDraft, loadingPlans } = useRetirementPlan();
   const navigate = useNavigate();
   const selection = { ...currentVersion?.preview.selection, ...draftSelection };
+  const desiredRetirement = v2Profile?.personal.desiredRetirementMonth;
+  const retirementMonth = selection.whatIf?.retirementMonth ?? (desiredRetirement?.status === "KNOWN" ? desiredRetirement.value : undefined);
   const birth = v2Profile?.personal.birthMonth;
   const endMonth = selection.endMonth ?? (birth?.status === "KNOWN" ? `${Number(birth.value.slice(0, 4)) + profile.goal.lifeExpectancy}-${birth.value.slice(5, 7)}` : "");
   const startMonth = v2Profile?.valuationDate.slice(0, 7) ?? "";
@@ -50,6 +56,7 @@ export default function RiskPortfolioPage() {
   const { notify } = useNotification();
 
   const [policyDetail, setPolicyDetail] = useState<PortfolioPolicyDetail | null>(null);
+  const [assetLabels, setAssetLabels] = useState<Record<string, string>>({});
   const [loadingPolicy, setLoadingPolicy] = useState(true);
   const [policyStatus, setPolicyStatus] = useState<"UNCONFIGURED" | "AVAILABLE">("UNCONFIGURED");
 
@@ -94,6 +101,17 @@ export default function RiskPortfolioPage() {
     };
   }, [loadingPlans, currentVersion?.id]);
 
+  useEffect(() => {
+    let active = true;
+    setAssetLabels({});
+    if (policyDetail?.data.schemaVersion === 2 && policyDetail.data.assumptionVersionId) {
+      fetchUserAssumptionDetail(policyDetail.data.assumptionVersionId).then(detail => {
+        if (active) setAssetLabels(Object.fromEntries(detail.data.assetClasses.map(a => [a.code, a.label])));
+      }).catch(() => { /* Localized known groups and raw codes remain available. */ });
+    }
+    return () => { active = false; };
+  }, [policyDetail]);
+
   const valuationMonth = useMemo(() => {
     return v2Profile?.valuationDate ? v2Profile.valuationDate.slice(0, 7) : new Date().toISOString().slice(0, 7);
   }, [v2Profile]);
@@ -120,6 +138,7 @@ export default function RiskPortfolioPage() {
       const res = await previewUserPortfolio({
         policyVersionId: policyDetail.id,
         startMonth: valuationMonth,
+        retirementMonth,
         horizonMonths,
         liquidityNeedMonths,
         templateId: activeTemplate || undefined,
@@ -132,7 +151,9 @@ export default function RiskPortfolioPage() {
       }
     } catch (e) {
       if (seq !== requestSeq.current) return;
-      setCalculationError(e instanceof Error ? e.message : (language === "en" ? "Could not analyze portfolio." : "Chưa thể phân tích danh mục."));
+      setCalculationError(e instanceof ApiError && e.code === "RETIREMENT_MONTH_REQUIRED"
+        ? translateIssueCode(e.code, language)
+        : e instanceof Error ? e.message : (language === "en" ? "Could not analyze portfolio." : "Chưa thể phân tích danh mục."));
     } finally {
       if (seq === requestSeq.current) setIsCalculating(false);
     }
@@ -142,7 +163,8 @@ export default function RiskPortfolioPage() {
     if (policyDetail && allAnswered) {
       runPreview();
     }
-  }, [policyDetail, answers, horizonMonths, liquidityNeedMonths]);
+    return () => { requestSeq.current++; };
+  }, [policyDetail, answers, horizonMonths, liquidityNeedMonths, valuationMonth, retirementMonth]);
 
   const handleSelectChoice = (questionId: string, choiceId: string) => {
     setAnswers((prev) => {
@@ -381,6 +403,12 @@ export default function RiskPortfolioPage() {
               <h2 style={{ fontSize: "var(--text-xl)", marginBottom: "var(--space-4)" }}>
                 {language === "en" ? "Survey Results & Recommended Investment Portfolio" : "Kết quả khảo sát & Đề xuất danh mục đầu tư"}
               </h2>
+              {previewResult.issues?.some(issue => issue.code === "RETIREMENT_MONTH_REQUIRED") && (
+                <Alert tone="warning" title={language === "en" ? "Retirement month required" : "Cần bổ sung tháng nghỉ hưu"}>
+                  {translateIssueCode("RETIREMENT_MONTH_REQUIRED", language)}{" "}
+                  <Link to="/user/goal">{language === "en" ? "Review retirement goal" : "Kiểm tra mục tiêu nghỉ hưu"}</Link>
+                </Alert>
+              )}
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "var(--space-4)", marginBottom: "var(--space-6)" }}>
                 {/* Score Card */}
@@ -451,7 +479,9 @@ export default function RiskPortfolioPage() {
               </div>
 
               {/* Asset Allocations Breakdown */}
-              {selectedTemplate && selectedTemplate.schedule.length > 0 && (
+              {selectedTemplate && ("glidePath" in selectedTemplate ? (
+                <PortfolioGlidePath points={selectedTemplate.glidePath.points} month={valuationMonth} retirementMonth={retirementMonth} language={language} assetLabels={assetLabels} />
+              ) : selectedTemplate.schedule.length > 0 && (
                 <Card style={{ padding: "var(--space-4)", border: "1px solid var(--color-border)", marginBottom: "var(--space-6)" }}>
                   <h3 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>
                     {language === "en" ? `Asset Allocation Weights (${selectedTemplate.label})` : `Tỷ lệ tiền dành cho từng nhóm tài sản (${selectedTemplate.label})`}
@@ -470,7 +500,7 @@ export default function RiskPortfolioPage() {
                     ))}
                   </div>
                 </Card>
-              )}
+              ))}
 
               {/* Scenarios Comparison */}
               {previewResult.scenarios.length > 0 && (

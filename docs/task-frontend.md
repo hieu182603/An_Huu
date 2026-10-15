@@ -706,7 +706,7 @@ Backend đã thêm `schemaVersion: 2` cho chính sách danh mục (xem `backend/
 
 Khác biệt hợp đồng: template v2 **không có** `coverageMonths` và `schedule`; thay vào đó là
 `glidePath: { anchor: "RETIREMENT_MONTH", interpolation: "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR", afterAnchor: "HOLD_ZERO_YEAR_POINT", points: [{ yearsToAnchor, allocations: [{ assetClass, weightPercent }] }] }`.
-Tỷ trọng tại một tháng = nội suy tuyến tính theo số năm nguyên còn lại tới tháng nghỉ hưu (`floor(tháng còn lại / 12)`, chặn trong [0, điểm lớn nhất]); từ 12 tháng trước nghỉ hưu trở đi dùng điểm 0. Mã nhóm tài sản mới: `CASH`, `GOV_BOND`, `EQUITY`, `GOLD` (nhãn lấy từ bộ giả định, không gắn cứng).
+Tỷ trọng tại một tháng = nội suy tuyến tính theo số năm nguyên còn lại tới tháng nghỉ hưu (`floor(tháng còn lại / 12)`, chặn trong [0, điểm lớn nhất]); khi còn dưới 12 tháng (11 tháng trở xuống) và sau khi nghỉ hưu thì dùng điểm 0; còn đúng 12 tháng vẫn là bậc 1 năm. Mã nhóm tài sản mới: `CASH`, `GOV_BOND`, `EQUITY`, `GOLD` (nhãn lấy từ bộ giả định, không gắn cứng).
 
 1. **`pages/RiskPortfolioPage.tsx` ~454 đọc `selectedTemplate.schedule.length`** → crash với template v2. Phân nhánh theo `"glidePath" in template`: v1 giữ hiển thị cũ; v2 hiển thị bảng/biểu đồ "Số năm tới nghỉ hưu → tỷ trọng" từ `points` và đánh dấu vị trí hiện tại theo `desiredRetirementMonth` của hồ sơ v2 (hoặc `whatIf.retirementMonth` nếu đang mô phỏng).
 2. **`services/portfolios.ts`**: `PortfolioPolicyDocument.schemaVersion` thành `1 | 2`, `PortfolioTemplate` thành union (v1 `coverageMonths`/`schedule` | v2 `glidePath`); `PortfolioPreviewCommand` thêm `retirementMonth?: string` (YYYY-MM).

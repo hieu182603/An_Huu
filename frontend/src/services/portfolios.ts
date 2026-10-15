@@ -31,10 +31,9 @@ export interface TemplateSchedulePeriod {
   allocations: TemplateAllocation[];
 }
 
-export interface PortfolioTemplate {
+interface PortfolioTemplateBase {
   id: string;
   label: string;
-  coverageMonths: number;
   rebalance: {
     everyMonths: 1 | 3 | 6 | 12;
     timing: "START_OF_MONTH";
@@ -42,8 +41,22 @@ export interface PortfolioTemplate {
     costConvention: "HALF_L1_TURNOVER_TIMES_COST";
     evidence: string;
   };
-  schedule: TemplateSchedulePeriod[];
 }
+
+export interface GlidePathPoint {
+  yearsToAnchor: number;
+  allocations: TemplateAllocation[];
+}
+
+export type PortfolioTemplate = PortfolioTemplateBase & (
+  | { coverageMonths: number; schedule: TemplateSchedulePeriod[] }
+  | { glidePath: {
+      anchor: "RETIREMENT_MONTH";
+      interpolation: "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR";
+      afterAnchor: "HOLD_ZERO_YEAR_POINT";
+      points: GlidePathPoint[];
+    } }
+);
 
 export interface PortfolioRule {
   id: string;
@@ -56,7 +69,7 @@ export interface PortfolioRule {
 }
 
 export interface PortfolioPolicyDocument {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   title: string;
   reason: string;
   effectiveFrom: string;
@@ -122,6 +135,7 @@ export interface PortfolioAnswerItem {
 export interface PortfolioPreviewCommand {
   policyVersionId: string;
   startMonth: string;
+  retirementMonth?: string; // YYYY-MM
   horizonMonths: number;
   liquidityNeedMonths: number;
   templateId?: string;
@@ -163,7 +177,7 @@ export interface PortfolioPreviewResult {
   assumptionVersionId: string;
   assumptionHash: string;
   answerBasis: string;
-  status: "MATCHED" | "INCOMPLETE";
+  status: "READY" | "MATCHED" | "INCOMPLETE";
   assessment: PortfolioAssessmentResult;
   limitations: string[];
   priceBasis: string;
