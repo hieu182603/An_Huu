@@ -1,0 +1,2986 @@
+{
+  "id": "e1954868-7397-497f-8346-f1a7107f5ad4",
+  "version": 2,
+  "modelCode": "portfolio-policy-v1",
+  "status": "PUBLISHED",
+  "effectiveAt": "2026-10-01T00:00:00.000Z",
+  "values": {
+    "rules": [
+      {
+        "id": "RULE_CONSERVATIVE",
+        "horizon": {
+          "max": 360,
+          "min": 1
+        },
+        "dimensions": {
+          "HORIZON": {
+            "max": 30,
+            "min": 0
+          },
+          "LIQUIDITY": {
+            "max": 30,
+            "min": 0
+          },
+          "OBJECTIVE": {
+            "max": 30,
+            "min": 0
+          },
+          "EXPERIENCE": {
+            "max": 30,
+            "min": 0
+          },
+          "LOSS_TOLERANCE": {
+            "max": 30,
+            "min": 0
+          },
+          "FINANCIAL_CAPACITY": {
+            "max": 30,
+            "min": 0
+          }
+        },
+        "templateId": "TPL_CONSERVATIVE",
+        "explanation": "Ưu tiên tối đa việc bảo toàn vốn và tạo thu nhập định kỳ an toàn.",
+        "riskBandIds": [
+          "BAND_CONSERVATIVE"
+        ],
+        "liquidityNeed": {
+          "max": 1200,
+          "min": 0
+        }
+      },
+      {
+        "id": "RULE_MODERATE_CONSERVATIVE",
+        "horizon": {
+          "max": 360,
+          "min": 1
+        },
+        "dimensions": {
+          "HORIZON": {
+            "max": 30,
+            "min": 0
+          },
+          "LIQUIDITY": {
+            "max": 30,
+            "min": 0
+          },
+          "OBJECTIVE": {
+            "max": 30,
+            "min": 0
+          },
+          "EXPERIENCE": {
+            "max": 30,
+            "min": 0
+          },
+          "LOSS_TOLERANCE": {
+            "max": 30,
+            "min": 0
+          },
+          "FINANCIAL_CAPACITY": {
+            "max": 30,
+            "min": 0
+          }
+        },
+        "templateId": "TPL_MODERATE_CONSERVATIVE",
+        "explanation": "Dành cho nhà đầu tư muốn tăng trưởng vừa phải trên mức lạm phát với rủi ro thấp.",
+        "riskBandIds": [
+          "BAND_MODERATE_CONSERVATIVE"
+        ],
+        "liquidityNeed": {
+          "max": 1200,
+          "min": 0
+        }
+      },
+      {
+        "id": "RULE_BALANCED",
+        "horizon": {
+          "max": 360,
+          "min": 1
+        },
+        "dimensions": {
+          "HORIZON": {
+            "max": 30,
+            "min": 0
+          },
+          "LIQUIDITY": {
+            "max": 30,
+            "min": 0
+          },
+          "OBJECTIVE": {
+            "max": 30,
+            "min": 0
+          },
+          "EXPERIENCE": {
+            "max": 30,
+            "min": 0
+          },
+          "LOSS_TOLERANCE": {
+            "max": 30,
+            "min": 0
+          },
+          "FINANCIAL_CAPACITY": {
+            "max": 30,
+            "min": 0
+          }
+        },
+        "templateId": "TPL_BALANCED",
+        "explanation": "Phân bổ cân bằng giữa cổ phiếu và trái phiếu, tối ưu tỷ suất sinh lời trên rủi ro.",
+        "riskBandIds": [
+          "BAND_BALANCED"
+        ],
+        "liquidityNeed": {
+          "max": 1200,
+          "min": 0
+        }
+      },
+      {
+        "id": "RULE_GROWTH",
+        "horizon": {
+          "max": 360,
+          "min": 1
+        },
+        "dimensions": {
+          "HORIZON": {
+            "max": 30,
+            "min": 0
+          },
+          "LIQUIDITY": {
+            "max": 30,
+            "min": 0
+          },
+          "OBJECTIVE": {
+            "max": 30,
+            "min": 0
+          },
+          "EXPERIENCE": {
+            "max": 30,
+            "min": 0
+          },
+          "LOSS_TOLERANCE": {
+            "max": 30,
+            "min": 0
+          },
+          "FINANCIAL_CAPACITY": {
+            "max": 30,
+            "min": 0
+          }
+        },
+        "templateId": "TPL_GROWTH",
+        "explanation": "Phù hợp với giai đoạn tích lũy hưu trí dài hạn, ưu tiên tăng trưởng vốn thông qua quỹ cổ phiếu.",
+        "riskBandIds": [
+          "BAND_GROWTH"
+        ],
+        "liquidityNeed": {
+          "max": 1200,
+          "min": 0
+        }
+      },
+      {
+        "id": "RULE_AGGRESSIVE_GROWTH",
+        "horizon": {
+          "max": 360,
+          "min": 1
+        },
+        "dimensions": {
+          "HORIZON": {
+            "max": 30,
+            "min": 0
+          },
+          "LIQUIDITY": {
+            "max": 30,
+            "min": 0
+          },
+          "OBJECTIVE": {
+            "max": 30,
+            "min": 0
+          },
+          "EXPERIENCE": {
+            "max": 30,
+            "min": 0
+          },
+          "LOSS_TOLERANCE": {
+            "max": 30,
+            "min": 0
+          },
+          "FINANCIAL_CAPACITY": {
+            "max": 30,
+            "min": 0
+          }
+        },
+        "templateId": "TPL_AGGRESSIVE_GROWTH",
+        "explanation": "Tập trung tối đa vào tài sản tăng trưởng cổ phiếu cho nhà đầu tư có khẩu vị rủi ro cao và thời gian dài.",
+        "riskBandIds": [
+          "BAND_AGGRESSIVE_GROWTH"
+        ],
+        "liquidityNeed": {
+          "max": 1200,
+          "min": 0
+        }
+      }
+    ],
+    "title": "Chính sách phân bổ danh mục đầu tư hưu trí An Hưu 2026",
+    "reason": "Ban hành chính sách phân bổ danh mục đầu tư và đánh giá mức độ chấp nhận rủi ro hưu trí năm 2026.",
+    "source": {
+      "url": "https://anhuu.vn/governance/portfolio-policy/2026-v1",
+      "title": "Khung Chính sách Phân bổ Danh mục Hưu trí An Hưu",
+      "release": "AH-PORTFOLIO-2026-R1",
+      "reviewedOn": "2026-09-30"
+    },
+    "questions": [
+      {
+        "id": "Q_OBJECTIVE",
+        "prompt": "Mục tiêu tài chính ưu tiên nhất của bạn trong kế hoạch hưu trí là gì?",
+        "choices": [
+          {
+            "id": "OBJ_PRESERVE",
+            "label": "Bảo toàn vốn tối đa, chấp nhận lợi suất vừa phải",
+            "score": 0
+          },
+          {
+            "id": "OBJ_INCOME",
+            "label": "Tạo dòng tiền thu nhập ổn định và có tăng trưởng nhẹ",
+            "score": 10
+          },
+          {
+            "id": "OBJ_BALANCED",
+            "label": "Cân bằng tối ưu giữa tăng trưởng vốn và kiểm soát biến động",
+            "score": 20
+          },
+          {
+            "id": "OBJ_GROWTH",
+            "label": "Tối đa hóa tích lũy tài sản dài hạn để có quỹ hưu trí lớn",
+            "score": 30
+          }
+        ],
+        "dimension": "OBJECTIVE"
+      },
+      {
+        "id": "Q_HORIZON",
+        "prompt": "Thời gian dự kiến từ nay đến khi bạn bắt đầu rút quỹ hưu trí?",
+        "choices": [
+          {
+            "id": "HOR_SHORT",
+            "label": "Dưới 5 năm",
+            "score": 0
+          },
+          {
+            "id": "HOR_MEDIUM",
+            "label": "Từ 5 đến dưới 12 năm",
+            "score": 10
+          },
+          {
+            "id": "HOR_LONG",
+            "label": "Từ 12 đến dưới 20 năm",
+            "score": 20
+          },
+          {
+            "id": "HOR_VERY_LONG",
+            "label": "Từ 20 năm trở lên",
+            "score": 30
+          }
+        ],
+        "dimension": "HORIZON"
+      },
+      {
+        "id": "Q_LIQUIDITY",
+        "prompt": "Mức độ bạn cần rút tiền đột xuất từ quỹ đầu tư hưu trí?",
+        "choices": [
+          {
+            "id": "LIQ_HIGH",
+            "label": "Cao: Có thể cần rút tiền mặt trong vòng 6 tháng tới",
+            "score": 0
+          },
+          {
+            "id": "LIQ_MODERATE",
+            "label": "Trung bình: Đã có quỹ dự phòng riêng, ít khả năng rút",
+            "score": 15
+          },
+          {
+            "id": "LIQ_LOW",
+            "label": "Thấp: Toàn bộ khoản tiền dành riêng cho hưu trí dài hạn",
+            "score": 30
+          }
+        ],
+        "dimension": "LIQUIDITY"
+      },
+      {
+        "id": "Q_LOSS_TOLERANCE",
+        "prompt": "Khi thị trường giảm mạnh khiến giá trị danh mục giảm 15%, bạn sẽ làm gì?",
+        "choices": [
+          {
+            "id": "LOSS_SELL_ALL",
+            "label": "Bán toàn bộ danh mục ngay lập tức để bảo toàn vốn",
+            "score": 0
+          },
+          {
+            "id": "LOSS_SELL_PART",
+            "label": "Bán bớt một phần tài sản rủi ro để chuyển sang tiền gửi",
+            "score": 10
+          },
+          {
+            "id": "LOSS_HOLD",
+            "label": "Bình tĩnh giữ nguyên danh mục và chờ thị trường phục hồi",
+            "score": 20
+          },
+          {
+            "id": "LOSS_BUY_MORE",
+            "label": "Tranh thủ cơ hội tiếp tục mua tích lũy thêm với giá rẻ",
+            "score": 30
+          }
+        ],
+        "dimension": "LOSS_TOLERANCE"
+      },
+      {
+        "id": "Q_EXPERIENCE",
+        "prompt": "Kinh nghiệm đầu tư tài chính thực tế của bạn?",
+        "choices": [
+          {
+            "id": "EXP_NONE",
+            "label": "Chỉ gửi tiết kiệm ngân hàng, chưa đầu tư kênh nào khác",
+            "score": 0
+          },
+          {
+            "id": "EXP_BASIC",
+            "label": "Đã từng mua trái phiếu hoặc tiết kiệm tích lũy",
+            "score": 10
+          },
+          {
+            "id": "EXP_MODERATE",
+            "label": "Đã đầu tư chứng chỉ quỹ mở hoặc cổ phiếu trên 2 năm",
+            "score": 20
+          },
+          {
+            "id": "EXP_ADVANCED",
+            "label": "Có kinh nghiệm sâu rộng về thị trường chứng khoán và quỹ",
+            "score": 30
+          }
+        ],
+        "dimension": "EXPERIENCE"
+      },
+      {
+        "id": "Q_FINANCIAL_CAPACITY",
+        "prompt": "Dòng tiền thặng dư hàng tháng của bạn sau khi trang trải mọi chi phí?",
+        "choices": [
+          {
+            "id": "CAP_TIGHT",
+            "label": "Dưới 10% thu nhập, ít có khả năng chịu rủi ro sụt giảm",
+            "score": 0
+          },
+          {
+            "id": "CAP_STABLE",
+            "label": "Từ 10% đến 25% thu nhập, tài chính ổn định",
+            "score": 15
+          },
+          {
+            "id": "CAP_STRONG",
+            "label": "Trên 25% thu nhập, có tài sản dự phòng và bảo hiểm vững chắc",
+            "score": 30
+          }
+        ],
+        "dimension": "FINANCIAL_CAPACITY"
+      }
+    ],
+    "riskBands": [
+      {
+        "id": "BAND_CONSERVATIVE",
+        "label": "Thận trọng Bảo toàn",
+        "maxScore": 35,
+        "minScore": 0
+      },
+      {
+        "id": "BAND_MODERATE_CONSERVATIVE",
+        "label": "Thận trọng Tăng trưởng",
+        "maxScore": 75,
+        "minScore": 36
+      },
+      {
+        "id": "BAND_BALANCED",
+        "label": "Cân bằng Chiến lược",
+        "maxScore": 115,
+        "minScore": 76
+      },
+      {
+        "id": "BAND_GROWTH",
+        "label": "Tăng trưởng Bền vững",
+        "maxScore": 150,
+        "minScore": 116
+      },
+      {
+        "id": "BAND_AGGRESSIVE_GROWTH",
+        "label": "Tăng trưởng Năng động",
+        "maxScore": 180,
+        "minScore": 151
+      }
+    ],
+    "scenarios": [
+      {
+        "kind": "BASE",
+        "label": "Kịch bản Cơ sở",
+        "years": [
+          {
+            "year": 2026,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2027,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2028,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2029,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2030,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2031,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2032,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2033,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2034,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2035,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2036,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2037,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2038,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2039,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2040,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2041,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2042,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2043,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2044,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2045,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2046,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2047,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2048,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2049,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2050,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2051,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2052,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2053,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2054,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          },
+          {
+            "year": 2055,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "0"
+              }
+            ],
+            "inflationDeltaPoints": "0"
+          }
+        ],
+        "evidence": "Kịch bản kỳ vọng trung tâm theo các chỉ số dự báo kinh tế vĩ mô.",
+        "convention": "DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES"
+      },
+      {
+        "kind": "ADVERSE",
+        "label": "Kịch bản Bất lợi",
+        "years": [
+          {
+            "year": 2026,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2027,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2028,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2029,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2030,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2031,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2032,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2033,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2034,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2035,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2036,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2037,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2038,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2039,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2040,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2041,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2042,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2043,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2044,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2045,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2046,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2047,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2048,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2049,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2050,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2051,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2052,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2053,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2054,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          },
+          {
+            "year": 2055,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "-0.5"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "-1.5"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "-2.0"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "-3.0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "-2.0"
+              }
+            ],
+            "inflationDeltaPoints": "1.0"
+          }
+        ],
+        "evidence": "Mô phỏng áp lực lạm phát cao gia tăng và thị trường tài sản suy giảm.",
+        "convention": "DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES"
+      },
+      {
+        "kind": "FAVORABLE",
+        "label": "Kịch bản Thuận lợi",
+        "years": [
+          {
+            "year": 2026,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2027,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2028,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2029,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2030,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2031,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2032,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2033,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2034,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2035,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2036,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2037,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2038,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2039,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2040,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2041,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2042,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2043,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2044,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2045,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2046,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2047,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2048,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2049,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2050,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2051,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2052,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2053,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2054,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          },
+          {
+            "year": 2055,
+            "returns": [
+              {
+                "assetClass": "CASH",
+                "deltaPoints": "0.2"
+              },
+              {
+                "assetClass": "BOND",
+                "deltaPoints": "1.0"
+              },
+              {
+                "assetClass": "BALANCED",
+                "deltaPoints": "1.8"
+              },
+              {
+                "assetClass": "STOCK",
+                "deltaPoints": "2.5"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "deltaPoints": "1.5"
+              }
+            ],
+            "inflationDeltaPoints": "-0.5"
+          }
+        ],
+        "evidence": "Mô phỏng kinh tế tăng trưởng cao, lạm phát kiểm soát tốt và định giá tài sản mở rộng.",
+        "convention": "DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES"
+      }
+    ],
+    "templates": [
+      {
+        "id": "TPL_CONSERVATIVE",
+        "label": "Danh mục Thận trọng Bảo toàn",
+        "schedule": [
+          {
+            "toIndex": 360,
+            "fromIndex": 1,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "30"
+              },
+              {
+                "assetClass": "BOND",
+                "weightPercent": "60"
+              },
+              {
+                "assetClass": "BALANCED",
+                "weightPercent": "10"
+              },
+              {
+                "assetClass": "STOCK",
+                "weightPercent": "0"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "weightPercent": "0"
+              }
+            ]
+          }
+        ],
+        "rebalance": {
+          "timing": "START_OF_MONTH",
+          "evidence": "Chi phí luân chuyển danh mục bảo toàn ước tính 0.1%.",
+          "everyMonths": 12,
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "turnoverCostPercent": "0.1"
+        },
+        "coverageMonths": 360
+      },
+      {
+        "id": "TPL_MODERATE_CONSERVATIVE",
+        "label": "Danh mục Thận trọng Tăng trưởng",
+        "schedule": [
+          {
+            "toIndex": 360,
+            "fromIndex": 1,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "15"
+              },
+              {
+                "assetClass": "BOND",
+                "weightPercent": "50"
+              },
+              {
+                "assetClass": "BALANCED",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "STOCK",
+                "weightPercent": "10"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "weightPercent": "0"
+              }
+            ]
+          }
+        ],
+        "rebalance": {
+          "timing": "START_OF_MONTH",
+          "evidence": "Chi phí luân chuyển danh mục 0.15%.",
+          "everyMonths": 12,
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "turnoverCostPercent": "0.15"
+        },
+        "coverageMonths": 360
+      },
+      {
+        "id": "TPL_BALANCED",
+        "label": "Danh mục Cân bằng Chiến lược",
+        "schedule": [
+          {
+            "toIndex": 360,
+            "fromIndex": 1,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "10"
+              },
+              {
+                "assetClass": "BOND",
+                "weightPercent": "30"
+              },
+              {
+                "assetClass": "BALANCED",
+                "weightPercent": "35"
+              },
+              {
+                "assetClass": "STOCK",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "weightPercent": "0"
+              }
+            ]
+          }
+        ],
+        "rebalance": {
+          "timing": "START_OF_MONTH",
+          "evidence": "Chi phí luân chuyển danh mục cân bằng 0.2%.",
+          "everyMonths": 6,
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "turnoverCostPercent": "0.2"
+        },
+        "coverageMonths": 360
+      },
+      {
+        "id": "TPL_GROWTH",
+        "label": "Danh mục Tăng trưởng Bền vững",
+        "schedule": [
+          {
+            "toIndex": 360,
+            "fromIndex": 1,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "5"
+              },
+              {
+                "assetClass": "BOND",
+                "weightPercent": "20"
+              },
+              {
+                "assetClass": "BALANCED",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "STOCK",
+                "weightPercent": "50"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "weightPercent": "0"
+              }
+            ]
+          }
+        ],
+        "rebalance": {
+          "timing": "START_OF_MONTH",
+          "evidence": "Chi phí luân chuyển danh mục tăng trưởng 0.25%.",
+          "everyMonths": 6,
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "turnoverCostPercent": "0.25"
+        },
+        "coverageMonths": 360
+      },
+      {
+        "id": "TPL_AGGRESSIVE_GROWTH",
+        "label": "Danh mục Tăng trưởng Năng động",
+        "schedule": [
+          {
+            "toIndex": 360,
+            "fromIndex": 1,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "5"
+              },
+              {
+                "assetClass": "BOND",
+                "weightPercent": "10"
+              },
+              {
+                "assetClass": "BALANCED",
+                "weightPercent": "15"
+              },
+              {
+                "assetClass": "STOCK",
+                "weightPercent": "70"
+              },
+              {
+                "assetClass": "REAL_ESTATE",
+                "weightPercent": "0"
+              }
+            ]
+          }
+        ],
+        "rebalance": {
+          "timing": "START_OF_MONTH",
+          "evidence": "Chi phí luân chuyển danh mục năng động 0.25%.",
+          "everyMonths": 6,
+          "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+          "turnoverCostPercent": "0.25"
+        },
+        "coverageMonths": 360
+      }
+    ],
+    "effectiveFrom": "2026-10-01",
+    "schemaVersion": 1,
+    "assumptionVersionId": "b57f1133-0336-429c-b79e-77d1667ff01e"
+  }
+}

@@ -1,0 +1,6168 @@
+{
+  "schemaVersion": 2,
+  "title": "Chính sách phân bổ hưu trí An Hưu 2026 – danh mục nền giảm dần rủi ro theo thời hạn (v4)",
+  "reason": "Thay 5 mẫu cố định 360 tháng của v2 bằng danh mục nền của tài liệu thuật toán, giảm dần rủi ro theo số năm còn lại tới tháng nghỉ hưu; áp dụng cho mọi độ dài kế hoạch tới 1.200 tháng.",
+  "effectiveFrom": "2026-10-16",
+  "assumptionVersionId": "d9b30f3b-8a8a-443c-9294-c4e88a26adb6",
+  "source": {
+    "title": "Tài liệu Thuật toán phân bổ tài sản An Hưu – bảng Các danh mục nền; khung CFA Principles of Asset Allocation",
+    "url": "https://www.cfainstitute.org/insights/professional-learning/refresher-readings/2026/principles-asset-allocation",
+    "release": "An_Huu_Thuat_toan_phan_bo_tai_san.docx (nhận 15/10/2026)",
+    "reviewedOn": "2026-10-15"
+  },
+  "questions": [
+    {
+      "id": "Q_OBJECTIVE",
+      "dimension": "OBJECTIVE",
+      "prompt": "Mục tiêu tài chính ưu tiên nhất của bạn trong kế hoạch hưu trí là gì?",
+      "choices": [
+        {
+          "id": "OBJ_PRESERVE",
+          "label": "Bảo toàn vốn tối đa, chấp nhận lợi suất vừa phải",
+          "score": 0
+        },
+        {
+          "id": "OBJ_INCOME",
+          "label": "Tạo dòng tiền thu nhập ổn định và có tăng trưởng nhẹ",
+          "score": 10
+        },
+        {
+          "id": "OBJ_BALANCED",
+          "label": "Cân bằng tối ưu giữa tăng trưởng vốn và kiểm soát biến động",
+          "score": 20
+        },
+        {
+          "id": "OBJ_GROWTH",
+          "label": "Tối đa hóa tích lũy tài sản dài hạn để có quỹ hưu trí lớn",
+          "score": 30
+        }
+      ]
+    },
+    {
+      "id": "Q_HORIZON",
+      "dimension": "HORIZON",
+      "prompt": "Thời gian dự kiến từ nay đến khi bạn bắt đầu rút quỹ hưu trí?",
+      "choices": [
+        {
+          "id": "HOR_SHORT",
+          "label": "Dưới 5 năm",
+          "score": 0
+        },
+        {
+          "id": "HOR_MEDIUM",
+          "label": "Từ 5 đến dưới 12 năm",
+          "score": 10
+        },
+        {
+          "id": "HOR_LONG",
+          "label": "Từ 12 đến dưới 20 năm",
+          "score": 20
+        },
+        {
+          "id": "HOR_VERY_LONG",
+          "label": "Từ 20 năm trở lên",
+          "score": 30
+        }
+      ]
+    },
+    {
+      "id": "Q_LIQUIDITY",
+      "dimension": "LIQUIDITY",
+      "prompt": "Mức độ bạn cần rút tiền đột xuất từ quỹ đầu tư hưu trí?",
+      "choices": [
+        {
+          "id": "LIQ_HIGH",
+          "label": "Cao: Có thể cần rút tiền mặt trong vòng 6 tháng tới",
+          "score": 0
+        },
+        {
+          "id": "LIQ_MODERATE",
+          "label": "Trung bình: Đã có quỹ dự phòng riêng, ít khả năng rút",
+          "score": 15
+        },
+        {
+          "id": "LIQ_LOW",
+          "label": "Thấp: Toàn bộ khoản tiền dành riêng cho hưu trí dài hạn",
+          "score": 30
+        }
+      ]
+    },
+    {
+      "id": "Q_LOSS_TOLERANCE",
+      "dimension": "LOSS_TOLERANCE",
+      "prompt": "Khi thị trường giảm mạnh khiến giá trị danh mục giảm 15%, bạn sẽ làm gì?",
+      "choices": [
+        {
+          "id": "LOSS_SELL_ALL",
+          "label": "Bán toàn bộ danh mục ngay lập tức để bảo toàn vốn",
+          "score": 0
+        },
+        {
+          "id": "LOSS_SELL_PART",
+          "label": "Bán bớt một phần tài sản rủi ro để chuyển sang tiền gửi",
+          "score": 10
+        },
+        {
+          "id": "LOSS_HOLD",
+          "label": "Bình tĩnh giữ nguyên danh mục và chờ thị trường phục hồi",
+          "score": 20
+        },
+        {
+          "id": "LOSS_BUY_MORE",
+          "label": "Tranh thủ cơ hội tiếp tục mua tích lũy thêm với giá rẻ",
+          "score": 30
+        }
+      ]
+    },
+    {
+      "id": "Q_EXPERIENCE",
+      "dimension": "EXPERIENCE",
+      "prompt": "Kinh nghiệm đầu tư tài chính thực tế của bạn?",
+      "choices": [
+        {
+          "id": "EXP_NONE",
+          "label": "Chỉ gửi tiết kiệm ngân hàng, chưa đầu tư kênh nào khác",
+          "score": 0
+        },
+        {
+          "id": "EXP_BASIC",
+          "label": "Đã từng mua trái phiếu hoặc tiết kiệm tích lũy",
+          "score": 10
+        },
+        {
+          "id": "EXP_MODERATE",
+          "label": "Đã đầu tư chứng chỉ quỹ mở hoặc cổ phiếu trên 2 năm",
+          "score": 20
+        },
+        {
+          "id": "EXP_ADVANCED",
+          "label": "Có kinh nghiệm sâu rộng về thị trường chứng khoán và quỹ",
+          "score": 30
+        }
+      ]
+    },
+    {
+      "id": "Q_FINANCIAL_CAPACITY",
+      "dimension": "FINANCIAL_CAPACITY",
+      "prompt": "Dòng tiền thặng dư hàng tháng của bạn sau khi trang trải mọi chi phí?",
+      "choices": [
+        {
+          "id": "CAP_TIGHT",
+          "label": "Dưới 10% thu nhập, ít có khả năng chịu rủi ro sụt giảm",
+          "score": 0
+        },
+        {
+          "id": "CAP_STABLE",
+          "label": "Từ 10% đến 25% thu nhập, tài chính ổn định",
+          "score": 15
+        },
+        {
+          "id": "CAP_STRONG",
+          "label": "Trên 25% thu nhập, có tài sản dự phòng và bảo hiểm vững chắc",
+          "score": 30
+        }
+      ]
+    }
+  ],
+  "riskBands": [
+    {
+      "id": "BAND_CONSERVATIVE",
+      "label": "Thận trọng Bảo toàn",
+      "minScore": 0,
+      "maxScore": 35
+    },
+    {
+      "id": "BAND_MODERATE_CONSERVATIVE",
+      "label": "Thận trọng Tăng trưởng",
+      "minScore": 36,
+      "maxScore": 75
+    },
+    {
+      "id": "BAND_BALANCED",
+      "label": "Cân bằng Chiến lược",
+      "minScore": 76,
+      "maxScore": 115
+    },
+    {
+      "id": "BAND_GROWTH",
+      "label": "Tăng trưởng Bền vững",
+      "minScore": 116,
+      "maxScore": 150
+    },
+    {
+      "id": "BAND_AGGRESSIVE_GROWTH",
+      "label": "Tăng trưởng Năng động",
+      "minScore": 151,
+      "maxScore": 180
+    }
+  ],
+  "templates": [
+    {
+      "id": "TPL_BASE_GLIDE",
+      "label": "Danh mục nền theo thời hạn (bảng của tài liệu)",
+      "rebalance": {
+        "everyMonths": 12,
+        "timing": "START_OF_MONTH",
+        "turnoverCostPercent": "0.2",
+        "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+        "evidence": "Tái cân bằng hằng năm hoặc khi đổi bậc năm; giữ mức chi phí luân chuyển 0,2% của chính sách v2 đã duyệt."
+      },
+      "glidePath": {
+        "anchor": "RETIREMENT_MONTH",
+        "interpolation": "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR",
+        "afterAnchor": "HOLD_ZERO_YEAR_POINT",
+        "points": [
+          {
+            "yearsToAnchor": 15,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "10"
+              },
+              {
+                "assetClass": "GOV_BOND",
+                "weightPercent": "20"
+              },
+              {
+                "assetClass": "EQUITY",
+                "weightPercent": "60"
+              },
+              {
+                "assetClass": "GOLD",
+                "weightPercent": "10"
+              }
+            ]
+          },
+          {
+            "yearsToAnchor": 10,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "15"
+              },
+              {
+                "assetClass": "GOV_BOND",
+                "weightPercent": "30"
+              },
+              {
+                "assetClass": "EQUITY",
+                "weightPercent": "45"
+              },
+              {
+                "assetClass": "GOLD",
+                "weightPercent": "10"
+              }
+            ]
+          },
+          {
+            "yearsToAnchor": 5,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "15"
+              },
+              {
+                "assetClass": "GOV_BOND",
+                "weightPercent": "30"
+              },
+              {
+                "assetClass": "EQUITY",
+                "weightPercent": "45"
+              },
+              {
+                "assetClass": "GOLD",
+                "weightPercent": "10"
+              }
+            ]
+          },
+          {
+            "yearsToAnchor": 3,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "GOV_BOND",
+                "weightPercent": "40"
+              },
+              {
+                "assetClass": "EQUITY",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "GOLD",
+                "weightPercent": "10"
+              }
+            ]
+          },
+          {
+            "yearsToAnchor": 0,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "GOV_BOND",
+                "weightPercent": "40"
+              },
+              {
+                "assetClass": "EQUITY",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "GOLD",
+                "weightPercent": "10"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "TPL_CAUTIOUS_GLIDE",
+      "label": "Danh mục nền thận trọng (lùi một bậc thời hạn)",
+      "rebalance": {
+        "everyMonths": 12,
+        "timing": "START_OF_MONTH",
+        "turnoverCostPercent": "0.2",
+        "costConvention": "HALF_L1_TURNOVER_TIMES_COST",
+        "evidence": "Tái cân bằng hằng năm hoặc khi đổi bậc năm; giữ mức chi phí luân chuyển 0,2% của chính sách v2 đã duyệt."
+      },
+      "glidePath": {
+        "anchor": "RETIREMENT_MONTH",
+        "interpolation": "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR",
+        "afterAnchor": "HOLD_ZERO_YEAR_POINT",
+        "points": [
+          {
+            "yearsToAnchor": 15,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "15"
+              },
+              {
+                "assetClass": "GOV_BOND",
+                "weightPercent": "30"
+              },
+              {
+                "assetClass": "EQUITY",
+                "weightPercent": "45"
+              },
+              {
+                "assetClass": "GOLD",
+                "weightPercent": "10"
+              }
+            ]
+          },
+          {
+            "yearsToAnchor": 10,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "GOV_BOND",
+                "weightPercent": "40"
+              },
+              {
+                "assetClass": "EQUITY",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "GOLD",
+                "weightPercent": "10"
+              }
+            ]
+          },
+          {
+            "yearsToAnchor": 0,
+            "allocations": [
+              {
+                "assetClass": "CASH",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "GOV_BOND",
+                "weightPercent": "40"
+              },
+              {
+                "assetClass": "EQUITY",
+                "weightPercent": "25"
+              },
+              {
+                "assetClass": "GOLD",
+                "weightPercent": "10"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "rules": [
+    {
+      "id": "RULE_BASE_GLIDE",
+      "templateId": "TPL_BASE_GLIDE",
+      "riskBandIds": [
+        "BAND_BALANCED",
+        "BAND_GROWTH",
+        "BAND_AGGRESSIVE_GROWTH"
+      ],
+      "explanation": "Danh mục nền của tài liệu: ≥15 năm tới hưu 10/20/60/10, 5–10 năm 15/30/45/10, ≤3 năm và sau hưu 25/40/25/10 (tiền gửi/TPCP/cổ phiếu/vàng); nội suy tuyến tính ở khoảng 10–15 và 3–5 năm. Cổ phiếu không vượt 60% kể cả với điểm khảo sát cao.",
+      "horizon": {
+        "min": 1,
+        "max": 1200
+      },
+      "liquidityNeed": {
+        "min": 0,
+        "max": 1200
+      },
+      "dimensions": {
+        "OBJECTIVE": {
+          "min": 0,
+          "max": 30
+        },
+        "HORIZON": {
+          "min": 0,
+          "max": 30
+        },
+        "LIQUIDITY": {
+          "min": 0,
+          "max": 30
+        },
+        "LOSS_TOLERANCE": {
+          "min": 0,
+          "max": 30
+        },
+        "EXPERIENCE": {
+          "min": 0,
+          "max": 30
+        },
+        "FINANCIAL_CAPACITY": {
+          "min": 0,
+          "max": 30
+        }
+      }
+    },
+    {
+      "id": "RULE_CAUTIOUS_GLIDE",
+      "templateId": "TPL_CAUTIOUS_GLIDE",
+      "riskBandIds": [
+        "BAND_CONSERVATIVE",
+        "BAND_MODERATE_CONSERVATIVE"
+      ],
+      "explanation": "Hồ sơ thận trọng dùng danh mục nền của bậc thời hạn ngắn hơn: ≥15 năm 15/30/45/10, ≤10 năm và sau hưu 25/40/25/10.",
+      "horizon": {
+        "min": 1,
+        "max": 1200
+      },
+      "liquidityNeed": {
+        "min": 0,
+        "max": 1200
+      },
+      "dimensions": {
+        "OBJECTIVE": {
+          "min": 0,
+          "max": 30
+        },
+        "HORIZON": {
+          "min": 0,
+          "max": 30
+        },
+        "LIQUIDITY": {
+          "min": 0,
+          "max": 30
+        },
+        "LOSS_TOLERANCE": {
+          "min": 0,
+          "max": 30
+        },
+        "EXPERIENCE": {
+          "min": 0,
+          "max": 30
+        },
+        "FINANCIAL_CAPACITY": {
+          "min": 0,
+          "max": 30
+        }
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "kind": "BASE",
+      "label": "Kịch bản cơ sở",
+      "evidence": "Giả định cơ sở của bộ v3, không điều chỉnh.",
+      "convention": "DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES",
+      "years": [
+        {
+          "year": 2026,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2027,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2028,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2029,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2030,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2031,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2032,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2033,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2034,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2035,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2036,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2037,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2038,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2039,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2040,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2041,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2042,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2043,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2044,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2045,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2046,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2047,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2048,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2049,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2050,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2051,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2052,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2053,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2054,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2055,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2056,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2057,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2058,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2059,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2060,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2061,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2062,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2063,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2064,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2065,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2066,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2067,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2068,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2069,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2070,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2071,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2072,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2073,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2074,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2075,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2076,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2077,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2078,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2079,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2080,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2081,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2082,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2083,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2084,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2085,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2086,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2087,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2088,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2089,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2090,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2091,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2092,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2093,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2094,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2095,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2096,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2097,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2098,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2099,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2100,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2101,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2102,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2103,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2104,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2105,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2106,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2107,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2108,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2109,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        },
+        {
+          "year": 2110,
+          "inflationDeltaPoints": "0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "ADVERSE",
+      "label": "Kịch bản bất lợi",
+      "evidence": "Lạm phát +1 điểm; lợi suất tiền gửi −0,5, TPCP −1,5, cổ phiếu −3, vàng −2 điểm mỗi năm (giữ mức v2 cho các nhóm cũ; vàng là giả định mới, CHỜ DUYỆT).",
+      "convention": "DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES",
+      "years": [
+        {
+          "year": 2026,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2027,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2028,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2029,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2030,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2031,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2032,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2033,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2034,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2035,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2036,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2037,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2038,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2039,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2040,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2041,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2042,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2043,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2044,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2045,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2046,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2047,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2048,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2049,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2050,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2051,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2052,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2053,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2054,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2055,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2056,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2057,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2058,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2059,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2060,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2061,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2062,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2063,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2064,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2065,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2066,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2067,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2068,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2069,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2070,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2071,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2072,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2073,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2074,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2075,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2076,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2077,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2078,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2079,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2080,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2081,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2082,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2083,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2084,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2085,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2086,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2087,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2088,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2089,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2090,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2091,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2092,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2093,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2094,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2095,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2096,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2097,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2098,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2099,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2100,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2101,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2102,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2103,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2104,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2105,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2106,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2107,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2108,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2109,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        },
+        {
+          "year": 2110,
+          "inflationDeltaPoints": "1.0",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "-0.5"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "-1.5"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "-3.0"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "-2.0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "FAVORABLE",
+      "label": "Kịch bản thuận lợi",
+      "evidence": "Lạm phát −0,5 điểm; tiền gửi +0,2, TPCP +1, cổ phiếu +2,5, vàng +1,5 điểm mỗi năm (giữ mức v2; vàng CHỜ DUYỆT).",
+      "convention": "DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES",
+      "years": [
+        {
+          "year": 2026,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2027,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2028,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2029,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2030,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2031,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2032,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2033,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2034,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2035,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2036,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2037,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2038,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2039,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2040,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2041,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2042,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2043,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2044,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2045,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2046,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2047,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2048,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2049,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2050,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2051,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2052,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2053,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2054,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2055,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2056,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2057,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2058,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2059,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2060,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2061,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2062,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2063,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2064,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2065,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2066,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2067,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2068,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2069,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2070,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2071,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2072,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2073,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2074,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2075,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2076,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2077,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2078,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2079,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2080,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2081,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2082,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2083,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2084,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2085,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2086,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2087,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2088,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2089,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2090,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2091,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2092,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2093,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2094,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2095,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2096,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2097,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2098,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2099,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2100,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2101,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2102,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2103,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2104,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2105,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2106,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2107,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2108,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2109,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        },
+        {
+          "year": 2110,
+          "inflationDeltaPoints": "-0.5",
+          "returns": [
+            {
+              "assetClass": "CASH",
+              "deltaPoints": "0.2"
+            },
+            {
+              "assetClass": "GOV_BOND",
+              "deltaPoints": "1.0"
+            },
+            {
+              "assetClass": "EQUITY",
+              "deltaPoints": "2.5"
+            },
+            {
+              "assetClass": "GOLD",
+              "deltaPoints": "1.5"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "lossStress": {
+    "evidence": "Tài liệu thuật toán khách hàng, mục ví dụ 2 tỷ: tiền gửi 0%, TPCP -5%, cổ phiếu -35%, vàng -10%. Bản nháp phải được phê duyệt và công bố trước khi dùng.",
+    "equityAssetClass": "EQUITY",
+    "depositAssetClass": "CASH",
+    "shocks": [
+      {
+        "assetClass": "CASH",
+        "percent": "0"
+      },
+      {
+        "assetClass": "GOV_BOND",
+        "percent": "-5"
+      },
+      {
+        "assetClass": "EQUITY",
+        "percent": "-35"
+      },
+      {
+        "assetClass": "GOLD",
+        "percent": "-10"
+      }
+    ]
+  },
+  "allocationRisk": {
+    "evidence": "CHỜ DUYỆT — tài liệu khách: bootstrap khối 12–36 tháng (chọn 12); CVaR alpha 95%; ngưỡng p thiết yếu 90–95% (chọn 90%); dải tái cân bằng 5 điểm %. Bước dịch cổ phiếu và tham số cú sốc chưa được khách xác nhận: để trống, REVIEW_REQUIRED. Không dùng chuỗi thị trường giả lập.",
+    "blockMonths": 12,
+    "cvarAlpha": "0.95",
+    "essentialThreshold": "0.90",
+    "rebalanceBandPoints": "5",
+    "stresses": {
+      "LONGEVITY": {
+        "extraYears": [
+          5,
+          10
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "validation": {
+    "draftAssumptions": {
+      "status": "VALID",
+      "issues": []
+    },
+    "draftPolicy": {
+      "status": "VALID",
+      "issues": []
+    }
+  },
+  "runs": {
+    "currentPublished": {
+      "total": 52,
+      "status": {
+        "INCOMPLETE": 52
+      },
+      "issues": {
+        "POLICY_NOT_COVERED": 51,
+        "PROJECTION_NOT_COVERED": 1
+      },
+      "savingsStatus": {},
+      "coveragePercent": null,
+      "requiredFundBillion": null,
+      "projectedFundBillion": null,
+      "requiredMonthlyMillion": null,
+      "plannedMonthlyMillion": null,
+      "shortfallDuringRetirement": 0
+    },
+    "currentCappedAt2055": {
+      "total": 52,
+      "status": {
+        "READY": 46,
+        "ERROR:INVALID_PROJECTION_PERIOD": 6
+      },
+      "issues": {},
+      "savingsStatus": {
+        "NO_ADDITIONAL_CONTRIBUTION": 44,
+        "ADDITIONAL_CONTRIBUTION_REQUIRED": 2
+      },
+      "coveragePercent": {
+        "n": 45,
+        "min": 92.7549918281899,
+        "median": 813.8061969835895,
+        "max": 14185.47212677423
+      },
+      "requiredFundBillion": {
+        "n": 46,
+        "min": 0,
+        "median": 1.9,
+        "max": 6.12
+      },
+      "projectedFundBillion": {
+        "n": 46,
+        "min": -1.16,
+        "median": 16.73,
+        "max": 24.71
+      },
+      "requiredMonthlyMillion": {
+        "n": 46,
+        "min": 0,
+        "median": 0,
+        "max": 19.32
+      },
+      "plannedMonthlyMillion": {
+        "n": 46,
+        "min": 0,
+        "median": 16.8,
+        "max": 33.6
+      },
+      "shortfallDuringRetirement": 2
+    },
+    "draftV3V4": {
+      "total": 52,
+      "status": {
+        "READY": 52
+      },
+      "issues": {},
+      "savingsStatus": {
+        "NO_ADDITIONAL_CONTRIBUTION": 44,
+        "ADDITIONAL_CONTRIBUTION_REQUIRED": 8
+      },
+      "coveragePercent": {
+        "n": 51,
+        "min": -331.67250411728946,
+        "median": 139.12790057928095,
+        "max": 187.9755670688697
+      },
+      "requiredFundBillion": {
+        "n": 52,
+        "min": 0,
+        "median": 8.21,
+        "max": 9.79
+      },
+      "projectedFundBillion": {
+        "n": 52,
+        "min": -6.5,
+        "median": 10.56,
+        "max": 15.81
+      },
+      "requiredMonthlyMillion": {
+        "n": 52,
+        "min": 5.46,
+        "median": 9.76,
+        "max": 35.45
+      },
+      "plannedMonthlyMillion": {
+        "n": 52,
+        "min": 0,
+        "median": 14.7,
+        "max": 33.6
+      },
+      "shortfallDuringRetirement": 8
+    }
+  },
+  "byRisk": {
+    "MEDIUM": {
+      "n": 24,
+      "template": {
+        "TPL_BASE_GLIDE": 24
+      },
+      "equityAtStart": {
+        "min": 60,
+        "median": 60,
+        "max": 60
+      },
+      "equityAtRetirement": {
+        "min": 25.322753570621945,
+        "median": 25.322753570621945,
+        "max": 25.322753570621945
+      }
+    },
+    "HIGH": {
+      "n": 13,
+      "template": {
+        "TPL_BASE_GLIDE": 13
+      },
+      "equityAtStart": {
+        "min": 60,
+        "median": 60,
+        "max": 60
+      },
+      "equityAtRetirement": {
+        "min": 25.322753570621945,
+        "median": 25.322753570621945,
+        "max": 25.322753570621945
+      }
+    },
+    "LOW": {
+      "n": 13,
+      "template": {
+        "TPL_CAUTIOUS_GLIDE": 13
+      },
+      "equityAtStart": {
+        "min": 25,
+        "median": 33,
+        "max": 45
+      },
+      "equityAtRetirement": {
+        "min": 25.322753570621945,
+        "median": 25.322753570621945,
+        "max": 25.322753570621945
+      }
+    },
+    "null": {
+      "n": 2,
+      "template": {
+        "TPL_BASE_GLIDE": 2
+      },
+      "equityAtStart": {
+        "min": 60,
+        "median": 60,
+        "max": 60
+      },
+      "equityAtRetirement": {
+        "min": 25.120713613052374,
+        "median": 25.120713613052374,
+        "max": 25.120713613052374
+      }
+    }
+  },
+  "examples": [
+    {
+      "ageNow": 34,
+      "retireAge": 60,
+      "endAge": 82,
+      "risk": "MEDIUM",
+      "template": "TPL_BASE_GLIDE",
+      "equityNow": 60,
+      "requiredFundBillion": 8.27,
+      "projectedFundBillion": 11.81,
+      "coveragePercent": 143,
+      "requiredMonthlyMillion": 9
+    },
+    {
+      "ageNow": 29,
+      "retireAge": 58,
+      "endAge": 82,
+      "risk": "HIGH",
+      "template": "TPL_BASE_GLIDE",
+      "equityNow": 60,
+      "requiredFundBillion": 8.29,
+      "projectedFundBillion": 10.56,
+      "coveragePercent": 127,
+      "requiredMonthlyMillion": 8
+    },
+    {
+      "ageNow": 42,
+      "retireAge": 62,
+      "endAge": 82,
+      "risk": "MEDIUM",
+      "template": "TPL_BASE_GLIDE",
+      "equityNow": 60,
+      "requiredFundBillion": 8.14,
+      "projectedFundBillion": 13.74,
+      "coveragePercent": 169,
+      "requiredMonthlyMillion": 11
+    },
+    {
+      "ageNow": 36,
+      "retireAge": 60,
+      "endAge": 82,
+      "risk": "LOW",
+      "template": "TPL_CAUTIOUS_GLIDE",
+      "equityNow": 45,
+      "requiredFundBillion": 8.83,
+      "projectedFundBillion": 10.53,
+      "coveragePercent": 119,
+      "requiredMonthlyMillion": 12
+    },
+    {
+      "ageNow": 31,
+      "retireAge": 58,
+      "endAge": 82,
+      "risk": "HIGH",
+      "template": "TPL_BASE_GLIDE",
+      "equityNow": 60,
+      "requiredFundBillion": 8.75,
+      "projectedFundBillion": 12.26,
+      "coveragePercent": 140,
+      "requiredMonthlyMillion": 9
+    }
+  ]
+}

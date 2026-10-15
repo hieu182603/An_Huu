@@ -1,0 +1,1624 @@
+MarketDocument:
+  type: object
+  additionalProperties: false
+  properties:
+    schemaVersion:
+      type: integer
+      enum:
+        - 1
+    title:
+      type: string
+      minLength: 3
+      maxLength: 2000
+    reason:
+      type: string
+      minLength: 3
+      maxLength: 2000
+    effectiveFrom:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+    currency:
+      type: string
+      enum:
+        - VND
+    unit:
+      type: string
+      enum:
+        - DECIMAL_MONTHLY_TOTAL_RETURN
+    priceBasis:
+      type: string
+      enum:
+        - NOMINAL
+    cpiMeasure:
+      type: string
+      enum:
+        - MONTH_ON_MONTH_CHANGE
+    period: &a4
+      type: object
+      additionalProperties: false
+      properties:
+        from:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        to:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+      required:
+        - from
+        - to
+    sources: &a6
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          title:
+            type: string
+            minLength: 3
+            maxLength: 2000
+          url:
+            type: string
+            format: uri
+            maxLength: 2000
+          retrievedOn:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+          license:
+            type: string
+            minLength: 3
+            maxLength: 2000
+          usage:
+            type: string
+            enum:
+              - SIMULATION_AND_DERIVED_OUTPUTS_PERMITTED
+          evidence:
+            type: string
+            minLength: 3
+            maxLength: 2000
+        required:
+          - id
+          - title
+          - url
+          - retrievedOn
+          - license
+          - usage
+          - evidence
+      minItems: 1
+      maxItems: 30
+    assets:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          assetClass:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          sourceId:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          totalReturnEvidence:
+            type: string
+            minLength: 3
+            maxLength: 2000
+          fees:
+            oneOf:
+              - type: object
+                additionalProperties: false
+                properties:
+                  treatment:
+                    type: string
+                    enum:
+                      - NET
+                  evidence:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                required:
+                  - treatment
+                  - evidence
+              - type: object
+                additionalProperties: false
+                properties:
+                  treatment:
+                    type: string
+                    enum:
+                      - GROSS
+                  monthlyDrag:
+                    type: string
+                    maxLength: 30
+                    pattern: ^-?(0|[1-9]\d*)(\.\d{1,16})?$
+                  evidence:
+                    type: string
+                    minLength: 3
+                    maxLength: 2000
+                required:
+                  - treatment
+                  - monthlyDrag
+                  - evidence
+          taxTreatment:
+            type: string
+            minLength: 3
+            maxLength: 2000
+        required:
+          - assetClass
+          - sourceId
+          - totalReturnEvidence
+          - fees
+          - taxTreatment
+      minItems: 1
+      maxItems: 20
+    cpiSourceId:
+      type: string
+      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+    quality:
+      type: object
+      additionalProperties: false
+      properties:
+        missingValues:
+          type: string
+          enum:
+            - REJECT
+        imputation:
+          type: string
+          enum:
+            - NONE
+        reviewNote:
+          type: string
+          minLength: 3
+          maxLength: 2000
+      required:
+        - missingValues
+        - imputation
+        - reviewNote
+    rows:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          month:
+            type: string
+            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+          returns:
+            type: object
+            additionalProperties:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d{1,16})?$
+          cpi:
+            type: string
+            maxLength: 30
+            pattern: ^-?(0|[1-9]\d*)(\.\d{1,16})?$
+        required:
+          - month
+          - returns
+          - cpi
+      minItems: 12
+      maxItems: 2400
+  required:
+    - schemaVersion
+    - title
+    - reason
+    - effectiveFrom
+    - currency
+    - unit
+    - priceBasis
+    - cpiMeasure
+    - period
+    - sources
+    - assets
+    - cpiSourceId
+    - quality
+    - rows
+  description: ADMIN-owned real monthly total returns, VND nominal decimal
+    fractions including dividends/distributions and CPI month-on-month. No
+    missing, duplicate or discontinuous months; exact asset columns; no
+    imputation. GROSS subtracts the explicitly approved monthlyDrag in decimal
+    points once; NET is not deducted again. Each source must have licensed
+    simulation/derived-output rights. Approval requires historical closed months
+    and nonfuture retrieval dates. No synthetic production fallback.
+MarketWrite:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    data:
+      type: object
+      additionalProperties: false
+      properties:
+        schemaVersion:
+          type: integer
+          enum:
+            - 1
+        title:
+          type: string
+          minLength: 3
+          maxLength: 2000
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 2000
+        effectiveFrom:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        currency:
+          type: string
+          enum:
+            - VND
+        unit:
+          type: string
+          enum:
+            - DECIMAL_MONTHLY_TOTAL_RETURN
+        priceBasis:
+          type: string
+          enum:
+            - NOMINAL
+        cpiMeasure:
+          type: string
+          enum:
+            - MONTH_ON_MONTH_CHANGE
+        period:
+          type: object
+          additionalProperties: false
+          properties:
+            from:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+            to:
+              type: string
+              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+          required:
+            - from
+            - to
+        sources:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              title:
+                type: string
+                minLength: 3
+                maxLength: 2000
+              url:
+                type: string
+                format: uri
+                maxLength: 2000
+              retrievedOn:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+              license:
+                type: string
+                minLength: 3
+                maxLength: 2000
+              usage:
+                type: string
+                enum:
+                  - SIMULATION_AND_DERIVED_OUTPUTS_PERMITTED
+              evidence:
+                type: string
+                minLength: 3
+                maxLength: 2000
+            required:
+              - id
+              - title
+              - url
+              - retrievedOn
+              - license
+              - usage
+              - evidence
+          minItems: 1
+          maxItems: 30
+        assets:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              assetClass:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              sourceId:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              totalReturnEvidence:
+                type: string
+                minLength: 3
+                maxLength: 2000
+              fees:
+                oneOf:
+                  - type: object
+                    additionalProperties: false
+                    properties:
+                      treatment:
+                        type: string
+                        enum:
+                          - NET
+                      evidence:
+                        type: string
+                        minLength: 3
+                        maxLength: 2000
+                    required:
+                      - treatment
+                      - evidence
+                  - type: object
+                    additionalProperties: false
+                    properties:
+                      treatment:
+                        type: string
+                        enum:
+                          - GROSS
+                      monthlyDrag:
+                        type: string
+                        maxLength: 30
+                        pattern: ^-?(0|[1-9]\d*)(\.\d{1,16})?$
+                      evidence:
+                        type: string
+                        minLength: 3
+                        maxLength: 2000
+                    required:
+                      - treatment
+                      - monthlyDrag
+                      - evidence
+              taxTreatment:
+                type: string
+                minLength: 3
+                maxLength: 2000
+            required:
+              - assetClass
+              - sourceId
+              - totalReturnEvidence
+              - fees
+              - taxTreatment
+          minItems: 1
+          maxItems: 20
+        cpiSourceId:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+        quality:
+          type: object
+          additionalProperties: false
+          properties:
+            missingValues:
+              type: string
+              enum:
+                - REJECT
+            imputation:
+              type: string
+              enum:
+                - NONE
+            reviewNote:
+              type: string
+              minLength: 3
+              maxLength: 2000
+          required:
+            - missingValues
+            - imputation
+            - reviewNote
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              month:
+                type: string
+                pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+              returns:
+                type: object
+                additionalProperties:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d{1,16})?$
+              cpi:
+                type: string
+                maxLength: 30
+                pattern: ^-?(0|[1-9]\d*)(\.\d{1,16})?$
+            required:
+              - month
+              - returns
+              - cpi
+          minItems: 12
+          maxItems: 2400
+      required:
+        - schemaVersion
+        - title
+        - reason
+        - effectiveFrom
+        - currency
+        - unit
+        - priceBasis
+        - cpiMeasure
+        - period
+        - sources
+        - assets
+        - cpiSourceId
+        - quality
+        - rows
+  required:
+    - expectedRevision
+    - data
+MarketApprove:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    confirm:
+      type: boolean
+      enum:
+        - true
+    reviewNote:
+      type: string
+      minLength: 3
+      maxLength: 2000
+  required:
+    - expectedRevision
+    - confirm
+    - reviewNote
+MarketPublish:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    confirm:
+      type: boolean
+      enum:
+        - true
+  required:
+    - expectedRevision
+    - confirm
+RiskInput:
+  type: object
+  additionalProperties: false
+  properties:
+    plan:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - PREVIEW
+            preview:
+              type: object
+              additionalProperties: false
+              properties:
+                expectedProfileRevision:
+                  type: integer
+                  minimum: 1
+                policyVersionId:
+                  type: string
+                  format: uuid
+                scenario:
+                  type: string
+                  enum:
+                    - BASE
+                    - ADVERSE
+                    - FAVORABLE
+                templateId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      questionId:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                      choiceId:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    required:
+                      - questionId
+                      - choiceId
+                  maxItems: 30
+                liquidityNeedMonths:
+                  type: integer
+                  minimum: 0
+                  maximum: 1200
+                endMonth:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                monthlyExpenseToday:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                monthlyContribution:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                monthlyReserve:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                contributionTiming:
+                  type: string
+                  enum:
+                    - END_OF_MONTH
+                    - START_OF_MONTH
+                  default: END_OF_MONTH
+                surplusPolicy:
+                  type: string
+                  enum:
+                    - EXPLICIT_DEPOSITS_ONLY
+                  default: EXPLICIT_DEPOSITS_ONLY
+                startOfMonthFunding:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    confirmed:
+                      type: boolean
+                      enum:
+                        - true
+                    source:
+                      type: string
+                      enum:
+                        - CURRENT_MONTH_DISPOSABLE_CASH_AVAILABLE_AT_START
+                    monthlyAvailable:
+                      type: string
+                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                    schedule:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          month:
+                            type: string
+                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                          amount:
+                            type: string
+                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        required:
+                          - month
+                          - amount
+                      maxItems: 1200
+                      default: []
+                  required:
+                    - confirmed
+                    - source
+                    - monthlyAvailable
+                terminalBalance:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                  default: "0"
+                contributionSchedule:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      month:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      amount:
+                        type: string
+                        pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                    required:
+                      - month
+                      - amount
+                  maxItems: 1200
+                  default: []
+                retirementContributionSchedule:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      month:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      amount:
+                        type: string
+                        pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                    required:
+                      - month
+                      - amount
+                  maxItems: 1200
+                  default: []
+                retirementIncomeIds:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  maxItems: 200
+                retirementAdditionalExpenseIds:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  maxItems: 200
+                  default: []
+                debtStress:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      loanId:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                        pattern: ^[a-zA-Z0-9_-]+$
+                      startMonth:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      endMonth:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      totalPaymentShare:
+                        type: string
+                        pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                    required:
+                      - loanId
+                      - startMonth
+                      - endMonth
+                      - totalPaymentShare
+                  maxItems: 20
+                  default: []
+                whatIf:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    retirementMonth:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                    assetValues:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          assetId:
+                            type: string
+                            minLength: 1
+                            maxLength: 100
+                          value:
+                            type: string
+                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        required:
+                          - assetId
+                          - value
+                      minItems: 1
+                      maxItems: 200
+                housing:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      assetId:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                      amountScope:
+                        type: string
+                        enum:
+                          - WHOLE_ASSET
+                          - OWNERS_SHARE
+                      linkedIncomeId:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    required:
+                      - assetId
+                      - amountScope
+                  maxItems: 200
+                  default: []
+                advisoryFee:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    annualPercent:
+                      type: string
+                      pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                    paidFrom:
+                      type: string
+                      enum:
+                        - FUND
+                        - EXTERNAL
+                  required:
+                    - annualPercent
+                    - paidFrom
+              required:
+                - expectedProfileRevision
+                - policyVersionId
+                - scenario
+                - answers
+                - liquidityNeedMonths
+                - endMonth
+                - monthlyExpenseToday
+                - monthlyContribution
+                - monthlyReserve
+                - retirementIncomeIds
+          required:
+            - kind
+            - preview
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - SAVED_VERSION
+            planId:
+              type: string
+              format: uuid
+            versionId:
+              type: string
+              format: uuid
+          required:
+            - kind
+            - planId
+            - versionId
+    marketVersionId:
+      type: string
+      format: uuid
+    paths:
+      type: integer
+      minimum: 1
+      maximum: 500
+      default: 100
+  required:
+    - plan
+  description: Read-only POST. No client return/CPI arrays, random seed or
+    benchmark overrides. Saved versions are owner-checked and integrity-checked.
+    Omitted marketVersionId selects latest effective PUBLISHED dataset; response
+    pins its ID/hash for repeat runs. Old plan snapshots and inputHash are
+    unchanged.
+RiskPolicy:
+  type: object
+  additionalProperties: false
+  properties:
+    evidence:
+      type: string
+      minLength: 3
+      maxLength: 2000
+    blockMonths:
+      type: integer
+      minimum: 12
+      maximum: 36
+    cvarAlpha:
+      type: string
+      maxLength: 30
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+    essentialThreshold:
+      type: string
+      maxLength: 30
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+    equityShiftPoints:
+      type: string
+      maxLength: 30
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+    rebalanceBandPoints:
+      type: string
+      maxLength: 30
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+    stresses:
+      type: object
+      additionalProperties: false
+      properties:
+        HIGH_INFLATION: &a7
+          type: object
+          additionalProperties: false
+          properties:
+            offsetMonths:
+              type: integer
+              minimum: -1200
+              maximum: 1200
+            durationMonths:
+              type: integer
+              minimum: 1
+              maximum: 1200
+            annualDeltaPoints:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+          required:
+            - offsetMonths
+            - durationMonths
+            - annualDeltaPoints
+        EQUITY_CRASH: &a8
+          type: object
+          additionalProperties: false
+          properties:
+            offsetMonths:
+              type: integer
+              minimum: -1200
+              maximum: 1200
+            assetClass:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+            shockPercent:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+          required:
+            - offsetMonths
+            - assetClass
+            - shockPercent
+        RATE_RISE: &a9
+          type: object
+          additionalProperties: false
+          properties:
+            offsetMonths:
+              type: integer
+              minimum: -1200
+              maximum: 1200
+            assetClass:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+            durationYears:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            yieldRisePoints:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+          required:
+            - offsetMonths
+            - assetClass
+            - durationYears
+            - yieldRisePoints
+        CREDIT: &a10
+          type: object
+          additionalProperties: false
+          properties:
+            offsetMonths:
+              type: integer
+              minimum: -1200
+              maximum: 1200
+            assetClass:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+            defaultPercent:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            recoveryPercent:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+          required:
+            - offsetMonths
+            - assetClass
+            - defaultPercent
+            - recoveryPercent
+        GOLD: &a11
+          type: object
+          additionalProperties: false
+          properties:
+            offsetMonths:
+              type: integer
+              minimum: -1200
+              maximum: 1200
+            assetClass:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+            shockPercent:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            spreadPoints:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+          required:
+            - offsetMonths
+            - assetClass
+            - shockPercent
+            - spreadPoints
+        PROPERTY_ILLIQUIDITY: &a12
+          type: object
+          additionalProperties: false
+          properties:
+            offsetMonths:
+              type: integer
+              minimum: -1200
+              maximum: 1200
+            durationMonths:
+              type: integer
+              minimum: 1
+              maximum: 1200
+            delayMonths:
+              type: integer
+              minimum: 1
+              maximum: 120
+            haircutPercent:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+          required:
+            - offsetMonths
+            - durationMonths
+            - delayMonths
+            - haircutPercent
+        INCOME_LOSS: &a13
+          type: object
+          additionalProperties: false
+          properties:
+            offsetMonths:
+              type: integer
+              minimum: -1200
+              maximum: 1200
+            durationMonths:
+              type: integer
+              minimum: 1
+              maximum: 1200
+            lostPercent:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+          required:
+            - offsetMonths
+            - durationMonths
+            - lostPercent
+        LONGEVITY: &a14
+          type: object
+          additionalProperties: false
+          properties:
+            extraYears:
+              type: array
+              items:
+                anyOf:
+                  - type: integer
+                    enum:
+                      - 5
+                  - type: integer
+                    enum:
+                      - 10
+              minItems: 1
+              maxItems: 2
+          required:
+            - extraYears
+  required:
+    - evidence
+RebalanceInput:
+  type: object
+  additionalProperties: false
+  properties:
+    policyVersionId:
+      type: string
+      format: uuid
+    templateId:
+      type: string
+      minLength: 1
+      maxLength: 100
+    month:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    retirementMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    holdings:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          assetClass:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          value:
+            type: string
+            maxLength: 40
+            pattern: ^(0|[1-9]\d*)(\.\d+)?$
+          maturedAmount:
+            type: string
+            maxLength: 40
+            pattern: ^(0|[1-9]\d*)(\.\d+)?$
+        required:
+          - assetClass
+          - value
+          - maturedAmount
+      minItems: 1
+      maxItems: 20
+    newContribution:
+      type: string
+      maxLength: 40
+      pattern: ^(0|[1-9]\d*)(\.\d+)?$
+  required:
+    - policyVersionId
+    - templateId
+    - month
+    - retirementMonth
+    - holdings
+    - newContribution
+MarketVersion:
+  type: object
+  additionalProperties: false
+  properties:
+    id: &a3
+      type: string
+      format: uuid
+    version: &a1
+      type: integer
+    revision: *a1
+    status:
+      type: string
+      enum:
+        - DRAFT
+        - APPROVED
+        - PUBLISHED
+    data:
+      $ref: "#/MarketDocument"
+    documentHash: &a2
+      type: string
+    approval:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            actor: *a2
+            approvedAt: *a2
+            documentHash: *a2
+            reviewNote: *a2
+          required:
+            - actor
+            - approvedAt
+            - documentHash
+            - reviewNote
+        - type: object
+          nullable: true
+          enum:
+            - null
+    effectiveAt: &a21
+      type: string
+      nullable: true
+  required:
+    - id
+    - version
+    - revision
+    - status
+    - data
+    - documentHash
+    - approval
+    - effectiveAt
+MarketList:
+  type: object
+  additionalProperties: false
+  properties:
+    page: *a1
+    limit: *a1
+    total: *a1
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id: *a3
+          version: *a1
+          revision: *a1
+          status: *a2
+          title: *a2
+          period: *a4
+        required:
+          - id
+          - version
+          - revision
+          - status
+          - title
+          - period
+  required:
+    - page
+    - limit
+    - total
+    - items
+Validation:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - VALID
+        - INVALID
+    issues:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          path: *a2
+          message: *a2
+        required:
+          - path
+          - message
+  required:
+    - status
+    - issues
+Empty:
+  type: object
+  additionalProperties: false
+  properties: {}
+Limits:
+  type: object
+  additionalProperties: false
+  properties:
+    maxPaths: *a1
+    maxPathMonths: *a1
+    maxRuntimeMs: *a1
+  required:
+    - maxPaths
+    - maxPathMonths
+    - maxRuntimeMs
+Allocation:
+  type: object
+  additionalProperties: false
+  properties:
+    assetClass: *a2
+    weightPercent: *a2
+  required:
+    - assetClass
+    - weightPercent
+PathResult:
+  type: object
+  additionalProperties: false
+  properties:
+    essentialLossToday: *a2
+    funded: &a15
+      type: boolean
+    balances:
+      type: array
+      items: *a2
+    unfundedWithdrawals: *a2
+    fundedTerminalBalance: *a2
+  required:
+    - essentialLossToday
+    - funded
+    - balances
+    - unfundedWithdrawals
+    - fundedTerminalBalance
+Candidate:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - READY
+    modelCode: &a16
+      type: string
+      enum:
+        - allocation-risk-v1
+    seed: *a1
+    paths: *a1
+    blockMonths: *a1
+    pEssential: &a5
+      type: number
+    wilson: &a17
+      type: object
+      additionalProperties: false
+      properties:
+        confidence: *a5
+        lower: *a5
+        upper: *a5
+      required:
+        - confidence
+        - lower
+        - upper
+    cvarAlpha: *a2
+    cvarEssentialShortfallToday: *a2
+    display: &a18
+      type: object
+      additionalProperties: false
+      properties:
+        pEssentialPercent: *a1
+        wilsonLowerPercent: *a1
+        wilsonUpperPercent: *a1
+        cvarVnd: *a2
+      required:
+        - pEssentialPercent
+        - wilsonLowerPercent
+        - wilsonUpperPercent
+        - cvarVnd
+    bands: &a19
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          month: *a2
+          p10: *a2
+          p50: *a2
+          p90: *a2
+        required:
+          - month
+          - p10
+          - p50
+          - p90
+    disclosure: &a20
+      type: object
+      additionalProperties: false
+      properties:
+        period: *a4
+        sources: *a6
+        currency: *a2
+        bandBasis: *a2
+        moneyRounding: *a2
+        probabilityRounding: *a2
+        historyMonths: *a1
+        limitations:
+          type: array
+          items: *a2
+      required:
+        - period
+        - sources
+        - currency
+        - bandBasis
+        - moneyRounding
+        - probabilityRounding
+        - historyMonths
+        - limitations
+    id: *a2
+    changePoints: *a2
+    targets:
+      type: array
+      items:
+        type: array
+        items:
+          $ref: "#/Allocation"
+  required:
+    - status
+    - modelCode
+    - seed
+    - paths
+    - blockMonths
+    - pEssential
+    - wilson
+    - cvarAlpha
+    - cvarEssentialShortfallToday
+    - display
+    - bands
+    - disclosure
+    - id
+    - changePoints
+    - targets
+Scenario:
+  type: object
+  additionalProperties: false
+  properties:
+    kind: *a2
+    status:
+      type: string
+      enum:
+        - READY
+        - REVIEW_REQUIRED
+        - NOT_APPLICABLE
+    issues:
+      type: array
+      items: *a2
+    parameters:
+      anyOf:
+        - *a7
+        - *a8
+        - *a9
+        - *a10
+        - *a11
+        - *a12
+        - *a13
+        - *a14
+    result:
+      $ref: "#/PathResult"
+    assumptions:
+      type: array
+      items: *a2
+  required:
+    - kind
+    - status
+Longevity:
+  type: object
+  additionalProperties: false
+  properties:
+    kind:
+      type: string
+      enum:
+        - LONGEVITY
+    status:
+      type: string
+      enum:
+        - READY
+        - REVIEW_REQUIRED
+    results:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          extraYears: *a1
+          status:
+            type: string
+            enum:
+              - READY
+              - REVIEW_REQUIRED
+          issues:
+            type: array
+            items: *a2
+          endMonth: *a2
+          result:
+            $ref: "#/PathResult"
+        required:
+          - extraYears
+          - status
+  required:
+    - kind
+    - status
+    - results
+RiskResult:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - READY
+        - DATA_REQUIRED
+        - REVIEW_REQUIRED
+        - INSUFFICIENT
+        - LIMIT_EXCEEDED
+    issues:
+      type: array
+      items: *a2
+    limits:
+      $ref: "#/Limits"
+    marketVersionId: *a3
+    marketVersion: *a1
+    marketHash: *a2
+    inputHash: *a2
+    profileHash: *a2
+    policyVersionId: *a3
+    policyVersion: *a1
+    policyHash: *a2
+    assumptionVersionId: *a3
+    assumptionVersion: *a1
+    assumptionHash: *a2
+    informationalOnly: *a15
+    persisted: *a15
+    modelCode: *a16
+    seed: *a1
+    paths: *a1
+    blockMonths: *a1
+    pEssential: *a5
+    wilson: *a17
+    cvarAlpha: *a2
+    cvarEssentialShortfallToday: *a2
+    display: *a18
+    bands: *a19
+    disclosure: *a20
+    basis: *a2
+    sources:
+      type: array
+      items:
+        $ref: ./assumptions.openapi.yaml#/Source
+    scenarios:
+      type: array
+      items:
+        $ref: "#/Scenario"
+    longevity:
+      $ref: "#/Longevity"
+    limitations:
+      type: array
+      items: *a2
+    selectedId: *a21
+    threshold: *a2
+    candidates:
+      type: array
+      items:
+        $ref: "#/Candidate"
+    rejected:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id: *a2
+          issues:
+            type: array
+            items: *a2
+        required:
+          - id
+          - issues
+    adjustmentOptions:
+      anyOf:
+        - $ref: ./retirement.openapi.yaml#/AdjustmentOptions
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - REVIEW_REQUIRED
+            issues:
+              type: array
+              items: *a2
+          required:
+            - status
+            - issues
+    adjustmentKinds:
+      type: array
+      items: *a2
+    rule: *a2
+  required:
+    - status
+  description: pEssential is the fraction of COMPLETE paths funding every
+    essential expense, not terminal solvency. CVaR = min eta [eta +
+    mean((loss-eta)+)/(1-alpha)], loss is the sum of essential deficits at
+    opening-month CPI prices. Wilson confidence=95% measures Monte Carlo
+    sampling error only. Bands are funded balances in today's VND, rounded to
+    millions; display probabilities to whole percentage points. Candidate
+    comparison uses raw values, common seed, probability threshold then minimum
+    CVaR then minimum equity shift. No Sharpe criterion. Missing data =>
+    DATA_REQUIRED; missing approved parameters/classification =>
+    REVIEW_REQUIRED; timeout/operation caps => LIMIT_EXCEEDED without partial
+    statistics. Deterministic scenarios have individual statuses; longevity is
+    the eighth kind. No writes or trades.
+RebalanceResult:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - REVIEW_REQUIRED
+        - WITHIN_BAND
+        - PROPOSED
+    issues:
+      type: array
+      items: *a2
+    policyVersionId: *a3
+    policyHash: *a2
+    month: *a2
+    persisted: *a15
+    informationalOnly: *a15
+    oldWeights:
+      type: array
+      items:
+        $ref: "#/Allocation"
+    targetWeights:
+      type: array
+      items:
+        $ref: "#/Allocation"
+    newWeights:
+      type: array
+      items:
+        $ref: "#/Allocation"
+    reason: *a2
+    bandPoints: *a2
+    costPercent: *a2
+    cost: *a2
+    netValue: *a2
+    cashUsedBeforeTrades: *a2
+    unallocatedNewContribution: *a2
+    assumptions:
+      type: array
+      items: *a2
+    trades:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          assetClass: *a2
+          oldValue: *a2
+          maturedAmount: *a2
+          cashAllocated: *a2
+          buy: *a2
+          sell: *a2
+          newValue: *a2
+        required:
+          - assetClass
+          - oldValue
+          - maturedAmount
+          - cashAllocated
+          - buy
+          - sell
+          - newValue
+  required:
+    - status
+    - issues
+  description: Decision data only; no persistence. Drift must be strictly greater
+    than policy band. New contributions and maturities allocated before trades;
+    maturedAmount is already included in holding value. Cost is half remaining
+    gross buys+sells times approved turnover cost. Net targets solve the cost
+    budget. WITHIN_BAND does not invest the new contribution. Existing actuals
+    are not modified.
+MarketVersionEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/MarketVersion"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a3
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+MarketListEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/MarketList"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a3
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+ValidationEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/Validation"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a3
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+RiskResultEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/RiskResult"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a3
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+RebalanceResultEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/RebalanceResult"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a3
+      required:
+        - requestId
+  required:
+    - data
+    - meta

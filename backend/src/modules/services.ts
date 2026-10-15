@@ -22,9 +22,13 @@ import { InsuranceHistoryService } from "./pensions/history-service";
 import { LegalRulesService } from "./pensions/legal-service";
 import { PensionEstimateService } from "./pensions/estimate-service";
 import { SystemSettingsService } from "./settings/service";
+import { MarketDataService } from "./allocation-risk/market-service";
+import { AllocationRiskService } from "./allocation-risk/service";
 export function createServices(db: PrismaClient, config: AppConfig) {
   const settings = new SystemSettingsService(db);
   return {
+    marketData: new MarketDataService(db),
+    allocationRisk: new AllocationRiskService(db),
     catalog: new CatalogService(db),
     settings,
     auth: new AuthService(db, config, id => {

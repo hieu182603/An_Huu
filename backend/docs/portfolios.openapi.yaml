@@ -915,6 +915,250 @@ Document:
               - convention
               - years
           maxItems: 3
+        lossStress:
+          type: object
+          additionalProperties: false
+          properties:
+            evidence:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            equityAssetClass:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+            depositAssetClass:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+            shocks:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  assetClass:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  percent:
+                    type: string
+                    pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                required:
+                  - assetClass
+                  - percent
+              minItems: 1
+              maxItems: 20
+          required:
+            - evidence
+            - equityAssetClass
+            - depositAssetClass
+            - shocks
+        allocationRisk:
+          type: object
+          additionalProperties: false
+          properties:
+            evidence:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            blockMonths:
+              type: integer
+              minimum: 12
+              maximum: 36
+            cvarAlpha:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            essentialThreshold:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            equityShiftPoints:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            rebalanceBandPoints:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            stresses:
+              type: object
+              additionalProperties: false
+              properties:
+                HIGH_INFLATION:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    durationMonths:
+                      type: integer
+                      minimum: 1
+                      maximum: 1200
+                    annualDeltaPoints:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - durationMonths
+                    - annualDeltaPoints
+                EQUITY_CRASH:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    assetClass:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    shockPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - assetClass
+                    - shockPercent
+                RATE_RISE:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    assetClass:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    durationYears:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    yieldRisePoints:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - assetClass
+                    - durationYears
+                    - yieldRisePoints
+                CREDIT:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    assetClass:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    defaultPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    recoveryPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - assetClass
+                    - defaultPercent
+                    - recoveryPercent
+                GOLD:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    assetClass:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    shockPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    spreadPoints:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - assetClass
+                    - shockPercent
+                    - spreadPoints
+                PROPERTY_ILLIQUIDITY:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    durationMonths:
+                      type: integer
+                      minimum: 1
+                      maximum: 1200
+                    delayMonths:
+                      type: integer
+                      minimum: 1
+                      maximum: 120
+                    haircutPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - durationMonths
+                    - delayMonths
+                    - haircutPercent
+                INCOME_LOSS:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    offsetMonths:
+                      type: integer
+                      minimum: -1200
+                      maximum: 1200
+                    durationMonths:
+                      type: integer
+                      minimum: 1
+                      maximum: 1200
+                    lostPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - offsetMonths
+                    - durationMonths
+                    - lostPercent
+                LONGEVITY:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    extraYears:
+                      type: array
+                      items:
+                        anyOf:
+                          - type: integer
+                            enum:
+                              - 5
+                          - type: integer
+                            enum:
+                              - 10
+                      minItems: 1
+                      maxItems: 2
+                  required:
+                    - extraYears
+          required:
+            - evidence
       required:
         - schemaVersion
         - title
@@ -1850,6 +2094,250 @@ Write:
                   - convention
                   - years
               maxItems: 3
+            lossStress:
+              type: object
+              additionalProperties: false
+              properties:
+                evidence:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                equityAssetClass:
+                  type: string
+                  pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                depositAssetClass:
+                  type: string
+                  pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                shocks:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      assetClass:
+                        type: string
+                        pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                      percent:
+                        type: string
+                        pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                    required:
+                      - assetClass
+                      - percent
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - evidence
+                - equityAssetClass
+                - depositAssetClass
+                - shocks
+            allocationRisk:
+              type: object
+              additionalProperties: false
+              properties:
+                evidence:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                blockMonths:
+                  type: integer
+                  minimum: 12
+                  maximum: 36
+                cvarAlpha:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                essentialThreshold:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                equityShiftPoints:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                rebalanceBandPoints:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                stresses:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    HIGH_INFLATION:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        durationMonths:
+                          type: integer
+                          minimum: 1
+                          maximum: 1200
+                        annualDeltaPoints:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - durationMonths
+                        - annualDeltaPoints
+                    EQUITY_CRASH:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        assetClass:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        shockPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - assetClass
+                        - shockPercent
+                    RATE_RISE:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        assetClass:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        durationYears:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                        yieldRisePoints:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - assetClass
+                        - durationYears
+                        - yieldRisePoints
+                    CREDIT:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        assetClass:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        defaultPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                        recoveryPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - assetClass
+                        - defaultPercent
+                        - recoveryPercent
+                    GOLD:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        assetClass:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        shockPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                        spreadPoints:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - assetClass
+                        - shockPercent
+                        - spreadPoints
+                    PROPERTY_ILLIQUIDITY:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        durationMonths:
+                          type: integer
+                          minimum: 1
+                          maximum: 1200
+                        delayMonths:
+                          type: integer
+                          minimum: 1
+                          maximum: 120
+                        haircutPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - durationMonths
+                        - delayMonths
+                        - haircutPercent
+                    INCOME_LOSS:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        offsetMonths:
+                          type: integer
+                          minimum: -1200
+                          maximum: 1200
+                        durationMonths:
+                          type: integer
+                          minimum: 1
+                          maximum: 1200
+                        lostPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - offsetMonths
+                        - durationMonths
+                        - lostPercent
+                    LONGEVITY:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        extraYears:
+                          type: array
+                          items:
+                            anyOf:
+                              - type: integer
+                                enum:
+                                  - 5
+                              - type: integer
+                                enum:
+                                  - 10
+                          minItems: 1
+                          maxItems: 2
+                      required:
+                        - extraYears
+              required:
+                - evidence
           required:
             - schemaVersion
             - title

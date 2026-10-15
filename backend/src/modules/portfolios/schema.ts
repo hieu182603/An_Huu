@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { addMonths, dateSchema, monthSchema } from "../../common/calendar";
 import { ratePercentSchema, revisionSchema } from "../assumptions/schema";
+import { riskPolicySchema } from "../allocation-risk/policy";
 
 export const PORTFOLIO_POLICY_CODE = "portfolio-policy-v1";
 export const dimensions = ["OBJECTIVE", "HORIZON", "LIQUIDITY", "LOSS_TOLERANCE", "EXPERIENCE", "FINANCIAL_CAPACITY"] as const;
@@ -57,7 +58,16 @@ const tailFields = {
 export const portfolioDocumentV1Schema = z.object({ schemaVersion: z.literal(1), ...headerFields,
   templates: z.array(scheduleTemplateSchema).max(30), ...tailFields }).strict();
 export const portfolioDocumentV2Schema = z.object({ schemaVersion: z.literal(2), ...headerFields,
-  templates: z.array(glideTemplateSchema).max(30), ...tailFields }).strict();
+  templates: z.array(glideTemplateSchema).max(30), ...tailFields,
+  lossStress: z.object({
+    evidence: note, equityAssetClass: code, depositAssetClass: code,
+    shocks: z.array(z.object({ assetClass: code,
+      percent: z.string().regex(/^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$/)
+        .refine(v => new Prisma.Decimal(v).gte(-100) && new Prisma.Decimal(v).lte(0)),
+    }).strict()).min(1).max(20),
+  }).strict().optional(),
+  allocationRisk: riskPolicySchema.optional(),
+}).strict();
 export const portfolioDocumentSchema = z.discriminatedUnion("schemaVersion", [portfolioDocumentV1Schema, portfolioDocumentV2Schema]);
 export const writePortfolioSchema = revisionSchema.extend({ data: portfolioDocumentSchema }).strict();
 export const approvePortfolioSchema = revisionSchema.extend({ reviewNote: note, confirm: z.literal(true) }).strict();

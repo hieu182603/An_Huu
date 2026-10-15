@@ -64,6 +64,10 @@ artifacts/
 !/backend/scripts/verify-reviewed-dataset.cjs
 !/backend/scripts/generate-assumptions-openapi.cjs
 !/backend/scripts/generate-retirement-openapi.cjs
+!/backend/scripts/generate-profile-v2-openapi.cjs
+!/backend/scripts/build-allocation-drafts.cjs
+!/backend/scripts/generate-portfolios-openapi.cjs
+!/backend/scripts/generate-allocation-risk-openapi.cjs
 !/backend/scripts/generate-plans-openapi.cjs
 !/backend/scripts/generate-actuals-openapi.cjs
 !/backend/scripts/rollback-fixture.cjs

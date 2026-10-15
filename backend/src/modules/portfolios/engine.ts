@@ -48,6 +48,28 @@ export function validatePortfolioPolicy(document: PortfolioDocument, assumptions
   if (!data.riskBands.length || nextScore !== maximum + 1) issue("riskBands", "SCORE_RANGE_NOT_COVERED");
   if (!data.templates.length || !data.rules.length) issue("templates", "POLICY_REQUIRED");
   const assets = new Set(assumptions.assetClasses.map(a => a.code));
+  if (data.schemaVersion === 2 && data.allocationRisk?.stresses) {
+    const stresses = data.allocationRisk.stresses;
+    for (const [kind, parameters] of Object.entries(stresses)) {
+      if (parameters && "assetClass" in parameters && !assets.has(parameters.assetClass))
+        issue(`allocationRisk.stresses.${kind}`, "STRESS_ASSET_NOT_COVERED");
+    }
+    if (stresses.RATE_RISE && new D(stresses.RATE_RISE.durationYears).mul(stresses.RATE_RISE.yieldRisePoints).gte(100))
+      issue("allocationRisk.stresses.RATE_RISE", "SCENARIO_RATE_OUT_OF_RANGE");
+    if (stresses.LONGEVITY && new Set(stresses.LONGEVITY.extraYears).size !== stresses.LONGEVITY.extraYears.length)
+      issue("allocationRisk.stresses.LONGEVITY", "DUPLICATE_ENTRY");
+  }
+  if (data.schemaVersion === 2 && data.lossStress) {
+    const stress = data.lossStress;
+    unique(stress.shocks.map(s => s.assetClass), "lossStress.shocks");
+    if (stress.shocks.some(s => !assets.has(s.assetClass))) issue("lossStress.shocks", "UNKNOWN_ASSET_CLASS");
+    const used = new Set(data.templates.flatMap(t => allocationSets(t).flatMap(a => a.filter(w => new D(w.weightPercent).gt(0)).map(w => w.assetClass))));
+    for (const code of [...used, stress.equityAssetClass, stress.depositAssetClass])
+      if (!stress.shocks.some(s => s.assetClass === code)) issue("lossStress.shocks", "STRESS_ASSET_NOT_COVERED");
+    const equity = stress.shocks.find(s => s.assetClass === stress.equityAssetClass);
+    const deposit = stress.shocks.find(s => s.assetClass === stress.depositAssetClass);
+    if (equity && deposit && !new D(equity.percent).lt(deposit.percent)) issue("lossStress", "STRESS_REDUCTION_NOT_POSSIBLE");
+  }
   const allocationCheck = (allocations: Allocation[], i: number) => {
     unique(allocations.map(a => a.assetClass), `templates.${i}.allocations`);
     if (!allocations.reduce((sum, a) => sum.plus(a.weightPercent), new D(0)).eq(100)) issue(`templates.${i}.allocations`, "WEIGHTS_MUST_SUM_100");
