@@ -2,6 +2,8 @@ import { profileCompletionItems } from "../utils/profileCompletion";
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { ApiError, authenticatedRequest } from "../services/api";
 import {
+  planningConstraints,
+  type PlanningConstraints,
   financialData,
   profileFromData,
   profileFromDraft,
@@ -93,6 +95,8 @@ export interface FinancialProfile {
 }
 
 export interface OnboardingDraftData {
+  birthMonth?: string;
+  desiredRetirementMonth?: string;
   step: string;
   age: number;
   gender: string;
@@ -200,6 +204,7 @@ function useProfileState() {
   const [profile, setProfile] = useState(base);
   const [v2Profile, setV2Profile] = useState<ProfileV2 | null>(null);
   const [schemaVersion, setSchemaVersion] = useState<number>(1);
+  const [onboardingConstraints, setOnboardingConstraints] = useState<PlanningConstraints | undefined>();
   const [onboardingDraft, setOnboardingDraft] = useState(() => draftFromProfile(base));
   const [loading, setLoading] = useState(user?.role === "user");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -214,7 +219,7 @@ function useProfileState() {
   const recordRef = useRef<ProfileRecord | null>(null);
   const draftRef = useRef<DraftRecord | null>(null);
   const busy = useRef(false);
-  const pendingCompletion = useRef<{ key: string; body: { expectedDraftRevision: number; expectedProfileRevision: number }; profile: FinancialProfile } | null>(null);
+  const pendingCompletion = useRef<{ key: string; body: { expectedDraftRevision: number; expectedProfileRevision: number }; profile: FinancialProfile; data: FinancialData | ProfileV2 } | null>(null);
   const reloadProfile = useCallback(() => setReload(v => v + 1), []);
 
   useEffect(() => {
@@ -230,7 +235,9 @@ function useProfileState() {
         setV2Profile(v2);
         setSchemaVersion(record?.schemaVersion ?? (v2 ? 2 : 1));
         setHasProfile(!!record);
-        setOnboardingDraft(draftFromProfile(draft ? profileFromData(base, draft.data) : next, draft ? clientStep(draft.step) : "welcome", draft?.updatedAt));
+        setOnboardingConstraints(draft && isProfileV2(draft.data) ? planningConstraints(draft.data) : undefined);
+        setOnboardingDraft({ ...draftFromProfile(draft ? (isProfileV2(draft.data) ? profileFromV2(base, draft.data) : profileFromData(base, draft.data)) : next, draft ? clientStep(draft.step) : "welcome", draft?.updatedAt),
+          ...(draft && isProfileV2(draft.data) ? { birthMonth: draft.data.personal?.birthMonth?.status === "KNOWN" ? draft.data.personal.birthMonth.value : "" } : {}) });
         setLastSavedAt(record?.asOfDate ? new Date(record.asOfDate).toLocaleString("vi-VN") : null);
         setLastDraftSavedAt(draft ? new Date(draft.updatedAt).toLocaleString("vi-VN") : null);
         setHasUnsavedChanges(false); setSaveStatus("idle"); setSaveError(null);
@@ -303,21 +310,47 @@ function useProfileState() {
     if (updates.goal || updates.plan) return unsupported();
     return persistProfile({ ...profile, ...updates });
   };
-  const writeDraft = async (draft: OnboardingDraftData) => {
+  const writeDraft = async (draft: OnboardingDraftData, constraints?: PlanningConstraints) => {
     // This wizard only collects legacy totals; converting them would discard V2 entries and contracts.
     if (recordRef.current?.schemaVersion === 2 || isProfileV2(recordRef.current?.data)) {
       throw new Error("Bạn đã có hồ sơ tài chính chi tiết. Hãy mở Hồ sơ tài chính để cập nhật; bản nháp khảo sát vẫn được giữ lại.");
     }
     const source = profileFromDraft(base, draft);
-    const data: DraftRecord["data"] = financialData(source);
+    const data = financialData(source) as DraftRecord["data"];
     if (!draft.age) delete data.personal!.age;
     if (!draft.gender) delete data.personal!.gender;
     if (!draft.maritalStatus) delete data.personal!.maritalStatus;
-    const result = await authenticatedRequest<DraftRecord>("/me/onboarding-draft", { expectedRevision: draftRef.current?.revision || 0, step: serverStep(draft.step), data }, "PUT");
+    const previous = isProfileV2(draftRef.current?.data) ? draftRef.current!.data as unknown as ProfileV2 : null;
+    const legacyDraft = !!draftRef.current && !previous;
+    const additions = constraints ?? onboardingConstraints;
+    // The backend rejects changing an existing draft's schema. New wizards start
+    // at v2; legacy drafts finish unchanged and add constraints in the profile.
+    if (legacyDraft && additions !== undefined) throw new Error("Nháp cũ cần hoàn tất trước. Sau đó bổ sung ràng buộc và mục tiêu trong hồ sơ chi tiết.");
+    const generated = createDefaultProfileV2(source);
+    const document = legacyDraft ? data : { ...generated, ...previous, ...additions };
+    if (isProfileV2(document)) {
+      const before = profileFromDraft(base, onboardingDraft);
+      // Keep detailed entries byte-for-byte unless the corresponding quick total
+      // was explicitly edited. Never collapse gold, bonds or contracts into totals.
+      for (const [group, legacyGroup] of [["income", "income"], ["expenses", "expenses"], ["assets", "assets"], ["debts", "debt"]] as const) {
+        if (!previous || JSON.stringify(source[legacyGroup]) === JSON.stringify(before[legacyGroup])) continue;
+        const old = previous[group];
+        const generatedIds = new Set(["inc_salary", "inc_secondary", "exp_essential", "exp_lifestyle", "ast_cash", "ast_stocks", "ast_liquid", "ast_re", "dbt_mortgage", "dbt_consumer"]);
+        if (old?.status === "KNOWN" && old.entries.some(entry => !generatedIds.has(entry.id) || ("type" in entry && ["GOLD", "BOND"].includes(entry.type)) || ("contract" in entry && entry.contract?.status === "KNOWN"))) {
+          throw new Error("Nháp đã có tài sản hoặc dòng tiền chi tiết. Giữ các tổng hiện có để hoàn tất, rồi sửa từng khoản trong hồ sơ chi tiết; không gộp mất thông tin.");
+        }
+        Object.assign(document, { [group]: generated[group] });
+      }
+      document.personal = { ...generated.personal, ...previous?.personal,
+        ...(draft.desiredRetirementMonth !== undefined ? { desiredRetirementMonth: draft.desiredRetirementMonth ? { status: "KNOWN" as const, value: draft.desiredRetirementMonth } : { status: "UNKNOWN" as const } } : {}),
+        ...(draft.birthMonth !== undefined ? { birthMonth: draft.birthMonth ? { status: "KNOWN" as const, value: draft.birthMonth } : { status: "UNKNOWN" as const } } : {}) };
+    }
+    const result = await authenticatedRequest<DraftRecord>("/me/onboarding-draft", { expectedRevision: draftRef.current?.revision || 0, step: serverStep(draft.step), data: document }, "PUT");
     if (result) {
       draftRef.current = result;
       if (result.data) {
-        setOnboardingDraft(draftFromProfile(profileFromData(base, result.data), clientStep(result.step), result.updatedAt));
+        setOnboardingConstraints(isProfileV2(result.data) ? planningConstraints(result.data) : undefined);
+        setOnboardingDraft({ ...draftFromProfile(isProfileV2(result.data) ? profileFromV2(source, result.data) : profileFromData(base, result.data), clientStep(result.step), result.updatedAt), birthMonth: draft.birthMonth });
       }
       if (result.updatedAt) {
         setLastDraftSavedAt(new Date(result.updatedAt).toLocaleString("vi-VN"));
@@ -325,25 +358,25 @@ function useProfileState() {
     }
     return source;
   };
-  const saveOnboardingDraft = async (updates: Partial<OnboardingDraftData>) => {
+  const saveOnboardingDraft = async (updates: Partial<OnboardingDraftData>, constraints?: PlanningConstraints) => {
     if (busy.current || loading || loadError) return false;
     if (pendingCompletion.current) { setSaveError("Yêu cầu hoàn tất trước chưa rõ kết quả. Nhấn Hoàn tất lần nữa để nhận lại kết quả."); return false; }
     busy.current = true; setDraftSaveStatus("saving"); setSaveError(null);
-    try { await writeDraft({ ...onboardingDraft, ...updates }); setDraftSaveStatus("saved"); return true; }
+    try { await writeDraft({ ...onboardingDraft, ...updates }, constraints); setDraftSaveStatus("saved"); return true; }
     catch (e) { setDraftSaveStatus("error"); setSaveError(failure(e)); return false; }
     finally { busy.current = false; }
   };
-  const completeOnboarding = async (data: OnboardingDraftData) => {
+  const completeOnboarding = async (data: OnboardingDraftData, constraints?: PlanningConstraints) => {
     if (busy.current || loading || loadError) return false;
     busy.current = true; setDraftSaveStatus("saving"); setSaveError(null);
     try {
       if (!pendingCompletion.current) {
-        const next = await writeDraft(data);
-        pendingCompletion.current = { key: crypto.randomUUID(), body: { expectedDraftRevision: draftRef.current!.revision, expectedProfileRevision: recordRef.current?.revision || 0 }, profile: next };
+        const next = await writeDraft(data, constraints);
+        pendingCompletion.current = { key: crypto.randomUUID(), body: { expectedDraftRevision: draftRef.current!.revision, expectedProfileRevision: recordRef.current?.revision || 0 }, profile: next, data: draftRef.current!.data as FinancialData | ProfileV2 };
       }
       const pending = pendingCompletion.current;
       const response = await authenticatedRequest<{ revision: number }>("/me/onboarding/complete", pending.body, "POST", { "Idempotency-Key": pending.key });
-      const record: ProfileRecord = { revision: response.revision, schemaVersion: 1, data: financialData(pending.profile), asOfDate: new Date().toISOString() };
+      const record: ProfileRecord = { revision: response.revision, schemaVersion: isProfileV2(pending.data) ? 2 : 1, data: pending.data, asOfDate: new Date().toISOString() };
       recordRef.current = record; draftRef.current = null; pendingCompletion.current = null;
       const { profile: nextProfile, v2 } = loadedProfile(base, record);
       setProfile(nextProfile);
@@ -393,6 +426,8 @@ function useProfileState() {
     updateProfile,
     updateProfileV2,
     upgradeToV2,
+    onboardingConstraints,
+    legacyOnboardingDraft: !!draftRef.current && !isProfileV2(draftRef.current.data),
     saveOnboardingDraft,
     completeOnboarding,
     exportSnapshot: () => profile,

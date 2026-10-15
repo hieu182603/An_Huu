@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useEffect, useState } from "react";
 import { faRotateRight, faPrint } from "@fortawesome/free-solid-svg-icons";
 import AdminActionButton from "./AdminActionButton";
@@ -256,6 +257,7 @@ export default function AdminFinancialConfigPage() {
         </div>
       </header>
 
+      <Link className="button button-secondary" to="/admin/market-data">{isEn ? "Market data documents" : "Tài liệu dữ liệu thị trường"}</Link>
       <Alert tone="warning" title={isEn ? "Governed configuration" : "Cấu hình có kiểm soát"}>
         {isEn ? "Published versions are immutable and selectable by plans. Approval requires validation and an impact review." : "Phiên bản đã công bố là bất biến và có thể được kế hoạch lựa chọn. Phê duyệt yêu cầu kiểm tra cấu hình và xem tác động."}
       </Alert>

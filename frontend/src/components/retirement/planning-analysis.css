@@ -1,0 +1,20 @@
+.planning-analysis { margin-block: 24px; padding: clamp(16px,3vw,28px); border: 1px solid var(--color-border,#dce3df); border-radius: 16px; background: var(--color-surface,#fff); color: var(--color-text,#18362c); min-width: 0; font-size: 16px; line-height: 1.65; overflow-wrap: anywhere; }
+.planning-analysis h2 { font-size: clamp(21px,3vw,28px); line-height: 1.3; margin-bottom: 16px; }
+.planning-analysis h3 { font-size: 19px; margin-block: 18px 10px; }
+.planning-analysis p { margin-block: 10px; }
+.planning-analysis details { margin-block: 16px; border-block-start: 1px solid var(--color-border,#dce3df); padding-top: 12px; }
+.planning-analysis summary { cursor: pointer; min-height: 44px; font-weight: 600; }
+.planning-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr)); gap: 16px; margin-block: 16px; }
+.planning-analysis fieldset { min-width: 0; padding: 16px; border: 1px solid var(--color-border,#dce3df); margin-block: 16px; border-radius: 10px; }
+.planning-analysis dl { margin-block: 16px; }
+.planning-analysis dl > div { padding-block: 10px; border-bottom: 1px solid var(--color-border,#dce3df); }
+.planning-analysis dd { margin: 4px 0 0; font-weight: 600; }
+.planning-status { padding: 16px; background: var(--color-bg,#f4f6f3); border-left: 4px solid var(--color-primary,#266147); border-radius: 8px; margin-block: 16px; }
+.planning-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 16px; }
+.planning-table { overflow-x: auto; max-width: 100%; }
+.planning-table table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.planning-table th,.planning-table td { padding: 12px; text-align: start; border-bottom: 1px solid var(--color-border,#dce3df); min-width: 110px; }
+.planning-analysis textarea { width: 100%; min-height: 240px; padding: 12px; font: inherit; border: 1px solid var(--color-border,#dce3df); border-radius: 8px; }
+.planning-analysis code { white-space: pre-wrap; word-break: break-all; }
+.planning-analysis :is(input,select,button) { min-height: 44px; max-width: 100%; }
+@media(max-width:480px) { .planning-analysis { padding: 16px 12px; } .planning-analysis fieldset { padding: 12px 8px; } }

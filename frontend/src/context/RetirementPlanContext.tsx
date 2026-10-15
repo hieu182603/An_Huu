@@ -97,7 +97,7 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   const updateDraft = (changes: Partial<RetirementPreviewInput>) => {
     const next = { ...draftRef.current, ...changes };
     // Session storage survives refresh, stays scoped to the account, and does not apply a plan.
-    if (user?.id) sessionStorage.setItem(draftKey(user.id), JSON.stringify(next));
+    if (user?.id) sessionStorage.setItem(draftKey(user.id), JSON.stringify(next, (key, value) => key === "advisoryFee" && value === undefined ? null : value));
     draftRef.current = next;
     setDraftSelection(next);
   };
@@ -202,6 +202,7 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
       try {
         const raw = currentId ? sessionStorage.getItem(draftKey(currentId)) : null;
         const parsed = raw ? JSON.parse(raw) : null;
+        if (parsed && parsed.advisoryFee === null) parsed.advisoryFee = undefined;
         if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) restored = parsed;
       } catch { /* An unavailable or invalid local draft must not block loading the account. */ }
       draftRef.current = restored;

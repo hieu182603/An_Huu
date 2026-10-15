@@ -1,3 +1,4 @@
+import { PlanningQuestions } from "./PlanningQuestions";
 import ProfileFormattedInput from "./ProfileFormattedInput";
 import { Link } from "react-router";
 import { profileCompletionItems } from "../utils/profileCompletion";
@@ -75,7 +76,7 @@ const PENSION_LIMITATIONS_LABELS: Record<string, { vi: string; en: string }> = {
   },
 };
 
-type PanelTab = "basic" | "v2-timing" | "v2-cashflow" | "v2-assets" | "v2-pension" | "v2-debts";
+type PanelTab = "v2-constraints" | "basic" | "v2-timing" | "v2-cashflow" | "v2-assets" | "v2-pension" | "v2-debts";
 
 export default function FinancialProfilePanel() {
   const { language } = useI18n();
@@ -447,6 +448,8 @@ export default function FinancialProfilePanel() {
       </section>}
       {saveStatus === "saved" && activeTab !== "basic" && <p role="status" className="profile-save-success">{isVi ? "Đã lưu hồ sơ vào tài khoản" : "Profile saved to your account"}{lastSavedAt ? ` · ${lastSavedAt}` : ""}</p>}
       {/* Tabs */}
+      {saveError && <div role="alert"><p>{saveError}</p><p>{isVi ? "Nếu phiên bản đã đổi, hãy đối chiếu câu trả lời đang nhập trước khi tải lại; không tự ghi đè." : "If the revision changed, compare your edits before reloading; no automatic overwrite."}</p><Button variant="secondary" onClick={reloadProfile}>{isVi ? "Tải lại hồ sơ để đối chiếu" : "Reload profile for comparison"}</Button></div>}
+      {schemaVersion === 2 && <Button variant="secondary" onClick={() => openSection("v2-constraints")}>{isVi ? "Ràng buộc và mục tiêu" : "Constraints and goals"}</Button>}
       <div ref={sectionTabsRef} className="profile-section-tabs" style={{ display: "flex", gap: "var(--space-2)", borderBottom: "1px solid var(--color-border)", paddingBottom: "var(--space-2)", marginBottom: "var(--space-4)", overflowX: "auto" }}>
         {schemaVersion !== 2 && <>
         <button
@@ -898,6 +901,7 @@ export default function FinancialProfilePanel() {
       )}
 
       {/* Tab 4: V2 Assets */}
+      {activeTab === "v2-constraints" && v2Form && <form onSubmit={saveV2}><fieldset disabled={busy} style={{ border: 0, minWidth: 0, padding: 0 }}><PlanningQuestions data={v2Form} onChange={next => setV2Form({ ...v2Form, ...next })} valuationMonth={v2Form.valuationDate.slice(0, 7)} /><Button type="submit" loading={busy}>{isVi ? "Lưu ràng buộc và mục tiêu" : "Save constraints and goals"}</Button></fieldset></form>}
       {activeTab === "v2-assets" && v2Form && (
         <form onSubmit={saveV2}>
           <fieldset className="account-api-fields" disabled={busy}>
@@ -947,6 +951,8 @@ export default function FinancialProfilePanel() {
                           { value: "CASH", label: isVi ? "Tiền mặt" : "Cash" },
                           { value: "DEPOSIT", label: isVi ? "Tiền gửi" : "Savings Deposit" },
                           { value: "STOCK_FUND", label: isVi ? "Cổ phiếu và quỹ" : "Stock / Fund" },
+                          { value: "GOLD", label: isVi ? "Vàng" : "Gold" },
+                          { value: "BOND", label: isVi ? "Trái phiếu" : "Bond" },
                           { value: "PRIMARY_HOME", label: isVi ? "Nhà đang ở" : "Primary Residence" },
                           { value: "REAL_ESTATE", label: isVi ? "Bất động sản khác" : "Other Real Estate" },
                           { value: "OTHER", label: isVi ? "Khác" : "Other" },
@@ -969,6 +975,11 @@ export default function FinancialProfilePanel() {
                           setV2Form({ ...v2Form, assets: { status: "KNOWN", entries } });
                         }}
                       />
+                      <BaseInput label={isVi ? "Giá vốn (VND, tùy chọn)" : "Cost basis (VND, optional)"} inputMode="decimal" value={asset.costBasis?.status === "KNOWN" ? asset.costBasis.value : ""} onChange={value => {
+                        const entries = [...(v2Form.assets as { status: "KNOWN"; entries: AssetEntry[] }).entries];
+                        entries[idx] = { ...asset, costBasis: value === "" ? { status: "UNKNOWN" } : { status: "KNOWN", value } };
+                        setV2Form({ ...v2Form, assets: { status: "KNOWN", entries } });
+                      }} />
                       <Select
                         label={isVi ? "Khả năng đổi thành tiền" : "Liquidity"}
                         options={[
