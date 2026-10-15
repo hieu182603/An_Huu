@@ -11,7 +11,7 @@ export function memoryDb() {
   const names = ["user", "verificationToken", "refreshToken", "auditLog", "outboxEvent", "processedEvent",
     "financialProfile", "onboardingDraft", "retirementPlan", "planVersion", "financialModelVersion", "idempotencyRecord", "notification", "assumptionSetVersion", "actualMonth", "actualMonthRevision", "actualEventIdentity", "aiPrivacy", "aiConversation", "aiMessage", "knowledgeSource", "knowledgeChunk", "partner", "partnerProduct", "notificationPreference", "consultation"];
   names.push("legalRuleSetVersion", "socialInsuranceHistoryVersion", "pensionEstimate");
-  names.push("systemSetting", "loginLog", "systemLog");
+  names.push("systemSetting", "loginLog", "systemLog", "retirementGoal");
   function match(row: Row, where: Row = {}): boolean {
     return Object.entries(where).every(([key, value]) => {
       if (key === "OR") return value.some((v: Row) => match(row, v));

@@ -81,6 +81,8 @@ export class ActualsService {
     const input = actualForecastSchema.parse(command);
     const read = async (tx: Prisma.TransactionClient) => {
       const { plan, version } = await new PlansService(this.db).readVersion(tx, userId, input.planId, input.versionId);
+      if (version.preview.selection.advisoryFee)
+        throw new AppError(422, "ADVISORY_FEE_REFORECAST_REVIEW_REQUIRED", "Cần tính lại phí theo giá trị quỹ thực tế trước khi lập dự báo cập nhật.");
       await assertActualSource(tx, userId, version.preview.reforecast);
       const replay = version.preview.replayInput!;
       const start = replay.valuationDate.slice(0, 7), end = replay.rows.at(-1)!.month;

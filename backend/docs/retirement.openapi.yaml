@@ -228,6 +228,21 @@ Input:
           - amountScope
       maxItems: 200
       default: []
+    advisoryFee:
+      type: object
+      additionalProperties: false
+      properties:
+        annualPercent:
+          type: string
+          pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+        paidFrom:
+          type: string
+          enum:
+            - FUND
+            - EXTERNAL
+      required:
+        - annualPercent
+        - paidFrom
   required:
     - expectedProfileRevision
     - policyVersionId
@@ -239,6 +254,477 @@ Input:
     - monthlyContribution
     - monthlyReserve
     - retirementIncomeIds
+CapitalSeparation:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - READY
+        - INCOMPLETE
+    informationalOnly:
+      type: boolean
+      enum:
+        - true
+    currency:
+      type: string
+      enum:
+        - VND
+    valuationMonth:
+      type: string
+    assumptionBasis:
+      type: string
+      enum:
+        - PINNED_BASE
+    essentialMonthlyExpense:
+      anyOf:
+        - type: string
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    reserveMonths:
+      anyOf:
+        - type: integer
+        - type: object
+          nullable: true
+          enum:
+            - null
+    requiredEmergencyReserve:
+      anyOf:
+        - type: string
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    declaredEmergencyReserve:
+      anyOf:
+        - type: string
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    emergencyShortfall:
+      anyOf:
+        - type: string
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    retirementLiquidAssets:
+      anyOf:
+        - type: string
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    nearTermGoalsPresentValue:
+      anyOf:
+        - type: string
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    growthCapital:
+      anyOf:
+        - type: string
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    investableLiquidAssets:
+      anyOf:
+        - type: string
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    declaredOtherGoalsCapital:
+      anyOf:
+        - type: string
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    goals:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id:
+            type: string
+          dueMonth:
+            type: string
+          monthsUntilDue:
+            type: integer
+          treatment:
+            type: string
+            enum:
+              - RESERVED
+              - LONG_TERM
+          futureAmount:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          presentValue:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          inflationBasis:
+            type: string
+            enum:
+              - GOAL_SPECIFIC
+              - PINNED_ASSUMPTIONS
+          inflationSourceIds:
+            type: array
+            items:
+              type: string
+          depositSourceIds:
+            type: array
+            items:
+              type: string
+        required:
+          - id
+          - dueMonth
+          - monthsUntilDue
+          - treatment
+          - futureAmount
+          - presentValue
+          - inflationBasis
+          - inflationSourceIds
+          - depositSourceIds
+    issues:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          path:
+            type: string
+          code:
+            type: string
+        required:
+          - path
+          - code
+    warnings:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          path:
+            type: string
+          code:
+            type: string
+        required:
+          - path
+          - code
+  required:
+    - status
+    - informationalOnly
+    - currency
+    - valuationMonth
+    - assumptionBasis
+    - essentialMonthlyExpense
+    - reserveMonths
+    - requiredEmergencyReserve
+    - declaredEmergencyReserve
+    - emergencyShortfall
+    - retirementLiquidAssets
+    - nearTermGoalsPresentValue
+    - growthCapital
+    - investableLiquidAssets
+    - declaredOtherGoalsCapital
+    - goals
+    - issues
+    - warnings
+LossConstraint:
+  type: object
+  additionalProperties: false
+  properties:
+    informationalOnly:
+      type: boolean
+      enum:
+        - true
+    status:
+      type: string
+      enum:
+        - WITHIN_LIMIT
+        - REDUCE_RISK
+        - NOT_FEASIBLE
+        - REVIEW_REQUIRED
+    message:
+      type: string
+    issues:
+      type: array
+      items:
+        type: string
+    growthCapital:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    lossAmount:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    lossPercentOfGrowth:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    lossPercentOfInvestableAssets:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    allowedLossAmount:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    exceedsTolerance:
+      anyOf:
+        - type: boolean
+        - type: object
+          nullable: true
+          enum:
+            - null
+    maxEquityWeightPercent:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    proposedLossAmount:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    proposedAllocations:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          assetClass:
+            type: string
+          weightPercent:
+            type: string
+        required:
+          - assetClass
+          - weightPercent
+  required:
+    - informationalOnly
+    - status
+    - message
+    - issues
+    - growthCapital
+    - lossAmount
+    - lossPercentOfGrowth
+    - lossPercentOfInvestableAssets
+    - allowedLossAmount
+    - exceedsTolerance
+    - maxEquityWeightPercent
+    - proposedLossAmount
+    - proposedAllocations
+EssentialCoverage:
+  type: object
+  additionalProperties: false
+  properties:
+    basis:
+      type: string
+      enum:
+        - ESSENTIAL_FIRST_CLASSIFICATION_ONLY
+    essentialShortfall:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    firstEssentialShortfallMonth:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    rows:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          month:
+            type: string
+          essentialExpense:
+            anyOf:
+              - type: string
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          essentialShortfall:
+            anyOf:
+              - type: string
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          otherShortfall:
+            anyOf:
+              - type: string
+              - type: object
+                nullable: true
+                enum:
+                  - null
+        required:
+          - month
+          - essentialExpense
+          - essentialShortfall
+          - otherShortfall
+  required:
+    - basis
+    - essentialShortfall
+    - firstEssentialShortfallMonth
+    - rows
+AdjustmentOptions:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      type: string
+      enum:
+        - NOT_NEEDED
+        - READY
+        - NOT_FEASIBLE
+        - REVIEW_REQUIRED
+    requiredMonthlyContribution:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    contributionWithinCapacity:
+      anyOf:
+        - type: boolean
+        - type: object
+          nullable: true
+          enum:
+            - null
+    earliestFeasibleRetirementMonth:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    feasibleRetirementCandidate:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    retirementSearchStatus:
+      type: string
+      enum:
+        - NOT_NEEDED
+        - FOUND
+        - NOT_FEASIBLE
+        - REVIEW_REQUIRED
+    maximumFeasibleMonthlyExpenseToday:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    expenseSearchStatus:
+      type: string
+      enum:
+        - NOT_NEEDED
+        - FOUND
+        - NOT_FEASIBLE
+        - REVIEW_REQUIRED
+    endMonth:
+      type: string
+    evaluations:
+      type: integer
+    issues:
+      type: array
+      items:
+        type: string
+  required:
+    - status
+    - requiredMonthlyContribution
+    - contributionWithinCapacity
+    - earliestFeasibleRetirementMonth
+    - feasibleRetirementCandidate
+    - retirementSearchStatus
+    - maximumFeasibleMonthlyExpenseToday
+    - expenseSearchStatus
+    - endMonth
+    - evaluations
+    - issues
+DecisionExplanation:
+  type: object
+  additionalProperties: false
+  properties:
+    code:
+      type: string
+    parameters:
+      type: object
+      additionalProperties:
+        anyOf:
+          - type: string
+          - type: number
+          - type: boolean
+          - type: object
+            nullable: true
+            enum:
+              - null
+    text:
+      type: string
+  required:
+    - code
+    - parameters
+    - text
 Issue:
   type: object
   additionalProperties: false
@@ -269,6 +755,13 @@ MonthlyInput:
     withdrawal: *a2
     uninvestedSurplus: *a2
     capitalInjection: *a2
+    advisoryFeeAmount: *a2
+    advisoryFeeAverageFund: *a2
+    advisoryFeePaidFrom:
+      type: string
+      enum:
+        - FUND
+        - EXTERNAL
   required:
     - month
     - growthFactor
@@ -348,6 +841,18 @@ Row:
     requiredOpeningBalance: *a2
     requiredClosingBalance: *a2
     netWithdrawal: *a2
+    advisoryFeeAmount: *a2
+    advisoryFeeAverageFund: *a2
+    advisoryFeePaidFrom:
+      type: string
+      enum:
+        - FUND
+        - EXTERNAL
+    essentialShortfall: &a3
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+      nullable: true
+    otherShortfall: *a3
   required:
     - month
     - growthFactor
@@ -380,10 +885,7 @@ Comparison:
     projectedFund: *a2
     requiredFund: *a2
     fundingGap: *a2
-    coveragePercent: &a4
-      type: string
-      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
-      nullable: true
+    coveragePercent: *a3
   required:
     - projectedFund
     - requiredFund
@@ -396,9 +898,9 @@ Summary:
     valuationDate: *a1
     retirementMonth: *a1
     endMonth: *a1
-    accumulationMonths: &a3
+    accumulationMonths: &a4
       type: integer
-    retirementMonths: *a3
+    retirementMonths: *a4
     initialRetirementCapital: *a2
     atRetirement:
       $ref: "#/Comparison"
@@ -408,8 +910,8 @@ Summary:
     liquidityReserveAboveAlgebraicPV: *a2
     futureMonthlyExpense: *a2
     plannedMonthlyContribution: *a2
-    requiredConstantMonthlyContribution: *a4
-    additionalMonthlyContribution: *a4
+    requiredConstantMonthlyContribution: *a3
+    additionalMonthlyContribution: *a3
     savingsStatus:
       type: string
       enum:
@@ -432,6 +934,8 @@ Summary:
     fundedTerminalBalance: *a2
     terminalTarget: *a2
     terminalTargetShortfall: *a2
+    essentialShortfall: *a3
+    firstEssentialShortfallMonth: *a5
   required:
     - valuationDate
     - retirementMonth
@@ -478,7 +982,7 @@ Conventions:
         - END_OF_MONTH
     surplusPolicy: *a1
     allocationCashflows: *a1
-    arithmeticPrecision: *a3
+    arithmeticPrecision: *a4
     firstPeriod: *a1
     rounding: *a1
     negativeBalance: *a1
@@ -507,7 +1011,7 @@ Calculation:
       type: array
       items:
         $ref: "#/Row"
-    netWorth: *a4
+    netWorth: *a3
     assessment:
       $ref: ./portfolios.openapi.yaml#/Assessment
     marketRows:
@@ -583,7 +1087,7 @@ Preview:
           enum:
             - null
     modelVersion: *a1
-    profileRevision: *a3
+    profileRevision: *a4
     valuationDate: *a1
     currency:
       type: string
@@ -595,10 +1099,10 @@ Preview:
       properties:
         profileHash: *a1
         policyVersionId: *a1
-        policyVersion: *a3
+        policyVersion: *a4
         policyHash: *a1
         assumptionVersionId: *a1
-        assumptionVersion: *a3
+        assumptionVersion: *a4
         assumptionHash: *a1
       required:
         - profileHash
@@ -637,7 +1141,7 @@ Preview:
             additionalProperties: false
             properties:
               period: *a1
-              revision: *a3
+              revision: *a4
               closingBalance: *a2
             required:
               - period
@@ -876,6 +1380,21 @@ Preview:
               - startMonth
               - endMonth
               - monthlyAmount
+    capitalSeparation:
+      $ref: "#/CapitalSeparation"
+      description: Informational only, returned by POST /me/retirement/preview. Pinned
+        base assumptions, independent of scenario. Not saved in plan snapshots
+        or used by the retirement engine. Missing on saved/replayed plans.
+    lossConstraint:
+      $ref: "#/LossConstraint"
+    essentialCoverage:
+      $ref: "#/EssentialCoverage"
+    adjustmentOptions:
+      $ref: "#/AdjustmentOptions"
+    decisionExplanations:
+      type: array
+      items:
+        $ref: "#/DecisionExplanation"
   required:
     - status
     - issues

@@ -7,11 +7,16 @@ import { PortfoliosService } from "../portfolios/service";
 import { previewGuidance } from "../portfolios/guidance";
 import { retirementPreviewSchema, RETIREMENT_MODEL, type RetirementPreview } from "./schema";
 import { prepareRetirement } from "./prepare";
+import { separateCapital, type CapitalSeparation } from "../capital/separation";
+import { assessLossConstraint } from "../capital/loss-constraint";
+import { essentialCoverage, adjustmentOptions, decisionExplanations } from "./preview-insights";
+import { logPreviewCoverage } from "../../common/logger";
 import type { ReforecastLineage } from "../actuals/lineage";
 import type { z } from "zod";
 import type { futureChangeSchema, sourceChangeSchema } from "../actuals/schema";
 
-export type RetirementResult = Awaited<ReturnType<RetirementService["preview"]>> & {
+export type RetirementResult = ReturnType<RetirementService["evaluate"]> & {
+  capitalSeparation?: CapitalSeparation;
   reforecast?: ReforecastLineage;
   futureChanges?: z.infer<typeof futureChangeSchema>[];
   sourceChanges?: z.infer<typeof sourceChangeSchema>[];
@@ -26,7 +31,27 @@ export class RetirementService {
     // SERIALIZABLE transaction adds round trips without adding consistency.
     // Saving re-captures inside the write transaction and checks inputHash.
     const snapshot = await this.capture(this.db, userId, input);
-    return this.evaluate(snapshot, input);
+    const result = this.evaluate(snapshot, input);
+    logPreviewCoverage(result.issues, "/api/v1/me/retirement/preview");
+    // HTTP preview only: evaluate is also used for persistence and replay. Keep
+    // its shape and hash unchanged, including old v2/v3/v4 snapshots.
+    const profile = input.whatIf?.assetValues ? { ...snapshot.profile, assets: snapshot.profile.assets.status === "KNOWN"
+      ? { ...snapshot.profile.assets, entries: snapshot.profile.assets.entries.map(asset => {
+        const override = input.whatIf?.assetValues?.find(v => v.assetId === asset.id);
+        return override ? { ...asset, value: { status: "KNOWN" as const, value: override.value } } : asset;
+      }) } : snapshot.profile.assets } : snapshot.profile;
+    const capitalSeparation = separateCapital(profile, snapshot.assumptions.data);
+    const lossConstraint = assessLossConstraint(capitalSeparation, profile, snapshot.policy.data, result.calculation?.marketRows[0]?.holdings);
+    const essential = essentialCoverage(profile, input, result);
+    const adjustments = adjustmentOptions(profile, input, snapshot.policy.data, snapshot.assumptions.data, result);
+    const supplements = { capitalSeparation, lossConstraint, essentialCoverage: essential, adjustmentOptions: adjustments,
+      decisionExplanations: decisionExplanations(profile, capitalSeparation, lossConstraint, result) };
+    if (result.status === "INCOMPLETE") return { ...result, ...supplements };
+    // Enrich only this read response; numerical replay payloads remain untouched.
+    const calculation = { ...result.calculation,
+      summary: { ...result.calculation.summary, essentialShortfall: essential.essentialShortfall, firstEssentialShortfallMonth: essential.firstEssentialShortfallMonth },
+      rows: result.calculation.rows.map((row, i) => ({ ...row, essentialShortfall: essential.rows[i].essentialShortfall, otherShortfall: essential.rows[i].otherShortfall })) };
+    return { ...result, calculation, ...supplements };
   }
   async capture(tx: Prisma.TransactionClient, userId: string, input: RetirementPreview) {
       // Policy/assumption versions are immutable once PUBLISHED (and cached), so

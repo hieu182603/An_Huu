@@ -2,6 +2,8 @@ import { z } from "zod";
 import { moneySchema } from "../../common/http";
 import { monthSchema } from "../../common/calendar";
 import { debtPreviewSchema } from "../debts/schema";
+import { ratePercentSchema } from "../assumptions/schema";
+import { Prisma } from "@prisma/client";
 
 const id = z.string().min(1).max(100);
 const schedule = z.array(z.object({ month: monthSchema, amount: moneySchema }).strict()).max(1200)
@@ -39,6 +41,9 @@ export const retirementPreviewSchema = z.object({
   // income. Old housing declarations lacking amount scope require review.
   housing: z.array(z.object({ assetId: id, amountScope: z.enum(["WHOLE_ASSET", "OWNERS_SHARE"]),
     linkedIncomeId: id.optional() }).strict()).max(200).default([]),
+  advisoryFee: z.object({ annualPercent: ratePercentSchema.refine(v => new Prisma.Decimal(v).gte(0)),
+    paidFrom: z.enum(["FUND", "EXTERNAL"]),
+  }).strict().optional(),
 }).strict().superRefine((value, ctx) => {
   const issue = (path: (string | number)[], message: string) => ctx.addIssue({ code: "custom", path, message });
   if (value.contributionTiming === "END_OF_MONTH" && value.startOfMonthFunding)

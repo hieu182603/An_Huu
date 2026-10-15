@@ -10,6 +10,7 @@ import { assumptionsListSchema, publishAssumptionsSchema } from "../assumptions/
 import { portfolioDocumentSchema, writePortfolioSchema, approvePortfolioSchema, portfolioPreviewSchema, PORTFOLIO_POLICY_CODE, type PortfolioDocument, type PortfolioPreview } from "./schema";
 import { validatePortfolioPolicy, previewPortfolio } from "./engine";
 import { previewGuidance } from "./guidance";
+import { logPreviewCoverage } from "../../common/logger";
 
 const json = (data: unknown) => JSON.parse(JSON.stringify(data)) as Prisma.InputJsonObject;
 const hash = (data: unknown) => createHash("sha256").update(JSON.stringify(data)).digest("hex");
@@ -122,6 +123,7 @@ export class PortfoliosService {
     const assumptions = await this.dependency(this.db, version.data);
     if (version.approval?.assumptionHash !== assumptions.documentHash) throw new AppError(409, "POLICY_REVIEW_REQUIRED", "Bộ giả định không khớp bản đã duyệt.");
     const result = previewPortfolio(version.data, assumptions.data, input);
+    logPreviewCoverage(result.issues, "/api/v1/me/portfolio-policies/preview");
     return { policyVersionId: version.id, policyVersion: version.version, policyHash: version.documentHash,
       assumptionVersionId: assumptions.id, assumptionHash: assumptions.documentHash, answerBasis: "USER_DECLARED_NOT_INDEPENDENTLY_VERIFIED",
       ...result, guidance: previewGuidance(version.data, assumptions.data, input, result.issues) };
