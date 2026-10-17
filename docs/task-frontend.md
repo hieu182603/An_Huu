@@ -986,3 +986,206 @@ Chặn tháng thiếu/trùng/không liên tục, thiếu/thừa cột, thiếu n
 8. Snapshot/replay v2/v3/v4, inputHash và kế hoạch đã lưu giữ nguyên. Bộ test backend không thay bằng chứng nghiệm thu frontend/browser.
 
 **Trạng thái mục 19–21 (16/10/2026):** Codex đã làm phần frontend cho cả ba mục (4 câu hỏi ràng buộc trong `PlanningQuestions.tsx`, `RiskAnalysis.tsx`, `AnalysisResults.tsx`, `AdvisoryFeeEditor.tsx`, `ProfileReviewPreview.tsx`, `AdminMarketDataPage.tsx`, `services/planningAnalysis.ts`; luồng nháp tuân theo guard `DRAFT_SCHEMA_MISMATCH` thật của backend) rồi dừng vì hết hạn mức trước khi viết báo cáo. Đã kiểm lại: `typecheck`, `test:assets` 75/75, `build`, Playwright `guided-planning` + `onboarding-readability` + `portfolio-policy-v2` + `market-data-admin` + `planning-contracts` 45/45 (một test của `planning-contracts` được sửa nhãn cho khớp UI thật: "Tháng cần kiểm tra số dư (giờ Việt Nam)", "Tính lại từ số dư đã ghi"). Việc Codex đang làm dở khi dừng: thêm kiểm thử nháp → lưu → mở lại 4 câu hỏi trên màn 375px. Chưa commit.
+
+## 22. BACKEND giai đoạn 1 — Chế độ giải thích bằng Trợ lý AI (17/10/2026)
+
+Hợp đồng cho giai đoạn frontend theo `docs/KE_HOACH_CHE_DO_GIAI_THICH_AI_2026-10-17.md`. Phạm vi giao diện là `UserLayout`; hai endpoint mới dưới đây dành cho tài khoản `USER`, yêu cầu Bearer token. Token `ADMIN` trả 403; không dùng endpoint này cho trang admin. Endpoint giải thích tất định và bảng thuật ngữ không cần đồng ý xử lý AI, không gọi nhà cung cấp AI, không lưu hoặc áp dụng kế hoạch.
+
+### 22.1 Nguồn dữ liệu và request giải thích chỉ số
+
+POST `/api/v1/me/explanations/metric`, JSON:
+
+```ts
+type MetricSource =
+  | { kind: "PLAN_VERSION"; planId: string; versionId: string }
+  | { kind: "PREVIEW"; input: RetirementPreviewInput };
+
+type MetricExplanationRequest = { metricKey: string; source: MetricSource };
+```
+
+`planId` và `versionId` là UUID. `RetirementPreviewInput` là đúng input đã dùng cho POST `/me/retirement/preview` (schema backend `retirementPreviewSchema`), gồm `expectedProfileRevision`, `policyVersionId`, kịch bản và các lựa chọn cá nhân. `policyVersionId` ghim chính sách đã công bố; chính sách ghim bộ giả định. Backend đọc hồ sơ của chính người gọi, kiểm tra revision và tự tính lại từ một lần chụp dữ liệu. Không gửi hồ sơ tùy ý, giả định lợi suất/lạm phát, snapshot, `calculation`, `summary`, `result`, `value` hay bất kỳ số kết quả nào trong request. Các object nguồn/input và object lồng trong input đều được kiểm tra trường lạ; các số tiền đầu vào cá nhân hợp lệ vẫn là chuỗi thập phân như hợp đồng preview hiện có.
+
+Ví dụ chọn số của một phiên bản đã lưu:
+
+```json
+{
+  "metricKey": "summary.atRetirement.coveragePercent",
+  "source": {
+    "kind": "PLAN_VERSION",
+    "planId": "<UUID kế hoạch>",
+    "versionId": "<UUID phiên bản>"
+  }
+}
+```
+
+Ví dụ nguồn preview dùng nguyên input của lần tính thành công, không dùng input nháp vừa sửa nhưng chưa tính:
+
+```ts
+const body: MetricExplanationRequest = {
+  metricKey: "capitalSeparation.growthCapital",
+  source: { kind: "PREVIEW", input: lastSuccessfulPreviewInput },
+};
+```
+
+`PLAN_VERSION` được đọc qua `PlansService`, kiểm tra đồng thời chủ sở hữu kế hoạch và phiên bản thuộc kế hoạch, giữ nguyên bản chụp, hash và kết quả đã lưu. Không tính bổ sung từ hồ sơ hiện tại để giải thích số của bản cũ. Các phần tách vốn/ràng buộc lỗ/thiết yếu hiện được bổ sung riêng ở HTTP preview, nên có thể không tồn tại trong snapshot đã lưu: lúc đó trả `METRIC_NOT_AVAILABLE`, không tự suy hoặc ghi thêm vào snapshot.
+
+### 22.1b Mức chi tiết `detail` (bổ sung sau review, 17/10/2026)
+
+Request có thêm `detail: "SUMMARY" | "MONTHLY"`, mặc định `SUMMARY`; response trả lại đúng `detail` đã dùng.
+
+- **`SUMMARY` (dùng cho popup):** các đầu vào theo từng tháng được gộp lại thành: giai đoạn (`unit: "PERIOD"`, giá trị `YYYY-MM → YYYY-MM`), số tháng (`MONTHS`), tổng (`source` bắt đầu bằng `Σ`, đơn vị VND) và hệ số lũy kế (`source` bắt đầu bằng `Π`, `FACTOR`). Một popup thường chỉ có dưới 16 bước. `notes` có câu nhắc "xem chi tiết từng tháng để tái tạo chính xác".
+- **`MONTHLY`:** trả từng tháng như trước (có thể hàng nghìn bước). Chỉ gọi khi người dùng chủ động bấm "Xem chi tiết từng tháng"; hiển thị bằng bảng có cuộn hoặc phân trang, không nhồi vào popup.
+- `value`, `formula` và `label` giống hệt nhau ở cả hai chế độ.
+- Nguồn `PREVIEW` giờ chạy bản preview rút gọn: giữ nguyên các số, nhưng không chạy bộ tìm phương án điều chỉnh và không ghi log lặp lại. Thời gian phản hồi vì vậy ngắn hơn nhiều, nhưng frontend vẫn nên debounce và không gọi trước khi người dùng bấm.
+
+### 22.2 Response, độ chính xác và lỗi
+
+Thành công HTTP 200 theo envelope chuẩn `{ data, meta: { requestId } }`:
+
+```ts
+type LocalizedText = { vi: string; en: string };
+type AssumptionSource = {
+  id: string;
+  kind: "HISTORICAL_OFFICIAL" | "FORECAST" | "AN_HUU_LONG_TERM" | "ASSET_RESEARCH";
+  title: string; publisher: string; url: string; release: string;
+  publishedOn: string; retrievedOn: string;
+  fromYear: number; toYear: number; note: string;
+};
+type MetricExplanation = {
+  metricKey: string;
+  label: LocalizedText;
+  value: string; // Chuỗi thập phân từ đúng kết quả server; không đổi sang float để đối chiếu.
+  unit: "VND" | "PERCENT";
+  formula: LocalizedText & { symbolic: string };
+  steps: Array<{ label: LocalizedText; value: string; unit: string; source: string }>;
+  assumptions: { version: number; sources: AssumptionSource[] };
+  notes: string[];
+  limitations: string[];
+};
+```
+
+`source` trong mỗi bước là đường dẫn/nguồn dữ liệu backend, dùng để đối chiếu đầu vào của công thức. Danh sách bước có thể dài theo số tháng hoặc số mục tiêu; không giả định chỉ có hai đầu vào. `assumptions.version` là phiên bản số của bộ giả định đã ghim, không phải phiên bản bảng thuật ngữ. Nhãn và công thức có cả tiếng Việt có dấu và tiếng Anh; hiện `notes`/`limitations` là chuỗi do server cung cấp, phải giữ nguyên ý nghĩa và hiển thị giới hạn liên quan.
+
+Đơn vị chỉ số v1 là `VND` hoặc `PERCENT`; khoản góp mang nghĩa mỗi tháng qua nhãn/công thức. Đơn vị bước còn có `FACTOR` (hệ số), `MONTHS` (số tháng), `TIMING` (quy ước thời điểm), `MONTH` (mốc tháng). Không tự định dạng mọi `steps[].value` thành tiền; các bước quy ước có thể là chuỗi như `END_OF_MONTH` hoặc `YYYY-MM`.
+
+Frontend giữ giá trị thập phân gốc gắn với phần tử đang hiển thị và nguồn tương ứng. Khi popup nhận response, so sánh `value` với **giá trị gốc của đúng trường**, có thể dùng Decimal để coi `1` và `1.0` là bằng nhau. Chỉ định dạng/làm tròn để hiển thị sau khi đã đối chiếu; không so với text đã làm tròn, tỷ lệ đã chặn để vẽ vòng tròn, số tiền đổi sang triệu, số dư sau lấy trị tuyệt đối hoặc chênh lệch do UI tự tính. Nếu lệch, hiển thị **“Số liệu đã thay đổi, hãy tải lại”** và mời tính/tải lại; không hiện công thức của dữ liệu khác. Khi đổi nguồn, input, revision hoặc phiên bản trong lúc chờ response, bỏ response cũ.
+
+Lỗi theo envelope hiện có `{ error: { code, message, fieldErrors? }, requestId }`:
+
+| HTTP / code | Xử lý frontend |
+| --- | --- |
+| 400 `VALIDATION_ERROR` | Sai shape/trường lạ/input preview không hợp lệ; sửa request, không gửi thêm số kết quả. |
+| 401 / 403 | Chưa đăng nhập hoặc sai vai trò; theo luồng xác thực hiện có. |
+| 404 `NOT_FOUND` | Kế hoạch/phiên bản không tồn tại hoặc không thuộc người gọi; không tiết lộ dữ liệu người khác. |
+| 409 `REVISION_CONFLICT` và các guard hồ sơ/chính sách hiện có | Hồ sơ hoặc dữ liệu ghim cần tải/rà soát lại; giữ nguyên thông báo server. |
+| 422 `METRIC_NOT_AVAILABLE` | Khóa chưa được hỗ trợ, số null, nguồn không có trường đó, tháng phí không có hoặc không áp dụng. Hiện “Chưa có giải thích cho số liệu này”; không biến null thành 0, không nhờ AI bịa công thức/con số thay thế. |
+| 429 `RATE_LIMITED` | POST giới hạn 30 lần/phút theo user; chờ theo header, không retry vòng lặp. GET glossary không có limiter riêng; cả hai vẫn chịu limiter chung của API. |
+
+POST giải thích tất định không cần `Idempotency-Key`; thao tác chỉ đọc/tính. Chỉ gọi khi người dùng mở popup, có thể tái dùng response còn đúng nguồn/input để giảm request; không tải đồng loạt mọi con số mỗi lần rê chuột.
+
+### 22.3 Danh sách metricKey v1 và nơi gắn trên giao diện
+
+Trong bảng, `summary` viết tắt cho `preview.calculation.summary`; các phần còn lại là nhánh của response preview. Vị trí dưới đây đối chiếu mã frontend hiện có, không xác nhận giai đoạn 2 đã được triển khai.
+
+| metricKey | Giá trị gốc server | Vị trí số hiện có / quy tắc gắn |
+| --- | --- | --- |
+| `summary.atRetirement.requiredFund` | `calculation.summary.atRetirement.requiredFund` | `/user/plan`: “Quỹ cần có khi nghỉ hưu”, hộp xác nhận áp dụng; `/user/dashboard`: dòng “Quỹ cần”; `/user/simulation`: cột quỹ cần của bản hiện tại và kịch bản. |
+| `summary.atRetirement.projectedFund` | `calculation.summary.atRetirement.projectedFund` | `/user/plan`: quỹ dự kiến trong khối đầu trang và thẻ quỹ dự kiến; dashboard: quỹ dự kiến; simulation: quỹ dự kiến/cột so sánh; `PlanVersionDrawer`, `GuidedScenarios`, `AnchorReforecastResult` khi có nguồn phù hợp. |
+| `summary.atRetirement.fundingGap` | `calculation.summary.atRetirement.fundingGap` | Simulation: ô chênh lệch thiếu hụt của **bản hiện tại** đang dùng đúng trường này. Không gắn vào thẻ thiếu hụt của trang kế hoạch hoặc ô kịch bản chỉ vì tên nhãn giống nhau; xem lưu ý bên dưới. |
+| `summary.atRetirement.coveragePercent` | `calculation.summary.atRetirement.coveragePercent` | Plan: số phần trăm trong vòng độ phủ và hộp xác nhận; dashboard: phần trăm độ phủ; simulation: tỷ lệ bao phủ, giữ raw trước `Math.round`; drawer phiên bản/anchor result khi có nguồn. Không dùng chiều rộng thanh/vòng đã chặn về 0–100. |
+| `summary.requiredConstantMonthlyContribution` | `calculation.summary.requiredConstantMonthlyContribution` | Plan: thẻ khoản góp cần mỗi tháng; dashboard: khoản góp/tháng; `GuidedScenarios`: khoản góp cần. Null là chưa xác định. |
+| `summary.additionalMonthlyContribution` | `calculation.summary.additionalMonthlyContribution` | Plan: dòng “Đóng góp bổ sung … mỗi tháng” dưới thẻ thiếu hụt. |
+| `summary.futureMonthlyExpense` | `calculation.summary.futureMonthlyExpense` | Plan: dòng tiền sinh hoạt/tháng đã điều chỉnh lạm phát; dashboard: dòng chi tương lai dưới khoản góp. Không gắn vào input chi theo giá hôm nay. |
+| `summary.initialRetirementCapital` | `calculation.summary.initialRetirementCapital` | Plan: vốn ban đầu trong khối quỹ cần; simulation: câu “Tính toán dựa trên tài sản thanh khoản ban đầu …”. Không gắn vào toàn bộ tài sản ròng của hồ sơ. |
+| `capitalSeparation.requiredEmergencyReserve` | `capitalSeparation.requiredEmergencyReserve` | `PreviewInsights` trên plan: “Dự phòng cần có”. Không dùng ô dự phòng đã khai/cần bổ sung. |
+| `capitalSeparation.nearTermGoalsPresentValue` | `capitalSeparation.nearTermGoalsPresentValue` | `PreviewInsights`: “Vốn giữ cho mục tiêu gần hạn (giá trị hiện tại)”. Không dùng số mục tiêu giá hôm nay hoặc vốn mục tiêu đã khai. |
+| `capitalSeparation.growthCapital` | `capitalSeparation.growthCapital` | `PreviewInsights`: “Vốn tăng trưởng”; giữ dấu âm nếu có. Tách vốn chỉ tham khảo, không tự áp vào quỹ. |
+| `lossConstraint.lossAmount` | `lossConstraint.lossAmount` | `PreviewInsights`: “Mức lỗ mô hình” trong “Nếu thị trường có cú sốc”. Không dùng giới hạn lỗ, tỷ lệ lỗ hoặc lỗ của phương án đề xuất. |
+| `essentialCoverage.essentialShortfall` | `essentialCoverage.essentialShortfall` | `PreviewInsights`: “Tổng thiếu hụt thiết yếu”. Là tổng các tháng, không dùng cho từng hàng tháng hoặc `pEssential`/CVaR của mô phỏng rủi ro. |
+| `rows.YYYY-MM.advisoryFeeAmount` | `calculation.rows.find(r => r.month === "YYYY-MM").advisoryFeeAmount` | `PreviewInsights`: cột “Phí” của đúng tháng trong bảng “Phí tư vấn trong dòng tiền”. Ví dụ khóa `rows.2026-10.advisoryFeeAmount`; tháng phải tồn tại trong nguồn. Không gắn vào tỷ lệ phí năm hay “Quỹ bình quân”. |
+
+Đối chiếu trường thật: engine có `summary.retirementFundingShortfall` và `summary.excessAtRetirement` **khác** `summary.atRetirement.fundingGap`. Trang plan đang dùng hai trường đầu cho thẻ thiếu/dư; simulation đang dùng `retirementFundingShortfall` qua biến `simGap` cho số thiếu và cột kịch bản của hàng “Chênh lệch thiếu hụt”. V1 không đăng ký hai chỉ số đó hoặc ô chênh lệch giữa hai kịch bản; giữ chúng chưa gắn metric cho tới khi có registry đúng, không chọn khóa gần giống.
+
+Phí tư vấn không có trường tổng phí trong summary; trường thật là `rows[].advisoryFeeAmount`, `advisoryFeeAverageFund`, `advisoryFeePaidFrom`. Vì request không có tham số tháng riêng, tháng nằm trong metricKey để giải thích đúng hàng; không tự chọn tháng đầu hoặc tạo tổng phí không có trên màn hình.
+
+Chọn nguồn theo số **đang thực sự hiển thị**:
+
+- Plan và dashboard: khi `synchronization.changed` và đang dùng preview mới, dùng `PREVIEW` với `synchronization.input` của response đó; khi hiển thị snapshot không đổi, dùng `PLAN_VERSION` với `activePlan.id/currentVersion.id`. Preview thủ công dùng `lastPreviewInput` đã tính thành công; không lấy input nháp mới.
+- Simulation: cột bản hiện tại dùng `PLAN_VERSION`; kịch bản chưa lưu dùng input preview đã tạo `simResult`. Từng bên giữ nguồn riêng; số chênh lệch giữa hai bên không phải metric v1. Nếu vẫn giữ kết quả cũ trong lúc đang tính, giữ luôn input gắn với kết quả cũ hoặc tạm khóa mở popup số đó.
+- Tab theo dõi và nguồn của `ActualsTab`: kết quả dự báo lại/candidate chưa lưu không phải `RetirementPreviewInput`. Không ép chúng vào `PREVIEW` hoặc thay bằng phiên bản gốc; chỉ dùng `PLAN_VERSION` sau khi có đúng phiên bản chứa kết quả đó, còn lại dùng thuật ngữ/chưa hỗ trợ giải thích chỉ số ở v1.
+- `/user/risk-portfolio` hiện hiển thị điểm khảo sát, tỷ trọng, lộ trình và kịch bản danh mục, không có các số tách vốn/ràng buộc lỗ của `PreviewInsights`. Gắn glossary cho thuật ngữ trước. Không gửi `PortfolioPreviewInput` vào endpoint này hoặc lấy metric quỹ hưu trí để giải thích lợi suất/điểm khảo sát. Nếu frontend bổ sung đúng số từ RetirementPreview thì dùng nguồn/metric tương ứng ở bảng.
+
+### 22.4 Bảng thuật ngữ có phiên bản đặt ở backend
+
+GET `/api/v1/me/explanations/glossary` trả HTTP 200 `{ data: { version, terms }, meta: { requestId } }`:
+
+```ts
+type Glossary = {
+  version: string;
+  terms: Array<{ key: string; label: LocalizedText; definition: LocalizedText }>;
+};
+```
+
+Phiên bản đầu: `explanations-glossary-2026-10-17-v1`, 38 mục; bản hiện tại `explanations-glossary-2026-10-17-v2`, 39 mục (thêm `netWorth` – Tài sản ròng), tiếng Việt có dấu và tiếng Anh, nội dung viết sẵn trong `backend/src/modules/explanations/glossary.ts`. Chọn đặt ở backend để frontend và các client cùng dùng một bản được kiểm duyệt, cập nhật nội dung/phiên bản cùng ý nghĩa engine, tránh mỗi màn hình tự định nghĩa khác nhau. Nội dung là dữ liệu tĩnh không cần migration, DB hay LLM. Client có thể cache theo `version`; không cần gọi AI cho mục đã có.
+
+Khóa v1: `inflation`, `presentValue`, `futureValue`, `nominalValue`, `purchasingPower`, `requiredFund`, `projectedFund`, `fundingGap`, `fundCoverage`, `requiredMonthlyContribution`, `additionalMonthlyContribution`, `initialRetirementCapital`, `emergencyReserve`, `essentialExpenses`, `otherExpenses`, `essentialShortfall`, `growthCapital`, `nearTermGoals`, `liquidAssets`, `lockedAssets`, `glidePath`, `marketShock`, `lossTolerance`, `essentialCoverageProbability`, `cvar`, `rebalance`, `governmentBonds`, `deposits`, `equities`, `gold`, `socialInsurance`, `pension`, `pinnedAssumptions`, `planSnapshot`, `advisoryFee`, `nav`, `fundedBalance`, `unfundedWithdrawal`.
+
+Frontend gắn khóa rõ cho từng cụm từ (`<Explain term="fundCoverage"/>`), không đoán nghĩa chỉ bằng trùng chuỗi nhãn. Đặc biệt phân biệt độ phủ quỹ với tỷ lệ đường mô phỏng đủ chi thiết yếu; chi khác có thể gồm khoản bắt buộc; cú sốc minh họa không phải dự báo xác suất; quy tắc dự phòng trong hệ thống không phải quy định pháp luật.
+
+### 22.5 Dự phòng bằng endpoint AI hiện có cho cụm từ chưa có trong bảng
+
+Bôi đen một cụm từ (tối đa 300 ký tự) thì popup tự giải thích, không cần bấm thêm: khớp đúng nhãn trong bảng thuật ngữ thì hiện định nghĩa; nếu không khớp thì tự gọi `/me/ai/explain` (vẫn kiểm tra đồng ý dùng AI trước). Đoạn dài hơn 300 ký tự mới hiện nút "Nhờ AI giải thích đoạn này". Một lần bôi đen chỉ gửi một yêu cầu (chờ 300 ms để gộp double/triple click). Luôn gắn nhãn **“AI giải thích – tham khảo”**. Đây là luồng AI hiện có, không phải response/formula của endpoint chỉ số mới. Backend AI hiện chọn các đoạn sự thật/kiến thức được phép; có thể chưa có giải thích cụ thể cho một thuật ngữ mới. Giữ thông báo và nguồn thực tế trả về, không hứa rằng mọi cụm từ đều được AI định nghĩa đầy đủ.
+
+1. Đọc GET `/api/v1/me/ai/privacy`. Nếu `processing === false` hoặc `reconsentRequired === true`, mở luồng đồng ý hiện có; không tự bật đồng ý chỉ vì người dùng bật chế độ giải thích. PUT `/me/ai/privacy` dùng `{ expectedRevision, policyVersion, processing, saveHistory }`, lấy revision/policyVersion từ response. `saveHistory` là lựa chọn riêng; bật processing không bắt buộc lưu lịch sử.
+2. POST `/api/v1/me/ai/explain` với header `Idempotency-Key: <UUID>`, body tối thiểu `{ "question": "Giải thích cụm từ: <cụm từ người dùng chọn>" }`. Giới hạn question là 1–2000 ký tự. Có thể gửi đồng thời `planId` và `versionId` khi người dùng đã chọn một phiên bản thuộc họ và muốn dùng ngữ cảnh đó; không có định dạng PREVIEW ở endpoint AI này. Không gửi thêm hồ sơ, số liệu tự tính, DOM toàn trang hoặc nội dung ngoài cụm từ/ngữ cảnh đã được phép. `throughMonth`, `conversationId`/`expectedRevision` chỉ dùng theo luồng theo dõi/hội thoại hiện có, không tự thêm để mở popup.
+3. `AI_CONSENT_REQUIRED` (403) yêu cầu đồng ý; `AI_PRIVACY_CHANGED` (409) yêu cầu tải lại tùy chọn; 429 `RATE_LIMITED` chờ, không retry liên tục. AI giữ giới hạn hiện tại 15 request/phút theo user, dùng chung limiter với một số thao tác AI khác. Khóa idempotency không miễn giới hạn.
+4. Response AI có `status: AI_ASSISTED | PROVIDER_NOT_CONFIGURED | PROVIDER_UNAVAILABLE`, `answer`, `facts`, `citations`, `knowledgeStatus`, `provenance`, `savedHistory` và trạng thái hội thoại. Khi nhà cung cấp không cấu hình/gián đoạn, vẫn có thể nhận HTTP 200 với câu trả lời dự phòng; hiển thị đúng status và `NO_APPROVED_MATCH` nếu có, không báo đã có câu trả lời AI có nguồn chỉ vì HTTP thành công. Không dùng answer này thay value/công thức tất định.
+5. Nút “Hỏi thêm Trợ lý AI” dẫn tới `/user/assistant`, giữ luồng hỏi đáp/consent hiện có. Việc bật chế độ, gọi glossary hoặc mở công thức tất định không tự tạo hội thoại AI.
+
+### 22.6 Điểm nghiệm thu giai đoạn frontend
+
+Giữ yêu cầu bật/tắt bằng header/Esc, tắt khi chuyển trang, Tab/Enter/Esc, `role="dialog"`, trả focus, đóng khi bấm ngoài/cuộn/resize, popup không tràn ở 375px và tôn trọng giảm chuyển động trong kế hoạch. Ngoài chế độ, vùng được gắn giải thích giữ hành vi bấm hiện có. Test mock cần có nguồn saved/preview đúng, raw value lệch, null/422, revision đổi, response cũ, sai vai trò, 429, glossary song ngữ/có phiên bản, AI chưa đồng ý/đổi consent/provider gián đoạn. Không dùng DB production để nghiệm thu; backend giai đoạn 1 không sửa `frontend/` và không thay bằng chứng kiểm thử giao diện cho giai đoạn 2.
+
+## 23. Thiết kế lại popup giải thích — 18/10/2026
+
+Phạm vi lần chỉnh này: `frontend/src/components/explanations/ExplainMode.tsx`, `explanations.css`, bổ sung kiểm thử vào `frontend/tests/explain-mode.spec.ts`. Đã đọc mục 22 và brief frontend trước khi chỉnh; tiếp tục từ phần giải thích đã có.
+
+- Dùng token navy/ice hiện có; phân biệt nhãn thuật ngữ, số liệu và AI tham khảo. Nội dung chính 16px, bảng/nguồn 14px; tiêu đề và nút đóng nằm ngoài vùng cuộn.
+- Số liệu có khối kết quả, cách tính, bảng thành phần; nguồn/phiên bản giả định thu gọn trong mục mở rộng. Giữ notes, limitations và nguồn kỹ thuật để đối chiếu, không sửa công thức hay hợp đồng API.
+- Nội dung AI giữ xuống dòng, nguồn tham khảo mở rộng; trạng thái chờ/lỗi/đồng ý xử lý và liên kết Trợ lý AI rõ ràng.
+- Sửa cuộn trong popup làm đóng popup; bảng tháng dùng ResponsiveDialog hiện có, hỗ trợ Tab/Esc, trả focus về nút mở bảng. Cuộn/bấm ngoài popup vẫn đóng như trước.
+- Theo dõi thay đổi kích thước khi tải nội dung; giới hạn vị trí theo vùng hiển thị thực, trừ thanh cuộn trình duyệt. Giữ giảm chuyển động và giao diện màn hình hẹp.
+- Nghiệm thu giao diện dùng **MOCK API**, không phải chứng minh tích hợp AI/backend thật. Ảnh trong `artifacts/explanation-redesign/`; không kiểm zoom trình duyệt 200% thật trong lần chỉnh này.
+
+Kết quả kiểm tra:
+- `npm run typecheck` (frontend): PASS; lần kiểm tra từ root cũng PASS frontend/backend.
+- `npm run test:assets`: 77/77 PASS.
+- `npm run build`: PASS; còn cảnh báo kích thước bundle >500 kB của ứng dụng.
+- Playwright: `explain-mode`, `guided-planning`, `onboarding-readability`, `portfolio-policy-v2`, `planning-contracts`, `plan-detail-fixes`: 97/97 PASS.
+- Sau chỉnh mép viewport và cỡ chữ bảng: chạy lại `explain-mode`: 12/12 PASS. Có kiểm tra cỡ chữ thực tế, cuộn bên trong, nguồn mở rộng, focus/Tab/Esc và bảng tháng tại 375/1440px; nội dung AI dài tại 375/1280/1440/1920px.
+- Đã xem ảnh thuật ngữ, AI mobile, số liệu desktop và bảng tháng mobile. Không thêm dependency. Không sửa backend, không ghi DB, không deploy/commit/push trong lần chỉnh này.
+
+## 24. Giải thích viết sẵn và tái sử dụng kết quả — 18/10/2026
+
+### Kế hoạch và phần đã triển khai
+
+1. **Nội dung cố định:** thêm 14 mục Việt/Anh trong `frontend/src/components/explanations/catalog.ts` cho bản xem trước, kế hoạch đang dùng, phiên bản đã lưu, số dư thực tế, thu nhập/chi tiêu/trả nợ/tiền còn lại hàng tháng, thời gian tích lũy/nghỉ hưu, kết thúc dự phóng, mức chi theo giá hôm nay, thời điểm góp và so sánh phương án. Kết hợp 39 thuật ngữ hiện có từ backend; định nghĩa tài chính vẫn do bảng thuật ngữ có phiên bản cung cấp. Bổ sung các cách gọi tương đương đúng nhãn UI, chỉ khớp chính xác, không đoán bằng một phần chuỗi.
+2. **Gắn khóa rõ:** bổ sung nhãn trên Tổng quan và Kế hoạch chi tiết; nhãn “Số dư thực tế” trong theo dõi dùng định nghĩa riêng, không dùng định nghĩa số dư mô hình. Bôi đen tên/alias đã biết cũng dùng nội dung viết sẵn. Khóa `term` thiếu hoặc glossary tải lỗi hiển thị thông báo/thử lại; không tự gửi khóa kỹ thuật cho AI. Văn bản người dùng chọn chưa khớp sau khi đã tải được glossary vẫn dùng luồng AI có kiểm tra đồng ý hiện có.
+3. **Giảm request:** bảng thuật ngữ tái sử dụng tối đa 15 phút trong phiên; kết quả `SUMMARY`/`MONTHLY` lưu tạm tối đa 5 phút, giới hạn 40 mục. Khóa gồm metric, toàn bộ source/input (revision, policy, phương án, lịch góp…), giá trị gốc, mức chi tiết và ngôn ngữ. Cùng request đang chạy được dùng chung; lỗi hoặc giá trị lệch không được giữ để tái sử dụng. Đổi đầu vào/phiên bản tạo khóa khác; vùng số liệu thay đổi hoặc biến mất sẽ đóng popup cũ, response cũ không ghi vào popup mới.
+4. **Phạm vi cache:** chỉ bộ nhớ của provider, tách theo tài khoản qua key của UserLayout và hết khi provider bị tháo; không ghi localStorage/sessionStorage, không lưu tạm câu trả lời AI. Bản xem trước vẫn bị kiểm revision ở backend khi cần request mới; người dùng mở lại ngay cùng dữ liệu được dùng kết quả còn hạn.
+5. **Kiểm chứng:** đếm request trên trình duyệt cho glossary, AI, summary và monthly; kiểm thử lỗi rồi thử lại, đổi input, nội dung Việt/Anh, alias, giới hạn/TTL cache và popup được mở sau thao tác cuộn tới nhãn. Sửa việc sự kiện cuộn đến trễ làm đóng popup vừa mở; cuộn thực sự sau khi mở vẫn đóng popup.
+
+### Cách bổ sung nội dung
+
+- Hướng dẫn cố định của giao diện: thêm key, label/definition Việt–Anh và aliases chính xác vào `catalog.ts`, gắn `<Explain term="key">` vào nhãn. Nhãn nằm trong nút/link đang có hành động không được bọc bằng một nút tương tác khác.
+- Thuật ngữ tài chính đã có định nghĩa backend: dùng key hiện có; thêm cách gọi của UI vào `glossaryAliases`, không chép lại công thức hay chính sách vào frontend.
+- Con số cá nhân: dùng `metric`, source và giá trị gốc của đúng số đang hiển thị; không thay bằng lời giải thích cố định về giá trị của người dùng.
+- Các bài kiểm tra catalog đối chiếu trực tiếp glossary backend để phát hiện alias mơ hồ hoặc nội dung Việt/Anh thiếu. Nghiệm thu trình duyệt dùng MOCK API, không gọi nhà cung cấp AI hay ghi DB.
+
+### Kết quả nghiệm thu
+
+- `npm run typecheck` (frontend): PASS.
+- `npm run test:assets`: **82/82 PASS**, gồm catalog Việt/Anh, đối chiếu alias với glossary backend, khóa đầy đủ, request đang chạy dùng chung, TTL, giới hạn bộ nhớ, thử lại và cache độc lập.
+- `npm run build`: PASS (cảnh báo bundle lớn có sẵn của ứng dụng).
+- `npx --no-install playwright test tests/explain-mode.spec.ts tests/plan-detail-fixes.spec.ts --reporter=line`: **55/55 PASS** trên bản cuối. Kiểm request chứng minh: thuật ngữ viết sẵn không gọi AI; bật/tắt lại không tải glossary lần nữa khi còn hạn; mở lại summary/monthly không POST thêm; đổi tiền góp có POST mới mang đúng input; lỗi 429 không ngăn thử lại.
+- Các thay đổi ở frontend và tài liệu; không thay endpoint, công thức, backend, DB hoặc chính sách đồng ý AI. Kiểm trình duyệt dùng dữ liệu giả lập.
