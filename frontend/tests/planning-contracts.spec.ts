@@ -1,6 +1,17 @@
 import { test, expect } from "@playwright/test";
 import { setupPlanning, profile, capital, loss, adjustments, simulation, selection, preview } from "./planning-contract-fixtures";
 
+
+// The plan page swaps its loading shell after the first paint; retry until the
+// collapsed advisory-fee section is really open before using its fields.
+async function openFeeDetails(page: import("@playwright/test").Page) {
+  const details = page.locator("details.plan-fee-details");
+  await expect(async () => {
+    if (!(await details.evaluate(d => (d as HTMLDetailsElement).open))) await details.locator("> summary").click();
+    await expect(details).toHaveAttribute("open", "", { timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+}
+
 test("19: guided questions round-trip v2 draft, zero, unknown, complete and no profile localStorage", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   const { state, calls, errors } = await setupPlanning(page, { onboarding: true, draft: { revision: 1, step: "investment", updatedAt: "2026-10-16T05:00:00Z", data: { ...profile.data, personal: { ...profile.data.personal, birthMonth: { status: "KNOWN", value: "1981-05" } } } } });
@@ -53,11 +64,11 @@ test("20: NOT_FEASIBLE retains residual loss after zero equities; equality is no
 
 test("20: fee omitted / zero / FUND / EXTERNAL use preview inputs and show server fee rows", async ({ page }) => {
   const { calls, errors } = await setupPlanning(page); await page.route("**/api/v1/me/retirement/preview", r => { const input = r.request().postDataJSON(); const result = preview(input); if (input.advisoryFee) result.calculation.rows = [{ month: "2026-10", advisoryFeeAmount: "12345", advisoryFeeAverageFund: "14814000", advisoryFeePaidFrom: input.advisoryFee.paidFrom }] as any; return r.fulfill({ json: { data: result } }); });
-  await page.goto("/user/plan"); await expect(page.getByText("Chưa gửi khoản phí tư vấn vào phép tính.")).toBeVisible(); expect(calls.filter(c => c.path.endsWith("/preview")).every(c => !c.body.advisoryFee)).toBe(true);
+  await page.goto("/user/plan"); await openFeeDetails(page); await expect(page.getByText("Chưa gửi khoản phí tư vấn vào phép tính.")).toBeVisible(); expect(calls.filter(c => c.path.endsWith("/preview")).every(c => !c.body.advisoryFee)).toBe(true);
   await page.getByLabel("Phí tư vấn (%/năm)").fill("0"); await page.getByLabel("Nguồn trả phí").selectOption("FUND"); await page.getByRole("button", { name: "Dùng phí này để xem trước" }).click(); await expect.poll(() => calls.filter(c => c.path.endsWith("/preview")).at(-1)?.body.advisoryFee).toEqual({ annualPercent: "0", paidFrom: "FUND" });
   await expect(page.getByRole("heading", { name: "Phí tư vấn trong dòng tiền" })).toBeVisible(); await expect(page.getByText("12.345 VND", { exact: true })).toBeVisible();
   await page.getByLabel("Phí tư vấn (%/năm)").fill("1"); await page.getByLabel("Nguồn trả phí").selectOption("EXTERNAL"); await page.getByRole("button", { name: "Dùng phí này để xem trước" }).click(); await expect.poll(() => calls.filter(c => c.path.endsWith("/preview")).at(-1)?.body.advisoryFee?.paidFrom).toBe("EXTERNAL");
-  await page.getByRole("button", { name: "Không dùng phí tư vấn", exact: true }).click(); await expect.poll(() => calls.filter(c => c.path.endsWith("/preview")).at(-1)?.body.advisoryFee).toBeUndefined(); await page.reload(); await expect(page.getByText("Chưa gửi khoản phí tư vấn vào phép tính.")).toBeVisible(); expect(errors).toEqual([]);
+  await page.getByRole("button", { name: "Không dùng phí tư vấn", exact: true }).click(); await expect.poll(() => calls.filter(c => c.path.endsWith("/preview")).at(-1)?.body.advisoryFee).toBeUndefined(); await page.reload(); await openFeeDetails(page); await expect(page.getByText("Chưa gửi khoản phí tư vấn vào phép tính.")).toBeVisible(); expect(errors).toEqual([]);
 });
 
 test("20/21: saved snapshot uses SAVED_VERSION and horizon warning only changes a new preview", async ({ page }) => {
@@ -118,7 +129,7 @@ test("20: INCOMPLETE outer preview retains useful supplemental issues, later ess
 test("21: stale risk response is discarded when fee changes and missing disclosure withholds probability", async ({ page }) => {
   await setupPlanning(page); let release: (() => void) | undefined; const pending = new Promise<void>(resolve => { release = resolve; }); let delay = true;
   await page.route("**/api/v1/me/retirement/risk/simulation", async r => { if (delay) { await pending; try { await r.fulfill({ json: { data: simulation } }); } catch { /* Request was aborted after input changed. */ } } else await r.fulfill({ json: { data: { ...simulation, disclosure: undefined } } }); });
-  await page.goto("/user/plan"); await page.getByRole("button", { name: "Chạy mô phỏng", exact: true }).click(); await expect(page.getByText("Đang phân tích…", { exact: true })).toBeVisible(); await page.getByLabel("Phí tư vấn (%/năm)").fill("1"); await page.getByLabel("Nguồn trả phí").selectOption("FUND"); await page.getByRole("button", { name: "Dùng phí này để xem trước" }).click(); release!(); await expect(page.getByText("Đang phân tích…", { exact: true })).toHaveCount(0); await expect(page.getByTestId("simulation-probability")).toHaveCount(0); delay = false; await page.getByRole("button", { name: "Chạy mô phỏng", exact: true }).click(); await expect(page.getByTestId("risk-analysis")).toContainText("Cần rà soát"); await expect(page.getByTestId("simulation-probability")).toHaveCount(0);
+  await page.goto("/user/plan"); await page.getByRole("button", { name: "Chạy mô phỏng", exact: true }).click(); await expect(page.getByText("Đang phân tích…", { exact: true })).toBeVisible(); await openFeeDetails(page); await page.getByLabel("Phí tư vấn (%/năm)").fill("1"); await page.getByLabel("Nguồn trả phí").selectOption("FUND"); await page.getByRole("button", { name: "Dùng phí này để xem trước" }).click(); release!(); await expect(page.getByText("Đang phân tích…", { exact: true })).toHaveCount(0); await expect(page.getByTestId("simulation-probability")).toHaveCount(0); delay = false; await page.getByRole("button", { name: "Chạy mô phỏng", exact: true }).click(); await expect(page.getByTestId("risk-analysis")).toContainText("Cần rà soát"); await expect(page.getByTestId("simulation-probability")).toHaveCount(0);
 });
 
 test("20: fee reforecast guard is visible; truncated actuals plan opens independent preview retaining fee", async ({ page }) => {

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { installRouteAuth, installFinancialProfileRoutes } from "./helpers";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const policies = JSON.parse(readFileSync(new URL("./fixtures/portfolio-policies.json", import.meta.url), "utf8"));
 const profile = { revision: 1, schemaVersion: 2, data: {
@@ -10,7 +11,7 @@ const profile = { revision: 1, schemaVersion: 2, data: {
   debts: { status: "NOT_APPLICABLE", reason: "Không có nợ" }, pension: { status: "UNKNOWN" },
 } };
 
-async function setup(page: Page, options: { onboarding?: boolean; missingYear?: boolean; assumptionError?: boolean; en?: boolean; endMonth?: string; scenarioFailure?: boolean; delayedResponse?: boolean } = {}) {
+async function setup(page: Page, options: { onboarding?: boolean; missingYear?: boolean; assumptionError?: boolean; en?: boolean; endMonth?: string; scenarioFailure?: boolean; delayedResponse?: boolean; scenarioIssues?: Array<Array<{ path: string; code: string }>> } = {}) {
   const calls: Array<{ path: string; method: string; body: any }> = [];
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -35,6 +36,7 @@ async function setup(page: Page, options: { onboarding?: boolean; missingYear?: 
     if (options.delayedResponse && input.monthlyContribution === "1000000") await new Promise(resolve => setTimeout(resolve, 1600));
     if (options.scenarioFailure && delayed) return route.fulfill({ status: 503, json: { error: { message: "Scenario unavailable" } } });
     const lower = input.monthlyExpenseToday === "17000000.00";
+    if (options.scenarioIssues) return route.fulfill({ json: { data: { status: "INCOMPLETE", issues: options.scenarioIssues[delayed ? 1 : lower ? 2 : 0], warnings: [], inputHash: "incomplete-test-hash", profileRevision: 1, valuationDate: "2026-10-15", references: {}, selection: input, calculation: null } } });
     const summary = {
       retirementMonth: input.whatIf?.retirementMonth ?? "2033-11", endMonth: input.endMonth,
       accumulationMonths: 85, retirementMonths: 300, initialRetirementCapital: "0", futureMonthlyExpense: "25000000",
@@ -147,6 +149,81 @@ test("three scenario cards use API results and never save a plan", async ({ page
   await cards.nth(2).scrollIntoViewIfNeeded();
   expect(await page.locator(".guided-scenarios").evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   await page.locator(".guided-scenarios").screenshot({ path: "test-results/guided-scenarios-mobile.png" });
+  expect(errors).toEqual([]);
+});
+
+test("scenario issues: repeated survey answers appear once with a clear next step", async ({ page }) => {
+  const surveyIssues = Array.from({ length: 6 }, (_, index) => ({ path: `answers[${index}]`, code: "ANSWER_REQUIRED" }));
+  const { calls, errors } = await setup(page, { scenarioIssues: [surveyIssues, surveyIssues, surveyIssues] });
+  const section = page.locator(".guided-scenarios");
+  const notice = section.locator(".guided-scenarios-notice");
+  const message = "Hãy trả lời đủ câu hỏi ở trang Cách đầu tư để tính kế hoạch theo lựa chọn của bạn.";
+  await expect(notice).toHaveAttribute("role", "status");
+  await expect(notice.locator("li")).toHaveCount(1);
+  await expect(section.getByText(message, { exact: true })).toHaveCount(1);
+  await expect(section.locator(".guided-scenario-incomplete li")).toHaveCount(0);
+  await expect(notice.getByRole("link", { name: "Hoàn tất khảo sát đầu tư", exact: true })).toHaveAttribute("href", "/user/risk-portfolio");
+  await expect(section.locator(".guided-scenario dl")).toHaveCount(0);
+  const artifacts = new URL("../../artifacts/plan-redesign/", import.meta.url);
+  mkdirSync(artifacts, { recursive: true });
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await section.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    expect(await section.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    await section.screenshot({ animations: "disabled", style: ".user-topbar, .plan-section-nav, .user-mobile-nav, .skip-link { visibility: hidden !important; }", path: fileURLToPath(new URL(`guided-scenarios-${viewport.width}.png`, artifacts)) });
+  }
+  expect(calls.filter(call => !call.path.startsWith("/api/v1/auth/") && !call.path.endsWith("/retirement/preview"))).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("scenario issues: shared guidance preserves each option's own missing data", async ({ page }) => {
+  const common = [
+    { path: "answers[0]", code: "ANSWER_REQUIRED" },
+    { path: "answers[1]", code: "ANSWER_REQUIRED" },
+    { path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" },
+    { path: "assumptions", code: "PUBLISHED_INFLATION_REQUIRED" },
+  ];
+  const debtIssues = [{ path: "debts[0]", code: "DEBT_SCHEDULE_REQUIRED" }, { path: "debts[1]", code: "DEBT_SCHEDULE_REQUIRED" }];
+  const { calls, errors } = await setup(page, { scenarioIssues: [common, [...common, ...debtIssues], common] });
+  const notice = page.locator(".guided-scenarios-notice");
+  const cards = page.locator(".guided-scenario");
+  await expect(notice.locator("li")).toHaveCount(3);
+  await expect(notice.getByRole("link", { name: "Kiểm tra hồ sơ tài chính", exact: true })).toHaveAttribute("href", "/user/account?tab=profile");
+  await expect(notice.getByRole("link", { name: "Liên hệ hỗ trợ", exact: true })).toHaveAttribute("href", "/user/support");
+  await expect(cards.nth(0).locator(".guided-scenario-incomplete li")).toHaveCount(0);
+  await expect(cards.nth(1).locator(".guided-scenario-incomplete li")).toHaveText(["Cần cập nhật lịch trả nợ chi tiết cho các khoản vay hiện có."]);
+  await expect(cards.nth(2).locator(".guided-scenario-incomplete li")).toHaveCount(0);
+  expect(calls.filter(call => !call.path.startsWith("/api/v1/auth/") && !call.path.endsWith("/retirement/preview"))).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("scenario issues: a failed option keeps its error and prevents shared warnings from hiding local issues", async ({ page }) => {
+  const issues = [{ path: "answers[0]", code: "ANSWER_REQUIRED" }, { path: "answers[1]", code: "ANSWER_REQUIRED" }];
+  const { calls, errors } = await setup(page, { scenarioIssues: [issues, issues, issues], scenarioFailure: true });
+  const cards = page.locator(".guided-scenario");
+  await expect(cards.nth(1).getByRole("alert")).toContainText("Chưa tính được phương án này.");
+  await expect(cards.nth(1).getByRole("button", { name: "Thử lại", exact: true })).toBeVisible();
+  await expect(cards.nth(0).locator(".guided-scenario-incomplete li")).toHaveCount(1);
+  await expect(cards.nth(2).locator(".guided-scenario-incomplete li")).toHaveCount(1);
+  await expect(page.locator(".guided-scenarios-notice")).toHaveCount(0);
+  expect(calls.filter(call => !call.path.startsWith("/api/v1/auth/") && !call.path.endsWith("/retirement/preview"))).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("scenario issues: contribution confirmation points to plan settings and missing assumptions point to support", async ({ page }) => {
+  const issues = [{ path: "startOfMonthFunding.confirmed", code: "START_OF_MONTH_FUNDING_CONFIRMATION_REQUIRED" }, { path: "assumptions", code: "PUBLISHED_INFLATION_REQUIRED" }];
+  const { calls, errors } = await setup(page, { scenarioIssues: [issues, issues, issues] });
+  const notice = page.locator(".guided-scenarios-notice");
+  const settings = notice.getByRole("link", { name: "Kiểm tra thiết lập kế hoạch", exact: true });
+  await expect(notice.locator("li")).toHaveCount(2);
+  await expect(settings).toHaveAttribute("href", "#plan-settings");
+  await expect(notice.getByRole("link", { name: "Liên hệ hỗ trợ", exact: true })).toHaveAttribute("href", "/user/support");
+  await expect(notice.getByRole("link", { name: "Kiểm tra hồ sơ tài chính", exact: true })).toHaveCount(0);
+  await settings.click();
+  await expect(page).toHaveURL(/#plan-settings$/);
+  await expect(page.locator("#plan-settings")).toBeInViewport();
+  expect(calls.filter(call => !call.path.startsWith("/api/v1/auth/") && !call.path.endsWith("/retirement/preview"))).toEqual([]);
   expect(errors).toEqual([]);
 });
 

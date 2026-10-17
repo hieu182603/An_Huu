@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { installRouteAuth, installFinancialProfileRoutes } from './helpers';
 
 async function planPage(page: Page, options: { policyError?: boolean; previewError?: boolean; applyError?: boolean; replayError?: boolean; plansError?: boolean; incomplete?: boolean; coverage?: string | null; historyCount?: number } = {}) {
@@ -15,7 +16,7 @@ async function planPage(page: Page, options: { policyError?: boolean; previewErr
   let policyError = !!options.policyError, previewError = !!options.previewError, applyError = !!options.applyError, replayError = !!options.replayError, exportError = false;
   let plansError = !!options.plansError;
   const calls: { path: string; method: string; body: any }[] = [];
-  const policy = { id: 'policy-audit', version: 1, data: { questions: [{ id: 'q1', choices: [{ id: 'BALANCED', score: 1 }] }], scenarios: [{ years: [{ year: 2055 }] }], rules: [{ horizon: { max: 360 } }], templates: [{ coverageMonths: 360 }] } };
+  const policy = { id: 'policy-audit', version: 1, data: { questions: [{ id: 'q1', choices: [{ id: 'BALANCED', score: 1 }] }], scenarios: [{ years: [{ year: 2055 }] }], rules: [{ horizon: { max: 360 } }], templates: [{ id: 'balanced', label: 'Cân bằng', coverageMonths: 360, schedule: [] }] } };
   await page.route('**/api/v1/me/portfolio-policies**', route => policyError ? route.fulfill({ status: 503, json: { error: { code: 'UNAVAILABLE', message: 'Không tải được chính sách kiểm thử.' } } }) : route.fulfill({ json: { data: new URL(route.request().url()).pathname.endsWith('/policy-audit') ? policy : { status: 'AVAILABLE', items: [{ id: policy.id }], total: 1 } } }));
   const rows = Array.from({ length: 30 }, (_, i) => ({ month: `${2026 + Math.floor(i / 12)}-${String(i % 12 + 1).padStart(2, '0')}`, phase: 'ACCUMULATION', growthFactor: '1', inflationFactor: '1', income: '30000000', pension: '0', livingExpense: '20000000', additionalExpense: '0', debtPayment: '0', plannedContribution: '10000000', contribution: '10000000', contributionCapacity: '10000000', withdrawal: '0', uninvestedSurplus: '0', capitalInjection: '0', openingBalance: '0', investmentChange: '0', closingBalance: String(12345678 + i), fundedClosingBalance: '0', unfundedWithdrawal: '0', budgetShortfall: '0', requiredOpeningBalance: '0', requiredClosingBalance: '0', netWithdrawal: '0' }));
   const summary = { valuationDate: '2026-10-08', retirementMonth: '2054-03', endMonth: '2055-12', accumulationMonths: 330, retirementMonths: 22, initialRetirementCapital: '0', atRetirement: { projectedFund: '3000000000', requiredFund: '5000000000', coveragePercent: null }, requiredConstantMonthlyContribution: null, additionalMonthlyContribution: null, savingsStatus: 'NO_ELIGIBLE_CONTRIBUTION_PERIOD', retirementFundingShortfall: '2000000000', excessAtRetirement: '0', futureMonthlyExpense: '50000000' };
@@ -35,10 +36,11 @@ async function planPage(page: Page, options: { policyError?: boolean; previewErr
   }
   const makePreview = (input: any, hash = `hash-${input.contributionTiming}`) => ({ status: 'READY', inputHash: hash, modelVersion: 'retirement-monthly-v2', profileRevision: 3, valuationDate: '2026-10-08', references: { profileHash: 'profile-hash' }, issues: [], warnings: [], selection: input, calculation: { summary, rows, netWorth: '0', limitations: [] } });
   let latest: any = null;
-  let versions: any[] = [{ id: 'version-old', version: 1, snapshotHash: 'profile-hash', createdAt: '2026-10-01T00:00:00Z', preview: makePreview({ answers: [] }, 'old-hash') }, { id: 'version-history', version: 2, snapshotHash: 'history-hash', createdAt: '2026-10-02T00:00:00Z', preview: makePreview({ answers: [] }, 'history-hash') }];
+  const baselineSelection = { expectedProfileRevision: 2, policyVersionId: policy.id, answers: [{ questionId: 'q1', choiceId: 'BALANCED' }], liquidityNeedMonths: 6, endMonth: '2055-12', monthlyExpenseToday: '20000000', monthlyContribution: '10000000', monthlyReserve: '0', terminalBalance: '0', retirementIncomeIds: [], retirementAdditionalExpenseIds: [], debtStress: [], housing: [], scenario: 'BASE', contributionTiming: 'END_OF_MONTH', surplusPolicy: 'EXPLICIT_DEPOSITS_ONLY' };
+  let versions: any[] = [{ id: 'version-old', version: 1, snapshotHash: 'profile-hash', createdAt: '2026-10-01T00:00:00Z', preview: makePreview(baselineSelection, 'old-hash') }, { id: 'version-history', version: 2, snapshotHash: 'history-hash', createdAt: '2026-10-02T00:00:00Z', preview: makePreview(baselineSelection, 'history-hash') }];
   if (options.historyCount !== undefined) versions = versions.slice(0, options.historyCount);
   let currentId = 'version-old', revision = 4;
-  const detail = () => ({ id: 'plan-audit', revision, currentVersionId: currentId, baselineVersionId: 'version-old', current: versions.find(v => v.id === currentId) });
+  const detail = () => ({ id: 'plan-audit', revision, currentVersionId: currentId, baselineVersionId: 'version-old', current: versions.find(v => v.id === currentId), ...(options.policyError ? { readWarnings: [{ code: 'PLAN_HORIZON_TRUNCATED', message: 'Kế hoạch đã lưu kết thúc sớm hơn mục tiêu hiện tại.', endMonth: '2055-12', expectedEndMonth: '2074-03', goalRevision: 3 }] } : {}) });
   await page.route('**/api/v1/me/retirement/preview', async route => {
     const body = route.request().postDataJSON(); calls.push({ path: 'preview', method: 'POST', body });
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -57,7 +59,7 @@ async function planPage(page: Page, options: { policyError?: boolean; previewErr
       currentId = body.versionId; revision++; return route.fulfill({ json: { data: { planId: 'plan-audit', revision, currentVersionId: currentId } } });
     }
     if (path.endsWith('/versions') && method === 'POST') {
-      const saved = { id: `version-${versions.length + 1}`, version: versions.length + 1, snapshotHash: 'saved-hash', createdAt: '2026-10-08T00:00:00Z', preview: latest }; versions.push(saved); revision++;
+      const saved = { id: `version-${versions.length + 1}`, version: versions.length + 1, snapshotHash: 'saved-hash', createdAt: '2026-10-08T00:00:00Z', preview: makePreview(body.preview, body.expectedInputHash) }; versions.push(saved); revision++;
       return route.fulfill({ json: { data: { saved, planId: 'plan-audit', revision } } });
     }
     return route.fulfill({ json: { data: path.endsWith('/plans') ? { items: [detail()], total: 1 } : path.endsWith('/versions') ? { items: versions.map(v => ({ ...v, summary })), total: versions.length } : detail() } });
@@ -65,6 +67,118 @@ async function planPage(page: Page, options: { policyError?: boolean; previewErr
   await page.goto('/user/plan'); await expect(page.locator('.plan-result-hero')).toBeVisible(); await expect(page.locator('.anhuu-loading')).toHaveCount(0);
   return { calls, setPlansError: (v: boolean) => { plansError = v; }, setPolicyError: (v: boolean) => { policyError = v; }, setApplyError: (v: boolean) => { applyError = v; }, setExportError: (v: boolean) => { exportError = v; }, setReplayError: (v: boolean) => { replayError = v; } };
 }
+
+test('plan redesign: results lead the page and section navigation reaches every destination', async ({ page }) => {
+  await planPage(page, { coverage: '60' });
+  const ids = ['plan-overview', 'plan-settings', 'plan-cashflow', 'plan-analysis'];
+  const navigation = page.locator('.plan-section-nav');
+  await expect(navigation).toBeVisible();
+  expect(await navigation.locator('a').evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual(ids.map(id => `#${id}`));
+  expect(await page.locator('.retirement-plan-page [id]').evaluateAll((elements, sectionIds) => elements.map(element => element.id).filter(id => sectionIds.includes(id)), ids)).toEqual(ids);
+  await expect(page.locator('#plan-overview .plan-result-hero')).toBeVisible();
+  await expect(page.locator('#plan-overview .plan-metric-card')).toHaveCount(4);
+  await expect(page.locator('#plan-settings').getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)', { exact: true })).toBeVisible();
+  await expect(page.locator('#plan-cashflow .monthly-cashflow-table-component')).toBeVisible();
+  await expect(page.locator('#plan-analysis [data-testid="risk-analysis"]')).toBeVisible();
+  for (const id of ids) {
+    await navigation.locator(`a[href="#${id}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`#${id}$`));
+    await expect(page.locator(`#${id}`)).toBeInViewport();
+  }
+});
+
+test('explanation metric compares raw value and requests MONTHLY only after the user asks', async ({ page }) => {
+  await planPage(page, { coverage: '60' });
+  const requests: any[] = [];
+  await page.route('**/api/v1/me/explanations/metric', async route => {
+    const body = route.request().postDataJSON(); requests.push(body);
+    const monthly = body.detail === 'MONTHLY';
+    return route.fulfill({ json: { data: {
+      metricKey: body.metricKey, detail: body.detail, label: { vi: 'Quỹ cần có khi nghỉ hưu', en: 'Required fund' },
+      value: '100000000', unit: 'VND', formula: { vi: 'Cộng các khoản cần có.', en: 'Add the required amounts.', symbolic: 'A + B' },
+      steps: [{ label: { vi: 'Khoản A', en: 'Amount A' }, value: '100000000', unit: 'VND', source: 'engine.summary' }, ...(monthly ? [{ label: { vi: 'Tháng 1', en: 'Month 1' }, value: '100000000', unit: 'VND', source: 'engine.rows[0]' }] : [])],
+      assumptions: { version: 2, sources: [] }, notes: ['Chi tiết phép tính được cung cấp bởi máy chủ.'], limitations: ['Đây là ước tính.']
+    } } });
+  });
+  await page.getByRole('button', { name: 'Trợ lý AI', exact: true }).click();
+  const value = page.locator('.result-total [role="button"]');
+  await expect(value).toBeVisible(); await value.click();
+  const popup = page.getByRole('dialog', { name: 'Quỹ cần có khi nghỉ hưu' });
+  await expect(popup).toContainText('100.000.000 VND');
+  expect(requests).toHaveLength(1); expect(requests[0].detail).toBe('SUMMARY'); expect(requests[0].source.kind).toBe('PREVIEW');
+  await popup.getByRole('button', { name: 'Xem chi tiết từng tháng' }).click();
+  await expect(page.getByRole('dialog', { name: 'Chi tiết phép tính theo tháng' })).toContainText('Tháng 1');
+  expect(requests).toHaveLength(2); expect(requests[1].detail).toBe('MONTHLY');
+});
+
+test('explanation metric mismatch hides the formula and tells the user to reload', async ({ page }) => {
+  await planPage(page, { coverage: '60' });
+  await page.route('**/api/v1/me/explanations/metric', route => route.fulfill({ json: { data: {
+    metricKey: 'summary.atRetirement.requiredFund', detail: 'SUMMARY', label: { vi: 'Quỹ cần có khi nghỉ hưu', en: 'Required fund' }, value: '999', unit: 'VND',
+    formula: { vi: 'Công thức không được hiển thị.', en: 'Do not show this formula.', symbolic: 'A + B' }, steps: [], assumptions: { version: 2, sources: [] }, notes: [], limitations: []
+  } } }));
+  await page.getByRole('button', { name: 'Trợ lý AI', exact: true }).click();
+  await page.locator('.result-total [role="button"]').click();
+  const popup = page.getByRole('dialog');
+  await expect(popup).toContainText('Số liệu đã thay đổi, hãy tải lại');
+  await expect(popup).not.toContainText('Công thức không được hiển thị.');
+});
+
+for (const scenario of [
+  { name: 'unavailable metric', status: 422, code: 'METRIC_NOT_AVAILABLE', message: 'Chưa có giải thích cho số liệu này' },
+  { name: 'rate limited metric', status: 429, code: 'RATE_LIMITED', message: 'Bạn thao tác hơi nhanh. Vui lòng chờ rồi thử lại.' },
+]) {
+  test(`explanation ${scenario.name} shows a localized message and does not fabricate a formula`, async ({ page }) => {
+    await planPage(page, { coverage: '60' });
+    await page.route('**/api/v1/me/explanations/metric', route => route.fulfill({ status: scenario.status, json: { error: { code: scenario.code, message: 'API fixture response' } } }));
+    await page.getByRole('button', { name: 'Trợ lý AI', exact: true }).click();
+    await page.locator('.result-total [role="button"]').click();
+    const popup = page.getByRole('dialog');
+    await expect(popup).toContainText(scenario.message);
+    await expect(popup).not.toContainText('A + B');
+  });
+}
+
+test('plan redesign: desktop and mobile keep content readable without horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await planPage(page, { coverage: '2822.14' });
+  await expect(page.getByRole('button', { name: 'Lưu phương án này', exact: true })).toBeEnabled();
+  const artifacts = fileURLToPath(new URL('../../artifacts/plan-redesign/', import.meta.url));
+  await mkdir(artifacts, { recursive: true });
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    for (const selector of ['.retirement-page-header', '.plan-section-nav', '.plan-result-hero', '.plan-metrics', '#plan-settings', '#plan-cashflow', '#plan-analysis']) {
+      const box = (await page.locator(selector).boundingBox())!;
+      expect(box.x, selector).toBeGreaterThanOrEqual(-1);
+      expect(box.x + box.width, selector).toBeLessThanOrEqual(viewport.width + 1);
+    }
+    await expect(page.locator('.plan-result-hero')).toBeInViewport();
+    await page.screenshot({ animations: 'disabled', path: `${artifacts}/plan-${viewport.width}-viewport.png` });
+    await page.screenshot({ animations: 'disabled', fullPage: true, path: `${artifacts}/plan-${viewport.width}-full.png` });
+  }
+});
+
+test('plan redesign: optional advisory fees expand and collapse from the keyboard', async ({ page }) => {
+  await planPage(page, { coverage: '60' });
+  const fees = page.locator('details.plan-fee-details');
+  const summary = fees.locator('summary').first();
+  const rate = fees.getByLabel('Phí tư vấn (%/năm)', { exact: true });
+  await expect(fees).not.toHaveAttribute('open', '');
+  await expect(rate).not.toBeVisible();
+  await summary.focus();
+  await page.keyboard.press('Enter');
+  await expect(fees).toHaveAttribute('open', '');
+  await expect(rate).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(rate).toBeFocused();
+  await summary.focus();
+  await page.keyboard.press('Space');
+  await expect(fees).not.toHaveAttribute('open', '');
+  await expect(rate).not.toBeVisible();
+  await expect(summary).toBeFocused();
+});
 
 for (const example of [
   { value: '0', text: '0', filled: 0, state: 'is-warning' },
@@ -80,7 +194,7 @@ for (const example of [
 ]) {
   test(`plan gauge: coverage ${example.value}`, async ({ page }) => {
     await planPage(page, { coverage: example.value });
-    await expect(page.getByRole('button', { name: 'Lưu phiên bản này', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Lưu phương án này', exact: true })).toBeEnabled();
     const panel = page.locator('.plan-progress-panel');
     await expect(panel.locator('.ring-number')).toHaveText(example.text);
     await expect(panel).toHaveClass(new RegExp(example.state));
@@ -104,9 +218,9 @@ for (const example of [
     }
     if (example.value === '2822.14') {
       await expect(panel.locator('.gauge-multiplier-tag')).toHaveText('Gấp khoảng 28,22 lần quỹ cần.');
-      await expect(panel.locator('.status-card-amount')).toHaveText('+21.648.153.495 ₫');
+      await expect(panel.locator('.status-card-amount')).toHaveText('+21.648.153.495 VND');
     }
-    if (example.value === '100') await expect(panel.locator('.status-card-amount')).toHaveText('0 ₫');
+    if (example.value === '100') await expect(panel.locator('.status-card-amount')).toHaveText('0 VND');
     if (example.state === 'is-unknown') await expect(panel.locator('.ring-unit')).toHaveCount(0);
   });
 }
@@ -153,12 +267,12 @@ test('plan gauge: English labels and reflow at a 200-percent-equivalent viewport
 });
 
 test('plan: failed preview does not claim success or no contribution needed', async ({ page }) => {
-  await planPage(page, { previewError: true }); await expect(page.getByText('Chưa tính được dự phóng', { exact: true })).toBeVisible();
+  await planPage(page, { previewError: true }); await expect(page.locator('.plan-sync-status[role="alert"]')).toContainText('Chưa cập nhật được số liệu. Phiên bản đã lưu vẫn được giữ.');
   await expect(page.locator('.plan-metrics')).not.toContainText('Đã đạt trọn vẹn'); await expect(page.locator('.plan-metrics')).not.toContainText('Không cần thêm');
 });
 
 test('plan: preview CSV matches displayed rows rather than the previously applied version', async ({ page }) => {
-  const f = await planPage(page); await expect(page.getByRole('button', { name: 'Lưu phiên bản này', exact: true })).toBeEnabled();
+  const f = await planPage(page); await expect(page.getByRole('button', { name: 'Lưu phương án này', exact: true })).toBeEnabled();
   const downloadPromise = page.waitForEvent('download'); await page.getByRole('button', { name: 'Xuất file CSV', exact: true }).click(); const download = await downloadPromise;
   expect(await readFile((await download.path())!, 'utf8')).toContain('12345678');
   expect(f.calls.filter(c => c.path.endsWith('/export.csv'))).toHaveLength(0);
@@ -169,16 +283,16 @@ test('plan: history is an accessible dialog and apply requires a separate confir
   const dialog = page.getByRole('dialog'); await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Áp dụng bản này', exact: true }).click();
   expect(f.calls.filter(c => c.path.endsWith('/apply'))).toHaveLength(0);
-  await expect(dialog.getByRole('button', { name: 'Xác nhận áp dụng v2', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại v2', exact: true })).toBeVisible();
 });
 
 test('plan: missing policy has retry and preserves the preview versus applied distinction', async ({ page }) => {
   const f = await planPage(page, { policyError: true }); await expect(page.getByText('Chưa tải được chính sách danh mục', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Lưu phiên bản này', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Lưu phương án này', exact: true })).toBeDisabled();
   f.setPolicyError(false); await page.getByRole('button', { name: 'Tải lại chính sách', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Lưu phiên bản này', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Lưu phương án này', exact: true })).toBeEnabled();
   await expect(page.locator('.header-status-badge')).toContainText('Chưa áp dụng chính thức');
-  await expect(page.getByText('Dự phóng chưa bao phủ hết tuổi thọ đã chọn', { exact: true })).toBeVisible();
+  await expect(page.getByText('Kế hoạch bị cắt ngắn, nên tính lại', { exact: true })).toBeVisible();
   await expect(page.locator('.ring-center-content')).toContainText('Chưa xác định');
   await expect(page.locator('.plan-metrics')).toContainText('Chưa xác định');
   expect(f.calls.find(c => c.path === 'preview')?.body.endMonth).toBe('2055-12');
@@ -186,13 +300,13 @@ test('plan: missing policy has retry and preserves the preview versus applied di
 });
 
 test('plan: saving then applying and retrying a failed apply reuse the exact saved version', async ({ page }) => {
-  const f = await planPage(page, { applyError: true }); const save = page.getByRole('button', { name: 'Lưu phiên bản này', exact: true });
-  await expect(save).toBeEnabled(); await save.click(); await expect(save).toBeDisabled();
-  const apply = page.getByRole('button', { name: 'Áp dụng vào kế hoạch chính thức', exact: true }); await expect(apply).toBeEnabled(); await apply.click();
+  const f = await planPage(page, { applyError: true }); const save = page.getByRole('button', { name: 'Lưu phương án này', exact: true });
+  await expect(save).toBeEnabled(); await save.click(); await expect(page.getByRole('button', { name: 'Đã lưu bản v3', exact: true })).toBeDisabled();
+  const apply = page.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại', exact: true }); await expect(apply).toBeEnabled(); await apply.click();
   const dialog = page.getByRole('dialog'); await expect(dialog).toContainText('đã lưu thành v3');
-  await dialog.getByRole('button', { name: 'Xác nhận áp dụng', exact: true }).click(); await page.keyboard.press('Escape'); await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại', exact: true }).click(); await page.keyboard.press('Escape'); await expect(dialog).toBeVisible();
   await expect(page.getByText('Chưa áp dụng được phiên bản kiểm thử.', { exact: true })).toBeVisible();
-  f.setApplyError(false); await dialog.getByRole('button', { name: 'Xác nhận áp dụng', exact: true }).click(); await expect(dialog).toHaveCount(0);
+  f.setApplyError(false); await dialog.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại', exact: true }).click(); await expect(dialog).toHaveCount(0);
   await expect(page.locator('.header-status-badge')).toContainText('Kế hoạch chính thức v3');
   expect(f.calls.filter(c => c.method === 'POST' && c.path.endsWith('/versions'))).toHaveLength(1);
   expect(f.calls.filter(c => c.path.endsWith('/apply')).map(c => c.body.versionId)).toEqual(['version-3', 'version-3']);
@@ -203,7 +317,7 @@ test('plan: saving then applying and retrying a failed apply reuse the exact sav
 });
 
 test('plan: cancelling preview application performs no writes', async ({ page }) => {
-  const f = await planPage(page); const apply = page.getByRole('button', { name: 'Áp dụng vào kế hoạch chính thức', exact: true });
+  const f = await planPage(page); const apply = page.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại', exact: true });
   await expect(apply).toBeEnabled(); await apply.click(); await page.getByRole('button', { name: 'Hủy bỏ', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0); await expect(apply).toBeFocused();
   expect(f.calls.filter(c => c.method === 'POST' && c.path !== 'preview')).toHaveLength(0);
@@ -217,54 +331,57 @@ test('plan: history replay network error is not an integrity mismatch, retry wor
   await expect(dialog.getByRole('status')).toContainText('100%');
   await dialog.getByRole('button', { name: 'Áp dụng bản này', exact: true }).click(); await dialog.getByRole('button', { name: 'Hủy bỏ', exact: true }).click();
   expect(f.calls.filter(c => c.path.endsWith('/apply'))).toHaveLength(0);
-  await dialog.getByRole('button', { name: 'Áp dụng bản này', exact: true }).click(); await dialog.getByRole('button', { name: 'Xác nhận áp dụng v2', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Áp dụng bản này', exact: true }).click(); await dialog.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại v2', exact: true }).click();
   await expect(dialog).toHaveCount(0); expect(f.calls.find(c => c.path.endsWith('/apply'))?.body.versionId).toBe('version-history');
 });
 
 test('plan: changing timing hides old rows and confirms selection; year filter matches rows', async ({ page }) => {
   await planPage(page); await expect(page.getByRole('button', { name: 'Xuất file CSV', exact: true })).toBeVisible();
   await page.getByRole('combobox', { name: 'Lọc năm', exact: true }).selectOption('2027');
-  await expect(page.locator('.monthly-cashflow-table-component tbody tr')).toHaveCount(12);
+  await expect(page.locator('.monthly-cashflow-table-component tbody tr:not(.cashflow-detail-row)')).toHaveCount(12);
+  await expect(page.locator('.monthly-cashflow-table-component tbody th[scope="row"] strong')).toHaveText(Array.from({ length: 12 }, (_, index) => `${String(index + 1).padStart(2, '0')}/2027`));
   await page.getByRole('button', { name: 'Đầu mỗi tháng', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Đầu mỗi tháng', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByLabel('Thu nhập khả dụng sẵn có đầu tháng để tích lũy (VND) *', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Tiền sẵn có để góp vào đầu tháng (đồng) *', { exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Lọc năm', exact: true })).toHaveValue('ALL');
 });
 
 test('plan: list failure blocks saving instead of creating another plan', async ({ page }) => {
   const f = await planPage(page, { plansError: true }); await expect(page.getByText('Chưa tải được kế hoạch đã lưu', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Lưu phiên bản này', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Lưu phương án này', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: /Xem lịch sử/ })).toBeDisabled();
   f.setPlansError(false); await page.getByRole('button', { name: 'Tải lại kế hoạch', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Lưu phiên bản này', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Lưu phương án này', exact: true })).toBeEnabled();
   expect(f.calls.filter(c => c.method === 'POST' && c.path.endsWith('/plans'))).toHaveLength(0);
 });
 
 test('plan: incomplete input has no actionable stale result', async ({ page }) => {
   await planPage(page, { incomplete: true }); await expect(page.getByText('Dữ liệu chưa hoàn tất', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Lưu phiên bản này', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Áp dụng vào kế hoạch chính thức', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Lưu phương án này', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại', exact: true })).toBeDisabled();
   await expect(page.locator('.monthly-cashflow-table-component')).toHaveCount(0);
   await expect(page.locator('.plan-metrics')).not.toContainText('Không cần thêm');
 });
 
 test('plan: changed goal expense is sent in preview and saved with the matching hash', async ({ page }) => {
-  const f = await planPage(page); await expect(page.getByRole('button', { name: 'Lưu phiên bản này', exact: true })).toBeEnabled();
+  const f = await planPage(page); await expect(page.getByRole('button', { name: 'Lưu phương án này', exact: true })).toBeEnabled();
   await page.locator('.user-sidebar a[href="/user/goal"]').click();
   await page.getByRole('textbox', { name: 'Mức chi tiêu dự kiến mỗi tháng', exact: false }).fill('31000000');
   await page.getByRole('button', { name: 'Xem trước kế hoạch', exact: true }).click();
-  const save = page.getByRole('button', { name: 'Lưu phiên bản này', exact: true }); await expect(save).toBeEnabled(); await save.click();
+  const save = page.getByRole('button', { name: 'Lưu phương án này', exact: true }); await expect(save).toBeEnabled(); await save.click();
   await expect(page.getByText('Bản xem trước này đã lưu thành phiên bản v3.', { exact: true })).toBeVisible();
   const saved = f.calls.find(c => c.method === 'POST' && c.path.endsWith('/versions'));
   expect(saved?.body.preview.monthlyExpenseToday).toBe('31000000');
-  expect(saved?.body.preview).toEqual(f.calls.filter(c => c.path === 'preview').at(-1)?.body);
+  const matchingPreview = f.calls.filter(c => c.path === 'preview' && c.body.monthlyExpenseToday === '31000000' && !c.body.whatIf?.retirementMonth).at(-1);
+  expect(matchingPreview).toBeDefined();
+  expect(saved?.body.preview).toEqual(matchingPreview?.body);
   expect(saved?.body.expectedInputHash).toBe('hash-END_OF_MONTH');
 });
 
 for (const viewport of [{ width: 1440, height: 1000 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 390, height: 400 }]) {
   test(`plan layout: result, history and apply popup ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport); const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); await planPage(page);
-    const apply = page.getByRole('button', { name: 'Áp dụng vào kế hoạch chính thức', exact: true }); await expect(apply).toBeEnabled();
+    const apply = page.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại', exact: true }); await expect(apply).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('plan.png'), fullPage: true });
     await apply.click(); const dialog = page.getByRole('dialog');
@@ -288,8 +405,8 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 768, height: 102
 
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
     await dialog.getByRole('button', { name: 'Áp dụng bản này', exact: true }).click();
-    await dialog.getByRole('button', { name: 'Xác nhận áp dụng v2', exact: true }).scrollIntoViewIfNeeded();
-    await expect(dialog.getByRole('button', { name: 'Xác nhận áp dụng v2', exact: true })).toBeInViewport();
+    await dialog.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại v2', exact: true }).scrollIntoViewIfNeeded();
+    await expect(dialog.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại v2', exact: true })).toBeInViewport();
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('plan-history.png') });
     await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0); await expect(page.getByRole('button', { name: /Xem lịch sử/ })).toBeFocused();
     expect(errors).toEqual([]);

@@ -12,6 +12,7 @@ import LanguageSwitcher from "../components/LanguageSwitcher";
 import { NotificationDropdown } from "../components/NotificationDropdown";
 import { useI18n } from "../i18n";
 import FinancialProfileGate from "../components/FinancialProfileGate";
+import { ExplainModeProvider } from "../components/explanations/ExplainMode";
 
 export type UserNavItem = {
   path: string;
@@ -33,6 +34,7 @@ export default function UserLayout() {
   const { notify } = useNotification();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFeedback, setSearchFeedback] = useState("");
+  const [explainMode, setExplainMode] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const userNavItems: UserNavItem[] = [
@@ -61,7 +63,7 @@ export default function UserLayout() {
     setAccountModalOpen(true);
   };
 
-  useEffect(() => setMobileMenuOpen(false), [location.pathname]);
+  useEffect(() => { setMobileMenuOpen(false); setExplainMode(false); }, [location.pathname]);
 
   // Global shortcut: Ctrl+K or Cmd+K to focus search
   useEffect(() => {
@@ -201,8 +203,9 @@ export default function UserLayout() {
           <div className="user-topbar-actions">
             <button
               type="button"
-              className="topbar-ai-pill"
-              onClick={() => navigate("/user/assistant")}
+              className={`topbar-ai-pill ${explainMode ? "is-active" : ""}`}
+              onClick={() => setExplainMode(value => !value)}
+              aria-pressed={explainMode}
               title={t("topbar.ai_assistant")}
             >
               <Icon name="sparkles" />
@@ -239,6 +242,8 @@ export default function UserLayout() {
         </header>
 
         <main className={`dashboard-main ${location.pathname === "/user/assistant" ? "dashboard-main-assistant" : ""}`} id="main-content">
+          <ExplainModeProvider key={user?.id} enabled={explainMode} onDisable={() => setExplainMode(false)}>
+          {explainMode && <div className="explain-mode-banner" role="status"><span>{language === "en" ? "Tap a phrase or figure to see an explanation · Esc to exit" : "Chạm vào cụm từ hoặc con số để xem giải thích · Esc để thoát"}</span><Link to="/user/assistant">{language === "en" ? "Open AI chat" : "Mở trò chuyện AI"}</Link></div>}
           <FinancialProfileGate>
             <Suspense fallback={<AppLoader variant="inline" label={t("common.loading")} />}>
               <PageTransition key={location.pathname}>
@@ -246,6 +251,7 @@ export default function UserLayout() {
               </PageTransition>
             </Suspense>
           </FinancialProfileGate>
+          </ExplainModeProvider>
         </main>
       </div>
 

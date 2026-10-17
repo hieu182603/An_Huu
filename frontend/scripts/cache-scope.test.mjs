@@ -10,7 +10,7 @@ const keys = ["/me|{}", "/me/notifications?limit=1|{}", "/me/notifications?page=
   "/me/retirement/plans/p1|{}", "/me/retirement/plans/p1/versions?page=1&limit=50|{}", "/me/financial-profile|{}", "/me/ai/conversations|{}", "/me/assumptions|{}"];
 
 test("read-only POSTs keep every cached GET", () => {
-  for (const path of ["/me/retirement/preview", "/me/retirement/plans/p1/versions/v1/simulate", "/me/retirement/plans/p1/compare", "/me/debts/preview", "/me/ai/simulate"])
+  for (const path of ["/me/retirement/preview", "/me/retirement/plans/p1/versions/v1/simulate", "/me/retirement/plans/p1/compare", "/me/debts/preview", "/me/ai/simulate", "/me/explanations/metric"])
     assert.deepEqual(stale("POST", path, keys), [], path);
 });
 test("marking notifications read only drops notification lists", () => {

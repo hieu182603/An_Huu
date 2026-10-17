@@ -1,0 +1,146 @@
+.retirement-plan-page { min-width: 0; max-width: 1360px; margin-inline: auto; }
+.retirement-plan-page .retirement-page-header { align-items: flex-start; padding: 0; margin-bottom: 24px; border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+.retirement-plan-page .retirement-page-header::before { display: none; }
+.retirement-plan-page .retirement-page-header h1 { margin: 12px 0 8px; font-size: clamp(26px, 2.6vw, 34px); letter-spacing: -.035em; }
+.retirement-plan-page .retirement-page-header p { max-width: 560px; font-size: 14px; line-height: 1.65; }
+.retirement-plan-page .header-status-badge { max-width: 100%; padding: 6px 10px; font-size: 12px; line-height: 1.5; }
+.retirement-plan-page .header-status-badge.is-preview { color: var(--color-primary-700); border: 1px solid var(--color-border); background: var(--color-secondary-soft); }
+.retirement-plan-page .header-quick-stats { max-width: 380px; align-items: stretch; padding-top: 6px; }
+.retirement-plan-page .header-quick-stat-item { min-width: 130px; max-width: 225px; padding: 12px 16px; border-color: var(--color-border); background: var(--color-white); box-shadow: none; }
+.retirement-plan-page .header-quick-stat-item .stat-label { font-size: 12px; margin-bottom: 6px; }
+.retirement-plan-page .header-quick-stat-item .stat-value { font-size: 14px; }
+
+.plan-section-nav { position: sticky; top: calc(var(--topbar-height) + 8px); z-index: 8; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 6px; margin-bottom: 24px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-white); box-shadow: 0 4px 16px rgba(5, 38, 89, .04); }
+.plan-section-nav a { display: flex; min-height: 44px; justify-content: center; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 9px; color: var(--color-text-muted); font-size: 14px; font-weight: 600; }
+.plan-section-nav a > span { color: var(--color-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.plan-section-nav a:hover { color: var(--color-primary-700); background: var(--color-bg); }
+.retirement-plan-page:not(:has(.plan-section:target)) .plan-section-nav a:first-child,
+.retirement-plan-page:has(#plan-overview:target) a[href="#plan-overview"],
+.retirement-plan-page:has(#plan-settings:target) a[href="#plan-settings"],
+.retirement-plan-page:has(#plan-cashflow:target) a[href="#plan-cashflow"],
+.retirement-plan-page:has(#plan-analysis:target) a[href="#plan-analysis"] { color: var(--color-primary-700); background: var(--color-secondary-soft); }
+.plan-section { min-width: 0; margin-bottom: 36px; scroll-margin-top: calc(var(--topbar-height) + 96px); }
+.plan-section:focus { outline: none; box-shadow: none; }
+.plan-section-heading { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
+.plan-section-number { display: grid; width: 38px; height: 38px; flex: none; place-items: center; border: 1px solid var(--color-border); border-radius: 12px; color: var(--color-secondary-500); background: var(--color-white); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.plan-section-heading h2 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -.025em; line-height: 1.4; }
+.plan-section-heading p { margin: 0; color: var(--color-text-muted); font-size: 14px; line-height: 1.65; }
+
+.retirement-plan-page .plan-result-hero { grid-template-columns: minmax(0, 1fr) minmax(285px, .52fr); min-height: 0; border: 1px solid var(--color-primary-700); border-radius: 20px; box-shadow: none; }
+.retirement-plan-page .plan-result-copy { min-width: 0; order: 0; justify-content: flex-start; padding: 30px; }
+.plan-result-context { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+.plan-scenario-label { color: #c6d9ef; font-size: 12px; }
+.retirement-plan-page .result-kicker { margin-top: 0; color: #c6d9ef; font-size: 12px; line-height: 1.6; letter-spacing: .035em; }
+.retirement-plan-page .result-total { margin: 10px 0 14px; font-size: clamp(28px, 3vw, 42px); font-weight: 700; line-height: 1.25; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.retirement-plan-page .plan-result-copy > p { color: #d8e6f7; font-size: 14px; line-height: 1.7; }
+.plan-result-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #34527a; }
+.plan-result-facts > div { min-width: 0; font-size: 13px; }
+.plan-result-facts span { display: block; margin-bottom: 8px; color: #c6d9ef; font-size: 12px; line-height: 1.6; }
+.plan-result-facts strong { color: var(--color-white); font-size: 14px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.retirement-plan-page .plan-hero-actions { gap: 16px; margin-top: 28px; }
+.retirement-plan-page .plan-hero-actions__main { gap: 10px; }
+.retirement-plan-page .plan-hero-action { min-height: 46px; padding: 10px 14px; font-size: 13px; border-radius: 10px; }
+.retirement-plan-page .plan-hero-action--apply { color: var(--color-primary-700); background: var(--color-white); border-color: var(--color-white); box-shadow: none; }
+.retirement-plan-page .plan-hero-action--apply:hover:not(:disabled) { color: var(--color-primary-700); background: var(--color-secondary-soft); }
+.retirement-plan-page .plan-hero-action--save { color: var(--color-white); border-color: #8da7c9; background: transparent; }
+.retirement-plan-page .plan-hero-action--save:hover:not(:disabled) { background: #234575; border-color: var(--color-white); }
+.retirement-plan-page .plan-hero-actions .button:disabled { color: #afc5e0; border-color: #486488; }
+.retirement-plan-page .plan-hero-actions .plan-hero-tool { min-height: 44px; padding-inline: 8px; }
+.retirement-plan-page .plan-hero-actions__tools { gap: 4px 12px; padding-top: 12px; }
+.retirement-plan-page .plan-hero-actions .plan-hero-tool:disabled { border-color: transparent; }
+.retirement-plan-page .plan-progress-panel { min-width: 0; padding: 20px; background: #08234b; backdrop-filter: none; }
+.retirement-plan-page .ring-ambient-glow { display: none; }
+.retirement-plan-page .ring-number { filter: none; }
+.retirement-plan-page .plan-status-card { padding: 14px; border-color: #3b5272; background: #102f58; box-shadow: none; backdrop-filter: none; }
+.retirement-plan-page .status-pulse-dot { animation: none; box-shadow: none; }
+.retirement-plan-page .status-badge-indicator { font-size: 12px; }
+.retirement-plan-page .status-card-desc { font-size: 13px; line-height: 1.65; }
+.retirement-plan-page .gauge-explanation { font-size: 12px; line-height: 1.7; }
+
+.retirement-plan-page .plan-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.retirement-plan-page .plan-metric-card { min-width: 0; min-height: 168px; gap: 16px; padding: 20px; border-radius: 16px; box-shadow: none; }
+.retirement-plan-page .plan-metric-card > div { align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.65; }
+.retirement-plan-page .plan-metric-card > div .icon { width: 17px; height: 17px; margin-top: 2px; color: var(--color-secondary-500); }
+.retirement-plan-page .plan-metric-card > strong { margin: 0; font-size: clamp(19px, 1.6vw, 24px); line-height: 1.45; overflow-wrap: anywhere; }
+.retirement-plan-page .plan-metric-card small { margin-top: auto; color: var(--color-text-muted); font-size: 12px; line-height: 1.65; }
+.retirement-plan-page .plan-metric-card.tone-warning { border-color: #ead7b4; background: #fffbf3; }
+
+.retirement-plan-page .plan-settings { margin-bottom: 14px; padding: 26px; border-radius: 18px; box-shadow: none; }
+.retirement-plan-page .plan-settings__eyebrow { margin-bottom: 6px; font-size: 11px; letter-spacing: .08em; }
+.retirement-plan-page .plan-settings__note { padding: 12px 16px; border-left: 3px solid var(--color-secondary-light); border-radius: 0 8px 8px 0; background: var(--color-bg); font-size: 13px; line-height: 1.7; }
+.retirement-plan-page .plan-settings__grid { margin-block: 8px; gap: 20px; }
+.retirement-plan-page .plan-settings__links a { min-height: 40px; }
+.plan-fee-details { border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-white); }
+.plan-fee-details > summary { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 16px 22px; list-style: none; cursor: pointer; color: var(--color-primary-700); font-size: 14px; font-weight: 600; }
+.plan-fee-details > summary::-webkit-details-marker { display: none; }
+.plan-fee-details > summary > span { flex: 1; min-width: 0; }
+.plan-fee-details > summary small { display: block; margin-top: 4px; color: var(--color-text-muted); font-size: 12px; font-weight: 400; line-height: 1.6; }
+.plan-fee-details[open] > summary { border-bottom: 1px solid var(--color-border); }
+.plan-fee-details[open] > summary > .icon:last-child { transform: rotate(180deg); }
+.retirement-plan-page .plan-fee-details > .planning-analysis { margin: 0; border: 0; background: transparent; }
+
+.plan-chart-card, .plan-table-card { min-width: 0; padding: 24px; border-radius: 18px; box-shadow: none; }
+.plan-table-card { margin-top: 18px; }
+.plan-milestones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 26px; padding: 18px 20px; list-style: none; border-radius: 12px; background: var(--color-bg); }
+.plan-milestones li { min-width: 0; padding-left: 14px; border-left: 2px solid var(--color-border-input); }
+.plan-milestones li:nth-child(2) { border-left-color: var(--color-secondary-500); }
+.plan-milestones span { display: block; margin-bottom: 6px; color: var(--color-text-muted); font-size: 12px; }
+.plan-milestones strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+.plan-empty-state { display: grid; justify-items: center; gap: 12px; padding: 36px 24px; border: 1px dashed var(--color-border-input); border-radius: 16px; background: var(--color-white); text-align: center; }
+.plan-empty-state > .icon { color: var(--color-secondary-light); }
+.plan-empty-state h3 { margin: 0; font-size: 18px; }
+.plan-empty-state p { max-width: 480px; margin: 0; color: var(--color-text-muted); line-height: 1.7; }
+.plan-empty-state a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 600; }
+.retirement-plan-page .planning-analysis { margin-block: 18px; color: var(--color-text-strong); font-size: 14px; line-height: 1.75; }
+.retirement-plan-page .planning-analysis h2 { font-size: 20px; letter-spacing: -.02em; }
+.retirement-plan-page .planning-analysis h3 { font-size: 17px; }
+.retirement-plan-page .plan-explanation-details { padding: 16px 20px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-white); }
+.retirement-plan-page .plan-explanation-details summary { min-height: 44px; align-content: center; cursor: pointer; font-weight: 600; }
+
+@media (max-width: 1199px) {
+  .retirement-plan-page .retirement-page-header { flex-direction: column; gap: 18px; }
+  .retirement-plan-page .header-quick-stats { width: 100%; max-width: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; }
+  .retirement-plan-page .header-quick-stat-item { max-width: none; }
+  .retirement-plan-page .plan-result-hero { grid-template-columns: minmax(0, 1fr) 285px; }
+  .retirement-plan-page .plan-result-copy { padding: 24px; }
+  .retirement-plan-page .plan-result-facts { grid-template-columns: 1fr; gap: 10px; }
+  .plan-result-facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .plan-result-facts span { margin: 0; }
+  .retirement-plan-page .plan-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .plan-section-nav { top: calc(var(--topbar-height) + 4px); gap: 2px; padding: 4px; margin-bottom: 18px; border-radius: 12px; }
+  .plan-section-nav a { gap: 0; padding: 8px 3px; font-size: 12px; }
+  .plan-section-nav a > span { display: none; }
+  .plan-section { margin-bottom: 28px; }
+  .plan-section-heading { gap: 10px; }
+  .plan-section-heading h2 { font-size: 20px; }
+  .plan-section-heading p { font-size: 13px; }
+  .retirement-plan-page .retirement-page-header h1 { font-size: 28px; }
+  .retirement-plan-page .header-quick-stat-item { min-width: 0; padding: 10px 12px; }
+  .retirement-plan-page .header-quick-stat-item .stat-value { font-size: 13px; }
+  .retirement-plan-page .plan-result-hero { grid-template-columns: minmax(0, 1fr); border-radius: 16px; }
+  .retirement-plan-page .plan-result-copy { padding: 22px 20px; }
+  .plan-result-context { gap: 8px; margin-bottom: 20px; }
+  .retirement-plan-page .result-total { font-size: clamp(26px, 7vw, 36px); }
+  .retirement-plan-page .plan-progress-panel { padding: 20px; border-left: 0; border-top: 1px solid #34527a; }
+  .retirement-plan-page .plan-hero-actions__main { flex-direction: column; align-items: stretch; }
+  .retirement-plan-page .plan-hero-actions__tools { gap: 4px; justify-content: space-between; }
+  .retirement-plan-page .plan-hero-actions .plan-hero-tool { gap: 6px; padding-inline: 4px; font-size: 12px; }
+  .retirement-plan-page .plan-metrics { gap: 10px; }
+  .retirement-plan-page .plan-metric-card { min-height: 0; padding: 16px 12px; gap: 12px; }
+  .retirement-plan-page .plan-metric-card > strong { font-size: 18px; }
+  .retirement-plan-page .plan-settings { padding: 20px 16px; }
+  .retirement-plan-page .plan-settings__grid { grid-template-columns: minmax(0, 1fr); }
+  .plan-fee-details > summary { padding: 16px; }
+  .plan-chart-card, .plan-table-card { padding: 18px 12px; }
+  .plan-milestones { gap: 8px; padding: 14px 10px; }
+  .plan-milestones li { padding-left: 8px; }
+  .plan-milestones span { font-size: 11px; }
+  .plan-milestones strong { font-size: 13px; }
+}
+@media print {
+  .plan-section-nav, .plan-hero-actions, .plan-fee-details, .plan-settings__links { display: none; }
+  .plan-section { break-inside: auto; scroll-margin: 0; }
+  .retirement-plan-page .plan-result-hero, .retirement-plan-page .plan-metric-card { break-inside: avoid; }
+}

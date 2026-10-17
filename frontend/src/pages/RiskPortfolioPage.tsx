@@ -15,6 +15,7 @@ import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { useAuth } from "../context/AuthContext";
 import { readRiskDraft, writeRiskDraft } from "../services/riskDraft";
 import { useI18n } from "../i18n";
+import { Explain } from "../components/explanations/ExplainMode";
 import { fetchUserAssumptionDetail } from "../services/assumptions";
 import { translateIssueCode } from "../services/retirement";
 import { ApiError } from "../services/api";
@@ -211,7 +212,7 @@ export default function RiskPortfolioPage() {
           <p>
             {language === "en"
               ? "A 6-dimensional risk assessment based on global standards combined with portfolio policies approved by the Risk Management Committee, recommending the optimal asset allocation for your retirement stage."
-              : "Hệ thống khảo sát rủi ro 6 chiều theo chuẩn mực quốc tế kết hợp cùng chính sách danh mục được phê duyệt bởi Hội đồng Quản trị rủi ro, giúp đề xuất cấu trúc phân bổ tài sản phù hợp nhất với giai đoạn tích lũy của bạn."}
+              : <>Hệ thống khảo sát rủi ro 6 chiều theo chuẩn mực quốc tế kết hợp cùng chính sách danh mục được phê duyệt bởi Hội đồng Quản trị rủi ro, giúp đề xuất cấu trúc phân bổ tài sản và <Explain term="glidePath">lộ trình giảm dần rủi ro</Explain> phù hợp với bạn.</>}
           </p>
         </div>
 

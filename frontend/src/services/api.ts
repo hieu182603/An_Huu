@@ -117,7 +117,7 @@ export async function ensureFreshSession() {
 // [] = nothing (read-only POST), null = clear everything (unknown or global
 // writes). A trailing "$" means that exact path only, e.g. "/me$" must not
 // clear "/me/notifications".
-const READ_ONLY_POST = /\/(preview|simulate|compare)$/;
+const READ_ONLY_POST = /\/(preview|simulate|compare|metric)$/;
 const RULES: Array<[RegExp, string[]]> = [
   [/^\/me\/notifications(\/|$)/, ["/me/notifications"]],
   [/^\/me\/notification-settings$/, ["/me/notification-settings"]],
