@@ -1,0 +1,472 @@
+Input:
+  type: object
+  additionalProperties: false
+  properties:
+    metricKey:
+      type: string
+      minLength: 1
+      maxLength: 160
+    source:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - PLAN_VERSION
+            planId:
+              type: string
+              format: uuid
+            versionId:
+              type: string
+              format: uuid
+          required:
+            - kind
+            - planId
+            - versionId
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - PREVIEW
+            input:
+              type: object
+              additionalProperties: false
+              properties:
+                expectedProfileRevision:
+                  type: integer
+                  minimum: 1
+                policyVersionId:
+                  type: string
+                  format: uuid
+                scenario:
+                  type: string
+                  enum:
+                    - BASE
+                    - ADVERSE
+                    - FAVORABLE
+                templateId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      questionId:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                      choiceId:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    required:
+                      - questionId
+                      - choiceId
+                  maxItems: 30
+                liquidityNeedMonths:
+                  type: integer
+                  minimum: 0
+                  maximum: 1200
+                endMonth:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                monthlyExpenseToday:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                monthlyContribution:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                monthlyReserve:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                contributionTiming:
+                  type: string
+                  enum:
+                    - END_OF_MONTH
+                    - START_OF_MONTH
+                  default: END_OF_MONTH
+                surplusPolicy:
+                  type: string
+                  enum:
+                    - EXPLICIT_DEPOSITS_ONLY
+                  default: EXPLICIT_DEPOSITS_ONLY
+                startOfMonthFunding:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    confirmed:
+                      type: boolean
+                      enum:
+                        - true
+                    source:
+                      type: string
+                      enum:
+                        - CURRENT_MONTH_DISPOSABLE_CASH_AVAILABLE_AT_START
+                    monthlyAvailable:
+                      type: string
+                      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                    schedule:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          month:
+                            type: string
+                            pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                          amount:
+                            type: string
+                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        required:
+                          - month
+                          - amount
+                      maxItems: 1200
+                      default: []
+                  required:
+                    - confirmed
+                    - source
+                    - monthlyAvailable
+                terminalBalance:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                  default: "0"
+                contributionSchedule:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      month:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      amount:
+                        type: string
+                        pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                    required:
+                      - month
+                      - amount
+                  maxItems: 1200
+                  default: []
+                retirementContributionSchedule:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      month:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      amount:
+                        type: string
+                        pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                    required:
+                      - month
+                      - amount
+                  maxItems: 1200
+                  default: []
+                retirementIncomeIds:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  maxItems: 200
+                retirementAdditionalExpenseIds:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                  maxItems: 200
+                  default: []
+                debtStress:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      loanId:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                        pattern: ^[a-zA-Z0-9_-]+$
+                      startMonth:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      endMonth:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      totalPaymentShare:
+                        type: string
+                        pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                    required:
+                      - loanId
+                      - startMonth
+                      - endMonth
+                      - totalPaymentShare
+                  maxItems: 20
+                  default: []
+                whatIf:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    retirementMonth:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                    assetValues:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          assetId:
+                            type: string
+                            minLength: 1
+                            maxLength: 100
+                          value:
+                            type: string
+                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                        required:
+                          - assetId
+                          - value
+                      minItems: 1
+                      maxItems: 200
+                housing:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      assetId:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                      amountScope:
+                        type: string
+                        enum:
+                          - WHOLE_ASSET
+                          - OWNERS_SHARE
+                      linkedIncomeId:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    required:
+                      - assetId
+                      - amountScope
+                  maxItems: 200
+                  default: []
+                advisoryFee:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    annualPercent:
+                      type: string
+                      pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                    paidFrom:
+                      type: string
+                      enum:
+                        - FUND
+                        - EXTERNAL
+                  required:
+                    - annualPercent
+                    - paidFrom
+              required:
+                - expectedProfileRevision
+                - policyVersionId
+                - scenario
+                - answers
+                - liquidityNeedMonths
+                - endMonth
+                - monthlyExpenseToday
+                - monthlyContribution
+                - monthlyReserve
+                - retirementIncomeIds
+          required:
+            - kind
+            - input
+    detail:
+      type: string
+      enum:
+        - SUMMARY
+        - MONTHLY
+      default: SUMMARY
+  required:
+    - metricKey
+    - source
+  description: USER only. Strict request at every nested boundary. PREVIEW accepts
+    only the existing RetirementPreview input, never computed results, rates,
+    profile data or assumptions. Server captures the owned profile revision and
+    pinned policy/assumptions once and reruns the preview. PLAN_VERSION uses
+    PlansService ownership and snapshot integrity checks; it never substitutes
+    current profile/configuration. Unknown, null, missing or unsupported metrics
+    return 422 METRIC_NOT_AVAILABLE.
+MetricExplanation:
+  type: object
+  additionalProperties: false
+  properties:
+    metricKey: &a1
+      type: string
+    detail:
+      type: string
+      enum:
+        - SUMMARY
+        - MONTHLY
+    label: &a2
+      type: object
+      additionalProperties: false
+      properties:
+        vi: *a1
+        en: *a1
+      required:
+        - vi
+        - en
+    value:
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+    unit:
+      type: string
+      enum:
+        - VND
+        - PERCENT
+    formula:
+      type: object
+      additionalProperties: false
+      properties:
+        vi: *a1
+        en: *a1
+        symbolic: *a1
+      required:
+        - vi
+        - en
+        - symbolic
+    steps:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          label: *a2
+          value: *a1
+          unit: *a1
+          source: *a1
+        required:
+          - label
+          - value
+          - unit
+          - source
+    assumptions:
+      type: object
+      additionalProperties: false
+      properties:
+        version:
+          type: integer
+        sources:
+          type: array
+          items:
+            $ref: ./assumptions.openapi.yaml#/Source
+      required:
+        - version
+        - sources
+    notes:
+      type: array
+      items: *a1
+    limitations:
+      type: array
+      items: *a1
+  required:
+    - metricKey
+    - detail
+    - label
+    - value
+    - unit
+    - formula
+    - steps
+    - assumptions
+    - notes
+    - limitations
+  description: "Authoritative raw decimal strings from the selected calculation;
+    labels/formulas in Vietnamese and English. Static keys:
+    summary.atRetirement.requiredFund, summary.atRetirement.projectedFund,
+    summary.atRetirement.fundingGap, summary.atRetirement.coveragePercent,
+    summary.requiredConstantMonthlyContribution,
+    summary.additionalMonthlyContribution, summary.futureMonthlyExpense,
+    summary.initialRetirementCapital,
+    capitalSeparation.requiredEmergencyReserve,
+    capitalSeparation.nearTermGoalsPresentValue,
+    capitalSeparation.growthCapital, lossConstraint.lossAmount,
+    essentialCoverage.essentialShortfall. Monthly fee key:
+    rows.YYYY-MM.advisoryFeeAmount selects that exact month. No total advisory
+    fee field is invented. Missing saved preview supplements are unavailable.
+    Step sources are server object paths. Compare raw value with the displayed
+    result before opening a popup; do not recompute on the client. detail
+    SUMMARY (default) folds month-by-month inputs into a period (unit PERIOD),
+    month count (MONTHS), totals (Σ ...) and cumulative factors (Π ...); request
+    MONTHLY only for an explicit per-month breakdown."
+Glossary:
+  type: object
+  additionalProperties: false
+  properties:
+    version: *a1
+    terms:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          key: *a1
+          label: *a2
+          definition: *a2
+        required:
+          - key
+          - label
+          - definition
+  required:
+    - version
+    - terms
+  description: Curated, versioned backend glossary; no AI consent or provider is
+    needed. Unknown phrases may use the existing /me/ai/explain endpoint with
+    its consent and rate limits. Numeric metric failures must never fall back to
+    AI numbers.
+MetricExplanationEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/MetricExplanation"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+GlossaryEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/Glossary"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          format: uuid
+      required:
+        - requestId
+  required:
+    - data
+    - meta

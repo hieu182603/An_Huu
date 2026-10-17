@@ -9812,6 +9812,155 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/explanations/metric:
+    post:
+      operationId: explainMetric
+      summary: MetricExplanation
+      security:
+        - bearerAuth: []
+      description: "USER only; ADMIN rejected. Read-only; Cache-Control: no-store. 30
+        requests per minute per authenticated user per process, including
+        invalid requests. No LLM/provider call or consent needed."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./explanations.openapi.yaml#/Input
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./explanations.openapi.yaml#/MetricExplanationEnvelope
+        "400": &a1
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401": &a2
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403": &a3
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404": &a4
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409": &a5
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422": &a6
+          description: METRIC_NOT_AVAILABLE (missing/null/unsupported), or preview
+            validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429": &a7
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503": &a8
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/explanations/glossary:
+    get:
+      operationId: getExplanationGlossary
+      summary: Glossary
+      security:
+        - bearerAuth: []
+      description: "USER only; ADMIN rejected. Read-only; Cache-Control: no-store.
+        Versioned curated glossary; no special endpoint rate limit."
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./explanations.openapi.yaml#/GlossaryEnvelope
+        "400":
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: METRIC_NOT_AVAILABLE (missing/null/unsupported), or preview
+            validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authentication, ownership, integrity, rate or service
+            error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 components:
   schemas:
     ErrorEnvelope:

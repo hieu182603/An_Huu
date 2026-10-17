@@ -24,9 +24,11 @@ import { PensionEstimateService } from "./pensions/estimate-service";
 import { SystemSettingsService } from "./settings/service";
 import { MarketDataService } from "./allocation-risk/market-service";
 import { AllocationRiskService } from "./allocation-risk/service";
+import { ExplanationsService } from "./explanations/service";
 export function createServices(db: PrismaClient, config: AppConfig) {
   const settings = new SystemSettingsService(db);
   return {
+    explanations: new ExplanationsService(db),
     marketData: new MarketDataService(db),
     allocationRisk: new AllocationRiskService(db),
     catalog: new CatalogService(db),

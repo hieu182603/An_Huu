@@ -31,8 +31,24 @@ export class RetirementService {
     // SERIALIZABLE transaction adds round trips without adding consistency.
     // Saving re-captures inside the write transaction and checks inputHash.
     const snapshot = await this.capture(this.db, userId, input);
-    const result = this.evaluate(snapshot, input);
+    return this.previewCaptured(snapshot, input);
+  }
+  /** HTTP preview from one authoritative capture, with every read-only supplement. */
+  previewCaptured(snapshot: Awaited<ReturnType<RetirementService["capture"]>>, input: RetirementPreview) {
+    const { result, profile, capitalSeparation, lossConstraint, essential } = this.previewParts(snapshot, input);
     logPreviewCoverage(result.issues, "/api/v1/me/retirement/preview");
+    const adjustments = adjustmentOptions(profile, input, snapshot.policy.data, snapshot.assumptions.data, result);
+    return this.withSupplements(result, essential, { capitalSeparation, lossConstraint, essentialCoverage: essential, adjustmentOptions: adjustments,
+      decisionExplanations: decisionExplanations(profile, capitalSeparation, lossConstraint, result) });
+  }
+  /** Same authoritative values for metric explanations, without the repeated-projection
+   * adjustment search (unused there) or a duplicate preview coverage log entry. */
+  previewForExplanation(snapshot: Awaited<ReturnType<RetirementService["capture"]>>, input: RetirementPreview) {
+    const { result, capitalSeparation, lossConstraint, essential } = this.previewParts(snapshot, input);
+    return this.withSupplements(result, essential, { capitalSeparation, lossConstraint, essentialCoverage: essential });
+  }
+  private previewParts(snapshot: Awaited<ReturnType<RetirementService["capture"]>>, input: RetirementPreview) {
+    const result = this.evaluate(snapshot, input);
     // HTTP preview only: evaluate is also used for persistence and replay. Keep
     // its shape and hash unchanged, including old v2/v3/v4 snapshots.
     const profile = input.whatIf?.assetValues ? { ...snapshot.profile, assets: snapshot.profile.assets.status === "KNOWN"
@@ -42,10 +58,9 @@ export class RetirementService {
       }) } : snapshot.profile.assets } : snapshot.profile;
     const capitalSeparation = separateCapital(profile, snapshot.assumptions.data);
     const lossConstraint = assessLossConstraint(capitalSeparation, profile, snapshot.policy.data, result.calculation?.marketRows[0]?.holdings);
-    const essential = essentialCoverage(profile, input, result);
-    const adjustments = adjustmentOptions(profile, input, snapshot.policy.data, snapshot.assumptions.data, result);
-    const supplements = { capitalSeparation, lossConstraint, essentialCoverage: essential, adjustmentOptions: adjustments,
-      decisionExplanations: decisionExplanations(profile, capitalSeparation, lossConstraint, result) };
+    return { result, profile, capitalSeparation, lossConstraint, essential: essentialCoverage(profile, input, result) };
+  }
+  private withSupplements<S extends object>(result: ReturnType<RetirementService["evaluate"]>, essential: ReturnType<typeof essentialCoverage>, supplements: S) {
     if (result.status === "INCOMPLETE") return { ...result, ...supplements };
     // Enrich only this read response; numerical replay payloads remain untouched.
     const calculation = { ...result.calculation,
