@@ -68,6 +68,7 @@ artifacts/
 !/backend/scripts/build-allocation-drafts.cjs
 !/backend/scripts/generate-portfolios-openapi.cjs
 !/backend/scripts/generate-allocation-risk-openapi.cjs
+!/backend/scripts/generate-explanations-openapi.cjs
 !/backend/scripts/generate-plans-openapi.cjs
 !/backend/scripts/generate-actuals-openapi.cjs
 !/backend/scripts/rollback-fixture.cjs

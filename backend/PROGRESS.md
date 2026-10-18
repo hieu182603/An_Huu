@@ -1,3 +1,46 @@
+## Chế độ giải thích bằng Trợ lý AI — Backend giai đoạn 1 (17/10/2026, giờ Việt Nam)
+
+Thực hiện mục 4 của `../docs/KE_HOACH_CHE_DO_GIAI_THICH_AI_2026-10-17.md`. Không đọc/nạp `.env`, không kết nối hay ghi DB production, không migration/seed/script `*-db`, không gọi LLM, không sửa `frontend/`, không commit/push/deploy. Giữ nguyên thay đổi có sẵn của các luồng khác.
+
+### Hành vi và quyết định thiết kế
+
+- Module `explanations`: POST `/api/v1/me/explanations/metric` nhận đúng `{metricKey,source}`. Mọi object lồng nhau dùng schema strict; PREVIEW dùng nguyên `RetirementPreview`, không nhận result/summary/giả định/lợi suất/hồ sơ từ client. Server đọc hồ sơ theo revision và chính sách/giả định công bố đã ghim đúng một lần, rồi chạy lại cùng luồng HTTP preview. `RetirementService.previewCaptured` chỉ tách phần code enrichment hiện có để tái sử dụng capture, không đổi công thức/kết quả/hash/snapshot.
+- PLAN_VERSION đọc qua `PlansService.readVersion`, kiểm chủ sở hữu, version thuộc plan và integrity snapshot; dùng capture/result đã lưu, không lấy hồ sơ hay giả định hiện tại. Test bao gồm snapshot v2, v3 và source reforecast v4; đọc giải thích không ghi dữ liệu hoặc thay replay.
+- Registry có 13 khóa đúng trường thật: `summary.atRetirement.{requiredFund,projectedFund,fundingGap,coveragePercent}`, `summary.{requiredConstantMonthlyContribution,additionalMonthlyContribution,futureMonthlyExpense,initialRetirementCapital}`, `capitalSeparation.{requiredEmergencyReserve,nearTermGoalsPresentValue,growthCapital}`, `lossConstraint.lossAmount`, `essentialCoverage.essentialShortfall`. Phí là họ khóa `rows.YYYY-MM.advisoryFeeAmount`, chọn đúng tháng có `advisoryFeeAmount`/`advisoryFeeAverageFund` trong replayInput, không bịa tổng phí hoặc lấy phí tháng đầu để giải thích tháng khác. Engine không có trường `advisoryFee.total`, `cashflowSafety.totalEssentialShortfall` hay `lossConstraint.shockLossVnd`; không đăng ký các tên giả này.
+- Response giữ số thập phân nguồn, nhãn vi/en, công thức vi/en + ký hiệu, các bước có nhãn/giá trị/đơn vị/đường dẫn nguồn, version và toàn bộ sources giả định đã ghim, notes/limitations. Công thức bao gồm tính ngược từng tháng có sàn 0, recurrence tích lũy, hệ số góp/eligibility, PV mục tiêu theo phân đoạn năm, phân bổ tài sản/cú sốc và phí theo AUM. Không tính lại số popup bằng LLM.
+- Chỉ số lạ, null, thiếu dữ liệu hoặc không có trong nguồn trả HTTP422 `METRIC_NOT_AVAILABLE`. Tách vốn/lỗ/thiết yếu chỉ có ở enrichment HTTP preview, thường vắng trong bản lưu; không tái tạo chúng từ hồ sơ hiện tại hay ghi bổ sung vào snapshot. Coverage khi requiredFund=0 không biến thành 0%.
+- USER mới có quyền gọi hai endpoint; ADMIN403 và chưa đăng nhập401. POST giới hạn 30 request/phút/tài khoản/process, kể cả request sai; GET glossary không có limiter riêng. Cả hai `Cache-Control: no-store`; không cần consent AI vì hoàn toàn tất định. Cụm từ ngoài glossary dùng nguyên luồng consent/rate limit `/me/ai/explain` hiện có.
+- Chọn glossary ở backend: 38 mục tiếng Việt có dấu + tiếng Anh, phiên bản `explanations-glossary-2026-10-17-v1`, giúp các client dùng chung định nghĩa gắn với nghĩa engine. Dữ liệu tĩnh, không migration hoặc bảng mới. Không đặt quy định pháp luật/con số thị trường mới. Phân biệt độ phủ quỹ, pEssential và CVaR.
+- Hợp đồng frontend mục22 trong `../docs/task-frontend.md` có endpoint/type/error/keys, mapping số trên từng trang, nguồn preview/saved, kiểm raw value và cách gọi AI cho thuật ngữ. Ghi rõ bẫy `retirementFundingShortfall` (chặn 0) khác `atRetirement.fundingGap` (có dấu); candidate actual/source chưa lưu không được giả làm RetirementPreview.
+- OpenAPI sinh bằng `node scripts/generate-explanations-openapi.cjs`; chỉ thêm fragment mới và hai path, giữ byte các path cũ. Script whitelist trong `.gitignore`. Sinh lại không đổi output; SwaggerParser/Ajv đối chiếu envelope và strict input trong test API.
+
+### File của đợt này
+
+- Mới: `src/modules/explanations/{schema,registry,service,router,glossary}.ts`; `src/tests/explanations-{registry,api}.test.ts`; `scripts/generate-explanations-openapi.cjs`; `docs/explanations.openapi.yaml`.
+- Sửa: `src/modules/retirement/service.ts`, `src/modules/router.ts`, `src/modules/services.ts`, `docs/openapi.yaml`, `PROGRESS.md`, root `.gitignore` và `../docs/task-frontend.md` mục22. Không sửa numerical kernel, capital, phí, snapshot/replay, migrations hoặc frontend.
+
+### Kiểm chứng offline
+
+Nghiệm thu cuối, chạy trong `backend/`, tất cả tiến trình đã kết thúc:
+
+| Lệnh | Kết quả |
+|---|---|
+| `node node_modules/typescript/bin/tsc --noEmit` | PASS, exit0 |
+| `node node_modules/typescript/bin/tsc -p tsconfig.test.json --noEmit` | PASS, exit0 |
+| `node node_modules/vitest/vitest.mjs run --maxWorkers=2` | **811/811 PASS, 68 file, 220,62s**, 781 cũ +30 mới, exit0 |
+| `node scripts/generate-explanations-openapi.cjs` | PASS; sinh fragment +2 route; sinh lại/SHA256 hai output không đổi, exit0 |
+| `node --check scripts/generate-explanations-openapi.cjs` | PASS, exit0 |
+| `node -e 'require("@apidevtools/swagger-parser").validate("docs/openapi.yaml").then(()=>console.log("OpenAPI validation PASS"),error=>{ console.error(error.message); process.exit(1); });'` | PASS, exit0; Ajv envelope/input cũng kiểm trong API suite |
+| `git diff --check -- .gitignore backend/PROGRESS.md backend/docs/openapi.yaml backend/src/modules/retirement/service.ts backend/src/modules/router.ts backend/src/modules/services.ts docs/task-frontend.md` (repo root) | PASS; Git chỉ cảnh báo quy ước LF/CRLF cho OpenAPI |
+
+Registry focused 18/18 và API focused12/12 đều PASS. Test chứng minh từng khóa có value đúng nguồn và tái tạo chính xác từ steps; có lãi/lạm phát khác0, PV qua năm/cùng tháng, lịch góp START/END/v2 research, eligibility tháng lẻ, nguồn v4/actual anchor, fee theo tháng, null/thiếu supplement, từ chối trường lạ/số liệu client, ownership/integrity và rate/roles. Trong quá trình làm, sửa type của helper `.send` từ unknown sang object; fixture nâng v4 ban đầu dùng nhầm preview có enrichment được đổi sang evaluate gốc giống bản lưu; không sửa engine để chiều test. Generator so sánh YAML đã resolve anchors để không viết lại cùng route khi chạy lại.
+
+Sandbox Vitest ban đầu lỗi EPERM khi đổi tên cache SSR trước import (0 test), không phải kết quả test thất bại. Các lượt unit chạy lại ngoài sandbox qua approval dùng đúng config loại trừ integration, memory DB/fixtures; không nạp `.env` hay kết nối DB. Fullsuite cuối exit0, không còn session kiểm tra đang chạy. Kiểm diff cho cả ba engine và capital/separation, loss-constraint, advisory-fee, preview-insights rỗng.
+
+### Giới hạn và bước tiếp
+
+Frontend giai đoạn2 chưa triển khai trong lượt backend. Chưa kiểm HTTP với PostgreSQL thật/production hoặc UI/browser theo ràng buộc không DB/frontend; test HTTP dùng Supertest và memory DB. Chỉ số supplement vắng trong bản lưu trả422 theo hợp đồng. Mô phỏng xác suất/CVaR/điểm khảo sát/biến động giữa hai phiên bản không phải metric số v1; glossary có thể giải thích khái niệm. Bước tiếp là frontend triển khai mục22 trên mock/local, giữ input gắn với đúng kết quả và chặn popup khi raw value lệch.
+
 ## BACKEND đợt B — P2-1 đến P2-5 (16/10/2026)
 
 Đợt P2 triển khai riêng, giữ nguyên thay đổi chưa commit đợt A. Không đọc backend/.env, không kết nối/ghi DB thật, không migration/seed/script *-db, không sửa frontend, không commit/push/deploy. Có API ADMIN quản lý dữ liệu nhưng **không tạo/duyệt/công bố bất kỳ dữ liệu production nào trong lượt này**. Không kèm chuỗi thị trường trong code production; tất cả số tổng lợi nhuận mới trong tests đều ghi rõ synthetic fixture.
@@ -53,6 +96,22 @@ Lượt kiểm cuối bắt đầu 01:45:13 theo máy chạy; ngày nghiệm thu
 
 
 # Tiến độ triển khai backend An Hưu
+
+## EXPLANATIONS — sửa sau review (17/10/2026)
+
+Review module `explanations` phát hiện 2 vấn đề, đã sửa:
+1. `steps` liệt kê từng tháng (vài nghìn bước cho quỹ cần/quỹ dự kiến/thiếu hụt thiết yếu): thêm `detail: SUMMARY | MONTHLY` (mặc định SUMMARY) ở request/response; SUMMARY gộp thành giai đoạn, số tháng, tổng Σ và hệ số lũy kế Π; MONTHLY giữ nguyên chi tiết để tái tạo. `explainMetric` nhận `detail` bắt buộc.
+2. Nguồn PREVIEW chạy lại toàn bộ `previewCaptured` (gồm `adjustmentOptions` lặp engine nhiều lần và log coverage trùng): tách `previewParts`/`withSupplements`; HTTP preview vẫn dùng `previewCaptured` (đầu ra giữ nguyên thứ tự khóa), giải thích dùng `previewForExplanation` (không tìm phương án, không log).
+OpenAPI sinh lại (`detail` ở Input và MetricExplanation; `openapi.yaml` không đổi ngữ nghĩa); hợp đồng frontend mục 22.1b. Test mới: SUMMARY giữ đúng value/formula, tổng và hệ số lũy kế khớp từng tháng, API mặc định SUMMARY, MONTHLY hợp lệ, `detail` sai → 400, PREVIEW không gọi `previewCaptured`. Lưu ý còn lại: phiên bản kế hoạch đã lưu không giải thích được tách vốn/lỗ/thiết yếu (thiết kế có chủ đích, trả METRIC_NOT_AVAILABLE); `notes` mới có tiếng Việt.
+
+## CÔNG BỐ GIẢ ĐỊNH V3 + CHÍNH SÁCH V4 TRÊN PRODUCTION (17/10/2026 giờ VN)
+
+Sau khi `main` (PR #9, a24756f) deploy xong lên Azure và Vercel, theo yêu cầu user, chạy qua đúng service với actor là ADMIN duy nhất:
+- Giả định v3 `d9b30f3b-8a8a-443c-9294-c4e88a26adb6`: previewImpact VALID (0 issue) → APPROVED rev2 → PUBLISHED rev3, effectiveAt 2026-10-16T00:00Z.
+- Chính sách v4 `cae3190d-8bf1-4319-bfa6-9c98d985c194` từ `seed-data/allocation-2026-10/draft-policy-v4.json`: create DRAFT → validate VALID → APPROVED rev2 → PUBLISHED rev3, effectiveAt 2026-10-16T00:00Z.
+- Kiểm tra READ ONLY qua `PortfoliosService.get/AssumptionsService.get(publishedOnly)`: chính sách mới nhất v4 → giả định v3, approval hash khớp. 52/52 hồ sơ v2 READY (trước đó 0/52), 39 lộ trình nền + 13 lộ trình thận trọng, quỹ cần trung vị 8,21 tỷ, độ phủ trung vị 139%, 8 hồ sơ cần góp thêm.
+- Giả định v1 và chính sách v2 vẫn PUBLISHED, không sửa (kế hoạch đã lưu ghim chúng). Lần chạy đầu thất bại ở bước kết nối (IP đổi, mạng chặn 5432) và không ghi gì; chạy lại sau khi user thêm IP mới vào firewall.
+- Còn lại: mô phỏng P2 cần bộ dữ liệu thị trường có license (hiện trả DATA_REQUIRED); tham số chờ khách duyệt (bước dịch cổ phiếu, 7 tình huống bất lợi, ngưỡng tập trung rủi ro, đối chiếu liquidityNeeds–goals); gỡ IP tạm khỏi firewall khi xong.
 
 ## BACKEND đợt A — P1-4/P1-6→P1-10/P0-4/P0-5 (16/10/2026)
 

@@ -50,8 +50,10 @@ import type { MarketDataService } from "./allocation-risk/market-service";
 import type { AllocationRiskService } from "./allocation-risk/service";
 import { marketDataRouter, allocationRiskRouter } from "./allocation-risk/router";
 import { patchAccountSchema, patchProfileSchema, draftSchema, completeSchema } from "./profiles/schema";
+import type { ExplanationsService } from "./explanations/service";
+import { explanationsRouter } from "./explanations/router";
 
-export type Services = { marketData?: MarketDataService; allocationRisk?: AllocationRiskService; auth: AuthService; profiles: ProfileService; pensionEstimates?: PensionEstimateService; insuranceHistory?: InsuranceHistoryService; legalRules?: LegalRulesService; catalog?: CatalogService; ai?: AiService; knowledge?: KnowledgeService; actuals?: ActualsService; plans?: PlansService; debts?: DebtService; pensions?: PensionsService; retirement?: RetirementService; assumptions?: AssumptionsService; portfolios?: PortfoliosService; users?: UsersService; content?: ContentService; community?: CommunityService; operations?: OperationsService; settings?: SystemSettingsService };
+export type Services = { explanations?: ExplanationsService; marketData?: MarketDataService; allocationRisk?: AllocationRiskService; auth: AuthService; profiles: ProfileService; pensionEstimates?: PensionEstimateService; insuranceHistory?: InsuranceHistoryService; legalRules?: LegalRulesService; catalog?: CatalogService; ai?: AiService; knowledge?: KnowledgeService; actuals?: ActualsService; plans?: PlansService; debts?: DebtService; pensions?: PensionsService; retirement?: RetirementService; assumptions?: AssumptionsService; portfolios?: PortfoliosService; users?: UsersService; content?: ContentService; community?: CommunityService; operations?: OperationsService; settings?: SystemSettingsService };
 export function sessionGuard(auth: AuthService): RequestHandler {
   return asyncHandler(async (req: AuthenticatedRequest, res, next) => {
     if (!req.user) throw new AppError(401, "UNAUTHENTICATED", "Yêu cầu đăng nhập.");
@@ -66,6 +68,7 @@ export function createApiRouter(services: Services, config: AppConfig) {
   const cookieName = config.NODE_ENV === "production" ? "__Host-anhuu_refresh" : "anhuu_refresh";
   const cookieOptions = { httpOnly: true, secure: config.NODE_ENV === "production", sameSite: config.COOKIE_SAME_SITE, path: "/" } as const;
   const authenticated = [createAuthenticate(config), sessionGuard(auth)];
+  if (services.explanations) router.use("/me/explanations", ...authenticated, requireRole("USER"), explanationsRouter(services.explanations));
   if (services.marketData) router.use("/admin/market-data", ...authenticated, requireRole("ADMIN"), marketDataRouter(services.marketData));
   if (services.allocationRisk) router.use("/me/retirement/risk", ...authenticated, requireRole("USER"), allocationRiskRouter(services.allocationRisk));
   if (services.insuranceHistory) router.use("/me/pension/history", ...authenticated, requireRole("USER"), insuranceHistoryRouter(services.insuranceHistory));

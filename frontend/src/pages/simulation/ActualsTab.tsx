@@ -10,6 +10,7 @@ import { useRetirementPlan } from "../../context/RetirementPlanContext";
 import { formatDateVN, formatMonthVN } from "../../utils/date";
 import { LoanRevisionEditor } from "../../components/retirement/LoanRevisionEditor";
 import { AnchorReforecastResult } from "../../components/retirement/AnchorReforecastResult";
+import { Explain } from "../../components/explanations/ExplainMode";
 import {
   formatVNDCurrency,
   formatPercentNumber,
@@ -1805,7 +1806,7 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                 />
               </div>
               <small style={{ color: "var(--color-text-muted)", fontSize: "11px", marginTop: "4px", display: "block" }}>
-                {language === "en" ? "Actual balance verified from end-of-month statements" : "Số dư thực tế đối chiếu từ sao kê cuối tháng"}
+                {language === "en" ? <><Explain term="actualBalance">Actual balance</Explain> verified from end-of-month statements</> : <><Explain term="actualBalance">Số dư thực tế</Explain> đối chiếu từ sao kê cuối tháng</>}
               </small>
             </Card>
 

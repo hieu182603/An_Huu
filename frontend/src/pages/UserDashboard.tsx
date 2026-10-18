@@ -10,6 +10,7 @@ import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n";
 import { formatMonthVN } from "../utils/date";
+import { Explain, type ExplainSource } from "../components/explanations/ExplainMode";
 
 export default function UserDashboard() {
   const { user } = useAuth();
@@ -30,6 +31,9 @@ export default function UserDashboard() {
   const debtRatio = assets > 0 ? (debt / assets) * 100 : 0;
 
   const planSummary = synchronization.preview?.calculation?.summary;
+  const explanationSource: ExplainSource | null = synchronization.changed && synchronization.input
+    ? { kind: "PREVIEW", input: synchronization.input }
+    : activePlan && currentVersion ? { kind: "PLAN_VERSION", planId: activePlan.id, versionId: currentVersion.id } : null;
   const coveragePercentNum = parseFloat(planSummary?.atRetirement?.coveragePercent || "0") || 0;
 
   const allocation = [
@@ -100,19 +104,18 @@ export default function UserDashboard() {
                   <div className="user-plan-metric">
                     <span className="metric-label">{t("dashboard.plan.projected_fund")}</span>
                     <strong className="metric-value font-mono">
-                      {formatCurrency(planSummary.atRetirement.projectedFund)}
+                      {explanationSource ? <Explain metric="summary.atRetirement.projectedFund" source={explanationSource} value={String(planSummary.atRetirement.projectedFund)}>{formatCurrency(planSummary.atRetirement.projectedFund)}</Explain> : formatCurrency(planSummary.atRetirement.projectedFund)}
                     </strong>
                     <small className="metric-helper">
-                      {t("dashboard.plan.required_fund", {
-                        amount: formatCurrency(planSummary.atRetirement.requiredFund),
-                      })}
+                      {language === "en" ? "Required target: " : "Mục tiêu cần: "}
+                      {explanationSource ? <Explain metric="summary.atRetirement.requiredFund" source={explanationSource} value={String(planSummary.atRetirement.requiredFund)}>{formatCurrency(planSummary.atRetirement.requiredFund)}</Explain> : formatCurrency(planSummary.atRetirement.requiredFund)}
                     </small>
                   </div>
 
                   <div className="user-plan-metric">
-                    <span className="metric-label">{t("dashboard.plan.coverage_percent")}</span>
+                    <span className="metric-label"><Explain term="fundCoverage">{t("dashboard.plan.coverage_percent")}</Explain></span>
                     <strong className="metric-value metric-coverage font-mono">
-                      {planSummary.atRetirement.coveragePercent == null ? (language === "en" ? "Undetermined" : "Chưa xác định") : formatPercent(planSummary.atRetirement.coveragePercent)}
+                      {planSummary.atRetirement.coveragePercent == null ? (language === "en" ? "Undetermined" : "Chưa xác định") : explanationSource ? <Explain metric="summary.atRetirement.coveragePercent" source={explanationSource} value={String(planSummary.atRetirement.coveragePercent)}>{formatPercent(planSummary.atRetirement.coveragePercent)}</Explain> : formatPercent(planSummary.atRetirement.coveragePercent)}
                     </strong>
                     {planSummary.atRetirement.coveragePercent != null && <div className="coverage-bar-track">
                       <div
@@ -131,13 +134,12 @@ export default function UserDashboard() {
                     <span className="metric-label">{t("dashboard.plan.monthly_contribution")}</span>
                     <strong className="metric-value font-mono">
                       {planSummary.requiredConstantMonthlyContribution != null
-                        ? `${formatCurrency(planSummary.requiredConstantMonthlyContribution)} ${t("dashboard.plan.per_month")}`
+                        ? <>{explanationSource ? <Explain metric="summary.requiredConstantMonthlyContribution" source={explanationSource} value={String(planSummary.requiredConstantMonthlyContribution)}>{formatCurrency(planSummary.requiredConstantMonthlyContribution)}</Explain> : formatCurrency(planSummary.requiredConstantMonthlyContribution)} {t("dashboard.plan.per_month")}</>
                         : (language === "en" ? "Undetermined" : "Chưa xác định")}
                     </strong>
                     <small className="metric-helper">
-                      {t("dashboard.plan.future_expense", {
-                        amount: formatCurrency(planSummary.futureMonthlyExpense),
-                      })}
+                      {language === "en" ? "Future monthly expense: " : "Chi phí sinh hoạt tương lai mỗi tháng: "}
+                      {explanationSource ? <Explain metric="summary.futureMonthlyExpense" source={explanationSource} value={String(planSummary.futureMonthlyExpense)}>{formatCurrency(planSummary.futureMonthlyExpense)}</Explain> : formatCurrency(planSummary.futureMonthlyExpense)}
                     </small>
                   </div>
                 </div>
@@ -183,7 +185,7 @@ export default function UserDashboard() {
           <div className="user-cashflow-grid">
             <div className="user-cashflow-card theme-income">
               <div className="cashflow-card-head">
-                <span className="cashflow-label">{t("dashboard.cashflow.income")}</span>
+                <span className="cashflow-label"><Explain term="monthlyIncome">{t("dashboard.cashflow.income")}</Explain></span>
                 <div className="cashflow-icon-wrap">
                   <Icon name="wallet" />
                 </div>
@@ -194,7 +196,7 @@ export default function UserDashboard() {
 
             <div className="user-cashflow-card theme-expense">
               <div className="cashflow-card-head">
-                <span className="cashflow-label">{t("dashboard.cashflow.expense")}</span>
+                <span className="cashflow-label"><Explain term="monthlyExpenses">{t("dashboard.cashflow.expense")}</Explain></span>
                 <div className="cashflow-icon-wrap">
                   <Icon name="file-text" />
                 </div>
@@ -205,7 +207,7 @@ export default function UserDashboard() {
 
             <div className="user-cashflow-card theme-debt">
               <div className="cashflow-card-head">
-                <span className="cashflow-label">{t("dashboard.cashflow.debt")}</span>
+                <span className="cashflow-label"><Explain term="monthlyDebtPayment">{t("dashboard.cashflow.debt")}</Explain></span>
                 <div className="cashflow-icon-wrap">
                   <Icon name="shield" />
                 </div>
@@ -216,7 +218,7 @@ export default function UserDashboard() {
 
             <div className={`user-cashflow-card ${!known.surplus ? "theme-unknown" : surplus >= 0 ? "theme-surplus" : "theme-deficit"}`}>
               <div className="cashflow-card-head">
-                <span className="cashflow-label">{t("dashboard.cashflow.surplus")}</span>
+                <span className="cashflow-label"><Explain term="monthlySurplus">{t("dashboard.cashflow.surplus")}</Explain></span>
                 <div className="cashflow-icon-wrap">
                   <Icon name={!known.surplus ? "info" : surplus >= 0 ? "sparkles" : "alert"} />
                 </div>

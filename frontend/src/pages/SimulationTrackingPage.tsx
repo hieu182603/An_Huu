@@ -64,6 +64,7 @@ import { useI18n } from "../i18n";
 import { formatNumberWithDots } from "../utils/currency";
 import "./simulation-audit.css";
 import { formatVND, formatVNDText, getVietnamCurrentMonth } from "./simulation/format";
+import { Explain, type ExplainSource } from "../components/explanations/ExplainMode";
 
 export { formatVNDText };
 // The actuals tab (ledger, reforecast, source changes) is most of this page's
@@ -110,6 +111,7 @@ export default function SimulationTrackingPage() {
 
   const [initializedVersion, setInitializedVersion] = useState<string | null>(null);
   const [simResult, setSimResult] = useState<RetirementPreviewResult | null>(null);
+  const [simExplanationInput, setSimExplanationInput] = useState<RetirementPreviewInput | null>(null);
   const [comparisonDelta, setComparisonDelta] = useState<SimulatePlanResponse | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
@@ -154,7 +156,7 @@ export default function SimulationTrackingPage() {
     // blanking it on every keystroke; it is replaced or cleared on error.
     setIsSimulating(true);
     setSimError(null);
-    const fail = (message: string) => { setSimResult(null); setComparisonDelta(null); setSimError(message); };
+    const fail = (message: string) => { setSimResult(null); setSimExplanationInput(null); setComparisonDelta(null); setSimError(message); };
 
     const simRetireMonth = simRetirementMonth;
 
@@ -208,6 +210,7 @@ export default function SimulationTrackingPage() {
       && !overrideCash && !overrideRealEstate && !overrideStock;
     if (unchanged) {
       setSimResult(currentVersion.preview);
+      setSimExplanationInput(null);
       setComparisonDelta(null);
       setIsSimulating(false);
       return;
@@ -221,6 +224,7 @@ export default function SimulationTrackingPage() {
         simulatePlanVersion(planId, versionId, payload)
           .then((res) => {
             if (!active) return;
+            setSimExplanationInput(payload);
             setComparisonDelta(res);
             setSimResult(res.candidate);
           })
@@ -261,6 +265,9 @@ export default function SimulationTrackingPage() {
   // While recalculating, the previous READY result stays visible; save/apply stay disabled via isSimulating.
   const simSummary = !loadingPlans && !plansError && !simError && simResult?.status === "READY" ? simResult.calculation?.summary : null;
   const currentSummary = currentVersion?.preview.calculation?.summary;
+  const simulationExplanationSource: ExplainSource | null = simResult === currentVersion?.preview && activePlan && currentVersion
+    ? { kind: "PLAN_VERSION", planId: activePlan.id, versionId: currentVersion.id }
+    : simExplanationInput && simResult ? { kind: "PREVIEW", input: simExplanationInput } : null;
   const noBaseline = language === "en" ? "No applied version" : "Chưa có bản áp dụng";
   const retirementMonthDelta = currentSummary?.retirementMonth ? (Number(simRetirementMonth.slice(0, 4)) - Number(currentSummary.retirementMonth.slice(0, 4))) * 12 + Number(simRetirementMonth.slice(5, 7)) - Number(currentSummary.retirementMonth.slice(5, 7)) : null;
 
@@ -279,7 +286,7 @@ export default function SimulationTrackingPage() {
     setSimExpense(Number(baselineSelection?.monthlyExpenseToday ?? 0));
     setOverrideCash(""); setOverrideRealEstate(""); setOverrideStock("");
     setScenario(baselineSelection?.scenario ?? "BASE");
-    setSimResult(null); setComparisonDelta(null);
+    setSimResult(null); setSimExplanationInput(null); setComparisonDelta(null);
   };
   useEffect(() => { resetToBaseline(); }, [currentVersion?.id, birthYear]);
 
@@ -684,9 +691,9 @@ export default function SimulationTrackingPage() {
               <div className="simulation-primary-result">
                 <div>
                   <span>{language === "en" ? "PROJECTED RETIREMENT FUND" : "TIỀN DỰ KIẾN CÓ KHI NGHỈ HƯU"}</span>
-                  <strong className="font-mono">{formatVND(simProjectedFund)}</strong>
+                  <strong className="font-mono">{simulationExplanationSource ? <Explain metric="summary.atRetirement.projectedFund" source={simulationExplanationSource} value={String(simSummary.atRetirement.projectedFund)}>{formatVND(simProjectedFund)}</Explain> : formatVND(simProjectedFund)}</strong>
                   <p>
-                    {language === "en" ? "Versus required capital" : "So với tiền cần có khi nghỉ hưu"} (<span className="font-mono">{formatVND(simTargetFund)}</span>):{" "}
+                    {language === "en" ? "Versus required capital" : "So với tiền cần có khi nghỉ hưu"} (<span className="font-mono">{simulationExplanationSource ? <Explain metric="summary.atRetirement.requiredFund" source={simulationExplanationSource} value={String(simSummary.atRetirement.requiredFund)}>{formatVND(simTargetFund)}</Explain> : formatVND(simTargetFund)}</span>):{" "}
                     <b style={{ color: simGap <= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }} className="font-mono">
                       {simGap <= 0
                         ? `${language === "en" ? "Surplus" : "Dư"} ${formatVNDCurrency(simSummary.excessAtRetirement)}`
@@ -696,7 +703,7 @@ export default function SimulationTrackingPage() {
                 </div>
 
                 <div className="simulation-score">
-                  <strong className="font-mono">{simSummary.atRetirement.coveragePercent == null ? (language === "en" ? "Undetermined" : "Chưa xác định") : `${simScore}%`}</strong>
+                  <strong className="font-mono">{simSummary.atRetirement.coveragePercent == null ? (language === "en" ? "Undetermined" : "Chưa xác định") : simulationExplanationSource ? <Explain term="fundCoverage" metric="summary.atRetirement.coveragePercent" source={simulationExplanationSource} value={String(simSummary.atRetirement.coveragePercent)}>{`${simScore}%`}</Explain> : `${simScore}%`}</strong>
                   <span>{language === "en" ? "Coverage Ratio" : "Tỷ lệ bao phủ"}</span>
                   <small className={simScore >= 100 ? "is-positive" : ""}>
                     {simSummary.atRetirement.coveragePercent == null ? "—" : simScore >= 100
@@ -769,7 +776,7 @@ export default function SimulationTrackingPage() {
                     <>
                       <div>
                         <span>{language === "en" ? "Projected Fund at Retirement" : "Tiền dự kiến có khi nghỉ hưu"}</span>
-                        <strong className="font-mono">{currentSummary ? formatVNDCurrency(currentSummary.atRetirement.projectedFund) : (language === "en" ? "No applied version" : "Chưa có bản áp dụng")}</strong>
+                        <strong className="font-mono">{currentSummary ? (activePlan && currentVersion ? <Explain metric="summary.atRetirement.projectedFund" source={{ kind: "PLAN_VERSION", planId: activePlan.id, versionId: currentVersion.id }} value={String(currentSummary.atRetirement.projectedFund)}>{formatVNDCurrency(currentSummary.atRetirement.projectedFund)}</Explain> : formatVNDCurrency(currentSummary.atRetirement.projectedFund)) : (language === "en" ? "No applied version" : "Chưa có bản áp dụng")}</strong>
                         <strong className="font-mono" style={{ color: "var(--color-primary-700)" }}>{formatVND(simProjectedFund)}</strong>
                         <strong style={{ textAlign: "right", color: projDelta !== null ? (projDelta >= 0 ? "var(--color-secondary-700)" : "var(--color-danger)") : undefined }} className="font-mono">
                           {projDelta !== null ? `${projDelta >= 0 ? "+" : ""}${formatVND(projDelta)}` : "-"}
@@ -778,7 +785,7 @@ export default function SimulationTrackingPage() {
 
                       <div>
                         <span>{language === "en" ? "Required Capital at Retirement" : "Tiền cần có khi nghỉ hưu"}</span>
-                        <strong className="font-mono">{currentSummary ? formatVNDCurrency(currentSummary.atRetirement.requiredFund) : (language === "en" ? "No applied version" : "Chưa có bản áp dụng")}</strong>
+                        <strong className="font-mono">{currentSummary ? (activePlan && currentVersion ? <Explain metric="summary.atRetirement.requiredFund" source={{ kind: "PLAN_VERSION", planId: activePlan.id, versionId: currentVersion.id }} value={String(currentSummary.atRetirement.requiredFund)}>{formatVNDCurrency(currentSummary.atRetirement.requiredFund)}</Explain> : formatVNDCurrency(currentSummary.atRetirement.requiredFund)) : (language === "en" ? "No applied version" : "Chưa có bản áp dụng")}</strong>
                         <strong className="font-mono">{formatVND(simTargetFund)}</strong>
                         <strong style={{ textAlign: "right", color: reqDelta !== null ? (reqDelta <= 0 ? "var(--color-secondary-700)" : "var(--color-danger)") : undefined }} className="font-mono">
                           {reqDelta !== null ? `${reqDelta >= 0 ? "+" : ""}${formatVND(reqDelta)}` : "-"}
