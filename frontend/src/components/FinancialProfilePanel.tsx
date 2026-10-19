@@ -27,7 +27,7 @@ import ResponsiveDialog from "./ResponsiveDialog";
 // Missing values are highlighted within this financial form only. Zero is a valid answer.
 function Input({ money, ...props }: ComponentProps<typeof BaseInput> & { money?: boolean }) {
   const { language } = useI18n();
-  const optional = /kết thúc|end month|không bắt buộc|optional/i.test(props.label);
+  const optional = typeof props.label === "string" ? /kết thúc|end month|không bắt buộc|optional/i.test(props.label) : false;
   const error = props.error || (!optional && props.value === "" ? (language === "en" ? "Not filled in yet" : "Chưa điền thông tin") : undefined);
   if (money || props.type === "date" || props.type === "month") return <ProfileFormattedInput {...props} error={error} format={money ? "money" : props.type as "date" | "month"} />;
   return <BaseInput {...props} step={props.step ?? (props.type === "number" ? "any" : undefined)} error={error} />;

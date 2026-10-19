@@ -97,7 +97,7 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
       {format === "money" ? <span className="input-suffix">VND</span> : <span className="profile-date-picker">
         <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
         <input type={format} value={value} disabled={disabled} min={min} max={max}
-          aria-label={`${vi ? "Mở lịch chọn" : "Open calendar for"} ${label.toLowerCase()}`}
+          aria-label={`${vi ? "Mở lịch chọn" : "Open calendar for"} ${typeof label === "string" ? label.toLowerCase() : ""}`}
           onClick={event => { try { event.currentTarget.showPicker?.(); } catch { /* Native keyboard input remains available. */ } }}
           onChange={event => {
             const next = event.target.value;

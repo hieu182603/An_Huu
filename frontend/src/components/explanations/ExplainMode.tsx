@@ -27,7 +27,7 @@ const AUTO_EXPLAIN_MAX_CHARS = 300;
 const SELECTION_SETTLE_MS = 300;
 const decimalEqual = (a: string, b: string) => { const norm = (s: string) => { const [whole, fraction = ""] = s.split("."); return `${whole.replace(/^(-?)0+(?=\d)/, "$1")}.${fraction.replace(/0+$/, "")}`.replace(/\.$/, ""); }; return norm(a) === norm(b); };
 export { positionExplainPopup } from "./position";
-function findNearbyContext(_node: Node, target: Element): string | null {
+function findNearbyContext(target: Element): string | null {
   let curr: Element | null = target;
   for (let depth = 0; depth < 3 && curr; depth++) {
     const prev = curr.previousElementSibling;
@@ -36,8 +36,8 @@ function findNearbyContext(_node: Node, target: Element): string | null {
       if (text.length >= 2 && text.length <= 150) return text;
     }
     if (curr.parentElement) {
-      const candidates = curr.parentElement.querySelectorAll(".explain-target, span, dt, label, th, h2, h3, h4, .assumption-metric-label, .metric-label, .cashflow-label");
-      for (const el of candidates) {
+      const candidates: NodeListOf<Element> = curr.parentElement.querySelectorAll(".explain-target, span, dt, label, th, h2, h3, h4, .assumption-metric-label, .metric-label, .cashflow-label");
+      for (const el of Array.from(candidates)) {
         if (el !== curr && !el.contains(curr) && el.textContent?.trim()) {
           const text = el.textContent.trim();
           if (text.length >= 2 && text.length <= 150) return text;
@@ -118,7 +118,7 @@ export function ExplainModeProvider({ children, enabled, onDisable }: { children
       // If user selected a number or currency amount, inspect nearby label context
       const isNumeric = /^[\d.,\s]+(?:\s*(?:VND|đ|triệu|tỷ|%|tuổi|tháng|năm|\/\s*tháng|\/\s*năm))?$/i.test(selectedText);
       if (isNumeric) {
-        const contextText = findNearbyContext(node, target);
+        const contextText = findNearbyContext(target);
         if (contextText) {
           const match = matchGlossaryTerm(contextText, termsRef.current);
           if (match) {
