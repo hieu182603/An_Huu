@@ -27,6 +27,28 @@ const AUTO_EXPLAIN_MAX_CHARS = 300;
 const SELECTION_SETTLE_MS = 300;
 const decimalEqual = (a: string, b: string) => { const norm = (s: string) => { const [whole, fraction = ""] = s.split("."); return `${whole.replace(/^(-?)0+(?=\d)/, "$1")}.${fraction.replace(/0+$/, "")}`.replace(/\.$/, ""); }; return norm(a) === norm(b); };
 export { positionExplainPopup } from "./position";
+function findNearbyContext(_node: Node, target: Element): string | null {
+  let curr: Element | null = target;
+  for (let depth = 0; depth < 3 && curr; depth++) {
+    const prev = curr.previousElementSibling;
+    if (prev && prev.textContent?.trim()) {
+      const text = prev.textContent.trim();
+      if (text.length >= 2 && text.length <= 150) return text;
+    }
+    if (curr.parentElement) {
+      const candidates = curr.parentElement.querySelectorAll(".explain-target, span, dt, label, th, h2, h3, h4, .assumption-metric-label, .metric-label, .cashflow-label");
+      for (const el of candidates) {
+        if (el !== curr && !el.contains(curr) && el.textContent?.trim()) {
+          const text = el.textContent.trim();
+          if (text.length >= 2 && text.length <= 150) return text;
+        }
+      }
+    }
+    curr = curr.parentElement;
+  }
+  return null;
+}
+
 export function ExplainModeProvider({ children, enabled, onDisable }: { children: ReactNode; enabled: boolean; onDisable: () => void }) {
   const { language } = useI18n();
   const [opened, setOpened] = useState<OpenItem | null>(null);
@@ -37,6 +59,8 @@ export function ExplainModeProvider({ children, enabled, onDisable }: { children
   const glossaryCache = useMemo(() => createExplanationCache<{ version: string; terms: GlossaryTerm[] }>(1, 15 * 60_000), []);
   const [glossaryRetry, setGlossaryRetry] = useState(0);
   const terms = useMemo(() => mergeExplanationTerms(glossary?.terms ?? []), [glossary]);
+  const termsRef = useRef(terms);
+  termsRef.current = terms;
   const panel = useRef<HTMLDivElement>(null);
   const scrollAtOpen = useRef({ x: 0, y: 0 });
   const monthlyTrigger = useRef<HTMLButtonElement>(null);
@@ -64,9 +88,53 @@ export function ExplainModeProvider({ children, enabled, onDisable }: { children
       const selection = window.getSelection(), selectedText = selection?.toString().trim().replace(/\s+/g, " ");
       if (!selection || !selectedText || selectedText.length < 2 || selectedText.length > 2000 || !selection.rangeCount) return;
       const node = selection.anchorNode, target = node instanceof Element ? node : node?.parentElement;
-      if (!target || target.closest(".explain-backdropless") || target.closest(".explain-target")) return;
+      if (!target || target.closest(".explain-backdropless")) return;
+
+      const explainTarget = target.closest<HTMLElement>(".explain-target");
+      if (explainTarget && (explainTarget.dataset.explainTerm || explainTarget.dataset.explainMetric)) {
+        const term = explainTarget.dataset.explainTerm;
+        const metric = explainTarget.dataset.explainMetric;
+        const val = explainTarget.dataset.explainValue || selectedText;
+        let source: ExplainSource | undefined;
+        try { if (explainTarget.dataset.explainSource) source = JSON.parse(explainTarget.dataset.explainSource); } catch {}
+        const rect = selection.getRangeAt(0).getBoundingClientRect();
+        scrollAtOpen.current = { x: window.scrollX, y: window.scrollY };
+        setOpened({
+          id: ++requestSequence.current,
+          request: { term, metric, value: val, source },
+          target: explainTarget,
+          x: rect.right,
+          y: rect.bottom,
+          selectedText,
+          loading: Boolean(metric)
+        });
+        return;
+      }
+      if (explainTarget) return;
+
       const rect = selection.getRangeAt(0).getBoundingClientRect();
       scrollAtOpen.current = { x: window.scrollX, y: window.scrollY };
+
+      // If user selected a number or currency amount, inspect nearby label context
+      const isNumeric = /^[\d.,\s]+(?:\s*(?:VND|đ|triệu|tỷ|%|tuổi|tháng|năm|\/\s*tháng|\/\s*năm))?$/i.test(selectedText);
+      if (isNumeric) {
+        const contextText = findNearbyContext(node, target);
+        if (contextText) {
+          const match = matchGlossaryTerm(contextText, termsRef.current);
+          if (match) {
+            setOpened({
+              id: ++requestSequence.current,
+              request: { term: match.key, value: selectedText },
+              target: target as HTMLElement,
+              x: rect.right,
+              y: rect.bottom,
+              selectedText
+            });
+            return;
+          }
+        }
+      }
+
       setOpened(current => current?.selectedText === selectedText && current.target === target ? current
         : { id: ++requestSequence.current, request: {}, target: target as HTMLElement, x: rect.right, y: rect.bottom, selectedText });
     }, SELECTION_SETTLE_MS); };
@@ -198,7 +266,15 @@ export function ExplainModeProvider({ children, enabled, onDisable }: { children
         <div className="explain-body" key={`${opened.request.metric ?? opened.request.term ?? opened.selectedText}`}>
           {opened.request.metric ? <MetricPopup item={opened} language={language} /> : <>
             {!glossaryTerm && !glossary && !glossaryFailed && <LoadingState>{language === "en" ? "Looking up the explanation…" : "Đang tìm giải thích…"}</LoadingState>}
-            {glossaryTerm && <p className="explain-definition">{locale(glossaryTerm.definition, language)}</p>}
+            {glossaryTerm && <>
+              {opened.request.value && <div className="explain-result"><span>{language === "en" ? "Selected value" : "Giá trị số liệu"}</span><strong className="explain-value">{opened.request.value}</strong></div>}
+              <p className="explain-definition">{locale(glossaryTerm.definition, language)}</p>
+              {glossaryTerm.formula && <section className="explain-section">
+                <h3>{language === "en" ? "How it is calculated" : "Con số này được tính thế nào?"}</h3>
+                <p>{locale(glossaryTerm.formula, language)}</p>
+                {glossaryTerm.formula.symbolic && <code className="explain-formula">{glossaryTerm.formula.symbolic}</code>}
+              </section>}
+            </>}
             {!glossaryTerm && !opened.aiRequested && glossaryFailed && <div className="explain-notice" role="status"><p>{language === "en" ? "The glossary could not be loaded. Try again to see the prepared explanation." : "Chưa tải được bảng thuật ngữ. Hãy thử lại để xem nội dung viết sẵn."}</p><button className="explain-action" type="button" onClick={() => setGlossaryRetry(value => value + 1)}>{language === "en" ? "Reload glossary" : "Tải lại thuật ngữ"}</button></div>}
             {opened.request.term && !glossaryTerm && glossary && !glossaryFailed && <p className="explain-notice" role="status">{language === "en" ? "A prepared explanation is not yet available for this label." : "Nhãn này chưa có nội dung giải thích viết sẵn."}</p>}
             {opened.selectedText && !opened.request.term && !glossaryTerm && !opened.aiRequested && (opened.selectedText.length > AUTO_EXPLAIN_MAX_CHARS || glossaryFailed) && <>
@@ -267,4 +343,5 @@ export function Explain(props: ExplainRequest) { const context = useContext(Expl
     const target = ref.current;
     return () => context.dismissTarget(target);
   }, [identity, context.enabled, context.dismissTarget]);
-  if (!context.enabled) return <>{props.children}</>; return <span ref={ref} className={`explain-target ${props.className || ""}`} tabIndex={props.metric || props.term ? 0 : undefined} role={props.metric || props.term ? "button" : undefined} onClick={event => { if (!props.metric && !props.term) return; context.open(props, event.currentTarget, event.clientX || event.currentTarget.getBoundingClientRect().left, event.clientY || event.currentTarget.getBoundingClientRect().bottom); }} onKeyDown={event => { if ((event.key === "Enter" || event.key === " ") && (props.metric || props.term)) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); context.open(props, event.currentTarget, rect.left, rect.bottom); } }}>{props.children}</span>; }
+  if (!context.enabled) return <>{props.children}</>; return <span ref={ref} className={`explain-target ${props.className || ""}`} tabIndex={props.metric || props.term ? 0 : undefined} role={props.metric || props.term ? "button" : undefined} data-explain-term={props.term} data-explain-metric={props.metric} data-explain-value={props.value} data-explain-source={props.source ? JSON.stringify(props.source) : undefined} onClick={event => { if (!props.metric && !props.term) return; context.open(props, event.currentTarget, event.clientX || event.currentTarget.getBoundingClientRect().left, event.clientY || event.currentTarget.getBoundingClientRect().bottom); }} onKeyDown={event => { if ((event.key === "Enter" || event.key === " ") && (props.metric || props.term)) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); context.open(props, event.currentTarget, rect.left, rect.bottom); } }}>{props.children}</span>; }
+
