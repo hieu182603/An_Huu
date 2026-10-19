@@ -14,6 +14,11 @@ on:
         default: true
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-and-test:
     runs-on: ubuntu-latest
@@ -36,8 +41,10 @@ jobs:
       - run: npm audit --audit-level=high --omit=dev
       - run: npm prune --omit=dev
       - uses: actions/upload-artifact@v4
+        if: ((github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch') && vars.BACKEND_DEPLOY_ENABLED == 'true'
         with:
           name: backend-production
+          retention-days: 1
           include-hidden-files: true
           path: |
             backend/dist
