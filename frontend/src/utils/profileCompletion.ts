@@ -1,12 +1,17 @@
 import type { ProfileV2 } from "../services/financialProfile";
 
+const OPTIONAL_PROFILE_KEYS = new Set(["contract", "responsibility", "costBasis"]);
+
 export function hasMissingProfileValue(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
   if (record.status === "UNKNOWN") return true;
   if (record.status === "NOT_APPLICABLE") return !String(record.reason ?? "").trim();
   if (record.status === "KNOWN" && "value" in record && record.value === "") return true;
-  return Object.values(record).some(hasMissingProfileValue);
+  return Object.entries(record).some(([key, val]) => {
+    if (OPTIONAL_PROFILE_KEYS.has(key)) return false;
+    return hasMissingProfileValue(val);
+  });
 }
 
 export function profileCompletionItems(p: ProfileV2) {
