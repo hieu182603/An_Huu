@@ -9,6 +9,7 @@ import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { fetchUserAssumptions } from "../services/assumptions";
 import { useI18n } from "../i18n";
 import { formatNumberWithDots, formatVND } from "../utils/currency";
+import { Explain, type ExplainSource } from "../components/explanations/ExplainMode";
 
 export default function RetirementGoalPage() {
   const { t, language } = useI18n();
@@ -91,6 +92,12 @@ export default function RetirementGoalPage() {
   const planSummary = synchronization.preview?.calculation?.summary;
   const estimatedTargetFund = planSummary?.atRetirement.requiredFund != null ? Number(planSummary.atRetirement.requiredFund) : null;
   const currentSurplus = profile.income.primaryIncome + profile.income.secondaryIncome - currentTotalExpense - (profile.debt.hasDebt ? profile.debt.monthlyDebtService : 0);
+
+  const explanationSource: ExplainSource | null = synchronization.changed && synchronization.input
+    ? { kind: "PREVIEW", input: synchronization.input }
+    : currentVersion
+      ? { kind: "PLAN_VERSION", planId: currentVersion.planId, versionId: currentVersion.id }
+      : null;
   const fail = (field: string, message: string, focus = true) => {
     setValidationField(field); setValidationError(message);
     if (focus) fields.current?.querySelector<HTMLInputElement>(field === 'expense' ? '.goal-spending-field input' : `#goal-${field}`)?.focus();
@@ -192,20 +199,42 @@ export default function RetirementGoalPage() {
         <div className="retirement-header-main">
           <div className="header-status-badge is-goal">
             <Icon name="target" size="small" />
-            <span>{language === "en" ? "INDEPENDENT RETIREMENT GOAL" : "MỤC TIÊU HƯU TRÍ ĐỘC LẬP"}</span>
+            <Explain term="retirementGoal">
+              <span>{language === "en" ? "INDEPENDENT RETIREMENT GOAL" : "MỤC TIÊU HƯU TRÍ ĐỘC LẬP"}</span>
+            </Explain>
           </div>
-          <h1>{t("goal.page_title")}</h1>
+          <h1>
+            <Explain term="retirementGoal">
+              {t("goal.page_title")}
+            </Explain>
+          </h1>
           <p>{t("goal.page_subtitle")}</p>
         </div>
 
         <div className="header-quick-stats">
           <div className="header-quick-stat-item">
-            <span className="stat-label">{language === "en" ? "Target Retirement Age" : "Tuổi nghỉ hưu mục tiêu"}</span>
-            <span className="stat-value">{targetAge} {language === "en" ? "years" : "tuổi"}</span>
+            <span className="stat-label">
+              <Explain term="retirementAge">
+                {language === "en" ? "Target Retirement Age" : "Tuổi nghỉ hưu mục tiêu"}
+              </Explain>
+            </span>
+            <span className="stat-value">
+              <Explain term="retirementAge" value={`${targetAge} ${language === "en" ? "years" : "tuổi"}`}>
+                {targetAge} {language === "en" ? "years" : "tuổi"}
+              </Explain>
+            </span>
           </div>
           <div className="header-quick-stat-item">
-            <span className="stat-label">{language === "en" ? "Retirement Duration" : "Thời gian hưu dự kiến"}</span>
-            <span className="stat-value">{retirementDuration} {language === "en" ? "years" : "năm"}</span>
+            <span className="stat-label">
+              <Explain term="retirementPeriod">
+                {language === "en" ? "Retirement Duration" : "Thời gian hưu dự kiến"}
+              </Explain>
+            </span>
+            <span className="stat-value">
+              <Explain term="retirementPeriod" value={`${retirementDuration} ${language === "en" ? "years" : "năm"}`}>
+                {retirementDuration} {language === "en" ? "years" : "năm"}
+              </Explain>
+            </span>
           </div>
         </div>
       </div>
@@ -249,7 +278,11 @@ export default function RetirementGoalPage() {
             <header>
               <span className="form-section-index">01</span>
               <div>
-                <h2>{language === "en" ? "Desired Retirement Age Milestones" : "Mốc tuổi nghỉ hưu mong muốn"}</h2>
+                <h2>
+                  <Explain term="retirementAge">
+                    {language === "en" ? "Desired Retirement Age Milestones" : "Mốc tuổi nghỉ hưu mong muốn"}
+                  </Explain>
+                </h2>
                 <p>{language === "en" ? "Adjust current age and the point you want to stop full-time work." : "Điều chỉnh tuổi hiện tại và thời điểm bạn muốn ngừng làm việc toàn thời gian."}</p>
               </div>
             </header>
@@ -262,9 +295,17 @@ export default function RetirementGoalPage() {
                     <span className="age-card-icon-pill">
                       <Icon name="users" size="small" />
                     </span>
-                    <span className="age-card-title">{language === "en" ? "Your Current Age" : "Tuổi hiện tại của bạn"}</span>
+                    <span className="age-card-title">
+                      <Explain term="currentAge">
+                        {language === "en" ? "Your Current Age" : "Tuổi hiện tại của bạn"}
+                      </Explain>
+                    </span>
                   </div>
-                  <span className="age-card-badge">{language === "en" ? "Starting Point" : "Mốc bắt đầu"}</span>
+                  <span className="age-card-badge">
+                    <Explain term="currentAge">
+                      {language === "en" ? "Starting Point" : "Mốc bắt đầu"}
+                    </Explain>
+                  </span>
                 </div>
 
                 <div className="age-stepper-cluster">
@@ -293,7 +334,11 @@ export default function RetirementGoalPage() {
                       aria-label={language === "en" ? "Enter your current age" : "Nhập tuổi hiện tại của bạn"}
                       title={language === "en" ? "Click to enter age directly" : "Bấm để nhập số tuổi trực tiếp"}
                     />
-                    <span className="age-hero-unit">{language === "en" ? "years" : "tuổi"}</span>
+                    <span className="age-hero-unit">
+                      <Explain term="currentAge" value={`${currentAge} ${language === "en" ? "years" : "tuổi"}`}>
+                        {language === "en" ? "years" : "tuổi"}
+                      </Explain>
+                    </span>
                   </div>
 
                   <button
@@ -310,7 +355,9 @@ export default function RetirementGoalPage() {
                 {validationField === 'current-age' && <p id="goal-current-error" className="goal-field-error">{validationError}</p>}
                 <div className="age-card-footer-pill">
                   <Icon name="info" size="small" />
-                  <span>{language === "en" ? "Birth year:" : "Năm sinh:"} <strong>{v2Profile?.personal.birthMonth.status === "KNOWN" ? v2Profile.personal.birthMonth.value.slice(0, 4) : currentAge >= 18 ? `${new Date().getFullYear() - currentAge} (${language === "en" ? "estimate" : "ước tính"})` : "—"}</strong></span>
+                  <Explain term="currentAge">
+                    <span>{language === "en" ? "Birth year:" : "Năm sinh:"} <strong>{v2Profile?.personal.birthMonth.status === "KNOWN" ? v2Profile.personal.birthMonth.value.slice(0, 4) : currentAge >= 18 ? `${new Date().getFullYear() - currentAge} (${language === "en" ? "estimate" : "ước tính"})` : "—"}</strong></span>
+                  </Explain>
                 </div>
               </div>
 
@@ -321,9 +368,17 @@ export default function RetirementGoalPage() {
                     <span className="age-card-icon-pill">
                       <Icon name="target" size="small" />
                     </span>
-                    <span className="age-card-title">{language === "en" ? "Target Retirement Age" : "Tuổi dự kiến nghỉ hưu"}</span>
+                    <span className="age-card-title">
+                      <Explain term="retirementAge">
+                        {language === "en" ? "Target Retirement Age" : "Tuổi dự kiến nghỉ hưu"}
+                      </Explain>
+                    </span>
                   </div>
-                  <span className="age-card-badge is-highlight">{language === "en" ? "Target" : "Mục tiêu"}</span>
+                  <span className="age-card-badge is-highlight">
+                    <Explain term="retirementAge">
+                      {language === "en" ? "Target" : "Mục tiêu"}
+                    </Explain>
+                  </span>
                 </div>
 
                 <div className="age-stepper-cluster">
@@ -351,7 +406,11 @@ export default function RetirementGoalPage() {
                       aria-label={language === "en" ? "Enter target retirement age" : "Nhập tuổi dự kiến nghỉ hưu"}
                       title={language === "en" ? "Click to enter age directly" : "Bấm để nhập số tuổi trực tiếp"}
                     />
-                    <span className="age-hero-unit">{language === "en" ? "years" : "tuổi"}</span>
+                    <span className="age-hero-unit">
+                      <Explain term="retirementAge" value={`${targetAge} ${language === "en" ? "years" : "tuổi"}`}>
+                        {language === "en" ? "years" : "tuổi"}
+                      </Explain>
+                    </span>
                   </div>
 
                   <button
@@ -368,11 +427,13 @@ export default function RetirementGoalPage() {
                 {validationField === 'target-age' && <p id="goal-target-error" className="goal-field-error">{validationError}</p>}
                 <div className="age-card-footer-pill is-highlight">
                   <Icon name="target" size="small" />
-                  <span>
-                    {language === "en"
-                      ? `Accumulation duration: ${yearsLeft} years (retiring in ${new Date().getFullYear() + yearsLeft})`
-                      : `Thời gian tích lũy: ${yearsLeft} năm (về hưu năm ${new Date().getFullYear() + yearsLeft})`}
-                  </span>
+                  <Explain term="accumulationPeriod">
+                    <span>
+                      {language === "en"
+                        ? `Accumulation duration: ${yearsLeft} years (retiring in ${new Date().getFullYear() + yearsLeft})`
+                        : `Thời gian tích lũy: ${yearsLeft} năm (về hưu năm ${new Date().getFullYear() + yearsLeft})`}
+                    </span>
+                  </Explain>
                 </div>
               </div>
             </div>
@@ -383,7 +444,11 @@ export default function RetirementGoalPage() {
             <header>
               <span className="form-section-index">02</span>
               <div>
-                <h2>{language === "en" ? "Retirement Lifestyle & Spending" : "Mức sống & Chi tiêu khi nghỉ hưu"}</h2>
+                <h2>
+                  <Explain term="lifestyle">
+                    {language === "en" ? "Retirement Lifestyle & Spending" : "Mức sống & Chi tiêu khi nghỉ hưu"}
+                  </Explain>
+                </h2>
                 <p>{language === "en" ? "Choose living standards aligned with your vision of life in retirement." : "Lựa chọn tiêu chuẩn sinh hoạt phù hợp với định hướng cuộc sống tuổi hưu của bạn."}</p>
               </div>
             </header>
@@ -403,7 +468,11 @@ export default function RetirementGoalPage() {
                       }}
                     >
                       <span><Icon name="home" /></span>
-                      <strong>{language === "en" ? "Frugal & Modest" : "Tiết kiệm & Giản dị"}</strong>
+                      <strong>
+                        <Explain term="lifestyleFrugal">
+                          {language === "en" ? "Frugal & Modest" : "Tiết kiệm & Giản dị"}
+                        </Explain>
+                      </strong>
                       <small>
                         {language === "en"
                           ? "Approx 75% of current expenses. Essential living, peaceful family life in suburban areas."
@@ -422,7 +491,11 @@ export default function RetirementGoalPage() {
                       }}
                     >
                       <span><Icon name="sparkles" /></span>
-                      <strong>{language === "en" ? "Comfortable & Independent" : "Thoải mái & Độc lập"}</strong>
+                      <strong>
+                        <Explain term="lifestyleComfortable">
+                          {language === "en" ? "Comfortable & Independent" : "Thoải mái & Độc lập"}
+                        </Explain>
+                      </strong>
                       <small>
                         {language === "en"
                           ? "Maintain 100% current living standards, domestic travel, proactive healthcare."
@@ -441,7 +514,11 @@ export default function RetirementGoalPage() {
                       }}
                     >
                       <span><Icon name="compass" /></span>
-                      <strong>{language === "en" ? "Abundant & Exploring" : "Thảnh thơi & Khám phá"}</strong>
+                      <strong>
+                        <Explain term="lifestyleLuxury">
+                          {language === "en" ? "Abundant & Exploring" : "Thảnh thơi & Khám phá"}
+                        </Explain>
+                      </strong>
                       <small>
                         {language === "en"
                           ? "Approx 140% of current expenses. Frequent vacations, premium wellness and leisure."
@@ -457,7 +534,11 @@ export default function RetirementGoalPage() {
             {currentTotalExpense <= 0 && <p>{language === "en" ? "No current spending is available for these suggestions. Enter your desired expense below." : "Chưa có chi tiêu hiện tại để tính các mức gợi ý. Hãy nhập mức chi tiêu mong muốn bên dưới."}</p>}
             <div className="goal-spending-field">
               <Input
-                label={language === "en" ? "Projected monthly retirement expense (at today's price)" : "Mức chi tiêu dự kiến mỗi tháng (theo thời giá hiện tại)"}
+                label={
+                  <Explain term="expenseToday">
+                    <span>{language === "en" ? "Projected monthly retirement expense (at today's price)" : "Mức chi tiêu dự kiến mỗi tháng (theo thời giá hiện tại)"}</span>
+                  </Explain>
+                }
                 labelAction={
                   <Tooltip content={language === "en" ? "System automatically compounds annual future inflation into fund calculations." : "Hệ thống tự động cộng dồn lạm phát tương lai theo năm vào công thức tính quỹ."}>
                     <button
@@ -503,7 +584,11 @@ export default function RetirementGoalPage() {
             <header>
               <span className="form-section-index">03</span>
               <div>
-                <h2>{language === "en" ? "Assumptions & Plan Horizon" : "Giả định & Thời hạn kế hoạch"}</h2>
+                <h2>
+                  <Explain term="pinnedAssumptions">
+                    {language === "en" ? "Assumptions & Plan Horizon" : "Giả định & Thời hạn kế hoạch"}
+                  </Explain>
+                </h2>
                 <p>{language === "en" ? "Foundational metrics to ensure financial projections reflect long-term reality." : "Các chỉ số nền tảng giúp kế hoạch tài chính phản ánh đúng thực tế theo thời gian."}</p>
               </div>
             </header>
@@ -528,7 +613,11 @@ export default function RetirementGoalPage() {
               <div className="assumptions-cards-grid">
                 <div className="assumption-metric-box">
                   <div className="assumption-metric-header">
-                    <span className="assumption-metric-label">{language === "en" ? "Long-Term Inflation" : "Lạm phát dài hạn"}</span>
+                    <span className="assumption-metric-label">
+                      <Explain term="inflation">
+                        {language === "en" ? "Long-Term Inflation" : "Lạm phát dài hạn"}
+                      </Explain>
+                    </span>
                     <span className="assumption-tag-badge">
                       {assumptionsStatus === "published"
                         ? (language === "en" ? "Macro Standard" : "Chuẩn hóa vĩ mô")
@@ -536,8 +625,10 @@ export default function RetirementGoalPage() {
                     </span>
                   </div>
                   <div className="assumption-metric-value">
-                    <span className="rate-num">{language === "en" ? "By year" : "Theo từng năm"}</span>
-                    <span className="rate-unit">{language === "en" ? "/ year" : "/ năm"}</span>
+                    <Explain term="inflation">
+                      <span className="rate-num">{language === "en" ? "By year" : "Theo từng năm"}</span>
+                      <span className="rate-unit">{language === "en" ? "/ year" : "/ năm"}</span>
+                    </Explain>
                   </div>
                   <p className="assumption-metric-desc">
                     {language === "en"
@@ -548,7 +639,11 @@ export default function RetirementGoalPage() {
 
                 <div className="assumption-metric-box">
                   <div className="assumption-metric-header">
-                    <span className="assumption-metric-label">{language === "en" ? "Expected Investment Return" : "Lợi suất đầu tư kỳ vọng"}</span>
+                    <span className="assumption-metric-label">
+                      <Explain term="returnRate">
+                        {language === "en" ? "Expected Investment Return" : "Lợi suất đầu tư kỳ vọng"}
+                      </Explain>
+                    </span>
                     <span className="assumption-tag-badge is-green">
                       {assumptionsStatus === "published"
                         ? (language === "en" ? "Published assumptions" : "Có chuỗi công bố")
@@ -556,8 +651,10 @@ export default function RetirementGoalPage() {
                     </span>
                   </div>
                   <div className="assumption-metric-value">
-                    <span className="rate-num rate-green">{language === "en" ? "By portfolio" : "Theo danh mục"}</span>
-                    <span className="rate-unit">{language === "en" ? "/ year" : "/ năm"}</span>
+                    <Explain term="returnRate">
+                      <span className="rate-num rate-green">{language === "en" ? "By portfolio" : "Theo danh mục"}</span>
+                      <span className="rate-unit">{language === "en" ? "/ year" : "/ năm"}</span>
+                    </Explain>
                   </div>
                   <p className="assumption-metric-desc">
                     {language === "en"
@@ -572,7 +669,9 @@ export default function RetirementGoalPage() {
                 <div className="life-expectancy-input-side">
                   <div className="life-expectancy-header">
                     <span className="life-expectancy-title">
-                      {language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}
+                      <Explain term="lifeExpectancy">
+                        {language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}
+                      </Explain>
                     </span>
                   </div>
 
@@ -603,7 +702,11 @@ export default function RetirementGoalPage() {
                           aria-label={language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}
                           title={language === "en" ? "Click to enter age directly" : "Bấm để nhập số tuổi trực tiếp"}
                         />
-                        <span className="life-stepper-unit">{language === "en" ? "years" : "tuổi"}</span>
+                        <span className="life-stepper-unit">
+                          <Explain term="lifeExpectancy" value={`${lifeExpectancy} ${language === "en" ? "years" : "tuổi"}`}>
+                            {language === "en" ? "years" : "tuổi"}
+                          </Explain>
+                        </span>
                       </div>
 
                       <button
@@ -648,9 +751,15 @@ export default function RetirementGoalPage() {
                     <Icon name="compass" />
                   </div>
                   <div className="pill-metric-content">
-                    <span className="pill-metric-label">{language === "en" ? "Retirement Duration" : "Thời gian hưởng hưu"}</span>
+                    <span className="pill-metric-label">
+                      <Explain term="retirementPeriod">
+                        {language === "en" ? "Retirement Duration" : "Thời gian hưởng hưu"}
+                      </Explain>
+                    </span>
                     <div className="pill-metric-val">
-                      <strong>{retirementDuration}</strong> <span>{language === "en" ? "years" : "năm"}</span>
+                      <Explain term="retirementPeriod" value={`${retirementDuration} ${language === "en" ? "years" : "năm"}`}>
+                        <strong>{retirementDuration}</strong> <span>{language === "en" ? "years" : "năm"}</span>
+                      </Explain>
                     </div>
                     <small>
                       {language === "en"
@@ -677,10 +786,16 @@ export default function RetirementGoalPage() {
           <Card className="goal-timeline-card">
             <header>
               <div>
-                <h2>{language === "en" ? "Life Milestones Trajectory" : "Lộ trình các mốc thời gian cuộc đời"}</h2>
+                <h2>
+                  <Explain term="timeline">
+                    {language === "en" ? "Life Milestones Trajectory" : "Lộ trình các mốc thời gian cuộc đời"}
+                  </Explain>
+                </h2>
                 <p>{language === "en" ? "Visualize journey stages from current age through end of life." : "Hình dung các chặng hành trình từ thời điểm hiện tại đến hết vòng đời."}</p>
               </div>
-              <Badge tone="soft">{yearsLeft} {language === "en" ? "years accumulating" : "năm tích lũy"}</Badge>
+              <Explain term="accumulationPeriod">
+                <Badge tone="soft">{yearsLeft} {language === "en" ? "years accumulating" : "năm tích lũy"}</Badge>
+              </Explain>
             </header>
 
             <div className="goal-timeline">
@@ -688,7 +803,11 @@ export default function RetirementGoalPage() {
 
               <div className="age-marker marker-now">
                 <span>{currentAge}</span>
-                <strong>{language === "en" ? "Now" : "Hiện tại"}</strong>
+                <strong>
+                  <Explain term="currentAge">
+                    {language === "en" ? "Now" : "Hiện tại"}
+                  </Explain>
+                </strong>
                 <small>{currentAge} {language === "en" ? "years old" : "tuổi"}</small>
               </div>
 
@@ -708,7 +827,11 @@ export default function RetirementGoalPage() {
 
               <div className="age-marker marker-target">
                 <span>{targetAge}</span>
-                <strong>{language === "en" ? "Retirement" : "Nghỉ hưu"}</strong>
+                <strong>
+                  <Explain term="retirementAge">
+                    {language === "en" ? "Retirement" : "Nghỉ hưu"}
+                  </Explain>
+                </strong>
                 <small>
                   {yearsLeft === 0
                     ? (language === "en" ? `${targetAge} years old (Retired now)` : `${targetAge} tuổi (Đã nghỉ hưu)`)
@@ -718,7 +841,11 @@ export default function RetirementGoalPage() {
 
               <div className="age-marker">
                 <span>{lifeExpectancy}</span>
-                <strong>{language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}</strong>
+                <strong>
+                  <Explain term="lifeExpectancy">
+                    {language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}
+                  </Explain>
+                </strong>
                 <small>{lifeExpectancy} {language === "en" ? "years old" : "tuổi"} ({retirementDuration} {language === "en" ? "years in retirement" : "năm hưởng hưu"})</small>
               </div>
             </div>
@@ -726,9 +853,11 @@ export default function RetirementGoalPage() {
             <footer>
               <Icon name="info" size="small" />
               <span>
-                {language === "en"
-                  ? `Retirement stage lasting ${retirementDuration} years requires uninterrupted cashflow security.`
-                  : `Giai đoạn hưởng hưu kéo dài ${retirementDuration} năm đòi hỏi dòng tiền bảo đảm liên tục không bị gián đoạn.`}
+                <Explain term="retirementPeriod">
+                  {language === "en"
+                    ? `Retirement stage lasting ${retirementDuration} years requires uninterrupted cashflow security.`
+                    : `Giai đoạn hưởng hưu kéo dài ${retirementDuration} năm đòi hỏi dòng tiền bảo đảm liên tục không bị gián đoạn.`}
+                </Explain>
               </span>
             </footer>
           </Card>
@@ -748,24 +877,56 @@ export default function RetirementGoalPage() {
             {plansError && <Alert tone="warning" title={language === "en" ? "Could not load plans" : "Chưa tải được kế hoạch"} action={<Button onClick={() => void refreshPlans()}>{language === "en" ? "Retry plans" : "Tải lại kế hoạch"}</Button>}>{plansError}</Alert>}
             <PlanSyncStatus />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <Badge tone="soft">{language === "en" ? "GOALS SUMMARY" : "TỔNG HỢP MỤC TIÊU"}</Badge>
+              <Badge tone="soft">
+                <Explain term="goalsSummary">
+                  {language === "en" ? "GOALS SUMMARY" : "TỔNG HỢP MỤC TIÊU"}
+                </Explain>
+              </Badge>
               {currentVersion && <Badge tone="info">v{currentVersion.version}</Badge>}
             </div>
 
             <div className="goal-summary-main">
               {planSummary && <p>{language === "en" ? "Calculated from the same profile and choices as the Plan page." : "Tính từ cùng hồ sơ và lựa chọn với trang Kế hoạch."}</p>}
-              <span>{language === "en" ? "TARGET RETIREMENT FUND (K)" : "QUỸ NGHỈ HƯU CẦN ĐẠT (K)"}</span>
+              <span>
+                <Explain term="requiredFund">
+                  {language === "en" ? "TARGET RETIREMENT FUND (K)" : "QUỸ NGHỈ HƯU CẦN ĐẠT (K)"}
+                </Explain>
+              </span>
               {estimatedTargetFund != null && Number.isFinite(estimatedTargetFund) ? (
                 <>
-                  <strong className="font-mono">{Math.round(estimatedTargetFund / 1000000000 * 10) / 10}</strong>
+                  <strong className="font-mono">
+                    {explanationSource ? (
+                      <Explain metric="summary.atRetirement.requiredFund" source={explanationSource} value={String(estimatedTargetFund)}>
+                        {Math.round(estimatedTargetFund / 1000000000 * 10) / 10}
+                      </Explain>
+                    ) : (
+                      <Explain term="requiredFund" value={formatVND(estimatedTargetFund)}>
+                        {Math.round(estimatedTargetFund / 1000000000 * 10) / 10}
+                      </Explain>
+                    )}
+                  </strong>
                   <p>
                     {language === "en" ? "Billion VND (equivalent to " : "Tỷ đồng (tương đương "}
-                    <b className="font-mono">{formatVND(estimatedTargetFund)}</b>)
+                    <b className="font-mono">
+                      {explanationSource ? (
+                        <Explain metric="summary.atRetirement.requiredFund" source={explanationSource} value={String(estimatedTargetFund)}>
+                          {formatVND(estimatedTargetFund)}
+                        </Explain>
+                      ) : (
+                        <Explain term="requiredFund" value={formatVND(estimatedTargetFund)}>
+                          {formatVND(estimatedTargetFund)}
+                        </Explain>
+                      )}
+                    </b>)
                   </p>
                 </>
               ) : (
                 <>
-                  <strong style={{ fontSize: "20px" }}>{language === "en" ? "Awaiting Plan" : "Chờ kế hoạch"}</strong>
+                  <strong style={{ fontSize: "20px" }}>
+                    <Explain term="requiredFund">
+                      {language === "en" ? "Awaiting Plan" : "Chờ kế hoạch"}
+                    </Explain>
+                  </strong>
                   <p>
                     {language === "en"
                       ? "Target fund will be accurately quantified upon running simulation on Plan page."
@@ -777,32 +938,84 @@ export default function RetirementGoalPage() {
 
             <div className="goal-summary-stats">
               <div>
-                <span>{language === "en" ? "Start Retirement Age:" : "Tuổi bắt đầu nghỉ:"}</span>
-                <strong className="font-mono">{targetAge} {language === "en" ? "years" : "tuổi"}</strong>
-              </div>
-              <div>
-                <span>{language === "en" ? "Time Remaining:" : "Thời gian còn lại:"}</span>
-                <strong className="font-mono">{yearsLeft} {language === "en" ? "years" : "năm"}</strong>
-              </div>
-              <div>
-                <span>{language === "en" ? "Retirement Duration:" : "Số năm hưởng hưu:"}</span>
-                <strong className="font-mono">{retirementDuration} {language === "en" ? "years" : "năm"}</strong>
-              </div>
-              <div>
-                <span>{language === "en" ? "Today's Expense (PV):" : "Chi tiêu hôm nay (PV):"}</span>
-                <strong className="font-mono">{formatVND(monthlyExpenseInRetirement)}</strong>
-              </div>
-              <div>
-                <span>{language === "en" ? "Retirement Expense (FV):" : "Chi tiêu lúc hưu (FV):"}</span>
+                <span>
+                  <Explain term="retirementAge">
+                    {language === "en" ? "Start Retirement Age:" : "Tuổi bắt đầu nghỉ:"}
+                  </Explain>
+                </span>
                 <strong className="font-mono">
-                  {planSummary?.futureMonthlyExpense ? formatVND(Number(planSummary.futureMonthlyExpense)) : (language === "en" ? "Awaiting projection" : "Chờ dự phóng")}
+                  <Explain term="retirementAge" value={`${targetAge} ${language === "en" ? "years" : "tuổi"}`}>
+                    {targetAge} {language === "en" ? "years" : "tuổi"}
+                  </Explain>
+                </strong>
+              </div>
+              <div>
+                <span>
+                  <Explain term="accumulationPeriod">
+                    {language === "en" ? "Time Remaining:" : "Thời gian còn lại:"}
+                  </Explain>
+                </span>
+                <strong className="font-mono">
+                  <Explain term="accumulationPeriod" value={`${yearsLeft} ${language === "en" ? "years" : "năm"}`}>
+                    {yearsLeft} {language === "en" ? "years" : "năm"}
+                  </Explain>
+                </strong>
+              </div>
+              <div>
+                <span>
+                  <Explain term="retirementPeriod">
+                    {language === "en" ? "Retirement Duration:" : "Số năm hưởng hưu:"}
+                  </Explain>
+                </span>
+                <strong className="font-mono">
+                  <Explain term="retirementPeriod" value={`${retirementDuration} ${language === "en" ? "years" : "năm"}`}>
+                    {retirementDuration} {language === "en" ? "years" : "năm"}
+                  </Explain>
+                </strong>
+              </div>
+              <div>
+                <span>
+                  <Explain term="expenseToday">
+                    {language === "en" ? "Today's Expense (PV):" : "Chi tiêu hôm nay (PV):"}
+                  </Explain>
+                </span>
+                <strong className="font-mono">
+                  <Explain term="expenseToday" value={formatVND(monthlyExpenseInRetirement)}>
+                    {formatVND(monthlyExpenseInRetirement)}
+                  </Explain>
+                </strong>
+              </div>
+              <div>
+                <span>
+                  <Explain term="futureValue">
+                    {language === "en" ? "Retirement Expense (FV):" : "Chi tiêu lúc hưu (FV):"}
+                  </Explain>
+                </span>
+                <strong className="font-mono">
+                  {planSummary?.futureMonthlyExpense && explanationSource ? (
+                    <Explain metric="summary.futureMonthlyExpense" source={explanationSource} value={String(planSummary.futureMonthlyExpense)}>
+                      {formatVND(Number(planSummary.futureMonthlyExpense))}
+                    </Explain>
+                  ) : (
+                    <Explain term="futureValue" value={planSummary?.futureMonthlyExpense ? formatVND(Number(planSummary.futureMonthlyExpense)) : undefined}>
+                      {planSummary?.futureMonthlyExpense ? formatVND(Number(planSummary.futureMonthlyExpense)) : (language === "en" ? "Awaiting projection" : "Chờ dự phóng")}
+                    </Explain>
+                  )}
                 </strong>
               </div>
             </div>
 
             <div className="goal-estimate">
-              <span>{language === "en" ? "Current monthly surplus:" : "Dòng tiền có thể tích lũy hiện tại:"}</span>
-              <strong className="font-mono">{cashflowKnown ? `${formatVND(currentSurplus)} ${language === "en" ? "/ month" : "/ tháng"}` : (language === "en" ? "Complete income, expenses and debt payments first." : "Cần bổ sung thu nhập, chi tiêu và khoản trả nợ.")}</strong>
+              <span>
+                <Explain term="monthlySurplus">
+                  {language === "en" ? "Current monthly surplus:" : "Dòng tiền có thể tích lũy hiện tại:"}
+                </Explain>
+              </span>
+              <strong className="font-mono">
+                <Explain term="monthlySurplus" value={cashflowKnown ? `${formatVND(currentSurplus)} ${language === "en" ? "/ month" : "/ tháng"}` : undefined}>
+                  {cashflowKnown ? `${formatVND(currentSurplus)} ${language === "en" ? "/ month" : "/ tháng"}` : (language === "en" ? "Complete income, expenses and debt payments first." : "Cần bổ sung thu nhập, chi tiêu và khoản trả nợ.")}
+                </Explain>
+              </strong>
               <small>
                 {language === "en" ? "Income minus living expenses and monthly debt payments in your current profile; not the plan's required contribution." : "Thu nhập trừ chi tiêu và tiền trả nợ hàng tháng trong hồ sơ hiện tại; không phải mức đóng góp cần duy trì của kế hoạch."}
               </small>

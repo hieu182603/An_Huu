@@ -376,7 +376,7 @@ export function Avatar({
   );
 }
 
-export function Input({ label, labelAction, helper, error, suffix, placeholder, defaultValue, value, onChange, type = "text", autoComplete, inputMode, disabled, hideLabel = false, min, max, step }: { label: string; labelAction?: ReactNode; helper?: string; error?: string; suffix?: string; placeholder?: string; defaultValue?: string; value?: string; onChange?: (value: string) => void; type?: "text" | "email" | "password" | "number" | "datetime-local" | "date" | "month"; autoComplete?: string; inputMode?: "numeric" | "decimal" | "text"; disabled?: boolean; hideLabel?: boolean; min?: number | string; max?: number | string; step?: number | string }) {
+export function Input({ label, labelAction, helper, error, suffix, placeholder, defaultValue, value, onChange, type = "text", autoComplete, inputMode, disabled, hideLabel = false, min, max, step }: { label: ReactNode; labelAction?: ReactNode; helper?: string; error?: string; suffix?: string; placeholder?: string; defaultValue?: string; value?: string; onChange?: (value: string) => void; type?: "text" | "email" | "password" | "number" | "datetime-local" | "date" | "month"; autoComplete?: string; inputMode?: "numeric" | "decimal" | "text"; disabled?: boolean; hideLabel?: boolean; min?: number | string; max?: number | string; step?: number | string }) {
   const id = useId();
   const messageId = `${id}-message`;
   const isNonNegative = type === "number" && min !== undefined && Number(min) >= 0;
