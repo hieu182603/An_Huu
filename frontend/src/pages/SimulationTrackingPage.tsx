@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import MoneyTextBox from "../components/MoneyTextBox";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Alert, Badge, Button, Card, Icon, IconButton, Modal, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
@@ -593,13 +594,12 @@ export default function SimulationTrackingPage() {
                     <label htmlFor="simulation-real-estate" style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-muted)" }}>
                       {language === "en" ? "Real Estate" : "Bất động sản"} ({language === "en" ? "original" : "gốc"}: {formatVND(profile.assets.realEstateValue)})
                     </label>
-                    <input
+                    <MoneyTextBox
                       id="simulation-real-estate"
-                      type="text"
-                      inputMode="numeric"
                       placeholder={language === "en" ? "Leave blank to keep original" : "Để trống nếu giữ nguyên"}
-                      value={overrideRealEstate ? formatNumberWithDots(Number(overrideRealEstate)) : ""}
-                      onChange={(e) => setOverrideRealEstate(e.target.value.replace(/\D/g, ""))}
+                      value={overrideRealEstate}
+                      maxDecimals={0}
+                      onChange={setOverrideRealEstate}
                       className="input font-mono"
                       style={{ height: "48px", fontSize: "16px", width: "100%", marginTop: "2px" }}
                     />
@@ -608,13 +608,12 @@ export default function SimulationTrackingPage() {
                     <label htmlFor="simulation-stock-fund" style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-muted)" }}>
                       {language === "en" ? "Stocks & Investment Funds" : "Cổ phiếu & Quỹ"} ({language === "en" ? "original" : "gốc"}: {formatVND(profile.assets.stockFundValue)})
                     </label>
-                    <input
+                    <MoneyTextBox
                       id="simulation-stock-fund"
-                      type="text"
-                      inputMode="numeric"
                       placeholder={language === "en" ? "Leave blank to keep original" : "Để trống nếu giữ nguyên"}
-                      value={overrideStock ? formatNumberWithDots(Number(overrideStock)) : ""}
-                      onChange={(e) => setOverrideStock(e.target.value.replace(/\D/g, ""))}
+                      value={overrideStock}
+                      maxDecimals={0}
+                      onChange={setOverrideStock}
                       className="input font-mono"
                       style={{ height: "48px", fontSize: "16px", width: "100%", marginTop: "2px" }}
                     />

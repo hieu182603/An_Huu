@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useId } from "react";
+import MoneyTextBox from "./MoneyTextBox";
 import { Alert, Badge, Button, Icon, IconButton, Modal, useNotification } from "./ui";
 import "./retirement/plan-dialogs.css";
 import { useAuth } from "../context/AuthContext";
@@ -947,11 +948,10 @@ export function SocialInsuranceModal({
                     <label style={{ display: "block", fontSize: "14px", fontWeight: 600, marginBottom: "4px" }} htmlFor={`${formId}-field-13`}>
                       {isVi ? "Thu nhập làm căn cứ đóng bù (VND)" : "Top-up Monthly Income (VND)"}
                     </label>
-                    <input id={`${formId}-field-13`}
-                      type="number"
+                    <MoneyTextBox id={`${formId}-field-13`}
                       className="input"
                       value={topUpIncome}
-                      onChange={(e) => setTopUpIncome(e.target.value)}
+                      onChange={setTopUpIncome}
                       style={{ width: "100%", height: "34px", fontSize: "12px" }}
                     />
                   </div>
@@ -997,11 +997,10 @@ export function SocialInsuranceModal({
                     <label style={{ display: "block", fontSize: "14px", fontWeight: 600, marginBottom: "4px" }} htmlFor={`${formId}-field-16`}>
                       {isVi ? "Thu nhập căn cứ đóng trước (VND)" : "Prepaid Income (VND)"}
                     </label>
-                    <input id={`${formId}-field-16`}
-                      type="number"
+                    <MoneyTextBox id={`${formId}-field-16`}
                       className="input"
                       value={prepaidIncome}
-                      onChange={(e) => setPrepaidIncome(e.target.value)}
+                      onChange={setPrepaidIncome}
                       style={{ width: "100%", height: "34px", fontSize: "12px" }}
                     />
                   </div>
@@ -1472,12 +1471,11 @@ export function SocialInsuranceModal({
                     <label style={{ display: "block", fontSize: "14px", fontWeight: 600, marginBottom: "4px" }} htmlFor={`${formId}-field-29`}>
                       {isVi ? "Tiền lương làm căn cứ đóng (VND)" : "Base Wage (VND)"}
                     </label>
-                    <input id={`${formId}-field-29`}
-                      type="number"
-                      placeholder="VD: 8000000"
+                    <MoneyTextBox id={`${formId}-field-29`}
+                      placeholder="VD: 8.000.000"
                       className="input"
                       value={newBase}
-                      onChange={(e) => setNewBase(e.target.value)}
+                      onChange={setNewBase}
                       style={{ width: "100%", height: "32px", fontSize: "12px" }}
                     />
                   </div>

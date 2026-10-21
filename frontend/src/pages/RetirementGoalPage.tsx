@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Alert, Badge, Button, Card, Icon, Input, Tooltip } from "../components/ui";
+import CurrencyInput from "../components/CurrencyInput";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { fetchUserAssumptions } from "../services/assumptions";
@@ -533,7 +534,7 @@ export default function RetirementGoalPage() {
 
             {currentTotalExpense <= 0 && <p>{language === "en" ? "No current spending is available for these suggestions. Enter your desired expense below." : "Chưa có chi tiêu hiện tại để tính các mức gợi ý. Hãy nhập mức chi tiêu mong muốn bên dưới."}</p>}
             <div className="goal-spending-field">
-              <Input
+              <CurrencyInput
                 label={
                   <Explain term="expenseToday">
                     <span>{language === "en" ? "Projected monthly retirement expense (at today's price)" : "Mức chi tiêu dự kiến mỗi tháng (theo thời giá hiện tại)"}</span>
@@ -562,14 +563,9 @@ export default function RetirementGoalPage() {
                     </button>
                   </Tooltip>
                 }
-                type="text"
-                inputMode="numeric"
-                value={monthlyExpenseInRetirement ? formatNumberWithDots(monthlyExpenseInRetirement) : ""}
+                value={monthlyExpenseInRetirement || 0}
                 error={validationField === 'expense' ? validationError : undefined}
-                onChange={(v) => {
-                  const clean = v.replace(/\D/g, "");
-                  setMonthlyExpenseInRetirement(clean ? parseInt(clean, 10) : 0);
-                }}
+                onChange={setMonthlyExpenseInRetirement}
                 suffix={language === "en" ? "VND / month" : "VND / tháng"}
                 helper={language === "en" ? "Average monthly amount desired to cover all living costs in old age." : "Số tiền trung bình bạn muốn có mỗi tháng để chi trả toàn bộ chi phí cuộc sống tuổi già."}
               />

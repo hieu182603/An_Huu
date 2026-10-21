@@ -345,7 +345,24 @@ function useProfileState() {
         ...(draft.desiredRetirementMonth !== undefined ? { desiredRetirementMonth: draft.desiredRetirementMonth ? { status: "KNOWN" as const, value: draft.desiredRetirementMonth } : { status: "UNKNOWN" as const } } : {}),
         ...(draft.birthMonth !== undefined ? { birthMonth: draft.birthMonth ? { status: "KNOWN" as const, value: draft.birthMonth } : { status: "UNKNOWN" as const } } : {}) };
     }
-    const result = await authenticatedRequest<DraftRecord>("/me/onboarding-draft", { expectedRevision: draftRef.current?.revision || 0, step: serverStep(draft.step), data: document }, "PUT");
+    const put = () => authenticatedRequest<DraftRecord>("/me/onboarding-draft", { expectedRevision: draftRef.current?.revision || 0, step: serverStep(draft.step), data: document }, "PUT");
+    let result: DraftRecord;
+    try { result = await put(); }
+    catch (e) {
+      if (!(e instanceof ApiError) || e.code !== "REVISION_CONFLICT") throw e;
+      // A save that timed out client-side may still have committed, leaving this tab one
+      // revision behind forever. Adopt the server revisions and retry once with what the user sees.
+      const [latestRecord, latestDraft] = await Promise.all([
+        authenticatedRequest<ProfileRecord | null>("/me/financial-profile", undefined, undefined, undefined, { skipCache: true }),
+        authenticatedRequest<DraftRecord | null>("/me/onboarding-draft", undefined, undefined, undefined, { skipCache: true }),
+      ]);
+      recordRef.current = latestRecord; draftRef.current = latestDraft;
+      if (latestRecord?.schemaVersion === 2 || isProfileV2(latestRecord?.data)) {
+        setHasProfile(true);
+        throw new Error("Hồ sơ tài chính đã được lưu trước đó. Hãy tải lại trang và mở Hồ sơ tài chính để cập nhật.");
+      }
+      result = await put();
+    }
     if (result) {
       draftRef.current = result;
       if (result.data) {

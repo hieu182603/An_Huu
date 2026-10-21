@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { Alert, Badge, Button, Card, Checkbox, Icon, Input, Modal, useNotification } from "../components/ui";
+import ProfileFormattedInput from "../components/ProfileFormattedInput";
 import { MonthlyRetirementChart } from "../components/charts";
 import { MonthlyCashflowTable } from "../components/retirement/MonthlyCashflowTable";
 import { PlanVersionDrawer } from "../components/retirement/PlanVersionDrawer";
@@ -687,10 +688,10 @@ export default function RetirementPlanPage() {
             : (language === "en" ? "These changes are a draft for this session. Save the option to keep it; using it replaces your current plan." : "Các thay đổi đang là bản nháp trong phiên này. Lưu phương án để giữ lại; chọn dùng phương án mới sẽ thay kế hoạch hiện tại.")}</p>
 
           <div className="plan-settings__grid">
-            <Input type="number" min={0} label={language === "en" ? "Monthly retirement contribution (VND)" : "Tiền bạn chọn góp hưu trí mỗi tháng (đồng)"}
+            <ProfileFormattedInput format="money" label={language === "en" ? "Monthly retirement contribution (VND)" : "Tiền bạn chọn góp hưu trí mỗi tháng (đồng)"}
               helper={language === "en" ? "Money left after expenses and debt payments is not contributed automatically." : "Tiền còn lại sau chi tiêu và trả nợ không tự động được góp vào quỹ."}
               value={previewPayload?.monthlyContribution ?? "0"} disabled={loadingPlans || isSaving || isApplying || usesActualBalance} onChange={value => updateDraft({ monthlyContribution: value, contributionSchedule: [] })} />
-            <Input type="number" min={0} label={language === "en" ? "Money reserved each month (VND)" : "Tiền giữ lại mỗi tháng ngoài quỹ hưu trí (đồng)"}
+            <ProfileFormattedInput format="money" label={language === "en" ? "Money reserved each month (VND)" : "Tiền giữ lại mỗi tháng ngoài quỹ hưu trí (đồng)"}
               helper={language === "en" ? "Kept for emergencies or other goals; not invested for retirement." : "Để dành cho dự phòng hoặc mục tiêu khác, không đưa vào quỹ hưu trí."}
               value={previewPayload?.monthlyReserve ?? "0"} disabled={loadingPlans || isSaving || isApplying || usesActualBalance} onChange={value => updateDraft({ monthlyReserve: value })} />
             <fieldset className="plan-timing" disabled={loadingPlans || isSaving || isApplying || usesActualBalance}>
@@ -725,10 +726,10 @@ export default function RetirementPlanPage() {
 
           {contributionTiming === "START_OF_MONTH" && (
             <div className="plan-settings__start">
-              <Input type="number" min={0}
+              <ProfileFormattedInput format="money"
                 label={language === "en" ? "Available Disposable Cash at Start (VND) *" : "Tiền sẵn có để góp vào đầu tháng (đồng) *"}
                 helper={language === "en" ? "Money already in hand on the 1st, not taken from the retirement fund." : "Tiền đã có trong tay ngày đầu tháng, không trích từ quỹ hưu trí."}
-                placeholder="VD: 5000000"
+                placeholder="VD: 5.000.000"
                 disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
                 value={startOfMonthAvailable}
                 onChange={setStartOfMonthAvailable} />

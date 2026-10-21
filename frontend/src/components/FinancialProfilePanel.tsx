@@ -33,9 +33,10 @@ function Input({ money, ...props }: ComponentProps<typeof BaseInput> & { money?:
   if (money || props.type === "date" || props.type === "month") return <ProfileFormattedInput {...props} error={error} format={money ? "money" : props.type as "date" | "month"} />;
   return <BaseInput {...props} step={props.step ?? (props.type === "number" ? "any" : undefined)} error={error} />;
 }
-function Select(props: ComponentProps<typeof BaseSelect>) {
+function Select({ optional, ...props }: ComponentProps<typeof BaseSelect> & { optional?: boolean }) {
   const { language } = useI18n();
-  const missing = !props.value || props.value === "UNDISCLOSED" || /UNKNOWN/.test(props.value);
+  const isOptional = optional || (typeof props.label === "string" ? /không bắt buộc|optional|tránh tính hai lần/i.test(props.label) : false);
+  const missing = !isOptional && (!props.value || props.value === "UNDISCLOSED" || /UNKNOWN/.test(props.value));
   return <BaseSelect {...props} error={props.error || (missing ? (language === "en" ? "Please select an answer" : "Chưa xác nhận thông tin") : undefined)} />;
 }
 
@@ -488,7 +489,6 @@ export default function FinancialProfilePanel() {
       {saveStatus === "saved" && activeTab !== "basic" && <p role="status" className="profile-save-success">{isVi ? "Đã lưu hồ sơ vào tài khoản" : "Profile saved to your account"}{lastSavedAt ? ` · ${lastSavedAt}` : ""}</p>}
       {/* Tabs */}
       {saveError && <div role="alert"><p>{saveError}</p><p>{isVi ? "Nếu phiên bản đã đổi, hãy đối chiếu câu trả lời đang nhập trước khi tải lại; không tự ghi đè." : "If the revision changed, compare your edits before reloading; no automatic overwrite."}</p><Button variant="secondary" onClick={reloadProfile}>{isVi ? "Tải lại hồ sơ để đối chiếu" : "Reload profile for comparison"}</Button></div>}
-      {schemaVersion === 2 && <Button variant="secondary" onClick={() => openSection("v2-constraints")}>{isVi ? "Ràng buộc và mục tiêu" : "Constraints and goals"}</Button>}
       <div ref={sectionTabsRef} className="profile-section-tabs" style={{ display: "flex", gap: "var(--space-2)", borderBottom: "1px solid var(--color-border)", paddingBottom: "var(--space-2)", marginBottom: "var(--space-4)", overflowX: "auto" }}>
         {schemaVersion !== 2 && <>
         <button
@@ -535,6 +535,7 @@ export default function FinancialProfilePanel() {
             >
               {isVi ? "Lương hưu" : "Pension"}
             </button>
+            <button type="button" className={`btn-filter ${activeTab === "v2-constraints" ? "is-active" : ""}`} onClick={() => openSection("v2-constraints")}>{isVi ? "Ràng buộc và mục tiêu" : "Constraints and goals"}</button>
           </>
         )}
       </div>
@@ -1016,7 +1017,7 @@ export default function FinancialProfilePanel() {
                           setV2Form({ ...v2Form, assets: { status: "KNOWN", entries } });
                         }}
                       />
-                      <BaseInput label={isVi ? "Giá vốn (VND, tùy chọn)" : "Cost basis (VND, optional)"} inputMode="decimal" value={asset.costBasis?.status === "KNOWN" ? asset.costBasis.value : ""} onChange={value => {
+                      <ProfileFormattedInput format="money" label={isVi ? "Giá vốn (VND, tùy chọn)" : "Cost basis (VND, optional)"} inputMode="decimal" value={asset.costBasis?.status === "KNOWN" ? asset.costBasis.value : ""} onChange={value => {
                         const entries = [...(v2Form.assets as { status: "KNOWN"; entries: AssetEntry[] }).entries];
                         entries[idx] = { ...asset, costBasis: value === "" ? { status: "UNKNOWN" } : { status: "KNOWN", value } };
                         setV2Form({ ...v2Form, assets: { status: "KNOWN", entries } });
@@ -1341,23 +1342,18 @@ export default function FinancialProfilePanel() {
                                 : "Link Reference Income Stream (Avoid Double-Counting)"
                             }
                             options={[
-                              isVi ? "Không liên kết (khoản độc lập)" : "No Link (Standalone Item)",
-                              ...availableIncomes.map((i) => `${i.label} (${i.kind}) [id:${i.id}]`),
+                              { value: "NONE", label: isVi ? "Không liên kết (khoản độc lập)" : "No Link (Standalone Item)" },
+                              ...availableIncomes.map((i) => ({
+                                value: i.id,
+                                label: `${i.label} (${isVi ? (i.kind === "FIXED" ? "Thu nhập cố định" : i.kind === "BONUS" ? "Tiền thưởng" : "Thu nhập không đều") : i.kind})`,
+                              })),
                             ]}
-                            value={
-                              p.linkedIncomeId
-                                ? availableIncomes.find((i) => i.id === p.linkedIncomeId)
-                                  ? `${availableIncomes.find((i) => i.id === p.linkedIncomeId)?.label} (${availableIncomes.find((i) => i.id === p.linkedIncomeId)?.kind}) [id:${p.linkedIncomeId}]`
-                                  : isVi ? "Không liên kết (khoản độc lập)" : "No Link (Standalone Item)"
-                                : isVi ? "Không liên kết (khoản độc lập)" : "No Link (Standalone Item)"
-                            }
+                            value={p.linkedIncomeId && availableIncomes.some((i) => i.id === p.linkedIncomeId) ? p.linkedIncomeId : "NONE"}
                             onChange={(val) => {
-                              const match = val.match(/\[id:([^\]]+)\]/);
-                              if (match && match[1]) {
-                                updatePensionKnown((prev) => ({ ...prev, linkedIncomeId: match[1] }));
-                              } else {
-                                updatePensionKnown((prev) => ({ ...prev, linkedIncomeId: undefined }));
-                              }
+                              updatePensionKnown((prev) => ({
+                                ...prev,
+                                linkedIncomeId: val && val !== "NONE" ? val : undefined,
+                              }));
                             }}
                             helper={
                               isVi
@@ -1724,10 +1720,10 @@ export default function FinancialProfilePanel() {
                   )}
 
                   {/* 4 milestones */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
-                    <Card className="summary-metric-card">
+                  <div className="pension-milestone-grid">
+                    <Card className="pension-milestone-card">
                       <small>{isVi ? "Tuổi nghỉ hưu luật định" : "Statutory Retirement Age"}</small>
-                      <strong style={{ fontSize: "var(--text-lg)" }}>
+                      <strong>
                         {pensionPreview.legalRetirementAge.ageMonths !== null
                           ? isVi
                             ? `${Math.floor(pensionPreview.legalRetirementAge.ageMonths / 12)} tuổi ${pensionPreview.legalRetirementAge.ageMonths % 12 > 0 ? `${pensionPreview.legalRetirementAge.ageMonths % 12} tháng` : ""}`
@@ -1743,9 +1739,9 @@ export default function FinancialProfilePanel() {
                       </small>
                     </Card>
 
-                    <Card className="summary-metric-card">
+                    <Card className="pension-milestone-card">
                       <small>{isVi ? "Tháng nghỉ hưu luật định" : "Statutory Retirement Month"}</small>
-                      <strong style={{ fontSize: "var(--text-lg)" }}>
+                      <strong>
                         {pensionPreview.legalRetirementAge.retirementMonth || (isVi ? "Chưa xác định" : "Unspecified")}
                       </strong>
                       <small style={{ color: "var(--color-text-muted)" }}>
@@ -1753,9 +1749,9 @@ export default function FinancialProfilePanel() {
                       </small>
                     </Card>
 
-                    <Card className="summary-metric-card">
+                    <Card className="pension-milestone-card">
                       <small>{isVi ? "Tháng nhận theo luật định" : "Statutory Pension Start Month"}</small>
-                      <strong style={{ fontSize: "var(--text-lg)", color: "var(--color-primary-700)" }}>
+                      <strong style={{ color: "var(--color-primary-700)" }}>
                         {pensionPreview.legalRetirementAge.pensionStartMonth
                           ? pensionPreview.legalRetirementAge.pensionStartMonth
                           : pensionPreview.legalRetirementAge.pensionStartStatus === "REQUIRES_BENEFIT_ASSESSMENT"
@@ -1769,9 +1765,9 @@ export default function FinancialProfilePanel() {
                       </small>
                     </Card>
 
-                    <Card className="summary-metric-card">
+                    <Card className="pension-milestone-card">
                       <small>{isVi ? "Tháng nhận người dùng khai" : "User Declared Start Month"}</small>
-                      <strong style={{ fontSize: "var(--text-lg)" }}>
+                      <strong>
                         {v2Form.personal.pensionStartMonth.status === "KNOWN"
                           ? v2Form.personal.pensionStartMonth.value
                           : isVi ? "Chưa xác định" : "Unspecified"}
@@ -1781,9 +1777,9 @@ export default function FinancialProfilePanel() {
                       </small>
                     </Card>
 
-                    <Card className="summary-metric-card">
+                    <Card className="pension-milestone-card">
                       <small>{isVi ? "Tháng mong muốn cá nhân" : "Personal Target Month"}</small>
-                      <strong style={{ fontSize: "var(--text-lg)" }}>
+                      <strong>
                         {pensionPreview.legalRetirementAge.desiredRetirementMonth || (isVi ? "Chưa chọn" : "Not selected")}
                       </strong>
                       <small style={{ color: "var(--color-text-muted)" }}>

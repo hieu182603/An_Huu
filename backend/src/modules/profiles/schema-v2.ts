@@ -8,6 +8,12 @@ import { pensionSchema, retirementConditionSchema } from "../pensions/schema";
 import { ratePercentSchema } from "../assumptions/schema";
 export { dateSchema, monthSchema } from "../../common/calendar";
 const PreciseDecimal = Prisma.Decimal.clone({ precision: 48 });
+// Zod still runs refinements after a field fails its own check, so a malformed value
+// (e.g. "1.000.000") reaching Decimal must become a validation issue, not a thrown 500.
+function decimal(value: unknown, Ctor: typeof Prisma.Decimal = Prisma.Decimal): Prisma.Decimal | null {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  try { return new Ctor(value); } catch { return null; }
+}
 
 const unknown = z.object({ status: z.literal("UNKNOWN") }).strict();
 const notApplicable = z.object({ status: z.literal("NOT_APPLICABLE"), reason: z.string().trim().min(1).max(300) }).strict();
@@ -60,7 +66,9 @@ export const assetEntrySchema = z.object({
   costBasis: amountSchema.optional(),
 }).strict().superRefine((value, ctx) => {
   const shares = [value.retirementShare, value.emergencyShare, value.otherGoalsShare];
-  const sum = shares.reduce((total, item) => item.status === "KNOWN" ? total.plus(item.value) : total, new Prisma.Decimal(0));
+  const values = shares.map(item => item.status === "KNOWN" ? decimal(item.value) : new Prisma.Decimal(0));
+  if (values.some(v => v === null)) return;
+  const sum = values.reduce<Prisma.Decimal>((total, v) => total.plus(v!), new Prisma.Decimal(0));
   if (sum.gt(1) || (shares.every(item => item.status === "KNOWN") && !sum.eq(1)))
     ctx.addIssue({ code: "custom", path: ["retirementShare"], message: "Tổng phần hưu trí, dự phòng và mục tiêu khác phải bằng 100%." });
   if (value.housingPlan && !["PRIMARY_HOME", "REAL_ESTATE"].includes(value.type))
@@ -88,7 +96,7 @@ const personalV2 = z.object({
   dependents: knownOrUnknown(z.number().int().min(0).max(30)).optional(), city: z.string().trim().max(120).optional(),
 }).strict();
 // Percent points (20 means 20%), unlike the existing asset shares in [0, 1].
-const lossPercent = ratePercentSchema.refine(v => new Prisma.Decimal(v).gte(0), "Tỷ lệ phải từ 0 đến 100%.");
+const lossPercent = ratePercentSchema.refine(v => decimal(v)?.gte(0) ?? false, "Tỷ lệ phải từ 0 đến 100%.");
 export const goalEntrySchema = z.object({
   id, label: z.string().trim().min(1).max(120), amountToday: amountSchema,
   dueMonth: knownOrUnknown(monthSchema), inflation: knownOrUnknown(ratePercentSchema).optional(),
@@ -153,7 +161,8 @@ function referencesCheck(data: z.infer<typeof profileV2Object> | z.infer<typeof 
   const needs = data.liquidityNeeds;
   for (const [earlier, later] of [["y1", "y3"], ["y1", "y5"], ["y3", "y5"]] as const) {
     const a = needs?.[earlier], b = needs?.[later];
-    if (a?.status === "KNOWN" && b?.status === "KNOWN" && new Prisma.Decimal(a.value).gt(b.value))
+    const first = a?.status === "KNOWN" ? decimal(a.value) : null, second = b?.status === "KNOWN" ? decimal(b.value) : null;
+    if (first && second && first.gt(second))
       issue(["liquidityNeeds", later], "Nhu cầu tiền lũy kế không được giảm theo thời hạn.");
   }
   if (data.debts?.status === "KNOWN") {
@@ -177,8 +186,10 @@ function referencesCheck(data: z.infer<typeof profileV2Object> | z.infer<typeof 
       if (loan && loan.contract?.status !== "KNOWN" && (["currency", "startMonth", "endMonth", "frequency"] as const).some(key =>
         entry[key] !== undefined && loan[key] !== undefined && entry[key] !== loan[key]))
         ctx.addIssue({ code: "custom", path: ["expenses", "entries", index], message: "Khoản trả nợ liên kết phải cùng tiền tệ và lịch với khoản vay." });
-      if (loan && loan.contract?.status !== "KNOWN" && entry.amount?.status === "KNOWN" && loan.payment?.status === "KNOWN" && loan.paymentShare?.status === "KNOWN" &&
-          !new PreciseDecimal(entry.amount.value).eq(new PreciseDecimal(loan.payment.value).mul(loan.paymentShare.value)))
+      const linkedAmount = entry.amount?.status === "KNOWN" ? decimal(entry.amount.value, PreciseDecimal) : null;
+      const loanPayment = loan?.payment?.status === "KNOWN" ? decimal(loan.payment.value, PreciseDecimal) : null;
+      const loanShare = loan?.paymentShare?.status === "KNOWN" ? decimal(loan.paymentShare.value, PreciseDecimal) : null;
+      if (loan && loan.contract?.status !== "KNOWN" && linkedAmount && loanPayment && loanShare && !linkedAmount.eq(loanPayment.mul(loanShare)))
         ctx.addIssue({ code: "custom", path: ["expenses", "entries", index, "amount"], message: "Khoản trả nợ liên kết phải bằng phần trả nợ được phân bổ." });
       if (loan?.contract?.status === "KNOWN" && entry.amount?.status === "KNOWN" && data.valuationDate && entry.startMonth && entry.endMonth !== undefined) {
         const parsed = debtEntrySchema.safeParse(loan);
@@ -186,7 +197,7 @@ function referencesCheck(data: z.infer<typeof profileV2Object> | z.infer<typeof 
           const schedule = buildContractSchedule(parsed.data, data.valuationDate);
           if (schedule.status === "READY" && schedule.rows.some(row => row.dueDate.slice(0, 7) >= (entry.startMonth ?? "") &&
               (entry.endMonth === null || row.dueDate.slice(0, 7) <= (entry.endMonth ?? "")) &&
-              entry.amount?.status === "KNOWN" && !new PreciseDecimal(row.userPayment).eq(entry.amount.value)))
+              linkedAmount !== null && !new PreciseDecimal(row.userPayment).eq(linkedAmount)))
             ctx.addIssue({ code: "custom", path: ["expenses", "entries", index, "amount"], message: "Khoản chi liên kết không khớp lịch hợp đồng. Dùng UNKNOWN cho dòng tham chiếu nếu số tiền thay đổi theo kỳ." });
         }
       }
