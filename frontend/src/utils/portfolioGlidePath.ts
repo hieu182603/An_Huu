@@ -24,6 +24,16 @@ export function portfolioGlideWeights(points: GlidePathPoint[], years: number): 
   return codes.map(assetClass => ({ assetClass, weightPercent: String(weight(lo, assetClass) + (weight(hi, assetClass) - weight(lo, assetClass)) * share) }));
 }
 
+const ASSET_COLORS: Record<string, string> = {
+  CASH: "#7DA0CA", GOV_BOND: "#334DAF", BOND: "#334DAF", EQUITY: "#052659", STOCK: "#052659",
+  GOLD: "#C99A2E", BALANCED: "#2E8B87", REAL_ESTATE: "#8A5A9E",
+};
+const FALLBACK_COLORS = ["#5B8DB8", "#9AA9C2", "#3C6E71", "#B5651D"];
+
+export function portfolioAssetColor(code: string, index = 0): string {
+  return ASSET_COLORS[code] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+}
+
 export function portfolioAssetLabel(code: string, language: "vi" | "en", labels: Record<string, string>): string {
   const translations: Record<string, [string, string]> = {
     CASH: ["Tiền gửi & thanh khoản", "Deposits & cash"],

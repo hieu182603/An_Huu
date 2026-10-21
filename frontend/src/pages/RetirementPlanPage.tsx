@@ -781,7 +781,7 @@ export default function RetirementPlanPage() {
           <nav className="plan-settings__links" aria-label={language === "en" ? "Related settings" : "Thiết lập liên quan"}>
             <span>{language === "en" ? "Also adjust:" : "Điều chỉnh thêm:"}</span>
             <Link to="/user/goal">{language === "en" ? "Edit goal" : "Sửa mục tiêu"}</Link>
-            <Link to="/user/risk-portfolio">{language === "en" ? "Choose investments" : "Chọn cách đầu tư"}</Link>
+            <Link to="/user/risk-portfolio">{language === "en" ? "Choose investments" : "Khảo sát rủi ro"}</Link>
             <Link to="/user/debts">{language === "en" ? "Review debt budget" : "Kiểm tra ngân sách trả nợ"}</Link>
             {currentVersion && <Link to="/user/simulation">{language === "en" ? "Try changes" : "Thử thay đổi kế hoạch"}</Link>}
           </nav>

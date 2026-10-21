@@ -157,7 +157,7 @@ test("scenario issues: repeated survey answers appear once with a clear next ste
   const { calls, errors } = await setup(page, { scenarioIssues: [surveyIssues, surveyIssues, surveyIssues] });
   const section = page.locator(".guided-scenarios");
   const notice = section.locator(".guided-scenarios-notice");
-  const message = "Hãy trả lời đủ câu hỏi ở trang Cách đầu tư để tính kế hoạch theo lựa chọn của bạn.";
+  const message = "Hãy trả lời đủ câu hỏi ở trang Khảo sát rủi ro để tính kế hoạch theo lựa chọn của bạn.";
   await expect(notice).toHaveAttribute("role", "status");
   await expect(notice.locator("li")).toHaveCount(1);
   await expect(section.getByText(message, { exact: true })).toHaveCount(1);
