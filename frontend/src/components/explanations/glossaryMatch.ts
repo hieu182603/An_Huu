@@ -1,7 +1,7 @@
 export type GlossaryTermLike = { key: string; label: { vi: string; en: string }; aliases?: readonly string[] };
 
 const EDGE = /^[\s"'“”‘’.,:;!?–—-]+|[\s"'“”‘’.,:;!?–—-]+$/g;
-const normalize = (text: string) => text.normalize("NFC").toLocaleLowerCase("vi").replace(/\s+/g, " ").replace(EDGE, "").trim();
+export const normalize = (text: string) => text.normalize("NFC").toLocaleLowerCase("vi").replace(/\s+/g, " ").replace(EDGE, "").trim();
 const variants = (text: string) => [text, ...text.split(/[()]/)].map(normalize).filter(Boolean);
 
 /** Exact match of the whole selection, or one of its parenthesised parts

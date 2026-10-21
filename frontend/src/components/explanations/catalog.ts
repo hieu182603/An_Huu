@@ -345,7 +345,7 @@ export const glossaryAliases: Record<string, readonly string[]> = {
   netWorth: ["Tổng tài sản trừ tổng nợ", "Overall net worth"],
   fundCoverage: ["Mức bao phủ quỹ", "Tỷ lệ đáp ứng quỹ"],
   requiredMonthlyContribution: ["Mức góp cần thiết / tháng", "Required contribution / month"],
-  emergencyReserve: ["Quỹ dự phòng khẩn cấp", "Dự phòng cần có", "Dự phòng đã khai", "Required reserve", "Declared reserve"],
+  emergencyReserve: ["Quỹ dự phòng khẩn cấp", "Quỹ dự phòng", "Emergency fund", "Dự phòng cần có", "Dự phòng đã khai", "Required reserve", "Declared reserve"],
   essentialExpenses: ["Chi thiết yếu mỗi tháng", "Monthly essential expenses"],
   lossTolerance: ["Khả năng chịu lỗ", "Loss tolerance"],
   pinnedAssumptions: ["Giả định & Thời hạn kế hoạch", "Giả định và thời hạn kế hoạch", "Bộ giả định đã ghim"],

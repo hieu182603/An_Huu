@@ -140,14 +140,16 @@ export async function updateAiPrivacy(command: {
 
 export async function explainRetirementPlan(
   command: AiExplainCommand,
-  idempotencyKey?: string
+  idempotencyKey?: string,
+  signal?: AbortSignal
 ): Promise<AiExplainResponse> {
   const key = idempotencyKey || crypto.randomUUID();
   return authenticatedRequest<AiExplainResponse>(
     "/me/ai/explain",
     command,
     "POST",
-    { "Idempotency-Key": key }
+    { "Idempotency-Key": key },
+    signal ? { signal } : undefined
   );
 }
 

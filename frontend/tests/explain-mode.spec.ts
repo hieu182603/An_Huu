@@ -124,14 +124,17 @@ test('a long selected passage waits for an explicit AI request', async ({ page }
 for (const width of [375, 1280, 1440, 1920]) test(`long AI explanation remains readable and scrollable at ${width}px`, async ({ page }) => {
   const button = await openDashboard(page, width);
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const paragraph = 'Quỹ dự phòng là khoản tiền bạn để riêng cho những chi phí bất ngờ. Khoản này giúp bạn chủ động hơn khi thu nhập hoặc chi tiêu thay đổi.';
+  const paragraphs = Array.from({ length: 12 }, (_, i) => `Ý ${i + 1}: quỹ dự phòng là khoản tiền bạn để riêng cho những chi phí bất ngờ. Khoản này giúp bạn chủ động hơn khi thu nhập hoặc chi tiêu thay đổi lần ${i + 1}.`);
   await page.route('**/api/v1/me/ai/privacy', route => route.fulfill({ json: { data: consentedPrivacy } }));
-  await page.route('**/api/v1/me/ai/explain', route => route.fulfill({ json: { data: { status: 'AI_ASSISTED', answer: Array(12).fill(paragraph).join('\n\n'), facts: [], citations: [{ title: 'Tài liệu tham khảo kiểm thử', url: null }], provenance: null, knowledgeStatus: 'AVAILABLE', nextAction: '', applied: false, savedHistory: false, conversationId: null } } }));
+  await page.route('**/api/v1/me/ai/explain', route => route.fulfill({ json: { data: { status: 'AI_ASSISTED', answer: paragraphs.join('\n\n'), facts: [], citations: [{ title: 'Tài liệu tham khảo kiểm thử', url: null }], provenance: null, knowledgeStatus: 'AVAILABLE', nextAction: '', applied: false, savedHistory: false, conversationId: null } } }));
   await button.click();
   await selectText(page, 'quỹ dự phòng khẩn cấp');
   const popup = page.getByRole('dialog');
-  await expect(popup.locator('.explain-answer')).toContainText(paragraph);
+  // Long answers open with a bold one-sentence summary; extra points sit behind "Xem thêm".
+  await expect(popup.locator('.explain-summary')).toHaveText('Ý 1: quỹ dự phòng là khoản tiền bạn để riêng cho những chi phí bất ngờ.');
   await expect(popup).toBeFocused();
+  await popup.getByText(/^Xem thêm \d+ ý$/).click();
+  await expect(popup.locator('.explain-answer')).toContainText('thay đổi lần 12.');
   await page.screenshot({ animations: 'disabled', path: `test-results/explanation-ai-${width}.png` });
   const body = popup.locator('.explain-body');
   expect(await body.evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
@@ -143,7 +146,7 @@ for (const width of [375, 1280, 1440, 1920]) test(`long AI explanation remains r
   await expect.poll(() => body.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
   await expect(popup.getByRole('button', { name: 'Đóng giải thích' })).toBeVisible();
   await expect(popup.getByRole('link', { name: 'Hỏi thêm Trợ lý AI' })).toBeVisible();
-  await popup.locator('summary').click();
+  await popup.getByText('Nguồn tham khảo').click();
   await expect(popup.getByText('Tài liệu tham khảo kiểm thử')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(popup).toHaveCount(0);
