@@ -37,7 +37,7 @@ export const vi = {
   "nav.plan": "Kế hoạch chi tiết",
   "nav.simulation": "Mô phỏng & Theo dõi",
   "nav.debts": "Khoản vay & Nợ",
-  "nav.risk_portfolio": "Cách đầu tư",
+  "nav.risk_portfolio": "Khảo sát rủi ro",
   "nav.assistant": "Trợ lý AI",
   "nav.explore": "Đối tác & Giải pháp",
   "nav.knowledge": "Cẩm nang kiến thức",

@@ -135,6 +135,31 @@
 .explain-data-sources > div { padding: 10px 0; border-top: 1px solid var(--color-border); }
 .explain-data-sources dd { margin: 3px 0 0; color: var(--color-text-muted); overflow-wrap: anywhere; }
 .explain-loading { display: flex; align-items: center; gap: 12px; min-height: 65px; color: var(--color-text-muted); }
+.explain-pending .explain-loading { min-height: 0; margin-bottom: 12px; font-size: 14px; }
+.explain-slow { font-size: 14px; color: var(--color-text-muted); }
+.explain-skeleton { display: grid; gap: 10px; }
+.explain-skeleton span { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--color-border) 25%, var(--color-bg) 50%, var(--color-border) 75%); background-size: 200% 100%; animation: explain-shimmer 1.2s ease-in-out infinite; }
+.explain-skeleton span:nth-child(2) { width: 92%; }
+.explain-skeleton span:nth-child(3) { width: 64%; }
+.explain-popup .explain-quote { margin: 6px 0 0; font-size: 14px; color: var(--color-text-muted); line-height: 1.5; }
+.explain-result-compact { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 16px; margin-bottom: 16px; }
+.explain-result-compact > span { margin: 0; }
+.explain-result-compact strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.explain-summary { font-weight: 650; color: var(--color-text-strong); }
+.explain-points { margin: 0 0 14px; padding-left: 20px; }
+.explain-points li + li { margin-top: 6px; }
+.explain-example { padding: 14px 16px; margin-bottom: 14px; border-radius: 10px; background: var(--color-secondary-soft); }
+.explain-example h3 { font-size: 14px; }
+.explain-example .explain-points { margin-bottom: 0; }
+.explain-caveat { font-size: 14px; color: var(--color-text-muted); }
+.explain-related { padding: 14px 16px; margin-bottom: 16px; border: 1px solid var(--color-border); border-radius: 10px; font-size: 15px; line-height: 1.65; }
+.explain-related-kind { display: block; font-size: 13px; color: var(--color-text-muted); }
+.explain-related strong { display: block; margin-bottom: 4px; }
+.explain-popup .explain-related p { margin: 0; }
+.explain-popup .explain-error p { margin: 0 0 10px; }
+.explain-popup .explain-error p:last-child { margin-bottom: 0; }
+.explain-retry { min-height: 40px; padding: 6px 14px; border: 1px solid currentColor; border-radius: 8px; background: var(--color-white); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.explain-retry:hover { background: var(--color-danger-soft); }
 .explain-spinner { width: 20px; height: 20px; flex-shrink: 0; border: 2px solid var(--color-border); border-top-color: var(--color-secondary-500); border-radius: 50%; animation: explain-spin .8s linear infinite; }
 .explain-backdropless > .overlay { z-index: 10001; }
 .explain-monthly-dialog { width: min(1000px, calc(100vw - 24px)); max-width: 1000px; }
@@ -145,8 +170,9 @@
 .explain-monthly td:nth-child(3) { overflow-wrap: anywhere; max-width: 360px; color: var(--color-text-muted); }
 @keyframes explain-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes explain-spin { to { transform: rotate(360deg); } }
+@keyframes explain-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .explain-popup, .explain-spinner { animation: none; }
+  .explain-popup, .explain-spinner, .explain-skeleton span { animation: none; }
   .explain-popup .explain-action { transition: none; }
 }
 @media (max-width: 480px) {

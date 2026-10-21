@@ -232,7 +232,7 @@ export const ISSUE_MESSAGES: Record<string, string> = {
   INVALID_RETIREMENT_INCOME_REFERENCE: "Khoản thu sau khi nghỉ hưu đã thay đổi hoặc không còn trong hồ sơ. Hãy kiểm tra lại nguồn thu được chọn.",
   PUBLISHED_INFLATION_REQUIRED: "Hệ thống chưa có dữ liệu kinh tế để tính kế hoạch. Bạn không cần sửa hồ sơ; hãy thử lại sau hoặc liên hệ Hỗ trợ.",
   INFLATION_YEAR_MISSING: "Thiếu dữ liệu lạm phát cho một số năm trong thời gian dự phóng.",
-  ANSWER_REQUIRED: "Hãy trả lời đủ câu hỏi ở trang Cách đầu tư để tính kế hoạch theo lựa chọn của bạn.",
+  ANSWER_REQUIRED: "Hãy trả lời đủ câu hỏi ở trang Khảo sát rủi ro để tính kế hoạch theo lựa chọn của bạn.",
   POLICY_NOT_COVERED: "Chính sách đã ghim chưa bao phủ kế hoạch này. Cần quản trị viên kiểm tra cấu hình; không tự cắt ngắn thời hạn.",
   PROJECTION_NOT_COVERED: "Bộ giả định chưa phủ đủ thời gian kế hoạch. Cần bổ sung cấu hình đã duyệt, không giảm thời hạn để né lỗi.",
   ASSET_HORIZON_NOT_COVERED: "Giả định tài sản chưa phủ kỳ hạn yêu cầu. Cần kiểm tra bộ giả định đã ghim.",

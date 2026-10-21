@@ -20,6 +20,7 @@ import { fetchUserAssumptionDetail } from "../services/assumptions";
 import { translateIssueCode } from "../services/retirement";
 import { ApiError } from "../services/api";
 import { PortfolioGlidePath } from "../components/PortfolioGlidePath";
+import { PortfolioScenarios } from "../components/PortfolioScenarios";
 
 const getDimensionLabel = (dimension: string, language: "vi" | "en") => {
   const viMap: Record<string, string> = {
@@ -480,8 +481,6 @@ export default function RiskPortfolioPage() {
                 </Card>
               </div>
 
-              {/* Asset Allocations Breakdown */}
-              {selectedTemplate && <AssetRoles codes={("glidePath" in selectedTemplate ? selectedTemplate.glidePath.points : selectedTemplate.schedule).flatMap(point => point.allocations.map(allocation => allocation.assetClass))} language={language} labels={assetLabels} />}
               {selectedTemplate && ("glidePath" in selectedTemplate ? (
                 <PortfolioGlidePath points={selectedTemplate.glidePath.points} month={valuationMonth} retirementMonth={retirementMonth} language={language} assetLabels={assetLabels} />
               ) : selectedTemplate.schedule.length > 0 && (
@@ -505,64 +504,10 @@ export default function RiskPortfolioPage() {
                 </Card>
               ))}
 
+              {/* Asset Allocations Breakdown */}
+              {selectedTemplate && <AssetRoles codes={("glidePath" in selectedTemplate ? selectedTemplate.glidePath.points : selectedTemplate.schedule).flatMap(point => point.allocations.map(allocation => allocation.assetClass))} language={language} labels={assetLabels} />}
               {/* Scenarios Comparison */}
-              {previewResult.scenarios.length > 0 && (
-                <section>
-                  <h3 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>
-                    {language === "en" ? "Benchmark Portfolio Simulation Across 3 Macro Scenarios" : "Diễn biến mô phỏng danh mục chuẩn qua 3 kịch bản vĩ mô"}
-                  </h3>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "var(--space-4)" }}>
-                    {previewResult.scenarios.map((sc) => {
-                      const isBase = sc.kind === "BASE";
-                      const isAdverse = sc.kind === "ADVERSE";
-                      const scenarioKindLabel =
-                        sc.kind === "BASE"
-                          ? (language === "en" ? "BASE" : "Cơ sở")
-                          : sc.kind === "ADVERSE"
-                          ? (language === "en" ? "ADVERSE" : "Thận trọng")
-                          : (language === "en" ? "OPTIMISTIC" : "Lạc quan");
-                      return (
-                        <Card key={sc.kind} style={{ padding: "var(--space-4)", border: isBase ? "2px solid var(--color-primary)" : "1px solid var(--color-border)" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-2)" }}>
-                            <h4 style={{ margin: 0, fontSize: "var(--text-base)" }}>{sc.label}</h4>
-                            <Badge tone={isBase ? "info" : isAdverse ? "danger" : "success"}>
-                              {scenarioKindLabel}
-                            </Badge>
-                          </div>
-
-                          <div style={{ margin: "var(--space-3) 0", padding: "var(--space-3)", background: "var(--color-surface-subtle)", borderRadius: "var(--radius-md)" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--space-1)" }}>
-                              <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
-                                {language === "en" ? "Annualized Return:" : "Tỷ suất sinh lời năm:"}
-                              </span>
-                              <span style={{ fontWeight: 700 }}>
-                                {parseFloat(sc.annualizedReturnPercent).toFixed(2)}% {language === "en" ? "/ yr" : "/ năm"}
-                              </span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                              <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)" }}>
-                                {language === "en" ? "Final Unit Value:" : "Giá trị 1 đơn vị cuối kỳ:"}
-                              </span>
-                              <span style={{ fontWeight: 700 }}>
-                                {parseFloat(sc.finalUnitValue).toFixed(2)} {language === "en" ? "x" : "lần"}
-                              </span>
-                            </div>
-                          </div>
-
-                          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-muted)", margin: 0 }}>
-                            {isBase
-                              ? (language === "en" ? "Baseline expectation scenario approved by the Committee." : "Kịch bản kỳ vọng theo chuỗi giả định cơ sở được Hội đồng duyệt.")
-                              : isAdverse
-                              ? (language === "en" ? "High inflation combined with economic slowdown." : "Kịch bản lạm phát tăng cao kết hợp cùng suy giảm tăng trưởng kinh tế.")
-                              : (language === "en" ? "Strong economic recovery with favorable asset yields." : "Kịch bản kinh tế phục hồi mạnh mẽ và lợi suất tài sản thuận lợi.")}
-                          </p>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
+              {previewResult.scenarios.length > 0 && <PortfolioScenarios scenarios={previewResult.scenarios} language={language} />}
             </section>
           ) : !allAnswered ? (
             <Card style={{ padding: "var(--space-6)", textAlign: "center", border: "1px dashed var(--color-border)" }}>

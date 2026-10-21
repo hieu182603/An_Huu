@@ -153,21 +153,26 @@ export interface PortfolioAssessmentResult {
   checks: Array<{ ruleId: string; templateId: string; matched: boolean; failed: string[]; explanation: string }>;
 }
 
+// Mirrors backend/src/modules/portfolios/engine.ts preview output.
 export interface PortfolioScenarioRow {
   month: string;
+  rebalanced: boolean;
+  turnoverFraction: string;
+  rebalanceCostFraction: string;
+  returnMonthlyFactor: string;
+  inflationMonthlyFactor: string;
+  inflationAnnualPercent: string;
+  inflationDeltaPoints: string;
   unitValue: string;
-  monthlyReturnPercent: string;
-  monthlyInflationPercent: string;
-  turnoverFeePercent: string;
-  holdings: Array<{ assetClass: string; weightPercent: string; value: string }>;
+  holdings: Array<{ assetClass: string; startWeightPercent: string; annualNetNominalReturnPercent: string; returnDeltaPoints: string }>;
 }
 
 export interface PortfolioScenarioResult {
   kind: "BASE" | "ADVERSE" | "FAVORABLE";
   label: string;
+  evidence: string;
   rows: PortfolioScenarioRow[];
-  finalUnitValue: string;
-  annualizedReturnPercent: string;
+  endingUnitValue: string;
 }
 
 export interface PortfolioPreviewResult {

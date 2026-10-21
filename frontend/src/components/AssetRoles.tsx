@@ -1,4 +1,5 @@
-import { portfolioAssetLabel } from "../utils/portfolioGlidePath";
+import { portfolioAssetColor, portfolioAssetLabel } from "../utils/portfolioGlidePath";
+import "./asset-roles.css";
 
 const roles: Record<string, [string, string]> = {
   CASH: ["Giữ chủ động và chuẩn bị cho khoản sắp cần; vẫn có rủi ro giảm sức mua.", "Keep money available for upcoming needs; purchasing power can still fall."],
@@ -12,9 +13,13 @@ const roles: Record<string, [string, string]> = {
 
 export function AssetRoles({ codes, language, labels }: { codes: string[]; language: "vi" | "en"; labels: Record<string, string> }) {
   const en = language === "en";
-  return <section className="asset-roles" aria-label={en ? "Asset class roles" : "Vai trò từng nhóm tài sản"}>
-    <h3>{en ? "What each asset class does" : "Vai trò từng nhóm tài sản"}</h3>
-    <dl>{[...new Set(codes)].map(code => <div key={code} style={{ marginBottom: "var(--space-3)" }}><dt><strong>{portfolioAssetLabel(code, language, labels)}</strong></dt><dd style={{ margin: "var(--space-1) 0" }}>{roles[code === "STOCK" ? "EQUITY" : code]?.[en ? 1 : 0] ?? (en ? "Review the published asset description and liquidity before allocating." : "Cần xem mô tả và khả năng chuyển thành tiền của nhóm tài sản trước khi phân bổ.")}</dd></div>)}</dl>
-    <p>{en ? "Asset-class information only; no specific product is ranked or recommended for your profile." : "Thông tin về nhóm tài sản; không xếp hạng hay khuyến nghị sản phẩm cụ thể theo hồ sơ của bạn."}</p>
+  const fallback = en ? "Review the published asset description and liquidity before allocating." : "Cần xem mô tả và khả năng chuyển thành tiền của nhóm tài sản trước khi phân bổ.";
+  return <section className="asset-roles" aria-labelledby="asset-roles-title">
+    <h3 id="asset-roles-title">{en ? "What each asset class does" : "Vai trò từng nhóm tài sản"}</h3>
+    <dl className="asset-roles-grid">{[...new Set(codes)].map((code, i) => <div key={code} className="asset-role-card" style={{ ["--asset-color" as string]: portfolioAssetColor(code, i) }}>
+      <dt>{portfolioAssetLabel(code, language, labels)}</dt>
+      <dd>{roles[code === "STOCK" ? "EQUITY" : code]?.[en ? 1 : 0] ?? fallback}</dd>
+    </div>)}</dl>
+    <p className="asset-roles-note">{en ? "Asset-class information only; no specific product is ranked or recommended for your profile." : "Thông tin về nhóm tài sản; không xếp hạng hay khuyến nghị sản phẩm cụ thể theo hồ sơ của bạn."}</p>
   </section>;
 }

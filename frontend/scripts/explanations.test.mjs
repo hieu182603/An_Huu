@@ -86,3 +86,43 @@ test('failures, expiry, eviction and invalidation allow fresh requests', async (
   cache.delete('a');
   assert.equal(await cache.get('a', load), 6);
 });
+
+test('popup flips above the selection top so the phrase stays visible', () => {
+  // A 30px-tall selection near the bottom: the popup must end above its top edge.
+  const placed = positionExplainPopup({ x: 100, y: 800, top: 770 }, { width: 300, height: 200 }, { width: 1280, height: 900 });
+  assert.equal(placed.top + 200 <= 770, true);
+});
+
+test('field labels resolve to curated terms; longer phrases get a related term hint only', async () => {
+  const { relatedGlossaryTerm } = await import('../src/components/explanations/aiAnswer.ts');
+  const terms = mergeExplanationTerms(explanationGlossary.terms);
+  assert.equal(matchGlossaryTerm('Quỹ dự phòng (đủ chi tiêu bao nhiêu tháng)', terms)?.key, 'emergencyReserve');
+  assert.equal(matchGlossaryTerm('Emergency Fund (Months of expenses)', terms)?.key, 'emergencyReserve');
+  assert.equal(matchGlossaryTerm('Mức dự phòng khẩn cấp cho gia đình', terms), undefined);
+  assert.equal(relatedGlossaryTerm('Mức dự phòng khẩn cấp cho gia đình', terms)?.key, 'emergencyReserve');
+  assert.equal(relatedGlossaryTerm('Bấm vào đây để tiếp tục', terms), undefined);
+});
+
+test('AI answers become a summary, short points, a personal example and brief notes', async () => {
+  const { structureAiAnswer, formatAnswerNumbers } = await import('../src/components/explanations/aiAnswer.ts');
+  assert.equal(formatAnswerNumbers('Chi 15000000 VND/tháng năm 2026, quỹ 90.000.000 VND', 'vi'), 'Chi 15.000.000 VND/tháng năm 2026, quỹ 90.000.000 VND');
+  assert.equal(formatAnswerNumbers('Spend 15000000 VND', 'en'), 'Spend 15,000,000 VND');
+  const result = structureAiAnswer({
+    answer: 'ignored when facts exist',
+    facts: [
+      { key: 'missing', text: 'Chưa chọn phiên bản kế hoạch để giải thích số liệu. Hãy bổ sung dữ liệu.' },
+      { key: 'fund', text: 'Tiền dự kiến có tại tháng nghỉ hưu 2054-10: 3.000.000.000 VND. Đây là số dự báo.' },
+      { key: 'limits', text: 'Kết quả phụ thuộc dữ liệu dự báo đã chọn. Mô phỏng không tự thay đổi kế hoạch.' },
+    ],
+    citations: [{ excerpt: 'Quỹ dự phòng là tiền dễ rút. Nên giữ 3 đến 6 tháng chi tiêu.\n- Ví dụ chi 15000000 VND/tháng thì cần 90000000 VND.' }],
+  }, 'vi');
+  assert.equal(result.summary, 'Quỹ dự phòng là tiền dễ rút.');
+  assert.deepEqual(result.details, ['Nên giữ 3 đến 6 tháng chi tiêu.', 'Ví dụ chi 15.000.000 VND/tháng thì cần 90.000.000 VND.']);
+  assert.deepEqual(result.example, ['Tiền dự kiến có tại tháng nghỉ hưu 2054-10: 3.000.000.000 VND.']);
+  assert.deepEqual(result.notes, ['Kết quả phụ thuộc dữ liệu dự báo đã chọn.']);
+  assert.deepEqual(result.more, []);
+  // A plan-selection hint alone does not explain a phrase: the popup shows its empty state.
+  const empty = structureAiAnswer({ answer: 'x', facts: [{ key: 'missing', text: 'Chưa chọn phiên bản kế hoạch.' }], citations: [] }, 'vi');
+  assert.equal(empty.summary, undefined);
+  assert.equal(structureAiAnswer({ answer: 'Đây là phần tiền để riêng.', facts: [], citations: [] }, 'vi').summary, 'Đây là phần tiền để riêng.');
+});
