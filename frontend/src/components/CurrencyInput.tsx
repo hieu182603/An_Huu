@@ -1,4 +1,4 @@
-import { useId, useState, useEffect, type ReactNode } from "react";
+import { useId, useRef, useState, useEffect, type ReactNode } from "react";
 import { formatNumberWithDots, numberToVietnameseWords } from "../utils/currency";
 
 export interface CurrencyInputProps {
@@ -50,7 +50,14 @@ export function CurrencyInput({
     }
   }, [value]);
 
+  // Vietnamese IMEs (Telex/VNI) compose text in-place; reformatting mid-composition makes digits repeat (7 -> 77).
+  const composing = useRef(false);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (composing.current) {
+      setDisplayText(e.target.value);
+      return;
+    }
     const rawDigits = e.target.value.replace(/\D/g, "");
     if (!rawDigits) {
       setDisplayText("");
@@ -102,6 +109,11 @@ export function CurrencyInput({
           placeholder={placeholder}
           value={displayText}
           onChange={handleChange}
+          onCompositionStart={() => { composing.current = true; }}
+          onCompositionEnd={(e) => {
+            composing.current = false;
+            handleChange(e as unknown as React.ChangeEvent<HTMLInputElement>);
+          }}
           onKeyDown={handleKeyDown}
           onWheel={handleWheel}
           aria-invalid={Boolean(error)}

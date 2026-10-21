@@ -58,25 +58,25 @@ test("complete missing item, save and reload; edit existing date without replaci
   await expect(page.locator(".financial-profile-progress strong")).toHaveText("100%");
   await page.reload();
   await expect(page.locator(".financial-profile-progress strong")).toHaveText("100%");
-  await page.getByLabel("Tháng năm sinh", { exact: true }).fill("1975-03");
+  await page.getByLabel("Ngày tháng năm sinh", { exact: true }).fill("1975-03-01");
   await page.getByRole("button", { name: "Lưu thông tin & thời gian" }).click();
   await expect.poll(() => state.writes.length).toBe(2);
   expect(state.data!.income).toEqual(original.income);
   expect(state.data!.assets).toEqual(original.assets);
   expect(state.data!.debts).toEqual(original.debts);
   await page.reload();
-  await expect(page.getByLabel("Tháng năm sinh", { exact: true })).toHaveValue("03/1975");
+  await expect(page.getByLabel("Ngày tháng năm sinh", { exact: true })).toHaveValue("01/03/1975");
   await page.locator(".profile-checklist").getByRole("button", { name: /^Thu nhập/ }).click();
   await page.getByLabel("Số tiền (VND)", { exact: true }).first().fill("18.000.001,25");
   await page.getByRole("button", { name: "Lưu thu nhập & chi tiêu" }).click();
   await expect.poll(() => state.writes.length).toBe(3);
   expect(state.data!.income.status === "KNOWN" && state.data!.income.entries[0].amount).toEqual(known("18000001.25"));
-  await page.locator(".profile-checklist").getByRole("button", { name: /^Tháng năm sinh/ }).click();
+  await page.locator(".profile-checklist").getByRole("button", { name: /^Ngày tháng năm sinh/ }).click();
   state.conflict = true;
-  await page.getByLabel("Tháng năm sinh", { exact: true }).fill("1974-03");
+  await page.getByLabel("Ngày tháng năm sinh", { exact: true }).fill("1974-03-01");
   await page.getByRole("button", { name: "Lưu thông tin & thời gian" }).click();
   await expect(page.getByText("Hồ sơ đã thay đổi. Vui lòng tải lại.", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("Tháng năm sinh", { exact: true })).toHaveValue("03/1974");
+  await expect(page.getByLabel("Ngày tháng năm sinh", { exact: true })).toHaveValue("01/03/1974");
   expect(state.data!.personal.birthMonth).toEqual(known("1975-03"));
 });
 
@@ -127,7 +127,7 @@ test("collapsed sidebar completion opens by keyboard; financial form fits small 
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: /^Hồ sơ tài chính(?: cá nhân)?$/, exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByLabel("Tháng năm sinh", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Ngày tháng năm sinh", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "../artifacts/financial-profile-mobile.png", fullPage: true });
 });
@@ -135,7 +135,7 @@ test("collapsed sidebar completion opens by keyboard; financial form fits small 
 test("Vietnamese dates validate real days and calendar selection; money preserves exact decimal strings", async ({ page }) => {
   const state = await install(page);
   await page.goto("/user/account");
-  await expect(page.getByLabel("Tháng năm sinh", { exact: true })).toHaveValue("03/1976");
+  await expect(page.getByLabel("Ngày tháng năm sinh", { exact: true })).toHaveValue("01/03/1976");
   const date = page.getByLabel("Ngày cập nhật số liệu tài chính", { exact: true });
   await expect(date).toHaveValue("13/10/2026");
   await date.fill("31/02/2026");
@@ -145,8 +145,8 @@ test("Vietnamese dates validate real days and calendar selection; money preserve
   await date.fill("12/10/2026");
   await page.getByRole("button", { name: "Lưu thông tin & thời gian" }).click();
   await expect.poll(() => state.data!.valuationDate).toBe("2026-10-12");
-  await page.getByLabel("Mở lịch chọn tháng năm sinh", { exact: true }).fill("1974-02");
-  await expect(page.getByLabel("Tháng năm sinh", { exact: true })).toHaveValue("02/1974");
+  await page.getByLabel("Mở lịch chọn ngày tháng năm sinh", { exact: true }).fill("1974-02-01");
+  await expect(page.getByLabel("Ngày tháng năm sinh", { exact: true })).toHaveValue("01/02/1974");
   await page.getByRole("button", { name: "Lưu thông tin & thời gian" }).click();
   await expect.poll(() => state.writes.length).toBe(2);
   await page.locator(".profile-section-tabs").getByRole("button", { name: "Tài sản", exact: true }).click();

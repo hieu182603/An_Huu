@@ -3,6 +3,7 @@ import ProfileFormattedInput from "./ProfileFormattedInput";
 import { Link } from "react-router";
 import { profileCompletionItems } from "../utils/profileCompletion";
 import { useState, useEffect, useRef, type FormEvent, type ComponentProps } from "react";
+import { useAuth } from "../context/AuthContext";
 import { useFinancialProfile, type FinancialProfile } from "../context/FinancialProfileContext";
 import {
   type ProfileV2,
@@ -36,6 +37,33 @@ function Select(props: ComponentProps<typeof BaseSelect>) {
   const { language } = useI18n();
   const missing = !props.value || props.value === "UNDISCLOSED" || /UNKNOWN/.test(props.value);
   return <BaseSelect {...props} error={props.error || (missing ? (language === "en" ? "Please select an answer" : "Chưa xác nhận thông tin") : undefined)} />;
+}
+
+function getStoredBirthDate(userId?: string): string {
+  try {
+    return localStorage.getItem(`anhuu_birth_date_${userId || "default"}`) || "";
+  } catch {
+    return "";
+  }
+}
+
+function setStoredBirthDate(date: string, userId?: string) {
+  try {
+    if (date) {
+      localStorage.setItem(`anhuu_birth_date_${userId || "default"}`, date);
+    } else {
+      localStorage.removeItem(`anhuu_birth_date_${userId || "default"}`);
+    }
+  } catch {
+    // Storage may be disabled
+  }
+}
+
+function resolveBirthDate(monthValue: string, userId?: string): string {
+  if (!monthValue) return "";
+  const stored = getStoredBirthDate(userId);
+  if (stored && stored.startsWith(monthValue + "-")) return stored;
+  return monthValue.length === 10 ? monthValue : `${monthValue}-01`;
 }
 
 const PENSION_ISSUE_LABELS: Record<string, { vi: string; en: string }> = {
@@ -104,9 +132,15 @@ export default function FinancialProfilePanel() {
       sectionTabsRef.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
     });
   };
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<PanelTab>(schemaVersion === 2 ? "v2-timing" : "basic");
   const [form, setForm] = useState<FinancialProfile>(profile);
   const [v2Form, setV2Form] = useState<ProfileV2 | null>(v2Profile);
+  const [birthDate, setBirthDate] = useState<string>(() => (
+    v2Profile?.personal.birthMonth.status === "KNOWN" && v2Profile.personal.birthMonth.value
+      ? resolveBirthDate(v2Profile.personal.birthMonth.value, user?.id)
+      : ""
+  ));
   const [error, setError] = useState("");
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [showAssetReviewModal, setShowAssetReviewModal] = useState(false);
@@ -128,7 +162,12 @@ export default function FinancialProfilePanel() {
   useEffect(() => {
     setForm(profile);
     setV2Form(v2Profile);
-  }, [profile, v2Profile]);
+    if (v2Profile?.personal.birthMonth.status === "KNOWN" && v2Profile.personal.birthMonth.value) {
+      setBirthDate(resolveBirthDate(v2Profile.personal.birthMonth.value, user?.id));
+    } else {
+      setBirthDate("");
+    }
+  }, [profile, v2Profile, user?.id]);
 
   useEffect(() => { if (schemaVersion === 2) setActiveTab(tab => tab === "basic" ? "v2-timing" : tab); }, [schemaVersion]);
   const completion = v2Form ? profileCompletionItems(v2Form) : [];
@@ -221,8 +260,8 @@ export default function FinancialProfilePanel() {
     if (birth.status === "KNOWN" && ret.status === "KNOWN" && ret.value < birth.value) {
       return setError(
         isVi
-          ? "Tháng nghỉ hưu dự kiến không thể trước tháng năm sinh."
-          : "Expected retirement month cannot be prior to birth month."
+          ? "Tháng nghỉ hưu dự kiến không thể trước ngày tháng năm sinh."
+          : "Expected retirement month cannot be prior to birth date."
       );
     }
 
@@ -640,18 +679,20 @@ export default function FinancialProfilePanel() {
               <Input label={isVi ? "Nơi sinh sống (không bắt buộc)" : "Place of living (optional)"} value={v2Form.personal.city ?? ""} onChange={city => setV2Form({ ...v2Form, personal: { ...v2Form.personal, city } })} />
 
               <Input
-                type="month"
-                label={isVi ? "Tháng năm sinh" : "Birth Month (YYYY-MM)"}
-                value={v2Form.personal.birthMonth.status === "KNOWN" ? v2Form.personal.birthMonth.value : ""}
-                onChange={(val) =>
+                type="date"
+                label={isVi ? "Ngày tháng năm sinh" : "Date of Birth (YYYY-MM-DD)"}
+                value={birthDate}
+                onChange={(val) => {
+                  setBirthDate(val);
+                  setStoredBirthDate(val, user?.id);
                   setV2Form({
                     ...v2Form,
                     personal: {
                       ...v2Form.personal,
-                      birthMonth: val ? { status: "KNOWN", value: val } : { status: "UNKNOWN" },
+                      birthMonth: val ? { status: "KNOWN", value: val.slice(0, 7) } : { status: "UNKNOWN" },
                     },
-                  })
-                }
+                  });
+                }}
               />
               <Input
                 type="month"
