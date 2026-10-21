@@ -583,6 +583,14 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .worth-legend i { width: 8px; height: 8px; border-radius: 50%; }.legend-assets { background: var(--color-secondary-500); }.legend-debt { background: var(--color-warning-fill); }.worth-legend strong { color: var(--color-white); font-variant-numeric: tabular-nums; }
 .profile-complete { display: grid; min-height: 100vh; align-content: start; justify-items: center; gap: var(--space-12); padding: var(--space-12); background: var(--color-bg); }
 .profile-complete-card { display: grid; width: min(100%, 680px); justify-items: center; padding: 64px; text-align: center; }
+.profile-update-card { gap: var(--space-4); }
+.profile-update-card > h1, .profile-update-card > p { margin: 0; }
+.profile-update-card > .button { margin-top: var(--space-2); }
+.profile-update-card details { width: 100%; margin-top: var(--space-2); padding-top: var(--space-4); border-top: 1px solid var(--color-border); text-align: left; }
+.profile-update-card details summary { cursor: pointer; text-align: center; }
+.profile-update-card details dl { display: grid; gap: var(--space-2); margin: var(--space-4) 0; }
+.profile-update-card details dl > div { display: flex; justify-content: space-between; gap: var(--space-4); }
+.profile-update-card details dd { margin: 0; font-weight: 600; }
 .complete-icon { display: grid; width: 72px; height: 72px; place-items: center; margin-bottom: var(--space-6); border-radius: var(--radius-lg); color: var(--color-success); background: rgba(var(--color-secondary-rgb), .12); }
 .profile-complete-card h1 { margin: var(--space-4) 0 var(--space-3); font-size: 32px; }.profile-complete-card > p { max-width: 460px; color: var(--color-text-muted); font-size: 14px; }.profile-complete-card > strong { margin: var(--space-6) 0 var(--space-8); color: var(--color-midnight-900); font-size: 38px; font-variant-numeric: tabular-nums; }.complete-actions { display: flex; gap: var(--space-3); }.profile-complete-card > small { margin-top: var(--space-4); color: var(--color-text-muted); font-size: 11px; }
 

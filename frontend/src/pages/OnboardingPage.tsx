@@ -535,7 +535,7 @@ export default function OnboardingPage() {
       [isEn ? "Social insurance years" : "Số năm đóng BHXH", d.socialInsuranceYears],
     ];
     return <main className="profile-complete">
-      <Card className="profile-complete-card">
+      <Card className="profile-complete-card profile-update-card">
         <h1>{isEn ? "Update your existing financial profile" : "Cập nhật hồ sơ tài chính đang có"}</h1>
         <p>{isEn
           ? "Your account already has a detailed financial profile. Update it directly to preserve individual assets, loans and dates. This initial survey cannot replace those details."

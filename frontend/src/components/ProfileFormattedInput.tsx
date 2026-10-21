@@ -24,7 +24,8 @@ function dateText(value: string) {
 function parseDate(text: string, monthOnly: boolean): string | null {
   if (!text) return "";
   const parts = text.includes("-") ? text.split("-") : text.split("/").reverse();
-  if (parts.length !== (monthOnly ? 2 : 3) || !/^\d{4}$/.test(parts[0]) || parts.some(p => !/^\d+$/.test(p))) return null;
+  const validLength = monthOnly ? parts.length === 2 : (parts.length === 2 || parts.length === 3);
+  if (!validLength || !/^\d{4}$/.test(parts[0]) || parts.some(p => !/^\d+$/.test(p))) return null;
   const [year, month, day = 1] = parts.map(Number);
   if (year < 1000 || year > 9999 || month < 1 || month > 12 || day < 1 || day > new Date(Date.UTC(year, month, 0)).getUTCDate()) return null;
   return `${parts[0]}-${String(month).padStart(2, "0")}${monthOnly ? "" : `-${String(day).padStart(2, "0")}`}`;
@@ -36,6 +37,8 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const focused = useRef(false);
+  // Skip reformatting while a Vietnamese IME is composing, otherwise digits repeat (7 -> 77).
+  const composing = useRef(false);
   const display = (v: string) => format === "money" ? moneyText(v, vi) : dateText(v);
   const [draft, setDraft] = useState(() => display(value));
   const [invalid, setInvalid] = useState(false);
@@ -59,6 +62,26 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
     return /^\d+(?:\.\d{0,2})?$/.test(normalized) ? normalized.replace(/^0+(?=\d)/, "") : null;
   };
 
+  const handleInput = (target: HTMLInputElement) => {
+    const text = target.value;
+    const parsed = parse(text);
+    const caret = target.selectionStart ?? text.length;
+    const count = text.slice(0, caret).replace(vi ? /[^\d,]/g : /[^\d.]/g, "").length;
+    const formatted = format === "money" && parsed !== null ? moneyText(parsed, vi, true) : text;
+    setDraft(formatted); setInvalid(parsed === null);
+    target.setCustomValidity(parsed === null ? invalidMessage : "");
+    if (parsed !== null) onChange?.(parsed.endsWith(".") ? parsed.slice(0, -1) : parsed);
+    if (format === "money" && parsed !== null) requestAnimationFrame(() => {
+      if (document.activeElement !== inputRef.current) return;
+      let position = 0, seen = 0;
+      while (position < formatted.length && seen < count) {
+        if ((vi ? /[\d,]/ : /[\d.]/).test(formatted[position])) seen++;
+        position++;
+      }
+      inputRef.current?.setSelectionRange(position, position);
+    });
+  };
+
   return <div className={`form-field profile-formatted-field ${message ? "has-error" : ""}`}>
     <label className="field-label" htmlFor={id}>{label}</label>
     <span className="input-wrap">
@@ -69,25 +92,12 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
           focused.current = true;
           onFocus?.(event);
         }}
-        onChange={event => {
-          const text = event.target.value;
-          const parsed = parse(text);
-          const caret = event.target.selectionStart ?? text.length;
-          const count = text.slice(0, caret).replace(vi ? /[^\d,]/g : /[^\d.]/g, "").length;
-          const formatted = format === "money" && parsed !== null ? moneyText(parsed, vi, true) : text;
-          setDraft(formatted); setInvalid(parsed === null);
-          event.target.setCustomValidity(parsed === null ? invalidMessage : "");
-          if (parsed !== null) onChange?.(parsed.endsWith(".") ? parsed.slice(0, -1) : parsed);
-          if (format === "money" && parsed !== null) requestAnimationFrame(() => {
-            if (document.activeElement !== inputRef.current) return;
-            let position = 0, seen = 0;
-            while (position < formatted.length && seen < count) {
-              if ((vi ? /[\d,]/ : /[\d.]/).test(formatted[position])) seen++;
-              position++;
-            }
-            inputRef.current?.setSelectionRange(position, position);
-          });
+        onCompositionStart={() => { composing.current = true; }}
+        onCompositionEnd={event => {
+          composing.current = false;
+          handleInput(event.currentTarget);
         }}
+        onChange={event => { if (composing.current) setDraft(event.target.value); else handleInput(event.target); }}
         onBlur={(event) => {
           focused.current = false;
           const parsed = parse(draft);

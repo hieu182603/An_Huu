@@ -16,7 +16,7 @@ export function hasMissingProfileValue(value: unknown): boolean {
 
 export function profileCompletionItems(p: ProfileV2) {
   return [
-    { key: "birth", vi: "Tháng năm sinh", en: "Birth month", tab: "v2-timing", complete: p.personal.birthMonth.status === "KNOWN" && !!p.personal.birthMonth.value },
+    { key: "birth", vi: "Ngày tháng năm sinh", en: "Date of birth", tab: "v2-timing", complete: p.personal.birthMonth.status === "KNOWN" && !!p.personal.birthMonth.value },
     { key: "retirement", vi: "Thời điểm nghỉ hưu", en: "Retirement month", tab: "v2-timing", complete: p.personal.desiredRetirementMonth.status === "KNOWN" && !!p.personal.desiredRetirementMonth.value },
     { key: "gender", vi: "Giới tính", en: "Gender", tab: "v2-timing", complete: !!p.personal.gender && p.personal.gender !== "UNDISCLOSED" },
     { key: "pensionStart", vi: "Thời điểm nhận lương hưu", en: "Pension start", tab: "v2-pension", complete: !hasMissingProfileValue(p.personal.pensionStartMonth) },
