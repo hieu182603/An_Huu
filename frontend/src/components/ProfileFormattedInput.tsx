@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ComponentProps } from "react";
 import { Input } from "./ui";
 import { useI18n } from "../i18n";
+import { numberToVietnameseWords } from "../utils/currency";
 import "./profile-formatted-input.css";
 
 type Props = ComponentProps<typeof Input> & {
@@ -115,6 +116,9 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
           }} />
       </span>}
     </span>
+    {format === "money" && !message && Number(value) > 0 && <div className="currency-words-preview" role="status" aria-live="polite">
+      <span className="currency-words-label">{vi ? "Bằng chữ:" : "In words:"}</span> <span className="currency-words-text">{numberToVietnameseWords(Number(value), "VND")}</span>
+    </div>}
     {(message || hint) && <small id={`${id}-hint`}>{message || hint}</small>}
   </div>;
 }

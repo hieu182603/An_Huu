@@ -1,5 +1,6 @@
 // T09 actual ledger, reforecast and source adjustments. Split out of
 // SimulationTrackingPage and loaded only when the "actuals" tab is opened.
+import MoneyTextBox from "../../components/MoneyTextBox";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Alert, Badge, Button, Card, Icon, IconButton, Modal, useNotification } from "../../components/ui";
@@ -1775,12 +1776,10 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                 {language === "en" ? "OPENING BALANCE (REPORTED)" : "SỐ DƯ ĐẦU KỲ (THỰC KHAI)"}
               </span>
               <div style={{ marginTop: "6px" }}>
-                <input
+                <MoneyTextBox
                   aria-label={language === "en" ? "Opening balance" : "Số dư đầu kỳ"}
-                  type="text"
-                  inputMode="numeric"
                   value={openingBalance}
-                  onChange={(e) => { if (/^\d*(\.\d{0,2})?$/.test(e.target.value)) setOpeningBalance(e.target.value); }}
+                  onChange={setOpeningBalance}
                   className="input font-mono"
                   style={{ fontSize: "18px", fontWeight: 700, width: "100%" }}
                 />
@@ -1795,12 +1794,10 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                 {language === "en" ? "CLOSING BALANCE (REPORTED)" : "SỐ DƯ CUỐI KỲ (THỰC KHAI)"}
               </span>
               <div style={{ marginTop: "6px" }}>
-                <input
+                <MoneyTextBox
                   aria-label={language === "en" ? "Closing balance" : "Số dư cuối kỳ"}
-                  type="text"
-                  inputMode="numeric"
                   value={closingBalance}
-                  onChange={(e) => { if (/^\d*(\.\d{0,2})?$/.test(e.target.value)) setClosingBalance(e.target.value); }}
+                  onChange={setClosingBalance}
                   className="input font-mono"
                   style={{ fontSize: "18px", fontWeight: 700, width: "100%" }}
                 />
@@ -1993,22 +1990,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           </select>
                         </td>
                         <td style={{ padding: "8px 12px" }}>
-                          <input
-                            type="text"
-                            inputMode="numeric"
+                          <MoneyTextBox
                             aria-label={`${language === "en" ? "Amount" : "Số tiền"} ${index + 1}`}
                             value={entry.amount}
-                            onChange={(e) => {
-                              // Allow minus sign for MARKET_CHANGE and BALANCE_ADJUSTMENT
-                              const val = e.target.value;
-                              if (["MARKET_CHANGE", "BALANCE_ADJUSTMENT"].includes(entry.kind)) {
-                                if (/^-?\d*(\.\d{0,2})?$/.test(val)) {
-                                  handleUpdateEntry(entry.eventId, { amount: val });
-                                }
-                              } else {
-                                if (/^\d*(\.\d{0,2})?$/.test(val)) handleUpdateEntry(entry.eventId, { amount: val });
-                              }
-                            }}
+                            allowNegative={["MARKET_CHANGE", "BALANCE_ADJUSTMENT"].includes(entry.kind)}
+                            showWords={false}
+                            onChange={(val) => handleUpdateEntry(entry.eventId, { amount: val })}
                             className="input font-mono"
                             style={{ height: "32px", fontSize: "12px", width: "140px", textAlign: "right" }}
                           />
@@ -2186,7 +2173,7 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                     <label htmlFor="fc-field">{language === "en" ? "Field to adjust" : "Hạng mục điều chỉnh"}<select id="fc-field" className="input" value={fcField} onChange={e => { setFcField(e.target.value as FutureChangeField); setFcError(""); }}>{(["plannedContribution", "livingExpense", "income", "additionalExpense"] as FutureChangeField[]).map(field => <option key={field} value={field}>{futureFieldLabel(field)}</option>)}</select></label>
                     <label htmlFor="fc-start">{language === "en" ? "Start month" : "Tháng bắt đầu"}<input id="fc-start" className="input" type="month" max={candidateEndMonth} value={fcStartMonth} onChange={e => { setFcStartMonth(e.target.value); setFcError(""); }} /></label>
                     <label htmlFor="fc-end">{language === "en" ? "End month" : "Tháng kết thúc"}<input id="fc-end" className="input" type="month" min={fcStartMonth || undefined} max={candidateEndMonth} value={fcEndMonth} onChange={e => { setFcEndMonth(e.target.value); setFcError(""); }} /></label>
-                    <label htmlFor="fc-amount">{language === "en" ? "New monthly amount (VND)" : "Số tiền thay thế mỗi tháng (VND)"}<input id="fc-amount" className="input" type="text" inputMode="decimal" placeholder="5000000" value={fcAmount} onChange={e => { setFcAmount(e.target.value); setFcError(""); }} /></label>
+                    <label htmlFor="fc-amount">{language === "en" ? "New monthly amount (VND)" : "Số tiền thay thế mỗi tháng (VND)"}<MoneyTextBox id="fc-amount" className="input" placeholder="5.000.000" value={fcAmount} onChange={v => { setFcAmount(v); setFcError(""); }} /></label>
                   </div>
                   <label htmlFor="fc-reason">{language === "en" ? "Reason (required)" : "Lý do điều chỉnh (bắt buộc)"}<input id="fc-reason" className="input" maxLength={500} value={fcReason} onChange={e => { setFcReason(e.target.value); setFcError(""); }} /></label>
                   <p>{language === "en" ? "Use months after " : "Chọn tháng sau "}{selectedPeriod}{candidateEndMonth ? (language === "en" ? " through " : " đến ") + candidateEndMonth : ""}. {language === "en" ? "Use a dot for decimals, for example 1000000.50; zero is allowed." : "Dùng dấu chấm cho phần lẻ, ví dụ 1000000.50; có thể nhập 0."}</p>
@@ -2358,12 +2345,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label htmlFor="flow-amount" style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Amount (VND)" : "Số tiền (VND)"}
                           </label>
-                          <input id="flow-amount"
-                            type="text" inputMode="decimal"
-                            placeholder="VD: 10000000"
+                          <MoneyTextBox id="flow-amount"
+                            placeholder="VD: 10.000.000"
                             className="input"
                             value={v4Amount}
-                            onChange={(e) => setV4Amount(e.target.value)}
+                            onChange={setV4Amount}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -2546,12 +2532,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Principal Amount (VND) *" : "Số tiền gốc vay (VND) *"}
                           </label>
-                          <input
-                            type="number"
-                            placeholder="VD: 200000000"
+                          <MoneyTextBox
+                           
+                            placeholder="VD: 200.000.000"
                             className="input"
                             value={lcPrincipal}
-                            onChange={(e) => setLcPrincipal(e.target.value)}
+                            onChange={setLcPrincipal}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -2604,12 +2590,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                             <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                               {language === "en" ? "Withheld Fees (VND)" : "Phí giữ lại khi giải ngân (VND)"}
                             </label>
-                            <input
-                              type="number"
+                            <MoneyTextBox
+                             
                               placeholder="0"
                               className="input"
                               value={lcWithheldFees}
-                              onChange={(e) => setLcWithheldFees(e.target.value)}
+                              onChange={setLcWithheldFees}
                               style={{ width: "100%", height: "34px", fontSize: "12px" }}
                             />
                           </div>
@@ -2633,12 +2619,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                               <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                                 {language === "en" ? "Opening User Paid (VND)" : "Số đã trả tại giải ngân (VND)"}
                               </label>
-                              <input
-                                type="number"
+                              <MoneyTextBox
+                               
                                 placeholder="0"
                                 className="input"
                                 value={lcOpeningUserPaid}
-                                onChange={(e) => setLcOpeningUserPaid(e.target.value)}
+                                onChange={setLcOpeningUserPaid}
                                 style={{ width: "100%", height: "34px", fontSize: "12px" }}
                               />
                             </div>
@@ -2719,12 +2705,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Gross Disbursement (VND) *" : "Tổng tiền giải ngân mới (VND) *"}
                           </label>
-                          <input
-                            type="number"
-                            placeholder="500000000"
+                          <MoneyTextBox
+                           
+                            placeholder="500.000.000"
                             className="input"
                             value={refiGrossDisbursement}
-                            onChange={(e) => setRefiGrossDisbursement(e.target.value)}
+                            onChange={setRefiGrossDisbursement}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -2733,12 +2719,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Withheld Fees (VND)" : "Phí giữ lại khi giải ngân (VND)"}
                           </label>
-                          <input
-                            type="number"
+                          <MoneyTextBox
+                           
                             placeholder="0"
                             className="input"
                             value={refiWithheldFees}
-                            onChange={(e) => setRefiWithheldFees(e.target.value)}
+                            onChange={setRefiWithheldFees}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -2747,12 +2733,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "External Top-Up (VND)" : "Tiền tự bù thêm (VND)"}
                           </label>
-                          <input
-                            type="number"
+                          <MoneyTextBox
+                           
                             placeholder="0"
                             className="input"
                             value={refiExternalTopUp}
-                            onChange={(e) => setRefiExternalTopUp(e.target.value)}
+                            onChange={setRefiExternalTopUp}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -2761,12 +2747,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Unused Proceeds (VND)" : "Tiền giải ngân còn dư (VND)"}
                           </label>
-                          <input
-                            type="number"
+                          <MoneyTextBox
+                           
                             placeholder="0"
                             className="input"
                             value={refiUnusedProceeds}
-                            onChange={(e) => setRefiUnusedProceeds(e.target.value)}
+                            onChange={setRefiUnusedProceeds}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -2858,12 +2844,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                               <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                                 {language === "en" ? "Available Amount at Settlement (VND) *" : "Tiền còn sẵn có lúc tất toán (VND) *"}
                               </label>
-                              <input
-                                type="number"
-                                placeholder="495000000"
+                              <MoneyTextBox
+                               
+                                placeholder="495.000.000"
                                 className="input"
                                 value={refiAvailableAmount}
-                                onChange={(e) => setRefiAvailableAmount(e.target.value)}
+                                onChange={setRefiAvailableAmount}
                                 style={{ width: "100%", height: "32px", fontSize: "12px" }}
                               />
                             </div>
@@ -2871,12 +2857,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                               <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                                 {language === "en" ? "Used Before Settlement (VND)" : "Tiền đã sử dụng trước tất toán (VND)"}
                               </label>
-                              <input
-                                type="number"
+                              <MoneyTextBox
+                               
                                 placeholder="0"
                                 className="input"
                                 value={refiUsedAmount}
-                                onChange={(e) => setRefiUsedAmount(e.target.value)}
+                                onChange={setRefiUsedAmount}
                                 style={{ width: "100%", height: "32px", fontSize: "12px" }}
                               />
                             </div>
@@ -2984,12 +2970,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                               <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                                 {language === "en" ? "Payoff Principal Quote (VND) *" : "Báo giá dư gốc tất toán (VND) *"}
                               </label>
-                              <input
-                                type="number"
-                                placeholder="300000000"
+                              <MoneyTextBox
+                               
+                                placeholder="300.000.000"
                                 className="input"
                                 value={prQuotePrincipal}
-                                onChange={(e) => setPrQuotePrincipal(e.target.value)}
+                                onChange={setPrQuotePrincipal}
                                 style={{ width: "100%", height: "34px", fontSize: "12px" }}
                               />
                             </div>
@@ -2998,12 +2984,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                               <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                                 {language === "en" ? "Payoff Interest Quote (VND)" : "Báo giá lãi tất toán (VND)"}
                               </label>
-                              <input
-                                type="number"
-                                placeholder="5000000"
+                              <MoneyTextBox
+                               
+                                placeholder="5.000.000"
                                 className="input"
                                 value={prQuoteInterest}
-                                onChange={(e) => setPrQuoteInterest(e.target.value)}
+                                onChange={setPrQuoteInterest}
                                 style={{ width: "100%", height: "34px", fontSize: "12px" }}
                               />
                             </div>
@@ -3012,12 +2998,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                               <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                                 {language === "en" ? "Prepayment Fee (VND)" : "Phí trả nợ trước hạn (VND)"}
                               </label>
-                              <input
-                                type="number"
-                                placeholder="1000000"
+                              <MoneyTextBox
+                               
+                                placeholder="1.000.000"
                                 className="input"
                                 value={prQuotePrepaymentFee}
-                                onChange={(e) => setPrQuotePrepaymentFee(e.target.value)}
+                                onChange={setPrQuotePrepaymentFee}
                                 style={{ width: "100%", height: "34px", fontSize: "12px" }}
                               />
                             </div>
@@ -3026,12 +3012,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                               <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                                 {language === "en" ? "New Loan Principal (VND) *" : "Dư nợ khoản vay mới (VND) *"}
                               </label>
-                              <input
-                                type="number"
-                                placeholder="300000000"
+                              <MoneyTextBox
+                               
+                                placeholder="300.000.000"
                                 className="input"
                                 value={prNewGross}
-                                onChange={(e) => setPrNewGross(e.target.value)}
+                                onChange={setPrNewGross}
                                 style={{ width: "100%", height: "34px", fontSize: "12px" }}
                               />
                             </div>
@@ -3040,12 +3026,12 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                               <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                                 {language === "en" ? "User Top-Up Amount (VND)" : "Tiền người dùng tự bù (VND)"}
                               </label>
-                              <input
-                                type="number"
-                                placeholder="6000000"
+                              <MoneyTextBox
+                               
+                                placeholder="6.000.000"
                                 className="input"
                                 value={prUserTopUp}
-                                onChange={(e) => setPrUserTopUp(e.target.value)}
+                                onChange={setPrUserTopUp}
                                 style={{ width: "100%", height: "34px", fontSize: "12px" }}
                               />
                             </div>
@@ -3376,11 +3362,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Gross Proceeds (VND)" : "Tổng tiền thu được (gross)"}
                           </label>
-                          <input
-                            type="number"
+                          <MoneyTextBox
+                           
                             className="input"
                             value={assetGrossAmount}
-                            onChange={(e) => setAssetGrossAmount(e.target.value)}
+                            onChange={setAssetGrossAmount}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -3389,11 +3375,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Fees (VND)" : "Phí chuyển nhượng"}
                           </label>
-                          <input
-                            type="number"
+                          <MoneyTextBox
+                           
                             className="input"
                             value={assetFees}
-                            onChange={(e) => setAssetFees(e.target.value)}
+                            onChange={setAssetFees}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -3402,11 +3388,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Taxes (VND)" : "Thuế phải nộp"}
                           </label>
-                          <input
-                            type="number"
+                          <MoneyTextBox
+                           
                             className="input"
                             value={assetTaxes}
-                            onChange={(e) => setAssetTaxes(e.target.value)}
+                            onChange={setAssetTaxes}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -3415,11 +3401,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Secured Debt Settlement" : "Tất toán nợ bảo đảm"}
                           </label>
-                          <input
-                            type="number"
+                          <MoneyTextBox
+                           
                             className="input"
                             value={assetSecuredDebt}
-                            onChange={(e) => setAssetSecuredDebt(e.target.value)}
+                            onChange={setAssetSecuredDebt}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -3469,11 +3455,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                           <label style={{ display: "block", fontSize: "11px", fontWeight: 600, marginBottom: "4px" }}>
                             {language === "en" ? "Confirmed Contribution (VND)" : "Số tiền xác nhận góp vào quỹ"}
                           </label>
-                          <input
-                            type="number"
+                          <MoneyTextBox
+                           
                             className="input"
                             value={assetConfirmedContribution}
-                            onChange={(e) => setAssetConfirmedContribution(e.target.value)}
+                            onChange={setAssetConfirmedContribution}
                             style={{ width: "100%", height: "34px", fontSize: "12px" }}
                           />
                         </div>
@@ -3547,11 +3533,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                                 onChange={(e) => setStagedInstallmentMonth(e.target.value)}
                                 style={{ width: "140px", height: "30px", fontSize: "11px" }}
                               />
-                              <input
-                                type="number"
+                              <MoneyTextBox showWords={false}
+                               
                                 className="input"
                                 value={stagedInstallmentAmount}
-                                onChange={(e) => setStagedInstallmentAmount(e.target.value)}
+                                onChange={setStagedInstallmentAmount}
                                 placeholder="Số tiền (VND)"
                                 style={{ width: "160px", height: "30px", fontSize: "11px" }}
                               />
@@ -3590,11 +3576,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                                 onChange={(e) => setStagedReleaseDate(e.target.value)}
                                 style={{ width: "150px", height: "30px", fontSize: "11px" }}
                               />
-                              <input
-                                type="number"
+                              <MoneyTextBox showWords={false}
+                               
                                 className="input"
                                 value={stagedReleaseAmount}
-                                onChange={(e) => setStagedReleaseAmount(e.target.value)}
+                                onChange={setStagedReleaseAmount}
                                 placeholder="Số tiền (VND)"
                                 style={{ width: "160px", height: "30px", fontSize: "11px" }}
                               />
@@ -3662,11 +3648,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                                 <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }}>
                                   {language === "en" ? "Final Month Net Rent (SOURCE_SHARE) *" : "Thu nhập thuê tháng cuối (phần nguồn) *"}
                                 </label>
-                                <input
-                                  type="number"
+                                <MoneyTextBox
+                                 
                                   className="input"
                                   value={assetFinalMonthIncome}
-                                  onChange={(e) => setAssetFinalMonthIncome(e.target.value)}
+                                  onChange={setAssetFinalMonthIncome}
                                   style={{ width: "100%", height: "30px", fontSize: "11px" }}
                                 />
                               </div>
@@ -3710,11 +3696,10 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                                 <label style={{ display: "block", fontSize: "10px", fontWeight: 600, marginBottom: "2px" }} htmlFor="asset-missed-amount">
                                   {language === "en" ? "Amount Not Contributed *" : "Số tiền chưa góp *"}
                                 </label>
-                                <input id="asset-missed-amount"
-                                  type="number"
+                                <MoneyTextBox id="asset-missed-amount"
                                   className="input"
                                   value={assetMissedAmount}
-                                  onChange={(e) => setAssetMissedAmount(e.target.value)}
+                                  onChange={setAssetMissedAmount}
                                   style={{ width: "100%", height: "30px", fontSize: "11px" }}
                                 />
                               </div>

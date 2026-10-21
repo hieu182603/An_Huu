@@ -566,6 +566,11 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .summary-step { display: grid; gap: var(--space-5); }
 .summary-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: var(--space-4); }
 .summary-metric-card { display: grid; min-height: 110px; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-3); padding: var(--space-4); box-shadow: var(--shadow-card); }
+.pension-milestone-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+.pension-milestone-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); padding: var(--space-4); box-shadow: var(--shadow-card); }
+.pension-milestone-card > small:first-child { color: var(--color-text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.pension-milestone-card > strong { color: var(--color-midnight-900); font-size: var(--text-lg); line-height: 1.3; font-variant-numeric: tabular-nums; }
+.pension-milestone-card > strong + small { color: var(--color-text-muted); font-size: 12px; }
 .summary-metric-card:last-child { grid-column: 1 / -1; }
 .summary-metric-icon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: var(--radius-sm); color: var(--color-primary-700); background: var(--color-soft); }
 .summary-metric-card > div { display: grid; min-width: 0; }

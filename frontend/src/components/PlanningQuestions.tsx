@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
 import { Button, Input, Select } from "./ui";
+import ProfileFormattedInput from "./ProfileFormattedInput";
 import type { PlanningConstraints, KnownOrUnknown, GoalEntry } from "../services/financialProfile";
 import "./retirement/planning-analysis.css";
 
@@ -24,7 +25,7 @@ export function PlanningQuestions({ data, onChange, valuationMonth }: { data: Pl
       <p>{t("Ví dụ: nếu 1 tỷ đồng đầu tư tạm giảm còn 800 triệu đồng, bạn sẽ thấy thế nào? Đây là tình huống để suy nghĩ, không phải dự báo.", "For example, how would you feel if VND 1 billion temporarily fell to VND 800 million? This is a question, not a forecast.")}</p>
       <p>{t("Bạn có thể bổ sung sau. Để so sánh giới hạn lỗ, hệ thống cần cả số tiền và tỷ lệ bạn khai; không tự suy tỷ lệ từ số tiền.", "You can answer later. Comparing the loss limit requires both your declared amount and percentage; the percentage is not inferred from the amount.")}</p>
       <div className="planning-grid">
-        <Input label={t("Mức lỗ chịu được (đồng)", "Affordable loss (VND)")} inputMode="decimal" value={value(data.lossTolerance?.amountVnd)} onChange={v => set({ lossTolerance: { ...data.lossTolerance, amountVnd: answer(v) } })} />
+        <ProfileFormattedInput format="money" label={t("Mức lỗ chịu được (đồng)", "Affordable loss (VND)")} inputMode="decimal" value={value(data.lossTolerance?.amountVnd)} onChange={v => set({ lossTolerance: { ...data.lossTolerance, amountVnd: answer(v) } })} />
         <Input label={t("Mức lỗ chịu được (%)", "Affordable loss (%)")} inputMode="decimal" value={value(data.lossTolerance?.percent)} onChange={v => set({ lossTolerance: { ...data.lossTolerance, percent: answer(v) } })} />
         <Select label={t("Bạn sẽ phản ứng thế nào?", "How would you react?")} value={value(data.lossTolerance?.reaction)} options={choices([["SELL", "Bán bớt", "Sell"], ["HOLD", "Giữ", "Hold"], ["BUY_MORE", "Mua thêm", "Buy more"]])} onChange={v => set({ lossTolerance: { ...data.lossTolerance, reaction: answer(v as "SELL" | "HOLD" | "BUY_MORE") } })} />
         <Select label={t("Mức phụ thuộc cùng ngành / nơi làm việc", "Dependence on one industry / employer")} value={value(data.employerConcentration)} options={choices([["LOW", "Thấp", "Low"], ["MEDIUM", "Vừa", "Medium"], ["HIGH", "Cao", "High"]])} onChange={v => set({ employerConcentration: answer(v as "LOW" | "MEDIUM" | "HIGH") })} />
@@ -36,14 +37,14 @@ export function PlanningQuestions({ data, onChange, valuationMonth }: { data: Pl
     </details>
     <details><summary>{t("3. Trong 1 / 3 / 5 năm tới, bạn chắc chắn cần bao nhiêu tiền?", "3. How much will you need within 1 / 3 / 5 years?")}</summary>
       <p>{t("Nhập tổng lũy kế theo giá hôm nay: tiền trong 3 năm đã bao gồm tiền trong năm đầu. Đối chiếu với mục tiêu bên dưới để tránh tính hai lần.", "Enter cumulative amounts at today's prices: the three-year amount includes year one. Reconcile with goals below to avoid double counting.")}</p>
-      <div className="planning-grid">{([1, 3, 5] as const).map(year => { const key = `y${year}` as const; return <Input key={key} label={t(`Trong ${year} năm (đồng)`, `Within ${year} years (VND)`)} value={value(data.liquidityNeeds?.[key])} inputMode="decimal" onChange={v => set({ liquidityNeeds: { ...data.liquidityNeeds, [key]: answer(v) } })} />; })}</div>
+      <div className="planning-grid">{([1, 3, 5] as const).map(year => { const key = `y${year}` as const; return <ProfileFormattedInput format="money" key={key} label={t(`Trong ${year} năm (đồng)`, `Within ${year} years (VND)`)} value={value(data.liquidityNeeds?.[key])} inputMode="decimal" onChange={v => set({ liquidityNeeds: { ...data.liquidityNeeds, [key]: answer(v) } })} />; })}</div>
       {inconsistent && <p role="alert">{t("Số tiền lũy kế phải không giảm: 1 năm ≤ 3 năm ≤ 5 năm. Hãy kiểm tra lại trước khi lưu.", "Cumulative amounts must not decrease: 1 year ≤ 3 years ≤ 5 years. Check before saving.")}</p>}
     </details>
     <details><summary>{t("4. Bạn còn mục tiêu nào cần tiền vào một tháng cụ thể?", "4. Do you have other goals with a due month?")}</summary>
       <Select label={t("Mục tiêu khác", "Other goals")} value={!data.goals || data.goals.status === "UNKNOWN" ? "" : data.goals.status === "NOT_APPLICABLE" || goals.length === 0 ? "NONE" : "KNOWN"} options={choices([["NONE", "Không có mục tiêu khác", "No other goals"], ["KNOWN", "Có mục tiêu", "I have goals"]])} onChange={v => set({ goals: v === "" ? unknown : { status: "KNOWN", entries: v === "NONE" ? [] : goals.length ? goals : [{ id: crypto.randomUUID(), label: "", amountToday: unknown, dueMonth: unknown, priority: unknown, deferrable: unknown }] } })} />
       {goals.map((g, i) => <fieldset key={g.id}><legend>{t(`Mục tiêu ${i + 1}`, `Goal ${i + 1}`)}</legend><div className="planning-grid">
         <Input label={t("Tên mục tiêu", "Goal name")} value={g.label ?? ""} onChange={label => updateGoal(g.id, { label })} />
-        <Input label={t("Số tiền theo giá hôm nay (đồng)", "Amount at today's prices (VND)")} inputMode="decimal" value={value(g.amountToday)} onChange={v => updateGoal(g.id, { amountToday: answer(v) })} />
+        <ProfileFormattedInput format="money" label={t("Số tiền theo giá hôm nay (đồng)", "Amount at today's prices (VND)")} inputMode="decimal" value={value(g.amountToday)} onChange={v => updateGoal(g.id, { amountToday: answer(v) })} />
         <Input label={t("Tháng cần tiền", "Due month")} type="month" min={valuationMonth} value={value(g.dueMonth)} onChange={v => updateGoal(g.id, { dueMonth: answer(v) })} />
         <Select label={t("Ưu tiên", "Priority")} value={value(g.priority)} options={choices([["ESSENTIAL", "Thiết yếu", "Essential"], ["FLEXIBLE", "Linh hoạt", "Flexible"], ["LEGACY", "Để lại", "Legacy"]])} onChange={v => updateGoal(g.id, { priority: answer(v as "ESSENTIAL" | "FLEXIBLE" | "LEGACY") })} />
         <Select label={t("Có thể hoãn?", "Can this be deferred?")} value={value(g.deferrable)} options={choices([["true", "Có thể hoãn", "Yes"], ["false", "Không thể hoãn", "No"]])} onChange={v => updateGoal(g.id, { deferrable: v === "" ? unknown : { status: "KNOWN", value: v === "true" } })} />

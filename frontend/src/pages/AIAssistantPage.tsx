@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import MoneyTextBox from "../components/MoneyTextBox";
 import { Link, useNavigate } from "react-router";
 import { Button, Icon, IconButton, Modal, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
@@ -624,12 +625,12 @@ export default function AIAssistantPage() {
             min={v2Profile?.valuationDate.slice(0, 7)} max={currentVersion?.preview.selection.endMonth}
             disabled={whatIfSimulating} onChange={e => { setWhatIfRetirementMonth(e.target.value); setWhatIfResult(null); }} />
           <label htmlFor="ai-contribution">Tiền góp mỗi tháng (đồng)</label>
-          <input id="ai-contribution" className="input" inputMode="decimal" value={whatIfMonthlyContribution}
-            disabled={whatIfSimulating} onChange={e => { setWhatIfMonthlyContribution(e.target.value); setWhatIfResult(null); }} />
+          <MoneyTextBox id="ai-contribution" className="input" value={whatIfMonthlyContribution}
+            disabled={whatIfSimulating} onChange={v => { setWhatIfMonthlyContribution(v); setWhatIfResult(null); }} />
           <label htmlFor="ai-expense">Chi tiêu mỗi tháng khi nghỉ hưu, theo giá hôm nay (đồng)</label>
-          <input id="ai-expense" className="input" inputMode="decimal" value={whatIfMonthlyExpense}
-            disabled={whatIfSimulating} onChange={e => { setWhatIfMonthlyExpense(e.target.value); setWhatIfResult(null); }} />
-          <p>Nhập số tiền không có dấu phân cách hàng nghìn. Có thể nhập 0; để trống là chưa nhập.</p>
+          <MoneyTextBox id="ai-expense" className="input" value={whatIfMonthlyExpense}
+            disabled={whatIfSimulating} onChange={v => { setWhatIfMonthlyExpense(v); setWhatIfResult(null); }} />
+          <p>Có thể nhập 0; để trống là chưa nhập.</p>
           {simulationError && <p role="alert">{simulationError}</p>}
           <Button variant="primary" loading={whatIfSimulating} disabled={!currentVersion || !!currentVersion.preview.reforecast} onClick={handleRunWhatIfSimulation}>Tính phương án thử</Button>
           {whatIfResult?.candidate.status === "READY" && whatIfResult.candidate.calculation && (

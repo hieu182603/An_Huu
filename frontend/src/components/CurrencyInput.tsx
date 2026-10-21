@@ -2,7 +2,7 @@ import { useId, useRef, useState, useEffect, type ReactNode } from "react";
 import { formatNumberWithDots, numberToVietnameseWords } from "../utils/currency";
 
 export interface CurrencyInputProps {
-  label: string;
+  label: ReactNode;
   labelAction?: ReactNode;
   value: number;
   onChange: (value: number) => void;
@@ -53,12 +53,11 @@ export function CurrencyInput({
   // Vietnamese IMEs (Telex/VNI) compose text in-place; reformatting mid-composition makes digits repeat (7 -> 77).
   const composing = useRef(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (composing.current) {
-      setDisplayText(e.target.value);
-      return;
-    }
-    const rawDigits = e.target.value.replace(/\D/g, "");
+  const composeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(composeTimer.current), []);
+
+  const commit = (raw: string) => {
+    const rawDigits = raw.replace(/\D/g, "");
     if (!rawDigits) {
       setDisplayText("");
       onChange(0);
@@ -72,6 +71,18 @@ export function CurrencyInput({
 
     setDisplayText(formatNumberWithDots(num));
     onChange(num);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    clearTimeout(composeTimer.current);
+    const el = e.target;
+    if (composing.current) {
+      // Some IMEs keep the composition open while digits are typed, so format once typing pauses.
+      setDisplayText(el.value);
+      composeTimer.current = setTimeout(() => { if (el.isConnected) commit(el.value); }, 250);
+      return;
+    }
+    commit(el.value);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
