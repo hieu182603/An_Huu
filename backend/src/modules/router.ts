@@ -32,7 +32,7 @@ import type { LegalRulesService } from "./pensions/legal-service";
 import { insuranceHistoryRouter, legalRulesRouter, pensionEstimatesRouter } from "./pensions/insurance-router";
 import type { PensionEstimateService } from "./pensions/estimate-service";
 import { RetirementService } from "./retirement/service";
-import { retirementPreviewSchema } from "./retirement/schema";
+import { retirementPreviewSchema, retirementPreviewQuerySchema } from "./retirement/schema";
 import { PlansService } from "./plans/service";
 import { plansRouter } from "./plans/router";
 import { actualsRouter } from "./actuals/router";
@@ -218,9 +218,9 @@ export function createApiRouter(services: Services, config: AppConfig) {
   }));
   router.patch("/me", validate(patchAccountSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.patchAccount(req.user!.userId, req.body))));
   router.use("/me/financial-profile", requireRole("USER"));
-  router.post("/me/retirement/preview", requireRole("USER"), validate(retirementPreviewSchema), asyncHandler(async (req: AuthenticatedRequest, res) => {
+  router.post("/me/retirement/preview", requireRole("USER"), validate(retirementPreviewQuerySchema, "query"), validate(retirementPreviewSchema), asyncHandler(async (req: AuthenticatedRequest, res) => {
     if (!services.retirement) throw new AppError(503, "RETIREMENT_UNAVAILABLE", "Bộ tính hưu trí chưa sẵn sàng.");
-    sendData(res, await services.retirement.preview(req.user!.userId, req.body));
+    sendData(res, await services.retirement.preview(req.user!.userId, req.body, { adjustments: req.query.adjustments !== "skip" }));
   }));
   router.post("/me/pension/preview", requireRole("USER"), validate(pensionPreviewSchema), asyncHandler(async (req: AuthenticatedRequest, res) => {
     if (!services.pensions) throw new AppError(503, "PENSIONS_UNAVAILABLE", "Xem trước lương hưu chưa sẵn sàng.");

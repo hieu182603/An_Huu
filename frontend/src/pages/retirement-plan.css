@@ -79,6 +79,188 @@
 .plan-fee-details[open] > summary > .icon:last-child { transform: rotate(180deg); }
 .retirement-plan-page .plan-fee-details > .planning-analysis { margin: 0; border: 0; background: transparent; }
 
+#accuracy-checklist {
+  margin-bottom: 28px;
+  outline: none;
+}
+
+.plan-settings__contribution-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-block: 14px;
+}
+
+.plan-settings__question-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plan-settings__question {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primary-700);
+  margin: 0;
+  cursor: pointer;
+}
+
+.plan-settings__capacity-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.plan-settings__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.plan-settings__chip-wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plan-settings__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 18px;
+  border-radius: 22px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-white, #ffffff);
+  color: var(--color-primary-700);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.plan-settings__chip:hover:not(:disabled) {
+  border-color: var(--color-secondary-500);
+  background: var(--color-soft);
+}
+
+.plan-settings__chip.is-active,
+.plan-settings__chip[aria-pressed="true"] {
+  border-color: var(--color-secondary-500);
+  background: var(--color-secondary-500);
+  color: #ffffff;
+}
+
+.plan-settings__chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.plan-settings__chip-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-warning, #b36800);
+  font-weight: 600;
+  padding-left: 6px;
+}
+
+.plan-settings__neutral-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin: 0;
+  border-radius: 8px;
+  background: var(--color-soft);
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.plan-settings__custom-input {
+  margin-top: 4px;
+  max-width: 480px;
+}
+
+/* Advanced options collapsible */
+.plan-advanced-settings {
+  margin-top: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-canvas, #f9fbff);
+  overflow: hidden;
+}
+
+.plan-advanced-settings > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 16px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--color-primary-700);
+  font-size: 14px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.plan-advanced-settings > summary::-webkit-details-marker {
+  display: none;
+}
+
+.plan-advanced-settings > summary:hover {
+  background: var(--color-soft);
+}
+
+.plan-advanced-settings__summary-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.plan-advanced-settings__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary-700);
+  font-weight: 600;
+}
+
+.plan-advanced-settings__overview {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.plan-advanced-settings[open] > summary {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-soft);
+}
+
+.plan-advanced-settings[open] > summary .plan-advanced-settings__chevron {
+  transform: rotate(180deg);
+}
+
+.plan-advanced-settings__content {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: var(--color-white, #ffffff);
+}
+
 .plan-chart-card, .plan-table-card { min-width: 0; padding: 24px; border-radius: 18px; box-shadow: none; }
 .plan-table-card { margin-top: 18px; }
 .plan-milestones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 26px; padding: 18px 20px; list-style: none; border-radius: 12px; background: var(--color-bg); }
@@ -138,6 +320,10 @@
   .plan-milestones li { padding-left: 8px; }
   .plan-milestones span { font-size: 11px; }
   .plan-milestones strong { font-size: 13px; }
+  .plan-settings__chips { flex-direction: column; align-items: stretch; }
+  .plan-settings__chip-wrapper { width: 100%; }
+  .plan-settings__chip { width: 100%; min-height: 44px; }
+  .plan-advanced-settings > summary { min-height: 44px; }
 }
 @media print {
   .plan-section-nav, .plan-hero-actions, .plan-fee-details, .plan-settings__links { display: none; }

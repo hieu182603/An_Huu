@@ -458,11 +458,15 @@ export async function installRouteAuth(page: Page, userId = "USR-001") {
         selection: {
           retirementAge: 60,
           monthlySavings: 5000000,
+          monthlyContribution: "5000000",
+          monthlyExpenseToday: "20000000",
           targetRetirementExpense: 20000000,
+          scenario: "BASE",
         },
         calculation: {
           summary: {
             retirementFundingShortfall: "0",
+            retirementMonth: "2054-03",
             atRetirement: {
               requiredFund: "5000000000",
               projectedFund: "6000000000",

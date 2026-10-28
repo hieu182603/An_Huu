@@ -184,40 +184,62 @@ export function profileFromData(base: FinancialProfile, data: DraftRecord["data"
 }
 
 export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialProfile {
-  const currentYear = new Date().getFullYear();
+  // Vietnam time (UTC+7)
+  const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const currentYear = nowVN.getUTCFullYear();
+  const currentMonthNum = nowVN.getUTCMonth() + 1; // 1-12
+  const valuationMonth = v2.valuationDate ? v2.valuationDate.slice(0, 7) : `${currentYear}-${String(currentMonthNum).padStart(2, "0")}`;
+
   let age = base.personal.age;
   if (v2.personal?.birthMonth?.status === "KNOWN") {
     const birthYear = parseInt(v2.personal.birthMonth.value.slice(0, 4), 10);
-    if (!Number.isNaN(birthYear)) {
-      age = Math.max(18, currentYear - birthYear);
+    const birthMonthNum = parseInt(v2.personal.birthMonth.value.slice(5, 7), 10);
+    if (!Number.isNaN(birthYear) && !Number.isNaN(birthMonthNum)) {
+      let calculatedAge = currentYear - birthYear;
+      if (currentMonthNum < birthMonthNum) {
+        calculatedAge -= 1;
+      }
+      age = Math.max(18, calculatedAge);
     }
   }
 
   let targetRetireAge = base.goal.targetRetireAge;
   if (v2.personal?.desiredRetirementMonth?.status === "KNOWN" && v2.personal?.birthMonth?.status === "KNOWN") {
     const retireYear = parseInt(v2.personal.desiredRetirementMonth.value.slice(0, 4), 10);
+    const retireMonthNum = parseInt(v2.personal.desiredRetirementMonth.value.slice(5, 7), 10);
     const birthYear = parseInt(v2.personal.birthMonth.value.slice(0, 4), 10);
-    if (!Number.isNaN(retireYear) && !Number.isNaN(birthYear)) {
-      targetRetireAge = Math.max(age, retireYear - birthYear);
+    const birthMonthNum = parseInt(v2.personal.birthMonth.value.slice(5, 7), 10);
+    if (!Number.isNaN(retireYear) && !Number.isNaN(birthYear) && !Number.isNaN(retireMonthNum) && !Number.isNaN(birthMonthNum)) {
+      let calculatedRetireAge = retireYear - birthYear;
+      if (retireMonthNum < birthMonthNum) {
+        calculatedRetireAge -= 1;
+      }
+      targetRetireAge = Math.max(age, calculatedRetireAge);
     }
   }
 
-  // Aggregate incomes
+  // Aggregate incomes: only monthly active at valuationMonth (startMonth <= month <= endMonth), exclude PENSION
   let primaryIncome = 0;
   let secondaryIncome = 0;
   if (v2.income?.status === "KNOWN") {
     v2.income.entries.forEach(entry => {
+      if (entry.frequency !== "MONTHLY") return;
+      if (entry.source === "PENSION") return;
+      if (entry.startMonth > valuationMonth || (entry.endMonth !== null && entry.endMonth < valuationMonth)) return;
       const val = entry.amount?.status === "KNOWN" ? parseFloat(entry.amount.value) : 0;
       if (entry.kind === "FIXED") primaryIncome += val;
       else secondaryIncome += val;
     });
   }
 
-  // Aggregate expenses
+  // Aggregate expenses: only monthly active at valuationMonth (startMonth <= month <= endMonth), exclude DEBT_PAYMENT
   let essentialExpense = 0;
   let lifestyleExpense = 0;
   if (v2.expenses?.status === "KNOWN") {
     v2.expenses.entries.forEach(entry => {
+      if (entry.frequency !== "MONTHLY") return;
+      if (entry.category === "DEBT_PAYMENT") return;
+      if (entry.startMonth > valuationMonth || (entry.endMonth !== null && entry.endMonth < valuationMonth)) return;
       const val = entry.amount?.status === "KNOWN" ? parseFloat(entry.amount.value) : 0;
       if (entry.category === "ESSENTIAL" || entry.category === "HEALTH" || entry.category === "INSURANCE" || entry.category === "DEPENDENT") {
         essentialExpense += val;
@@ -227,14 +249,16 @@ export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialP
     });
   }
 
-  // Aggregate assets
+  // Aggregate assets: multiply by ownershipShare
   let cashSavings = 0;
   let realEstateValue = 0;
   let liquidAssets = 0;
   let stockFundValue = 0;
   if (v2.assets?.status === "KNOWN") {
     v2.assets.entries.forEach(entry => {
-      const val = entry.value?.status === "KNOWN" ? parseFloat(entry.value.value) : 0;
+      const rawVal = entry.value?.status === "KNOWN" ? parseFloat(entry.value.value) : 0;
+      const share = entry.ownershipShare?.status === "KNOWN" ? parseFloat(entry.ownershipShare.value) : 1;
+      const val = rawVal * (Number.isFinite(share) ? share : 1);
       if (entry.type === "CASH" || entry.type === "DEPOSIT") cashSavings += val;
       else if (entry.type === "REAL_ESTATE" || entry.type === "PRIMARY_HOME") realEstateValue += val;
       else if (entry.type === "STOCK_FUND") stockFundValue += val;
@@ -242,15 +266,19 @@ export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialP
     });
   }
 
-  // Aggregate debts
+  // Aggregate debts: multiply balance by balanceShare, payment by paymentShare
   let mortgageDebt = 0;
   let consumerDebt = 0;
   let monthlyDebtService = 0;
   const hasDebt = v2.debts?.status === "KNOWN" && v2.debts.entries.length > 0;
   if (hasDebt && v2.debts?.status === "KNOWN") {
     v2.debts.entries.forEach(entry => {
-      const balance = entry.outstandingBalance?.status === "KNOWN" ? parseFloat(entry.outstandingBalance.value) : 0;
-      const payment = entry.payment?.status === "KNOWN" ? parseFloat(entry.payment.value) : 0;
+      const rawBalance = entry.outstandingBalance?.status === "KNOWN" ? parseFloat(entry.outstandingBalance.value) : 0;
+      const rawPayment = entry.payment?.status === "KNOWN" ? parseFloat(entry.payment.value) : 0;
+      const bShare = entry.balanceShare?.status === "KNOWN" ? parseFloat(entry.balanceShare.value) : 1;
+      const pShare = entry.paymentShare?.status === "KNOWN" ? parseFloat(entry.paymentShare.value) : 1;
+      const balance = rawBalance * (Number.isFinite(bShare) ? bShare : 1);
+      const payment = rawPayment * (Number.isFinite(pShare) ? pShare : 1);
       if ((entry.label ?? "").toLowerCase().includes("nhà") || (entry.label ?? "").toLowerCase().includes("mortgage")) {
         mortgageDebt += balance;
       } else {
@@ -480,3 +508,126 @@ export function profileFromDraft(base: FinancialProfile, d: OnboardingDraftData)
 
 export const serverStep = (step: string) => step === "contribution" ? "investment" : step === "expense" ? "expenses" : step === "invest-social" ? "socialSecurity" : step;
 export const clientStep = (step: string) => step === "expenses" ? "expense" : step === "investment" ? "contribution" : step === "socialSecurity" ? "invest-social" : step;
+
+export interface QuickStartProfileInput {
+  birthMonth: string;
+  desiredRetirementMonth: string;
+  monthlyIncome: number;
+  monthlyExpense: number;
+  retirementSavings: number;
+  hasDebt?: boolean;
+  debtBalance?: number;
+  debtMonthlyPayment?: number;
+  valuationDate?: string;
+  retirementShare?: "1" | "UNKNOWN";
+}
+
+export function createQuickStartProfileV2(input: QuickStartProfileInput): ProfileV2 {
+  const valuationDate = input.valuationDate || new Date().toISOString().slice(0, 10);
+  const currentMonth = valuationDate.slice(0, 7);
+  const unknown = { status: "UNKNOWN" } as const;
+  const known = <T>(value: T) => ({ status: "KNOWN" as const, value });
+
+  const [retireYear, retireMonth] = (input.desiredRetirementMonth || currentMonth).split("-").map(Number);
+  const prevMonth = retireMonth === 1 ? `${retireYear - 1}-12` : `${retireYear}-${String(retireMonth - 1).padStart(2, "0")}`;
+
+  const incomeEntries: IncomeEntry[] = [];
+  if (input.monthlyIncome > 0 && prevMonth >= currentMonth) {
+    incomeEntries.push({
+      id: "inc_quick",
+      label: "Thu nhập hằng tháng",
+      kind: "FIXED",
+      basis: "DISPOSABLE",
+      source: "EMPLOYMENT",
+      amount: known(input.monthlyIncome.toFixed(2)),
+      currency: "VND",
+      startMonth: currentMonth,
+      endMonth: prevMonth,
+      frequency: "MONTHLY",
+    });
+  }
+
+  const expenseEntries: ExpenseEntry[] = [];
+  if (input.monthlyExpense > 0) {
+    expenseEntries.push({
+      id: "exp_quick",
+      label: "Chi tiêu hằng tháng",
+      category: "ESSENTIAL",
+      amount: known(input.monthlyExpense.toFixed(2)),
+      currency: "VND",
+      startMonth: currentMonth,
+      endMonth: null,
+      frequency: "MONTHLY",
+    });
+  }
+
+  const isRetirementShareOne = input.retirementShare !== "UNKNOWN";
+  const assetEntries: AssetEntry[] = [];
+  if (input.retirementSavings > 0) {
+    assetEntries.push({
+      id: "ast_quick",
+      label: "Tiền dành cho hưu trí",
+      type: "DEPOSIT",
+      value: known(input.retirementSavings.toFixed(2)),
+      currency: "VND",
+      valuedOn: known(valuationDate),
+      ownershipShare: known("1"),
+      ...(isRetirementShareOne
+        ? { retirementShare: known("1"), emergencyShare: known("0"), otherGoalsShare: known("0") }
+        : { retirementShare: unknown, emergencyShare: unknown, otherGoalsShare: unknown }),
+      liquidity: known("LIQUID"),
+      availableFromMonth: known(currentMonth),
+    });
+  }
+
+  let debts: ProfileV2["debts"];
+  if (input.hasDebt === true) {
+    debts = {
+      status: "KNOWN",
+      entries: [
+        {
+          id: "dbt_quick",
+          label: "Khoản nợ",
+          outstandingBalance: known((input.debtBalance ?? 0).toFixed(2)),
+          balanceAsOf: known(valuationDate),
+          currency: "VND",
+          payment: known((input.debtMonthlyPayment ?? 0).toFixed(2)),
+          paymentShare: known("1"),
+          balanceShare: known("1"),
+          contract: unknown,
+          responsibility: unknown,
+          startMonth: currentMonth,
+          endMonth: null,
+          frequency: "MONTHLY",
+        },
+      ],
+    };
+  } else if (input.hasDebt === false) {
+    debts = {
+      status: "NOT_APPLICABLE",
+      reason: "Người dùng xác nhận không có nợ",
+    };
+  } else {
+    debts = {
+      status: "UNKNOWN",
+    };
+  }
+
+  return {
+    schemaVersion: 2,
+    valuationDate,
+    currency: "VND",
+    periodUnit: "MONTH",
+    personal: {
+      birthMonth: known(input.birthMonth),
+      desiredRetirementMonth: known(input.desiredRetirementMonth),
+      pensionStartMonth: unknown,
+    },
+    income: { status: "KNOWN", entries: incomeEntries },
+    expenses: { status: "KNOWN", entries: expenseEntries },
+    assets: { status: "KNOWN", entries: assetEntries },
+    debts,
+    pension: { status: "UNKNOWN" },
+  };
+}
+

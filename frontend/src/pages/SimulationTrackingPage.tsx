@@ -143,7 +143,7 @@ export default function SimulationTrackingPage() {
     return totalAssets - totalDebt;
   }, [profile]);
 
-  const retirementMonthSuffix = currentVersion?.preview.calculation?.summary.retirementMonth.slice(5, 7) ?? (v2Profile?.personal.desiredRetirementMonth?.status === "KNOWN"
+  const retirementMonthSuffix = currentVersion?.preview.calculation?.summary?.retirementMonth?.slice(5, 7) ?? (v2Profile?.personal.desiredRetirementMonth?.status === "KNOWN"
     ? v2Profile.personal.desiredRetirementMonth.value.slice(5, 7)
     : v2Profile?.personal.birthMonth?.status === "KNOWN" ? v2Profile.personal.birthMonth.value.slice(5, 7) : "12");
   const simRetirementMonth = `${birthYear + simRetireAge}-${retirementMonthSuffix}`;

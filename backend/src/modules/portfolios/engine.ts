@@ -158,16 +158,30 @@ export function assessPortfolio(document: PortfolioDocument, command: PortfolioP
   });
   const eligibleIds = [...new Set(checks.filter(c => c.matched).map(c => c.templateId))];
   const selected = input.templateId ? eligibleIds.find(id => id === input.templateId) : eligibleIds.length === 1 ? eligibleIds[0] : undefined;
-  if (!selected) issues.push({ path: "templateId", code: !eligibleIds.length ? "POLICY_NOT_COVERED" : input.templateId ? "TEMPLATE_NOT_ELIGIBLE" : "PORTFOLIO_CHOICE_REQUIRED" });
+  // Missing answers fail every rule; that is not a policy coverage gap (which asks an
+  // administrator to review the configuration), so report only the answer issues.
+  const answersIncomplete = issues.some(i => i.path.startsWith("answers"));
+  if (!selected && !(answersIncomplete && !eligibleIds.length))
+    issues.push({ path: "templateId", code: !eligibleIds.length ? "POLICY_NOT_COVERED" : input.templateId ? "TEMPLATE_NOT_ELIGIBLE" : "PORTFOLIO_CHOICE_REQUIRED" });
   return { status: issues.length ? "INCOMPLETE" as const : "MATCHED" as const, issues,
     totalScore: issues.some(i => i.path.startsWith("answers")) ? null : totalScore,
     dimensionScores: Object.fromEntries(dimensions.map(d => [d, issues.some(i => i.path.startsWith("answers")) ? null : scores[d]])), riskBandId: issues.some(i => i.path.startsWith("answers")) ? null : band?.id ?? null,
     selectedTemplateId: issues.length ? null : selected!, eligibleTemplateIds: issues.length && issues.some(i => i.path.startsWith("answers")) ? [] : eligibleIds, answers: explanations, checks };
 }
 
-export function previewPortfolio(document: PortfolioDocument, assumptions: AssumptionDocument, command: PortfolioPreview) {
+/** Reuse across previews of the SAME policy and assumption objects only (one
+ * adjustment search). Validation and base series never depend on the retirement
+ * month, answers or scenario; the objects must not be mutated while it is alive. */
+export type PortfolioPreviewCache = { validation?: ReturnType<typeof validatePortfolioPolicy>; series: Map<string, ReturnType<typeof resolveYearSeries>> };
+export const portfolioPreviewCache = (): PortfolioPreviewCache => ({ series: new Map() });
+
+/** `only` limits the scenario paths to one kind. Scenarios are independent, so the
+ * requested path is identical either way; retirement previews read just one. */
+export function previewPortfolio(document: PortfolioDocument, assumptions: AssumptionDocument, command: PortfolioPreview,
+  only?: PortfolioDocument["scenarios"][number]["kind"], cache?: PortfolioPreviewCache) {
   const data = portfolioDocumentSchema.parse(document), input = portfolioPreviewSchema.parse(command);
-  const validation = validatePortfolioPolicy(data, assumptions), assessment = assessPortfolio(data, input);
+  const validation = cache?.validation ?? validatePortfolioPolicy(data, assumptions), assessment = assessPortfolio(data, input);
+  if (cache) cache.validation = validation;
   const context = { assessment, limitations: ["UNIT_PORTFOLIO_WITHOUT_PERSONAL_CASHFLOWS", "INITIAL_ALLOCATION_COST_NOT_MODELED", "NO_TRANSACTIONS_OR_PLAN_APPLICATION"], priceBasis: "NOMINAL", timing: "REBALANCE_START_GROWTH_END" };
   if (validation.status !== "VALID" || assessment.status !== "MATCHED") return { ...context, status: "INCOMPLETE", issues: [...validation.issues, ...assessment.issues], scenarios: [] };
   const template = data.templates.find(t => t.id === assessment.selectedTemplateId)!;
@@ -187,15 +201,22 @@ export function previewPortfolio(document: PortfolioDocument, assumptions: Assum
       boundary: period.fromIndex === i + 1 };
   };
   const endMonth = addMonths(input.startMonth, input.horizonMonths - 1);
-  const base = new Map(assetCodes.map(assetClass => [assetClass, resolveYearSeries(assumptions, { versionId: data.assumptionVersionId,
-    startMonth: input.startMonth, endMonth, horizonMonths: input.horizonMonths, assetClass })]));
+  const series = (assetClass: string) => {
+    const request = { versionId: data.assumptionVersionId, startMonth: input.startMonth, endMonth, horizonMonths: input.horizonMonths, assetClass };
+    const key = JSON.stringify(request), cached = cache?.series.get(key);
+    if (cached) return cached;
+    const resolved = resolveYearSeries(assumptions, request);
+    cache?.series.set(key, resolved);
+    return resolved;
+  };
+  const base = new Map(assetCodes.map(assetClass => [assetClass, series(assetClass)]));
   const issues: ConfigurationIssue[] = [...base.values()].flatMap(r => r.issues);
   if (issues.length) return { ...context, status: "INCOMPLETE", issues, scenarios: [] };
   const scenarios = [];
-  for (const scenario of data.scenarios) {
+  for (const scenario of only ? data.scenarios.filter(s => s.kind === only) : data.scenarios) {
     const annual = new Map(scenario.years.map(y => [y.year, y]));
     let weights = new Map(assetCodes.map(c => [c, new D(0)])), unitValue = new D(1);
-    const rows = [], factorCache = new Map<string, { growth: InstanceType<typeof D>; inflation: InstanceType<typeof D>; annualReturn: string; annualInflation: string }>();
+    const rows = [], factorCache = new Map<string, { growth: InstanceType<typeof D>; inflation: string; annualReturn: string; annualInflation: string }>();
     for (let i = 0; i < input.horizonMonths; i++) {
       const month = addMonths(input.startMonth, i), year = +month.slice(0, 4), changes = annual.get(year)!;
       const { targets, boundary } = targetAt(i, month);
@@ -211,11 +232,11 @@ export function previewPortfolio(document: PortfolioDocument, assumptions: Assum
         if (!factorCache.has(key)) {
           const rate = new D(row.returnAnnualNetNominalPercent).plus(delta), inflation = new D(row.inflationAnnualPercent).plus(changes.inflationDeltaPoints);
           if (rate.lte(-100) || inflation.lte(-100)) return { ...context, status: "INCOMPLETE", issues: [{ path: `scenarios.${scenario.kind}.${year}.${code}`, code: "SCENARIO_RATE_OUT_OF_RANGE" }], scenarios: [] };
-          factorCache.set(key, { growth: rate.div(100).plus(1).pow(new D(1).div(12)), inflation: inflation.div(100).plus(1).pow(new D(1).div(12)), annualReturn: rate.toFixed(), annualInflation: inflation.toFixed() });
+          factorCache.set(key, { growth: rate.div(100).plus(1).pow(new D(1).div(12)), inflation: inflation.div(100).plus(1).pow(new D(1).div(12)).toFixed(), annualReturn: rate.toFixed(), annualInflation: inflation.toFixed() });
         }
         const factors = factorCache.get(key)!;
         const value = weights.get(code)!.mul(factors.growth); nextValues.set(code, value); grossFactor = grossFactor.plus(value);
-        inflationFactor = factors.inflation.toFixed(); inflationPercent = factors.annualInflation;
+        inflationFactor = factors.inflation; inflationPercent = factors.annualInflation;
         holdings.push({ assetClass: code, startWeightPercent: weights.get(code)!.mul(100).toFixed(), annualNetNominalReturnPercent: factors.annualReturn, returnDeltaPoints: delta });
       }
       const netFactor = grossFactor.mul(new D(1).minus(feeFraction)); unitValue = unitValue.mul(netFactor);

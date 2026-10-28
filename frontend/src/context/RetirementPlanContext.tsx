@@ -96,6 +96,24 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   const draftKey = (id: string) => `anhuu:plan-draft:${id}`;
   const updateDraft = (changes: Partial<RetirementPreviewInput>) => {
     const next = { ...draftRef.current, ...changes };
+    if ("whatIf" in next) {
+      if (next.whatIf) {
+        const cleaned: NonNullable<RetirementPreviewInput["whatIf"]> = {};
+        if (next.whatIf.retirementMonth && next.whatIf.retirementMonth.trim() !== "") {
+          cleaned.retirementMonth = next.whatIf.retirementMonth;
+        }
+        if (Array.isArray(next.whatIf.assetValues) && next.whatIf.assetValues.length > 0) {
+          cleaned.assetValues = next.whatIf.assetValues;
+        }
+        if (Object.keys(cleaned).length > 0) {
+          next.whatIf = cleaned;
+        } else {
+          delete next.whatIf;
+        }
+      } else {
+        delete next.whatIf;
+      }
+    }
     // Session storage survives refresh, stays scoped to the account, and does not apply a plan.
     if (user?.id) sessionStorage.setItem(draftKey(user.id), JSON.stringify(next, (key, value) => key === "advisoryFee" && value === undefined ? null : value));
     draftRef.current = next;
@@ -260,9 +278,17 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
       return res;
     } catch (e) {
       if (currentSeq !== previewSeq.current || activeUserIdRef.current !== targetUserId) return null;
-      const message = (e as { code?: string })?.code === "PROFILE_V2_REQUIRED"
-        ? "Hồ sơ đang ở dạng khảo sát nhanh. Mở Tài khoản → Hồ sơ tài chính, bấm “Bổ sung hồ sơ chi tiết” và khai tháng sinh, tháng muốn nghỉ hưu để tính kế hoạch."
-        : e instanceof Error ? e.message : "Không thể tính toán dự phóng. Vui lòng thử lại.";
+      const code = (e as { code?: string })?.code;
+      let message = e instanceof Error ? e.message : "Không thể tính toán dự phóng. Vui lòng thử lại.";
+      if (code === "PROFILE_V2_REQUIRED") {
+        message = "Hồ sơ đang ở dạng khảo sát nhanh. Mở Tài khoản → Hồ sơ tài chính, bấm “Bổ sung hồ sơ chi tiết” và khai tháng sinh, tháng muốn nghỉ hưu để tính kế hoạch.";
+      } else if (code === "PREVIEW_BUSY") {
+        message = "Máy chủ đang xử lý nhiều lượt tính toán. Vui lòng thử lại sau giây lát.";
+      } else if (code === "PREVIEW_TIMEOUT") {
+        message = "Quá thời gian tính toán dự phóng. Vui lòng thử lại.";
+      } else if (code === "PREVIEW_UNAVAILABLE") {
+        message = "Dịch vụ tính toán tạm thời không khả dụng. Vui lòng thử lại sau giây lát.";
+      }
       setPreviewError(message);
       setPreviewStatus("error");
       return null;

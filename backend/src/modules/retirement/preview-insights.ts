@@ -8,6 +8,7 @@ import type { CapitalSeparation } from "../capital/separation";
 import type { LossConstraint } from "../capital/loss-constraint";
 import { RetirementDecimal as D } from "./engine";
 import { prepareRetirement } from "./prepare";
+import { portfolioPreviewCache } from "../portfolios/engine";
 import type { RetirementPreview } from "./schema";
 
 type Prepared = ReturnType<typeof prepareRetirement>;
@@ -54,6 +55,12 @@ export const isFunded = (p: Prepared) => p.calculation !== null &&
 /** Search limits are computational limits, not financial thresholds. Dates and
  * rates remain pinned. Bisection locates a candidate, then earlier months are
  * checked: dated cashflows/glide paths need not have a monotone success curve. */
+/** Retirement-date evaluations per search (binary search plus month-by-month
+ * certification). Certifying an earliest date that is N months later costs about N
+ * projections; at ~0.4 s each (2026-10 measurement) 180 covers 15 years and keeps a
+ * whole search inside the 120 s preview worker limit. It was 64 (~5 years), which
+ * young users' plans always exceeded. */
+export const RETIREMENT_SEARCH_RUNS = 180;
 export function adjustmentOptions(profile: ProfileV2, input: RetirementPreview, policy: PortfolioDocument,
   assumptions: AssumptionDocument, original: Prepared): z.infer<typeof adjustmentOptionsSchema> {
   const summary = original.calculation?.summary;
@@ -64,9 +71,11 @@ export function adjustmentOptions(profile: ProfileV2, input: RetirementPreview, 
     maximumFeasibleMonthlyExpenseToday: null, expenseSearchStatus: "REVIEW_REQUIRED", endMonth: input.endMonth, evaluations: 0, issues: [] };
   if (!summary) { result.issues.push("PROJECTION_REQUIRED"); return result; }
   if (isFunded(original)) { result.status = "NOT_NEEDED"; result.retirementSearchStatus = result.expenseSearchStatus = "NOT_NEEDED"; return result; }
+  // Every run shares the pinned documents, so validation and base series are reused.
+  const portfolioCache = portfolioPreviewCache();
   const run = (command: RetirementPreview) => {
     result.evaluations++;
-    return prepareRetirement(profile, command, policy, assumptions);
+    return prepareRetirement(profile, command, policy, assumptions, portfolioCache);
   };
   // Spending search is bounded by the failing requested amount; only downward
   // changes are offered. Keep the feasible lower endpoint and report cents.
@@ -91,7 +100,7 @@ export function adjustmentOptions(profile: ProfileV2, input: RetirementPreview, 
   let retirementRuns = 0, incomplete = false;
   const evaluateMonth = (index: number): boolean | null => {
     if (cache.has(index)) return cache.get(index)!;
-    if (retirementRuns >= 64) return null;
+    if (retirementRuns >= RETIREMENT_SEARCH_RUNS) return null;
     retirementRuns++;
     const p = run({ ...input, whatIf: { ...input.whatIf, retirementMonth: addMonths(start, index) } });
     const funded = p.status === "READY" ? isFunded(p) : null;
@@ -99,7 +108,7 @@ export function adjustmentOptions(profile: ProfileV2, input: RetirementPreview, 
     return funded;
   };
   let left = 1, right = last, candidate: number | null = null;
-  while (left <= right && retirementRuns < 64) {
+  while (left <= right && retirementRuns < RETIREMENT_SEARCH_RUNS) {
     const mid = Math.floor((left + right) / 2), funded = evaluateMonth(mid);
     if (funded) { candidate = mid; right = mid - 1; } else left = mid + 1;
   }

@@ -22,7 +22,11 @@ describe("desktop preview blockers", () => {
   it("does not blame configuration when survey answers are missing", () => {
     const policy = portfolioFixture(), assumptions = portfolioAssumptionsFixture(), input = { ...portfolioCommand(), answers: [] };
     const result = previewPortfolio(policy, assumptions, input);
-    expect(previewGuidance(policy, assumptions, input, result.issues).issues).toContainEqual(expect.objectContaining({ code: "POLICY_NOT_COVERED", action: "REVIEW_SELECTION" }));
+    expect(result.issues.map(i => i.code)).not.toContain("POLICY_NOT_COVERED");
+    expect(result.issues).toContainEqual(expect.objectContaining({ code: "ANSWER_REQUIRED" }));
+    const guidance = previewGuidance(policy, assumptions, input, result.issues);
+    expect(guidance.issues).toEqual([expect.objectContaining({ path: "answers", action: "REVIEW_SELECTION" })]);
+    expect(guidance.policyChecks).toEqual([]);
   });
   it("returns actual published projection coverage on retirement previews without extrapolation", async () => {
     const f = await plansFixture();

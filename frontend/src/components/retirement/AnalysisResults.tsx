@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useI18n } from "../../i18n";
 import { Button } from "../ui";
-import type { RetirementPreviewResult } from "../../services/retirement";
+import { previewMonthlyRetirement, type RetirementPreviewResult } from "../../services/retirement";
 import type { AdjustmentOptions, Allocation, ReadWarning } from "../../services/planningAnalysis";
 import "./planning-analysis.css";
 
@@ -73,6 +74,155 @@ export function Adjustments({ data }: { data: AdjustmentOptions }) {
     <div><dt>{t("Chi ít hơn — mức chi tối đa theo giá hôm nay", "Spend less — maximum spending at today's prices")}</dt><dd>{data.expenseSearchStatus === "FOUND" ? displayNumber(data.maximumFeasibleMonthlyExpenseToday, en, " VND") : t("Chưa xác định", "Undetermined")}</dd><AnalysisStatus status={data.expenseSearchStatus ?? "REVIEW_REQUIRED"} /></div>
   </dl><p>{t("Đây là điều chỉnh theo giả định cố định; cần xem trước và mô phỏng lại sau khi đổi. Không tự nâng lợi suất hoặc thay lịch hợp đồng.", "These adjustments use fixed assumptions. Preview and simulate again after changes. Returns and contractual schedules are not adjusted automatically.")}{data.endMonth && ` ${t("Tháng kết thúc giữ nguyên", "End month retained")}: ${data.endMonth}.`}</p></section>;
 }
+export function isPlanFunded(preview: RetirementPreviewResult | null): boolean {
+  if (!preview || preview.status !== "READY" || !preview.calculation?.summary) return false;
+  if (preview.decisionExplanations?.some(e => e.code === "PLAN_FUNDED")) return true;
+  if (preview.decisionExplanations?.some(e => e.code === "PLAN_NOT_FUNDED")) return false;
+  const s = preview.calculation.summary;
+  const unfunded = Number(s.unfundedWithdrawals || 0);
+  const terminalShortfall = Number(s.terminalTargetShortfall || 0);
+  const budgetShortfall = Boolean(s.firstBudgetShortfallMonth);
+  const fundingShortfall = Number(s.retirementFundingShortfall || 0);
+  return unfunded === 0 && terminalShortfall === 0 && !budgetShortfall && fundingShortfall === 0;
+}
+
+export function AdjustmentsSection({ preview }: { preview: RetirementPreviewResult | null }) {
+  const t = useAnalysisText();
+  const [data, setData] = useState<AdjustmentOptions | null>(preview?.adjustmentOptions ?? null);
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(preview?.adjustmentOptions ? "ready" : "idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+  const containerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (preview?.adjustmentOptions) {
+      setData(preview.adjustmentOptions);
+      setStatus("ready");
+      setErrorMessage(null);
+    }
+  }, [preview?.adjustmentOptions]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setIsVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.05 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const funded = isPlanFunded(preview);
+  const inputHash = preview?.inputHash;
+  const selection = preview?.selection;
+
+  const isRetryRef = useRef(false);
+
+  useEffect(() => {
+    if (preview?.adjustmentOptions || !preview || preview.status !== "READY" || funded || !isVisible || !selection) {
+      return;
+    }
+
+    const controller = new AbortController();
+    setStatus("loading");
+    setErrorMessage(null);
+
+    const isRetry = isRetryRef.current;
+    isRetryRef.current = false;
+    const delay = isRetry ? 0 : 1000;
+
+    const timer = setTimeout(() => {
+      previewMonthlyRetirement(selection, controller.signal, { adjustments: "include" })
+        .then((res) => {
+          if (!controller.signal.aborted) {
+            setData(res.adjustmentOptions ?? null);
+            setStatus("ready");
+          }
+        })
+        .catch((err) => {
+          if (!controller.signal.aborted) {
+            setData(null);
+            setStatus("error");
+            const code = (err as { code?: string })?.code;
+            let msg = t("Không thể tìm phương án điều chỉnh. Vui lòng thử lại.", "Could not find adjustment options. Please try again.");
+            if (code === "PREVIEW_BUSY") {
+              msg = t("Máy chủ đang xử lý nhiều lượt tính toán. Vui lòng thử lại sau giây lát.", "The server is busy. Please try again shortly.");
+            } else if (code === "PREVIEW_TIMEOUT") {
+              msg = t("Quá thời gian tìm phương án điều chỉnh. Vui lòng thử lại.", "Finding adjustment options timed out. Please try again.");
+            } else if (code === "PREVIEW_UNAVAILABLE") {
+              msg = t("Dịch vụ tính toán tạm thời không khả dụng. Vui lòng thử lại sau giây lát.", "Calculation service is temporarily unavailable. Please try again shortly.");
+            }
+            setErrorMessage(msg);
+          }
+        });
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [inputHash, isVisible, retryCount, funded, preview?.adjustmentOptions]);
+
+  if (preview?.adjustmentOptions) {
+    return (
+      <section className="planning-analysis">
+        <Adjustments data={preview.adjustmentOptions} />
+      </section>
+    );
+  }
+
+  if (!preview || preview.status !== "READY" || funded) {
+    return null;
+  }
+
+  return (
+    <section ref={containerRef} className="planning-analysis" data-testid="adjustment-options" onClick={() => setIsVisible(true)}>
+      {status === "loading" && (
+        <>
+          <h3>{t("Ba hướng điều chỉnh", "Three ways to adjust")}</h3>
+          <div className="adjustments-loading" role="status">
+            <p>{t("Đang tìm phương án điều chỉnh… có thể mất đến 1 phút", "Searching for adjustment options… this may take up to 1 minute")}</p>
+          </div>
+        </>
+      )}
+      {status === "error" && (
+        <>
+          <h3>{t("Ba hướng điều chỉnh", "Three ways to adjust")}</h3>
+          <div className="adjustments-error" role="alert">
+            <p>{errorMessage}</p>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                isRetryRef.current = true;
+                setRetryCount((c) => c + 1);
+              }}
+            >
+              {t("Thử lại", "Retry")}
+            </Button>
+          </div>
+        </>
+      )}
+      {status === "ready" && data && <Adjustments data={data} />}
+      {status === "idle" && (
+        <>
+          <h3>{t("Ba hướng điều chỉnh", "Three ways to adjust")}</h3>
+          <p>{t("Cuộn để xem các phương án điều chỉnh kế hoạch.", "Scroll to view adjustment options.")}</p>
+        </>
+      )}
+    </section>
+  );
+}
+
 export function HorizonWarnings({ warnings, onRecalculate }: { warnings?: ReadWarning[]; onRecalculate?: (month: string) => void }) {
   const t = useAnalysisText(); return <>{warnings?.map((w, i) => <div className="planning-analysis" role="alert" key={i}><h3>{t("Kế hoạch bị cắt ngắn, nên tính lại", "The plan horizon is truncated; recalculate")}</h3><p>{t("Kết thúc đã lưu", "Saved end")}: {w.endMonth}. {t("Mốc cần tính tới theo mục tiêu hiện tại", "Expected end for the current goal")}: {w.expectedEndMonth}.</p>{onRecalculate && <Button onClick={() => onRecalculate(w.expectedEndMonth)}>{t("Xem trước tới mốc đầy đủ", "Preview the full horizon")}</Button>}</div>)}</>;
 }
@@ -101,7 +251,7 @@ export function PreviewInsights({ preview }: { preview: RetirementPreviewResult 
     {coverage && <section className="planning-analysis"><h2>{t("Chi thiết yếu có được đáp ứng?", "Are essential expenses covered?")}</h2><p>{t("Ưu tiên phân loại nguồn còn lại cho chi thiết yếu. Chi khác có thể gồm nợ, phí và y tế; không có nghĩa có thể bỏ các khoản đó.", "Remaining resources are classified toward essentials first. Other expenses may include debt, fees and healthcare; they are not necessarily optional.")}</p><p>{t("Tổng thiếu hụt thiết yếu", "Total essential shortfall")}: <strong>{money(coverage.essentialShortfall)}</strong></p><p>{t("Tháng thiếu đầu tiên", "First shortfall month")}: {coverage.firstEssentialShortfallMonth ?? (coverage.essentialShortfall == null ? t("Chưa xác định", "Undetermined") : t("Chưa ghi nhận", "None reported"))}</p>
       <details><summary>{t("Chi tiết theo tháng", "Monthly detail")}</summary><div className="planning-table"><table><thead><tr>{[t("Tháng", "Month"), t("Chi thiết yếu", "Essential expense"), t("Thiếu hụt thiết yếu", "Essential shortfall"), t("Thiếu hụt chi khác", "Other expense shortfall")].map(v => <th key={v}>{v}</th>)}</tr></thead><tbody>{coverage.rows.map(r => <tr key={r.month}><td>{r.month}</td><td>{money(r.essentialExpense)}</td><td>{money(r.essentialShortfall)}</td><td>{money(r.otherShortfall)}</td></tr>)}</tbody></table></div></details>
     </section>}
-    {preview.adjustmentOptions && <section className="planning-analysis"><Adjustments data={preview.adjustmentOptions} /></section>}
+    <AdjustmentsSection preview={preview} />
     {!!preview.decisionExplanations?.length && <section className="planning-analysis"><h2>{t("Vì sao có kết quả này?", "Why this result?")}</h2>{preview.decisionExplanations.map((e, i) => <p key={i}>{en ? ({ GOAL_CAPITAL_RESERVED: "Near-term goal capital uses the pinned inflation and deposit assumptions.", GROWTH_CAPITAL: "Growth capital is what remains after emergency reserves and near-term goals.", PORTFOLIO_HORIZON: "The allocation follows the pinned policy for the time remaining until retirement.", PLAN_FUNDED: "The deterministic plan covers its modeled cash flows to the end month. This is not a success probability.", PLAN_NOT_FUNDED: "The plan is not fully funded. Review contributions, retirement timing and spending.", LOSS_CONSTRAINT: "Review the modeled loss against your declared tolerance above.", REVIEW_REQUIRED: "Employer concentration and liquidity-to-goal reconciliation still require review." } as Record<string, string>)[e.code] ?? "Further review is required. Server explanation: " + e.text : e.text}</p>)}</section>}
     {preview.selection?.advisoryFee && <section className="planning-analysis"><h2>{t("Phí tư vấn trong dòng tiền", "Advisory fees in cash flows")}</h2><p>{t("Chỉ tính phí tư vấn bổ sung; không trừ lại phí quản lý đã có trong NAV. Phí dựa trên bình quân quỹ hai đầu tháng, không phải bình quân ngày.", "Only additional advisory fees are charged; NAV management fees are not deducted again. The fee uses the average of month opening and closing fund values, not a daily average.")}</p><div className="planning-table"><table><thead><tr>{[t("Tháng", "Month"), t("Quỹ bình quân", "Average fund"), t("Phí", "Fee"), t("Nguồn trả", "Paid from")].map(v => <th key={v}>{v}</th>)}</tr></thead><tbody>{preview.calculation?.rows.filter(r => r.advisoryFeeAmount !== undefined).map(r => <tr key={r.month}><td>{r.month}</td><td>{money(r.advisoryFeeAverageFund)}</td><td>{money(r.advisoryFeeAmount)}</td><td>{r.advisoryFeePaidFrom === "FUND" ? t("Rút quỹ cuối tháng", "Month-end fund withdrawal") : t("Ngân sách hộ — vẫn kiểm tra thiếu tiền", "Household budget — shortfalls still checked")}</td></tr>)}</tbody></table></div></section>}
   </>;

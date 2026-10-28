@@ -1189,3 +1189,28 @@ Kết quả kiểm tra:
 - `npm run build`: PASS (cảnh báo bundle lớn có sẵn của ứng dụng).
 - `npx --no-install playwright test tests/explain-mode.spec.ts tests/plan-detail-fixes.spec.ts --reporter=line`: **55/55 PASS** trên bản cuối. Kiểm request chứng minh: thuật ngữ viết sẵn không gọi AI; bật/tắt lại không tải glossary lần nữa khi còn hạn; mở lại summary/monthly không POST thêm; đổi tiền góp có POST mới mang đúng input; lỗi 429 không ngăn thử lại.
 - Các thay đổi ở frontend và tài liệu; không thay endpoint, công thức, backend, DB hoặc chính sách đồng ý AI. Kiểm trình duyệt dùng dữ liệu giả lập.
+
+## 25. Giảm nhập liệu ở onboarding — luồng "Kế hoạch đầu tiên" 3 màn (đề xuất 22/10/2026)
+
+Tài liệu đầy đủ: `docs/ONBOARDING_GIAM_NHAP_LIEU_2026-10-22.md`. **Chưa triển khai.** Chờ chủ sản phẩm chốt D1–D4 ở mục 9 của tài liệu.
+
+- Vấn đề: hiện người dùng phải qua khoảng 15 màn và khoảng 45 trường nhập, trải ở onboarding, hồ sơ chi tiết, `/user/risk-portfolio` và `/user/goal`, mới tới bản kế hoạch đầu tiên.
+- Luồng mới: 3 màn với 7–9 trường và 5 lần bấm chip rồi ra bản xem trước READY ngay. Các phần còn lại chuyển thành checklist sau khi người dùng đã thấy kế hoạch.
+- Backend: **không cần thêm hay đổi API.** Đã kiểm hồ sơ v2 tối thiểu theo mục 4 của tài liệu qua `profileV2Schema` và `prepareRetirement`: READY, `issues: []`. Dùng các endpoint `onboarding-draft`, `onboarding/complete`, `retirement/preview` hiện có.
+- Việc frontend:
+  1. Mang tuổi, tuổi hưu, mức chi từ `/mo-phong` sang đăng ký và điền sẵn ở onboarding.
+  2. Luồng 3 màn cho người dùng mới; bản nháp v1 cũ và hồ sơ v2 đã có giữ luồng hiện tại.
+  3. Tài sản "Tiền để dành cho hưu trí" lưu với `retirementShare = 1`.
+  4. Tự điền `Q_HORIZON`; gợi ý `Q_FINANCIAL_CAPACITY` nhưng người dùng phải bấm xác nhận.
+  5. Màn kết quả có dòng "Chưa tính", lấy từ cảnh báo backend.
+  6. Checklist 7 mục, bắt đầu ở 2/7.
+  7. Sửa ngay toast hoàn tất trong `OnboardingPage.tsx`: không yêu cầu nhập lại tháng nghỉ hưu.
+  8. Thêm sự kiện đo lường theo mục 7 trước khi phát hành.
+
+## 26. Nâng cấp UI/UX khu vực user theo chuẩn fintech — bàn giao 23/10/2026
+
+Task đầy đủ: `docs/task-antigravity-2026-10-23-ui-ux.md`. Phân tích và bằng chứng: `docs/UI_UX_NANG_CAP_FINTECH_2026-10-23.md`. **Chưa triển khai.**
+
+- Chỉ sửa frontend; không đổi API, công thức, bảng màu. Không đụng luồng onboarding (mục 25 đang chờ chốt).
+- Thứ tự: A (component nền: font và thang chữ, `MoneyValue`, `PlanStatusHero`, `NextStepCard`, skeleton, `LockedPreview`) → B (P0: hero trạng thái lên đầu Dashboard, một thước đo tiến độ, Kế hoạch tối đa 1 "Chưa xác định", ẩn điểm khảo sát, gỡ UUID) → C (P1: tab Kế hoạch thật, khảo sát một câu một màn, rà câu chữ, mobile nav 4 mục, tương phản trang Nợ, gọi API song song) → D (P2: gộp CSS vá, giảm `!important`, màu cứng → token).
+- Nghiệm thu bằng script đo và bảng chỉ số "trước/sau" ở mục E của file task.

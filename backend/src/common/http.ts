@@ -5,14 +5,22 @@ import { z, type ZodTypeAny } from "zod";
 import { AppError } from "./errors";
 import { log } from "./logger";
 
+export const SLOW_REQUEST_MS = 5000;
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+/** Path only: the query string is dropped and ids are masked, so logs carry no identifiers. */
+export const routeOf = (url: string) => url.split("?")[0].replace(UUID, ":id");
+
+// "close" (not "finish") so a request whose client gave up — the one that froze
+// the event loop on 2026-10-28 — is still logged, with its route and duration.
 export const requestContext: RequestHandler = (req, res, next) => {
-  const start = performance.now();
+  const start = performance.now(), route = routeOf(req.originalUrl);
   res.locals.requestId = randomUUID();
   res.setHeader("X-Request-Id", res.locals.requestId);
-  res.on("finish", () => log("info", "http.request", {
-    requestId: res.locals.requestId, method: req.method, statusCode: res.statusCode,
-    durationMs: Math.round(performance.now() - start),
-  }));
+  res.on("close", () => {
+    const durationMs = Math.round(performance.now() - start), aborted = !res.writableFinished;
+    log(aborted || durationMs >= SLOW_REQUEST_MS ? "warn" : "info", aborted ? "http.aborted" : "http.request",
+      { requestId: res.locals.requestId, method: req.method, route, statusCode: res.statusCode, durationMs });
+  });
   next();
 };
 export function asyncHandler(handler: RequestHandler): RequestHandler {

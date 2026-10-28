@@ -301,11 +301,27 @@ export function translateWarningCode(code: string, language: "vi" | "en" = "vi")
   return WARNING_MESSAGES[code] || `Điều cần biết về kết quả: ${code}`;
 }
 
-export async function previewMonthlyRetirement(input: RetirementPreviewInput, signal?: AbortSignal): Promise<RetirementPreviewResult> {
+export interface PreviewMonthlyRetirementOptions {
+  adjustments?: "include" | "skip";
+}
+
+// The adjustment search takes ~30–50 s on real profiles and the server stops it at
+// 120 s (PREVIEW_TIMEOUT_MS), so the default 20 s client timeout would always
+// abort it. Wait slightly longer than the server so its 503 reaches the user.
+export const PREVIEW_ADJUSTMENTS_TIMEOUT_MS = 130_000;
+export async function previewMonthlyRetirement(
+  input: RetirementPreviewInput,
+  signalOrOptions?: AbortSignal | PreviewMonthlyRetirementOptions,
+  options?: PreviewMonthlyRetirementOptions
+): Promise<RetirementPreviewResult> {
+  const signal = signalOrOptions instanceof AbortSignal ? signalOrOptions : undefined;
+  const opts = signalOrOptions instanceof AbortSignal ? options : (signalOrOptions || options);
+  const adjustments = opts?.adjustments ?? "skip";
+  const query = `?adjustments=${encodeURIComponent(adjustments)}`;
   return await authenticatedRequest<RetirementPreviewResult>(
-    "/me/retirement/preview",
+    `/me/retirement/preview${query}`,
     input,
-    "POST", undefined, { signal }
+    "POST", undefined, { signal, ...(adjustments === "include" ? { timeoutMs: PREVIEW_ADJUSTMENTS_TIMEOUT_MS } : {}) }
   );
 }
 

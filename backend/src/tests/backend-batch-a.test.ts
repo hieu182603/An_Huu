@@ -14,7 +14,8 @@ import { profileV2Summary } from "../modules/profiles/summary-v2";
 import { prepareRetirement } from "../modules/retirement/prepare";
 import { projectRetirement, RetirementDecimal as D } from "../modules/retirement/engine";
 import { applyAdvisoryFee } from "../modules/retirement/advisory-fee";
-import { essentialCoverage, adjustmentOptions, decisionExplanations, isFunded } from "../modules/retirement/preview-insights";
+import { essentialCoverage, adjustmentOptions, decisionExplanations, isFunded, RETIREMENT_SEARCH_RUNS } from "../modules/retirement/preview-insights";
+import { previewPortfolio, portfolioPreviewCache } from "../modules/portfolios/engine";
 import { retirementPreviewSchema } from "../modules/retirement/schema";
 import { profileSourceRegistry } from "../modules/retirement/source-profile";
 import { updateSourceRows } from "../modules/actuals/source-changes";
@@ -183,20 +184,54 @@ describe("P1-8 bounded adjustments on the same engine", () => {
     expect(r.earliestFeasibleRetirementMonth).toBe("2027-03");
     expect(isFunded(prepared(p, { ...c, whatIf: { retirementMonth: "2027-04" } }))).toBe(false);
   });
-  it("bounds work and never labels an uncertified retirement month as earliest", () => {
-    const p = retirementProfile(), c = retirementCommand(), cfg = retirementConfiguration();
-    c.monthlyContribution = "0"; c.terminalBalance = "1"; c.endMonth = "2034-03";
-    const years = Array.from({ length: 9 }, (_, i) => 2026 + i);
-    cfg.assumptions.projectionEndYear = 2034;
-    cfg.assumptions.sources.filter(s => s.id === "FORECAST" || s.id === "RETURNS").forEach(s => { s.toYear = 2034; });
+  // Zero-rate fixture assumptions extended through `lastYear` (fixtures stop in 2028).
+  const longConfiguration = (lastYear: number) => {
+    const cfg = retirementConfiguration(), years = Array.from({ length: lastYear - 2025 }, (_, i) => 2026 + i);
+    cfg.assumptions.projectionEndYear = lastYear;
+    cfg.assumptions.sources.filter(s => s.id === "FORECAST" || s.id === "RETURNS").forEach(s => { s.toYear = lastYear; });
     cfg.assumptions.inflation = years.map(year => ({ ...cfg.assumptions.inflation[0], year }));
     cfg.assumptions.returns = years.flatMap(year => cfg.assumptions.returns.filter(r => r.year === 2026).map(r => ({ ...r, year })));
     cfg.policy.scenarios.forEach(s => { s.years = years.map(year => ({ ...s.years[0], year })); });
+    cfg.policy.rules.forEach(rule => { rule.horizon = { ...rule.horizon, max: 1200 }; });
+    cfg.policy.templates.forEach(template => {
+      template.coverageMonths = 1200;
+      if ("schedule" in template) template.schedule.forEach(period => { period.toIndex = 1200; });
+    });
+    return cfg;
+  };
+  it("bounds work and never labels an uncertified retirement month as earliest", () => {
+    const p = retirementProfile(), c = retirementCommand(), cfg = longConfiguration(2044);
+    c.monthlyContribution = "0"; c.terminalBalance = "1"; c.endMonth = "2044-03"; // more months than the search budget
     const original = prepareRetirement(p, c, cfg.policy, cfg.assumptions);
     expect(original.status, JSON.stringify(original.issues)).toBe("READY");
     const r = adjustmentOptions(p, c, cfg.policy, cfg.assumptions, original);
-    expect(r).toMatchObject({ status: "REVIEW_REQUIRED", earliestFeasibleRetirementMonth: null, evaluations: 65 });
+    expect(r).toMatchObject({ status: "REVIEW_REQUIRED", earliestFeasibleRetirementMonth: null, evaluations: 1 + RETIREMENT_SEARCH_RUNS });
     expect(r.issues).toContain("RETIREMENT_SEARCH_LIMIT_REVIEW_REQUIRED");
+  });
+  it("certifies an earliest retirement month far beyond the former 64-run limit (young users)", () => {
+    // Zero returns: retiring at m is funded iff 100 × months saved ≥ 300 × months retired.
+    const p = retirementProfile(), c = retirementCommand(), cfg = longConfiguration(2036);
+    if (p.income.status === "KNOWN") p.income.entries[0].endMonth = null;
+    c.monthlyExpenseToday = "300"; c.monthlyContribution = "100"; c.endMonth = "2036-12";
+    const r = adjustmentOptions(p, c, cfg.policy, cfg.assumptions, prepareRetirement(p, c, cfg.policy, cfg.assumptions));
+    expect(r.retirementSearchStatus).toBe("FOUND");
+    const earliest = r.earliestFeasibleRetirementMonth!, desired = p.personal.desiredRetirementMonth.status === "KNOWN" ? p.personal.desiredRetirementMonth.value : "";
+    const offset = (+earliest.slice(0, 4) - +desired.slice(0, 4)) * 12 + (+earliest.slice(5) - +desired.slice(5));
+    expect(offset).toBeGreaterThan(64);
+    expect(isFunded(prepareRetirement(p, { ...c, whatIf: { retirementMonth: earliest } }, cfg.policy, cfg.assumptions))).toBe(true);
+    expect(isFunded(prepareRetirement(p, { ...c, whatIf: { retirementMonth: addMonths(earliest, -1) } }, cfg.policy, cfg.assumptions))).toBe(false);
+    expect(r.issues).not.toContain("RETIREMENT_SEARCH_LIMIT_REVIEW_REQUIRED");
+  });
+  it("search cache and single-scenario previews return the same portfolio path", () => {
+    const cfg = retirementConfiguration(), c = retirementCommand(), cache = portfolioPreviewCache();
+    const command = { policyVersionId: c.policyVersionId, startMonth: "2026-10", horizonMonths: 6, answers: c.answers, liquidityNeedMonths: 0, retirementMonth: "2027-01" };
+    const all = previewPortfolio(cfg.policy, cfg.assumptions, command);
+    for (const kind of ["BASE", "ADVERSE", "FAVORABLE"] as const) {
+      const one = previewPortfolio(cfg.policy, cfg.assumptions, command, kind, cache), again = previewPortfolio(cfg.policy, cfg.assumptions, command, kind, cache);
+      expect(one.scenarios).toEqual(all.scenarios.filter(s => s.kind === kind));
+      expect(again).toEqual(one);
+    }
+    expect(cache.series.size).toBeGreaterThan(0);
   });
 });
 

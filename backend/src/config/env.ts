@@ -29,6 +29,9 @@ const schema = z.object({
   GEMINI_API_MODE: z.enum(["developer", "vertex-express"]).default("developer"),
   GEMINI_MODEL: z.string().regex(/^gemini-[a-z0-9.-]+$/).default("gemini-3.8-flash"),
   GEMINI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(15000),
+  // Retirement preview worker threads; unset = min(2, cores - 1), 0 = run on the request thread.
+  PREVIEW_WORKERS: z.coerce.number().int().min(0).max(16).optional(),
+  PREVIEW_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(120000),
 });
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env) {

@@ -19,7 +19,18 @@ export function usePlanSynchronization(userId: string | undefined, version: Plan
       previewMonthlyRetirement(JSON.parse(inputJson)).then(data => {
         if (active) setResult({ key, data, error: null });
       }).catch(error => {
-        if (active) setResult({ key, data: null, error: error instanceof Error ? error.message : "Không thể cập nhật kế hoạch." });
+        if (active) {
+          const code = (error as { code?: string })?.code;
+          let msg = error instanceof Error ? error.message : "Không thể cập nhật kế hoạch.";
+          if (code === "PREVIEW_BUSY") {
+            msg = "Máy chủ đang xử lý nhiều lượt tính toán. Vui lòng thử lại sau giây lát.";
+          } else if (code === "PREVIEW_TIMEOUT") {
+            msg = "Quá thời gian tính toán dự phóng. Vui lòng thử lại.";
+          } else if (code === "PREVIEW_UNAVAILABLE") {
+            msg = "Dịch vụ tính toán tạm thời không khả dụng. Vui lòng thử lại sau giây lát.";
+          }
+          setResult({ key, data: null, error: msg });
+        }
       });
     }, 350);
     return () => { active = false; window.clearTimeout(timer); };

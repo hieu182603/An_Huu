@@ -17,4 +17,6 @@
 .planning-analysis textarea { width: 100%; min-height: 240px; padding: 12px; font: inherit; border: 1px solid var(--color-border,#dce3df); border-radius: 8px; }
 .planning-analysis code { white-space: pre-wrap; word-break: break-all; }
 .planning-analysis :is(input,select,button) { min-height: 44px; max-width: 100%; }
+.adjustments-loading { padding: 16px; background: var(--color-bg,#f4f6f3); border-left: 4px solid var(--color-primary,#266147); border-radius: 8px; margin-block: 16px; color: var(--color-text,#18362c); }
+.adjustments-error { padding: 16px; background: var(--color-bg,#f4f6f3); border-left: 4px solid var(--color-danger,#d32f2f); border-radius: 8px; margin-block: 16px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
 @media(max-width:480px) { .planning-analysis { padding: 16px 12px; } .planning-analysis fieldset { padding: 12px 8px; } }

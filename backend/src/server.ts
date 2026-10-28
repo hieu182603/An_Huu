@@ -2,6 +2,7 @@ import "dotenv/config";
 import http from "node:http";
 import { loadEnv } from "./config/env";
 import { log } from "./common/logger";
+import { watchEventLoop } from "./common/event-loop";
 
 async function start() {
   // Validate before importing integrations or connecting to the database.
@@ -26,6 +27,7 @@ async function start() {
     deadline.unref();
     try {
       await new Promise<void>(resolve => io.close(() => resolve()));
+      await services.previewPool?.close();
       await prisma.$disconnect();
       clearTimeout(deadline);
       process.exit(0);
@@ -73,6 +75,7 @@ async function start() {
       server.listen(config.PORT, "0.0.0.0", resolve);
     });
     log("info", "server.started");
+    watchEventLoop();
   } catch (error) {
     stopWorker();
     await new Promise<void>(resolve => io.close(() => resolve()));

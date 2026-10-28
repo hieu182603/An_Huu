@@ -4,9 +4,10 @@ import { AdvisoryFeeEditor } from "../components/retirement/AdvisoryFeeEditor";
 import { ProfileReviewPreview } from "../components/retirement/ProfileReviewPreview";
 import { selectionForCurrentProfile } from "../services/profilePlanSelection";
 import { GuidedScenarios } from "../components/retirement/GuidedScenarios";
+import { AccuracyChecklist } from "../components/AccuracyChecklist";
 import PlanSyncStatus from "../components/PlanSyncStatus";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { motion } from "motion/react";
 import { Alert, Badge, Button, Card, Checkbox, Icon, Input, Modal, useNotification } from "../components/ui";
 import ProfileFormattedInput from "../components/ProfileFormattedInput";
@@ -36,7 +37,18 @@ import { formatMonthVN } from "../utils/date";
 import "./retirement-plan.css";
 import { Explain, type ExplainSource } from "../components/explanations/ExplainMode";
 
+function formatVNDShort(amount: string | number | null | undefined): string {
+  if (amount === null || amount === undefined || amount === "") return "0 đ";
+  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (isNaN(num)) return "0 đ";
+  const rounded = Math.round(num);
+  const isNeg = rounded < 0;
+  const formatted = Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${isNeg ? "-" : ""}${formatted} đ`;
+}
+
 export default function RetirementPlanPage() {
+  const location = useLocation();
   const { t, language } = useI18n();
   const { user } = useAuth();
   const { notify } = useNotification();
@@ -60,6 +72,10 @@ export default function RetirementPlanPage() {
     applyVersion,
     replayVersion,
   } = useRetirementPlan();
+
+  const isFromNewOnboarding = Boolean(location.state?.fromOnboarding) || (
+    typeof window !== "undefined" && window.sessionStorage?.getItem("anhuu_just_onboarded") === "1" && planVersions.length === 0
+  );
 
   const [policyDetail, setPolicyDetail] = useState<PortfolioPolicyDetail | null>(null);
   const [loadingPolicy, setLoadingPolicy] = useState(true);
@@ -88,6 +104,7 @@ export default function RetirementPlanPage() {
   const [showApplyConfirm, setShowApplyConfirm] = useState(false);
   const [showInsuranceModal, setShowInsuranceModal] = useState(false);
   const [reviewMonth, setReviewMonth] = useState<string | null>(null);
+  const [userSelectedCustom, setUserSelectedCustom] = useState(false);
   useEffect(() => { setReviewMonth(null); }, [currentVersion?.id]);
 
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
@@ -170,6 +187,17 @@ export default function RetirementPlanPage() {
     return reviseSelection(initial, draftSelection ?? {}, profileRevision);
   }, [baseline, JSON.stringify(synchronization.input), draftSelection, usesActualBalance, policyDetail, defaultEndMonth, v2Profile, profileRevision, profile, surveyAnswers]);
 
+  const hasNonDefaultAdvanced = Boolean(
+    (previewPayload?.monthlyReserve && Number(previewPayload.monthlyReserve) > 0) ||
+    contributionTiming === "START_OF_MONTH"
+  );
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(() => hasNonDefaultAdvanced);
+  useEffect(() => {
+    if (hasNonDefaultAdvanced) {
+      setIsAdvancedOpen(true);
+    }
+  }, [hasNonDefaultAdvanced]);
+
   useEffect(() => {
     if (!baseline && previewPayload && !viewingCurrent && !loadingPlans && !plansError) void runPreview(previewPayload);
   }, [previewPayload, viewingCurrent, loadingPlans, plansError]);
@@ -193,6 +221,9 @@ export default function RetirementPlanPage() {
     try {
       const saved = await savePlanVersion(previewPayload, lastInputHash);
       if (saved) {
+        if (typeof window !== "undefined") {
+          window.sessionStorage?.removeItem("anhuu_just_onboarded");
+        }
         setSavedPreview({ key: previewKey, version: saved });
         notify.success(
           language === "en" ? "New Version Saved" : "Đã lưu phiên bản mới",
@@ -278,6 +309,28 @@ export default function RetirementPlanPage() {
 
   const isAppliedPlan = viewingCurrent;
 
+  const fundDurationText = summary
+    ? summary.firstShortfallMonth
+      ? (language === "en" ? `Shortfall from ${formatMonthVN(summary.firstShortfallMonth)}` : `Thiếu từ tháng ${formatMonthVN(summary.firstShortfallMonth)}`)
+      : (language === "en" ? `Fund lasts until ${formatMonthVN(summary.endMonth)}` : `Quỹ đủ tới tháng ${formatMonthVN(summary.endMonth)}`)
+    : unknown;
+
+  const requiredContributionText = summary?.requiredConstantMonthlyContribution != null
+    ? formatVNDCurrency(summary.requiredConstantMonthlyContribution)
+    : (language === "en" ? "Undetermined" : "Chưa xác định");
+
+  const omittedItems: string[] = [];
+  const warningCodes = (displayedPreview?.warnings ?? []).map((w: any) => (typeof w === "string" ? w : w?.code));
+  if (warningCodes.includes("PENSION_NOT_INCLUDED")) {
+    omittedItems.push(language === "en" ? "social insurance (BHXH) pension" : "lương hưu BHXH");
+  }
+  if (warningCodes.includes("LOAN_CONTRACT_ESTIMATED")) {
+    omittedItems.push(language === "en" ? "detailed loan contracts" : "hợp đồng vay chi tiết");
+  }
+  const omittedNotice = omittedItems.length > 0
+    ? (language === "en" ? `Not yet included: ${omittedItems.join(", ")}.` : `Chưa tính: ${omittedItems.join(", ")}.`)
+    : null;
+
   return (
     <div className="retirement-plan-page">
       <div className="retirement-page-header">
@@ -332,7 +385,7 @@ export default function RetirementPlanPage() {
         {language === "en" ? "Answer the questions before saving a personal plan." : "Trả lời khảo sát để kế hoạch dùng đúng lựa chọn của bạn."} <Link to="/user/risk-portfolio">{language === "en" ? "Complete survey" : "Làm khảo sát đầu tư"}</Link>
       </Alert>}
       {!baseline && previewStatus === "loading" && <p role="status">{language === "en" ? "Calculating…" : "Đang tính kết quả…"}</p>}
-      {!baseline && previewStatus === "error" && <Alert tone="danger" title={language === "en" ? "Could not calculate" : "Chưa tính được kết quả"} action={<Button onClick={() => previewPayload && runPreview(previewPayload)}>{language === "en" ? "Retry" : "Thử lại"}</Button>}>{previewError}</Alert>}
+      {previewStatus === "error" && <Alert tone="danger" title={language === "en" ? "Could not calculate" : "Chưa tính được kết quả"} action={<Button onClick={() => (baseline ? synchronization.retry() : previewPayload && runPreview(previewPayload))}>{language === "en" ? "Retry" : "Thử lại"}</Button>}>{previewError}</Alert>}
       {/* Warnings & Issues notification banners */}
       {!viewingCurrent && previewStatus === "incomplete" && uniqueIssues.length > 0 && (
         <div style={{ marginBottom: "20px" }}>
@@ -419,6 +472,24 @@ export default function RetirementPlanPage() {
               </>}
             </strong>
 
+            {isFromNewOnboarding && (
+              <div className="plan-quick-summary plan-hero-quick-summary" style={{ margin: "14px 0", padding: "12px 16px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px" }}>
+                <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: "4px" }}>
+                  {fundDurationText}
+                </div>
+                <div style={{ fontSize: "14px", opacity: 0.9 }}>
+                  {language === "en"
+                    ? `Need to contribute about ${requiredContributionText} per month`
+                    : `Cần góp khoảng ${requiredContributionText} mỗi tháng`}
+                </div>
+                {omittedNotice && (
+                  <div style={{ fontSize: "13px", marginTop: "6px", color: "var(--color-honey-300, #fed7aa)" }}>
+                    {omittedNotice}
+                  </div>
+                )}
+              </div>
+            )}
+
             <p>
               {language === "en" ? (
                 <>
@@ -447,29 +518,71 @@ export default function RetirementPlanPage() {
             </div>
 
             {savedForPreview && <p role="status">{language === "en" ? `This preview is saved as v${savedForPreview.version}.` : `Bản xem trước này đã lưu thành phiên bản v${savedForPreview.version}.`}</p>}
-            {/* Two decisions first (apply / save), then compact tools; labels never wrap mid-button. */}
             <div className="plan-hero-actions">
               <div className="plan-hero-actions__main">
-                <Button
-                  variant="primary"
-                  size="medium"
-                  className={`plan-hero-action plan-hero-action--apply${isAppliedPlan ? " is-done" : ""}`}
-                  disabled={isApplying || isSaving || !summary || !canUsePreview || isAppliedPlan}
-                  icon={isAppliedPlan ? "circle-check" : "target"}
-                  onClick={() => setShowApplyConfirm(true)}
-                >
-                  {isAppliedPlan ? (language === "en" ? "Current plan" : "Đang là kế hoạch hiện tại") : (language === "en" ? "Apply to official plan" : "Dùng làm kế hoạch hiện tại")}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="medium"
-                  className={`plan-hero-action plan-hero-action--save${savedForPreview ? " is-done" : ""}`}
-                  disabled={isSaving || isApplying || !summary || !canUsePreview || Boolean(savedForPreview)}
-                  icon={savedForPreview ? "circle-check" : "check"}
-                  onClick={handleSaveVersion}
-                >
-                  {isSaving ? (language === "en" ? "Saving..." : "Đang lưu…") : savedForPreview ? (language === "en" ? `Saved as v${savedForPreview.version}` : `Đã lưu bản v${savedForPreview.version}`) : (language === "en" ? "Save this version" : "Lưu phương án này")}
-                </Button>
+                {isFromNewOnboarding ? (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="medium"
+                      className={`plan-hero-action plan-hero-action--save${savedForPreview ? " is-done" : ""}`}
+                      disabled={isSaving || isApplying || !summary || !canUsePreview || Boolean(savedForPreview)}
+                      icon={savedForPreview ? "circle-check" : "check"}
+                      onClick={handleSaveVersion}
+                    >
+                      {isSaving ? (language === "en" ? "Saving..." : "Đang lưu…") : savedForPreview ? (language === "en" ? `Saved as v${savedForPreview.version}` : `Đã lưu bản v${savedForPreview.version}`) : (language === "en" ? "Save this plan" : "Lưu kế hoạch này")}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="medium"
+                      className="plan-hero-action plan-hero-action--refine"
+                      onClick={() => {
+                        const el = document.getElementById("accuracy-checklist");
+                        if (el) {
+                          el.scrollIntoView({ behavior: "smooth", block: "start" });
+                          el.focus();
+                        }
+                      }}
+                    >
+                      {language === "en" ? "Make more accurate" : "Làm chính xác hơn"}
+                    </Button>
+                    {!isAppliedPlan && (
+                      <Button
+                        variant="ghost"
+                        size="medium"
+                        className="plan-hero-action plan-hero-action--apply"
+                        disabled={isApplying || isSaving || !summary || !canUsePreview}
+                        icon="target"
+                        onClick={() => setShowApplyConfirm(true)}
+                      >
+                        {language === "en" ? "Apply to official plan" : "Dùng làm kế hoạch hiện tại"}
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="medium"
+                      className={`plan-hero-action plan-hero-action--apply${isAppliedPlan ? " is-done" : ""}`}
+                      disabled={isApplying || isSaving || !summary || !canUsePreview || isAppliedPlan}
+                      icon={isAppliedPlan ? "circle-check" : "target"}
+                      onClick={() => setShowApplyConfirm(true)}
+                    >
+                      {isAppliedPlan ? (language === "en" ? "Current plan" : "Đang là kế hoạch hiện tại") : (language === "en" ? "Apply to official plan" : "Dùng làm kế hoạch hiện tại")}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="medium"
+                      className={`plan-hero-action plan-hero-action--save${savedForPreview ? " is-done" : ""}`}
+                      disabled={isSaving || isApplying || !summary || !canUsePreview || Boolean(savedForPreview)}
+                      icon={savedForPreview ? "circle-check" : "check"}
+                      onClick={handleSaveVersion}
+                    >
+                      {isSaving ? (language === "en" ? "Saving..." : "Đang lưu…") : savedForPreview ? (language === "en" ? `Saved as v${savedForPreview.version}` : `Đã lưu bản v${savedForPreview.version}`) : (language === "en" ? "Save this version" : "Lưu phương án này")}
+                    </Button>
+                  </>
+                )}
               </div>
               <div className="plan-hero-actions__tools" role="group" aria-label={language === "en" ? "More plan tools" : "Công cụ khác của kế hoạch"}>
                 <Button
@@ -671,6 +784,10 @@ export default function RetirementPlanPage() {
 
       </section>
 
+      <div id="accuracy-checklist" tabIndex={-1}>
+        <AccuracyChecklist />
+      </div>
+
       <section id="plan-settings" className="plan-section" aria-labelledby="plan-settings-title" tabIndex={-1}>
         <Card className="plan-settings">
           <div className="plan-settings__head">
@@ -687,71 +804,245 @@ export default function RetirementPlanPage() {
             ? (language === "en" ? "You are viewing the saved plan in use. Editing a field creates a draft." : "Bạn đang xem kế hoạch đã lưu và đang sử dụng. Sửa một thông số sẽ tạo bản nháp.")
             : (language === "en" ? "These changes are a draft for this session. Save the option to keep it; using it replaces your current plan." : "Các thay đổi đang là bản nháp trong phiên này. Lưu phương án để giữ lại; chọn dùng phương án mới sẽ thay kế hoạch hiện tại.")}</p>
 
-          <div className="plan-settings__grid">
-            <ProfileFormattedInput format="money" label={language === "en" ? "Monthly retirement contribution (VND)" : "Tiền bạn chọn góp hưu trí mỗi tháng (đồng)"}
-              helper={language === "en" ? "Money left after expenses and debt payments is not contributed automatically." : "Tiền còn lại sau chi tiêu và trả nợ không tự động được góp vào quỹ."}
-              value={previewPayload?.monthlyContribution ?? "0"} disabled={loadingPlans || isSaving || isApplying || usesActualBalance} onChange={value => updateDraft({ monthlyContribution: value, contributionSchedule: [] })} />
-            <ProfileFormattedInput format="money" label={language === "en" ? "Money reserved each month (VND)" : "Tiền giữ lại mỗi tháng ngoài quỹ hưu trí (đồng)"}
-              helper={language === "en" ? "Kept for emergencies or other goals; not invested for retirement." : "Để dành cho dự phòng hoặc mục tiêu khác, không đưa vào quỹ hưu trí."}
-              value={previewPayload?.monthlyReserve ?? "0"} disabled={loadingPlans || isSaving || isApplying || usesActualBalance} onChange={value => updateDraft({ monthlyReserve: value })} />
-            <fieldset className="plan-timing" disabled={loadingPlans || isSaving || isApplying || usesActualBalance}>
-              <legend><Explain term="contributionTiming">{language === "en" ? "When you contribute" : "Thời điểm góp vào quỹ"}</Explain></legend>
-              <div className="plan-timing__options">
-                <Button
-                  variant={contributionTiming === "END_OF_MONTH" ? "primary" : "secondary"}
-                  size="small"
-                  className="plan-timing__option"
-                  onClick={() => setContributionTiming("END_OF_MONTH")}
-                  disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
-                  aria-pressed={contributionTiming === "END_OF_MONTH"}
-                >
-                  {language === "en" ? "End of month" : "Cuối mỗi tháng"}
-                </Button>
-                <Button
-                  variant={contributionTiming === "START_OF_MONTH" ? "primary" : "secondary"}
-                  size="small"
-                  className="plan-timing__option"
-                  onClick={() => setContributionTiming("START_OF_MONTH")}
-                  disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
-                  aria-pressed={contributionTiming === "START_OF_MONTH"}
-                >
-                  {language === "en" ? "Start of Month" : "Đầu mỗi tháng"}
-                </Button>
-              </div>
-              <p className="plan-timing__hint" aria-live="polite">{contributionTiming === "START_OF_MONTH"
-                ? (language === "en" ? "Contributed on the 1st and invested for the whole month; needs cash already available." : "Góp ngay đầu tháng nên tiền được đầu tư trọn tháng; cần có sẵn tiền từ đầu tháng.")
-                : (language === "en" ? "Default. Contributed after the month's income arrives; safest when you are unsure." : "Mặc định. Góp sau khi nhận thu nhập trong tháng; an toàn nhất nếu bạn chưa chắc.")}</p>
-            </fieldset>
-          </div>
+          <div className="plan-settings__contribution-flow">
+            <div className="plan-settings__question-block">
+              <h3 className="plan-settings__question">
+                {language === "en"
+                  ? "How much do you want to contribute each month to your retirement fund?"
+                  : "Mỗi tháng bạn muốn góp bao nhiêu vào quỹ hưu trí?"}
+              </h3>
+              {calculation?.rows?.[0]?.contributionCapacity != null && calculation.rows[0].contributionCapacity !== "" && (
+                <p className="plan-settings__capacity-context">
+                  <Icon name="info" size="small" />
+                  {language === "en"
+                    ? `Monthly surplus after expenses and debt payments: ${formatVNDCurrency(Math.floor(Number(calculation.rows[0].contributionCapacity)))}`
+                    : `Phần dư mỗi tháng sau chi tiêu và trả nợ: ${formatVNDCurrency(Math.floor(Number(calculation.rows[0].contributionCapacity)))}`}
+                </p>
+              )}
+            </div>
 
-          {contributionTiming === "START_OF_MONTH" && (
-            <div className="plan-settings__start">
-              <ProfileFormattedInput format="money"
-                label={language === "en" ? "Available Disposable Cash at Start (VND) *" : "Tiền sẵn có để góp vào đầu tháng (đồng) *"}
-                helper={language === "en" ? "Money already in hand on the 1st, not taken from the retirement fund." : "Tiền đã có trong tay ngày đầu tháng, không trích từ quỹ hưu trí."}
-                placeholder="VD: 5.000.000"
-                disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
-                value={startOfMonthAvailable}
-                onChange={setStartOfMonthAvailable} />
-              <div className="plan-settings__confirm">
-                <Checkbox
-                  checked={startOfMonthConfirmed}
+            {(() => {
+              const monthlyCapacity = calculation?.rows?.[0]?.contributionCapacity;
+              const capacityNum = monthlyCapacity != null && monthlyCapacity !== "" && !isNaN(Number(monthlyCapacity)) ? Math.floor(Number(monthlyCapacity)) : null;
+              const requiredConstantRaw = summary?.requiredConstantMonthlyContribution;
+              const requiredNum = requiredConstantRaw != null && requiredConstantRaw !== "" && !isNaN(Number(requiredConstantRaw)) ? Math.ceil(Number(requiredConstantRaw)) : null;
+
+              const currentVal = previewPayload?.monthlyContribution ?? "0";
+              const currentNum = Number(currentVal);
+              const isZero = currentNum === 0;
+
+              const isRequiredMatch = !isZero && requiredNum !== null && requiredNum > 0 && Math.round(currentNum) === requiredNum;
+              const isCapacityMatch = !isZero && capacityNum !== null && capacityNum > 0 && Math.round(currentNum) === capacityNum;
+
+              const isChip1Active = !userSelectedCustom && isRequiredMatch;
+              const isChip2Active = !userSelectedCustom && !isChip1Active && isCapacityMatch;
+              const isChip3Active = !isZero && (userSelectedCustom || (!isRequiredMatch && !isCapacityMatch));
+
+              const showCustomInput = userSelectedCustom || (!isRequiredMatch && !isCapacityMatch);
+
+              const isExceedingSurplus = Boolean(
+                requiredNum !== null &&
+                capacityNum !== null &&
+                requiredNum > capacityNum
+              );
+              const exceededAmount = isExceedingSurplus && requiredNum !== null && capacityNum !== null ? requiredNum - capacityNum : 0;
+
+              return (
+                <>
+                  <div className="plan-settings__chips" role="group" aria-label={language === "en" ? "Quick contribution options" : "Lựa chọn nhanh tiền góp"}>
+                    {/* Chip 1: Góp đủ mức cần */}
+                    {requiredNum != null && (
+                      <div className="plan-settings__chip-wrapper">
+                        <button
+                          type="button"
+                          className={`plan-settings__chip ${isChip1Active ? "is-active" : ""}`}
+                          onClick={() => {
+                            setUserSelectedCustom(false);
+                            updateDraft({ monthlyContribution: String(requiredNum), contributionSchedule: [] });
+                          }}
+                          disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
+                          aria-pressed={isChip1Active}
+                        >
+                          <span className="plan-settings__chip-label">
+                            {language === "en"
+                              ? `Required amount: ${formatVNDCurrency(requiredNum)}`
+                              : `Góp đủ mức cần: ${formatVNDCurrency(requiredNum)}`}
+                          </span>
+                        </button>
+                        {isExceedingSurplus && (
+                          <span className="plan-settings__chip-warning" role="status">
+                            <Icon name="alert" size="small" />
+                            {language === "en"
+                              ? `Exceeds current surplus by ${formatVNDCurrency(exceededAmount)} per month`
+                              : `Vượt phần dư hiện tại ${formatVNDCurrency(exceededAmount)} mỗi tháng`}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Chip 2: Toàn bộ phần dư */}
+                    {capacityNum != null && capacityNum > 0 && (
+                      <button
+                        type="button"
+                        className={`plan-settings__chip ${isChip2Active ? "is-active" : ""}`}
+                        onClick={() => {
+                          setUserSelectedCustom(false);
+                          updateDraft({ monthlyContribution: String(capacityNum), contributionSchedule: [] });
+                        }}
+                        disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
+                        aria-pressed={isChip2Active}
+                      >
+                        <span className="plan-settings__chip-label">
+                          {language === "en"
+                            ? `Full monthly surplus: ${formatVNDCurrency(capacityNum)}`
+                            : `Toàn bộ phần dư: ${formatVNDCurrency(capacityNum)}`}
+                        </span>
+                      </button>
+                    )}
+
+                    {/* Chip 3: Tự nhập */}
+                    <button
+                      type="button"
+                      className={`plan-settings__chip ${isChip3Active ? "is-active" : ""}`}
+                      onClick={() => {
+                        setUserSelectedCustom(true);
+                      }}
+                      disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
+                      aria-pressed={isChip3Active}
+                    >
+                      <span className="plan-settings__chip-label">
+                        {language === "en" ? "Custom amount" : "Tự nhập"}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Neutral state notice when monthlyContribution = 0 */}
+                  {isZero && (
+                    <p className="plan-settings__neutral-notice" role="status">
+                      <Icon name="info" size="small" />
+                      {language === "en"
+                        ? "You have not chosen a contribution amount — the plan currently assumes no additional contributions."
+                        : "Bạn chưa chọn khoản góp — kế hoạch đang tính như không góp thêm."}
+                    </p>
+                  )}
+
+                  {/* Custom input */}
+                  {showCustomInput && (
+                    <div className="plan-settings__custom-input">
+                      <ProfileFormattedInput
+                        format="money"
+                        label={language === "en" ? "Monthly retirement contribution (VND)" : "Tiền bạn chọn góp hưu trí mỗi tháng (đồng)"}
+                        helper={language === "en" ? "Money left after expenses and debt payments is not contributed automatically." : "Tiền còn lại sau chi tiêu và trả nợ không tự động được góp vào quỹ."}
+                        value={previewPayload?.monthlyContribution ?? "0"}
+                        disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
+                        onChange={value => {
+                          setUserSelectedCustom(true);
+                          updateDraft({ monthlyContribution: value, contributionSchedule: [] });
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+
+            {/* Advanced options collapsible block */}
+            <details
+              className="plan-advanced-settings"
+              open={isAdvancedOpen}
+              onToggle={e => setIsAdvancedOpen(e.currentTarget.open)}
+            >
+              <summary className="plan-advanced-settings__summary">
+                <div className="plan-advanced-settings__summary-left">
+                  <span className="plan-advanced-settings__title">
+                    <Icon name="settings" size="small" />
+                    {language === "en" ? "Advanced options" : "Tùy chọn nâng cao"}
+                  </span>
+                  {!isAdvancedOpen && (
+                    <span className="plan-advanced-settings__overview">
+                      {language === "en"
+                        ? `Money reserved: ${formatVNDShort(previewPayload?.monthlyReserve ?? "0")} · Contributed at ${contributionTiming === "START_OF_MONTH" ? "start of month" : "end of month"}`
+                        : `Giữ lại ngoài quỹ: ${formatVNDShort(previewPayload?.monthlyReserve ?? "0")} · ${contributionTiming === "START_OF_MONTH" ? "Góp đầu mỗi tháng" : "Góp cuối mỗi tháng"}`}
+                    </span>
+                  )}
+                </div>
+                <Icon name="chevron-down" size="small" className="plan-advanced-settings__chevron" />
+              </summary>
+
+              <div className="plan-advanced-settings__content">
+                <ProfileFormattedInput
+                  format="money"
+                  label={language === "en" ? "Money reserved each month (VND)" : "Tiền giữ lại mỗi tháng ngoài quỹ hưu trí (đồng)"}
+                  helper={language === "en" ? "Kept for emergencies or other goals; not invested for retirement." : "Để dành cho dự phòng hoặc mục tiêu khác, không đưa vào quỹ hưu trí."}
+                  value={previewPayload?.monthlyReserve ?? "0"}
                   disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
-                  onChange={setStartOfMonthConfirmed}
-                  label={language === "en"
-                    ? "I confirm this disposable cash is available at the start of each month (not drawn from fund balance)."
-                    : "Tôi xác nhận nguồn tiền này đã sẵn có vào đầu mỗi tháng để đóng góp (không trích từ số dư quỹ hưu trí)."} />
-                {!startOfMonthConfirmed && (
-                  <p className="plan-settings__warning" role="status">
-                    <Icon name="alert" size="small" />
-                    {language === "en"
-                      ? "Start-of-month timing requires explicit user confirmation of disposable funds available at month start."
-                      : "Đóng góp đầu tháng yêu cầu xác nhận rõ ràng nguồn tiền khả dụng đã sẵn có đầu tháng."}
+                  onChange={value => updateDraft({ monthlyReserve: value })}
+                />
+                <fieldset className="plan-timing" disabled={loadingPlans || isSaving || isApplying || usesActualBalance}>
+                  <legend><Explain term="contributionTiming">{language === "en" ? "When you contribute" : "Thời điểm góp vào quỹ"}</Explain></legend>
+                  <div className="plan-timing__options">
+                    <Button
+                      variant={contributionTiming === "END_OF_MONTH" ? "primary" : "secondary"}
+                      size="small"
+                      className="plan-timing__option"
+                      onClick={() => setContributionTiming("END_OF_MONTH")}
+                      disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
+                      aria-pressed={contributionTiming === "END_OF_MONTH"}
+                    >
+                      {language === "en" ? "End of month" : "Cuối mỗi tháng"}
+                    </Button>
+                    <Button
+                      variant={contributionTiming === "START_OF_MONTH" ? "primary" : "secondary"}
+                      size="small"
+                      className="plan-timing__option"
+                      onClick={() => setContributionTiming("START_OF_MONTH")}
+                      disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
+                      aria-pressed={contributionTiming === "START_OF_MONTH"}
+                    >
+                      {language === "en" ? "Start of Month" : "Đầu mỗi tháng"}
+                    </Button>
+                  </div>
+                  <p className="plan-timing__hint" aria-live="polite">
+                    {contributionTiming === "START_OF_MONTH"
+                      ? (language === "en" ? "Contributed on the 1st and invested for the whole month; needs cash already available." : "Góp ngay đầu tháng nên tiền được đầu tư trọn tháng; cần có sẵn tiền từ đầu tháng.")
+                      : (language === "en" ? "Default. Contributed after the month's income arrives; safest when you are unsure." : "Mặc định. Góp sau khi nhận thu nhập trong tháng; an toàn nhất nếu bạn chưa chắc.")}
                   </p>
+                </fieldset>
+
+                {contributionTiming === "START_OF_MONTH" && (
+                  <div className="plan-settings__start">
+                    <ProfileFormattedInput
+                      format="money"
+                      label={language === "en" ? "Available Disposable Cash at Start (VND) *" : "Tiền sẵn có để góp vào đầu tháng (đồng) *"}
+                      helper={language === "en" ? "Money already in hand on the 1st, not taken from the retirement fund." : "Tiền đã có trong tay ngày đầu tháng, không trích từ quỹ hưu trí."}
+                      placeholder="VD: 5.000.000"
+                      disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
+                      value={startOfMonthAvailable}
+                      onChange={setStartOfMonthAvailable}
+                    />
+                    <div className="plan-settings__confirm">
+                      <Checkbox
+                        checked={startOfMonthConfirmed}
+                        disabled={loadingPlans || isSaving || isApplying || usesActualBalance}
+                        onChange={setStartOfMonthConfirmed}
+                        label={language === "en"
+                          ? "I confirm this disposable cash is available at the start of each month (not drawn from fund balance)."
+                          : "Tôi xác nhận nguồn tiền này đã sẵn có vào đầu mỗi tháng để đóng góp (không trích từ số dư quỹ hưu trí)."}
+                      />
+                      {!startOfMonthConfirmed && (
+                        <p className="plan-settings__warning" role="status">
+                          <Icon name="alert" size="small" />
+                          {language === "en"
+                            ? "Start-of-month timing requires explicit user confirmation of disposable funds available at month start."
+                            : "Đóng góp đầu tháng yêu cầu xác nhận rõ ràng nguồn tiền khả dụng đã sẵn có đầu tháng."}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
-          )}
+            </details>
+          </div>
 
           {displayedPreview?.replayInput?.contributionStartMonth && (
             <p className="plan-settings__meta">
@@ -864,8 +1155,8 @@ export default function RetirementPlanPage() {
         <PreviewInsights preview={displayedPreview ?? (inputMatches && previewStatus === "incomplete" ? previewData : null)} />
         <RiskAnalysis plan={loadingPlans || plansError ? null : viewingCurrent && currentVersion && activePlan ? { kind: "SAVED_VERSION", planId: activePlan.id, versionId: currentVersion.id } : previewPayload ? { kind: "PREVIEW", preview: previewPayload } : null} />
         <RebalanceProposal templates={policyDetail?.data.templates} basis={(previewPayload?.templateId || calculation?.assessment?.selectedTemplateId) && previewPayload && summary?.retirementMonth && displayedPreview?.valuationDate ? { policyVersionId: previewPayload.policyVersionId, templateId: previewPayload.templateId ?? calculation?.assessment?.selectedTemplateId, month: displayedPreview.valuationDate.slice(0, 7), retirementMonth: summary.retirementMonth } : null} />
-        {!usesActualBalance && <GuidedScenarios input={!loadingPlans && !plansError ? previewPayload : null} retirementMonth={v2Profile?.personal.desiredRetirementMonth.status === "KNOWN" ? v2Profile.personal.desiredRetirementMonth.value : undefined} />}
-        {Boolean(displayedPreview?.warnings.length) && <details className="plan-explanation-details"><summary>{language === "en" ? "How these results are calculated" : "Cách tính và thông tin được dùng"}</summary><ul>{displayedPreview?.warnings.map((warn, idx) => <li key={idx}>{translateWarningCode(warn.code, language)}</li>)}</ul></details>}
+        {!usesActualBalance && <GuidedScenarios input={!loadingPlans && !plansError ? previewPayload : null} retirementMonth={v2Profile?.personal?.desiredRetirementMonth?.status === "KNOWN" ? v2Profile.personal.desiredRetirementMonth.value : undefined} />}
+        {Boolean(displayedPreview?.warnings?.length) && <details className="plan-explanation-details"><summary>{language === "en" ? "How these results are calculated" : "Cách tính và thông tin được dùng"}</summary><ul>{displayedPreview?.warnings?.map((warn, idx) => <li key={idx}>{translateWarningCode(warn.code, language)}</li>)}</ul></details>}
 
       </section>
 

@@ -1,5 +1,6 @@
 import { PlanningQuestions } from "../components/PlanningQuestions";
 import type { PlanningConstraints } from "../services/financialProfile";
+import { QuickOnboarding } from "../components/onboarding/QuickOnboarding";
 import "./onboarding-readability.css";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
@@ -147,6 +148,8 @@ export default function OnboardingPage() {
     saveOnboardingDraft,
     completeOnboarding,
     saveError: apiSaveError,
+    hasProfile,
+    loading,
   } = useFinancialProfile();
 
   const [currentStep, setCurrentStep] = useState<StepId>(() => {
@@ -160,12 +163,6 @@ export default function OnboardingPage() {
   const [constraints, setConstraints] = useState<PlanningConstraints | undefined>(onboardingConstraints);
   useEffect(() => { setConstraints(onboardingConstraints); }, [onboardingConstraints]);
   const [saveError, setSaveError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isCompleted) {
-      navigate(resumeDestination(location.state?.from, "user", "/user/goal"), { replace: true });
-    }
-  }, [isCompleted, navigate]);
 
   useEffect(() => {
     window.scrollTo({ left: 0, top: 0, behavior: "instant" as ScrollBehavior });
@@ -487,9 +484,9 @@ export default function OnboardingPage() {
           // detailed profile with a real birth month, so review it next.
           notify.success(
             isEn ? "Profile Initialized Successfully" : "Khởi tạo hồ sơ thành công",
-            isEn ? "Next, add your birth month and retirement month in the detailed profile so your plan can be calculated." : "Bước tiếp theo: bổ sung tháng sinh và tháng muốn nghỉ hưu trong hồ sơ chi tiết để tính kế hoạch."
+            isEn ? "Next, add your birth month in the detailed profile so your plan can be calculated." : "Bước tiếp theo: bổ sung tháng sinh trong hồ sơ chi tiết để tính kế hoạch."
           );
-          navigate(resumeDestination(location.state?.from, "user", "/user/account?tab=profile"), { replace: true });
+          navigate(resumeDestination(location.state?.from, "user", "/user/plan"), { replace: true });
         } else {
           const msg = isEn
             ? "Could not complete your profile. Please check your data and retry."
@@ -509,6 +506,16 @@ export default function OnboardingPage() {
       document.body.scrollLeft = 0;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="onboarding-app">
+        <main id="main-content" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "300px" }}>
+          <p>{isEn ? "Loading..." : "Đang tải dữ liệu..."}</p>
+        </main>
+      </div>
+    );
+  }
 
   if (schemaVersion === 2) {
     const d = onboardingDraft;
@@ -549,6 +556,23 @@ export default function OnboardingPage() {
         </details>}
       </Card>
     </main>;
+  }
+
+  if (!hasProfile && !legacyOnboardingDraft) {
+    return (
+      <div className="onboarding-app">
+        <header className="onboarding-header">
+          <div className="onboarding-header-brand">
+            <Link to="/" aria-label={isEn ? "An Huu home" : "Về trang chủ An Hưu"}>
+              <BrandLogo />
+            </Link>
+          </div>
+        </header>
+        <main id="main-content">
+          <QuickOnboarding />
+        </main>
+      </div>
+    );
   }
 
   if (isCompleted) {

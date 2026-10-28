@@ -285,6 +285,15 @@ describe("T06 stored, version-pinned preview", () => {
     const validate = new Ajv({ strict: false, formats: { uuid: true, uri: true, date: true, "date-time": true } }).compile(spec.components.schemas.RetirementPreviewEnvelope);
     expect(validate(r.body), JSON.stringify(validate.errors)).toBe(true);
     expect((await call(command)).body.data).toEqual(r.body.data);
+    // ?adjustments=skip drops only the expensive adjustment search, never other fields.
+    const post = (query: string) => request(app).post("/api/v1/me/retirement/preview" + query).set("Authorization", "Bearer " + token("USER")).send(command);
+    const skipped = await post("?adjustments=skip");
+    const { adjustmentOptions, ...withoutAdjustments } = r.body.data;
+    expect(adjustmentOptions).toBeDefined();
+    expect(skipped.status).toBe(200); expect(skipped.body.data).toEqual(withoutAdjustments);
+    expect(validate(skipped.body), JSON.stringify(validate.errors)).toBe(true);
+    expect((await post("?adjustments=include")).body.data).toEqual(r.body.data);
+    expect((await post("?adjustments=maybe")).status).toBe(400);
     expect(JSON.stringify([f.rows("financialProfile"), f.rows("retirementPlan"), f.rows("planVersion"), f.rows("outboxEvent"), f.rows("auditLog")])).toBe(before);
     expect((await call(command, "ADMIN")).status).toBe(403);
     expect((await request(app).post("/api/v1/me/retirement/preview").send(command)).status).toBe(401);

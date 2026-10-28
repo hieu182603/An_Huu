@@ -1,4 +1,5 @@
 import PlanSyncStatus from "../components/PlanSyncStatus";
+import { AccuracyChecklist } from "../components/AccuracyChecklist";
 import { profileDisplayStatus } from "../services/profileDisplay";
 import "./dashboard-readability.css";
 import { Link } from "react-router";
@@ -14,20 +15,37 @@ import { Explain, type ExplainSource } from "../components/explanations/ExplainM
 
 export default function UserDashboard() {
   const { user } = useAuth();
-  const { profile, v2Profile } = useFinancialProfile();
+  const { profile, v2Profile, profileSummary, hasProfile, onboardingDraft } = useFinancialProfile();
   const { synchronization, activePlan, currentVersion, loadingPlans, plansError, refreshPlans } = useRetirementPlan();
   const { t, language, formatCurrency, formatPercent } = useI18n();
 
   const known = profileDisplayStatus(v2Profile);
   const unreported = language === "en" ? "Not reported" : "Chưa khai báo";
   const undetermined = language === "en" ? "Not enough information" : "Chưa đủ thông tin";
-  const income = profile.income.primaryIncome + profile.income.secondaryIncome;
-  const expense = profile.expenses.essentialExpense + profile.expenses.lifestyleExpense;
-  const assets = Object.values(profile.assets).reduce((total, value) => total + value, 0);
-  const debt = profile.debt.hasDebt ? profile.debt.mortgageDebt + profile.debt.consumerDebt : 0;
-  const debtService = profile.debt.hasDebt ? profile.debt.monthlyDebtService : 0;
-  const surplus = income - expense - debtService;
-  const netWorth = assets - debt;
+
+  const summaryValues = profileSummary;
+
+  const incomeKnown = summaryValues ? summaryValues.monthlyIncome !== null && summaryValues.monthlyIncome !== undefined : known.income;
+  const income = summaryValues?.monthlyIncome != null ? Number(summaryValues.monthlyIncome) : (profile.income.primaryIncome + profile.income.secondaryIncome);
+
+  const expenseKnown = summaryValues ? summaryValues.monthlyExpense !== null && summaryValues.monthlyExpense !== undefined : known.expenses;
+  const expense = summaryValues?.monthlyExpense != null ? Number(summaryValues.monthlyExpense) : (profile.expenses.essentialExpense + profile.expenses.lifestyleExpense);
+
+  const debtServiceKnown = summaryValues ? summaryValues.monthlyDebtService !== null && summaryValues.monthlyDebtService !== undefined : known.debtPayment;
+  const debtService = summaryValues?.monthlyDebtService != null ? Number(summaryValues.monthlyDebtService) : (profile.debt.hasDebt ? profile.debt.monthlyDebtService : 0);
+
+  const surplusKnown = summaryValues ? summaryValues.availableMonthlySurplus !== null && summaryValues.availableMonthlySurplus !== undefined : known.surplus;
+  const surplus = summaryValues?.availableMonthlySurplus != null ? Number(summaryValues.availableMonthlySurplus) : (income - expense - debtService);
+
+  const assetsKnown = summaryValues ? summaryValues.totalAssets !== null && summaryValues.totalAssets !== undefined : known.assets;
+  const assets = summaryValues?.totalAssets != null ? Number(summaryValues.totalAssets) : Object.values(profile.assets).reduce((total, value) => total + value, 0);
+
+  const debtKnown = summaryValues ? summaryValues.totalDebt !== null && summaryValues.totalDebt !== undefined : known.debtBalance;
+  const debt = summaryValues?.totalDebt != null ? Number(summaryValues.totalDebt) : (profile.debt.hasDebt ? profile.debt.mortgageDebt + profile.debt.consumerDebt : 0);
+
+  const netWorthKnown = summaryValues ? summaryValues.netWorth !== null && summaryValues.netWorth !== undefined : (assetsKnown && debtKnown);
+  const netWorth = summaryValues?.netWorth != null ? Number(summaryValues.netWorth) : (assets - debt);
+
   const debtRatio = assets > 0 ? (debt / assets) * 100 : 0;
 
   const planSummary = synchronization.preview?.calculation?.summary;
@@ -43,6 +61,8 @@ export default function UserDashboard() {
     { label: t("dashboard.wealth.other_liquid"), value: profile.assets.liquidAssets, color: "#758797" },
   ];
 
+  const stepsRemaining = onboardingDraft?.step === "quick-risk" ? 1 : onboardingDraft?.step === "quick-money" ? 2 : 3;
+
   return (
     <div className="yoga-dashboard-layout">
       <div className="yoga-dashboard-content">
@@ -53,6 +73,32 @@ export default function UserDashboard() {
           </div>
 
         </header>
+
+        {/* Onboarding in-progress prompt or Accuracy Checklist */}
+        {!hasProfile ? (
+          <Card className="onboarding-incomplete-card onboarding-resume-banner" style={{ padding: "18px 20px", marginBottom: "20px", border: "1px solid var(--color-primary-200, #bbf7d0)", background: "var(--color-surface, #fff)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+              <div>
+                <h3 style={{ margin: "0 0 6px", fontSize: "16px", fontWeight: 600 }}>
+                  {language === "en" ? "First plan in progress" : "Bản kế hoạch đầu tiên"}
+                </h3>
+                <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "14px" }}>
+                  {language === "en"
+                    ? `${stepsRemaining} steps remaining to see your plan. Your answered questions are saved.`
+                    : `Còn ${stepsRemaining} bước nữa là thấy kế hoạch của bạn. Các câu đã trả lời được giữ lại.`}
+                </p>
+              </div>
+              <Link to="/onboarding" className="button button-primary">
+                <span>{language === "en" ? "Continue" : "Tiếp tục"}</span>
+                <Icon name="arrow-right" size="small" />
+              </Link>
+            </div>
+          </Card>
+        ) : (
+          <div style={{ marginBottom: "20px" }}>
+            <AccuracyChecklist />
+          </div>
+        )}
 
         {/* 2. Retirement plan summary */}
         {loadingPlans && !planSummary ? (
@@ -190,7 +236,7 @@ export default function UserDashboard() {
                   <Icon name="wallet" />
                 </div>
               </div>
-              <strong className="cashflow-value font-mono">{known.income ? formatCurrency(income) : unreported}</strong>
+              <strong className="cashflow-value font-mono">{incomeKnown ? formatCurrency(income) : undetermined}</strong>
               <span className="cashflow-sub">{t("dashboard.cashflow.income_sub")}</span>
             </div>
 
@@ -201,7 +247,7 @@ export default function UserDashboard() {
                   <Icon name="file-text" />
                 </div>
               </div>
-              <strong className="cashflow-value font-mono">{known.expenses ? formatCurrency(expense) : unreported}</strong>
+              <strong className="cashflow-value font-mono">{expenseKnown ? formatCurrency(expense) : undetermined}</strong>
               <span className="cashflow-sub">{t("dashboard.cashflow.expense_sub")}</span>
             </div>
 
@@ -212,26 +258,26 @@ export default function UserDashboard() {
                   <Icon name="shield" />
                 </div>
               </div>
-              <strong className="cashflow-value font-mono">{known.debtPayment ? formatCurrency(debtService) : unreported}</strong>
+              <strong className="cashflow-value font-mono">{debtServiceKnown ? formatCurrency(debtService) : undetermined}</strong>
               <span className="cashflow-sub">{t("dashboard.cashflow.debt_sub")}</span>
             </div>
 
-            <div className={`user-cashflow-card ${!known.surplus ? "theme-unknown" : surplus >= 0 ? "theme-surplus" : "theme-deficit"}`}>
+            <div className={`user-cashflow-card ${!surplusKnown ? "theme-unknown" : surplus >= 0 ? "theme-surplus" : "theme-deficit"}`}>
               <div className="cashflow-card-head">
                 <span className="cashflow-label"><Explain term="monthlySurplus">{t("dashboard.cashflow.surplus")}</Explain></span>
                 <div className="cashflow-icon-wrap">
-                  <Icon name={!known.surplus ? "info" : surplus >= 0 ? "sparkles" : "alert"} />
+                  <Icon name={!surplusKnown ? "info" : surplus >= 0 ? "sparkles" : "alert"} />
                 </div>
               </div>
-              <strong className="cashflow-value font-mono">{known.surplus ? formatCurrency(surplus) : undetermined}</strong>
+              <strong className="cashflow-value font-mono">{surplusKnown ? formatCurrency(surplus) : undetermined}</strong>
               <span className="cashflow-sub">
-                {!known.surplus ? (language === "en" ? "Complete income, expenses and debt payments first." : "Cần đủ thu nhập, chi tiêu và khoản trả nợ.") : surplus >= 0 ? t("dashboard.cashflow.surplus_sub") : t("dashboard.cashflow.deficit_sub")}
+                {!surplusKnown ? (language === "en" ? "Complete income, expenses and debt payments first." : "Cần đủ thu nhập, chi tiêu và khoản trả nợ.") : surplus >= 0 ? t("dashboard.cashflow.surplus_sub") : t("dashboard.cashflow.deficit_sub")}
               </span>
             </div>
           </div>
 
-          {!known.surplus && <Link className="button button-soft" to="/user/account">{language === "en" ? "Complete cashflow information" : "Bổ sung thông tin thu chi"}</Link>}
-          {known.surplus && surplus < 0 && <details className="cashflow-review-details"><summary>{language === "en" ? "Review the monthly shortfall" : "Xem chi tiết khoản thiếu mỗi tháng"}</summary><p>{t("dashboard.cashflow.negative_alert")}</p><Link to="/user/account">{t("dashboard.cashflow.review_profile")}</Link></details>}
+          {!surplusKnown && <Link className="button button-soft" to="/user/account">{language === "en" ? "Complete cashflow information" : "Bổ sung thông tin thu chi"}</Link>}
+          {surplusKnown && surplus < 0 && <details className="cashflow-review-details"><summary>{language === "en" ? "Review the monthly shortfall" : "Xem chi tiết khoản thiếu mỗi tháng"}</summary><p>{t("dashboard.cashflow.negative_alert")}</p><Link to="/user/account">{t("dashboard.cashflow.review_profile")}</Link></details>}
 
         </section>
 
@@ -250,7 +296,7 @@ export default function UserDashboard() {
               <h2 id="asset-overview-title" className="card-title">{language === "en" ? "Your assets" : "Tài sản của bạn"}</h2>
               <p className="card-desc">{language === "en" ? "See how much you have in each asset group." : "Bạn đang có bao nhiêu tiền ở từng nhóm tài sản?"}</p>
             </header>
-            {known.assets ? <>
+            {assetsKnown ? <>
               <div className="asset-overview-total">
                 <span>{language === "en" ? "Total declared value" : "Tổng giá trị đã khai"}</span>
                 <strong>{formatCurrency(assets)}</strong>
@@ -292,26 +338,26 @@ export default function UserDashboard() {
                   <span className="balance-label">
                     <span className="balance-sign is-positive">+</span> {t("dashboard.balance.declared_assets")}
                   </span>
-                  <strong className="balance-val font-mono">{known.assets ? formatCurrency(assets) : unreported}</strong>
+                  <strong className="balance-val font-mono">{assetsKnown ? formatCurrency(assets) : undetermined}</strong>
                 </div>
 
                 <div className="balance-row">
                   <span className="balance-label">
                     <span className="balance-sign is-negative">-</span> {t("dashboard.balance.current_debt")}
                   </span>
-                  <strong className="balance-val font-mono">{known.debtBalance ? formatCurrency(debt) : unreported}</strong>
+                  <strong className="balance-val font-mono">{debtKnown ? formatCurrency(debt) : undetermined}</strong>
                 </div>
 
                 <div className="networth-highlight">
                   <div className="networth-copy">
                     <span className="networth-eyebrow">{t("dashboard.balance.net_worth")}</span>
                     <strong className="networth-number font-mono" style={{ color: netWorth < 0 ? "var(--color-danger)" : undefined }}>
-                      {known.assets && known.debtBalance ? formatCurrency(netWorth) : undetermined}
+                      {netWorthKnown ? formatCurrency(netWorth) : undetermined}
                     </strong>
                   </div>
                   <div className="networth-badge-wrap">
                     <span className="debt-ratio-badge font-mono">
-                      {!known.assets || !known.debtBalance ? undetermined : assets > 0 ? t("dashboard.balance.debt_ratio", { percent: `${debtRatio.toFixed(1)}%` }) : (language === "en" ? "Debt/assets: Undefined (no assets)" : "Nợ/tài sản: Không xác định (chưa có tài sản)")}
+                      {!assetsKnown || !debtKnown || !netWorthKnown ? undetermined : assets > 0 ? t("dashboard.balance.debt_ratio", { percent: `${debtRatio.toFixed(1)}%` }) : (language === "en" ? "Debt/assets: Undefined (no assets)" : "Nợ/tài sản: Không xác định (chưa có tài sản)")}
                     </span>
                   </div>
                 </div>

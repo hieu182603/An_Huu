@@ -164,10 +164,21 @@ export default function RetirementGoalPage() {
           return false;
         }
       }
+      const mergedWhatIf = { ...currentVersion?.preview.selection.whatIf, ...draftSelection?.whatIf };
+      if (v2Profile) {
+        delete mergedWhatIf.retirementMonth;
+      } else if (retirementMonth) {
+        mergedWhatIf.retirementMonth = retirementMonth;
+      }
+      const hasWhatIf = Boolean(
+        (mergedWhatIf.retirementMonth && mergedWhatIf.retirementMonth.trim() !== "") ||
+        (Array.isArray(mergedWhatIf.assetValues) && mergedWhatIf.assetValues.length > 0)
+      );
+
       updateDraft({
         monthlyExpenseToday: String(monthlyExpenseInRetirement),
         endMonth,
-        whatIf: { ...currentVersion?.preview.selection.whatIf, ...draftSelection?.whatIf, retirementMonth: v2Profile ? undefined : retirementMonth },
+        whatIf: hasWhatIf ? mergedWhatIf : undefined,
       });
 
       setPreparedInput(inputKey);
