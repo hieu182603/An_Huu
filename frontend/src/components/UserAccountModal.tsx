@@ -3,10 +3,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Icon, Switch, Button, Badge, Card, useNotification, type IconName } from "./ui";
 import { AccountProfilePanel, AccountSecurityPanel } from "./AccountApiPanels";
-import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
-import { inputFromProfile, projectBalanceAtAge } from "../domain/retirementCalculator";
-import { downloadCsv } from "../utils/downloads";
 import { getNotificationSettings, updateNotificationSettings, type NotificationSettings } from "../services/notifications";
 import { exportPlanVersionCsv } from "../services/plans";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -36,7 +33,6 @@ export function UserAccountModal({
   const { t, language } = useI18n();
   const [activeTab, setActiveTab] = useState<AccountModalTab>(initialTab);
   const { notify } = useNotification();
-  const { profile } = useFinancialProfile();
   const { activePlan, loadingPlans, plansError } = useRetirementPlan();
   const surface = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -97,25 +93,21 @@ export function UserAccountModal({
   };
 
   const handleExportCsv = async () => {
-    if (isExportingCsv || loadingPlans || plansError) return;
-    if (activePlan?.id && activePlan?.currentVersionId) {
-      setIsExportingCsv(true);
-      try {
-        await exportPlanVersionCsv(activePlan.id, activePlan.currentVersionId);
-        notify.success(
-          language === "en" ? "CSV Export Successful" : "Xuất tệp CSV thành công",
-          language === "en" ? "Official retirement plan CSV downloaded." : "Bảng kế hoạch hưu trí chính thức đã được tải về máy của bạn."
-        );
-      } catch (err) {
-        notify.error(
-          language === "en" ? "Export failed" : "Xuất CSV thất bại",
-          err instanceof Error ? err.message : String(err)
-        );
-      } finally {
-        setIsExportingCsv(false);
-      }
-    } else {
-      exportProjectionCsv();
+    if (isExportingCsv || loadingPlans || plansError || !activePlan?.id || !activePlan?.currentVersionId) return;
+    setIsExportingCsv(true);
+    try {
+      await exportPlanVersionCsv(activePlan.id, activePlan.currentVersionId);
+      notify.success(
+        language === "en" ? "CSV Export Successful" : "Xuất tệp CSV thành công",
+        language === "en" ? "Official retirement plan CSV downloaded." : "Bảng kế hoạch hưu trí chính thức đã được tải về máy của bạn."
+      );
+    } catch (err) {
+      notify.error(
+        language === "en" ? "Export failed" : "Xuất CSV thất bại",
+        err instanceof Error ? err.message : String(err)
+      );
+    } finally {
+      setIsExportingCsv(false);
     }
   };
 
@@ -178,18 +170,6 @@ export function UserAccountModal({
     };
   }, [open]);
 
-  const exportProjectionCsv = () => {
-    const input = inputFromProfile(profile);
-    const rows: Array<Array<string | number>> = [[language === "en" ? "Age" : "Tuổi", language === "en" ? "Year" : "Năm", language === "en" ? "Projected Balance (VND)" : "Số dư dự phóng (VND)"]];
-    for (let age = input.currentAge; age <= input.lifeExpectancy; age += 1) {
-      rows.push([age, new Date().getFullYear() + age - input.currentAge, projectBalanceAtAge(input, age)]);
-    }
-    downloadCsv("an-huu-du-phong-dong-tien.csv", rows);
-    notify.success(
-      language === "en" ? "CSV Export Successful" : "Xuất tệp CSV thành công",
-      language === "en" ? "Retirement cash flow projection table downloaded to your device." : "Bảng dự phóng dòng tiền hưu trí đã được tải về máy của bạn."
-    );
-  };
 
   if (!open) return null;
 
@@ -396,12 +376,16 @@ export function UserAccountModal({
                       <Icon name="chart" size="large" />
                     </span>
                     <div>
-                      <h2>{activePlan?.currentVersionId ? (language === "en" ? "Saved plan version (CSV)" : "Phiên bản kế hoạch đã lưu (CSV)") : (language === "en" ? "Indicative profile estimate (CSV)" : "Ước tính tham khảo từ hồ sơ (CSV)")}</h2>
-                      <p>{activePlan?.currentVersionId ? (language === "en" ? "Download the applied plan version's data from the server." : "Tải dữ liệu phiên bản kế hoạch đang áp dụng từ máy chủ.") : (language === "en" ? "Local annual estimate from your profile; not an applied plan version." : "Ước tính theo năm từ hồ sơ hiện tại; không phải phiên bản kế hoạch đã áp dụng.")}</p>
+                      <h2>{language === "en" ? "Saved plan version (CSV)" : "Phiên bản kế hoạch đã lưu (CSV)"}</h2>
+                      <p>
+                        {activePlan?.currentVersionId
+                          ? (language === "en" ? "Download the applied plan version's data from the server." : "Tải dữ liệu phiên bản kế hoạch đang áp dụng từ máy chủ.")
+                          : (language === "en" ? "Save and apply a plan to export cash flow projection." : "Lưu và áp dụng kế hoạch để xuất bảng dòng tiền.")}
+                      </p>
                       {plansError && <p role="alert">{plansError}</p>}
                     </div>
                   </div>
-                  <Button variant="secondary" onClick={handleExportCsv} loading={isExportingCsv || loadingPlans} disabled={Boolean(plansError)}>
+                  <Button variant="secondary" onClick={handleExportCsv} loading={isExportingCsv || loadingPlans} disabled={!activePlan?.currentVersionId || Boolean(plansError)}>
                     <Icon name="download" /> {language === "en" ? "Export CSV File" : "Xuất tệp CSV"}
                   </Button>
                 </Card>

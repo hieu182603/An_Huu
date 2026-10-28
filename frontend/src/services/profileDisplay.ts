@@ -5,7 +5,7 @@ import type { KnownOrUnknown, ProfileCollection, ProfileV2 } from "./financialPr
 function complete<T>(collection: ProfileCollection<T>, amount: (entry: T) => KnownOrUnknown<string>) {
   return collection.status === "NOT_APPLICABLE" || (collection.status === "KNOWN" && collection.entries.every(entry => {
     const field = amount(entry);
-    return field.status === "KNOWN" && field.value.trim() !== "" && Number.isFinite(Number(field.value));
+    return field?.status === "KNOWN" && typeof field.value === "string" && field.value.trim() !== "" && Number.isFinite(Number(field.value));
   }));
 }
 

@@ -1,4 +1,4 @@
-type Event = "http.request" | "http.timing" | "http.error" | "server.started" | "server.start_failed" | "server.stopping" | "server.stop_failed" | "socket.connected" | "socket.disconnected" | "socket.delivery_failed" | "worker.started" | "worker.error" | "retention.completed" | "retention.failed";
+type Event = "http.request" | "http.aborted" | "eventloop.blocked" | "http.timing" | "http.error" | "server.started" | "server.start_failed" | "server.stopping" | "server.stop_failed" | "socket.connected" | "socket.disconnected" | "socket.delivery_failed" | "worker.started" | "worker.error" | "retention.completed" | "retention.failed" | "preview.worker_error" | "preview.worker_timeout";
 type Fields = { requestId?: string; method?: string; route?: string; statusCode?: number; durationMs?: number; code?: string; cause?: string; eligible?: number; deleted?: number; remaining?: number; batches?: number };
 // Do not serialize requests/errors: tokens, query strings, database URLs and PII are excluded.
 export function log(level: "info" | "warn" | "error", event: Event | "preview.coverage_warning", fields: Fields = {}): void {

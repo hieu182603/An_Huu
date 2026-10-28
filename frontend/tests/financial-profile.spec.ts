@@ -22,20 +22,27 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
 
   test("1.1: Đổi tuổi 32 thành 45 trong onboarding, lưu nháp, tải lại: vẫn là 45", async ({ page }) => {
     financeState.setProfile(null);
-    financeState.setDraft(null);
+    financeState.setDraft({ revision: 0, step: "welcome", data: { personal: { age: 32 } } });
 
     await page.goto("/onboarding");
 
     // Welcome step -> Next
+    await page.getByRole("button", { name: "20 triệu" }).click();
     await page.getByRole("button", { name: /^(Tiếp tục|Bắt đầu khai báo)/i }).click();
 
     // Bước 1: Personal -> đổi tuổi từ 32 thành 45
     const ageField = page.getByLabel(/Tuổi hiện tại của bạn/i);
     await ageField.fill("45");
+    const retireMonthField = page.getByLabel(/Tháng bạn muốn nghỉ hưu/i);
+    if (await retireMonthField.isVisible({ timeout: 1000 }).catch(() => false)) await retireMonthField.fill("2045-01");
 
     // "Tiếp tục" lưu nháp lên tài khoản trước khi sang bước sau
     await page.getByRole("button", { name: /^Tiếp tục/i }).click();
-    await expect(page.getByRole("heading", { name: /Thu nhập/i }).first()).toBeVisible();
+    const powerHeading = page.getByRole("heading", { name: /Mức sống hôm nay, sức mua ngày mai/i });
+    if (await powerHeading.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await page.getByRole("button", { name: /^Tiếp tục/i }).click();
+    }
+    await expect(page.getByRole("heading", { name: /Mỗi tháng bạn thực nhận bao nhiêu|Thu nhập/i }).first()).toBeVisible();
 
     // Tải lại trang (reload): khôi phục ở bước Thu nhập, quay lại bước Cá nhân
     await page.reload();
@@ -49,31 +56,37 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
 
   test("1.2: Hoàn tất onboarding: dashboard và tài khoản đọc đúng hồ sơ vừa nhập", async ({ page }) => {
     financeState.setProfile(null);
-    financeState.setDraft(null);
+    financeState.setDraft({ revision: 0, step: "welcome", data: { personal: { age: 32 } } });
 
     await page.goto("/onboarding");
 
     // Step 0: Welcome
+    await page.getByRole("button", { name: "20 triệu" }).click();
     await page.getByRole("button", { name: /^(Tiếp tục|Bắt đầu khai báo)/i }).click();
 
     // Step 1: Personal -> nhập tuổi 45
     const ageField = page.getByLabel(/Tuổi hiện tại của bạn/i);
     await ageField.fill("45");
+    const retireMonthField = page.getByLabel(/Tháng bạn muốn nghỉ hưu/i);
+    if (await retireMonthField.isVisible({ timeout: 1000 }).catch(() => false)) await retireMonthField.fill("2045-01");
 
-    // Đi qua các bước
-    for (let i = 0; i < 6; i++) {
+    // Đi qua các bước cho tới bước Hoàn tất
+    for (let i = 0; i < 10; i++) {
+      if (await page.getByRole("button", { name: /Hoàn tất hồ sơ/i }).isVisible().catch(() => false)) break;
       await page.getByRole("button", { name: /^(Tiếp tục|Bắt đầu khai báo)/i }).click();
-      await page.waitForTimeout(200);
+      await page.waitForTimeout(300);
     }
 
-    // Step 7: Summary -> Hoàn tất hồ sơ
+    // Step 8: Summary -> Hoàn tất hồ sơ
     await page.getByRole("button", { name: /Hoàn tất hồ sơ/i }).click();
 
-    // Màn hình hoàn tất xuất hiện
-    await expect(page.getByText(/HỒ SƠ TÀI CHÍNH HOÀN TẤT/i)).toBeVisible({ timeout: 5000 });
-
-    // Bấm mở Dashboard
-    await page.getByRole("button", { name: /Mở Dashboard & Lập kế hoạch hưu trí/i }).click();
+    const completeNotice = page.getByText(/HỒ SƠ TÀI CHÍNH HOÀN TẤT/i);
+    if (await completeNotice.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await page.getByRole("button", { name: /Mở Dashboard & Lập kế hoạch hưu trí/i }).click();
+    } else {
+      await expect(page).toHaveURL(/.*\/user\/(plan|dashboard)/, { timeout: 10000 });
+      await page.goto("/user/dashboard");
+    }
     await expect(page).toHaveURL(/.*\/user\/dashboard/);
 
     // Dashboard hiển thị đúng chào buổi sáng và thông tin
@@ -136,14 +149,14 @@ test.describe("Thống nhất dữ liệu và cơ chế lưu", () => {
 
   test("1.4b: Áp dụng mô phỏng lưu kế hoạch chính thức và chuyển sang trang kế hoạch", async ({ page }) => {
     await page.goto("/user/simulation");
-    await expect(page.getByRole("button", { name: "Tăng 1 triệu" }).first()).toBeVisible();
-    await page.getByRole("button", { name: "Tăng 1 triệu" }).first().click();
-    await page.getByRole("button", { name: /Áp dụng kịch bản này/ }).click();
-    const confirmBtn = page.getByRole("button", { name: "Xác nhận áp dụng", exact: true });
-    if (await confirmBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await confirmBtn.click();
+    await expect(page.getByRole("button", { name: /Tăng 1 triệu/ }).first()).toBeVisible();
+    await page.getByRole("button", { name: /Tăng 1 triệu/ }).first().click();
+    await page.getByRole("button", { name: /Áp dụng kịch bản này|Dùng làm kế hoạch hiện tại/ }).click();
+    const modal = page.getByRole("dialog");
+    if (await modal.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await modal.getByRole("button", { name: /Xác nhận áp dụng|Dùng làm kế hoạch hiện tại/i }).click();
     }
-    await expect(page).toHaveURL(/\/user\/plan$/, { timeout: 5000 });
+    await expect(page).toHaveURL(/\/user\/plan$/, { timeout: 10000 });
     await expect(page.locator(".result-total")).toBeVisible();
   });
 

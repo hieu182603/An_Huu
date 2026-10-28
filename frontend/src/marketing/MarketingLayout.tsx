@@ -4,8 +4,8 @@ import { BrandLogo, Drawer, Icon } from '../components/ui';
 import { marketingNavigation } from './content';
 import './marketing.css';
 
-export function MarketingButton({ to = '/register', children, secondary = false }: { to?: string; children: ReactNode; secondary?: boolean }) {
-  return <Link className={`mk-button ${secondary ? 'mk-button-secondary' : ''}`} to={to}>{children}<Icon name="arrow-right" /></Link>;
+export function MarketingButton({ to = '/register', children, secondary = false, onClick }: { to?: string; children: ReactNode; secondary?: boolean; onClick?: () => void }) {
+  return <Link className={`mk-button ${secondary ? 'mk-button-secondary' : ''}`} to={to} onClick={onClick}>{children}<Icon name="arrow-right" /></Link>;
 }
 
 export default function MarketingLayout({ children, home = false }: { children: ReactNode; home?: boolean }) {

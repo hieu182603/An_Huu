@@ -4,13 +4,16 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 import { readFileSync } from 'node:fs'
 
+// Browser reloads/closes drop proxied websockets; both codes are harmless noise.
+const closedSocketCodes = ['ECONNRESET', 'ECONNABORTED']
 const customLogger = createLogger()
 const loggerError = customLogger.error.bind(customLogger)
 customLogger.error = (msg, options) => {
+  const code = (options?.error as { code?: string })?.code
   if (
     typeof msg === 'string' &&
     msg.includes('ws proxy socket error') &&
-    ((options?.error as { code?: string })?.code === 'ECONNRESET' || msg.includes('ECONNRESET'))
+    closedSocketCodes.some(c => code === c || msg.includes(c))
   ) {
     return
   }

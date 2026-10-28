@@ -36,9 +36,12 @@ describe("T08 personal alternatives", () => {
     input.whatIf.assetValues[0].assetId = "unknown";
     expect(prepareRetirement(profile, input, cfg.policy, cfg.assumptions).issues).toContainEqual({ path: "whatIf.assetValues", code: "UNKNOWN_ASSET" });
   });
-  it("rejects macro/ownership/date overrides, duplicate assets, missing alternative and invalid target", () => {
+  it("rejects macro/ownership/date overrides, duplicate assets and invalid target; an empty alternative means none", () => {
     const command = retirementCommand();
-    for (const whatIf of [{}, { annualReturnRate: "12" }, { assetValues: [{ assetId: "x", value: "1", ownershipShare: "1" }] },
+    const empty = retirementPreviewSchema.parse({ ...command, whatIf: {} });
+    expect(Object.hasOwn(empty, "whatIf") && empty.whatIf !== undefined).toBe(false);
+    expect(JSON.stringify(empty)).toBe(JSON.stringify(retirementPreviewSchema.parse(command)));
+    for (const whatIf of [{ annualReturnRate: "12" }, { assetValues: [{ assetId: "x", value: "1", ownershipShare: "1" }] },
       { assetValues: [{ assetId: "x", value: "1" }, { assetId: "x", value: "2" }] }, { retirementMonth: "2026-13" }])
       expect(retirementPreviewSchema.safeParse({ ...command, whatIf }).success).toBe(false);
     const cfg = retirementConfiguration();

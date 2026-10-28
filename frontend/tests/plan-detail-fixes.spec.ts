@@ -41,7 +41,7 @@ async function planPage(page: Page, options: { policyError?: boolean; previewErr
   if (options.historyCount !== undefined) versions = versions.slice(0, options.historyCount);
   let currentId = 'version-old', revision = 4;
   const detail = () => ({ id: 'plan-audit', revision, currentVersionId: currentId, baselineVersionId: 'version-old', current: versions.find(v => v.id === currentId), ...(options.policyError ? { readWarnings: [{ code: 'PLAN_HORIZON_TRUNCATED', message: 'Kế hoạch đã lưu kết thúc sớm hơn mục tiêu hiện tại.', endMonth: '2055-12', expectedEndMonth: '2074-03', goalRevision: 3 }] } : {}) });
-  await page.route('**/api/v1/me/retirement/preview', async route => {
+  await page.route('**/api/v1/me/retirement/preview*', async route => {
     const body = route.request().postDataJSON(); calls.push({ path: 'preview', method: 'POST', body });
     await new Promise(resolve => setTimeout(resolve, 200));
     if (previewError) return route.fulfill({ status: 503, json: { error: { code: 'UNAVAILABLE', message: 'Lỗi dự phóng kiểm thử.' } } });
@@ -340,6 +340,7 @@ test('plan: changing timing hides old rows and confirms selection; year filter m
   await page.getByRole('combobox', { name: 'Lọc năm', exact: true }).selectOption('2027');
   await expect(page.locator('.monthly-cashflow-table-component tbody tr:not(.cashflow-detail-row)')).toHaveCount(12);
   await expect(page.locator('.monthly-cashflow-table-component tbody th[scope="row"] strong')).toHaveText(Array.from({ length: 12 }, (_, index) => `${String(index + 1).padStart(2, '0')}/2027`));
+  await page.locator('.plan-advanced-settings summary').click();
   await page.getByRole('button', { name: 'Đầu mỗi tháng', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Đầu mỗi tháng', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByLabel('Tiền sẵn có để góp vào đầu tháng (đồng) *', { exact: true })).toBeVisible();

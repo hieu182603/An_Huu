@@ -1,3 +1,51 @@
+## Production treo 2 lần ~23 phút + log để tìm request gây treo (28/10/2026, giờ Việt Nam)
+
+- Production (Azure `anhuu-backend`, code `main` deploy 21/10, **chưa có** worker thread/sửa ngày 22–23/10 bên dưới) treo 19:11→19:34 và 19:50→20:14: CPU ~45 s/phút liên tục, RAM ~200 MB ổn định, không restart. Log ngừng ghi cả health check; khi thông thì request dồn trả 1–10 ms, 2 request 686 s, loạt `POST /me/retirement/preview` 401 (token hết hạn). Ngày 21/10 cũng có 3 đợt 9–21 phút. Khớp nguyên nhân đã ghi ngày 22/10 (preview + `adjustmentOptions` đồng bộ trên luồng request); request gây treo không có trong log vì log cũ chỉ ghi khi `finish` và không có đường dẫn.
+- Log: `http.request` thêm `route` (bỏ query, UUID → `:id`), ghi theo `close` nên request client đã bỏ ghi `http.aborted` (warn); request ≥ 5 s ghi mức warn. `common/event-loop.ts` `watchEventLoop()` (khởi động trong `server.ts`) ghi `eventloop.blocked` với thời gian bị chặn khi luồng thông lại.
+- Test: thêm `request-logging.test.ts` (route/che id/không lộ query, aborted, watchdog). Typecheck nguồn + test PASS; 73 file, 843 test PASS. Kiểm trên backend local: log có `route` đã che id, không có query.
+- Tiếp theo: deploy phần chưa commit (worker pool + log) lên production; khi gặp lại, tìm `eventloop.blocked`/`http.aborted`/`level":"warn"` để biết route.
+
+## Dò tháng nghỉ hưu sớm nhất không còn chạm giới hạn với người trẻ (23/10/2026, giờ Việt Nam)
+
+- Nguyên nhân: chứng nhận "sớm nhất" phải chạy dự phóng cho từng tháng trước ứng viên; giới hạn 64 lần (~5 năm). Tài khoản 34 tuổi có ứng viên 2065-08 (158 tháng sau 2052-06) nên luôn `RETIREMENT_SEARCH_LIMIT_REVIEW_REQUIRED`.
+- Tăng tốc, kết quả không đổi: `previewPortfolio(..., only, cache)` chỉ tính kịch bản được yêu cầu (các kịch bản độc lập; trước đây tính cả 3 rồi bỏ 2); `portfolioPreviewCache()` dùng lại kiểm tra chính sách và chuỗi giả định cơ sở trong một lượt dò (không phụ thuộc tháng nghỉ hưu); chuỗi lạm phát tháng lưu sẵn dạng chuỗi. Không đổi số, hash, snapshot.
+- `RETIREMENT_SEARCH_RUNS` = 180 (15 năm), thay 64.
+- Đo (DB chỉ đọc, hồ sơ cùng dạng tài khoản kiểm trực tiếp, chạy liền nhau): trước — 1 lần dự phóng ~1,37 s, lượt dò 117 s / 96 lần, kết quả REVIEW_REQUIRED (ứng viên 2065-08 chưa xác nhận); sau — ~0,16 s, lượt dò 30 s / 193 lần, FOUND 2065-08 đã xác nhận. Khi máy bận: trước 46–117 s, sau 30–71 s. Người không có tháng khả thi nào trong 15 năm vẫn nhận REVIEW_REQUIRED (trung thực).
+- Test: cập nhật "bounds work" (khoảng dài hơn ngân sách, `evaluations = 1 + RETIREMENT_SEARCH_RUNS`); thêm "certifies … beyond the former 64-run limit" (xác nhận sớm hơn 1 tháng thì không đủ; đã kiểm thất bại khi đặt lại 64) và "search cache and single-scenario previews return the same portfolio path". Typecheck PASS; 72 file, 840 test PASS.
+
+## Rà soát công thức + 3 sửa lỗi backend (22/10/2026 tối, giờ Việt Nam)
+
+- Oracle độc lập (chính sách/giả định công bố thật, chỉ đọc DB; hồ sơ có thưởng một lần, chi thiết yếu/linh hoạt, tài sản chia sở hữu, nợ): 6.799 phép kiểm khớp, 0 sai — tổng hồ sơ, lạm phát tháng↔năm, chi khi nghỉ hưu, nợ, rút/góp/năng lực, số dư từng tháng, quỹ cần/dự kiến/độ phủ; mức góp cần thiết cấp vừa đủ (thiếu 0, bớt 10.000 đ thì thiếu). Tỷ lệ lương hưu Điều 66, giảm trừ nghỉ sớm, lộ trình tuổi NĐ 135/2020 và quy đổi lãi vay đọc lại khớp luật.
+- Sửa `assessPortfolio`: thiếu câu trả lời không còn đẩy `POLICY_NOT_COVERED` (trước đây UI hiện "cần quản trị viên kiểm tra cấu hình" và log cảnh báo sai). Guidance gộp mọi lỗi câu trả lời thành một mục `path: "answers"`, REVIEW_SELECTION.
+- `retirementPreviewSchema.whatIf`: `{}` chuẩn hóa thành không có `whatIf` (trước đây 400 "Cần ít nhất một thay đổi mô phỏng"; trang Mục tiêu của frontend ghi `{}` nên trang Kế hoạch không tính được). Trước đây `{}` bị từ chối nên không snapshot nào chứa nó; selection/inputHash không đổi.
+- `transaction()`: `maxWait` 10 s (DB Azure mỗi lượt 0,4–1,5 s, mặc định 2 s gây P2028 → 503).
+- Test: cập nhật `plan-presentation`, `preview-guidance`; thêm `transaction-options.test.ts`. Typecheck PASS; 72 file, 838 test PASS. OpenAPI không đổi.
+- Kiểm trực tiếp sau sửa bị chặn: lúc 22:57 DB Azure không kết nối được (TCP 5432 timeout, khởi động `P1001`); nodemon đang chờ. Không phải do thay đổi code (import kiểm OK).
+- Frontend: bàn giao `../docs/task-antigravity-2026-10-22d.md` (whatIf rỗng, chip làm tròn, `profileFromV2` cộng sai, checklist nợ, DTI 0%, CSV dự phóng 0%).
+
+## Preview không còn làm treo server — worker thread + `adjustments=skip` (22/10/2026, giờ Việt Nam)
+
+Nguyên nhân (đo bằng tài liệu chính sách/giả định đã công bố, chỉ đọc DB, hồ sơ tổng hợp 50 tuổi tới 85 tuổi): `previewCaptured` luôn gọi `adjustmentOptions`, 96 lần dự phóng ≈ 52 giây đồng bộ trên luồng request. Trang Kế hoạch gửi 4–5 preview cùng lúc nên log 22/10 có request treo 142–578 giây, `socket.disconnected`, rồi 503 `P2028` (giao dịch chờ kết nối quá `maxWait` 2 giây khi luồng vừa thông). Database không lỗi.
+
+### Thay đổi
+
+- `POST /me/retirement/preview?adjustments=skip|include` (mặc định include). `skip` chỉ bỏ trường `adjustmentOptions`; không thuộc `selection`/`inputHash`, không đổi snapshot/replay/lưu/áp dụng. Giá trị khác → 400. OpenAPI cập nhật trong generator và `docs/openapi.yaml` (chỉ thêm tham số).
+- `retirement/preview-pool.ts` + `preview-worker.ts`: phần tính toán sau `capture` chạy trên worker thread (pool cố định, khởi tạo lười, hàng đợi tối đa 32 → 503 `PREVIEW_BUSY`; quá `PREVIEW_TIMEOUT_MS` → terminate worker, 503 `PREVIEW_TIMEOUT`; worker chết → 503 `PREVIEW_UNAVAILABLE`, tự thay). Kết quả worker là dạng JSON giống hệt response HTTP. Dev/Vitest tự đăng ký ts-node trong worker; dist nạp `.js`.
+- Env: `PREVIEW_WORKERS` (không đặt = min(2, số lõi − 1); `0` = chạy trên luồng request; mặc định 0 khi `NODE_ENV=test`), `PREVIEW_TIMEOUT_MS` (mặc định 120000). Shutdown đóng pool. Logger thêm `preview.worker_error`/`preview.worker_timeout` (chỉ trường an toàn).
+- Explanations/plans/allocation-risk vẫn gọi `previewForExplanation`/`evaluate` trực tiếp (1 lần dự phóng), chưa chuyển sang pool.
+
+### Kiểm chứng
+
+- `tsc` nguồn và test: PASS. `node node_modules/vitest/vitest.mjs run --maxWorkers=2`: 71 file, 837 test PASS, gồm `preview-worker-pool.test.ts` mới (worker trả JSON khớp chạy trực tiếp cả include/skip; timeout; hàng đợi giới hạn; đóng pool) và bổ sung `retirement-monthly.test.ts` (skip = response include trừ `adjustmentOptions`, hợp lệ OpenAPI; 400 khi giá trị lạ).
+- Build `tsc` ra thư mục tạm, dữ liệu thật chỉ đọc, pool 2 worker, 5 preview đồng thời (2 include + 3 skip): độ trễ luồng chính tối đa 14 ms (trước đây đứng nhiều phút); skip 0,7–1,5 giây; include ~34 giây mỗi request, chạy song song. Thư mục tạm đã xóa.
+
+### Còn mở / bước tiếp
+
+- Preview có `adjustmentOptions` vẫn mất ~30–50 giây: cần tăng tốc dự phóng (~0,4–1,2 giây/lần với Decimal precision 48) hoặc thu hẹp lượt dò. Chưa làm.
+- Frontend chưa gửi `adjustments=skip`: bàn giao `../docs/task-antigravity-2026-10-22c.md`.
+- Log `POLICY_NOT_COVERED` chưa có `policyVersionId`; chính sách v2 cũ phủ 0% tổ hợp ở chân trời 45 năm, v4 phủ 100%.
+- Không migration, không ghi DB, không commit.
+
 ## Chế độ giải thích bằng Trợ lý AI — Backend giai đoạn 1 (17/10/2026, giờ Việt Nam)
 
 Thực hiện mục 4 của `../docs/KE_HOACH_CHE_DO_GIAI_THICH_AI_2026-10-17.md`. Không đọc/nạp `.env`, không kết nối hay ghi DB production, không migration/seed/script `*-db`, không gọi LLM, không sửa `frontend/`, không commit/push/deploy. Giữ nguyên thay đổi có sẵn của các luồng khác.

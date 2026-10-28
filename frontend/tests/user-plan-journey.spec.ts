@@ -48,7 +48,7 @@ async function journey(page: Page, hasPlan = true, actualBalance = false) {
     const input = route.request().postDataJSON(); calls.push({ kind: 'portfolio', input });
     return route.fulfill({ json: { data: { assessment: { totalScore: 1, riskBandId: 'medium', selectedTemplateId: input.templateId ?? 'balanced', eligibleTemplateIds: ['balanced', 'careful'] }, scenarios: [] } } });
   });
-  await page.route('**/api/v1/me/retirement/preview', route => {
+  await page.route('**/api/v1/me/retirement/preview*', route => {
     const input = route.request().postDataJSON(); calls.push({ kind: 'preview', input });
     return route.fulfill({ json: { data: preview(input) } });
   });
@@ -78,7 +78,7 @@ test('current plan survives navigation; changing one simulation input preserves 
   const { calls, selection } = await journey(page);
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/user/plan');
-  await expect(page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)')).toHaveValue('5000000');
+  await expect(page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)')).toHaveValue(/(5\.000\.000|5000000)/);
   await expect(page.getByRole('button', { name: 'Đầu mỗi tháng', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('main')).not.toContainText(/Infinity|NaN|Dự phóng chưa bao phủ hết tuổi thọ/);
   expect(calls.filter(c => c.kind === 'preview')).toHaveLength(0);
@@ -90,7 +90,7 @@ test('current plan survives navigation; changing one simulation input preserves 
   await expect.poll(() => calls.filter(c => c.kind === 'simulate').length).toBeGreaterThan(0);
   expect(calls.filter(c => c.kind === 'simulate').at(-1)!.input).toEqual({ ...selection, monthlyExpenseToday: '18000000' });
   await page.locator('.user-sidebar').getByRole('link', { name: 'Kế hoạch chi tiết', exact: true }).click();
-  await expect(page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)')).toHaveValue('5000000');
+  await expect(page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)')).toHaveValue(/(5\.000\.000|5000000)/);
   expect(errors).toEqual([]);
 });
 
@@ -111,7 +111,7 @@ test('goal edits reach the plan, then apply and reload retain the chosen contrib
   await page.getByRole('dialog').getByRole('button', { name: 'Dùng làm kế hoạch hiện tại', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.reload();
-  await expect(page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)')).toHaveValue('4000000');
+  await expect(page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)')).toHaveValue(/(4\.000\.000|4000000)/);
   await page.getByRole('link', { name: 'Sửa mục tiêu', exact: true }).click();
   await expect(page.locator('.goal-spending-field input')).toHaveValue('19.000.000');
 });
@@ -203,7 +203,7 @@ test('plan steps and contribution fields fit a small phone', async ({ page }, te
   await page.setViewportSize({ width: 390, height: 844 });
   await journey(page);
   await page.goto('/user/plan');
-  await expect(page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)')).toHaveValue('5000000');
+  await expect(page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)')).toHaveValue(/(5\.000\.000|5000000)/);
   await page.evaluate(() => document.fonts.ready);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   const field = page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)');
@@ -312,7 +312,7 @@ test('profile changes recalculate once and share the result across overview, goa
   await expect(page.locator('.plan-sync-status')).toContainText('Đã tính theo hồ sơ hiện tại');
   await page.locator('.user-sidebar').getByRole('link', { name: 'Kế hoạch chi tiết', exact: true }).click();
   await expect(page.locator('.plan-sync-status')).toContainText('Đã tính theo hồ sơ hiện tại');
-  await expect(page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)')).toHaveValue('5000000');
+  await expect(page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)')).toHaveValue(/(5\.000\.000|5000000)/);
   await expect(page.getByText('Hồ sơ đã thay đổi', { exact: true })).toHaveCount(0);
   expect(calls.filter(c => c.kind === 'preview')).toHaveLength(1);
   expect(writes).toEqual([]);
@@ -323,7 +323,7 @@ test('failed or incomplete recalculation never presents the old forecast as curr
   const { financial } = await journey(page);
   financial.setProfile({ ...financial.getProfile(), revision: 4 });
   let attempts = 0;
-  await page.route('**/api/v1/me/retirement/preview', route => {
+  await page.route('**/api/v1/me/retirement/preview*', route => {
     attempts++;
     return route.fulfill(attempts === 1
       ? { status: 503, json: { error: { message: 'Tạm thời không thể tính kế hoạch.' } } }
@@ -346,14 +346,14 @@ test('late preview responses cannot replace newer edits and asset assumptions ar
   current.preview.selection = { ...selection, whatIf: { assetValues: [{ assetId: 'house', value: '900000000' }] } };
   const requests: any[] = [];
   let release: (() => void) | undefined;
-  await page.route('**/api/v1/me/retirement/preview', async route => {
+  await page.route('**/api/v1/me/retirement/preview*', async route => {
     const input = route.request().postDataJSON(); requests.push(input);
     if (input.monthlyContribution === '4000000') await new Promise<void>(resolve => { release = resolve; });
     await route.fulfill({ json: { data: preview(input) } });
   });
   await page.goto('/user/plan');
   const contribution = page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)');
-  await expect(contribution).toHaveValue('5000000');
+  await expect(contribution).toHaveValue(/(5\.000\.000|5000000)/);
   await contribution.fill('4000000');
   await expect.poll(() => Boolean(release)).toBe(true);
   await contribution.fill('3000000');
@@ -363,7 +363,7 @@ test('late preview responses cannot replace newer edits and asset assumptions ar
   await expect(page.getByText(/Bản xem trước này đã lưu/)).toBeVisible();
   expect(requests.at(-1).monthlyContribution).toBe('3000000');
   expect(requests.at(-1).whatIf.assetValues).toEqual([{ assetId: 'house', value: '900000000' }]);
-  await expect(contribution).toHaveValue('3000000');
+  await expect(contribution).toHaveValue(/(3\.000\.000|3000000)/);
 });
 
 test('cashflow table explains amounts, opens monthly details and jumps to milestones without losing CSV export', async ({ page }) => {

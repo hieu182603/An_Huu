@@ -97,6 +97,7 @@ export interface FinancialProfile {
 export interface OnboardingDraftData {
   birthMonth?: string;
   desiredRetirementMonth?: string;
+  quickProfile?: ProfileV2;
   step: string;
   age: number;
   gender: string;
@@ -203,12 +204,15 @@ function useProfileState() {
   const base: FinancialProfile = { ...EMPTY_PROFILE, personal: { ...EMPTY_PROFILE.personal, name: user?.name || "", email: user?.email || "", phone: user?.phone || "", city: user?.city || "" } };
   const [profile, setProfile] = useState(base);
   const [v2Profile, setV2Profile] = useState<ProfileV2 | null>(null);
+  const [profileSummary, setProfileSummary] = useState<Record<string, string | null> | null>(null);
   const [schemaVersion, setSchemaVersion] = useState<number>(1);
   const [onboardingConstraints, setOnboardingConstraints] = useState<PlanningConstraints | undefined>();
   const [onboardingDraft, setOnboardingDraft] = useState(() => draftFromProfile(base));
-  const [loading, setLoading] = useState(user?.role === "user");
+  const isUserRole = user?.role?.toLowerCase() === "user";
+  const [loading, setLoading] = useState(isUserRole);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasProfile, setHasProfile] = useState(false);
+  const [legacyOnboardingDraft, setLegacyOnboardingDraft] = useState(false);
   const [reload, setReload] = useState(0);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [draftSaveStatus, setDraftSaveStatus] = useState<SaveStatus>("idle");
@@ -223,7 +227,7 @@ function useProfileState() {
   const reloadProfile = useCallback(() => setReload(v => v + 1), []);
 
   useEffect(() => {
-    if (user?.role !== "user") return;
+    if (user?.role?.toLowerCase() !== "user") return;
     let active = true;
     setLoading(true); setLoadError(null);
     Promise.all([authenticatedRequest<ProfileRecord | null>("/me/financial-profile"), authenticatedRequest<DraftRecord | null>("/me/onboarding-draft")])
@@ -233,11 +237,16 @@ function useProfileState() {
         const { profile: next, v2 } = record ? loadedProfile(base, record) : { profile: base, v2: null };
         setProfile(next);
         setV2Profile(v2);
+        setProfileSummary(record?.summary?.values || record?.summary || null);
         setSchemaVersion(record?.schemaVersion ?? (v2 ? 2 : 1));
         setHasProfile(!!record);
+        setLegacyOnboardingDraft(Boolean(draft && !isProfileV2(draft.data)));
         setOnboardingConstraints(draft && isProfileV2(draft.data) ? planningConstraints(draft.data) : undefined);
         setOnboardingDraft({ ...draftFromProfile(draft ? (isProfileV2(draft.data) ? profileFromV2(base, draft.data) : profileFromData(base, draft.data)) : next, draft ? clientStep(draft.step) : "welcome", draft?.updatedAt),
-          ...(draft && isProfileV2(draft.data) ? { birthMonth: draft.data.personal?.birthMonth?.status === "KNOWN" ? draft.data.personal.birthMonth.value : "" } : {}) });
+          ...(draft && isProfileV2(draft.data) ? {
+            birthMonth: draft.data.personal?.birthMonth?.status === "KNOWN" ? draft.data.personal.birthMonth.value : "",
+            desiredRetirementMonth: draft.data.personal?.desiredRetirementMonth?.status === "KNOWN" ? draft.data.personal.desiredRetirementMonth.value : "",
+          } : {}) });
         setLastSavedAt(record?.asOfDate ? new Date(record.asOfDate).toLocaleString("vi-VN") : null);
         setLastDraftSavedAt(draft ? new Date(draft.updatedAt).toLocaleString("vi-VN") : null);
         setHasUnsavedChanges(false); setSaveStatus("idle"); setSaveError(null);
@@ -269,6 +278,7 @@ function useProfileState() {
       const { profile: nextProfile, v2 } = loadedProfile(base, record);
       setProfile(nextProfile);
       setV2Profile(v2);
+      setProfileSummary(record.summary?.values || record.summary || null);
       setSchemaVersion(record.schemaVersion ?? (v2 ? 2 : 1));
       setHasUnsavedChanges(false); setSaveStatus("saved"); setLastSavedAt(new Date().toLocaleString("vi-VN"));
       return true;
@@ -293,6 +303,7 @@ function useProfileState() {
       const { profile: nextProfile, v2 } = loadedProfile(base, record);
       setProfile(nextProfile);
       setV2Profile(v2);
+      setProfileSummary(record.summary?.values || record.summary || null);
       setSchemaVersion(record.schemaVersion ?? 2);
       setHasUnsavedChanges(false); setSaveStatus("saved"); setLastSavedAt(new Date().toLocaleString("vi-VN"));
       return true;
@@ -326,9 +337,9 @@ function useProfileState() {
     // The backend rejects changing an existing draft's schema. New wizards start
     // at v2; legacy drafts finish unchanged and add constraints in the profile.
     if (legacyDraft && additions !== undefined) throw new Error("Nháp cũ cần hoàn tất trước. Sau đó bổ sung ràng buộc và mục tiêu trong hồ sơ chi tiết.");
-    const generated = createDefaultProfileV2(source);
-    const document = legacyDraft ? data : { ...generated, ...previous, ...additions };
-    if (isProfileV2(document)) {
+    const generated = draft.quickProfile ?? createDefaultProfileV2(source);
+    const document = legacyDraft ? data : (draft.quickProfile ? { ...draft.quickProfile, ...additions } : { ...generated, ...previous, ...additions });
+    if (isProfileV2(document) && !draft.quickProfile) {
       const before = profileFromDraft(base, onboardingDraft);
       // Keep detailed entries byte-for-byte unless the corresponding quick total
       // was explicitly edited. Never collapse gold, bonds or contracts into totals.
@@ -367,7 +378,7 @@ function useProfileState() {
       draftRef.current = result;
       if (result.data) {
         setOnboardingConstraints(isProfileV2(result.data) ? planningConstraints(result.data) : undefined);
-        setOnboardingDraft({ ...draftFromProfile(isProfileV2(result.data) ? profileFromV2(source, result.data) : profileFromData(base, result.data), clientStep(result.step), result.updatedAt), birthMonth: draft.birthMonth });
+        setOnboardingDraft({ ...draftFromProfile(isProfileV2(result.data) ? profileFromV2(source, result.data) : profileFromData(base, result.data), clientStep(result.step), result.updatedAt), birthMonth: draft.birthMonth, desiredRetirementMonth: draft.desiredRetirementMonth });
       }
       if (result.updatedAt) {
         setLastDraftSavedAt(new Date(result.updatedAt).toLocaleString("vi-VN"));
@@ -425,6 +436,7 @@ function useProfileState() {
   return {
     profile,
     v2Profile,
+    profileSummary,
     schemaVersion,
     completenessPercentage,
     profileRevision: recordRef.current?.revision ?? 0,
@@ -444,7 +456,7 @@ function useProfileState() {
     updateProfileV2,
     upgradeToV2,
     onboardingConstraints,
-    legacyOnboardingDraft: !!draftRef.current && !isProfileV2(draftRef.current.data),
+    legacyOnboardingDraft,
     saveOnboardingDraft,
     completeOnboarding,
     exportSnapshot: () => profile,
@@ -487,6 +499,7 @@ function useProfileState() {
         const { profile: next, v2 } = loadedProfile(base, recordRef.current);
         setProfile(next);
         setV2Profile(v2);
+        setProfileSummary(recordRef.current.summary?.values || recordRef.current.summary || null);
         setSchemaVersion(recordRef.current.schemaVersion ?? (v2 ? 2 : 1));
       }
       setHasUnsavedChanges(false);

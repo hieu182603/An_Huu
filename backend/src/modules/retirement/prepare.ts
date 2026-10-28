@@ -7,7 +7,7 @@ import { buildContractSchedule } from "../debts/loan";
 import { pensionAtMonth } from "../pensions/engine";
 // Keep v3 preview metadata/hash semantics frozen; v4 will use the current reference.
 import { legalRetirementAge } from "../pensions/legal-age-v1";
-import { previewPortfolio } from "../portfolios/engine";
+import { previewPortfolio, type PortfolioPreviewCache } from "../portfolios/engine";
 import type { PortfolioDocument } from "../portfolios/schema";
 import type { AssumptionDocument } from "../assumptions/schema";
 import { retirementPreviewSchema, RETIREMENT_MODEL, type RetirementPreview } from "./schema";
@@ -18,7 +18,7 @@ type Issue = { path: string; code: string };
 const monthIndex = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1;
 const unique = (issues: Issue[]) => issues.filter((v, i) => issues.findIndex(o => o.path === v.path && o.code === v.code) === i);
 
-export function prepareRetirement(profile: ProfileV2, command: RetirementPreview, policy: PortfolioDocument, assumptions: AssumptionDocument) {
+export function prepareRetirement(profile: ProfileV2, command: RetirementPreview, policy: PortfolioDocument, assumptions: AssumptionDocument, cache?: PortfolioPreviewCache) {
   const data = profileV2Schema.parse(profile), input = retirementPreviewSchema.parse(command);
   const issues: Issue[] = [], warnings: Issue[] = [];
   const issue = (path: string, code: string) => issues.push({ path, code });
@@ -57,7 +57,7 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
   const portfolio = previewPortfolio(policy, assumptions, { policyVersionId: input.policyVersionId, startMonth: firstMonth, horizonMonths: length,
     answers: input.answers, liquidityNeedMonths: input.liquidityNeedMonths, ...(input.templateId ? { templateId: input.templateId } : {}),
     // Glide-path (schema v2) policies de-risk toward this month; v1 policies ignore it.
-    retirementMonth });
+    retirementMonth }, input.scenario, cache);
   if (portfolio.status !== "READY") { issues.push(...portfolio.issues); return fail(); }
   const scenario = portfolio.scenarios.find(s => s.kind === input.scenario)!;
   // Preserve T04's convention: scenario CPI delta modifies planning inflation;

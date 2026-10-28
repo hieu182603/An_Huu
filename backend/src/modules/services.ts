@@ -12,6 +12,8 @@ import { AssumptionsService } from "./assumptions/service";
 import { PortfoliosService } from "./portfolios/service";
 import { PensionsService } from "./pensions/service";
 import { RetirementService } from "./retirement/service";
+import { createPreviewPool } from "./retirement/preview-pool";
+import { availableParallelism } from "node:os";
 import { PlansService } from "./plans/service";
 import { ActualsService } from "./actuals/service";
 import { AiService } from "./ai/service";
@@ -27,7 +29,10 @@ import { AllocationRiskService } from "./allocation-risk/service";
 import { ExplanationsService } from "./explanations/service";
 export function createServices(db: PrismaClient, config: AppConfig) {
   const settings = new SystemSettingsService(db);
+  const previewWorkers = config.PREVIEW_WORKERS ?? (config.NODE_ENV === "test" ? 0 : Math.max(1, Math.min(2, availableParallelism() - 1)));
+  const previewPool = previewWorkers > 0 ? createPreviewPool({ size: previewWorkers, timeoutMs: config.PREVIEW_TIMEOUT_MS }) : undefined;
   return {
+    previewPool,
     explanations: new ExplanationsService(db),
     marketData: new MarketDataService(db),
     allocationRisk: new AllocationRiskService(db),
@@ -44,7 +49,7 @@ export function createServices(db: PrismaClient, config: AppConfig) {
     insuranceHistory: new InsuranceHistoryService(db),
     legalRules: new LegalRulesService(db),
     pensionEstimates: new PensionEstimateService(db),
-    retirement: new RetirementService(db),
+    retirement: new RetirementService(db, previewPool?.run),
     plans: new PlansService(db),
     actuals: new ActualsService(db),
     ai: new AiService(db, createExplanationProvider(config), config.GEMINI_TIMEOUT_MS),

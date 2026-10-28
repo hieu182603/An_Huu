@@ -5,7 +5,17 @@ import { Button } from "./ui";
 
 // Educational display only: compound each published calendar-year rate for the
 // months covered. Never extrapolate a missing year or substitute a default rate.
-export function PurchasingPower({ expense, startMonth, retirementMonth }: { expense: number; startMonth: string; retirementMonth?: string }) {
+export function PurchasingPower({
+  expense,
+  startMonth,
+  retirementMonth,
+  assumptionVersionId,
+}: {
+  expense: number;
+  startMonth: string;
+  retirementMonth?: string;
+  assumptionVersionId?: string;
+}) {
   const { language } = useI18n();
   const en = language === "en";
   const [detail, setDetail] = useState<AssumptionDetail | null>(null);
@@ -14,15 +24,21 @@ export function PurchasingPower({ expense, startMonth, retirementMonth }: { expe
   useEffect(() => {
     let active = true;
     setStatus("loading"); setDetail(null);
-    fetchUserAssumptions().then(async list => {
-      const published = list.items.find(item => item.status === "PUBLISHED");
-      if (!published) throw new Error("No published assumptions");
-      const result = await fetchUserAssumptionDetail(published.id);
+    const loadAssumption = async () => {
+      let targetId = assumptionVersionId;
+      if (!targetId) {
+        const list = await fetchUserAssumptions();
+        const published = list.items.find(item => item.status === "PUBLISHED");
+        if (!published) throw new Error("No published assumptions");
+        targetId = published.id;
+      }
+      const result = await fetchUserAssumptionDetail(targetId);
       if (result.status !== "PUBLISHED") throw new Error("Not published");
       if (active) { setDetail(result); setStatus("ready"); }
-    }).catch(() => { if (active) setStatus("error"); });
+    };
+    loadAssumption().catch(() => { if (active) setStatus("error"); });
     return () => { active = false; };
-  }, [attempt]);
+  }, [attempt, assumptionVersionId]);
   const monthIndex = (value?: string) => value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? Number(value.slice(0, 4)) * 12 + Number(value.slice(5, 7)) - 1 : null;
   const start = monthIndex(startMonth), end = monthIndex(retirementMonth);
   const years: Array<{ year: number; months: number; percent: number; sourceId: string }> = [];

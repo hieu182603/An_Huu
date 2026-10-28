@@ -180,9 +180,13 @@ export default function DebtAnalysisPage() {
     }
   };
 
+  const monthlyIncome = profile.income.primaryIncome + profile.income.secondaryIncome;
   const firstRow = previewData?.baseline?.rows?.[0];
   const ratio = firstRow?.pressure?.ratioPercent;
-  const effectiveDti = ratio != null && Number.isFinite(Number(ratio)) ? Number(ratio) : null;
+  let effectiveDti: number | null = ratio != null && Number.isFinite(Number(ratio)) ? Number(ratio) : null;
+  if (effectiveDti === null && monthlyIncome > 0 && totalMonthlyPayment === 0) {
+    effectiveDti = 0;
+  }
 
   const hasUnknownContracts = debtEntries.some((d) => !d.contract || d.contract.status !== "KNOWN");
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Icon } from '../components/ui';
 import MarketingLayout, { FinalCTA, MarketingButton } from './MarketingLayout';
+import { saveSimulatorPrefill } from '../services/simulatorPrefill';
 import peacefulRetirement from '../assets/peaceful-retirement.webp';
 import './marketing-experience.css';
 import {
@@ -539,7 +540,7 @@ export function SimulationPage() {
       <nav className="mk-container mk-demo-nav" aria-label="Các phần mô phỏng">
         <a href="#ke-hoach"><Icon name="chart" /> Kế hoạch của bạn</a><a href="#kich-ban"><Icon name="compass" /> Thử kịch bản</a><a href="#phan-bo"><Icon name="wallet" /> Phân bổ tài sản</a>
       </nav>
-      <div className="mk-container mk-demo-notice"><span><Icon name="info" /> Đây là ví dụ minh họa. Thay đổi trong demo chưa được lưu.</span><Link to="/register">Tạo kế hoạch riêng <Icon name="arrow-right" /></Link></div>
+      <div className="mk-container mk-demo-notice"><span><Icon name="info" /> Đây là ví dụ minh họa. Thay đổi trong demo chưa được lưu.</span><Link to="/register" onClick={() => saveSimulatorPrefill({ currentAge: input.currentAge, retirementAge: input.retirementAge, monthlyExpenseToday: input.monthlyExpenseToday })}>Tạo kế hoạch riêng <Icon name="arrow-right" /></Link></div>
       <section className="mk-container mk-purchasing-power" aria-label="Ảnh hưởng của lạm phát">
         <div><span>Mức sống theo giá hôm nay</span><strong>{compactMoney(input.monthlyExpenseToday)}<small> / tháng</small></strong></div>
         <Icon name="arrow-right" />
@@ -727,7 +728,7 @@ export function SimulationPage() {
           />
             </details>
             <p className="mk-tuning-note">Kéo thanh trượt hoặc nhập số rồi nhấn Enter. Khoản góp cần phù hợp với thu nhập còn dư của bạn.</p>
-            <MarketingButton>Lập kế hoạch của riêng bạn</MarketingButton>
+            <MarketingButton to="/register" onClick={() => saveSimulatorPrefill({ currentAge: input.currentAge, retirementAge: input.retirementAge, monthlyExpenseToday: input.monthlyExpenseToday })}>Lập kế hoạch của riêng bạn</MarketingButton>
             <div className="mk-stress-tests"><span>Thử thêm tình huống bất lợi</span>{comparisons.slice(2).map(scenario => <button type="button" key={scenario.name} aria-label={`Thử: ${scenario.name}`} disabled={scenario.disabled} onClick={() => { setInput(scenario.input); setAppliedScenario(scenario.name); setAllocationApplied(false); }}><Icon name="plus" />{scenario.name}</button>)}</div>
           </div>
                     <div className="mk-sim-post-section mk-next-step" aria-label="Bước tiếp theo">

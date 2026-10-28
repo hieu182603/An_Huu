@@ -49,11 +49,12 @@ async function withSessionLock<T>(action: () => Promise<T>): Promise<T> {
     throw error;
   }
 }
-export async function apiRequest<T>(path: string, body?: unknown, method = body === undefined ? "GET" : "POST", extraHeaders: Record<string, string> = {}, signal?: AbortSignal): Promise<T> {
+export const DEFAULT_REQUEST_TIMEOUT_MS = 20000;
+export async function apiRequest<T>(path: string, body?: unknown, method = body === undefined ? "GET" : "POST", extraHeaders: Record<string, string> = {}, signal?: AbortSignal, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${baseUrl}${path}`, {
-      method, credentials: "include", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000),
+      method, credentials: "include", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
       headers: { ...extraHeaders, ...(body instanceof FormData ? {} : { "Content-Type": "application/json" }), "X-CSRF-Protection": "1", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       ...(body === undefined ? {} : { body: body instanceof FormData ? body : JSON.stringify(body) }),
     });
@@ -169,7 +170,8 @@ export async function authenticatedRequest<T>(
   body?: unknown,
   method?: string,
   extraHeaders?: Record<string, string>,
-  options?: { skipCache?: boolean; ttlMs?: number; signal?: AbortSignal }
+  // timeoutMs: only for requests the server is known to need longer for.
+  options?: { skipCache?: boolean; ttlMs?: number; signal?: AbortSignal; timeoutMs?: number }
 ): Promise<T> {
   const isGet = (method === undefined || method.toUpperCase() === "GET") && body === undefined;
   const ttlMs = options?.ttlMs ?? 45000;
@@ -199,7 +201,7 @@ export async function authenticatedRequest<T>(
     const sentToken = accessToken;
     let res: T;
     try {
-      res = await apiRequest<T>(path, body, method, extraHeaders, options?.signal);
+      res = await apiRequest<T>(path, body, method, extraHeaders, options?.signal, options?.timeoutMs);
     } catch (error) {
       assertCurrentSession();
       if (!(error instanceof ApiError) || error.status !== 401) throw error;
@@ -214,7 +216,7 @@ export async function authenticatedRequest<T>(
       }
       assertCurrentSession();
       options?.signal?.throwIfAborted();
-      res = await apiRequest<T>(path, body, method, extraHeaders, options?.signal);
+      res = await apiRequest<T>(path, body, method, extraHeaders, options?.signal, options?.timeoutMs);
     }
 
     assertCurrentSession();

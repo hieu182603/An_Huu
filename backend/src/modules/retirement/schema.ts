@@ -9,6 +9,8 @@ const id = z.string().min(1).max(100);
 const schedule = z.array(z.object({ month: monthSchema, amount: moneySchema }).strict()).max(1200)
   .refine(rows => new Set(rows.map(r => r.month)).size === rows.length, "Không được trùng tháng đóng.");
 const ids = z.array(id).max(200).refine(v => new Set(v).size === v.length, "ID không được trùng.");
+// HTTP-only option: "skip" omits adjustmentOptions; it is not part of the saved selection or inputHash.
+export const retirementPreviewQuerySchema = z.object({ adjustments: z.enum(["include", "skip"]).default("include") }).strict();
 export const retirementPreviewSchema = z.object({
   expectedProfileRevision: z.number().int().min(1), policyVersionId: z.string().uuid(),
   scenario: z.enum(["BASE", "ADVERSE", "FAVORABLE"]), templateId: id.optional(),
@@ -36,7 +38,10 @@ export const retirementPreviewSchema = z.object({
     retirementMonth: monthSchema.optional(),
     assetValues: z.array(z.object({ assetId: id, value: moneySchema }).strict()).min(1).max(200)
       .refine(rows => new Set(rows.map(r => r.assetId)).size === rows.length, "Không được trùng tài sản mô phỏng.").optional(),
-  }).strict().refine(v => v.retirementMonth !== undefined || v.assetValues !== undefined, "Cần ít nhất một thay đổi mô phỏng.").optional(),
+  // An empty object carries no change: normalize it to "no what-if" so it never
+  // reaches the selection/inputHash (empty objects were rejected before, so no
+  // saved snapshot contains one).
+  }).strict().transform(v => v.retirementMonth === undefined && v.assetValues === undefined ? undefined : v).optional(),
   // Explicit mapping prevents rent/sale proceeds being counted both in assets and
   // income. Old housing declarations lacking amount scope require review.
   housing: z.array(z.object({ assetId: id, amountScope: z.enum(["WHOLE_ASSET", "OWNERS_SHARE"]),

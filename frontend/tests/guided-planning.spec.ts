@@ -30,7 +30,7 @@ async function setup(page: Page, options: { onboarding?: boolean; missingYear?: 
   } } }));
   const policy = { id: "policy-test", version: 4, data: { ...policies.v2, assumptionVersionId: "asm-1" } };
   await page.route("**/api/v1/me/portfolio-policies**", route => route.fulfill({ json: { data: new URL(route.request().url()).pathname.endsWith("/policy-test") ? policy : { status: "AVAILABLE", items: [policy] } } }));
-  await page.route("**/api/v1/me/retirement/preview", async route => {
+  await page.route("**/api/v1/me/retirement/preview*", async route => {
     const input = route.request().postDataJSON();
     const delayed = input.whatIf?.retirementMonth === "2038-11";
     if (options.delayedResponse && input.monthlyContribution === "1000000") await new Promise(resolve => setTimeout(resolve, 1600));
@@ -57,76 +57,55 @@ async function setup(page: Page, options: { onboarding?: boolean; missingYear?: 
   return { calls, errors, state };
 }
 
-async function enterTimeline(page: Page, en = false) {
+async function completeQuickOnboarding(page: Page, en = false) {
+  await page.getByLabel(en ? "Birth month (required)" : "Tháng/năm sinh (bắt buộc)").fill("1981-05");
+  await page.getByLabel(en ? "Desired retirement month (required)" : "Tháng bạn muốn nghỉ hưu (bắt buộc)").fill("2027-10");
   await page.getByRole("button", { name: en ? "20 million" : "20 triệu", exact: true }).click();
-  await page.getByRole("button", { name: en ? "Start" : "Bắt đầu khai báo", exact: true }).click();
-  await page.getByLabel(en ? "Your Current Age (required to finish)" : "Tuổi hiện tại của bạn (cần để hoàn tất)", { exact: true }).fill("45");
-  await page.getByLabel(en ? "Birth month for the detailed profile (unknown allowed)" : "Tháng sinh cho hồ sơ chi tiết (có thể chưa biết)").fill("1981-05");
-  await page.getByLabel(en ? "Desired retirement month" : "Tháng bạn muốn nghỉ hưu", { exact: true }).fill("2027-10");
   await page.getByRole("button", { name: en ? "Continue" : "Tiếp tục", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: en ? "Your Money Today" : "Tiền của bạn hôm nay" })).toBeVisible();
+  await page.getByLabel(en ? "Monthly income after tax" : "Thu nhập mỗi tháng (sau thuế)").fill("35000000");
+  await page.getByRole("button", { name: en ? "Same as desired spending" : "Bằng mức chi mong muốn", exact: true }).click();
+  await page.getByRole("button", { name: en ? "Continue" : "Tiếp tục", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: en ? "Your Investment Preferences" : "Khẩu vị đầu tư" })).toBeVisible();
+  await expect(page.locator(".quick-risk-card").first()).toBeVisible();
+  const cards = page.locator(".quick-risk-card");
+  const count = await cards.count();
+  for (let i = 0; i < count; i++) {
+    const card = cards.nth(i);
+    const activeChip = card.locator(".quick-chip.is-active");
+    if (await activeChip.count() === 0) {
+      await card.locator(".quick-chip").first().click();
+    }
+  }
+  const finishBtn = page.getByRole("button", { name: en ? "See your first plan" : "Xem kế hoạch đầu tiên của bạn", exact: true });
+  await expect(finishBtn).toBeEnabled();
+  await finishBtn.click();
 }
 
 for (const viewport of [{ width: 1440, height: 1000 }, { width: 375, height: 812 }]) {
-  test(`guided onboarding, published purchasing power and contribution budget ${viewport.width}`, async ({ page }) => {
+  test(`guided onboarding to plan transition ${viewport.width}`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    const { calls, errors, state } = await setup(page, { onboarding: true });
-    await expect(page.getByRole("heading", { name: "Bạn muốn chi bao nhiêu mỗi tháng khi nghỉ hưu?" })).toBeVisible();
-    await expect(page.getByLabel("Giới tính", { exact: true })).toHaveCount(0);
-    await enterTimeline(page);
-    await expect(page.getByRole("heading", { name: "Mức sống hôm nay, sức mua ngày mai" })).toBeVisible();
-    // Oct-Dec 2026 at 2%, Jan-Sep 2027 at 6%; a fixed-rate shortcut gives a different result.
-    const expected = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(20000000 * 1.02 ** (3/12) * 1.06 ** (9/12));
-    await expect(page.getByTestId("future-purchasing-power")).toHaveText(`${expected} đồng/tháng`);
-    await page.getByText("Vì sao An Hưu dùng con số này?", { exact: true }).click();
-    await expect(page.getByText("Nguồn lạm phát kiểm thử", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Xem nguồn" })).toHaveAttribute("href", "https://example.org/inflation");
-    await page.screenshot({ path: `test-results/purchasing-power-${viewport.width}.png`, fullPage: true });
-    await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
-    await page.getByLabel("Thu nhập chính sau thuế (Lương / Thù lao)", { exact: true }).fill("30000000");
-    await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
-    await page.getByLabel("Chi tiêu thiết yếu hàng tháng", { exact: true }).fill("20000000");
-    await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
-    await expect(page.getByLabel("Bất động sản khác (không tính nhà đang ở)", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
-    await page.getByLabel("Khoản góp mỗi tháng bạn chọn", { exact: true }).fill("11000000");
-    await expect(page.getByText(/Khoản góp vượt phần còn dư/)).toBeVisible();
-    await expect(page.getByText(/Phần còn dư = thu − chi sinh hoạt/)).toContainText("10.000.000");
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
-    await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Bạn còn những khoản nợ nào cần trả?" })).toBeVisible();
-    await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
-    await page.getByRole("button", { name: "Chưa biết, bổ sung sau", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Bức tranh tài chính tổng quan của bạn" })).toBeVisible();
-    expect(state.getDraft().step).toBe("summary");
-    const draftWrites = calls.filter(call => call.path.endsWith("/onboarding-draft"));
-    expect(draftWrites.map(call => call.body.step)).toEqual(["personal", "income", "expenses", "assets", "investment", "debt", "socialSecurity", "summary"]);
-    for (const call of draftWrites) { expect(call.body.data.schemaVersion).toBe(2); expect(call.body.data.lossTolerance).toBeUndefined(); expect(call.body.data.incomeStability).toBeUndefined(); }
-    expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("anhuu:plan-draft:USR-001")!))).toMatchObject({ monthlyExpenseToday: "20000000", monthlyContribution: "11000000", whatIf: { retirementMonth: "2027-10" } });
-    await page.reload();
-    await expect(page.getByRole("heading", { name: "Bức tranh tài chính tổng quan của bạn" })).toBeVisible();
-    await page.getByRole("button", { name: "Hoàn tất hồ sơ", exact: true }).click();
-    await expect(page).toHaveURL(/\/user\/account/);
+    const { errors, state } = await setup(page, { onboarding: true });
+    await expect(page.getByRole("heading", { name: "Mong muốn của bạn" })).toBeVisible();
+    await completeQuickOnboarding(page);
+    await expect(page).toHaveURL(/\/user\/plan/);
     expect(state.getProfile().schemaVersion).toBe(2);
-    expect(state.getProfile().data.personal).toMatchObject({ birthMonth: { status: "KNOWN", value: "1981-05" }, gender: "UNDISCLOSED", maritalStatus: "OTHER" });
+    expect(state.getProfile().data.personal).toMatchObject({
+      birthMonth: { status: "KNOWN", value: "1981-05" },
+      desiredRetirementMonth: { status: "KNOWN", value: "2027-10" },
+    });
     expect(errors).toEqual([]);
   });
 }
 
-for (const failure of ["missingYear", "assumptionError"] as const) {
-  test(`purchasing power does not invent rates: ${failure}`, async ({ page }) => {
-    const { errors } = await setup(page, { onboarding: true, [failure]: true });
-    await enterTimeline(page);
-    await expect(page.getByText(failure === "missingYear" ? /Cần mức chi và thời điểm nghỉ hưu hợp lệ/ : /Chưa tải được bộ giả định đang công bố/)).toBeVisible();
-    await expect(page.getByTestId("future-purchasing-power")).toHaveCount(0);
-    expect(errors).toEqual([]);
-  });
-}
-
-test("English onboarding preserves the same published calculation", async ({ page }) => {
-  const { errors } = await setup(page, { onboarding: true, en: true });
-  await enterTimeline(page, true);
-  await expect(page.getByRole("heading", { name: "Today's lifestyle, tomorrow's purchasing power" })).toBeVisible();
-  await expect(page.getByTestId("future-purchasing-power")).toContainText("VND/month");
+test("English onboarding preserves the same quick onboarding journey", async ({ page }) => {
+  const { errors, state } = await setup(page, { onboarding: true, en: true });
+  await expect(page.getByRole("heading", { name: "Your Retirement Wish" })).toBeVisible();
+  await completeQuickOnboarding(page, true);
+  await expect(page).toHaveURL(/\/user\/plan/);
+  expect(state.getProfile().schemaVersion).toBe(2);
   expect(errors).toEqual([]);
 });
 
@@ -254,7 +233,7 @@ test("English scenarios and incomplete API results are explicit", async ({ page 
   const { errors } = await setup(page, { en: true });
   await expect(page.getByRole("heading", { name: "Retire 5 years later", exact: true })).toBeVisible();
   await expect(page.locator(".guided-scenario").nth(1)).toContainText("Undetermined");
-  await page.route("**/api/v1/me/retirement/preview", route => route.fulfill({ json: { data: { status: "INCOMPLETE", issues: [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }], warnings: [], calculation: null } } }));
+  await page.route("**/api/v1/me/retirement/preview*", route => route.fulfill({ json: { data: { status: "INCOMPLETE", issues: [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }], warnings: [], calculation: null } } }));
   await page.getByLabel("Monthly retirement contribution (VND)", { exact: true }).fill("123456");
   await expect(page.locator(".guided-scenario").nth(0)).toContainText("Not enough data to calculate");
   await expect(page.locator(".guided-scenario").nth(0).locator("dl")).toHaveCount(0);

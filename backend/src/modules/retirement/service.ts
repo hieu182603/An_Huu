@@ -23,22 +23,31 @@ export type RetirementResult = ReturnType<RetirementService["evaluate"]> & {
 };
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+export type PreviewSnapshot = Awaited<ReturnType<RetirementService["capture"]>>;
+/** The adjustment search re-runs the whole projection ~100 times (tens of seconds), so
+ * callers that never show it (scenario cards, live typing) may skip it. */
+export type PreviewOptions = { adjustments: boolean };
+export type PreviewResult = ReturnType<RetirementService["previewCaptured"]>;
+/** Runs the CPU-bound part of a preview off the request thread (see preview-pool.ts).
+ * Its result is the JSON form of PreviewResult, i.e. what the HTTP response carries. */
+export type PreviewRunner = (snapshot: PreviewSnapshot, input: RetirementPreview, options: PreviewOptions) => Promise<PreviewResult>;
 export class RetirementService {
-  constructor(private db: PrismaClient) {}
-  async preview(userId: string, command: RetirementPreview) {
+  constructor(private db: PrismaClient, private runner?: PreviewRunner) {}
+  async preview(userId: string, command: RetirementPreview, options: PreviewOptions = { adjustments: true }): Promise<PreviewResult> {
     const input = retirementPreviewSchema.parse(command);
     // Read-only: one profile row plus immutable PUBLISHED documents, so a
     // SERIALIZABLE transaction adds round trips without adding consistency.
     // Saving re-captures inside the write transaction and checks inputHash.
     const snapshot = await this.capture(this.db, userId, input);
-    return this.previewCaptured(snapshot, input);
+    return this.runner ? this.runner(snapshot, input, options) : this.previewCaptured(snapshot, input, options);
   }
   /** HTTP preview from one authoritative capture, with every read-only supplement. */
-  previewCaptured(snapshot: Awaited<ReturnType<RetirementService["capture"]>>, input: RetirementPreview) {
+  previewCaptured(snapshot: PreviewSnapshot, input: RetirementPreview, options: PreviewOptions = { adjustments: true }) {
     const { result, profile, capitalSeparation, lossConstraint, essential } = this.previewParts(snapshot, input);
     logPreviewCoverage(result.issues, "/api/v1/me/retirement/preview");
-    const adjustments = adjustmentOptions(profile, input, snapshot.policy.data, snapshot.assumptions.data, result);
-    return this.withSupplements(result, essential, { capitalSeparation, lossConstraint, essentialCoverage: essential, adjustmentOptions: adjustments,
+    const adjustments = options.adjustments
+      ? { adjustmentOptions: adjustmentOptions(profile, input, snapshot.policy.data, snapshot.assumptions.data, result) } : {};
+    return this.withSupplements(result, essential, { capitalSeparation, lossConstraint, essentialCoverage: essential, ...adjustments,
       decisionExplanations: decisionExplanations(profile, capitalSeparation, lossConstraint, result) });
   }
   /** Same authoritative values for metric explanations, without the repeated-projection

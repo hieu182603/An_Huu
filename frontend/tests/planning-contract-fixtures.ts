@@ -31,7 +31,7 @@ export async function setupPlanning(page: Page, options: { extras?: any; saved?:
   await page.route("**/api/v1/me/retirement/plans**", r => { const path = new URL(r.request().url()).pathname;
     return r.fulfill({ json: { data: !options.saved ? { items: [], total: 0 } : path.endsWith("/plan-test") ? { id: "plan-test", revision: 1, currentVersionId: saved.id, current: saved, readWarnings: saved.readWarnings, updates: {} } : path.endsWith("/versions") ? { items: [saved], total: 1 } : { items: [{ id: "plan-test", revision: 1, currentVersionId: saved.id }], total: 1 } } });
   });
-  await page.route("**/api/v1/me/retirement/preview", r => r.fulfill({ json: { data: preview(r.request().postDataJSON(), options.extras) } }));
+  await page.route("**/api/v1/me/retirement/preview*", r => r.fulfill({ json: { data: preview(r.request().postDataJSON(), options.extras) } }));
   await page.addInitScript(({ input, saved, onboarding, en }) => { localStorage.setItem("anhuu_language", en ? "en" : "vi"); if (!saved && !onboarding) sessionStorage.setItem("anhuu:plan-draft:USR-001", JSON.stringify(input)); }, { input: selection, saved: options.saved, onboarding: options.onboarding, en: options.en });
   await page.clock.setFixedTime(new Date("2026-10-16T05:00:00Z"));
   return { calls, errors, state, saved };

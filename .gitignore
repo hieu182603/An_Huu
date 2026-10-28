@@ -94,3 +94,18 @@ an-huu-intro*
 *.avi
 *.mkv
 
+# Documentation, notes, and Office files
+/docs/
+*.doc
+*.docx
+*.md
+!README.md
+!**/README.md
+
+
+
+
+
+# Sites and design experiments
+sites/
+.impeccable/

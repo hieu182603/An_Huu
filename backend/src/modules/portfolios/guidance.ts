@@ -21,10 +21,10 @@ export function previewGuidance(policy: PortfolioDocument, assumptions: Assumpti
     TEMPLATE_NOT_ELIGIBLE: { action: "REVIEW_SELECTION",
       message: "Cách phân bổ đầu tư đang chọn không phù hợp với kết quả khảo sát hoặc thời hạn kế hoạch. Hãy xem các phương án phù hợp để chọn lại." },
   };
-  if (issues.some(issue => issue.path.startsWith("answers"))) {
-    messages.POLICY_NOT_COVERED = { action: "REVIEW_SELECTION",
-      message: "Chưa đánh giá được cách phân bổ đầu tư vì câu trả lời khảo sát còn thiếu hoặc chưa hợp lệ. Hãy kiểm tra các câu được đánh dấu." };
-  }
+  // One entry for all survey-answer issues; assessPortfolio no longer reports a
+  // coverage gap for them, so this is the only explanation the user needs.
+  const answers = { action: "REVIEW_SELECTION" as const,
+    message: "Chưa đánh giá được cách phân bổ đầu tư vì câu trả lời khảo sát còn thiếu hoặc chưa hợp lệ. Hãy kiểm tra các câu được đánh dấu." };
   const seen = new Set<string>();
   return {
     requestedPeriod: { startMonth: input.startMonth, endMonth, horizonMonths: input.horizonMonths },
@@ -35,6 +35,11 @@ export function previewGuidance(policy: PortfolioDocument, assumptions: Assumpti
       minMonths: rule.horizon.min, maxMonths: rule.horizon.max })),
     policyChecks: issues.some(issue => issue.code === "POLICY_NOT_COVERED") ? assessPortfolio(policy, input).checks : [],
     issues: issues.flatMap(issue => {
+      if (issue.path.startsWith("answers")) {
+        if (seen.has("answers")) return [];
+        seen.add("answers");
+        return [{ path: "answers", code: issue.code, ...answers }];
+      }
       const message = messages[issue.code], key = `${issue.path}:${issue.code}`;
       if (!message || seen.has(key)) return [];
       seen.add(key);
