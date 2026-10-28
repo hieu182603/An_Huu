@@ -31,7 +31,7 @@ export const retirementPreviewSchema = z.object({
   terminalBalance: moneySchema.default("0"),
   contributionSchedule: schedule.default([]), retirementContributionSchedule: schedule.default([]),
   retirementIncomeIds: ids, retirementAdditionalExpenseIds: ids.default([]),
-  debtStress: debtPreviewSchema.innerType().shape.stress.default([]),
+  debtStress: debtPreviewSchema.shape.stress.default([]),
   // Personal alternatives only; never accepts investment/inflation assumptions.
   // Persisted profile remains unchanged, even when this plan is later applied.
   whatIf: z.object({

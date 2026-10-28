@@ -52,3 +52,16 @@ export function paginationSchema<T extends [string, ...string[]]>(sortFields: T)
 export const moneySchema = z.string().regex(/^(0|[1-9]\d{0,15})(\.\d{1,2})?$/, "Số tiền phải là chuỗi thập phân không âm, tối đa 16 chữ số nguyên và 2 chữ số thập phân.");
 export const signedMoneySchema = z.string().regex(/^-?(0|[1-9]\d{0,15})(\.\d{1,2})?$/);
 export const roleSchema = z.enum(["USER", "ADMIN"]);
+/** The object without its refinements (zod 3's `innerType()`): zod 4 keeps refinements
+ * on the object itself and throws on `.pick()`/`.partial()` while they are present. */
+export const unrefined = <T extends z.ZodObject>(schema: T): T => schema.clone({ ...schema.def, checks: [] }) as T;
+/** `.partial()` that leaves absent keys absent, as in zod 3. zod 4 fills `.default()`
+ * values inside optional fields, so a partial update would overwrite stored values. */
+export function partialKeepAbsent<Shape extends z.ZodRawShape, Config extends z.core.$ZodObjectConfig>(schema: z.ZodObject<Shape, Config>) {
+  const partial = schema.partial();
+  const shape = Object.fromEntries(Object.entries(partial.shape).map(([key, field]) => {
+    const inner = (field as z.ZodOptional).unwrap();
+    return [key, inner instanceof z.ZodDefault ? z.optional(inner.unwrap()) : field];
+  }));
+  return partial.clone({ ...partial.def, shape } as typeof partial.def) as typeof partial;
+}

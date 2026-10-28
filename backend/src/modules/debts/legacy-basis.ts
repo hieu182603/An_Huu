@@ -12,7 +12,7 @@ import type { SourceCell, SourceRevision } from "../retirement/sources";
 export const loanLegacyOpeningSchema = z.object({ signedOn: dateSchema, amendedOn: dateSchema.nullable(), effectiveOn: dateSchema,
   knownOn: dateSchema, previouslyPaid: moneySchema, capBasis: z.literal("TOTAL_USER_PAYMENTS").optional(), evidence: z.array(loanEvidenceSchema).min(1).max(20) }).strict();
 export const loanLegacyBasisSchema = z.object({ debt: debtEntrySchema, opening: loanLegacyOpeningSchema,
-  stress: debtPreviewSchema.innerType().shape.stress }).strict();
+  stress: debtPreviewSchema.shape.stress }).strict();
 export type LoanLegacyBasis = z.infer<typeof loanLegacyBasisSchema>;
 const fail = (): never => { throw new AppError(409, "LOAN_LEGACY_BASIS_MISMATCH", "Số dư/hợp đồng gốc hoặc chứng từ chuyển đổi không khớp."); };
 
