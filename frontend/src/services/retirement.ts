@@ -1,4 +1,5 @@
 import { authenticatedRequest } from "./api";
+import { shareInFlight } from "../utils/inFlight";
 import type { ProfileV2 } from "./financialProfile";
 
 export interface RetirementAnswerItem {
@@ -318,11 +319,13 @@ export async function previewMonthlyRetirement(
   const opts = signalOrOptions instanceof AbortSignal ? options : (signalOrOptions || options);
   const adjustments = opts?.adjustments ?? "skip";
   const query = `?adjustments=${encodeURIComponent(adjustments)}`;
-  return await authenticatedRequest<RetirementPreviewResult>(
+  // The plan page, its guided scenarios and the plan context ask for the same
+  // preview at once; the server computes previews one at a time, so share it.
+  return await shareInFlight(`${query}|${JSON.stringify(input)}`, signal, shared => authenticatedRequest<RetirementPreviewResult>(
     `/me/retirement/preview${query}`,
     input,
-    "POST", undefined, { signal, ...(adjustments === "include" ? { timeoutMs: PREVIEW_ADJUSTMENTS_TIMEOUT_MS } : {}) }
-  );
+    "POST", undefined, { signal: shared, ...(adjustments === "include" ? { timeoutMs: PREVIEW_ADJUSTMENTS_TIMEOUT_MS } : {}) }
+  ));
 }
 
 export function formatVNDCurrency(amount: string | number | null | undefined): string {

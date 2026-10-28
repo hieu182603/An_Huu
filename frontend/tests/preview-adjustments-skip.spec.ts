@@ -107,6 +107,7 @@ interface SetupOptions {
   adjustmentsErrorStatus?: number;
   adjustmentsErrorCode?: string;
   delayAdjustmentsMs?: number;
+  delaySkipMs?: number;
   onPreviewRequest?: (req: { url: string; adjustments: string | null; input: any }) => void;
 }
 
@@ -168,6 +169,7 @@ async function setupPlanTest(page: Page, options: SetupOptions = {}) {
     }
 
     // Default "skip" preview
+    if (options.delaySkipMs) await new Promise((res) => setTimeout(res, options.delaySkipMs));
     return route.fulfill({
       json: {
         data: createPreviewResponse(input, options.funded ?? false),
@@ -389,5 +391,21 @@ test.describe("Retirement Plan Preview adjustments=skip & include behavior", () 
     // Count include requests now (should be 2)
     const finalIncludes = previewRequests.filter((r) => r.adjustments === "include");
     expect(finalIncludes.length).toBe(2);
+  });
+
+  test("6. Preview chậm: không gửi trùng request giống hệt khi request trước chưa xong", async ({ page }) => {
+    // Production previews take seconds and run one at a time; the plan context and the
+    // "keep your plan" scenario ask for the same body while the first is in flight.
+    const { previewRequests } = await setupPlanTest(page, { delaySkipMs: 1500 });
+
+    await page.goto("/user/plan");
+    await expect(page.locator(".result-total")).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(2000);
+
+    const skipBodies = previewRequests.filter((r) => r.adjustments === "skip").map((r) => JSON.stringify(r.input));
+    expect(skipBodies.length).toBeGreaterThan(0);
+    expect(new Set(skipBodies).size).toBe(skipBodies.length);
+    // Main plan + the two changed scenarios; the unchanged scenario shares the main request.
+    expect(skipBodies.length).toBe(3);
   });
 });
