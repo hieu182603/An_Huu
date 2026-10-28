@@ -9,7 +9,7 @@ import { DebtDecimal as D } from "./loan";
 import { loanSourceSchedule } from "./source-candidate";
 import { assertSourceRegistry, composeSourceMonths, sealSourceRegistry, sealSourceRevision, type SourceRegistry } from "../retirement/sources";
 
-const terms = loanContractV2Schema.innerType().shape, evidence = z.array(loanEvidenceSchema).min(1).max(20);
+const terms = loanContractV2Schema.shape, evidence = z.array(loanEvidenceSchema).min(1).max(20);
 /** Terms in force at disbursement when the bank amended the contract later.
  * Declared with evidence; never inferred from the amended terms. */
 export const loanOriginalTermsSchema = z.object({ signedOn: dateSchema, amendedOn: dateSchema.nullable(), effectiveOn: dateSchema,

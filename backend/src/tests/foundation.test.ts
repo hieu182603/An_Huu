@@ -18,7 +18,7 @@ import { Prisma } from "@prisma/client";
 
 beforeEach(() => { vi.spyOn(console, "info").mockImplementation(() => {}); vi.spyOn(console, "error").mockImplementation(() => {}); });
 const errorShape = z.object({
-  error: z.object({ code: z.string(), message: z.string(), fieldErrors: z.record(z.array(z.string())).optional() }).strict(),
+  error: z.object({ code: z.string(), message: z.string(), fieldErrors: z.record(z.string(), z.array(z.string())).optional() }).strict(),
   requestId: z.string().uuid(),
 }).strict();
 function fixture() {

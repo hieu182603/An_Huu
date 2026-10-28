@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { addMonths, dateSchema } from "../../common/calendar";
-import { moneySchema } from "../../common/http";
+import { moneySchema, unrefined } from "../../common/http";
 import { contractRateSchema } from "./schema";
 import { DebtDecimal as D } from "./loan";
 
@@ -65,7 +65,7 @@ export const loanContractV2Schema = z.object({ contractVersion: z.literal(2), cu
 export type LoanContractV2 = z.infer<typeof loanContractV2Schema>;
 // A v1 loan contributes a confirmed opening balance, not an invented v2
 // schedule. Its original schedule stays pinned unchanged in the source registry.
-export const loanBalanceBasisSchema = loanContractV2Schema.innerType().pick({ currency: true, signedOn: true, amendedOn: true,
+export const loanBalanceBasisSchema = unrefined(loanContractV2Schema).pick({ currency: true, signedOn: true, amendedOn: true,
   effectiveOn: true, knownOn: true, evidence: true, balanceAsOf: true, principalBalance: true, balanceScope: true,
   paymentShare: true, responsibility: true, userPaidToDate: true }).extend({ basisVersion: z.literal(1) }).strict();
 export type LoanBalanceBasis = z.infer<typeof loanBalanceBasisSchema>;

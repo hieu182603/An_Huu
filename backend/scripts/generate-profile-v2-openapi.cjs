@@ -7,7 +7,7 @@ const { schema } = require("./generate-assumptions-openapi.cjs");
 const { profileV2Object, partialProfileV2Object } = require("../src/modules/profiles/schema-v2");
 const file = "docs/profile-v2.openapi.yaml";
 const doc = parseDocument(fs.readFileSync(file, "utf8"));
-const asset = require("../src/modules/profiles/schema-v2").assetEntrySchema.innerType();
+const asset = require("../src/modules/profiles/schema-v2").assetEntrySchema;
 // PartialAssetEntry shares the same YAML properties anchor as AssetEntry.
 doc.setIn(["AssetEntry", "properties", "type"], schema(asset.shape.type));
 doc.setIn(["AssetEntry", "properties", "costBasis"], schema(asset.shape.costBasis));

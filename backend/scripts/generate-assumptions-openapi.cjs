@@ -4,44 +4,50 @@ require("ts-node/register");
 const fs = require("node:fs");
 const { parseDocument, stringify } = require("yaml");
 const input = require("../src/modules/assumptions/schema");
+// zod 4 internals: refinements stay on the schema (no wrapper); preprocess/transform
+// become a "pipe"; z.string().uuid()/regex/url/datetime are "string_format" checks.
 function schema(z) {
-  const d = z._def;
-  switch (d.typeName) {
-    case "ZodEffects": return schema(d.schema);
-    case "ZodOptional": return schema(d.innerType);
-    case "ZodNullable": return { anyOf: [schema(d.innerType), { type: "object", nullable: true, enum: [null] }] };
-    case "ZodDefault": return { ...schema(d.innerType), default: d.defaultValue() };
-    case "ZodLiteral": return { type: typeof d.value === "number" ? "integer" : typeof d.value, enum: [d.value] };
-    case "ZodEnum": return { type: "string", enum: d.values };
-    case "ZodBoolean": return { type: "boolean" };
-    case "ZodString": {
+  const d = z._zod.def, checks = (d.checks ?? []).map(c => c._zod.def);
+  switch (d.type) {
+    case "pipe": return schema(d.in._zod.def.type === "transform" ? d.out : d.in);
+    case "optional": case "nonoptional": return schema(d.innerType);
+    case "nullable": return { anyOf: [schema(d.innerType), { type: "object", nullable: true, enum: [null] }] };
+    case "default": return { ...schema(d.innerType), default: d.defaultValue };
+    case "literal": return { type: typeof d.values[0] === "number" ? "integer" : typeof d.values[0], enum: [d.values[0]] };
+    // The schema's own options array: one instance per enum keeps the YAML anchors.
+    case "enum": return { type: "string", enum: z.options };
+    case "boolean": return { type: "boolean" };
+    case "string": {
       const s = { type: "string" };
-      for (const c of d.checks) {
-        if (c.kind === "min") s.minLength = c.value;
-        if (c.kind === "max") s.maxLength = c.value;
-        if (c.kind === "regex") s.pattern = c.regex.source;
-        if (c.kind === "uuid") s.format = "uuid";
-        if (c.kind === "url") s.format = "uri";
-        if (c.kind === "datetime") s.format = "date-time";
+      for (const c of checks) {
+        if (c.check === "min_length") s.minLength = c.minimum;
+        if (c.check === "max_length") s.maxLength = c.maximum;
+        if (c.check === "length_equals") s.minLength = s.maxLength = c.length;
+        if (c.check === "string_format" && c.format === "regex") s.pattern = c.pattern.source;
+        if (c.check === "string_format" && c.format === "uuid") s.format = "uuid";
+        if (c.check === "string_format" && c.format === "url") s.format = "uri";
+        if (c.check === "string_format" && c.format === "datetime") s.format = "date-time";
       }
       return s;
     }
-    case "ZodNumber": {
-      const s = { type: d.checks.some(c => c.kind === "int") ? "integer" : "number" };
-      for (const c of d.checks) { if (c.kind === "min") s.minimum = c.value; if (c.kind === "max") s.maximum = c.value; }
+    case "number": {
+      const s = { type: checks.some(c => c.check === "number_format" && c.format === "safeint") ? "integer" : "number" };
+      for (const c of checks) { if (c.check === "greater_than") s.minimum = c.value; if (c.check === "less_than") s.maximum = c.value; }
       return s;
     }
-    case "ZodArray": return { type: "array", items: schema(d.type), ...(d.minLength ? { minItems: d.minLength.value } : {}), ...(d.maxLength ? { maxItems: d.maxLength.value } : {}) };
-    case "ZodRecord": return { type: "object", additionalProperties: schema(d.valueType) };
-    case "ZodObject": {
+    case "array": {
+      const min = checks.find(c => c.check === "min_length"), max = checks.find(c => c.check === "max_length");
+      return { type: "array", items: schema(d.element), ...(min ? { minItems: min.minimum } : {}), ...(max ? { maxItems: max.maximum } : {}) };
+    }
+    case "record": return { type: "object", additionalProperties: schema(d.valueType) };
+    case "object": {
       const properties = {}, required = [];
-      for (const [key, value] of Object.entries(d.shape())) { properties[key] = schema(value); if (!value.isOptional()) required.push(key); }
+      for (const [key, value] of Object.entries(d.shape)) { properties[key] = schema(value); if (!value.safeParse(undefined).success) required.push(key); }
       return { type: "object", additionalProperties: false, properties, ...(required.length ? { required } : {}) };
     }
-    case "ZodUnion": return { anyOf: d.options.map(schema) };
-    case "ZodDiscriminatedUnion": return { oneOf: d.options.map(schema) };
-    case "ZodNull": return { type: "object", nullable: true, enum: [null] };
-    default: throw new Error("Unsupported schema " + d.typeName);
+    case "union": return d.discriminator ? { oneOf: d.options.map(schema) } : { anyOf: d.options.map(schema) };
+    case "null": return { type: "object", nullable: true, enum: [null] };
+    default: throw new Error("Unsupported schema " + d.type);
   }
 }
 if (require.main !== module) {

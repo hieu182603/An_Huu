@@ -140,7 +140,7 @@ function build() {
         ' Không xác nhận quan hệ hợp tác với An Hưu, không cam kết lợi suất. Kiểm tra nguồn ngày 08/10/2026: '+url,
       isVisible:'false'
     },ref?'Correct identity/fees from official source; remove unsupported return range':'Quarantine unsupported product; do not silently replace its identity');
-    const data=Object.fromEntries(Object.keys(productInput.innerType().shape).map(k=>[k,k==='isVisible'?p[k]==='true':p[k]]));
+    const data=Object.fromEntries(Object.keys(productInput.shape).map(k=>[k,k==='isVisible'?p[k]==='true':p[k]]));
     productInput.parse(data);
   }
   // Preserve old analytical values in their rows, explicitly label their origin.

@@ -130,7 +130,7 @@ export function adjustmentOptions(profile: ProfileV2, input: RetirementPreview, 
   return result;
 }
 
-export const decisionExplanationSchema = z.object({ code: z.string(), parameters: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])), text: z.string() }).strict();
+export const decisionExplanationSchema = z.object({ code: z.string(), parameters: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])), text: z.string() }).strict();
 export function decisionExplanations(profile: ProfileV2, capital: CapitalSeparation, loss: LossConstraint, prepared: Prepared) {
   const rows: z.infer<typeof decisionExplanationSchema>[] = [];
   const vnd = (value: string | null) => value === null ? "chưa xác định" : new Intl.NumberFormat("vi-VN").format(BigInt(new D(value).toFixed(0)));

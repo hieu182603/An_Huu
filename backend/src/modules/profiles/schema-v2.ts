@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { moneySchema } from "../../common/http";
+import { moneySchema, partialKeepAbsent, unrefined } from "../../common/http";
 import { dateSchema, monthSchema } from "../../common/calendar";
 import { contractDeclarationSchema } from "../debts/schema";
 import { buildContractSchedule } from "../debts/loan";
@@ -215,13 +215,13 @@ function referencesCheck(data: z.infer<typeof profileV2Object> | z.infer<typeof 
 }
 // A draft may contain an unfinished row, identified by its stable ID. Finalization
 // validates the full document; supplied amount/status pairs remain strict in drafts.
-export const partialProfileV2Object = profileV2Object.partial().extend({
-  schemaVersion: z.literal(2), personal: personalV2.partial().optional(),
-  income: collectionSchema(incomeEntrySchema.innerType().partial().required({ id: true })).optional(),
-  expenses: collectionSchema(expenseEntrySchema.innerType().partial().required({ id: true })).optional(),
-  assets: collectionSchema(assetEntrySchema.innerType().partial().required({ id: true })).optional(),
-  debts: collectionSchema(debtEntrySchema.innerType().partial().required({ id: true })).optional(),
-  goals: collectionSchema(goalEntrySchema.partial().required({ id: true })).optional(),
+export const partialProfileV2Object = partialKeepAbsent(profileV2Object).extend({
+  schemaVersion: z.literal(2), personal: partialKeepAbsent(personalV2).optional(),
+  income: collectionSchema(partialKeepAbsent(unrefined(incomeEntrySchema)).required({ id: true })).optional(),
+  expenses: collectionSchema(partialKeepAbsent(unrefined(expenseEntrySchema)).required({ id: true })).optional(),
+  assets: collectionSchema(partialKeepAbsent(unrefined(assetEntrySchema)).required({ id: true })).optional(),
+  debts: collectionSchema(partialKeepAbsent(unrefined(debtEntrySchema)).required({ id: true })).optional(),
+  goals: collectionSchema(partialKeepAbsent(goalEntrySchema).required({ id: true })).optional(),
 }).strict();
 export const profileV2Schema = profileV2Object.superRefine(referencesCheck);
 export const partialProfileV2Schema = partialProfileV2Object.superRefine(referencesCheck);
