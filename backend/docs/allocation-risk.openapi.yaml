@@ -812,6 +812,84 @@ RiskPolicy:
       type: string
       maxLength: 30
       pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+    continuousOptimizer:
+      type: object
+      additionalProperties: false
+      properties:
+        riskAversionGamma:
+          type: number
+          minimum: 0
+          maximum: 1000
+        uncertaintyKappa:
+          type: number
+          minimum: 0
+          maximum: 1000
+        turnoverPenaltyEta:
+          type: number
+          minimum: 0
+          maximum: 1000
+        estimation:
+          type: object
+          additionalProperties: false
+          properties:
+            evidence:
+              type: string
+              minLength: 5
+              maxLength: 2000
+            historicalWeight:
+              type: number
+              minimum: 0
+              maximum: 1
+            monthlyBaselines:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  assetClass:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  returnRate:
+                    type: number
+                    minimum: -1
+                    maximum: 1
+                required:
+                  - assetClass
+                  - returnRate
+              minItems: 1
+              maxItems: 20
+          required:
+            - evidence
+            - historicalWeight
+            - monthlyBaselines
+        bounds:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              assetClass:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              min:
+                type: number
+                minimum: 0
+                maximum: 1
+              max:
+                type: number
+                minimum: 0
+                maximum: 1
+            required:
+              - assetClass
+              - min
+              - max
+          minItems: 1
+          maxItems: 20
+      required:
+        - riskAversionGamma
+        - uncertaintyKappa
+        - turnoverPenaltyEta
+        - bounds
     stresses:
       type: object
       additionalProperties: false
@@ -988,6 +1066,10 @@ RiskPolicy:
                       - 10
               minItems: 1
               maxItems: 2
+            terminalContinuation:
+              type: string
+              enum:
+                - LIVING_CPI_LIFELONG_PENSION_ONLY
           required:
             - extraYears
   required:
@@ -1419,6 +1501,18 @@ RiskResult:
     limitations:
       type: array
       items: *a2
+    optimization:
+      type: object
+      additionalProperties: false
+      properties:
+        status: *a2
+        method: *a2
+        issues:
+          type: array
+          items: *a2
+        feasible: *a15
+      required:
+        - status
     selectedId: *a21
     threshold: *a2
     candidates:

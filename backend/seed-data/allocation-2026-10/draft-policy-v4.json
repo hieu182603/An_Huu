@@ -6151,12 +6151,46 @@
     ]
   },
   "allocationRisk": {
-    "evidence": "CHỜ DUYỆT — tài liệu khách: bootstrap khối 12–36 tháng (chọn 12); CVaR alpha 95%; ngưỡng p thiết yếu 90–95% (chọn 90%); dải tái cân bằng 5 điểm %. Bước dịch cổ phiếu và tham số cú sốc chưa được khách xác nhận: để trống, REVIEW_REQUIRED. Không dùng chuỗi thị trường giả lập.",
+    "evidence": "CHỜ DUYỆT — tài liệu khách: bootstrap khối 12–36 tháng (chọn 12); CVaR alpha 95%; ngưỡng p thiết yếu 90–95% (chọn 90%); dải tái cân bằng 5 điểm %. Bước dịch cổ phiếu ±10 điểm và tham số cú sốc lấy theo mục 9.1 tài liệu thuật toán (cận nhẹ của mỗi khoảng); số nào tài liệu không nêu là lựa chọn An Hưu, đều CHỜ DUYỆT, chưa công bố. CREDIT không cấu hình vì danh mục nền không có trái phiếu doanh nghiệp (mục 4.3: TPCP không có rủi ro vỡ nợ). Không dùng chuỗi thị trường giả lập.",
     "blockMonths": 12,
     "cvarAlpha": "0.95",
     "essentialThreshold": "0.90",
+    "equityShiftPoints": "10",
     "rebalanceBandPoints": "5",
     "stresses": {
+      "HIGH_INFLATION": {
+        "offsetMonths": 0,
+        "durationMonths": 60,
+        "annualDeltaPoints": "3"
+      },
+      "EQUITY_CRASH": {
+        "offsetMonths": 0,
+        "assetClass": "EQUITY",
+        "shockPercent": "-35"
+      },
+      "RATE_RISE": {
+        "offsetMonths": 0,
+        "assetClass": "GOV_BOND",
+        "durationYears": "5",
+        "yieldRisePoints": "2"
+      },
+      "GOLD": {
+        "offsetMonths": 0,
+        "assetClass": "GOLD",
+        "shockPercent": "-20",
+        "spreadPoints": "5"
+      },
+      "PROPERTY_ILLIQUIDITY": {
+        "offsetMonths": 0,
+        "durationMonths": 24,
+        "delayMonths": 24,
+        "haircutPercent": "30"
+      },
+      "INCOME_LOSS": {
+        "offsetMonths": -24,
+        "durationMonths": 12,
+        "lostPercent": "50"
+      },
       "LONGEVITY": {
         "extraYears": [
           5,
