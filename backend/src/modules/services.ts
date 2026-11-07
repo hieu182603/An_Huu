@@ -1,3 +1,5 @@
+import { RecommendationService } from "./recommendation/service";
+import { HoldingsRepository } from "./holdings/repository";
 import type { PrismaClient } from "@prisma/client";
 import type { AppConfig } from "../config/env";
 import { AuthService } from "./auth/service";
@@ -33,9 +35,11 @@ export function createServices(db: PrismaClient, config: AppConfig) {
   const previewPool = previewWorkers > 0 ? createPreviewPool({ size: previewWorkers, timeoutMs: config.PREVIEW_TIMEOUT_MS }) : undefined;
   return {
     previewPool,
+    recommendations: new RecommendationService(db, config.ENABLE_RECOMMENDATION_PUBLICATION === "true", config.RECOMMENDATION_LEGAL_AUTHORIZATION_REFERENCE),
+    holdings: new HoldingsRepository(db),
     explanations: new ExplanationsService(db),
     marketData: new MarketDataService(db),
-    allocationRisk: new AllocationRiskService(db),
+    allocationRisk: new AllocationRiskService(db, { continuous: config.ENABLE_CONTINUOUS_OPTIMIZER === "true", fallback: config.ENABLE_OPTIMIZER_FALLBACK === "true" }),
     catalog: new CatalogService(db),
     settings,
     auth: new AuthService(db, config, id => {
