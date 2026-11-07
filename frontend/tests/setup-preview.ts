@@ -1,10 +1,16 @@
 import { fileURLToPath } from "node:url";
 import { preview } from "vite";
+import { execSync } from "node:child_process";
 
 // Own the server in this process: shell children can survive teardown on Windows.
 export default async function setupPreview() {
+  // Free port 8444 if occupied by a previous orphaned process
+  try {
+    execSync('powershell -Command "Get-NetTCPConnection -LocalPort 8444 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }"', { stdio: "ignore" });
+  } catch {}
+
   let server: any = null;
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 10; attempt++) {
     try {
       server = await preview({
         root: fileURLToPath(new URL("../", import.meta.url)),
@@ -25,7 +31,7 @@ export default async function setupPreview() {
       });
       break;
     } catch (err: any) {
-      if (attempt === 4) throw err;
+      if (attempt === 9) throw err;
       await new Promise((res) => setTimeout(res, 1000));
     }
   }
