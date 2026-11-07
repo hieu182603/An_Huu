@@ -1,0 +1,163 @@
+/*
+ * Retirement goal page aligned with the demo "Mục tiêu nghỉ hưu" screen
+ * (sites/an-huu-trai-nghiem): plain page head, flat white form cards,
+ * input-like age controls and a three-milestone strip.
+ */
+.goal-page-head { display: block; margin-bottom: 28px; padding: 0; border: 0; background: none; box-shadow: none; }
+.goal-page-head::before, .goal-page-head::after { display: none; }
+.goal-page-head h1 { margin: 0; color: #052659; font-size: 32px; font-weight: 700; line-height: 1.35; letter-spacing: -1px; }
+.goal-page-head p { margin: 8px 0 0; color: #456B91; font-size: 14px; }
+
+.goal-form-card, .goal-timeline-card { padding: 28px; border: 1px solid #D0E4FE; border-radius: 24px; background: #fff; box-shadow: none; }
+.goal-form-card > header, .goal-timeline-card > header { gap: 12px; margin-bottom: 20px; }
+.goal-form-card > header h2, .goal-timeline-card > header h2 { margin: 0; color: #052659; font-size: 18px; font-weight: 600; letter-spacing: -.3px; }
+.goal-form-card > header p, .goal-timeline-card > header p { margin: 4px 0 0; color: #456B91; font-size: 13px; }
+.goal-form-card .form-section-index { width: 28px; height: 28px; border-radius: 50%; background: #E8F2FE; color: #334DAF; font-size: 12px; font-weight: 600; box-shadow: none; }
+
+/* Age controls read like the demo's labelled fields. */
+.goal-form-card .age-control-card { padding: 16px; border: 1px solid #7DA0CA; border-radius: 12px; background: #fff; box-shadow: none; }
+.goal-form-card .age-control-card:focus-within { border-color: #334DAF; }
+.goal-form-card .age-card-title { color: #052659; font-size: 14px; font-weight: 600; }
+.goal-form-card .age-card-icon-pill { background: #E8F2FE; color: #334DAF; }
+.goal-form-card .age-card-badge { background: #E8F2FE; color: #052659; font-size: 11px; font-weight: 600; }
+.goal-form-card .age-hero-number-input { width: 64px; color: #052659; font-size: 32px; font-weight: 600; border-bottom-width: 1px; }
+.goal-form-card .age-hero-unit { color: #456B91; font-size: 14px; }
+.goal-form-card .age-stepper-btn { width: 40px; height: 40px; border: 1px solid #D0E4FE; border-radius: 10px; background: #fff; color: #052659; box-shadow: none; }
+.goal-form-card .age-stepper-btn:hover:not(:disabled) { background: #E8F2FE; }
+.goal-form-card .age-card-footer-pill { border-radius: 10px; background: #F9FBFF; color: #456B91; font-size: 12px; }
+
+/* Assumption boxes: quiet values instead of display-size words. */
+.goal-form-card .assumption-metric-box { padding: 16px; border: 1px solid #D0E4FE; border-radius: 12px; background: #F9FBFF; box-shadow: none; }
+.goal-form-card .assumption-metric-value .rate-num.rate-text { color: #052659; font-size: 20px; font-weight: 600; letter-spacing: -.3px; }
+.goal-form-card .assumption-metric-value .rate-num.rate-green { color: #1E7E55; }
+.goal-form-card .assumption-metric-desc { color: #456B91; font-size: 12px; }
+.goal-form-card .assumption-note-banner { border: 0; border-radius: 12px; background: #E8F2FE; color: #052659; }
+
+.goal-form-card .lifestyle-options > * { border-radius: 12px; box-shadow: none; }
+
+/* Three milestones (demo: Bắt đầu tính · Nghỉ hưu mong muốn · Chuẩn bị đến). */
+.goal-milestones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; padding: 0; list-style: none; }
+.goal-milestones li { display: flex; flex-direction: column; gap: 4px; padding: 16px; border: 1px solid #D0E4FE; border-radius: 12px; background: #F9FBFF; }
+.goal-milestones li.is-target { border-color: #334DAF; background: #E8F2FE; }
+.goal-milestones span { color: #456B91; font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; }
+.goal-milestones strong { color: #052659; font-size: 22px; font-weight: 600; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.goal-milestones small { color: #456B91; font-size: 12px; }
+.goal-timeline-card > footer { border-radius: 12px; background: #F9FBFF; color: #456B91; font-size: 12px; }
+
+@media (max-width: 800px) {
+  .goal-page-head h1 { font-size: 28px; }
+  .goal-form-card, .goal-timeline-card { padding: 20px; }
+}
+@media (max-width: 560px) {
+  .goal-milestones { grid-template-columns: 1fr; }
+}
+
+/* =========================================================================
+   Demo Breadcrumb & Life Timeline (sites/an-huu-trai-nghiem: .life-timeline)
+   ========================================================================= */
+.goal-breadcrumb, .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #456B91;
+  margin-bottom: 12px;
+}
+.goal-breadcrumb a, .breadcrumb a {
+  color: #456B91;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.goal-breadcrumb a:hover, .breadcrumb a:hover {
+  color: #334DAF;
+}
+.goal-breadcrumb .crumb-separator, .breadcrumb .crumb-separator {
+  color: #7DA0CA;
+}
+.goal-breadcrumb .crumb-current, .breadcrumb .crumb-current {
+  color: #052659;
+  font-weight: 600;
+}
+
+.life-timeline {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 28px;
+}
+.life-timeline li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px 22px;
+  border: 1px solid #D0E4FE;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(5, 38, 89, 0.04);
+}
+.life-timeline li:nth-child(2) {
+  border-color: #334DAF;
+  background: #E8F2FE;
+}
+.life-timeline span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #456B91;
+  text-transform: uppercase;
+}
+.life-timeline strong {
+  font-size: 22px;
+  font-weight: 700;
+  color: #052659;
+  font-variant-numeric: tabular-nums;
+}
+.life-timeline small {
+  font-size: 13px;
+  color: #456B91;
+}
+
+.goal-card-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.goal-other-card {
+  padding: 24px 28px;
+  border: 1px solid #D0E4FE;
+  border-radius: 16px;
+  background: #ffffff;
+  margin-top: 24px;
+}
+.goal-other-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.goal-other-head h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #052659;
+  margin: 0;
+}
+.goal-other-card p {
+  color: #456B91;
+  font-size: 14px;
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .life-timeline {
+    grid-template-columns: 1fr;
+  }
+  .goal-card-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+

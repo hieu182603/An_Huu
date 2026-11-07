@@ -189,3 +189,144 @@
   color: var(--color-primary-700, #1d4ed8);
   font-weight: 600;
 }
+
+/* ---- Demo layout (sites/an-huu-trai-nghiem: .setup-shell / .setup-card) ---- */
+.quick-onboarding-container.qo-shell { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 72px; max-width: 1080px; margin: 32px auto 64px; padding: 0 40px; font-family: "Be Vietnam Pro", system-ui, sans-serif; color: #052659; }
+.qo-shell .qo-aside { padding-top: 16px; }
+.qo-shell .qo-eyebrow { display: block; margin-bottom: 12px; color: #456B91; font-size: 12px; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; }
+.qo-shell .qo-aside h2 { margin: 0; color: #052659; font-size: 28px; font-weight: 600; line-height: 1.35; letter-spacing: -.8px; }
+.qo-shell .qo-aside > p { margin: 12px 0 0; color: #456B91; font-size: 14px; line-height: 1.65; }
+.qo-shell .onboarding-stages.qo-steps { display: block; margin: 36px 0; padding: 0; list-style: none; }
+.qo-shell .qo-steps li { display: flex; align-items: center; gap: 12px; padding: 0 0 28px; border: 0; border-radius: 0; background: none; color: #456B91; font-size: 14px; font-weight: 500; }
+.qo-shell .qo-steps li[aria-current] { border: 0; background: none; color: #052659; font-weight: 600; }
+.qo-shell .qo-step-number { display: grid; flex: 0 0 36px; place-items: center; width: 36px; height: 36px; border: 1px solid #D0E4FE; border-radius: 50%; background: #fff; font-size: 13px; text-align: center; }
+.qo-shell .qo-steps li[aria-current] .qo-step-number { border-color: #334DAF; background: #334DAF; color: #fff; }
+.qo-shell .qo-steps li.is-done .qo-step-number { border-color: transparent; background: #E6F8F0; color: #1E7E55; }
+.qo-shell .qo-step-copy small { display: block; margin-top: 2px; color: #456B91; font-size: 12px; font-weight: 400; }
+.qo-shell .qo-privacy, .qo-shell .qo-bottom { display: flex; align-items: center; gap: 8px; margin: 0; color: #456B91; font-size: 12px; }
+.qo-shell .qo-bottom { margin-top: 20px; }
+
+.qo-shell .qo-card { padding: 36px 40px; border: 1px solid #D0E4FE; border-radius: 24px; background: #fff; box-shadow: 0 8px 24px rgba(5, 38, 89, .06); }
+.qo-shell .qo-caption { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; color: #456B91; font-size: 12px; letter-spacing: .4px; }
+.qo-shell .qo-error { margin-bottom: 20px; padding: 12px 16px; border-radius: 12px; background: #FDE8E8; color: #C0392B; font-size: 13px; }
+.qo-shell .quick-onboarding-header { margin-bottom: 28px; }
+.qo-shell .quick-onboarding-header h1 { margin: 0 0 8px; color: #052659; font-size: 32px; font-weight: 700; line-height: 1.35; letter-spacing: -1px; }
+.qo-shell .quick-onboarding-header p { color: #456B91; font-size: 14px; }
+.qo-shell .quick-field-label, .qo-shell .quick-field label { color: #052659; font-size: 14px; font-weight: 600; }
+.qo-shell .quick-field input:not([type=checkbox]):not([type=radio]), .qo-shell .quick-field select { min-height: 50px; border: 1px solid #7DA0CA; border-radius: 12px; background: #fff; color: #052659; font-family: inherit; }
+.qo-shell .quick-field input:focus { border-color: #334DAF; outline: 3px solid #84afe0; outline-offset: 1px; }
+.qo-shell .quick-helper-text { color: #456B91; font-size: 12px; }
+.qo-shell .quick-chips-row button, .qo-shell .quick-chips-row .chip { min-height: 40px; padding: 7px 15px; border: 1px solid #D0E4FE; border-radius: 99px; background: #fff; color: #052659; font-size: 13px; }
+.qo-shell .quick-chips-row button[aria-pressed="true"], .qo-shell .quick-chips-row .is-active { border-color: #334DAF; background: #E8F2FE; font-weight: 600; }
+.qo-shell .quick-actions { margin-top: 28px; padding-top: 20px; border-top: 1px solid #E8F2FE; }
+.qo-shell .quick-actions .button { min-height: 48px; padding: 12px 20px; border-radius: 12px; font-weight: 600; }
+.qo-shell .quick-actions .button-primary { background: #334DAF; box-shadow: none; }
+.qo-shell .quick-actions .button-primary:hover:not(:disabled) { background: #091F5C; }
+
+@media (max-width: 900px) {
+  .quick-onboarding-container.qo-shell { display: block; max-width: 650px; margin: 4px auto 40px; padding: 0 24px; }
+  .qo-shell .qo-aside { padding: 0; }
+  .qo-shell .qo-aside h2, .qo-shell .qo-aside > p, .qo-shell .qo-eyebrow, .qo-shell .qo-privacy { display: none; }
+  .qo-shell .onboarding-stages.qo-steps { display: flex; justify-content: space-between; gap: 12px; margin: 20px 0 24px; }
+  .qo-shell .qo-steps li { flex: 1; gap: 8px; padding: 0; font-size: 12px; }
+  .qo-shell .qo-step-number { flex-basis: 28px; width: 28px; height: 28px; font-size: 12px; }
+  .qo-shell .qo-step-copy small { display: none; }
+  .qo-shell .qo-card { padding: 28px; }
+}
+@media (max-width: 480px) {
+  .quick-onboarding-container.qo-shell { padding: 0 16px; }
+  .qo-shell .qo-card { padding: 24px 20px; border-radius: 16px; }
+  .qo-shell .quick-onboarding-header h1 { font-size: 26px; }
+  .qo-shell .qo-steps li { gap: 6px; font-size: 11px; }
+}
+.qo-shell .qo-steps li > .qo-step-copy { flex: 1 1 auto; min-width: 0; text-align: left; }
+.qo-shell .qo-steps li > .qo-step-number { flex: 0 0 36px; }
+.qo-shell .quick-actions .button { gap: 10px; }
+@media (max-width: 900px) { .qo-shell .qo-steps li > .qo-step-number { flex-basis: 28px; } }
+
+/* =========================================================================
+   Demo Survey Questions Styling (sites/an-huu-trai-nghiem/dist/survey-questions.css)
+   ========================================================================= */
+.survey-extra { margin: 20px 0; padding: 0; border-block: 1px solid #dce4ed; }
+.survey-extra > summary { padding: 18px 0; color: #173d68; font-weight: 600; cursor: pointer; }
+.survey-extra[open] > summary { margin-bottom: 8px; }
+.survey-extra > .field, .survey-extra > div, .survey-extra > p, .survey-extra > dl { margin-bottom: 20px; }
+.survey-extra.survey-family-details { margin: 16px 0 28px; padding: 20px 22px 22px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.03); }
+.survey-extra.survey-family-details > summary { list-style: none; padding: 0 0 14px; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+.survey-extra.survey-family-details > summary::-webkit-details-marker { display: none; }
+.survey-family-summary-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.survey-family-title-wrap { display: flex; flex-direction: column; gap: 3px; }
+.survey-family-title { font-size: 15px; font-weight: 700; color: #0f294a; letter-spacing: -0.01em; }
+.survey-family-desc { font-size: 13px; font-weight: 400; color: #64748b; line-height: 1.4; }
+.survey-family-pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 12px; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+.survey-extra.survey-family-details > .survey-family { margin-bottom: 0; }
+.survey-family.two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.survey-family.two-col .family-col { display: flex; flex-direction: column; }
+.survey-family.two-col .field { margin-bottom: 0; }
+.survey-family.two-col .field > label { display: block; min-height: 38px; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #0f294a; line-height: 1.4; }
+.survey-family.two-col .field-optional { color: #64748b; font-size: 12px; font-weight: 400; margin-left: 4px; display: inline-block; }
+.family-field-note { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: #64748b; }
+.dependents-field-wrap .field { margin-bottom: 0; }
+.dependents-presets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+.dependents-presets .preset-btn { height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; transition: all 0.15s ease; user-select: none; }
+.dependents-presets .preset-btn:hover { background: #f1f5f9; border-color: #cbd5e1; color: #0f294a; }
+.dependents-presets .preset-btn.selected { background: #0f294a; border-color: #0f294a; color: #ffffff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15); }
+.survey-section-subhead { font-size: 16px !important; font-weight: 700; color: #0f294a; margin: 0 !important; letter-spacing: -0.01em; }
+.survey-obligations { margin-top: 24px; }
+.survey-obligations-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.survey-obligations-desc { margin: 4px 0 0; font-size: 13px; color: #475569; line-height: 1.45; }
+.survey-obligations-list { display: flex; flex-direction: column; gap: 10px; }
+.survey-branch { background: #ffffff; border: 1px solid #dbe3ec; border-radius: 12px; transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease; overflow: hidden; }
+.survey-branch:hover { border-color: #94a3b8; }
+.survey-branch:has(.survey-toggle input:focus-visible) { outline: 2px solid #245db1; outline-offset: 2px; }
+.survey-branch:has(.survey-toggle input:checked) { border-color: #245db1; box-shadow: 0 4px 12px rgba(15, 41, 74, 0.07); }
+.survey-toggle { display: flex; align-items: center; gap: 14px; cursor: pointer; padding: 15px 18px; margin: 0; user-select: none; transition: background-color 0.16s ease; }
+.survey-toggle:hover { background: #f8fafc; }
+.survey-branch:has(.survey-toggle input:checked) > .survey-toggle { background: #f0f6ff; border-bottom: 1px solid #d8e6f8; }
+.survey-toggle input { flex: 0 0 20px; width: 20px; height: 20px; margin: 0; accent-color: #1d4ed8; cursor: pointer; }
+.survey-branch-icon { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 10px; background: #f1f5f9; color: #334155; display: inline-flex; align-items: center; justify-content: center; transition: background-color 0.16s ease, color 0.16s ease; }
+.survey-branch-icon svg { width: 20px; height: 20px; }
+.survey-branch:has(.survey-toggle input:checked) .survey-branch-icon { background: #dbeafe; color: #1d4ed8; }
+.survey-branch-copy { flex: 1; min-width: 0; }
+.survey-toggle strong { display: block; font-size: 15px; font-weight: 600; color: #0f294a; line-height: 1.35; }
+.survey-toggle small, .survey-reaction .choice small { display: block; margin-top: 3px; color: #475569; line-height: 1.45; font-size: 13px; }
+.survey-branch-status { flex-shrink: 0; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; transition: all 0.16s ease; }
+.survey-branch-status .status-on { display: none; }
+.survey-branch:has(.survey-toggle input:checked) .survey-branch-status { background: #1d4ed8; color: #ffffff; border-color: #1d4ed8; }
+.survey-branch:has(.survey-toggle input:checked) .survey-branch-status .status-off { display: none; }
+.survey-branch:has(.survey-toggle input:checked) .survey-branch-status .status-on { display: inline; }
+.survey-branch-body { padding: 18px 20px 20px; background: #fcfdff; }
+.survey-branch-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; align-items: start; }
+.survey-branch-grid > .field, .survey-branch-grid > .survey-duration-col > .field, .survey-branch-grid > .survey-branch-full > .field { margin-bottom: 0; }
+.survey-branch-grid .field > label { display: block; font-size: 13px; font-weight: 600; color: #0f294a; margin-bottom: 6px; line-height: 1.4; min-height: 18px; }
+.survey-branch-grid .field select, .survey-branch-grid select { min-height: 50px; height: 50px; border-radius: 12px; padding: 10px 14px; font-size: 14px; line-height: 1.5; background-color: #fff; border: 1px solid #7DA0CA; color: #052659; box-sizing: border-box; width: 100%; }
+.survey-branch-grid .input-wrap input { min-height: 50px; height: 50px; border-radius: 12px; box-sizing: border-box; }
+.survey-branch-full { grid-column: 1 / -1; }
+.survey-support-note { margin: 6px 0 0 !important; color: #475569 !important; font-size: 12px !important; line-height: 1.45; }
+.survey-source-field { padding-top: 12px; border-top: 1px dashed #e2e8f0; }
+.survey-pension { margin-top: 24px; padding: 20px 22px; background: #ffffff; border: 1px solid #dbe3ec; border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04); }
+.survey-pension-head { margin-bottom: 14px; }
+.survey-pension h2 { font-size: 16px; font-weight: 700; color: #0f294a; line-height: 1.4; margin: 0; letter-spacing: -0.01em; }
+.survey-pension > .field { margin-bottom: 0; }
+.survey-pension select { min-height: 50px; height: 50px; border-radius: 12px; padding: 10px 14px; font-size: 14px; border: 1px solid #7DA0CA; color: #052659; width: 100%; }
+.survey-pension-fields { margin-top: 16px; padding-top: 16px; border-top: 1px solid #edf2f7; }
+.survey-reaction { border: 0; padding: 0; margin: 0 0 24px; }
+.survey-reaction legend { margin-bottom: 16px; line-height: 1.5; font-size: 16px; font-weight: 600; color: #052659; }
+.survey-reaction .choice-list { display: flex; flex-direction: column; gap: 10px; }
+.survey-reaction .choice { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #D0E4FE; border-radius: 12px; background: #fff; cursor: pointer; transition: all 0.15s ease; }
+.survey-reaction .choice input { margin-top: 4px; flex-shrink: 0; accent-color: #334DAF; }
+.survey-reaction .choice:hover { background: #f8fafc; border-color: #334DAF; }
+.survey-reaction .choice:has(input:checked) { background: #edf3fc; border-color: #245db1; }
+.survey-reaction .choice strong { display: block; font-weight: 600; color: #052659; }
+.survey-safety-selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+.survey-safety-selects select { min-height: 50px; height: 50px; border-radius: 12px; padding: 10px 14px; font-size: 14px; border: 1px solid #7DA0CA; color: #052659; width: 100%; }
+.reserve-months.is-warning { color: #b42318; font-weight: 600; }
+.retirement-estimate { margin-top: 8px; font-size: 13px; font-weight: 600; color: #334DAF; }
+@media (max-width: 650px) {
+  .survey-family.two-col, .survey-branch-grid, .survey-safety-selects { grid-template-columns: 1fr; gap: 14px; }
+  .survey-extra.survey-family-details, .survey-pension { padding: 16px; }
+  .survey-family-summary-header, .survey-obligations-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .survey-toggle { padding: 14px; gap: 10px; }
+  .survey-branch-body { padding: 14px 16px 16px; }
+}
+

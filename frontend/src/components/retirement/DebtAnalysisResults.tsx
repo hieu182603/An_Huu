@@ -21,9 +21,9 @@ export default function DebtAnalysisResults({ data, loans, horizonMonths }: { da
   const ratio = first?.pressure?.ratioPercent;
   const remaining = first?.availableForRetirement;
   const deficit = remaining != null && new Decimal(remaining).lt(0);
-  const shortfall = baseline?.totals.firstShortfallMonth;
+  const shortfall = baseline?.totals?.firstShortfallMonth;
   const cashflowKnown = baseline?.cashflowAssessment?.shortfallStatus === "NOT_DETECTED_IN_HORIZON";
-  const date = (result: DebtSimulationResult | null | undefined) => !result ? unknown : result.totals.debtFreeDate ? formatDateVN(result.totals.debtFreeDate) : result.status === "HORIZON_LIMIT" ? (en ? `Not repaid within ${horizonMonths} months` : `Chưa trả hết trong ${horizonMonths} tháng`) : unknown;
+  const date = (result: DebtSimulationResult | null | undefined) => !result ? unknown : result.totals?.debtFreeDate ? formatDateVN(result.totals.debtFreeDate) : result.status === "HORIZON_LIMIT" ? (en ? `Not repaid within ${horizonMonths} months` : `Chưa trả hết trong ${horizonMonths} tháng`) : unknown;
   const descriptions: Record<string, [string, string]> = {
     LOAN_CONTRACT_REQUIRED: ["Bổ sung lịch trả gốc, lãi và phí theo hợp đồng.", "Add the contractual principal, interest and fee schedule."],
     BALANCE_REQUIRED: ["Bổ sung dư nợ hiện tại.", "Add the outstanding balance."],
@@ -90,15 +90,24 @@ export default function DebtAnalysisResults({ data, loans, horizonMonths }: { da
           {hasMissingMetrics && <span className="debt-data-status"><Icon name="info" size="small" />{en ? "More information needed" : "Chờ bổ sung dữ liệu"}</span>}
         </div>
       </header>
+      {metrics.filter(m => m.value === unknown).length >= 3 && (
+        <div className="debt-mobile-data-required-card">
+          <Icon name="info" />
+          <div>
+            <strong>{en ? "Information needed" : "Cần bổ sung dữ liệu"}</strong>
+            <p>{en ? "Income and loan repayment details are needed to calculate these figures." : "Cần thông tin thu nhập và chi tiết khoản vay để tính toán các chỉ số này."}</p>
+          </div>
+        </div>
+      )}
       <div className="debt-results-metrics">
         {metrics.map(metric => <article key={metric.icon} className={metric.warning ? "has-deficit" : ""}>
           <div className="debt-metric-heading"><span className="debt-result-icon" aria-hidden="true"><Icon name={metric.icon} /></span><h3>{metric.label}</h3></div>
-          <strong className={metric.value === unknown ? "debt-metric-unavailable" : ""} aria-label={metric.value === unknown ? unknown : undefined}>{metric.value === unknown ? "—" : metric.value}</strong>
+          <strong className={metric.value === unknown ? "debt-metric-unavailable" : ""} aria-label={metric.value === unknown ? unknown : undefined}>{metric.value === unknown ? "-" : metric.value}</strong>
           {metric.note && <span className="debt-metric-note">{metric.note}</span>}
           <p>{metric.description}</p>
         </article>)}
       </div>
-      {hasMissingMetrics && <p className="debt-metric-key">{en ? "— means the information needed to calculate this figure is missing." : "Dấu — là chỉ số chưa tính được vì thiếu thông tin."}</p>}
+      {hasMissingMetrics && <p className="debt-metric-key">{en ? "- means the information needed to calculate this figure is missing." : "Dấu - là chỉ số chưa tính được vì thiếu thông tin."}</p>}
       {!baseline && <div className="debt-results-missing debt-overview-missing" role="status">
         <span className="debt-missing-icon" aria-hidden="true"><Icon name="file-text" /></span>
         <div>
@@ -110,11 +119,11 @@ export default function DebtAnalysisResults({ data, loans, horizonMonths }: { da
     </div>
 
     {baseline && <><div className="debt-results-heading"><h2>{en ? "Compare repayment options" : "So sánh các cách trả nợ"}</h2><p>{en ? "Compare costs within the same period. These are projections; no repayment is made automatically." : "Đối chiếu chi phí trong cùng khoảng thời gian. Đây là dự tính; hệ thống không tự thực hiện trả nợ."}</p></div>
-      <div className="debt-results-strategies">{strategies.map(({ key, title, description, result, alternative }) => {
+      <div className="debt-results-strategies compare-grid debt-strategies">{strategies.map(({ key, title, description, result, alternative }) => {
         const saved = alternative?.interestAndFeesSaved;
         const hasSavings = result && alternative?.comparisonScope !== "UNAVAILABLE" && saved != null;
         const extraCost = hasSavings && new Decimal(saved!).lt(0);
-        return <article key={key}><h3>{title}</h3><p>{description}</p><span className="debt-comparison-scope">{!result ? unknown : alternative?.comparisonScope === "SAME_HORIZON_ONLY" || result.status === "HORIZON_LIMIT" ? (en ? `Only within ${horizonMonths} months` : `Chỉ tính trong ${horizonMonths} tháng`) : (en ? "Until fully repaid" : "Tính đến khi trả hết nợ")}</span>
+        return <article key={key} className="debt-option strategy-card"><h3>{title}</h3><p>{description}</p><span className="debt-comparison-scope">{!result ? unknown : alternative?.comparisonScope === "SAME_HORIZON_ONLY" || result.status === "HORIZON_LIMIT" ? (en ? `Only within ${horizonMonths} months` : `Chỉ tính trong ${horizonMonths} tháng`) : (en ? "Until fully repaid" : "Tính đến khi trả hết nợ")}</span>
           {alternative && <div className={`debt-comparison-savings ${extraCost ? "has-deficit" : ""}`}><span>{extraCost ? (en ? "Additional interest & fees" : "Lãi và phí tăng thêm") : (en ? "Interest & fees saved" : "Lãi và phí giảm được")}</span><strong>{hasSavings ? money(extraCost ? new Decimal(saved!).mul(-1).toFixed() : saved) : unknown}</strong></div>}
           <dl><div><dt>{en ? "Interest & fees in period" : "Lãi và phí trong kỳ"}</dt><dd>{money(result?.totals.interestAndFees)}</dd></div><div><dt>{en ? "Expected debt-free date" : "Ngày dự tính hết nợ"}</dt><dd>{date(result)}</dd></div><div><dt>{en ? "Debt remaining at period end" : "Dư nợ cuối kỳ phân tích"}</dt><dd>{money(result?.totals.closingLoanBalance)}</dd></div></dl>
           {!!alternative?.issues.length && <ul className="debt-option-issues">{issues(alternative.issues)}</ul>}

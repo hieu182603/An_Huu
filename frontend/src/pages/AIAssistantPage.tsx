@@ -503,7 +503,10 @@ export default function AIAssistantPage() {
     { title: isEn ? "Will my retirement fund be enough?" : "Tiền nghỉ hưu của tôi có đủ không?", description: isEn ? "Compare the projected fund with what you need." : "Hiểu số tiền dự kiến có và số tiền cần chuẩn bị.", question: isEn ? "Explain how much of my retirement needs my projected fund covers." : "Tiền dự kiến có đáp ứng bao nhiêu phần trăm số tiền cần khi nghỉ hưu?" },
     { title: isEn ? "How much more should I contribute?" : "Tôi cần góp thêm bao nhiêu?", description: isEn ? "Understand the contribution in your saved plan." : "Xem khoản góp thêm theo kế hoạch đã lưu.", question: isEn ? "Explain the additional monthly contribution in my saved plan." : "Giải thích số tiền cần góp thêm mỗi tháng theo kế hoạch đã lưu của tôi." },
     { title: isEn ? "When might I run short?" : "Khi nào tôi có thể thiếu tiền?", description: isEn ? "Find the first projected shortfall month." : "Hiểu thời điểm quỹ dự kiến không đủ chi tiêu.", question: isEn ? "When does my saved plan first project a shortfall?" : "Theo kế hoạch đã lưu, tháng nào tôi bắt đầu thiếu tiền và con số đó có ý nghĩa gì?" },
+    { title: isEn ? "What if I retire later?" : "Nghỉ hưu muộn hơn thì sao?", description: isEn ? "See how a later retirement changes the plan." : "Xem nghỉ hưu muộn hơn thay đổi kế hoạch thế nào.", question: isEn ? "How would retiring a few years later change my saved plan?" : "Nếu tôi nghỉ hưu muộn hơn vài năm thì kế hoạch đã lưu thay đổi thế nào?" },
   ];
+  const planSummary = currentVersion?.preview.calculation?.summary;
+  const planShortfall = planSummary ? Number(planSummary.retirementFundingShortfall) : null;
 
   const historyList = <div className="ai-history-list">
     {historyError && <div role="alert"><p>{historyError}</p><Button onClick={() => loadConversations()}>{isEn ? "Retry" : "Tải lại hội thoại"}</Button></div>}
@@ -523,19 +526,38 @@ export default function AIAssistantPage() {
   </div>;
 
   return (
-    <div className="ai-chat-page">
+    <div className="ai-chat-page ai-assistant-page" aria-label="Trợ lý AI">
       <div className={`ai-chat-workspace ${!hasMessages && !conversationLoading ? "is-empty" : "has-messages"}`}>
         <header className="ai-chat-header">
           <div className="ai-chat-heading"><h1>{isEn ? "An Huu assistant" : "Trợ lý An Hưu"}</h1></div>
           <div className="ai-chat-actions">
-            <button className="ai-plan-trigger" type="button" title={isEn ? "View the retirement plan used for answers" : "Xem kế hoạch nghỉ hưu dùng để trả lời"} aria-haspopup="dialog" onClick={() => setPlanDetailsOpen(true)}><Icon name="file-text" size="small" /><span>{isEn ? "Retirement plan" : "Kế hoạch nghỉ hưu"}</span><span className="ai-plan-version">{loadingPlans ? (isEn ? "Loading…" : "Đang tải…") : currentVersion ? (isEn ? `V${currentVersion.version}` : `Bản ${currentVersion.version}`) : (isEn ? "Not set" : "Chưa có")}</span><Icon name="chevron-down" size="small" /></button>
-            <button ref={historyToggleRef} className="ai-history-toggle" type="button" aria-label={isEn ? "Chat history" : "Lịch sử chat"} aria-expanded={drawerOpen} aria-controls="ai-saved-conversations" onClick={() => setDrawerOpen(open => !open)}><Icon name="message" size="small" /><span>{isEn ? "Chat history" : "Lịch sử chat"}</span></button>
+            <button className="ai-plan-trigger" type="button" title={isEn ? "View the retirement plan used for answers" : "Xem kế hoạch nghỉ hưu dùng để trả lời"} aria-haspopup="dialog" onClick={() => setPlanDetailsOpen(true)}><Icon name="file-text" size="small" /><span>{isEn ? "Retirement plan" : "Kế hoạch nghỉ hưu"}</span><span className="ai-plan-version">{loadingPlans ? (isEn ? "Loading..." : "Đang tải...") : currentVersion ? (isEn ? `V${currentVersion.version}` : `Bản ${currentVersion.version}`) : (isEn ? "Not set" : "Chưa có")}</span><Icon name="chevron-down" size="small" /></button>
+            <button ref={historyToggleRef} className="ai-history-toggle" data-ai="history" type="button" aria-label={isEn ? "Chat history" : "Lịch sử chat"} aria-expanded={drawerOpen} aria-controls="ai-saved-conversations" onClick={() => setDrawerOpen(open => !open)}><Icon name="message" size="small" /><span>{isEn ? "Chat history" : "Lịch sử chat"}</span></button>
+            <button className="ai-new-chat" data-ai="new" type="button" onClick={() => void handleNewConversation()}><Icon name="edit" size="small" /><span>{isEn ? "New chat" : "Chat mới"}</span></button>
           </div>
         </header>
         <div className="ai-chat-body">
         <div className="ai-chat-stage">
-          {!hasMessages && !conversationLoading && <section className="ai-chat-welcome"><span className="ai-welcome-kicker">{isEn ? "YOUR RETIREMENT, EXPLAINED" : "HIỂU KẾ HOẠCH, AN TÂM NGHỈ HƯU"}</span><h2>{isEn ? "What would you like to understand?" : "Bạn muốn hiểu rõ điều gì?"}</h2><p>{isEn ? "Let's walk through your retirement plan, one question at a time." : "Cùng bạn giải đáp từng câu hỏi về kế hoạch nghỉ hưu."}</p></section>}
-      <div className="ai-chat-feed" ref={scrollRef} aria-busy={isTyping || conversationLoading}>
+          {!hasMessages && !conversationLoading && <section className="ai-chat-welcome">
+            <h2>{isEn ? "What would you like to ask?" : "Bạn muốn hỏi gì?"}</h2>
+            {planSummary && planShortfall != null && Number.isFinite(planShortfall) && <p className={`ai-plan-status ${planShortfall > 0 ? "is-short" : "is-ok"}`}>
+              <span>{currentVersion ? (isEn ? `Plan v${currentVersion.version}` : `Kế hoạch bản ${currentVersion.version}`) : ""}</span>
+              <strong>{planShortfall > 0 ? `${isEn ? "Short" : "Thiếu"} ${formatVNDCurrency(planSummary.retirementFundingShortfall)}` : (isEn ? "Goal met" : "Đủ mục tiêu")}</strong>
+            </p>}
+            <div className="ai-chat-suggestions" aria-label={isEn ? "Suggested questions" : "Câu hỏi gợi ý"}>
+              {suggestions.map(suggestion => (
+                <button
+                  key={suggestion.title}
+                  type="button"
+                  className="prompt-pill suggestion-chip quick-question-btn"
+                  onClick={() => handleSelectSuggestion(suggestion.question)}
+                >
+                  {suggestion.title}
+                </button>
+              ))}
+            </div>
+          </section>}
+      <div className="ai-chat-feed chat-history" ref={scrollRef} aria-busy={isTyping || conversationLoading}>
         <div className="ai-chat-content">
           {conversationLoading && <p role="status" className="ai-chat-notice">{isEn ? "Opening conversation…" : "Đang mở hội thoại…"}</p>}
           {messages.filter(message => message.id !== "m-init-assistant").map(msg => <article key={msg.id} className={`ai-chat-message ${msg.role}`}>
@@ -569,14 +591,12 @@ export default function AIAssistantPage() {
               </div>
             </div>
           </form>
-          <p className="ai-chat-limits">{isEn ? "The assistant explains projected figures. It does not change your plan or guarantee investment returns." : "Trợ lý giải thích số liệu dự báo, không tự sửa kế hoạch hay cam kết lợi nhuận."}</p>
+          <p className="ai-chat-limits">{isEn ? "Answers come from your plan figures, not investment advice." : "Trả lời từ số liệu kế hoạch, không phải lời khuyên đầu tư."}</p>
         </div>
       </div>
 
 
-          {!hasMessages && !conversationLoading && <div className="ai-chat-suggestions" aria-label={isEn ? "Suggested questions" : "Câu hỏi gợi ý"}>{suggestions.map(suggestion => <button key={suggestion.title} type="button" onClick={() => handleSelectSuggestion(suggestion.question)}>{suggestion.title}</button>)}</div>}
         </div>
-        <p className="ai-workspace-note">{isEn ? "An Huu helps you understand your plan. Check the figures before making a decision." : "An Hưu giúp bạn hiểu kế hoạch. Hãy kiểm tra số liệu trước khi quyết định."}</p>
           <aside id="ai-saved-conversations" ref={historyPanelRef} className={`ai-history-panel ${drawerOpen ? "is-open" : ""}`} aria-labelledby="ai-history-title" aria-hidden={!drawerOpen} inert={!drawerOpen} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeHistory(); } }}>
             <div className="ai-history-panel-header"><h2 id="ai-history-title">{isEn ? "Saved conversations" : "Hội thoại đã lưu"}</h2><button ref={historyCloseRef} type="button" className="ai-history-close" aria-label={isEn ? "Close conversation history" : "Đóng danh sách hội thoại"} onClick={closeHistory}><Icon name="x" size="small" /></button></div>
             <Button variant="secondary" onClick={handleNewConversation}><Icon name="pen" size="small" />{isEn ? "New conversation" : "Cuộc trò chuyện mới"}</Button>
@@ -596,7 +616,6 @@ export default function AIAssistantPage() {
         <div className="ai-chat-plan-actions">
           <Link to={activePlan ? "/user/plan" : "/user/goal"}>{currentVersion ? (isEn ? "View plan" : "Xem kế hoạch") : (isEn ? "Set up plan" : "Lập kế hoạch")}</Link>
           {canSimulate && <Button variant="secondary" onClick={() => { setPlanDetailsOpen(false); openSimulation(); }}>{isEn ? "Try plan changes" : "Thử thay đổi kế hoạch"}</Button>}
-          {!!currentVersion?.preview.reforecast && <Link to="/user/simulation">{isEn ? "Open updated forecast" : "Mở mô phỏng từ số liệu thực tế"}</Link>}
         </div>
       </section>
 
@@ -649,7 +668,7 @@ export default function AIAssistantPage() {
               </table>
               {whatIfResult.comparison.status !== "COMPARABLE" && <p>Hai phương án khác cơ sở tính nên chưa thể lấy chênh lệch trực tiếp.</p>}
               <p>Tháng bắt đầu thiếu tiền: {whatIfResult.candidate.calculation.summary.firstShortfallMonth ?? "Chưa thấy trong thời gian đã tính"}.</p>
-              <Button variant="secondary" onClick={() => { setWhatIfModalOpen(false); navigate("/user/simulation"); }}>Mở trang mô phỏng để lập và lưu phương án</Button>
+              <Button variant="secondary" onClick={() => { setWhatIfModalOpen(false); navigate("/user/plan"); }}>{isEn ? "Open the plan to save an option" : "Mở Kế hoạch để lưu phương án"}</Button>
             </section>
           )}
         </div>

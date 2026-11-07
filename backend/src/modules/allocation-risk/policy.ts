@@ -15,6 +15,17 @@ export const riskPolicySchema = z.object({
   essentialThreshold: decimal.refine(v => new Prisma.Decimal(v).gt(0) && new Prisma.Decimal(v).lte(1)).optional(),
   equityShiftPoints: positive.refine(v => new Prisma.Decimal(v).lte(100)).optional(),
   rebalanceBandPoints: percent.optional(),
+  continuousOptimizer: z.object({
+    riskAversionGamma: z.number().finite().min(0).max(1000),
+    uncertaintyKappa: z.number().finite().min(0).max(1000),
+    turnoverPenaltyEta: z.number().finite().min(0).max(1000),
+    estimation: z.object({
+      evidence: z.string().min(5).max(2000),
+      historicalWeight: z.number().finite().min(0).max(1),
+      monthlyBaselines: z.array(z.object({ assetClass: code, returnRate: z.number().finite().gt(-1).max(1) }).strict()).min(1).max(20),
+    }).strict().optional(),
+    bounds: z.array(z.object({ assetClass: code, min: z.number().min(0).max(1), max: z.number().min(0).max(1) }).strict().refine(v => v.min <= v.max)).min(1).max(20),
+  }).strict().optional(),
   stresses: z.object({
     HIGH_INFLATION: z.object({ ...timing, annualDeltaPoints: positive }).strict().optional(),
     EQUITY_CRASH: z.object({ offsetMonths: timing.offsetMonths, assetClass: code, shockPercent: shock }).strict().optional(),
@@ -23,7 +34,8 @@ export const riskPolicySchema = z.object({
     GOLD: z.object({ offsetMonths: timing.offsetMonths, assetClass: code, shockPercent: shock, spreadPoints: percent }).strict().optional(),
     PROPERTY_ILLIQUIDITY: z.object({ ...timing, delayMonths: z.number().int().min(1).max(120), haircutPercent: percent }).strict().optional(),
     INCOME_LOSS: z.object({ ...timing, lostPercent: percent }).strict().optional(),
-    LONGEVITY: z.object({ extraYears: z.array(z.union([z.literal(5), z.literal(10)])).min(1).max(2) }).strict().optional(),
+    LONGEVITY: z.object({ extraYears: z.array(z.union([z.literal(5), z.literal(10)])).min(1).max(2),
+      terminalContinuation: z.literal("LIVING_CPI_LIFELONG_PENSION_ONLY").optional() }).strict().optional(),
   }).strict().optional(),
 }).strict();
 export type RiskPolicy = z.infer<typeof riskPolicySchema>;

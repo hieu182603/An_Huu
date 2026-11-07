@@ -117,9 +117,29 @@ const scenarioDelta = { BASE: { cpi: "0", CASH: "0", GOV_BOND: "0", EQUITY: "0",
   FAVORABLE: { cpi: "-0.5", CASH: "0.2", GOV_BOND: "1.0", EQUITY: "2.5", GOLD: "1.5" } };
 const policy = portfolioDocumentV2Schema.parse({
   allocationRisk: {
-    evidence: "CHỜ DUYỆT — tài liệu khách: bootstrap khối 12–36 tháng (chọn 12); CVaR alpha 95%; ngưỡng p thiết yếu 90–95% (chọn 90%); dải tái cân bằng 5 điểm %. Bước dịch cổ phiếu và tham số cú sốc chưa được khách xác nhận: để trống, REVIEW_REQUIRED. Không dùng chuỗi thị trường giả lập.",
+    evidence: "CHỜ DUYỆT — tài liệu khách: bootstrap khối 12–36 tháng (chọn 12); CVaR alpha 95%; ngưỡng p thiết yếu 90–95% (chọn 90%); dải tái cân bằng 5 điểm %. " +
+      "Bước dịch cổ phiếu ±10 điểm và tham số cú sốc lấy theo mục 9.1 tài liệu thuật toán (cận nhẹ của mỗi khoảng); số nào tài liệu không nêu là lựa chọn An Hưu, đều CHỜ DUYỆT, chưa công bố. " +
+      "CREDIT không cấu hình vì danh mục nền không có trái phiếu doanh nghiệp (mục 4.3: TPCP không có rủi ro vỡ nợ). Không dùng chuỗi thị trường giả lập.",
     blockMonths: 12, cvarAlpha: "0.95", essentialThreshold: "0.90", rebalanceBandPoints: "5",
-    stresses: { LONGEVITY: { extraYears: [5, 10] } },
+    // CHỜ DUYỆT: 3 ứng viên = danh mục nền và ±10 điểm cổ phiếu (bù bằng tiền gửi).
+    equityShiftPoints: "10",
+    // offsetMonths tính từ tháng nghỉ hưu (âm = trước khi nghỉ hưu). Xem mục 9.1.
+    stresses: {
+      // KB1: tài liệu không nêu biên độ; chọn +3 điểm/năm trong 5 năm đầu nghỉ hưu.
+      HIGH_INFLATION: { offsetMonths: 0, durationMonths: 60, annualDeltaPoints: "3" },
+      // KB2: cổ phiếu giảm 35%–50% ngay trước hoặc trong 2 năm đầu nghỉ hưu; chọn −35% đúng tháng nghỉ hưu.
+      EQUITY_CRASH: { offsetMonths: 0, assetClass: "EQUITY", shockPercent: "-35" },
+      // KB3: tài liệu không nêu biên độ; chọn lợi suất +2 điểm, duration 5 năm (≈ −10% giá TPCP).
+      RATE_RISE: { offsetMonths: 0, assetClass: "GOV_BOND", durationYears: "5", yieldRisePoints: "2" },
+      // KB5: spread nới 5%–10%; chọn giá vàng −20% và spread 5 điểm.
+      GOLD: { offsetMonths: 0, assetClass: "GOLD", shockPercent: "-20", spreadPoints: "5" },
+      // KB6: bán chậm trên 18 tháng; chọn chậm 24 tháng, giảm giá 30% (lựa chọn An Hưu).
+      PROPERTY_ILLIQUIDITY: { offsetMonths: 0, durationMonths: 24, delayMonths: 24, haircutPercent: "30" },
+      // KB7: giảm 50% thu nhập trong giai đoạn tích lũy; chọn 12 tháng, bắt đầu 24 tháng trước nghỉ hưu.
+      INCOME_LOSS: { offsetMonths: -24, durationMonths: 12, lostPercent: "50" },
+      // KB8: sống thêm 5–10 năm.
+      LONGEVITY: { extraYears: [5, 10] },
+    },
   },
   lossStress: {
     evidence: "Tài liệu thuật toán khách hàng, mục ví dụ 2 tỷ: tiền gửi 0%, TPCP -5%, cổ phiếu -35%, vàng -10%. Bản nháp phải được phê duyệt và công bố trước khi dùng.",

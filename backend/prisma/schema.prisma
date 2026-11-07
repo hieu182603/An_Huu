@@ -69,6 +69,11 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
+  investmentRoles InvestmentRoleGrant[]
+  investmentHoldings InvestmentHolding[]
+  recommendations InvestmentRecommendation[] @relation("RecommendationOwner")
+  authoredRecommendations InvestmentRecommendation[] @relation("RecommendationAuthor")
+  investmentApprovals InvestmentApproval[]
   tokens         VerificationToken[]
   refreshTokens  RefreshToken[]
   profile        FinancialProfile?
@@ -246,6 +251,7 @@ model PlanVersion {
   chartSeries       Json @db.JsonB
   asOfDate          DateTime
   createdAt         DateTime @default(now())
+  investmentRecommendations InvestmentRecommendation[]
   @@unique([planId, version])
   @@map("plan_versions")
 }
@@ -440,6 +446,9 @@ model PartnerProduct {
   name           String
   category       String
   expectedReturn String
+  investmentData InvestmentProductData?
+  investmentHoldings InvestmentHolding[]
+  recommendationItems InvestmentRecommendationItem[]
   riskLevel      RiskLevel @default(MEDIUM)
   description    String?   @db.Text
   annualFee      String?   @db.Text
@@ -748,4 +757,96 @@ model ActualEventIdentity {
   month   ActualMonth @relation(fields: [monthId], references: [id], onDelete: Cascade)
   @@unique([userId, eventId])
   @@map("actual_event_identities")
+}
+
+// Additive investment workflow; USER/ADMIN authentication remains compatible.
+enum InvestmentRole {
+  OPERATIONS
+  DATA_ADMIN
+  MODEL_ADMIN
+  ADVISOR
+  APPROVER
+  SYSTEM_ADMIN
+}
+model InvestmentRoleGrant {
+  userId String
+  role InvestmentRole
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy String
+  createdAt DateTime @default(now())
+  @@id([userId, role])
+  @@map("investment_role_grants")
+}
+model InvestmentProductData {
+  productId String @id
+  product PartnerProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  revision Int @default(1)
+  document Json @db.JsonB
+  documentHash String
+  updatedAt DateTime @updatedAt
+  @@map("investment_product_data")
+}
+model InvestmentHolding {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product PartnerProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity Decimal @db.Decimal(24, 8)
+  unitCost Decimal @db.Decimal(24, 8)
+  lockedUntil DateTime? @db.Date
+  revision Int @default(1)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  @@unique([userId, productId])
+  @@index([userId, updatedAt])
+  @@map("investment_holdings")
+}
+model InvestmentRecommendation {
+  id String @id @default(uuid())
+  userId String
+  user User @relation("RecommendationOwner", fields: [userId], references: [id], onDelete: Restrict)
+  createdBy String
+  author User @relation("RecommendationAuthor", fields: [createdBy], references: [id], onDelete: Restrict)
+  planVersionId String
+  planVersion PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  status String @default("DRAFT")
+  revision Int @default(1)
+  document Json @db.JsonB
+  contentHash String
+  references Json @db.JsonB
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items InvestmentRecommendationItem[]
+  approvals InvestmentApproval[]
+  @@index([userId, status, createdAt])
+  @@index([status, expiresAt])
+  @@map("investment_recommendations")
+}
+model InvestmentRecommendationItem {
+  id String @id @default(uuid())
+  recommendationId String
+  recommendation InvestmentRecommendation @relation(fields: [recommendationId], references: [id], onDelete: Restrict)
+  productId String
+  product PartnerProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  document Json @db.JsonB
+  @@unique([recommendationId, productId])
+  @@map("investment_recommendation_items")
+}
+model InvestmentApproval {
+  id String @id @default(uuid())
+  recommendationId String
+  recommendation InvestmentRecommendation @relation(fields: [recommendationId], references: [id], onDelete: Restrict)
+  actorId String
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  revision Int
+  contentHash String
+  decision String
+  reason String
+  snapshot Json @db.JsonB
+  createdAt DateTime @default(now())
+  @@unique([recommendationId, revision, decision])
+  @@index([recommendationId, createdAt])
+  @@map("investment_approvals")
 }

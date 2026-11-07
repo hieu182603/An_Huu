@@ -506,7 +506,7 @@ export function profileFromDraft(base: FinancialProfile, d: OnboardingDraftData)
   };
 }
 
-export const serverStep = (step: string) => step === "contribution" ? "investment" : step === "expense" ? "expenses" : step === "invest-social" ? "socialSecurity" : step;
+export const serverStep = (step: string) => step === "quick-family" ? "personal" : step === "quick-money" ? "income" : step === "quick-risk" ? "investment" : step === "contribution" ? "investment" : step === "expense" ? "expenses" : step === "invest-social" ? "socialSecurity" : step;
 export const clientStep = (step: string) => step === "expenses" ? "expense" : step === "investment" ? "contribution" : step === "socialSecurity" ? "invest-social" : step;
 
 export interface QuickStartProfileInput {
@@ -520,6 +520,9 @@ export interface QuickStartProfileInput {
   debtMonthlyPayment?: number;
   valuationDate?: string;
   retirementShare?: "1" | "UNKNOWN";
+  // Family step (optional): omitted values stay out of the profile.
+  maritalStatus?: "SINGLE" | "MARRIED" | "OTHER";
+  dependents?: number | null;
 }
 
 export function createQuickStartProfileV2(input: QuickStartProfileInput): ProfileV2 {
@@ -622,6 +625,8 @@ export function createQuickStartProfileV2(input: QuickStartProfileInput): Profil
       birthMonth: known(input.birthMonth),
       desiredRetirementMonth: known(input.desiredRetirementMonth),
       pensionStartMonth: unknown,
+      ...(input.maritalStatus ? { maritalStatus: input.maritalStatus } : {}),
+      ...(input.dependents != null && Number.isInteger(input.dependents) ? { dependents: known(input.dependents) } : {}),
     },
     income: { status: "KNOWN", entries: incomeEntries },
     expenses: { status: "KNOWN", entries: expenseEntries },

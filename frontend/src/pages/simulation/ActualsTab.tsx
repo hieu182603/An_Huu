@@ -1704,9 +1704,161 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
   useEffect(() => { onBusyChange?.(writing); }, [writing, onBusyChange]);
   useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
+  const planSummary = currentVersion?.preview?.calculation?.summary;
+  const hasShortfall = Boolean(planSummary && Number(planSummary.retirementFundingShortfall) > 0);
+  const chosenMonthlySave = Number(baselineSelection?.monthlyContribution || profile.plan.monthlySavings || 0);
+  const firstMonthCapacity = Math.floor(Number(currentVersion?.preview.calculation?.rows?.[0]?.contributionCapacity || 0));
+  const retireAge = profile.goal.targetRetireAge || 60;
+
+  const monthContributed = entries
+    .filter(e => e.kind === "CONTRIBUTION")
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const targetContribution = chosenMonthlySave;
+  const contributionPercent = targetContribution > 0
+    ? Math.min(100, Math.round((monthContributed / targetContribution) * 100))
+    : 0;
+
   return (
     <>
-        <div className="simulation-actuals" style={{ display: "grid", gap: "var(--space-6)" }}>
+      <div className="simulation-actuals" style={{ display: "grid", gap: "var(--space-6)" }}>
+        {/* 1. Checkin Summary Card matching demo */}
+        <section className="card checkin-summary">
+          <div className="checkin-heading">
+            <h2>
+              {hasShortfall
+                ? (language === "en" ? "Shortfall projected - review needed" : "Có một khoảng thiếu cần xem lại")
+                : (language === "en" ? "Plan meets current assumptions" : "Kế hoạch đang đáp ứng các giả định")}
+            </h2>
+            <Badge tone={hasShortfall ? "warning" : "success"}>
+              {language === "en" ? "Profile Projection" : "Dự phóng theo hồ sơ"}
+            </Badge>
+          </div>
+          <p>
+            {hasShortfall
+              ? (language === "en"
+                  ? `Fund may run out starting from ${planSummary?.firstShortfallMonth ? formatMonthVN(planSummary.firstShortfallMonth) : "retirement"}. You can adjust monthly contribution or retirement age.`
+                  : `Quỹ có thể bắt đầu thiếu từ ${planSummary?.firstShortfallMonth ? formatMonthVN(planSummary.firstShortfallMonth) : "tuổi hưu"}. Bạn có thể thử thay đổi mức góp hoặc tuổi nghỉ hưu.`)
+              : (language === "en"
+                  ? "You can maintain current settings and return whenever your financial situation changes."
+                  : "Bạn có thể giữ lựa chọn hiện tại và quay lại khi thu nhập, chi tiêu hoặc mục tiêu thay đổi.")}
+          </p>
+          <dl className="checkin-numbers">
+            <div>
+              <dt>{language === "en" ? "Chosen contribution" : "Mức góp đang chọn"}</dt>
+              <dd>{formatVND(chosenMonthlySave)}/{language === "en" ? "mo" : "tháng"}</dd>
+            </div>
+            <div>
+              <dt>{language === "en" ? "First month capacity" : "Có thể góp tháng đầu"}</dt>
+              <dd>{firstMonthCapacity > 0 ? `${formatVND(firstMonthCapacity)}/${language === "en" ? "mo" : "tháng"}` : (language === "en" ? "Undetermined" : "Chưa xác định")}</dd>
+            </div>
+            <div>
+              <dt>{language === "en" ? "Retirement age" : "Tuổi nghỉ hưu"}</dt>
+              <dd>{retireAge} {language === "en" ? "yrs" : "tuổi"}</dd>
+            </div>
+          </dl>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <Link to="/user/plan" className="button button-primary button-small">
+              <span>{language === "en" ? "View Plan" : "Xem kế hoạch"}</span>
+            </Link>
+            <Link to="/user/goal" className="button button-secondary button-small">
+              <span>{language === "en" ? "Adjust Goals" : "Sửa mục tiêu"}</span>
+            </Link>
+          </div>
+        </section>
+
+        {/* 2. Track Grid (Current Month Progress & Session History) */}
+        <div className="track-grid">
+          <section className="card" style={{ padding: "24px" }}>
+            <span className="eyebrow" style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-primary-700, #334DAF)", letterSpacing: "0.05em" }}>
+              {language === "en" ? `MONTH ${selectedPeriod}` : `THÁNG ${formatMonthVN(selectedPeriod)}`}
+            </span>
+            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#052659", margin: "8px 0 0" }}>
+              {language === "en" ? "You have contributed" : "Bạn đã góp"}
+            </h2>
+            <div className="month-stat">
+              {formatVND(monthContributed)}
+            </div>
+            <p style={{ margin: "4px 0 0", color: "#64748B", fontSize: "13px" }}>
+              {language === "en" ? `Target: ${formatVND(targetContribution)}/month` : `Mục tiêu: ${formatVND(targetContribution)}/tháng`}
+            </p>
+            <div className="hero-progress" style={{ background: "#EDF2F7", margin: "16px 0", height: "8px", borderRadius: "4px", overflow: "hidden" }}>
+              <span style={{ display: "block", height: "100%", background: "#334DAF", width: `${contributionPercent}%`, transition: "width 0.3s ease" }} />
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "#456B91" }}>
+              {targetContribution === 0
+                ? (language === "en" ? "Plan has not set a monthly contribution." : "Kế hoạch chưa đặt mức góp tháng.")
+                : monthContributed >= targetContribution
+                ? (language === "en" ? "You reached the monthly contribution target." : "Bạn đã đạt mức góp của tháng này.")
+                : (language === "en"
+                    ? `${formatVND(Math.max(0, targetContribution - monthContributed))} remaining to target.`
+                    : `Còn ${formatVND(Math.max(0, targetContribution - monthContributed))} để đạt mức góp đang dùng.`)}
+            </p>
+          </section>
+
+          <section className="card" style={{ padding: "24px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#052659", margin: 0 }}>
+                {language === "en" ? "Monthly Transactions" : "Khoản ghi nhận trong tháng"}
+              </h2>
+              <Badge tone="soft">{entries.length} {language === "en" ? "items" : "khoản"}</Badge>
+            </div>
+            {entries.length > 0 ? (
+              <div style={{ maxHeight: "180px", overflowY: "auto" }}>
+                {entries.map((entry, idx) => (
+                  <div key={idx} className="entry-row">
+                    <div>
+                      <strong>{getActualKindLabel(entry.kind, language)}</strong>
+                      <p>{entry.note || (language === "en" ? "Recorded in ledger" : "Đã ghi nhận trong sổ")}</p>
+                    </div>
+                    <strong className="font-mono">{formatVND(Number(entry.amount))}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: "24px 0", color: "#64748B" }}>
+                <p style={{ margin: 0, fontSize: "13px" }}>
+                  {language === "en" ? "No transactions recorded yet for this month." : "Chưa có khoản ghi nhận nào trong tháng này."}
+                </p>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* 3. Checkin Events (3 triggers) */}
+        <section className="checkin-events">
+          <h2>{language === "en" ? "Do you have any other changes?" : "Bạn vừa có thay đổi nào khác?"}</h2>
+          <div className="checkin-event-links">
+            <Link to="/user/account" className="checkin-event-btn">
+              <Icon name="wallet" size="small" />
+              <span>{language === "en" ? "Assets & Savings" : "Tài sản hoặc khoản tiết kiệm"}</span>
+            </Link>
+            <Link to="/user/goal" className="checkin-event-btn">
+              <Icon name="target" size="small" />
+              <span>{language === "en" ? "Retirement Age & Living Standards" : "Tuổi nghỉ hưu / mức sống"}</span>
+            </Link>
+            <button
+              type="button"
+              className="checkin-event-btn"
+              onClick={() => setReforecastSubTab("future-changes")}
+            >
+              <Icon name="compass" size="small" />
+              <span>{language === "en" ? "Future Cashflow Changes" : "Thay đổi sẽ xảy ra trong tương lai"}</span>
+            </button>
+          </div>
+        </section>
+
+        {/* 4. Monthly Ledger in Collapsible details */}
+        <details className="checkin-ledger" open>
+          <summary>
+            <span>{language === "en" ? "Monthly Ledger & Statement Reconciliation (Optional)" : "Sổ từng tháng (tùy chọn đối soát)"}</span>
+            <Icon name="chevron-down" size="small" />
+          </summary>
+          <p className="help">
+            {language === "en"
+              ? "For users who want to reconcile transactions month-by-month. You do not need to keep this ledger to view or update your plan."
+              : "Dành cho người muốn đối soát giao dịch từng tháng theo sao kê. Bạn không cần ghi sổ này để xem hoặc cập nhật kế hoạch."}
+          </p>
+
           {/* Header Controls: Period Picker & Status */}
           <Card style={{ padding: "var(--space-5)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
@@ -3852,7 +4004,8 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
             </Modal>
           )}
           </fieldset>
-        </div>
+        </details>
+      </div>
       <Modal open={confirmV4Apply} title={language === "en" ? "Apply saved source version?" : "Áp dụng phiên bản nguồn đã lưu?"} onClose={() => { if (!v4Writing.current) setConfirmV4Apply(false); }}>
         <p>{language === "en" ? "This saved version will become the official plan. Your actual ledger stays unchanged." : "Phiên bản đã lưu sẽ trở thành kế hoạch chính thức. Sổ thực tế giữ nguyên."}</p>
         <p>{language === "en" ? "Version " : "Phiên bản "}v{savedV4Version?.version} · {selectedPeriod}</p>

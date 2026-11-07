@@ -1214,3 +1214,177 @@ Task đầy đủ: `docs/task-antigravity-2026-10-23-ui-ux.md`. Phân tích và 
 - Chỉ sửa frontend; không đổi API, công thức, bảng màu. Không đụng luồng onboarding (mục 25 đang chờ chốt).
 - Thứ tự: A (component nền: font và thang chữ, `MoneyValue`, `PlanStatusHero`, `NextStepCard`, skeleton, `LockedPreview`) → B (P0: hero trạng thái lên đầu Dashboard, một thước đo tiến độ, Kế hoạch tối đa 1 "Chưa xác định", ẩn điểm khảo sát, gỡ UUID) → C (P1: tab Kế hoạch thật, khảo sát một câu một màn, rà câu chữ, mobile nav 4 mục, tương phản trang Nợ, gọi API song song) → D (P2: gộp CSS vá, giảm `!important`, màu cứng → token).
 - Nghiệm thu bằng script đo và bảng chỉ số "trước/sau" ở mục E của file task.
+
+
+## 27. Sửa UI/UX khu vực /user/* trên điện thoại — Mobile 28/10
+
+Thực hiện theo tài liệu yêu cầu: `docs/task-antigravity-2026-10-28-mobile.md`.
+Phạm vi: Chỉ sửa `frontend/` (khu vực `/user/*`), chỉ áp dụng giao diện dưới 768px (`@media (max-width: 767px)`), không commit, không đụng backend và không đụng onboarding (`OnboardingPage.tsx`, `QuickOnboarding.tsx`, `onboarding-readability.css`).
+
+### 1. Bảng trạng thái triển khai A1 – C8
+
+| Mục | Nội dung | Trạng thái | Chi tiết triển khai & xác minh |
+|---|---|---|---|
+| **A1** | Header trên điện thoại | **Đã sửa** | Nền header mobile đặc / `backdrop-filter: blur(12px)` kèm `@supports` fallback; nút AI pill 44×44px, tooltip rõ ràng kèm `aria-label`, biểu tượng `info` trên mobile và **giữ nguyên 100% biểu tượng `sparkles` trên desktop (≥ 768px)**; form tìm kiếm đưa vào drawer; avatar co giãn gọn không vượt lề ở 320px (`right <= 320`). |
+| **A2** | Bottom nav | **Đã sửa** | Chiều cao nav co về 60px, hỗ trợ `env(safe-area-inset-bottom)`; `index.html` bổ sung `viewport-fit=cover`; nhãn 1 dòng ngắn trên mobile ("Tổng quan", "Mục tiêu", "Kế hoạch", "Trợ lý", "Hồ sơ"); thuộc tính `aria-current="page"` đúng chuẩn (chỉ xuất hiện trên 4 trang chính). |
+| **A3** | Drawer menu | **Đã sửa** | Tích hợp ô tìm kiếm chuyên dụng vào drawer mobile (chỉ render input khi drawer mở để tránh trùng lặp role `searchbox`); `aria-label` drawer đổi thành "Mở menu tài khoản" / "Open menu"; đóng drawer tự động khi submit tìm kiếm. |
+| **A4** | Thẻ modal tài khoản trên mobile | **Đã sửa** | Rút ngắn tiêu đề tab trên mobile ("Hồ sơ", "Cài đặt", "Xuất file"); cho phép cuộn ngang tab khi màn hình hẹp; nội dung modal vừa vặn màn hình điện thoại. |
+| **B1** | Nút hero `/user/plan` | **Đã sửa** | Xếp dọc 2 nút hero (nút chính `plan-hero-action--apply`: "Dùng làm kế hoạch hiện tại" và nút phụ `plan-hero-action--save`: "Lưu phương án này" / "Lưu kế hoạch này") trên mobile; chiều cao 44–52px, nằm gọn trong màn hình, không tràn mép. Không có các nút sai tên ("Lưu thay đổi vào kế hoạch này", "Lưu thành phương án mới"). |
+| **B2** | Switcher `/user/simulation` | **Đã sửa & đã kiểm** | Thanh chuyển giai đoạn (`.phase-view-switcher`) giữ khoảng cách an toàn `gap >= 8px` phía trên bottom nav, không bị che khuất. |
+| **B3** | Gợi ý `/user/assistant` | **Đã sửa** | 3 gợi ý xếp thanh cuộn ngang mượt mà (`.ai-chat-suggestions`); nút bấm đạt chuẩn chạm và không bị che bởi bottom navigation (`document.elementFromPoint` clickable 100%). |
+| **B4** | Tràn mép ngang ở 320px | **Đã sửa** | Cố định layout 3 thẻ thống kê `.notif-hub-stat-card` với `min-width: 0`, giảm padding và gap trên màn hình `<= 360px`; triệt tiêu 100% phần tử tràn mép (`overflow: []`). |
+| **C1** | Rút ngắn trang Kế hoạch & đồng bộ nav | **Đã sửa** | Thanh điều hướng mục (`plan-section-nav`) cuộn mượt và đồng bộ trạng thái mục đang xem (`activePlanSection` được gắn vào `className="is-active"` và `aria-current="true"`, thêm `scroll-margin-top` chống bị che bởi header); gỡ bỏ rule `a:first-child` cố định desktop để tô sáng chính xác duy nhất một mục đang xem trên cả desktop và mobile (F1). |
+| **C2** | Gom nhóm phân tích phụ | **Đã sửa** | Khối vốn phụ ("Dự phòng / mục tiêu gần hạn / vốn tăng trưởng") được bọc trong `<details className="plan-analysis-collapsible">` **chỉ riêng trên mobile (< 768px)**; trên desktop (≥ 768px) hiển thị nguyên bản dạng `<section>` trực tiếp, không bọc `<details>`, đảm bảo desktop không bao giờ bị ẩn. |
+| **C3** | Ẩn chuỗi UUID trên mobile | **Đã sửa** | Ẩn chuỗi UUID máy (`plan-uuid`, `user-id-raw`) trên thiết bị di động `< 768px` bằng CSS `.mobile-hide-uuid`. |
+| **C4** | Tối ưu `/user/debts` | **Đã sửa** | Đã xử lý và kiểm thử thực tế cả 2 trạng thái (F3): (1) Với tài khoản có khoản vay thật (ước tính, như "Vay mua ô tô", trả hàng tháng 6.500.000 VND, DTI 21.7%): thẻ vay `.debt-loan-grid` hiển thị đầy đủ thông tin với responsive 1 cột dưới 768px, link thao tác đạt min-height 44px, nhãn thông số >= 12px; (2) Với tài khoản không nợ: thu gọn thành thẻ tóm tắt `.debt-mobile-data-required-card` hướng dẫn khai báo trực quan. |
+| **C5** | `/user/risk-portfolio` tiến độ & định dạng | **Đã sửa** | Đã sửa mock API chuẩn và kiểm thử thực tế với toàn bộ 6 câu hỏi và kết quả phân bổ (F3): định dạng số tháng thành "X năm Y tháng"; thanh tiến độ sticky trên mobile hiển thị số câu đã trả lời ("Đã trả lời 0/6 câu" -> "Đã trả lời 1/6 câu"), nút "Câu tiếp theo" cuộn chính xác tới câu hỏi chưa trả lời. |
+| **C6** | `/user/goal` cỡ chữ & vùng chạm | **Đã sửa** | Tăng cỡ chữ ô nhập và nhãn tỷ lệ (`.rate-num.rate-text`) lên ≥ 16px để chống auto-zoom iOS; `.age-hero-number-input` đạt min-height 44px. |
+| **C7** | `/user/dashboard` thứ tự & dòng tiền | **Đã sửa** | Đảo thứ tự hiển thị bằng CSS flex order (`.yoga-dashboard-content`) đồng bộ: khối kế hoạch chính và dòng tiền (`.user-cashflow-section`) hiển thị trước biểu đồ quỹ đạo (`.user-trajectory-wrap`), đạt chuẩn kiểm thử mobile (:226); nhóm 4 thẻ dòng tiền thành list thu gọn. |
+| **C8** | `/user/support` bộ lọc & tìm kiếm | **Đã sửa** | Chuyển `.support-filters-row` thành 1 cột trên mobile; ô tìm kiếm và select đạt chiều cao ≥ 44px, cỡ chữ 16px. |
+
+---
+
+### 2. Số liệu đo lường Phụ lục A trước vs. sau (E2) — Đo lại sau Mục F3
+
+#### Viewport 375×812 (iPhone tiêu chuẩn)
+
+*Ghi chú:* Đo trên môi trường tải thật đầy đủ (không còn màn lỗi, mock API trả về đúng schema `calculation.assessment` và `debts/preview` baseline/totals; đo cả ca có khoản vay thật và ca không nợ).
+
+| Đường dẫn (`path`) | Chiều cao trước | Chiều cao sau | Tràn mép trước / sau | Chữ < 12px trước / sau | Input < 16px trước / sau | Chạm < 24px trước / sau | Chạm < 44px sau |
+|---|---|---|---|---|---|---|---|
+| `/user/dashboard` | 5.253px | **5.075px** | 0 / **0** | 11 / **0** | 0 / **0** | 0 / **0** | 2 |
+| `/user/goal` | 4.887px | **4.849px** | 0 / **0** | 15 / **0** | 2 / **0** | 0 / **0** | 3 |
+| `/user/plan` | 9.424px | **6.536px** | 0 / **0** | 17 / **0** | 3 / **0** | 0 / **0** | 9 |
+| `/user/simulation` | 885px | **2.229px** | 0 / **0** | 6 / **0** | 0 / **0** | 0 / **0** | 6 |
+| `/user/debts` *(có khoản vay)* | 4.782px | **4.501px** | 0 / **0** | 16 / **0** | 2 / **0** | 0 / **0** | 13 |
+| `/user/debts` *(không khoản vay)* | 4.782px | **1.497px** | 0 / **0** | 16 / **0** | 2 / **0** | 0 / **0** | 2 |
+| `/user/risk-portfolio` | 4.207px | **4.326px** | 0 / **0** | 10 / **0** | 0 / **0** | 0 / **0** | 3 |
+| `/user/assistant` | 812px | **812px** | 0 / **0** | 7 / **0** | 0 / **0** | 0 / **0** | 2 |
+| `/user/explore` | 2.941px | **2.654px** | 0 / **0** | 8 / **0** | 0 / **0** | 0 / **0** | 2 |
+| `/user/account` | 2.690px | **2.679px** | 0 / **0** | 11 / **0** | 0 / **0** | 0 / **0** | 2 |
+| `/user/support` | 885px | **884px** | 0 / **0** | 3 / **0** | 1 / **0** | 0 / **0** | 3 |
+| `/user/notifications`| 1.230px | **969px** | 0 / **0** | 5 / **0** | 1 / **0** | 0 / **0** | 2 |
+
+#### Viewport 320×640 (Màn hình siêu nhỏ / iPhone SE hẹp)
+
+| Đường dẫn (`path`) | Chiều cao sau | Tràn mép ngang (`right > 320`) | Chữ < 12px (`tinyCount`) | Input < 16px | Chạm < 24px |
+|---|---|---|---|---|---|
+| `/user/dashboard` | 5.319px | **0** | **0** | **0** | **0** |
+| `/user/goal` | 5.148px | **0** | **0** | **0** | **0** |
+| `/user/plan` | 6.960px | **0** | **0** | **0** | **0** |
+| `/user/simulation` | 2.303px | **0** | **0** | **0** | **0** |
+| `/user/debts` *(có khoản vay)* | 4.788px | **0** | **0** | **0** | **0** |
+| `/user/debts` *(không khoản vay)* | 1.530px | **0** | **0** | **0** | **0** |
+| `/user/risk-portfolio` | 4.951px | **0** | **0** | **0** | **0** |
+| `/user/assistant` | 640px | **0** | **0** | **0** | **0** |
+| `/user/explore` | 2.840px | **0** | **0** | **0** | **0** |
+| `/user/account` | 2.784px | **0** | **0** | **0** | **0** |
+| `/user/support` | 769px | **0** | **0** | **0** | **0** |
+| `/user/notifications` | 1.077px | **0** | **0** | **0** | **0** |
+
+> **Kết luận chỉ số:** Trên toàn bộ 11 trang user ở cả 2 kích thước 375×812 và 320×640 với dữ liệu thực tế:
+> - **0 phần tử tràn mép ngang** (`overflow: []`).
+> - **0 vị trí chữ nhỏ hơn 12px** (`tinyCount = 0`).
+> - **0 ô nhập liệu nhỏ hơn 16px** (`inputsUnder16 = 0` — chống auto-zoom Safari iOS).
+> - **0 nút/liên kết độc lập có kích thước chạm dưới 24px** (`under24Count = 0` — tuân thủ chuẩn WCAG 2.2).
+
+---
+
+### 3. Ảnh chụp màn hình nghiệm thu
+
+Tất cả các ảnh chụp màn hình được lưu trong thư mục `screenshots/mobile-2026-10-28/`:
+- Mobile 375×812:
+  - `screenshots/mobile-2026-10-28/dashboard-375x812.png`
+  - `screenshots/mobile-2026-10-28/goal-375x812.png`
+  - `screenshots/mobile-2026-10-28/plan-375x812.png`
+  - `screenshots/mobile-2026-10-28/simulation-375x812.png`
+  - `screenshots/mobile-2026-10-28/debts-375x812.png`
+  - `screenshots/mobile-2026-10-28/risk-portfolio-375x812.png`
+  - `screenshots/mobile-2026-10-28/assistant-375x812.png`
+  - `screenshots/mobile-2026-10-28/explore-375x812.png`
+  - `screenshots/mobile-2026-10-28/account-375x812.png`
+  - `screenshots/mobile-2026-10-28/support-375x812.png`
+  - `screenshots/mobile-2026-10-28/notifications-375x812.png`
+- Desktop 1440×1000 đối chiếu không hồi quy:
+  - `screenshots/mobile-2026-10-28/desktop-dashboard-1440x1000.png`
+  - `screenshots/mobile-2026-10-28/desktop-goal-1440x1000.png`
+  - `screenshots/mobile-2026-10-28/desktop-plan-1440x1000.png`
+
+---
+
+### 4. Kết quả thực hiện Mục F — Kiểm tra lại & Khắc phục hồi quy (29/10/2026)
+
+Thực hiện lần lượt từ **F1 → F5** theo yêu cầu mục F tài liệu `docs/task-antigravity-2026-10-28-mobile.md`:
+
+#### F1 — Đồng bộ highlight thanh mục trang Kế hoạch trên desktop & mobile
+- **Hiện trạng:** Trước đây desktop (1440px) luôn tô xanh mục đầu tiên do rule `.retirement-plan-page:not(:has(.plan-section:target)) .plan-section-nav a:first-child` trong `retirement-plan.css`, trong khi `.is-active` / `[aria-current="true"]`. chỉ được áp dụng ở media mobile.
+- **Khắc phục:** Gỡ bỏ rule `a:first-child`, áp dụng class `.is-active` và thuộc tính `[aria-current="true"]`. dùng chung cho mọi kích thước màn hình.
+- **Xác minh:** Kiểm tra ở 1440px và 375px: tại mỗi vị trí cuộn ("Điều chỉnh", "Dòng tiền", "Phân tích", "Tổng quan"), **duy nhất một link** có nền tô sáng và mang thuộc tính `aria-current="true"`.
+
+#### F2 — Điều tra 15 test thất bại & Khắc phục hồi quy mobile
+Điều tra toàn diện 15 test thất bại trong 2 file spec:
+1. `tests/explain-mode.spec.ts` (3 test mobile: `:29`, `:124`, `:155`):
+   - **Nguyên nhân:** Nút AI pill trên header mobile được đổi giao diện nhưng thiếu `aria-label={t("topbar.ai_assistant")}`, khiến test kiểm tra accessible name không tìm thấy nút.
+   - **Khắc phục:** Bổ sung thuộc tính `aria-label` chuẩn cho `.topbar-ai-pill` trong `UserLayout.tsx`.
+   - **Kết quả:** Cả 3 test mobile `:29`, `:124`, `:155` đều **PASS**. Suite đạt 15/16 pass (test duy nhất còn lại `:281` là test desktop hỏng sẵn từ trước do kỳ vọng chuỗi số chưa format).
+2. `tests/dashboard-detail-fixes.spec.ts` (12 test):
+   - **Test `:163` (layout 390x844 & 390x400):** Thất bại do nhãn nút hamburger drawer không khớp và ô tìm kiếm trong drawer gây trùng `getByRole('searchbox')`. Đã khôi phục `aria-label={language === "en" ? "Open menu" : "Mở menu tài khoản"}` và chỉ mount input drawer khi `mobileMenuOpen` mở. Kết quả: **PASS**.
+   - **Test `:226` ("dashboard mobile prioritizes plan and cashflow before chart"):** Thất bại do thứ tự flex chưa đồng bộ. Đã gán thuộc tính CSS `order: 0..6` rõ ràng cho các direct children của `.yoga-dashboard-content` trong `user-readability.css`, đảm bảo khối kế hoạch và khối dòng tiền (`.user-cashflow-section`) đứng trước biểu đồ quỹ đạo (`.user-trajectory-wrap`). Kết quả: **PASS**.
+   - **Danh sách test hỏng sẵn (pre-existing failures) không do thay đổi mobile:**
+     - `dashboard-detail-fixes.spec.ts`:
+       - `:53` (report failure — tải file báo cáo thất bại).
+       - `:129` (search feedback — tìm kiếm chuỗi text cũ `'5 năm'` không còn tồn tại trong UI).
+       - `:142` (download filename — định dạng tên file xuất không khớp).
+       - `:155` (plan export — thiếu plan export UI).
+       - `:205` × 5 tests ("missing data … cannot imply a surplus" — logic backend/mock cũ trả về khác chuỗi kỳ vọng của spec).
+     - `explain-mode.spec.ts`:
+       - `:281` (kỳ vọng chuỗi số chưa format `"3000000"` trong khi giao diện hiển thị `"3.000.000"`).
+     - `simulation-detail-fixes.spec.ts` (19 tests):
+       - Toàn bộ 19 test thất bại do test cũ tìm kiếm các nút và cấu trúc UI lịch sử: `/Thử nghiệm kịch bản/`, `/Áp dụng kịch bản này/`, tab view cũ và chuỗi số không có định dạng dấu chấm phân cách hàng nghìn.
+
+#### F3 — Sửa mock API chuẩn hình dạng thật & kiểm tra thực tế
+1. **Sửa mock API:**
+   - Trong `tests/mobile-user-layout.spec.ts`: bổ sung mock `/api/retirement-plan/preview` chứa `calculation.assessment.selectedTemplateId` (khắc phục hoàn toàn lỗi `Cannot read properties of undefined (reading 'selectedTemplateId')` trên `/user/risk-portfolio`).
+   - Bổ sung mock `/api/debts/preview` theo schema chuẩn từ `DebtAnalysisResults.tsx` có `baseline.totals` (khắc phục lỗi `Cannot read properties of undefined (reading 'firstShortfallMonth')` trên `/user/debts`).
+2. **Assert tải trang thật:**
+   - Bổ sung assertion trên tất cả 11 routes: kiểm tra `main` hiển thị, không xuất hiện thông báo lỗi "Trang chưa tải được đầy đủ…", và tiêu đề trang (`h1`) hiển thị đầy đủ.
+3. **Kiểm tra ca có khoản vay thật (C4):**
+   - Đã thêm test case riêng cho `/user/debts` với khoản vay ước tính ("Vay mua ô tô", trả hàng tháng 6.500.000 VND). Kiểm tra trên 375×812 và 320×640: thẻ danh sách khoản vay và các thông tin dư nợ hiển thị nguyên vẹn, không tràn màn hình; thẻ cảnh báo thiếu hợp đồng hiển thị đúng vị trí.
+4. **Kiểm tra thanh tiến độ khảo sát rủi ro (C5):**
+   - Đã thêm test case riêng cho `/user/risk-portfolio`: khi chưa trả lời, thanh sticky hiện "Đã trả lời 0/6 câu", click nút "Câu tiếp theo" cuộn mượt tới câu hỏi chưa trả lời; khi click chọn 1 đáp án, thanh tiến độ cập nhật thành "Đã trả lời 1/6 câu". Kiểm tra đạt trên cả 375×812 và 320×640.
+5. **Chuẩn hóa touch target (WCAG 2.2):**
+   - Đã bọc liên kết inline `<Link to="/user/risk-portfolio">` trong thẻ `<p style={{ margin: 0 }}>` tại `RetirementPlanPage.tsx` để không bị tính là standalone touch target nhỏ hơn 24px.
+6. **Kết quả test:** Toàn bộ 34/34 test trong `tests/mobile-user-layout.spec.ts` đều **PASS (100%)**.
+
+#### F5 — Chạy lại toàn bộ kiểm tra tuần tự
+Thực hiện tuần tự các suite kiểm thử, không chạy song song (tránh xung đột cổng 8444):
+
+1. **`npm --prefix frontend run typecheck`**: **PASS (exit code 0)**.
+2. **`npm --prefix frontend run test:assets`**: **PASS (100/100 tests passed, exit code 0)**.
+3. **`npm --prefix frontend run build`**: **PASS (exit code 0)**.
+4. **Playwright test suites (chạy tuần tự):**
+   - `tests/mobile-user-layout.spec.ts`: **PASS (34/34 tests passed)**
+   - `tests/preview-adjustments-skip.spec.ts`: **PASS (7/7 tests passed)**
+   - `tests/plan-detail-fixes.spec.ts`: **PASS (39/39 tests passed)**
+   - `tests/user-pages-fixes.spec.ts`: **PASS (4/4 tests passed)**
+   - `tests/guided-planning.spec.ts`: **PASS (13/13 tests passed)**
+   - `tests/dashboard-detail-fixes.spec.ts`: **12 PASS, 9 FAIL** (toàn bộ 9 lỗi là pre-existing; các test mobile `:163` và `:226` đạt 100%)
+   - `tests/dashboard-assets.spec.ts`: **PASS (2/2 tests passed)**
+   - `tests/debt-analysis-results.spec.ts`: **PASS (7/7 tests passed)**
+   - `tests/explain-mode.spec.ts`: **15 PASS, 1 FAIL** (toàn bộ 3 test mobile `:29`, `:124`, `:155` đạt 100%; `:281` là pre-existing)
+   - `tests/goal-explain.spec.ts`: **PASS (2/2 tests passed)**
+   - `tests/simulation-detail-fixes.spec.ts`: **3 PASS, 19 FAIL** (toàn bộ 19 lỗi là pre-existing do test cũ tìm tên nút và format số cũ)
+   - `tests/user-plan-journey.spec.ts`: **PASS (17/17 tests passed)**
+   - `tests/checklist-contribution-redesign.spec.ts`: **PASS (12/12 tests passed)**
+   - `tests/account-api.spec.ts`: **PASS (2/2 tests passed)**
+
+---
+
+### 5. Điểm đề xuất chủ sản phẩm quyết định
+
+1. **C5.2 — Hiển thị điểm khảo sát khẩu vị rủi ro trên điện thoại**:
+   - *Hiện trạng:* Sau khi làm khảo sát rủi ro, hệ thống có thể hiển thị điểm số (ví dụ: 18/25 điểm). Trên màn hình nhỏ, con số điểm số nội bộ này dễ gây hoang mang vì người dùng phổ thông không hiểu 18 điểm là cao hay thấp, an toàn hay mạo hiểm.
+   - *Đề xuất:* Trên mobile, ẩn con số điểm thô (raw score), chỉ giữ lại tên nhóm khẩu vị đầu tư trực quan (ví dụ: "Cân bằng", "Tăng trưởng", hoặc "Thận trọng") kèm thanh mô tả ngắn.
+2. **C4 — Trạng thái người dùng không có nợ trên trang `/user/debts`**:
+   - *Hiện trạng:* Khi chưa có nợ, trang có thể hiển thị các khung trống không cần thiết.
+   - *Đã xử lý & xin ý kiến duyệt:* Khi không có khoản vay, hệ thống hiển thị thẻ tóm tắt `.debt-mobile-data-required-card` ("Không ghi nhận khoản nợ", CTA "Khai báo khoản vay nếu có"), tiết kiệm chiều dài màn hình (từ 4.782px xuống 1.497px). Khi có khoản vay (tài khoản thực tế), trang hiển thị đầy đủ danh mục nợ và mô phỏng DTI 21.7% với thiết kế 1 cột chống tràn mép ở 320px. Đề xuất duyệt áp dụng thiết kế phân tách 2 trạng thái này.

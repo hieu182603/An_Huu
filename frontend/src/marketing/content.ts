@@ -4,6 +4,8 @@ export const marketingNavigation = [
   { path: '/', label: 'Trang chủ' },
   { path: '/cach-hoat-dong', label: 'Cách hoạt động' },
   { path: '/mo-phong', label: 'Mô phỏng' },
+  { path: '/kien-thuc', label: 'Kiến thức' },
+  { path: '/gioi-thieu', label: 'Giới thiệu' },
   { path: '/tro-ly-ai', label: 'Trợ lý AI' },
 ];
 
@@ -116,7 +118,10 @@ export const pageMetadata: Record<string, { title: string; description: string }
   '/': { title: 'An Hưu | Lập kế hoạch tài chính hưu trí cho người Việt', description: 'Chủ động chuẩn bị cho tuổi hưu cùng An Hưu. Khám phá lộ trình tích lũy, thử mô phỏng hưu trí và tìm hiểu kiến thức tài chính dễ hiểu.' },
   '/cach-hoat-dong': { title: 'Cách hoạt động | Lập kế hoạch hưu trí với An Hưu', description: 'Tìm hiểu bốn bước lập kế hoạch với An Hưu: tổng hợp tài chính, xác định mục tiêu, mô phỏng kịch bản và theo dõi hành trình hưu trí.' },
   '/mo-phong': { title: 'Mô phỏng hưu trí | Tính quỹ tích lũy cùng An Hưu', description: 'Thử mô phỏng hưu trí miễn phí. Điều chỉnh tuổi nghỉ hưu, tích lũy hàng tháng, lợi suất và lạm phát để so sánh quỹ dự kiến với mục tiêu.' },
+  '/kien-thuc': { title: 'Kiến thức hưu trí — An Hưu', description: 'Cẩm nang kiến thức hưu trí An Hưu — Cần bao nhiêu tiền để nghỉ hưu? Lương hưu BHXH tính thế nào? Hiểu rõ phương pháp tính toán độc lập, minh bạch.' },
   '/tro-ly-ai': { title: 'Trợ lý AI An Hưu | Tìm hiểu kế hoạch hưu trí', description: 'Khám phá trợ lý An Hưu qua các câu hỏi mẫu về mục tiêu, tích lũy và mô phỏng hưu trí. Nội dung minh họa minh bạch, dễ hiểu.' },
+  '/gioi-thieu': { title: 'Giới thiệu — An Hưu', description: 'Giới thiệu về An Hưu — Đội ngũ chuyên môn, sứ mệnh và nguồn dữ liệu tính toán minh bạch cho kế hoạch hưu trí người Việt.' },
+  '/chinh-sach': { title: 'Chính sách & Điều khoản — An Hưu', description: 'Chính sách bảo mật và Điều khoản sử dụng An Hưu — Cam kết bảo mật dữ liệu phiên, minh bạch thuật toán và nguyên tắc độc lập.' },
 };
 
 export function normalizePublicPath(path: string) { return path.replace(/\/+$/, '') || '/'; }

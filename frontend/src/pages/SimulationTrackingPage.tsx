@@ -339,6 +339,16 @@ export default function SimulationTrackingPage() {
 
   return (
     <>
+      <nav className="goal-breadcrumb" aria-label="Breadcrumb" style={{ marginBottom: "16px" }}>
+        <Link to="/user/plan" style={{ color: "var(--color-primary-700, #334DAF)", textDecoration: "none" }}>
+          {language === "en" ? "Retirement Plan" : "Kế hoạch nghỉ hưu"}
+        </Link>
+        <span className="separator" style={{ margin: "0 8px", color: "#64748B" }}>&gt;</span>
+        <span style={{ color: "#64748B" }}>
+          {activeTab === "actuals" ? (language === "en" ? "Track & Check-in" : "Cập nhật tình hình") : (language === "en" ? "What-if Simulation" : "Thử nghiệm kịch bản")}
+        </span>
+      </nav>
+
       <div className="phase-page-header">
         <div>
           <Badge tone="soft">{language === "en" ? "ADVANCED ANALYTICS" : "CÔNG CỤ NÂNG CAO"}</Badge>
@@ -488,7 +498,7 @@ export default function SimulationTrackingPage() {
                   />
                 </div>
                 <p className="stepper-baseline-info">
-                  {language === "en" ? "Base plan" : "Kế hoạch gốc"}: {currentSummary ? Number(currentSummary.retirementMonth.slice(0, 4)) - birthYear : "—"} {language === "en" ? "yrs" : "tuổi"}
+                  {language === "en" ? "Base plan" : "Kế hoạch gốc"}: {currentSummary ? Number(currentSummary.retirementMonth.slice(0, 4)) - birthYear : "-"} {language === "en" ? "yrs" : "tuổi"}
                 </p>
               </div>
 
@@ -705,7 +715,7 @@ export default function SimulationTrackingPage() {
                   <strong className="font-mono">{simSummary.atRetirement.coveragePercent == null ? (language === "en" ? "Undetermined" : "Chưa xác định") : simulationExplanationSource ? <Explain term="fundCoverage" metric="summary.atRetirement.coveragePercent" source={simulationExplanationSource} value={String(simSummary.atRetirement.coveragePercent)}>{`${simScore}%`}</Explain> : `${simScore}%`}</strong>
                   <span>{language === "en" ? "Coverage Ratio" : "Tỷ lệ bao phủ"}</span>
                   <small className={simScore >= 100 ? "is-positive" : ""}>
-                    {simSummary.atRetirement.coveragePercent == null ? "—" : simScore >= 100
+                    {simSummary.atRetirement.coveragePercent == null ? "-" : simScore >= 100
                       ? (language === "en" ? `Fully covered (${simScore}%)` : `Đạt mục tiêu (${simScore}%)`)
                       : simScore >= 75
                       ? (language === "en" ? `Partially covered (${simScore}%)` : `Đạt ${simScore}% mục tiêu`)
@@ -731,7 +741,7 @@ export default function SimulationTrackingPage() {
                   <strong className="font-mono">{currentSummary ? formatMonthVN(currentSummary.retirementMonth) : noBaseline}</strong>
                   <strong className="font-mono" style={{ color: "var(--color-primary-700)" }}>{formatMonthVN(simRetirementMonth)} ({simRetireAge} {language === "en" ? "yrs" : "tuổi"})</strong>
                   <strong style={{ textAlign: "right" }} className="font-mono">
-                    {retirementMonthDelta == null ? "—" : `${retirementMonthDelta > 0 ? "+" : ""}${retirementMonthDelta} ${language === "en" ? "months" : "tháng"}`}
+                    {retirementMonthDelta == null ? "-" : `${retirementMonthDelta > 0 ? "+" : ""}${retirementMonthDelta} ${language === "en" ? "months" : "tháng"}`}
                   </strong>
                 </div>
 
@@ -740,7 +750,7 @@ export default function SimulationTrackingPage() {
                   <strong className="font-mono">{baselineSelection?.monthlyContribution != null ? formatVNDCurrency(baselineSelection.monthlyContribution) : noBaseline}</strong>
                   <strong className="font-mono" style={{ color: "var(--color-primary-700)" }}>{formatVND(simMonthlySave)}</strong>
                   <strong style={{ textAlign: "right" }} className="font-mono">
-                    {baselineSelection?.monthlyContribution != null ? formatVNDCurrency(new Decimal(simMonthlySave).minus(baselineSelection.monthlyContribution).toString()) : "—"}
+                    {baselineSelection?.monthlyContribution != null ? formatVNDCurrency(new Decimal(simMonthlySave).minus(baselineSelection.monthlyContribution).toString()) : "-"}
                   </strong>
                 </div>
 
@@ -749,7 +759,7 @@ export default function SimulationTrackingPage() {
                   <strong className="font-mono">{baselineSelection?.monthlyExpenseToday != null ? formatVNDCurrency(baselineSelection.monthlyExpenseToday) : noBaseline}</strong>
                   <strong className="font-mono">{formatVND(simExpense)}</strong>
                   <strong style={{ textAlign: "right" }} className="font-mono">
-                    {baselineSelection?.monthlyExpenseToday != null ? formatVNDCurrency(new Decimal(simExpense).minus(baselineSelection.monthlyExpenseToday).toString()) : "—"}
+                    {baselineSelection?.monthlyExpenseToday != null ? formatVNDCurrency(new Decimal(simExpense).minus(baselineSelection.monthlyExpenseToday).toString()) : "-"}
                   </strong>
                 </div>
 

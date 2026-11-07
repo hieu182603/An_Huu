@@ -1,6 +1,4 @@
 import { AccountProfilePanel, AccountSecurityPanel } from "../components/AccountApiPanels";
-import FinancialProfileGate from "../components/FinancialProfileGate";
-import FinancialProfilePanel from "../components/FinancialProfilePanel";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Alert, Badge, Button, Card, Icon, Switch, useNotification } from "../components/ui";
@@ -12,6 +10,7 @@ import { getNotificationSettings, updateNotificationSettings, type NotificationS
 import { exportPlanVersionCsv } from "../services/plans";
 import { useI18n } from "../i18n";
 import FinancialProfilePage from "./FinancialProfilePage";
+import "./account-settings.css";
 
 type AccountTab = "profile" | "settings" | "reports";
 
@@ -111,74 +110,31 @@ function AccountSettingsPage() {
   };
 
   return (
-    <div className="phase-eight-page">
-      {/* Header */}
-      <div className="phase-page-header phase-eight-header">
+    <div className="phase-eight-page account-settings-page">
+      <header className="account-settings-head">
         <div>
-          <span className="section-eyebrow">{language === "en" ? "ACCOUNT MANAGEMENT" : "QUẢN TRỊ TÀI KHOẢN"}</span>
-          <h1>{language === "en" ? "Personal Profile & Account Settings" : "Hồ sơ cá nhân & cài đặt tài khoản"}</h1>
-          <p>
-            {language === "en"
-              ? "Manage identity details, configure security credentials, notification preferences, and export your retirement roadmap."
-              : "Quản lý thông tin định danh, tùy chỉnh cấu hình bảo mật, tùy chọn thông báo và xuất kế hoạch hưu trí."}
-          </p>
+          <h1>{language === "en" ? "Account settings" : "Cài đặt tài khoản"}</h1>
+          <p>{language === "en"
+            ? "Your sign-in details, security, notifications and plan exports. Financial figures live in Your finances."
+            : "Thông tin đăng nhập, bảo mật, thông báo và xuất kế hoạch. Số liệu tài chính nằm ở mục Tài chính của bạn."}</p>
         </div>
+        <Link to="/user/account" className="button button-secondary"><Icon name="wallet" size="small" />{language === "en" ? "Your finances" : "Tài chính của bạn"}</Link>
+      </header>
 
-        <div className="phase-eight-switcher">
-          <Link to="/user/explore">{language === "en" ? "Explore" : "Khám phá"}</Link>
-          <button type="button" className="is-active">{language === "en" ? "Account" : "Tài khoản"}</button>
-        </div>
-      </div>
-
-      <div className="account-layout">
-        {/* Navigation Sidebar */}
-        <nav className="account-nav" aria-label={language === "en" ? "Account navigation" : "Menu tài khoản"}>
-          <button
-            type="button"
-            className={activeTab === "profile" ? "is-active" : ""}
-            onClick={() => setActiveTab("profile")}
-          >
-            <Icon name="users" />
-            <span>{language === "en" ? "Financial Profile" : "Hồ sơ tài chính"}</span>
-            <Icon name="chevron-right" size="small" />
+      <nav className="account-settings-tabs" role="tablist" aria-label={language === "en" ? "Account settings sections" : "Các mục cài đặt"}>
+        {([
+          ["profile", "users", language === "en" ? "Account details" : "Thông tin tài khoản"],
+          ["settings", "settings", language === "en" ? "Security & notifications" : "Bảo mật & thông báo"],
+          ["reports", "download", language === "en" ? "Export plan" : "Xuất kế hoạch"],
+        ] as const).map(([id, icon, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={activeTab === id} className={activeTab === id ? "is-active" : ""} onClick={() => setActiveTab(id)}>
+            <Icon name={icon} size="small" /><span>{label}</span>
           </button>
+        ))}
+      </nav>
 
-          <Link to="/user/debts" style={{ textDecoration: "none" }}>
-              <Icon name="wallet" />
-              <span>{language === "en" ? "Loans & Debts" : "Khoản vay & Trả nợ"}</span>
-              <Icon name="chevron-right" size="small" />
-            </Link>
-
-          <Link to="/user/risk-portfolio" style={{ textDecoration: "none" }}>
-              <Icon name="shield" />
-              <span>{language === "en" ? "Risk Assessment & Portfolio" : "Khảo sát rủi ro & Danh mục"}</span>
-              <Icon name="chevron-right" size="small" />
-            </Link>
-
-          <button
-            type="button"
-            className={activeTab === "settings" ? "is-active" : ""}
-            onClick={() => setActiveTab("settings")}
-          >
-            <Icon name="settings" />
-            <span>{language === "en" ? "Settings" : "Cài đặt"}</span>
-            <Icon name="chevron-right" size="small" />
-          </button>
-
-          <button
-            type="button"
-            className={activeTab === "reports" ? "is-active" : ""}
-            onClick={() => setActiveTab("reports")}
-          >
-            <Icon name="download" />
-            <span>{language === "en" ? "Export Retirement Plan" : "Xuất kế hoạch hưu trí"}</span>
-            <Icon name="chevron-right" size="small" />
-          </button>
-        </nav>
-
-        {/* Content Panel */}
-        <div className="account-content">
-          {activeTab === "profile" && <><AccountProfilePanel /><FinancialProfileGate inline><FinancialProfilePanel /></FinancialProfileGate></>}
+      <div className="account-settings-content">
+          {activeTab === "profile" && <AccountProfilePanel />}
 
           {/* TAB 2: SETTINGS (Security + Notifications) */}
           {activeTab === "settings" && (
@@ -309,7 +265,6 @@ function AccountSettingsPage() {
               </Card>
             </div>
           )}
-        </div>
       </div>
     </div>
   );

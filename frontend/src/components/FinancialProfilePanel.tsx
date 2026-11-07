@@ -105,9 +105,9 @@ const PENSION_LIMITATIONS_LABELS: Record<string, { vi: string; en: string }> = {
   },
 };
 
-type PanelTab = "v2-constraints" | "basic" | "v2-timing" | "v2-cashflow" | "v2-assets" | "v2-pension" | "v2-debts";
+export type PanelTab = "v2-constraints" | "basic" | "v2-timing" | "v2-cashflow" | "v2-assets" | "v2-pension" | "v2-debts";
 
-export default function FinancialProfilePanel() {
+export default function FinancialProfilePanel({ section, sectionRequest = 0 }: { section?: PanelTab; sectionRequest?: number } = {}) {
   const { language } = useI18n();
   const isVi = language === "vi";
 
@@ -238,6 +238,14 @@ export default function FinancialProfilePanel() {
       setLoadingPensionPreview(false);
     }
   };
+
+  // Hub cards on "Tài chính của bạn" open a section here (demo flow).
+  useEffect(() => {
+    if (!section || (schemaVersion !== 2 && section !== "basic")) return;
+    openSection(section);
+    if (section === "v2-pension" && !pensionPreview && profileRevision > 0) loadPensionPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section, sectionRequest]);
 
   const saveBasic = async (event: FormEvent) => {
     event.preventDefault();

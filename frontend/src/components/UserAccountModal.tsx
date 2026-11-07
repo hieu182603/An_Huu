@@ -220,7 +220,7 @@ export function UserAccountModal({
               onClick={() => setActiveTab("profile")}
             >
               <span className="tab-btn-icon"><Icon name="users" /></span>
-              <span className="tab-btn-title">{t("account.tab_profile")}</span>
+              <span className="tab-btn-title">{language === "en" ? "Profile" : "Thông tin"}</span>
             </button>
 
             <button
@@ -230,7 +230,7 @@ export function UserAccountModal({
               onClick={() => setActiveTab("settings")}
             >
               <span className="tab-btn-icon"><Icon name="settings" /></span>
-              <span className="tab-btn-title">{t("topbar.settings")}</span>
+              <span className="tab-btn-title">{language === "en" ? "Settings" : "Cài đặt"}</span>
             </button>
 
             <button
@@ -240,7 +240,7 @@ export function UserAccountModal({
               onClick={() => setActiveTab("export")}
             >
               <span className="tab-btn-icon"><Icon name="download" /></span>
-              <span className="tab-btn-title">{t("topbar.export_plan")}</span>
+              <span className="tab-btn-title">{language === "en" ? "Export" : "Xuất kế hoạch"}</span>
             </button>
           </nav>
         </aside>

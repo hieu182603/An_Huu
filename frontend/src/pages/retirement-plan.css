@@ -14,11 +14,14 @@
 .plan-section-nav a { display: flex; min-height: 44px; justify-content: center; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 9px; color: var(--color-text-muted); font-size: 14px; font-weight: 600; }
 .plan-section-nav a > span { color: var(--color-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .plan-section-nav a:hover { color: var(--color-primary-700); background: var(--color-bg); }
-.retirement-plan-page:not(:has(.plan-section:target)) .plan-section-nav a:first-child,
+.retirement-plan-page .plan-section-nav a.is-active,
 .retirement-plan-page:has(#plan-overview:target) a[href="#plan-overview"],
 .retirement-plan-page:has(#plan-settings:target) a[href="#plan-settings"],
 .retirement-plan-page:has(#plan-cashflow:target) a[href="#plan-cashflow"],
-.retirement-plan-page:has(#plan-analysis:target) a[href="#plan-analysis"] { color: var(--color-primary-700); background: var(--color-secondary-soft); }
+.retirement-plan-page:has(#plan-analysis:target) a[href="#plan-analysis"],
+.retirement-plan-page .plan-section-nav a[aria-current="true"] { color: var(--color-primary-700); background: var(--color-secondary-soft); }
+.retirement-plan-page .plan-section-nav a:not(.is-active):not([aria-current="true"]) { color: var(--color-text-muted); background: transparent; }
+.retirement-plan-page .plan-section-nav a:not(.is-active):not([aria-current="true"]):hover { color: var(--color-primary-700); background: var(--color-bg); }
 .plan-section { min-width: 0; margin-bottom: 36px; scroll-margin-top: calc(var(--topbar-height) + 96px); }
 .plan-section:focus { outline: none; box-shadow: none; }
 .plan-section-heading { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
@@ -330,3 +333,293 @@
   .plan-section { break-inside: auto; scroll-margin: 0; }
   .retirement-plan-page .plan-result-hero, .retirement-plan-page .plan-metric-card { break-inside: avoid; }
 }
+
+/* ---- Plan overview, demo layout (sites/an-huu-trai-nghiem: .summary-hero / .metric-grid) ---- */
+.plan-summary-hero { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 32px; padding: 32px 36px; border: 1px solid #254674; border-radius: 24px; background: #0b2854; color: #fff; }
+.plan-summary-hero__badge { display: inline-flex; align-items: center; width: fit-content; padding: 5px 10px; border-radius: 99px; background: rgba(255, 255, 255, .1); color: #e3edfc; font-size: 12px; font-weight: 600; }
+.plan-summary-hero__title { margin: 16px 0 8px; color: #fff; font-size: 21px; font-weight: 400; line-height: 1.5; letter-spacing: 0; }
+.plan-summary-hero__number { display: block; color: #f5f8ff; font-size: 46px; font-weight: 600; line-height: 1.25; letter-spacing: -1.5px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.plan-summary-hero__number small { color: #C1E8FF; font-size: 16px; font-weight: 400; letter-spacing: 0; }
+.plan-summary-hero__desc { max-width: 620px; margin: 12px 0 0; color: #cfddf0; font-size: 14px; line-height: 1.7; }
+.plan-summary-hero__desc strong { color: #fff; font-weight: 600; }
+.plan-summary-hero__notice { margin: 10px 0 0; color: #f6dca4; font-size: 13px; }
+.plan-summary-hero .plan-hero-actions { margin-top: 24px; }
+.plan-summary-hero .button-primary { background: #fff; color: #132b45; }
+.plan-summary-hero .button-primary:hover:not(:disabled) { background: #C1E8FF; }
+.plan-summary-hero .button-secondary { background: #edf3fc; color: #163b70; border-color: #d3e0f3; }
+.plan-summary-hero .button-ghost, .plan-summary-hero .plan-hero-tool { color: #cfddf0; }
+.plan-summary-hero .button-ghost:hover:not(:disabled), .plan-summary-hero .plan-hero-tool:hover:not(:disabled) { background: rgba(255, 255, 255, .08); color: #fff; }
+.plan-summary-hero__side { display: flex; flex-direction: column; justify-content: center; gap: 22px; padding-left: 32px; border-left: 1px solid rgba(255, 255, 255, .2); }
+.plan-summary-hero__side span { display: block; color: #C1E8FF; font-size: 12px; }
+.plan-summary-hero__side strong { display: block; margin-top: 5px; color: #fff; font-size: 24px; font-weight: 600; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.plan-summary-hero__side small { display: block; color: #cfddf0; font-size: 12px; }
+.plan-summary-hero__side.is-warning > div:first-child strong { color: #f6dca4; }
+
+.retirement-plan-page .plan-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 22px 0; }
+.retirement-plan-page .plan-metric-card { min-height: 0; gap: 6px; padding: 20px; border-radius: 16px; box-shadow: none; }
+.retirement-plan-page .plan-metric-card > div { color: #456B91; font-size: 13px; }
+.retirement-plan-page .plan-metric-card > div .icon { width: 18px; height: 18px; color: #7DA0CA; }
+.retirement-plan-page .plan-metric-card > strong { margin: 6px 0 0; color: #052659; font-size: 24px; font-weight: 600; letter-spacing: -.5px; }
+.retirement-plan-page .plan-metric-card > strong small { margin-left: 2px; color: #456B91; font-size: 13px; font-weight: 400; }
+.retirement-plan-page .plan-metric-card > strong.is-danger { color: #C0392B; }
+.retirement-plan-page .plan-metric-card > strong.is-success { color: #1E7E55; }
+.retirement-plan-page .plan-metric-card > small { color: #456B91; font-size: 12px; line-height: 1.6; }
+
+@media (max-width: 1200px) {
+  .plan-summary-hero { grid-template-columns: 1fr 190px; gap: 24px; padding: 28px; }
+  .plan-summary-hero__side { padding-left: 24px; }
+  .plan-summary-hero__number { font-size: 38px; }
+  .retirement-plan-page .plan-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 800px) {
+  .plan-summary-hero { grid-template-columns: 1fr; gap: 20px; padding: 24px; }
+  .plan-summary-hero__title { font-size: 18px; }
+  .plan-summary-hero__number { font-size: 34px; }
+  .plan-summary-hero__side { flex-direction: row; flex-wrap: wrap; padding: 20px 0 0; border-left: 0; border-top: 1px solid rgba(255, 255, 255, .2); }
+  .plan-summary-hero__side > div { flex: 1 1 140px; }
+}
+@media (max-width: 480px) {
+  .retirement-plan-page .plan-metrics { grid-template-columns: 1fr; }
+}
+
+/* =========================================================================
+   Demo Retirement Plan Components (sites/an-huu-trai-nghiem: .plan-status, .plan-health, .plan-tools-grid, .plan-more, .adjust-grid)
+   ========================================================================= */
+.plan-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 24px;
+  border: 1px solid #D0E4FE;
+  border-radius: 16px;
+  background: #ffffff;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 16px rgba(5, 38, 89, 0.03);
+}
+.plan-status.plan-next {
+  border-color: #334DAF;
+  background: #E8F2FE;
+}
+.plan-status .status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #1E7E55;
+  flex-shrink: 0;
+}
+.plan-status.plan-next .status-dot {
+  background: #d97706;
+}
+.plan-status strong {
+  display: block;
+  font-size: 15px;
+  color: #052659;
+}
+.plan-status p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #456B91;
+}
+.plan-status .plan-next-steps {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: #456B91;
+}
+.plan-status .plan-next-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.plan-health {
+  border: 1px solid #D0E4FE;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 16px rgba(5, 38, 89, 0.03);
+}
+.plan-health.is-warning {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+.plan-health-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.plan-health-title strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  color: #052659;
+  margin-bottom: 4px;
+}
+.plan-health-title p {
+  margin: 0;
+  font-size: 13px;
+  color: #456B91;
+}
+.plan-health-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.health-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: #F9FBFF;
+  border: 1px solid #D0E4FE;
+}
+.health-kpi span {
+  font-size: 12px;
+  color: #456B91;
+  font-weight: 500;
+}
+.health-kpi strong {
+  font-size: 20px;
+  font-weight: 700;
+  color: #052659;
+  font-variant-numeric: tabular-nums;
+}
+.health-kpi small {
+  font-size: 12px;
+  color: #456B91;
+}
+
+.plan-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 24px 0;
+}
+.plan-tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid #D0E4FE;
+  background: #ffffff;
+  color: #052659;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+.plan-tool-btn:hover {
+  border-color: #334DAF;
+  background: #E8F2FE;
+  transform: translateY(-1px);
+}
+.tool-btn-icon {
+  font-size: 22px;
+  color: #334DAF;
+}
+.tool-btn-copy {
+  flex: 1;
+  min-width: 0;
+}
+.tool-btn-copy strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #052659;
+}
+.tool-btn-copy small {
+  display: block;
+  font-size: 12px;
+  color: #456B91;
+  margin-top: 2px;
+}
+.tool-btn-arrow {
+  font-size: 16px;
+  color: #7DA0CA;
+}
+
+.card.plan-more {
+  border: 1px solid #D0E4FE;
+  border-radius: 16px;
+  background: #ffffff;
+  margin: 24px 0;
+  padding: 0;
+  overflow: hidden;
+}
+.card.plan-more > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  cursor: pointer;
+  list-style: none;
+  background: #F9FBFF;
+  border-bottom: 1px solid transparent;
+}
+.card.plan-more[open] > summary {
+  border-bottom-color: #D0E4FE;
+}
+.plan-more-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.plan-more-icon {
+  font-size: 20px;
+}
+.plan-more-text strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #052659;
+}
+.plan-more-text span {
+  display: block;
+  font-size: 12px;
+  color: #456B91;
+  margin-top: 2px;
+}
+.plan-more-body {
+  padding: 24px;
+}
+
+.adjust-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr);
+  gap: 24px;
+}
+.comparison-box {
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: #E8F2FE;
+  border: 1px solid #C1E8FF;
+  color: #052659;
+  font-size: 14px;
+  margin: 16px 0;
+}
+.comparison-box strong {
+  color: #334DAF;
+}
+
+@media (max-width: 960px) {
+  .plan-tools-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .plan-health-kpis {
+    grid-template-columns: 1fr;
+  }
+  .adjust-grid {
+    grid-template-columns: 1fr;
+  }
+  .plan-status {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+

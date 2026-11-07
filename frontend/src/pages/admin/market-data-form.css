@@ -1,0 +1,20 @@
+.market-form { display: grid; gap: 14px; margin: 16px 0; padding: 20px; border: 1px solid #D0E4FE; border-radius: 16px; background: #fff; }
+.market-form legend { padding: 0 6px; color: #052659; font-weight: 600; }
+.market-form h3 { margin: 10px 0 0; color: #052659; font-size: 16px; }
+.market-form__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.market-form__grid .is-wide { grid-column: span 2; }
+.market-form label { display: grid; gap: 4px; color: #052659; font-size: 13px; font-weight: 600; }
+.market-form input, .market-form select, .market-form textarea { min-height: 38px; padding: 6px 10px; border: 1px solid #7DA0CA; border-radius: 10px; background: #fff; color: #052659; font: inherit; font-weight: 400; }
+.market-form__card { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #F9FBFF; }
+.market-form__hint { margin: 0; color: #456B91; font-size: 12px; font-weight: 400; }
+.market-form__inline { max-width: 320px; }
+.market-form__paste textarea { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.market-form__paste summary, .market-json summary { cursor: pointer; font-weight: 600; min-height: 40px; display: flex; align-items: center; }
+.market-form__table-wrap { max-height: 520px; overflow: auto; border: 1px solid #D0E4FE; border-radius: 12px; }
+.market-form__table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.market-form__table th, .market-form__table td { padding: 4px 6px; border-bottom: 1px solid #eef2f7; text-align: left; white-space: nowrap; }
+.market-form__table thead th { position: sticky; top: 0; z-index: 1; background: #E8F2FE; color: #052659; }
+.market-form__table tbody th { color: #456B91; font-weight: 500; font-variant-numeric: tabular-nums; }
+.market-form__table input { width: 96px; min-height: 32px; padding: 4px 8px; border-radius: 8px; text-align: right; font-variant-numeric: tabular-nums; }
+.market-form__table input.is-empty { border-style: dashed; background: #fffaf0; }
+@media (max-width: 640px) { .market-form__grid .is-wide { grid-column: auto; } }

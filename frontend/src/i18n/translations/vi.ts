@@ -34,10 +34,10 @@ export const vi = {
   "nav.main_navigation": "ĐIỀU HƯỚNG CHÍNH",
   "nav.dashboard": "Tổng quan",
   "nav.goal": "Mục tiêu nghỉ hưu",
-  "nav.plan": "Kế hoạch chi tiết",
+  "nav.plan": "Kế hoạch nghỉ hưu",
   "nav.simulation": "Mô phỏng & Theo dõi",
   "nav.debts": "Khoản vay & Nợ",
-  "nav.risk_portfolio": "Khảo sát rủi ro",
+  "nav.risk_portfolio": "Phân bổ tài sản",
   "nav.assistant": "Trợ lý AI",
   "nav.explore": "Đối tác & Giải pháp",
   "nav.knowledge": "Cẩm nang kiến thức",
@@ -220,7 +220,7 @@ export const vi = {
   "dashboard.rail.util_ai_sub": "Cố vấn hưu trí thông minh",
 
   // Retirement Plan Page
-  "plan.page_title": "Kế hoạch hưu trí",
+  "plan.page_title": "Kế hoạch nghỉ hưu",
   "plan.page_subtitle": "Xây dựng và theo dõi lộ trình độc lập tài chính dài hạn của bạn.",
   "plan.create_version": "Tạo phiên bản mới",
   "plan.update_assumptions": "Cập nhật giả định",

@@ -1,3 +1,10 @@
+
+
+
+
+
+
+
 * text=auto
 backend/seed-data/** -text
 # Preserve the byte representation recorded by Prisma on the existing DB.

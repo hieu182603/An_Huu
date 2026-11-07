@@ -11,6 +11,7 @@ import { fetchUserAssumptions } from "../services/assumptions";
 import { useI18n } from "../i18n";
 import { formatNumberWithDots, formatVND } from "../utils/currency";
 import { Explain, type ExplainSource } from "../components/explanations/ExplainMode";
+import "./retirement-goal.css";
 
 export default function RetirementGoalPage() {
   const { t, language } = useI18n();
@@ -207,47 +208,23 @@ export default function RetirementGoalPage() {
 
   return (
     <>
-      <div className="retirement-page-header">
+      <nav className="goal-breadcrumb breadcrumb" aria-label="Breadcrumb">
+        <Link to="/user/dashboard">{language === "en" ? "Overview" : "Tổng quan"}</Link>
+        <span className="crumb-separator">/</span>
+        <span className="crumb-current">{language === "en" ? "Retirement Goals" : "Mục tiêu nghỉ hưu"}</span>
+      </nav>
+
+      <div className="retirement-page-header goal-page-head">
         <div className="retirement-header-main">
-          <div className="header-status-badge is-goal">
-            <Icon name="target" size="small" />
-            <Explain term="retirementGoal">
-              <span>{language === "en" ? "INDEPENDENT RETIREMENT GOAL" : "MỤC TIÊU HƯU TRÍ ĐỘC LẬP"}</span>
-            </Explain>
-          </div>
+          <span className="eyebrow" style={{ display: "block", color: "#456B91", fontSize: "12px", fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: "6px" }}>
+            {language === "en" ? "YOUR RETIREMENT TIMELINE" : "MỐC THỜI GIAN & MỨC SỐNG"}
+          </span>
           <h1>
             <Explain term="retirementGoal">
-              {t("goal.page_title")}
+              {language === "en" ? "Mục tiêu nghỉ hưu" : "Mục tiêu nghỉ hưu"}
             </Explain>
           </h1>
-          <p>{t("goal.page_subtitle")}</p>
-        </div>
-
-        <div className="header-quick-stats">
-          <div className="header-quick-stat-item">
-            <span className="stat-label">
-              <Explain term="retirementAge">
-                {language === "en" ? "Target Retirement Age" : "Tuổi nghỉ hưu mục tiêu"}
-              </Explain>
-            </span>
-            <span className="stat-value">
-              <Explain term="retirementAge" value={`${targetAge} ${language === "en" ? "years" : "tuổi"}`}>
-                {targetAge} {language === "en" ? "years" : "tuổi"}
-              </Explain>
-            </span>
-          </div>
-          <div className="header-quick-stat-item">
-            <span className="stat-label">
-              <Explain term="retirementPeriod">
-                {language === "en" ? "Retirement Duration" : "Thời gian hưu dự kiến"}
-              </Explain>
-            </span>
-            <span className="stat-value">
-              <Explain term="retirementPeriod" value={`${retirementDuration} ${language === "en" ? "years" : "năm"}`}>
-                {retirementDuration} {language === "en" ? "years" : "năm"}
-              </Explain>
-            </span>
-          </div>
+          <p>{language === "en" ? "Choose your timeline, living standard, and preparation horizon." : "Chọn mốc thời gian, mức sống và thời gian cần chuẩn bị quỹ."}</p>
         </div>
       </div>
 
@@ -368,7 +345,7 @@ export default function RetirementGoalPage() {
                 <div className="age-card-footer-pill">
                   <Icon name="info" size="small" />
                   <Explain term="currentAge">
-                    <span>{language === "en" ? "Birth year:" : "Năm sinh:"} <strong>{v2Profile?.personal.birthMonth.status === "KNOWN" ? v2Profile.personal.birthMonth.value.slice(0, 4) : currentAge >= 18 ? `${new Date().getFullYear() - currentAge} (${language === "en" ? "estimate" : "ước tính"})` : "—"}</strong></span>
+                    <span>{language === "en" ? "Birth year:" : "Năm sinh:"} <strong>{v2Profile?.personal.birthMonth.status === "KNOWN" ? v2Profile.personal.birthMonth.value.slice(0, 4) : currentAge >= 18 ? `${new Date().getFullYear() - currentAge} (${language === "en" ? "estimate" : "ước tính"})` : "-"}</strong></span>
                   </Explain>
                 </div>
               </div>
@@ -447,6 +424,11 @@ export default function RetirementGoalPage() {
                     </span>
                   </Explain>
                 </div>
+                <p className="retirement-estimate">
+                  {v2Profile?.personal.birthMonth?.status === "KNOWN"
+                    ? `Dự kiến nghỉ hưu: tháng ${v2Profile.personal.birthMonth.value.slice(5)}/${Number(v2Profile.personal.birthMonth.value.slice(0, 4)) + targetAge}`
+                    : `Dự kiến nghỉ hưu: năm ${new Date().getFullYear() + yearsLeft}`}
+                </p>
               </div>
             </div>
           </Card>
@@ -633,7 +615,7 @@ export default function RetirementGoalPage() {
                   </div>
                   <div className="assumption-metric-value">
                     <Explain term="inflation">
-                      <span className="rate-num">{language === "en" ? "By year" : "Theo từng năm"}</span>
+                      <span className="rate-num rate-text">{language === "en" ? "By year" : "Theo từng năm"}</span>
                       <span className="rate-unit">{language === "en" ? "/ year" : "/ năm"}</span>
                     </Explain>
                   </div>
@@ -659,7 +641,7 @@ export default function RetirementGoalPage() {
                   </div>
                   <div className="assumption-metric-value">
                     <Explain term="returnRate">
-                      <span className="rate-num rate-green">{language === "en" ? "By portfolio" : "Theo danh mục"}</span>
+                      <span className="rate-num rate-green rate-text">{language === "en" ? "By portfolio" : "Theo danh mục"}</span>
                       <span className="rate-unit">{language === "en" ? "/ year" : "/ năm"}</span>
                     </Explain>
                   </div>
@@ -805,57 +787,23 @@ export default function RetirementGoalPage() {
               </Explain>
             </header>
 
-            <div className="goal-timeline">
-              <div className="timeline-line" />
-
-              <div className="age-marker marker-now">
-                <span>{currentAge}</span>
-                <strong>
-                  <Explain term="currentAge">
-                    {language === "en" ? "Now" : "Hiện tại"}
-                  </Explain>
-                </strong>
-                <small>{currentAge} {language === "en" ? "years old" : "tuổi"}</small>
-              </div>
-
-              {yearsLeft > 0 ? (
-                <div className="age-marker marker-mid">
-                  <span>{Math.round((currentAge + targetAge) / 2)}</span>
-                  <strong>{language === "en" ? "Midpoint" : "Giai đoạn giữa"}</strong>
-                  <small>{language === "en" ? "Time remaining before retirement" : "Thời gian còn lại trước khi nghỉ hưu"}</small>
-                </div>
-              ) : (
-                <div className="age-marker marker-mid">
-                  <span>{targetAge}</span>
-                  <strong>{language === "en" ? "Retiree" : "Đã nghỉ hưu"}</strong>
-                  <small>{language === "en" ? "Start retirement drawdown" : "Bắt đầu chi tiêu hưu trí"}</small>
-                </div>
-              )}
-
-              <div className="age-marker marker-target">
-                <span>{targetAge}</span>
-                <strong>
-                  <Explain term="retirementAge">
-                    {language === "en" ? "Retirement" : "Nghỉ hưu"}
-                  </Explain>
-                </strong>
-                <small>
-                  {yearsLeft === 0
-                    ? (language === "en" ? `${targetAge} years old (Retired now)` : `${targetAge} tuổi (Đã nghỉ hưu)`)
-                    : `${targetAge} ${language === "en" ? "years old" : "tuổi"} (${yearsLeft} ${language === "en" ? "years to go" : "năm nữa"})`}
-                </small>
-              </div>
-
-              <div className="age-marker">
-                <span>{lifeExpectancy}</span>
-                <strong>
-                  <Explain term="lifeExpectancy">
-                    {language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}
-                  </Explain>
-                </strong>
-                <small>{lifeExpectancy} {language === "en" ? "years old" : "tuổi"} ({retirementDuration} {language === "en" ? "years in retirement" : "năm hưởng hưu"})</small>
-              </div>
-            </div>
+            <ol className="life-timeline goal-milestones">
+              <li>
+                <span><Explain term="currentAge">{language === "en" ? "BẮT ĐẦU TÍNH" : "BẮT ĐẦU TÍNH"}</Explain></span>
+                <strong>{currentAge} {language === "en" ? "years old" : "tuổi"}</strong>
+                <small>{v2Profile?.personal.birthMonth?.status === "KNOWN" ? `Tháng ${v2Profile.personal.birthMonth.value.slice(5)}/${v2Profile.personal.birthMonth.value.slice(0, 4)}` : "Hôm nay"}</small>
+              </li>
+              <li className="is-target">
+                <span><Explain term="retirementAge">{language === "en" ? "NGHỈ HƯU MONG MUỐN" : "NGHỈ HƯU MONG MUỐN"}</Explain></span>
+                <strong>{targetAge} {language === "en" ? "years old" : "tuổi"}</strong>
+                <small>{yearsLeft === 0 ? (language === "en" ? "Retired now" : "Đã nghỉ hưu") : (language === "en" ? `${yearsLeft} years to go` : `Còn ${yearsLeft} năm`)}</small>
+              </li>
+              <li>
+                <span><Explain term="lifeExpectancy">{language === "en" ? "CHUẨN BỊ ĐẾN" : "CHUẨN BỊ ĐẾN"}</Explain></span>
+                <strong>{lifeExpectancy} {language === "en" ? "years old" : "tuổi"}</strong>
+                <small>{language === "en" ? `${retirementDuration} years in retirement` : `Dự tính chi tiêu ${retirementDuration} năm`}</small>
+              </li>
+            </ol>
 
             <footer>
               <Icon name="info" size="small" />
@@ -868,6 +816,29 @@ export default function RetirementGoalPage() {
               </span>
             </footer>
           </Card>
+
+          {/* Card: Mục tiêu lớn khác */}
+          <section className="card goal-other-card">
+            <div className="goal-other-head">
+              <h2>{language === "en" ? "Other major life goals" : "Mục tiêu lớn khác"}</h2>
+              <Badge tone="soft">{language === "en" ? "Optional" : "Tùy chọn"}</Badge>
+            </div>
+            <p>{language === "en" ? "College tuition, home buying, or other lump-sum commitments." : "Học phí đại học cho con, mua/sửa nhà hoặc các khoản chi lớn một lần."}</p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+              <span style={{ fontSize: "14px", color: "#456B91" }}>
+                {(() => {
+                  const goals = v2Profile?.goals?.status === "KNOWN" ? v2Profile.goals.entries : [];
+                  const firstGoal = goals.length > 0 ? goals[0] : null;
+                  if (!firstGoal) return language === "en" ? "No other major goals added yet." : "Chưa có mục tiêu lớn khác.";
+                  const amount = firstGoal.amountToday?.status === "KNOWN" ? ` · ${formatVND(Number(firstGoal.amountToday.value))}` : "";
+                  return `${firstGoal.label}${amount}`;
+                })()}
+              </span>
+              <Link to="/user/account" className="button button-secondary button-small">
+                <span>{language === "en" ? "Edit other goals →" : "Xem & chỉnh sửa mục tiêu khác →"}</span>
+              </Link>
+            </div>
+          </section>
           </fieldset>
         </motion.div>
 

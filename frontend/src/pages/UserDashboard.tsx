@@ -61,232 +61,168 @@ export default function UserDashboard() {
     { label: t("dashboard.wealth.other_liquid"), value: profile.assets.liquidAssets, color: "#758797" },
   ];
 
-  const stepsRemaining = onboardingDraft?.step === "quick-risk" ? 1 : onboardingDraft?.step === "quick-money" ? 2 : 3;
+  const stepsRemaining = onboardingDraft?.step === "quick-risk" ? 1 : ["quick-family", "personal"].includes(onboardingDraft?.step ?? "") ? 2 : onboardingDraft?.step === "quick-money" ? 3 : 4;
+  const firstName = (user?.name || "").trim().split(/\s+/).pop() || (language === "en" ? "there" : "bạn");
+  const shortfall = Number(planSummary?.retirementFundingShortfall ?? 0) > 0;
+  const nextStep = !hasProfile
+    ? { to: "/onboarding", title: language === "en" ? "Finish your first plan" : "Hoàn tất bản kế hoạch đầu tiên", description: language === "en" ? `${stepsRemaining} steps left. Your answers are saved.` : `Còn ${stepsRemaining} bước nữa là thấy kế hoạch. Các câu đã trả lời được giữ lại.` }
+    : !currentVersion
+    ? { to: "/user/plan", title: language === "en" ? "Review and use one option as your main plan" : "Xem và dùng một phương án làm kế hoạch chính", description: language === "en" ? "Each step helps you understand and control your plan." : "Mỗi bước giúp bạn hiểu và kiểm soát kế hoạch rõ hơn." }
+    : shortfall
+    ? { to: "/user/plan", title: language === "en" ? "Choose how to close the gap" : "Chọn cách thu hẹp khoảng thiếu", description: language === "en" ? "Try a contribution, retirement age or spending level that fits your budget." : "Thử mức góp, tuổi nghỉ hưu hoặc mức chi vừa với ngân sách của bạn." }
+    : { to: "/user/account", title: language === "en" ? "Keep your finances up to date" : "Cập nhật tình hình tài chính", description: language === "en" ? "Update income, spending or assets when your life changes." : "Sửa thu nhập, chi tiêu hoặc tài sản khi cuộc sống thay đổi." };
 
   return (
     <div className="yoga-dashboard-layout">
       <div className="yoga-dashboard-content">
-        <header className="dashboard-summary-header">
+        <header className="dashboard-summary-header dashboard-greeting">
           <div>
-            <h1 className="user-hero-title">{language === "en" ? "Overview" : "Tổng quan"}</h1>
-            <p>{t("dashboard.hero.welcome", { name: user?.name || (language === "vi" ? "bạn" : "there") })}</p>
+            <span className="dashboard-greeting__eyebrow">{language === "en" ? "Your retirement picture" : "BỨC TRANH NGHỈ HƯU CỦA BẠN"}</span>
+            <h1 className="user-hero-title">{language === "en" ? `Hi ${firstName}, one calm step at a time.` : `Chào ${firstName}, an tâm từng bước.`}</h1>
+            <p>{language === "en" ? "Your plan is right here. Today, just take one next step." : "Kế hoạch của bạn đã ở đây. Hôm nay chỉ cần tiến thêm một bước."}</p>
           </div>
-
         </header>
 
-        {/* Onboarding in-progress prompt or Accuracy Checklist */}
-        {!hasProfile ? (
-          <Card className="onboarding-incomplete-card onboarding-resume-banner" style={{ padding: "18px 20px", marginBottom: "20px", border: "1px solid var(--color-primary-200, #bbf7d0)", background: "var(--color-surface, #fff)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-              <div>
-                <h3 style={{ margin: "0 0 6px", fontSize: "16px", fontWeight: 600 }}>
-                  {language === "en" ? "First plan in progress" : "Bản kế hoạch đầu tiên"}
-                </h3>
-                <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "14px" }}>
-                  {language === "en"
-                    ? `${stepsRemaining} steps remaining to see your plan. Your answered questions are saved.`
-                    : `Còn ${stepsRemaining} bước nữa là thấy kế hoạch của bạn. Các câu đã trả lời được giữ lại.`}
-                </p>
-              </div>
-              <Link to="/onboarding" className="button button-primary">
-                <span>{language === "en" ? "Continue" : "Tiếp tục"}</span>
-                <Icon name="arrow-right" size="small" />
-              </Link>
-            </div>
-          </Card>
-        ) : (
-          <div style={{ marginBottom: "20px" }}>
-            <AccuracyChecklist />
-          </div>
-        )}
-
-        {/* 2. Retirement plan summary */}
-        {loadingPlans && !planSummary ? (
-          <Card style={{ padding: "var(--space-6)", textAlign: "center", border: "1px solid var(--color-border)" }}>
-            <p role="status" style={{ color: "var(--color-text-muted)", margin: 0 }}>
-              {language === "en" ? "Loading your retirement plan…" : "Đang tải dữ liệu kế hoạch hưu trí của bạn…"}
+        {/* 1. Signature Hero Card in Deep Navy Gradient */}
+        <section className="summary-hero dashboard-summary" aria-label="Tóm tắt kế hoạch">
+          <div>
+            <span className="badge">
+              <Icon name="sparkles" size="small" />
+              {language === "en" ? "ACTIVE PLAN IN SESSION" : "KẾ HOẠCH ĐANG DÙNG TRONG PHIÊN"}
+            </span>
+            <h2 className="hero-title">
+              {shortfall
+                ? (language === "en" ? "To reach your goal, you need approximately" : "Để đạt được mục tiêu thì cần thêm khoảng")
+                : (language === "en" ? "Your current fund meets your goal" : "Quỹ hiện tại đáp ứng mục tiêu của bạn")}
+            </h2>
+            <strong className="hero-number font-mono">
+              {planSummary?.requiredConstantMonthlyContribution != null && Number(planSummary.requiredConstantMonthlyContribution) > 0
+                ? <>{formatCurrency(planSummary.requiredConstantMonthlyContribution)} <small>{language === "en" ? "VND / month" : "₫ / tháng"}</small></>
+                : <>{formatCurrency(planSummary?.atRetirement.requiredFund ?? 0)} <small>₫</small></>}
+            </strong>
+            <p className="hero-desc">
+              {language === "en"
+                ? `Current surplus is ${formatCurrency(surplus)}/month. You can adjust your plan at any time.`
+                : `Khoản dư hiện tại là ${formatCurrency(surplus)}/tháng. Bạn có thể thử điều chỉnh kế hoạch để vừa vặn hơn.`}
             </p>
-          </Card>
-        ) : plansError && !planSummary ? (
-          <Alert
-            tone="danger"
-            title={language === "en" ? "Could not load plan" : "Chưa tải được kế hoạch"}
-            action={<Button onClick={() => void refreshPlans()}>{language === "en" ? "Retry" : "Thử lại"}</Button>}
-          >
-            {plansError}
-          </Alert>
-        ) : (
-          <motion.section
-            className="user-cockpit-card"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.05 }}
-            aria-label={t("dashboard.plan.title")}
-          >
-            {planSummary ? (
-              <>
-                <div className="user-plan-header">
-                  <div className="user-plan-title-wrap">
-                    <div className="user-plan-icon">
-                      <Icon name="target" />
-                    </div>
-                    <div>
-                      <h2 className="user-plan-title">
-                        {synchronization.changed ? (language === "en" ? "Retirement plan from current profile" : "Kế hoạch theo hồ sơ hiện tại") : (language === "en" ? "Current retirement plan" : "Kế hoạch hưu trí đang dùng")} (v{activePlan?.current?.version ?? currentVersion?.version})
-                      </h2>
-                      <p className="user-plan-subtitle">{t("dashboard.plan.forecast_note")}</p>
-                    </div>
-                  </div>
-                  <div className="user-plan-badges">
-                    <Badge tone="success">{synchronization.changed ? (language === "en" ? "Updated preview" : "Đã cập nhật số liệu") : t("dashboard.plan.active")}</Badge>
-                    <Link className="button button-primary button-small" to="/user/plan">
-                      <span>{t("dashboard.plan.view_detail")}</span>
-                      <Icon name="arrow-right" size="small" />
-                    </Link>
-                  </div>
-                </div>
-
-                <div className="user-plan-grid">
-                  <div className="user-plan-metric">
-                    <span className="metric-label">{t("dashboard.plan.projected_fund")}</span>
-                    <strong className="metric-value font-mono">
-                      {explanationSource ? <Explain metric="summary.atRetirement.projectedFund" source={explanationSource} value={String(planSummary.atRetirement.projectedFund)}>{formatCurrency(planSummary.atRetirement.projectedFund)}</Explain> : formatCurrency(planSummary.atRetirement.projectedFund)}
-                    </strong>
-                    <small className="metric-helper">
-                      {language === "en" ? "Required target: " : "Mục tiêu cần: "}
-                      {explanationSource ? <Explain metric="summary.atRetirement.requiredFund" source={explanationSource} value={String(planSummary.atRetirement.requiredFund)}>{formatCurrency(planSummary.atRetirement.requiredFund)}</Explain> : formatCurrency(planSummary.atRetirement.requiredFund)}
-                    </small>
-                  </div>
-
-                  <div className="user-plan-metric">
-                    <span className="metric-label"><Explain term="fundCoverage">{t("dashboard.plan.coverage_percent")}</Explain></span>
-                    <strong className="metric-value metric-coverage font-mono">
-                      {planSummary.atRetirement.coveragePercent == null ? (language === "en" ? "Undetermined" : "Chưa xác định") : explanationSource ? <Explain metric="summary.atRetirement.coveragePercent" source={explanationSource} value={String(planSummary.atRetirement.coveragePercent)}>{formatPercent(planSummary.atRetirement.coveragePercent)}</Explain> : formatPercent(planSummary.atRetirement.coveragePercent)}
-                    </strong>
-                    {planSummary.atRetirement.coveragePercent != null && <div className="coverage-bar-track">
-                      <div
-                        className="coverage-bar-fill"
-                        style={{
-                          width: `${Math.min(100, Math.max(0, coveragePercentNum))}%`,
-                        }}
-                      />
-                    </div>}
-                    <small className="metric-helper">
-                      {t("dashboard.plan.target_date", { date: formatMonthVN(planSummary.retirementMonth) })}
-                    </small>
-                  </div>
-
-                  <div className="user-plan-metric">
-                    <span className="metric-label">{t("dashboard.plan.monthly_contribution")}</span>
-                    <strong className="metric-value font-mono">
-                      {planSummary.requiredConstantMonthlyContribution != null
-                        ? <>{explanationSource ? <Explain metric="summary.requiredConstantMonthlyContribution" source={explanationSource} value={String(planSummary.requiredConstantMonthlyContribution)}>{formatCurrency(planSummary.requiredConstantMonthlyContribution)}</Explain> : formatCurrency(planSummary.requiredConstantMonthlyContribution)} {t("dashboard.plan.per_month")}</>
-                        : (language === "en" ? "Undetermined" : "Chưa xác định")}
-                    </strong>
-                    <small className="metric-helper">
-                      {language === "en" ? "Future monthly expense: " : "Chi phí sinh hoạt tương lai mỗi tháng: "}
-                      {explanationSource ? <Explain metric="summary.futureMonthlyExpense" source={explanationSource} value={String(planSummary.futureMonthlyExpense)}>{formatCurrency(planSummary.futureMonthlyExpense)}</Explain> : formatCurrency(planSummary.futureMonthlyExpense)}
-                    </small>
-                  </div>
-                </div>
-
-                <PlanSyncStatus />
-              </>
-            ) : (
-              currentVersion ? <div className="user-plan-pending"><h2>{language === "en" ? "Your retirement plan" : "Kế hoạch nghỉ hưu của bạn"}</h2><PlanSyncStatus /><Link to="/user/plan">{language === "en" ? "Open plan" : "Mở kế hoạch"}</Link></div> : <div className="user-invite-block">
-                <div className="user-invite-main">
-                  <div className="user-invite-icon">
-                    <Icon name="target" />
-                  </div>
-                  <div className="user-invite-text">
-                    <span className="invite-tag">{language === "en" ? "INDEPENDENT RETIREMENT" : "LỘ TRÌNH HƯU TRÍ ĐỘC LẬP"}</span>
-                    <h2>{t("dashboard.invite.title")}</h2>
-                    <p>{t("dashboard.invite.subtitle")}</p>
-                    <div className="invite-perks">
-                      <span><Icon name="check" size="small" /> {t("dashboard.invite.benefit1")}</span>
-                      <span><Icon name="check" size="small" /> {t("dashboard.invite.benefit2")}</span>
-                      <span><Icon name="check" size="small" /> {t("dashboard.invite.benefit3")}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="user-invite-action">
-                  <Link className="button button-primary" to="/user/goal">
-                    <span>{t("dashboard.invite.cta")}</span>
-                    <Icon name="arrow-right" size="small" />
-                  </Link>
-                </div>
-              </div>
-            )}
-
-          </motion.section>
-        )}
-
-        {/* 3. Declared Monthly Cashflow (Thu chi da khai bao) */}
-        <section className="user-cashflow-section" aria-label={t("dashboard.cashflow.title")}>
-          <div className="section-header-compact">
-            <h2>{t("dashboard.cashflow.title")}</h2>
-            <span className="section-note">{t("dashboard.cashflow.subtitle")}</span>
+            <Link to="/user/plan" className="btn-light">
+              <Icon name="compass" size="small" />
+              <span>{language === "en" ? "Adjust your plan" : "Thử điều chỉnh kế hoạch"}</span>
+            </Link>
           </div>
-
-          <div className="user-cashflow-grid">
-            <div className="user-cashflow-card theme-income">
-              <div className="cashflow-card-head">
-                <span className="cashflow-label"><Explain term="monthlyIncome">{t("dashboard.cashflow.income")}</Explain></span>
-                <div className="cashflow-icon-wrap">
-                  <Icon name="wallet" />
-                </div>
+          <div className="hero-metrics">
+            <div>
+              <span>{language === "en" ? "Goal coverage" : "Đáp ứng mục tiêu"}</span>
+              <strong>{Math.round(coveragePercentNum)}%</strong>
+              <div className="hero-progress" role="progressbar" aria-label="Coverage" aria-valuenow={Math.round(coveragePercentNum)}>
+                <span style={{ width: `${Math.min(100, Math.max(0, coveragePercentNum))}%` }} />
               </div>
-              <strong className="cashflow-value font-mono">{incomeKnown ? formatCurrency(income) : undetermined}</strong>
-              <span className="cashflow-sub">{t("dashboard.cashflow.income_sub")}</span>
             </div>
-
-            <div className="user-cashflow-card theme-expense">
-              <div className="cashflow-card-head">
-                <span className="cashflow-label"><Explain term="monthlyExpenses">{t("dashboard.cashflow.expense")}</Explain></span>
-                <div className="cashflow-icon-wrap">
-                  <Icon name="file-text" />
-                </div>
-              </div>
-              <strong className="cashflow-value font-mono">{expenseKnown ? formatCurrency(expense) : undetermined}</strong>
-              <span className="cashflow-sub">{t("dashboard.cashflow.expense_sub")}</span>
-            </div>
-
-            <div className="user-cashflow-card theme-debt">
-              <div className="cashflow-card-head">
-                <span className="cashflow-label"><Explain term="monthlyDebtPayment">{t("dashboard.cashflow.debt")}</Explain></span>
-                <div className="cashflow-icon-wrap">
-                  <Icon name="shield" />
-                </div>
-              </div>
-              <strong className="cashflow-value font-mono">{debtServiceKnown ? formatCurrency(debtService) : undetermined}</strong>
-              <span className="cashflow-sub">{t("dashboard.cashflow.debt_sub")}</span>
-            </div>
-
-            <div className={`user-cashflow-card ${!surplusKnown ? "theme-unknown" : surplus >= 0 ? "theme-surplus" : "theme-deficit"}`}>
-              <div className="cashflow-card-head">
-                <span className="cashflow-label"><Explain term="monthlySurplus">{t("dashboard.cashflow.surplus")}</Explain></span>
-                <div className="cashflow-icon-wrap">
-                  <Icon name={!surplusKnown ? "info" : surplus >= 0 ? "sparkles" : "alert"} />
-                </div>
-              </div>
-              <strong className="cashflow-value font-mono">{surplusKnown ? formatCurrency(surplus) : undetermined}</strong>
-              <span className="cashflow-sub">
-                {!surplusKnown ? (language === "en" ? "Complete income, expenses and debt payments first." : "Cần đủ thu nhập, chi tiêu và khoản trả nợ.") : surplus >= 0 ? t("dashboard.cashflow.surplus_sub") : t("dashboard.cashflow.deficit_sub")}
-              </span>
+            <div>
+              <span>{language === "en" ? "With trial contribution" : "Với mức góp đang thử"}</span>
+              <strong>
+                {planSummary?.firstShortfallMonth
+                  ? (language === "en" ? `Funded until ${planSummary.firstShortfallMonth}` : `Đủ đến tháng ${planSummary.firstShortfallMonth}`)
+                  : (language === "en" ? "Funded to plan end" : "Đủ đến cuối kế hoạch")}
+              </strong>
+              <small>
+                {planSummary?.firstShortfallMonth
+                  ? (language === "en" ? "Shortfall projected after this point." : "Sau mốc này dự kiến bắt đầu thiếu quỹ.")
+                  : (language === "en" ? "Throughout the simulation horizon." : "Trong toàn bộ thời gian lập kế hoạch.")}
+              </small>
             </div>
           </div>
-
-          {!surplusKnown && <Link className="button button-soft" to="/user/account">{language === "en" ? "Complete cashflow information" : "Bổ sung thông tin thu chi"}</Link>}
-          {surplusKnown && surplus < 0 && <details className="cashflow-review-details"><summary>{language === "en" ? "Review the monthly shortfall" : "Xem chi tiết khoản thiếu mỗi tháng"}</summary><p>{t("dashboard.cashflow.negative_alert")}</p><Link to="/user/account">{t("dashboard.cashflow.review_profile")}</Link></details>}
-
         </section>
 
-        {synchronization.preview?.calculation && planSummary && <section className="user-trajectory-wrap" aria-label={language === "en" ? "Current plan forecast" : "Số tiền dự kiến theo kế hoạch đang dùng"}>
-          <h2>{language === "en" ? "Your retirement fund over time" : "Quỹ hưu trí thay đổi theo thời gian"}</h2>
-          <p>{language === "en" ? "Uses the same figures as the Plan page." : "Dùng cùng số liệu với trang Kế hoạch chi tiết."}</p>
-          <MonthlyRetirementChart rows={synchronization.preview.calculation.rows} summary={planSummary} />
-          <Link to="/user/simulation?tab=actuals">{language === "en" ? "Record actual contributions" : "Ghi lại tiền góp và số dư thực tế"}</Link>
-        </section>}
+        {/* 2. Result Note */}
+        <div className="result-note">
+          <Icon name="info" size="small" />
+          <span>
+            {language === "en"
+              ? "Illustrative estimate · Social security pension calculated if declared · "
+              : "Ước tính minh họa · Đã tính lương hưu bạn tự nhập · "}
+            <Link to="/user/plan">{language === "en" ? "See assumptions" : "Xem giả định"}</Link>
+          </span>
+        </div>
+
+        {/* 3. Overview Grid: Chart Card (Left) + Next Action Card (Right) */}
+        <div className="overview-grid">
+          <div className="card chart-card">
+            <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+              <div>
+                <h2 style={{ margin: "0 0 4px", fontSize: "18px", color: "#052659" }}>{language === "en" ? "Retirement fund trajectory" : "Quỹ nghỉ hưu của bạn"}</h2>
+                <p style={{ margin: 0, fontSize: "13px", color: "#456B91" }}>{language === "en" ? "Uses the same figures as the Plan page." : "Dùng cùng số liệu với trang Kế hoạch chi tiết."}</p>
+              </div>
+              <PlanSyncStatus />
+            </div>
+            {synchronization.preview?.calculation && planSummary ? (
+              <MonthlyRetirementChart rows={synchronization.preview.calculation.rows} summary={planSummary} />
+            ) : (
+              <p style={{ color: "#456B91", fontSize: "14px" }}>{language === "en" ? "No projection data available." : "Chưa có số liệu dự phóng."}</p>
+            )}
+          </div>
+
+          <section className="card next-card dashboard-next-step" aria-labelledby="dashboard-next-step-title">
+            <div className="next-icon">
+              <Icon name="compass" size="default" />
+            </div>
+            <div className="next-body">
+              <span className="eyebrow">{language === "en" ? "A RECOMMENDED NEXT STEP" : "MỘT VIỆC NÊN LÀM TIẾP"}</span>
+              <h3 id="dashboard-next-step-title">{nextStep.title}</h3>
+              <p>{nextStep.description}</p>
+            </div>
+            <Link to={nextStep.to} className="button button-primary">
+              <span>{language === "en" ? "Continue" : "Tiếp tục"}</span>
+              <Icon name="arrow-right" size="small" />
+            </Link>
+          </section>
+        </div>
+
+        {hasProfile && (
+          <details className="dashboard-prep-steps">
+            <summary>{language === "en" ? "Plan preparation steps" : "Các bước chuẩn bị kế hoạch"}</summary>
+            <div className="dashboard-checklist-wrapper">
+              <AccuracyChecklist />
+            </div>
+          </details>
+        )}
+
+        {/* 4. Consolidated Cashflow Card (.card.budget) */}
+        <section className="card budget user-cashflow-section" aria-label={t("dashboard.cashflow.title")}>
+          <div className="budget-title">
+            <h3>{t("dashboard.cashflow.title")}</h3>
+            <span className="small muted">{t("dashboard.cashflow.subtitle")}</span>
+          </div>
+
+          <div className="budget-grid user-cashflow-grid">
+            <div className="budget-item user-cashflow-card theme-income">
+              <span><Explain term="monthlyIncome">{t("dashboard.cashflow.income")}</Explain></span>
+              <strong className="font-mono">{incomeKnown ? formatCurrency(income) : undetermined}</strong>
+            </div>
+
+            <div className="budget-item user-cashflow-card theme-expense">
+              <span><Explain term="monthlyExpenses">{t("dashboard.cashflow.expense")}</Explain></span>
+              <strong className="font-mono">{expenseKnown ? formatCurrency(expense) : undetermined}</strong>
+            </div>
+
+            <div className="budget-item user-cashflow-card theme-debt">
+              <span><Explain term="monthlyDebtPayment">{t("dashboard.cashflow.debt")}</Explain></span>
+              <strong className="font-mono">{debtServiceKnown ? formatCurrency(debtService) : undetermined}</strong>
+            </div>
+
+            <div className={`budget-item user-cashflow-card ${!surplusKnown ? "theme-unknown" : surplus >= 0 ? "theme-surplus highlight" : "theme-deficit"}`}>
+              <span><Explain term="monthlySurplus">{t("dashboard.cashflow.surplus")}</Explain></span>
+              <strong className="font-mono">{surplusKnown ? formatCurrency(surplus) : undetermined}</strong>
+            </div>
+          </div>
+        </section>
+
+        <nav className="dashboard-quick-links" aria-label={language === "en" ? "Shortcuts" : "Lối tắt"}>
+          <Link to="/user/plan" className="button button-secondary"><Icon name="compass" size="small" />{language === "en" ? "View plan" : "Xem kế hoạch"}</Link>
+          <Link to="/user/account" className="button button-secondary"><Icon name="wallet" size="small" />{language === "en" ? "View finances" : "Xem tài chính"}</Link>
+          <Link to="/user/risk-portfolio" className="button button-secondary"><Icon name="shield" size="small" />{language === "en" ? "View allocation" : "Xem phân bổ"}</Link>
+        </nav>
+
 
         {/* 4. Wealth Architecture & Foundation (Bento Grid) */}
         <div className="user-wealth-bento">
@@ -356,7 +292,7 @@ export default function UserDashboard() {
                     </strong>
                   </div>
                   <div className="networth-badge-wrap">
-                    <span className="debt-ratio-badge font-mono">
+                    <span className="debt-ratio-badge">
                       {!assetsKnown || !debtKnown || !netWorthKnown ? undetermined : assets > 0 ? t("dashboard.balance.debt_ratio", { percent: `${debtRatio.toFixed(1)}%` }) : (language === "en" ? "Debt/assets: Undefined (no assets)" : "Nợ/tài sản: Không xác định (chưa có tài sản)")}
                     </span>
                   </div>
@@ -440,20 +376,6 @@ export default function UserDashboard() {
 
         {/* 5. Strategic Levers (Simulation & Debt Management) */}
         <div className="user-tools-grid">
-          <div className="user-tool-card">
-            <div className="tool-icon-wrap">
-              <Icon name="chart" />
-            </div>
-            <div className="tool-content">
-              <h3>{t("dashboard.tools.simulation_title")}</h3>
-              <p>{t("dashboard.tools.simulation_desc")}</p>
-            </div>
-            <Link className="button button-secondary button-small tool-button" to="/user/simulation">
-              <span>{t("dashboard.tools.simulation_btn")}</span>
-              <Icon name="arrow-right" size="small" />
-            </Link>
-          </div>
-
           <div className="user-tool-card">
             <div className="tool-icon-wrap">
               <Icon name="wallet" />

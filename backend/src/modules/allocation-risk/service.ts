@@ -16,7 +16,9 @@ import { MarketDataService } from "./market-service";
 import { riskRequestSchema, type RiskRequest } from "./schema";
 import { LIMITS, simulate, runPath, type RiskContext, type PathMarket } from "./simulation";
 import { stressKinds } from "./policy";
-import { deterministicStress } from "./stresses";
+import { continuousCandidate } from "./optimizer-candidate";
+import { checkPortfolioFeasibility } from "./optimizer";
+import { deterministicStress, extendLongevityContext } from "./stresses";
 import { allocationCandidates, selectCandidate } from "./selection";
 import { proposeRebalance, rebalanceInputSchema, type Allocation } from "./rebalance";
 import type { z } from "zod";
@@ -81,7 +83,7 @@ function deterministicMarket(preview: PlanPreview): PathMarket[] {
       new D(h.annualNetNominalReturnPercent).div(100).plus(1).pow(new D(1).div(12)).minus(1).toFixed()])) }));
 }
 export class AllocationRiskService {
-  constructor(private db: PrismaClient) {}
+  constructor(private db: PrismaClient, private optimizer = { continuous: false, fallback: false }) {}
   private async load(userId: string, command: RiskRequest) {
     const input = riskRequestSchema.parse(command);
     const retirement = new RetirementService(this.db);
@@ -121,7 +123,14 @@ export class AllocationRiskService {
         if (preview.reforecast || !monthSchema.safeParse(endMonth).success) return { extraYears, ...review("EXTENDED_SOURCE_CASHFLOW_REVIEW_REQUIRED") };
         const selection = { ...preview.selection, endMonth }, extended = new RetirementService(this.db).evaluate(capture, selection);
         const ctx = contextOf(capture, extended);
-        if (!ctx) return { extraYears, ...review("EXTENDED_POLICY_ASSUMPTION_OR_CASHFLOW_COVERAGE_REQUIRED") };
+        if (!ctx) {
+          const last = context.projection.rows.at(-1)!;
+          if (policy?.stresses?.LONGEVITY?.terminalContinuation !== "LIVING_CPI_LIFELONG_PENSION_ONLY"
+            || [last.income, last.debtPayment, last.additionalExpense].some(v => new D(v).gt(0)))
+            return { extraYears, ...review("EXTENDED_POLICY_ASSUMPTION_OR_CASHFLOW_COVERAGE_REQUIRED") };
+          const tail = extendLongevityContext(context, deterministicMarket(preview), extraYears);
+          return { extraYears, status: "READY" as const, endMonth: tail.endMonth, basis: "APPROVED_TERMINAL_CONTINUATION", result: runPath(tail.extendedContext, tail.extendedMarket) };
+        }
         return { extraYears, status: "READY" as const, endMonth, result: runPath(ctx, deterministicMarket(extended)) };
       });
       return { ...reference, status: "READY" as const, basis: "PINNED_DETERMINISTIC_ASSUMPTIONS", sources: capture.assumptions.data.sources,
@@ -138,11 +147,19 @@ export class AllocationRiskService {
     }
     const capital = separateCapital(riskProfile, capture.assumptions.data);
     const candidates = allocationCandidates(context.targets, stress.equityAssetClass, stress.depositAssetClass, policy.equityShiftPoints);
+    const continuous = this.optimizer.continuous && policy.continuousOptimizer ? continuousCandidate(context.targets, dataset.data, policy.continuousOptimizer) : undefined;
+    if (this.optimizer.continuous && !continuous) return { ...reference, ...review("APPROVED_OPTIMIZER_POLICY_REQUIRED") };
+    if (continuous && !continuous.input) return { ...reference, ...review(continuous.issue ?? "OPTIMIZER_CONSTRAINTS_REQUIRED") };
+    if (continuous?.candidate) candidates.unshift(continuous.candidate);
+    if (continuous && !this.optimizer.fallback) candidates.splice(continuous.candidate ? 1 : 0);
     const scores = [], rejected = [];
     if (input.paths * context.projection.rows.length * candidates.length > LIMITS.maxPathMonths)
       return { ...reference, status: "LIMIT_EXCEEDED" as const, issues: ["CANDIDATE_PATH_MONTH_LIMIT"], limits: LIMITS };
     for (const candidate of candidates) {
       if (!candidate.valid) { rejected.push({ id: candidate.id, issues: ["INVALID_WEIGHTS"] }); continue; }
+      if (continuous?.input && candidate.targets.some(t => !checkPortfolioFeasibility(continuous.input!, continuous.input!.currentWeights!.map((_, i) => Number(t.find(a => a.assetClass === context.targets[0][i].assetClass)?.weightPercent ?? NaN) / 100)).feasible)) {
+        rejected.push({ id: candidate.id, issues: ["OPTIMIZER_HARD_CONSTRAINT_VIOLATION"] }); continue;
+      }
       const checks = candidate.targets.map(t => assessLossConstraint(capital, riskProfile, capture.policy.data,
         t.map(a => ({ assetClass: a.assetClass, startWeightPercent: a.weightPercent }))));
       if (checks.some(c => c.status === "REVIEW_REQUIRED")) return { ...reference, ...review("LOSS_CONSTRAINT_INPUTS_REQUIRED") };
@@ -156,6 +173,7 @@ export class AllocationRiskService {
       : adjustmentOptions(capture.profile, preview.selection, capture.policy.data, capture.assumptions.data,
         prepareRetirement(capture.profile, preview.selection, capture.policy.data, capture.assumptions.data));
     return { ...reference, status: selected ? "READY" : "INSUFFICIENT", selectedId: selected?.id ?? null, threshold: policy.essentialThreshold,
+      optimization: continuous ? { status: continuous.result?.status ?? "REVIEW_REQUIRED", method: continuous.result?.solverMetadata.method, issues: continuous.result?.issues ?? (continuous.issue ? [continuous.issue] : []), feasible: continuous.result?.solverMetadata.feasible ?? false } : { status: "DISABLED", method: "APPROVED_FINITE_CANDIDATES" },
       candidates: scores, rejected, ...(adjustments ? { adjustmentOptions: adjustments, adjustmentKinds: ["CONTRIBUTE_MORE", "RETIRE_LATER", "SPEND_LESS"] } : {}),
       rule: "P_ESSENTIAL_THRESHOLD_THEN_MIN_CVAR_THEN_MIN_ALLOCATION_CHANGE" };
   }

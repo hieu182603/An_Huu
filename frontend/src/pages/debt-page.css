@@ -960,3 +960,43 @@
     width: 100%;
   }
 }
+
+/* Standard An Huu Demo Alignment Tokens for Debt Analysis */
+.debt-page-container .ledger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border, #D0E4FE);
+}
+
+.debt-page-container .ledger-row:last-child {
+  border-bottom: 0;
+}
+
+.debt-page-container .detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border, #D0E4FE);
+}
+
+.debt-page-container .compare-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .debt-page-container .compare-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.debt-page-container .table-scroll table.responsive-table th {
+  background: var(--soft, #E8F2FE);
+  color: var(--navy, #052659);
+  font-weight: 600;
+}

@@ -47,6 +47,7 @@ s.RiskResult = obj({ status: en("READY", "DATA_REQUIRED", "REVIEW_REQUIRED", "IN
   marketVersionId: uuid, marketVersion: integer, marketHash: str, inputHash: str, profileHash: str, policyVersionId: uuid, policyVersion: integer, policyHash: str,
   assumptionVersionId: uuid, assumptionVersion: integer, assumptionHash: str, informationalOnly: boolean, persisted: boolean,
   ...simulation, basis: str, sources: { type: "array", items: { $ref: "./assumptions.openapi.yaml#/Source" } }, scenarios: arr(ref("Scenario")), longevity: ref("Longevity"), limitations: arr(str),
+  optimization: obj({ status: str, method: str, issues: arr(str), feasible: boolean }, ["status"]),
   selectedId: nullable, threshold: str, candidates: arr(ref("Candidate")), rejected: arr(obj({ id: str, issues: arr(str) })),
   adjustmentOptions: { anyOf: [{ $ref: "./retirement.openapi.yaml#/AdjustmentOptions" }, obj({ status: en("REVIEW_REQUIRED"), issues: arr(str) })] }, adjustmentKinds: arr(str), rule: str,
 }, ["status"]);

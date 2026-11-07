@@ -5,6 +5,10 @@ const origin = z.string().url().refine(v => {
   return ["http:", "https:"].includes(u.protocol) && u.origin === v;
 }, "Phải là origin HTTP(S), không chứa đường dẫn.");
 const schema = z.object({
+  ENABLE_CONTINUOUS_OPTIMIZER: z.enum(["true", "false"]).optional(),
+  ENABLE_OPTIMIZER_FALLBACK: z.enum(["true", "false"]).optional(),
+  ENABLE_RECOMMENDATION_PUBLICATION: z.enum(["true", "false"]).optional(),
+  RECOMMENDATION_LEGAL_AUTHORIZATION_REFERENCE: z.string().min(5).max(500).optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(5000),
   DATABASE_URL: z.string().url().refine(v => /^postgres(ql)?:\/\//.test(v)),

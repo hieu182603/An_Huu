@@ -1,4 +1,5 @@
 import "./user-readability.css";
+import "./user-demo-theme.css";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Avatar, Badge, BrandLogo, Drawer, Icon, IconButton, Tooltip, useNotification, type IconName } from "../components/ui";
@@ -39,20 +40,35 @@ export default function UserLayout() {
 
   const userNavItems: UserNavItem[] = [
     { path: "/user/dashboard", label: t("nav.dashboard"), icon: "home" },
+    { path: "/user/account", label: language === "en" ? "Your finances" : "Tài chính của bạn", icon: "wallet" },
     { path: "/user/goal", label: t("nav.goal"), icon: "target" },
     { path: "/user/plan", label: t("nav.plan"), icon: "compass" },
-    { path: "/user/simulation", label: t("nav.simulation"), icon: "chart" },
-    { path: "/user/debts", label: t("nav.debts"), icon: "wallet" },
     { path: "/user/risk-portfolio", label: t("nav.risk_portfolio"), icon: "shield" },
     { path: "/user/assistant", label: t("nav.assistant"), icon: "sparkles", badge: "AI" },
-    { path: "/user/explore", label: t("nav.explore"), icon: "briefcase" },
+    { path: "/user/explore", label: language === "en" ? "Financial products" : "Sản phẩm tài chính", icon: "briefcase" },
+    { path: "/user/knowledge", label: language === "en" ? "Financial knowledge" : "Kiến thức tài chính", icon: "file-text" },
   ];
+
+  // Sidebar groups mirror the demo: planning tasks, discovery, then help.
+  const navGroups: { label: string; items: UserNavItem[] }[] = [
+    { label: language === "en" ? "Your plan" : "Kế hoạch của bạn", items: userNavItems.slice(0, 5) },
+    { label: language === "en" ? "Explore" : "Khám phá", items: userNavItems.filter(item => item.path === "/user/explore" || item.path === "/user/knowledge") },
+    { label: language === "en" ? "Help" : "Hỗ trợ", items: [
+      ...userNavItems.filter(item => item.path === "/user/assistant"),
+    ] },
+  ];
+  const currentNavLabel = [...userNavItems,
+    { path: "/user/support", label: language === "en" ? "Support" : "Hỗ trợ", icon: "life-buoy" as IconName },
+    { path: "/user/notifications", label: language === "en" ? "Notifications" : "Thông báo", icon: "bell" as IconName },
+    { path: "/user/debts", label: language === "en" ? "Your finances" : "Tài chính của bạn", icon: "wallet" as IconName },
+  ].find(item => location.pathname.startsWith(item.path))?.label;
+  const settingsTab = location.pathname === "/user/account" && /[?&]tab=(settings|reports)\b/.test(location.search);
+  const locationLabel = settingsTab ? (language === "en" ? "Account settings" : "Cài đặt tài khoản") : currentNavLabel;
 
   const drawerNavItems: UserNavItem[] = [
     ...userNavItems,
     { path: "/user/support", label: language === "en" ? "Support" : "Hỗ trợ", icon: "life-buoy" },
     { path: "/user/notifications", label: language === "en" ? "Notifications" : "Thông báo", icon: "bell" },
-    { path: "/user/account", label: language === "en" ? "Financial Profile" : "Hồ sơ tài chính", icon: "settings" },
   ];
 
   // Unread count and polling live in the shared notification store used by
@@ -119,28 +135,30 @@ export default function UserLayout() {
         </div>
 
         <nav>
-          {!collapsed && <div className="sidebar-label">{t("nav.main_navigation")}</div>}
-          {userNavItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                {...routeIntent(item.path)}
-                className={isActive ? "is-active" : ""}
-                title={item.label}
-                aria-label={item.label}
-              >
-                <Icon name={item.icon} />
-                {!collapsed && <span>{item.label}</span>}
-                {!collapsed && item.badge && (
-                  <span style={{ marginLeft: "auto" }}>
-                    <Badge tone="honey">{item.badge}</Badge>
-                  </span>
-                )}
-              </NavLink>
-            );
-          })}
+          {navGroups.map(group => (
+            <div className="sidebar-group" key={group.label}>
+              {!collapsed && <div className="sidebar-label">{group.label}</div>}
+              {group.items.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    {...routeIntent(item.path)}
+                    className={isActive ? "is-active" : ""}
+                    title={item.label}
+                    aria-label={item.label}
+                  >
+                    <Icon name={item.icon} />
+                    {!collapsed && <span>{item.label}</span>}
+                    {!collapsed && item.badge && (
+                      <span className="sidebar-badge"><Badge tone="honey">{item.badge}</Badge></span>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {!collapsed && (
@@ -167,7 +185,7 @@ export default function UserLayout() {
             <button
               className="icon-button"
               type="button"
-              aria-label={language === "en" ? "Open account menu" : "Mở menu tài khoản"}
+              aria-label={language === "en" ? "Open menu" : "Mở menu tài khoản"}
               aria-expanded={mobileMenuOpen}
               aria-haspopup="dialog"
               onClick={() => setMobileMenuOpen(true)}
@@ -206,9 +224,11 @@ export default function UserLayout() {
               className={`topbar-ai-pill ${explainMode ? "is-active" : ""}`}
               onClick={() => setExplainMode(value => !value)}
               aria-pressed={explainMode}
-              title={t("topbar.ai_assistant")}
+              aria-label={t("topbar.ai_assistant")}
+              title={explainMode ? (language === "en" ? "Turn off explain mode" : "Tắt chế độ giải thích") : (language === "en" ? "Turn on explain mode" : "Bật chế độ giải thích")}
             >
-              <Icon name="sparkles" />
+              <Icon name="sparkles" className="topbar-ai-icon-desktop" />
+              <Icon name="info" className="topbar-ai-icon-mobile" />
               <span>{t("topbar.ai_assistant")}</span>
             </button>
             <LanguageSwitcher />
@@ -243,6 +263,13 @@ export default function UserLayout() {
 
         <main className={`dashboard-main ${location.pathname === "/user/assistant" ? "dashboard-main-assistant" : ""}`} id="main-content">
           <ExplainModeProvider key={user?.id} enabled={explainMode} onDisable={() => setExplainMode(false)}>
+          {locationLabel && location.pathname !== "/user/assistant" && (
+            <nav className="location-bar" aria-label={language === "en" ? "You are here" : "Vị trí hiện tại"}>
+              <Link to="/user/dashboard">{language === "en" ? "Your space" : "Không gian của bạn"}</Link>
+              <Icon name="chevron-right" size="small" />
+              <strong aria-current="page">{locationLabel}</strong>
+            </nav>
+          )}
           {explainMode && <div className="explain-mode-banner" role="status"><span>{language === "en" ? "Tap a phrase or figure to see an explanation · Esc to exit" : "Chạm vào cụm từ hoặc con số để xem giải thích · Esc để thoát"}</span><Link to="/user/assistant">{language === "en" ? "Open AI chat" : "Mở trò chuyện AI"}</Link></div>}
           <FinancialProfileGate>
             <Suspense fallback={<AppLoader variant="inline" label={t("common.loading")} />}>
@@ -257,33 +284,51 @@ export default function UserLayout() {
 
       {/* Mobile Bottom Navigation */}
       <nav className="user-mobile-nav" aria-label={language === "en" ? "Mobile navigation" : "Menu di động"}>
-        <NavLink to="/user/dashboard" {...routeIntent("/user/dashboard")} className={location.pathname === "/user/dashboard" ? "is-active" : ""}>
+        <NavLink to="/user/dashboard" {...routeIntent("/user/dashboard")} className={location.pathname === "/user/dashboard" ? "is-active" : ""} aria-current={location.pathname === "/user/dashboard" ? "page" : undefined}>
           <Icon name="home" />
-          <span>{t("nav.dashboard")}</span>
+          <span>{language === "en" ? "Overview" : "Tổng quan"}</span>
         </NavLink>
-        <NavLink to="/user/goal" {...routeIntent("/user/goal")} className={location.pathname === "/user/goal" ? "is-active" : ""}>
+        <NavLink to="/user/goal" {...routeIntent("/user/goal")} className={location.pathname === "/user/goal" ? "is-active" : ""} aria-current={location.pathname === "/user/goal" ? "page" : undefined}>
           <Icon name="target" />
-          <span>{t("nav.goal")}</span>
+          <span>{language === "en" ? "Goals" : "Mục tiêu"}</span>
         </NavLink>
-        <NavLink to="/user/plan" {...routeIntent("/user/plan")} className={location.pathname === "/user/plan" ? "is-active" : ""}>
+        <NavLink to="/user/plan" {...routeIntent("/user/plan")} className={location.pathname === "/user/plan" ? "is-active" : ""} aria-current={location.pathname === "/user/plan" ? "page" : undefined}>
           <Icon name="compass" />
-          <span>{t("nav.plan")}</span>
+          <span>{language === "en" ? "Plan" : "Kế hoạch"}</span>
         </NavLink>
-        <NavLink to="/user/assistant" {...routeIntent("/user/assistant")} className={location.pathname === "/user/assistant" ? "is-active" : ""}>
+        <NavLink to="/user/assistant" {...routeIntent("/user/assistant")} className={location.pathname === "/user/assistant" ? "is-active" : ""} aria-current={location.pathname === "/user/assistant" ? "page" : undefined}>
           <Icon name="sparkles" />
-          <span>{t("nav.assistant")}</span>
+          <span>{language === "en" ? "Assistant" : "Trợ lý"}</span>
         </NavLink>
         <button
           type="button"
           className={`user-mobile-nav-btn ${accountModalOpen ? "is-active" : ""}`}
           onClick={() => openAccountModal("profile")}
-          style={{ background: "transparent", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", color: "inherit", cursor: "pointer", font: "inherit" }}
+          aria-label={language === "en" ? "Profile" : "Hồ sơ"}
         >
           <Icon name="users" />
-          <span>{t("topbar.profile")}</span>
+          <span>{language === "en" ? "Profile" : "Hồ sơ"}</span>
         </button>
       </nav>
-      <Drawer open={mobileMenuOpen} title={t("topbar.profile")} onClose={() => setMobileMenuOpen(false)}>
+      <Drawer open={mobileMenuOpen} title={language === "en" ? "Menu" : "Menu"} onClose={() => setMobileMenuOpen(false)}>
+        {mobileMenuOpen && (
+          <div style={{ padding: "12px 16px" }}>
+            <form className="drawer-search-form" role="search" onSubmit={(e) => { submitSearch(e); setMobileMenuOpen(false); }}>
+              <div className="topbar-search-box" style={{ width: "100%" }}>
+                <Icon name="search" size="small" className="topbar-search-icon" />
+                <input
+                  type="search"
+                  className="topbar-search-input"
+                  placeholder={t("topbar.search_placeholder")}
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setSearchFeedback(""); }}
+                  aria-label={t("common.search")}
+                  style={{ fontSize: "16px", minHeight: "44px" }}
+                />
+              </div>
+            </form>
+          </div>
+        )}
         <div style={{ padding: "12px 16px" }}>
           <LanguageSwitcher variant="select" />
         </div>

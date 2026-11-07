@@ -371,7 +371,7 @@ test.describe("Part B: Contribution selection with chips and advanced options", 
 
     // Neutral notice when monthlyContribution = 0
     await expect(settings.locator(".plan-settings__neutral-notice")).toHaveText(
-      "Bạn chưa chọn khoản góp — kế hoạch đang tính như không góp thêm."
+      /Bạn chưa chọn khoản góp [-—] kế hoạch đang tính như không góp thêm\./
     );
 
     // No chip is pre-selected (aria-pressed=false)

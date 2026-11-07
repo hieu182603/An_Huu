@@ -34,19 +34,19 @@
     },
     {
       "source": "/api/(.*)",
-      "destination": "https://anhuu-backend-addwbfcshng0hcf7.japaneast-01.azurewebsites.net/api/$1"
+      "destination": "https://anhuu-backend.azurewebsites.net/api/$1"
     },
     {
       "source": "/api",
-      "destination": "https://anhuu-backend-addwbfcshng0hcf7.japaneast-01.azurewebsites.net/api"
+      "destination": "https://anhuu-backend.azurewebsites.net/api"
     },
     {
       "source": "/health/(.*)",
-      "destination": "https://anhuu-backend-addwbfcshng0hcf7.japaneast-01.azurewebsites.net/health/$1"
+      "destination": "https://anhuu-backend.azurewebsites.net/health/$1"
     },
     {
       "source": "/health",
-      "destination": "https://anhuu-backend-addwbfcshng0hcf7.japaneast-01.azurewebsites.net/health"
+      "destination": "https://anhuu-backend.azurewebsites.net/health"
     },
     {
       "source": "/((?!assets(?:/|$)|images(?:/|$)|.*\\.[^/]+$).*)",

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import { separateCapital, capitalSeparationSchema } from "../modules/capital/separation";
+import { assessLossConstraint } from "../modules/capital/loss-constraint";
+import { glidePortfolioFixture } from "./portfolio-fixtures";
 import { partialProfileV2Schema, profileV2Schema, type ProfileV2 } from "../modules/profiles/schema-v2";
 import { prepareRetirement } from "../modules/retirement/prepare";
 import { fixtureProfile, fixtureAsset, known, unknown, empty } from "./profile-v2-fixtures";
@@ -59,6 +61,24 @@ describe("P1 profile constraint and goal declarations", () => {
 });
 
 describe("P1 pure capital separation", () => {
+  it("verifies the full two-billion allocation and loss using runtime separation and loss engines", () => {
+    const p = profile();
+    p.lossTolerance = { amountVnd: known("500000000"), percent: known("30") };
+    const capital = separateCapital(p, assumptions());
+    expect(new D(capital.goals[0].futureAmount!).toFixed(0)).toBe("337459200");
+    expect(new D(capital.nearTermGoalsPresentValue!).toFixed(0)).toBe("295714351");
+    expect(new D(capital.growthCapital!).toFixed(0)).toBe("1479285649");
+    const growth = new D(capital.growthCapital!);
+    const amounts = [new D(capital.requiredEmergencyReserve!).plus(capital.nearTermGoalsPresentValue!).plus(growth.mul("0.1")), growth.mul("0.2"), growth.mul("0.6"), growth.mul("0.1")];
+    expect(amounts.map(a => a.toFixed(0))).toEqual(["668642916", "295857130", "887571389", "147928565"]);
+    expect(amounts.reduce((s, v) => s.plus(v), new D(0)).toFixed(0)).toBe("2000000000");
+    const policy = glidePortfolioFixture();
+    policy.lossStress = { evidence: "Customer golden scenario only", equityAssetClass: "EQUITY", depositAssetClass: "CASH", shocks: [{ assetClass: "CASH", percent: "0" }, { assetClass: "BOND", percent: "-5" }, { assetClass: "EQUITY", percent: "-35" }, { assetClass: "GOLD", percent: "-10" }] };
+    const loss = assessLossConstraint(capital, p, policy, ["CASH", "BOND", "EQUITY", "GOLD"].map((assetClass, i) => ({ assetClass, startWeightPercent: ["10", "20", "60", "10"][i] })));
+    expect(loss.status).toBe("WITHIN_LIMIT");
+    expect(new D(loss.lossAmount!).toFixed(0)).toBe("340235699");
+    expect(new D(loss.lossPercentOfInvestableAssets!).toFixed(2)).toBe("17.01");
+  });
   it("reproduces the two-billion example from supplied profile and assumption parameters", () => {
     const p = profile(), a = assumptions(), before = JSON.stringify({ p, a });
     const result = separateCapital(p, a);

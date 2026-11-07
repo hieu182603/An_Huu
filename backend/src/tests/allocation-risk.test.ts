@@ -130,7 +130,7 @@ describe("P2-2 deterministic stresses", () => {
     const c = riskContext(), market = marketRows(marketFixture()).slice(0, 24);
     for (const kind of stressKinds) expect(deterministicStress(kind, c, market, undefined).status).toBe("REVIEW_REQUIRED");
   });
-  it("executes approved inflation, equity, duration, credit, gold, income and property shocks", () => {
+  it("executes approved inflation, equity, duration, credit, gold, income, property, and longevity shocks", () => {
     const c = riskContext(12), market = c.projection.rows.map(() => ({ cpi: "0", returns: { CASH: "0", EQUITY: "0" } }));
     const configured = riskPolicySchema.parse({ evidence: "Fixture scenario policy", stresses: {
       HIGH_INFLATION: { offsetMonths: 0, durationMonths: 12, annualDeltaPoints: "12" },
@@ -140,9 +140,10 @@ describe("P2-2 deterministic stresses", () => {
       GOLD: { offsetMonths: 0, assetClass: "EQUITY", shockPercent: "-10", spreadPoints: "5" },
       INCOME_LOSS: { offsetMonths: 0, durationMonths: 12, lostPercent: "100" },
       PROPERTY_ILLIQUIDITY: { offsetMonths: 0, durationMonths: 12, delayMonths: 2, haircutPercent: "10" },
+      LONGEVITY: { extraYears: [5, 10] },
     } });
     c.projection.rows[0].capitalInjection = "200";
-    for (const kind of stressKinds.filter(k => k !== "LONGEVITY"))
+    for (const kind of stressKinds)
       expect(deterministicStress(kind, c, market, configured, [{ month: "2026-01", amount: "200" }]).status).toBe("READY");
     expect(deterministicStress("PROPERTY_ILLIQUIDITY", c, market, configured).status).toBe("REVIEW_REQUIRED");
   });
