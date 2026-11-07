@@ -227,11 +227,28 @@ export function HorizonWarnings({ warnings, onRecalculate }: { warnings?: ReadWa
   const t = useAnalysisText(); return <>{warnings?.map((w, i) => <div className="planning-analysis" role="alert" key={i}><h3>{t("Kế hoạch bị cắt ngắn, nên tính lại", "The plan horizon is truncated; recalculate")}</h3><p>{t("Kết thúc đã lưu", "Saved end")}: {w.endMonth}. {t("Mốc cần tính tới theo mục tiêu hiện tại", "Expected end for the current goal")}: {w.expectedEndMonth}.</p>{onRecalculate && <Button onClick={() => onRecalculate(w.expectedEndMonth)}>{t("Xem trước tới mốc đầy đủ", "Preview the full horizon")}</Button>}</div>)}</>;
 }
 export function PreviewInsights({ preview }: { preview: RetirementPreviewResult | null }) {
-  const t = useAnalysisText(); const en = t("vi", "en") === "en"; if (!preview) return null;
+  const t = useAnalysisText(); const en = t("vi", "en") === "en";
+  // Hooks must run before the early return so their order never changes.
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(max-width: 767px)");
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mql.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  if (!preview) return null;
   const c = preview.capitalSeparation, loss = preview.lossConstraint, coverage = preview.essentialCoverage;
   const money = (v: string | number | null | undefined) => displayNumber(v, en, " VND");
-  return <>
-    {c && <section className="planning-analysis" data-testid="capital-separation"><h2>{t("Dự phòng / mục tiêu gần hạn / vốn tăng trưởng", "Reserve / near-term goals / growth capital")}</h2><p>{t("Thông tin tách vốn — chưa áp dụng vào quỹ hưu trí đang tính. Dùng giả định cơ sở đã ghim, độc lập với kịch bản.", "Informational capital separation — not applied to the current retirement fund calculation. Uses pinned base assumptions, independently of the scenario.")}</p><AnalysisStatus status={c.status} issues={c.issues} /><Issues issues={c.warnings} />
+
+  const capitalSection = c && (
+    <section className="planning-analysis" data-testid="capital-separation">
+      <h2>{t("Dự phòng / mục tiêu gần hạn / vốn tăng trưởng", "Reserve / near-term goals / growth capital")}</h2>
+      <p>{t("Thông tin tách vốn — chưa áp dụng vào quỹ hưu trí đang tính. Dùng giả định cơ sở đã ghim, độc lập với kịch bản.", "Informational capital separation — not applied to the current retirement fund calculation. Uses pinned base assumptions, independently of the scenario.")}</p>
+      <AnalysisStatus status={c.status} issues={c.issues} /><Issues issues={c.warnings} />
       <dl className="planning-grid">{([
         [t("Tổng vốn đầu tư thanh khoản", "Liquid investable capital"), c.investableLiquidAssets], [t("Dự phòng cần có", "Required reserve"), c.requiredEmergencyReserve],
         [t("Dự phòng đã khai", "Declared reserve"), c.declaredEmergencyReserve], [t("Dự phòng cần bổ sung", "Reserve shortfall"), c.emergencyShortfall],
@@ -240,8 +257,17 @@ export function PreviewInsights({ preview }: { preview: RetirementPreviewResult 
       ] as const).map(([label, v]) => <div key={label}><dt>{label}</dt><dd>{money(v)}</dd></div>)}</dl>
       <p>{t("Tháng định giá", "Valuation month")}: {c.valuationMonth} · {t("Số tháng dự phòng", "Reserve months")}: {displayNumber(c.reserveMonths, en)} · {t("Chi thiết yếu mỗi tháng", "Monthly essential expenses")}: {money(c.essentialMonthlyExpense)}.</p>
       {c.goals.map(g => <details key={g.id}><summary>{t("Mục tiêu", "Goal")} {g.id} · {g.dueMonth}</summary><p>{g.treatment === "LONG_TERM" ? t("Mục tiêu trên 60 tháng: chưa tính giá trị tương lai/hiện tại trong phần tách vốn này.", "Beyond 60 months: future/present values are not calculated in this separation.") : t("Đã giữ vốn cho mục tiêu trong 60 tháng, kể cả sau nghỉ hưu.", "Capital reserved within 60 months, including after retirement.")}</p><p>{t("Số tháng tới hạn", "Months until due")}: {g.monthsUntilDue} · {t("Giá trị tương lai", "Future value")}: {money(g.futureAmount)} · {t("Giá trị hiện tại", "Present value")}: {money(g.presentValue)}</p><p>{t("Nguồn lạm phát / tiền gửi", "Inflation / deposit sources")}: {[...g.inflationSourceIds, ...g.depositSourceIds].join(", ") || t("Chưa có", "Unavailable")}</p></details>)}
-      <p>{t("Bộ giả định đã ghim", "Pinned assumptions")}: {preview.references.assumptionVersionId} · {preview.references.assumptionVersion}</p><Link to="/user/account?tab=profile">{t("Bổ sung hồ sơ và đối chiếu mục tiêu", "Complete profile and reconcile goals")}</Link>
-    </section>}
+      <p title={`ID: ${preview.references.assumptionVersionId}`}>{t("Bộ giả định phiên bản", "Assumptions version")} {preview.references.assumptionVersion}</p><Link to="/user/account?tab=profile">{t("Bổ sung hồ sơ và đối chiếu mục tiêu", "Complete profile and reconcile goals")}</Link>
+    </section>
+  );
+
+  return <>
+    {c && (isMobile ? (
+      <details className="plan-analysis-collapsible">
+        <summary>{t("Tách vốn đầu tư và dự phòng", "Capital allocation & emergency reserves")}</summary>
+        {capitalSection}
+      </details>
+    ) : capitalSection)}
     {loss && <section className="planning-analysis" data-testid="loss-constraint"><h2>{t("Nếu thị trường có cú sốc", "If the market suffers a shock")}</h2><AnalysisStatus status={loss.status} issues={loss.issues} /><p>{en ? t("", "The shock uses the pinned policy and growth capital. The proposal is informational and is not applied automatically.") : loss.message}</p><dl className="planning-grid">
       <div><dt>{t("Mức lỗ mô hình", "Modeled loss")}</dt><dd>{money(loss.lossAmount)}</dd></div><div><dt>{t("Giới hạn lỗ theo số tiền và tỷ lệ bạn khai", "Loss limit from your declared amount and percentage")}</dt><dd>{money(loss.allowedLossAmount)}</dd></div>
       <div><dt>{t("Lỗ so với vốn tăng trưởng", "Loss as a share of growth capital")}</dt><dd>{displayNumber(loss.lossPercentOfGrowth, en, "%")}</dd></div><div><dt>{t("Lỗ so với tổng vốn đầu tư", "Loss as a share of investable assets")}</dt><dd>{displayNumber(loss.lossPercentOfInvestableAssets, en, "%")}</dd></div>

@@ -4,6 +4,7 @@ import { Icon } from "../components/ui";
 import { useI18n } from "../i18n";
 import { useRealtimeNotifications } from "../services/socket";
 import { getNotificationMeta } from "../utils/notifications";
+import "./notifications.css";
 
 export default function NotificationsPage() {
   const { language, formatDate } = useI18n();
@@ -58,23 +59,21 @@ export default function NotificationsPage() {
           <h1>{isEn ? "Notification Center" : "Trung tâm thông báo"}</h1>
           <p>
             {isEn
-              ? "Stay up-to-date with your retirement plan, financial alerts, and account security activities."
-              : "Cập nhật liên tục tiến trình kế hoạch hưu trí, các biến động tài chính và an toàn tài khoản của bạn."}
+              ? "Session reminders: Keep track of retirement progress, financial alerts, and account safety."
+              : "Nhắc việc trong phiên: Các thông báo giúp bạn biết việc gì cần làm tiếp."}
           </p>
         </div>
 
         <div className="notif-hub-header-actions">
-          {unreadCount > 0 && (
-            <button
-              type="button"
-              className="button button-primary"
-              onClick={handleMarkAllAsRead}
-              disabled={busyAction}
-            >
-              <Icon name="check" size="small" />
-              <span>{isEn ? "Mark all as read" : "Đánh dấu tất cả đã đọc"}</span>
-            </button>
-          )}
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={handleMarkAllAsRead}
+            disabled={busyAction || unreadCount === 0}
+          >
+            <Icon name="check" size="small" />
+            <span>{isEn ? "Mark all as read" : "Đánh dấu tất cả đã đọc"}</span>
+          </button>
         </div>
       </div>
 
@@ -171,19 +170,19 @@ export default function NotificationsPage() {
         )}
 
         {!loading && filteredNotifications.length === 0 && (
-          <div className="notif-empty-state" style={{ background: "#ffffff", borderRadius: "16px", padding: "48px 24px" }}>
-            <div className="notif-empty-icon">
+          <div className="notif-empty-state" style={{ background: "#ffffff", borderRadius: "var(--r-md, 16px)", padding: "48px 24px", textAlign: "center", border: "1px solid var(--border, #D0E4FE)" }}>
+            <div className="notif-empty-icon" style={{ fontSize: "32px", color: "var(--muted, #456B91)", marginBottom: "12px" }}>
               <Icon name="bell" size="large" />
             </div>
-            <p className="notif-empty-title">
+            <p className="notif-empty-title" style={{ fontSize: "16px", fontWeight: 600, color: "var(--navy, #052659)", margin: "0 0 6px" }}>
               {activeFilter === "unread"
-                ? (isEn ? "No unread notifications" : "Bạn không có thông báo chưa đọc nào")
-                : (isEn ? "No notifications match your filter" : "Không có thông báo nào khớp bộ lọc")}
+                ? (isEn ? "No unread notifications" : "Không có thông báo chưa đọc nào")
+                : (isEn ? "No notifications" : "Chưa có thông báo")}
             </p>
-            <span className="notif-empty-sub">
+            <span className="notif-empty-sub" style={{ fontSize: "13px", color: "var(--muted, #456B91)" }}>
               {isEn
-                ? "New updates from advisors and retirement calculators will appear here."
-                : "Các thông báo và cập nhật mới sẽ xuất hiện tại đây khi có phát sinh."}
+                ? "Save or update your plan to see session reminders."
+                : "Lưu hoặc cập nhật kế hoạch để thấy nhắc việc xuất hiện."}
             </span>
           </div>
         )}

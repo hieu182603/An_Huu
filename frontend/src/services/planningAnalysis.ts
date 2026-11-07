@@ -29,6 +29,7 @@ export type ScenarioResult = { kind?: string; extraYears?: number; status: strin
   result?: { essentialLossToday: string; funded: boolean; balances: string[]; unfundedWithdrawals: string; fundedTerminalBalance: string } };
 export type RiskResult = SimulationResult & { marketVersionId?: string; marketVersion?: number; marketHash?: string; inputHash?: string; policyHash?: string;
   scenarios?: ScenarioResult[]; longevity?: { status: string; results: ScenarioResult[] }; sources?: Array<{ id: string; title?: string; name?: string; url?: string }>;
+  optimization?: { status: string; method?: string; feasible?: boolean; issues?: string[] };
   selectedId?: string | null; threshold?: string; rule?: string; candidates?: Array<SimulationResult & { id: string; changePoints: string; targets: Allocation[][] }>;
   rejected?: Array<{ id: string; issues: string[] }>; adjustmentOptions?: AdjustmentOptions; limitations?: string[] };
 export const analyzeRisk = (mode: "simulation" | "scenarios" | "selection", plan: RiskPlan, paths: number, marketVersionId?: string, signal?: AbortSignal) =>

@@ -1,0 +1,161 @@
+/*
+ * User area theme aligned with the An Hưu demo site
+ * (sites/an-huu-trai-nghiem/dist: style.css + navigation.css).
+ * Scoped to .user-dashboard-shell so auth pages keep the current design.
+ */
+@import '@fontsource/be-vietnam-pro/vietnamese-400.css';
+@import '@fontsource/be-vietnam-pro/vietnamese-600.css';
+@import '@fontsource/be-vietnam-pro/vietnamese-700.css';
+@import '@fontsource/be-vietnam-pro/latin-400.css';
+@import '@fontsource/be-vietnam-pro/latin-600.css';
+@import '@fontsource/be-vietnam-pro/latin-700.css';
+
+.user-dashboard-shell {
+  --demo-navy: #052659;
+  --demo-sidebar: #071e40;
+  --demo-primary: #334DAF;
+  --demo-primary-hover: #091F5C;
+  --demo-muted: #456B91;
+  --demo-soft: #E8F2FE;
+  --demo-border: #D0E4FE;
+  --sidebar-width: 252px;
+  --sidebar-collapsed: 78px;
+  font-family: "Be Vietnam Pro", system-ui, sans-serif;
+  line-height: 1.65;
+  color: var(--demo-navy);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+}
+.user-dashboard-shell input,
+.user-dashboard-shell button,
+.user-dashboard-shell select,
+.user-dashboard-shell textarea { font-family: inherit; }
+
+/* ---------- Sidebar ---------- */
+.user-dashboard-shell .user-sidebar {
+  background: var(--demo-sidebar);
+  box-shadow: none;
+  padding: 24px 16px 16px;
+  color: #d2ddec;
+}
+.user-dashboard-shell .user-sidebar-brand { margin: 0 4px 28px; padding: 0; min-height: 44px; }
+.user-dashboard-shell .user-sidebar-brand .icon-button {
+  width: 34px; height: 36px; border-radius: 9px;
+  border: 1px solid #ffffff28; background: #ffffff08; color: #c6d7ed;
+}
+.user-dashboard-shell .user-sidebar nav { display: flex; flex-direction: column; gap: 24px; padding: 0; }
+.user-dashboard-shell .sidebar-group { display: flex; flex-direction: column; gap: 4px; }
+.user-dashboard-shell .sidebar-label {
+  color: #879fbe; font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
+  padding: 0 14px; margin-bottom: 6px;
+}
+.user-dashboard-shell .user-sidebar nav a {
+  min-height: 46px; padding: 12px 14px; gap: 12px;
+  border-radius: 10px; font-size: 13px; font-weight: 500; color: #c8d7eb;
+}
+.user-dashboard-shell .user-sidebar nav a .icon { width: 20px; height: 20px; flex-shrink: 0; }
+.user-dashboard-shell .user-sidebar nav a:hover:not(.is-active) { background: #ffffff0d; color: #fff; }
+.user-dashboard-shell .user-sidebar nav a.is-active { background: #e7f0fc; color: #082550; font-weight: 600; }
+.user-dashboard-shell .user-sidebar nav a.is-active::after { display: none; }
+.user-dashboard-shell .user-sidebar nav a.is-active::before {
+  content: ""; display: block; top: 14px; bottom: 14px; left: -16px; right: auto;
+  width: 3px; height: auto; border-radius: 3px; background: #aacdf5;
+}
+.user-dashboard-shell .sidebar-badge { margin-left: auto; }
+.user-dashboard-shell .sidebar-profile-progress {
+  margin: auto 0 0; padding: 15px; border-radius: 12px;
+  border: 1px solid #ffffff24; background: #ffffff07; color: #dce7f5;
+}
+.user-dashboard-shell .sidebar-profile-progress .progress-track { height: 4px; background: #ffffff20; }
+.user-dashboard-shell .sidebar-profile-progress .progress-track span { background: #a8c9f3; }
+
+.user-dashboard-shell .user-sidebar.is-collapsed { padding: 24px 10px 16px; }
+.user-dashboard-shell .user-sidebar.is-collapsed nav { gap: 12px; }
+.user-dashboard-shell .user-sidebar.is-collapsed .sidebar-group + .sidebar-group { border-top: 1px solid #ffffff20; padding-top: 12px; }
+.user-dashboard-shell .user-sidebar.is-collapsed nav a { width: 46px; padding: 12px; margin: 0 auto; justify-content: center; }
+.user-dashboard-shell .user-sidebar.is-collapsed nav a.is-active::before { display: none; }
+
+/* ---------- Topbar ---------- */
+.user-dashboard-shell .user-topbar {
+  height: 84px; padding: 0 30px; gap: 20px;
+  background: #fffffffa; border-bottom: 0; box-shadow: 0 3px 18px #0b254508;
+}
+.user-dashboard-shell .topbar-search-box {
+  min-height: 44px; max-width: 390px; border-radius: 10px;
+  border: 1px solid #dce4ee; background: #f6f8fb; box-shadow: none;
+}
+.user-dashboard-shell .topbar-search-input { font-size: 12px; color: #66778d; }
+.user-dashboard-shell .topbar-ai-pill {
+  min-height: 40px; padding: 9px 12px; border-radius: 22px; font-size: 12px;
+  background: #edf2fc; color: #173e75; border: 1px solid #dce6f7; box-shadow: none;
+}
+.user-dashboard-shell .topbar-action-btn { width: 42px; height: 44px; border-radius: 10px; color: #49617d; background: transparent; }
+.user-dashboard-shell .topbar-action-btn:hover { background: #eff4fa; }
+.user-dashboard-shell .topbar-divider-line { height: 28px; width: 1px; background: #e3e8ef; margin: 0 9px; }
+
+/* ---------- Content frame ---------- */
+.user-dashboard-shell .dashboard-main { max-width: 1200px; padding: 24px 40px 28px; }
+.user-dashboard-shell .dashboard-main.dashboard-main-assistant { max-width: none; }
+.user-dashboard-shell .location-bar {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 25px;
+  color: #8a98ab; font-size: 11px;
+}
+.user-dashboard-shell .location-bar a { color: #8a98ab; }
+.user-dashboard-shell .location-bar a:hover { color: var(--demo-primary); }
+.user-dashboard-shell .location-bar strong { font-weight: 500; color: #48617e; }
+.user-dashboard-shell .location-bar .icon { width: 13px; height: 13px; }
+
+/* Page headers: demo uses a plain title + muted lead, quiet eyebrow. */
+.user-dashboard-shell :is(.retirement-page-header, .phase-page-header, .page-header) h1,
+.user-dashboard-shell .user-hero-title {
+  font-size: 32px; line-height: 1.35; letter-spacing: -1px; font-weight: 700; color: var(--demo-navy);
+}
+.user-dashboard-shell :is(.retirement-page-header, .phase-page-header, .page-header) p { color: var(--demo-muted); }
+.user-dashboard-shell :is(.section-eyebrow, .result-kicker, .networth-eyebrow, .financial-profile-eyebrow, .eyebrow) {
+  font-size: 12px; font-weight: 600; letter-spacing: 1.8px; color: var(--demo-muted);
+}
+
+/* ---------- Shared components ---------- */
+.user-dashboard-shell .card {
+  border: 1px solid var(--demo-border); border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(5, 38, 89, .06);
+}
+.user-dashboard-shell .button { min-height: 48px; padding: 12px 20px; border-radius: 12px; gap: 10px; font-weight: 600; }
+.user-dashboard-shell .button:hover:not(:disabled) { transform: none; }
+.user-dashboard-shell .button:active:not(:disabled) { transform: translateY(1px); }
+.user-dashboard-shell .button-primary { background: var(--demo-primary); box-shadow: none; }
+.user-dashboard-shell .button-primary:hover:not(:disabled) { background: var(--demo-primary-hover); }
+.user-dashboard-shell .button-secondary { border-color: var(--demo-border); color: var(--demo-navy); }
+.user-dashboard-shell .button-secondary:hover:not(:disabled) { background: var(--demo-soft); border-color: var(--demo-border); }
+.user-dashboard-shell .button-ghost { color: var(--demo-muted); }
+.user-dashboard-shell .button-ghost:hover:not(:disabled) { background: var(--demo-soft); color: var(--demo-navy); }
+.user-dashboard-shell .button-small { min-height: 40px; padding: 8px 14px; }
+
+.user-dashboard-shell .tabs { gap: 8px; border-bottom: 0; }
+.user-dashboard-shell .tabs button { border-radius: 12px; min-height: 44px; padding: 10px 16px; border: 1px solid var(--demo-border); background: #fff; color: var(--demo-navy); font-weight: 500; }
+.user-dashboard-shell .tabs button.is-active { background: var(--demo-soft); border-color: #b4c8e1; color: var(--demo-navy); font-weight: 600; }
+.user-dashboard-shell .tabs button.is-active::after { display: none; }
+
+.user-dashboard-shell :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea).input,
+.user-dashboard-shell .field input:not([type=checkbox]):not([type=radio]):not([type=range]) {
+  border-color: #7DA0CA; border-radius: 12px;
+}
+
+/* ---------- Responsive (demo breakpoints) ---------- */
+@media (max-width: 1200px) {
+  .user-dashboard-shell { --sidebar-width: 230px; }
+  .user-dashboard-shell .user-sidebar { padding: 24px 12px 16px; }
+  .user-dashboard-shell .user-topbar { padding: 0 20px; gap: 16px; }
+  .user-dashboard-shell .dashboard-main { padding: 24px 24px 28px; }
+}
+@media (max-width: 800px) {
+  .user-dashboard-shell .user-topbar { height: 70px; padding: 0 18px; gap: 8px; }
+  .user-dashboard-shell .dashboard-main { padding: 20px 18px 100px; }
+  .user-dashboard-shell .location-bar { margin-bottom: 20px; font-size: 10px; }
+  .user-dashboard-shell :is(.retirement-page-header, .phase-page-header, .page-header) h1,
+  .user-dashboard-shell .user-hero-title { font-size: 28px; }
+}
+@media (max-width: 480px) {
+  .user-dashboard-shell .user-topbar { padding: 0 10px; gap: 4px; }
+  .user-dashboard-shell .dashboard-main { padding: 18px 14px 100px; }
+  .user-dashboard-shell .location-bar { margin-bottom: 18px; }
+}

@@ -236,11 +236,11 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
       <div className="admin-page-header">
         <div>
           {admin && <span>{isEn ? "SUPPORT & INTAKE CENTER" : "TRUNG TÂM TIẾP NHẬN & HỖ TRỢ"}</span>}
-          <h1>{admin ? (isEn ? "Support & Ticket Management" : "Quản lý hỗ trợ & Ticket") : (isEn ? "Support Requests" : "Yêu cầu hỗ trợ")}</h1>
+          <h1>{admin ? (isEn ? "Support & Ticket Management" : "Quản lý hỗ trợ & Ticket") : (isEn ? "Support" : "Hỗ trợ")}</h1>
           <p>
             {admin
               ? (isEn ? "Track, categorize, and respond directly to member support requests." : "Theo dõi, phân loại và phản hồi trực tiếp các yêu cầu hỗ trợ từ hội viên An Hưu.")
-              : (isEn ? "Track requests and communicate with the An Huu support team." : "Theo dõi yêu cầu và trao đổi với bộ phận hỗ trợ An Hưu.")}
+              : (isEn ? "Submit support requests and communicate with the An Huu support team." : "Gửi yêu cầu hỗ trợ và trao đổi cùng đội ngũ An Hưu.")}
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
@@ -258,7 +258,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
                 setCreate(true);
               }}
             >
-              {isEn ? "New Support Request" : "Gửi yêu cầu mới"}
+              {isEn ? "New Support Request" : "Tạo yêu cầu hỗ trợ"}
             </Button>
           )}
         </div>
@@ -334,124 +334,136 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
         </Alert>
       )}
 
-      {/* Main Table Card */}
-      <Card className="admin-table-card">
-        {/* Table Toolbar */}
-        <div className="admin-table-toolbar">
-          <div className="admin-search-input" style={{ flex: "1", maxWidth: "360px" }}>
-            <Icon name="search" />
-            <input
-              type="text"
-              placeholder={isEn ? "Search by title, ticket code..." : "Tìm theo tiêu đề, mã ticket..."}
-              aria-label={isEn ? "Search support requests" : "Tìm yêu cầu hỗ trợ"}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                className="admin-search-clear"
-                onClick={() => setSearchTerm("")}
-                aria-label={isEn ? "Clear search" : "Xóa tìm kiếm"}
-              >
-                <Icon name="x" size="small" />
-              </button>
-            )}
-          </div>
+      {/* MEMBER VIEW: 2 Main Cards (Tạo yêu cầu & Yêu cầu đã ghi) */}
+      {!admin ? (
+        <div className="support-member-view" style={{ display: "grid", gap: "24px" }}>
+          {/* Card 1: Tạo yêu cầu */}
+          <Card className="support-create-card" style={{ border: "1px solid var(--border, #D0E4FE)", borderRadius: "var(--r-md, 16px)", padding: "24px", background: "#fff" }}>
+            <header style={{ marginBottom: "16px" }}>
+              <h2 style={{ margin: "0 0 6px", color: "var(--navy, #052659)", fontSize: "20px" }}>
+                {isEn ? "Create Support Request" : "Tạo yêu cầu"}
+              </h2>
+              <p style={{ margin: 0, color: "var(--muted, #456B91)", fontSize: "14px" }}>
+                {isEn ? "Need assistance with your plan, account or calculations? Submit your question below." : "Thử gửi yêu cầu và xem hội thoại trong phiên. Chúng tôi luôn sẵn sàng hỗ trợ."}
+              </p>
+            </header>
+            <form onSubmit={send}>
+              <fieldset className="account-api-fields" disabled={busy} style={{ display: "grid", gap: "16px", border: "none", padding: 0, margin: 0 }}>
+                <Input
+                  label={isEn ? "Request Subject" : "Bạn cần hỗ trợ về việc gì?"}
+                  placeholder={isEn ? "For example: Cannot understand shortfall calculation" : "Ví dụ: Chưa hiểu cách đọc kết quả thiếu hụt"}
+                  value={subject}
+                  onChange={setSubject}
+                />
+                <Select
+                  label={isEn ? "Category" : "Nhóm yêu cầu"}
+                  value={formCategoryOptions.find((c) => c.key === category)?.label || formCategoryOptions[0].label}
+                  options={formCategoryOptions.map((c) => c.label)}
+                  onChange={(v) => {
+                    const found = formCategoryOptions.find((c) => c.label === v);
+                    setCategory(found ? found.key : "Tài khoản");
+                  }}
+                />
+                <label className="form-field" style={{ display: "grid", gap: "6px" }}>
+                  <span className="field-label" style={{ fontSize: "14px", fontWeight: 500, color: "var(--navy, #052659)" }}>{isEn ? "Detailed Message" : "Nội dung"}</span>
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={4}
+                    minLength={3}
+                    maxLength={5000}
+                    placeholder={isEn ? "Describe your question in detail..." : "Mô tả chi tiết nội dung cần hỗ trợ..."}
+                    required
+                    style={{ width: "100%", borderRadius: "8px", padding: "10px 14px", border: "1px solid var(--border, #D0E4FE)", font: "inherit", fontSize: "14px" }}
+                  />
+                </label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                  <small style={{ color: "var(--muted, #456B91)", fontSize: "12px" }}>
+                    {isEn ? "Do not send sensitive passwords or OTPs." : "Không gửi mật khẩu, mã OTP hoặc thông tin thẻ cá nhân."}
+                  </small>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    loading={busy}
+                    disabled={subject.trim().length < 3 || message.trim().length < 3}
+                  >
+                    {isEn ? "Submit Request" : "Gửi yêu cầu"}
+                  </Button>
+                </div>
+              </fieldset>
+            </form>
+          </Card>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-            <Select
-              label={isEn ? "Request category" : "Nhóm yêu cầu"}
-              hideLabel
-              value={categoryOptions.find((c) => c.key === categoryFilterKey)?.label || categoryOptions[0].label}
-              options={categoryOptions.map((c) => c.label)}
-              onChange={(v) => {
-                const found = categoryOptions.find((c) => c.label === v);
-                setCategoryFilterKey(found ? found.key : "ALL");
-                setPage(1);
-              }}
-            />
-            <Select
-              label={isEn ? "Request status" : "Trạng thái yêu cầu"}
-              hideLabel
-              value={statusFilterOptions.find((s) => s.key === statusFilterKey)?.label || statusFilterOptions[0].label}
-              options={statusFilterOptions.map((s) => s.label)}
-              onChange={(v) => {
-                const found = statusFilterOptions.find((s) => s.label === v);
-                setStatusFilterKey(found ? found.key : "ALL");
-                setPage(1);
-              }}
-            />
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setSearchTerm("");
-                setCategoryFilterKey("ALL");
-                setStatusFilterKey("ALL");
-                setPage(1);
-              }}
-            >
-              {isEn ? "Reset" : "Đặt lại"}
-            </Button>
-          </div>
-        </div>
+          {/* Card 2: Yêu cầu đã ghi */}
+          <Card className="support-history-card" style={{ border: "1px solid var(--border, #D0E4FE)", borderRadius: "var(--r-md, 16px)", padding: "24px", background: "#fff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "20px" }}>
+              <div>
+                <h2 style={{ margin: "0 0 6px", color: "var(--navy, #052659)", fontSize: "20px" }}>
+                  {isEn ? "Logged Requests" : "Yêu cầu đã ghi"}
+                </h2>
+                <p style={{ margin: 0, color: "var(--muted, #456B91)", fontSize: "14px" }}>
+                  {isEn ? "Track progress and open conversation threads." : "Các yêu cầu hỗ trợ đã ghi nhận trên hệ thống."}
+                </p>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Select
+                  label={isEn ? "Status filter" : "Trạng thái"}
+                  hideLabel
+                  value={statusFilterOptions.find((s) => s.key === statusFilterKey)?.label || statusFilterOptions[0].label}
+                  options={statusFilterOptions.map((s) => s.label)}
+                  onChange={(v) => {
+                    const found = statusFilterOptions.find((s) => s.label === v);
+                    setStatusFilterKey(found ? found.key : "ALL");
+                    setPage(1);
+                  }}
+                />
+              </div>
+            </div>
 
-        {/* Table Content */}
-        {!data && !error ? (
-          <div style={{ padding: "var(--space-8)", textAlign: "center", color: "var(--color-text-muted)" }}>
-            {isEn ? "Loading support requests..." : "Đang tải dữ liệu yêu cầu hỗ trợ..."}
-          </div>
-        ) : (
-          <div className="table-scroll">
-            <table className="admin-users-table">
-              <thead>
-                <tr>
-                  <th>{isEn ? "Ticket Code & Subject" : "Mã & Tiêu đề yêu cầu"}</th>
-                  <th>{isEn ? "Category" : "Phân loại"}</th>
-                  <th>{isEn ? "Status" : "Trạng thái"}</th>
-                  <th>{isEn ? "Last Updated" : "Cập nhật lần cuối"}</th>
-                  <th style={{ textAlign: "right" }}>{isEn ? "Action" : "Thao tác"}</th>
-                </tr>
-              </thead>
-              <tbody>
+            {!data && !error ? (
+              <div style={{ padding: "32px", textAlign: "center", color: "var(--muted, #456B91)" }}>
+                {isEn ? "Loading requests..." : "Đang tải yêu cầu..."}
+              </div>
+            ) : visibleItems.length === 0 ? (
+              <div style={{ padding: "32px", textAlign: "center", color: "var(--muted, #456B91)" }}>
+                <Icon name="life-buoy" size="large" />
+                <p style={{ margin: "12px 0 0", fontWeight: 600, color: "var(--navy, #052659)" }}>
+                  {isEn ? "No support requests recorded" : "Chưa có yêu cầu hỗ trợ nào"}
+                </p>
+                <small>{isEn ? "You have not submitted any requests yet." : "Bạn chưa gửi yêu cầu hỗ trợ nào trong hệ thống."}</small>
+              </div>
+            ) : (
+              <div className="ledger-list" style={{ display: "grid", gap: "12px" }}>
                 {visibleItems.map((t) => (
-                  <tr key={t.id}>
-                    <td>
-                      <div>
-                        <button
-                          type="button"
-                          className="admin-table-link-btn"
-                          onClick={() => setParams({ ticket: t.id })}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            padding: 0,
-                            cursor: "pointer",
-                            textAlign: "left",
-                            color: "var(--color-primary-700)",
-                            fontWeight: 600,
-                            fontSize: "14px",
-                          }}
-                        >
-                          {t.subject}
-                        </button>
-                        <div style={{ marginTop: "2px", display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                          <code style={{ fontSize: "11px", background: "var(--color-bg)", padding: "1px 6px", borderRadius: "4px" }}>
-                            #TK-{t.id.slice(-6).toUpperCase()}
-                          </code>
-                        </div>
+                  <div
+                    key={t.id}
+                    className="ledger-row support-ticket-row"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "16px",
+                      padding: "16px 20px",
+                      border: "1px solid var(--border, #D0E4FE)",
+                      borderRadius: "12px",
+                      background: "var(--bg, #F9FBFF)",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ flex: "1", minWidth: "240px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                        <code style={{ fontSize: "11px", fontWeight: 600, background: "var(--soft, #E8F2FE)", color: "var(--primary, #334DAF)", padding: "2px 6px", borderRadius: "4px" }}>
+                          #{t.id.toUpperCase()}
+                        </code>
+                        <Badge tone={statusToneMap[t.status] || "neutral"}>
+                          {statesMap[t.status] || t.status}
+                        </Badge>
+                        <Badge tone="soft">{categoryLabelMap[t.category] || t.category}</Badge>
                       </div>
-                    </td>
-                    <td>
-                      <Badge tone="soft">{categoryLabelMap[t.category] || t.category}</Badge>
-                    </td>
-                    <td>
-                      <Badge tone={statusToneMap[t.status] || "neutral"}>
-                        {statesMap[t.status] || t.status}
-                      </Badge>
-                    </td>
-                    <td>
-                      <small style={{ color: "var(--color-text-muted)", fontSize: "12px" }}>
+                      <strong style={{ fontSize: "15px", color: "var(--navy, #052659)", display: "block" }}>
+                        {t.subject}
+                      </strong>
+                      <small style={{ color: "var(--muted, #456B91)", fontSize: "12px" }}>
                         {new Date(t.updatedAt).toLocaleString(isEn ? "en-US" : "vi-VN", {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -460,55 +472,210 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
                           year: "numeric",
                         })}
                       </small>
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <Button
-                        variant="secondary"
-                        size="small"
-                        icon="message"
-                        onClick={() => setParams({ ticket: t.id })}
-                      >
-                        {admin ? (isEn ? "View & Process" : "Xem & Xử lý") : (isEn ? "View Details" : "Xem chi tiết")}
-                      </Button>
-                    </td>
-                  </tr>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onClick={() => setParams({ ticket: t.id })}
+                    >
+                      {isEn ? "Open conversation" : "Mở hội thoại"}
+                    </Button>
+                  </div>
                 ))}
-                {visibleItems.length === 0 && (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: "center", padding: "var(--space-8)" }}>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-2)" }}>
-                        <span style={{ color: "var(--color-text-muted)" }}>
-                          <Icon name="life-buoy" size="large" />
-                        </span>
-                        <strong style={{ color: "var(--color-primary-700)" }}>
-                          {isEn ? "No matching support requests" : "Chưa có yêu cầu hỗ trợ phù hợp"}
-                        </strong>
-                        <p style={{ margin: 0, fontSize: "13px", color: "var(--color-text-muted)" }}>
-                          {isEn
-                            ? "No tickets matched the current search criteria or filter."
-                            : "Không tìm thấy ticket nào khớp với điều kiện tìm kiếm hoặc bộ lọc hiện tại."}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </div>
+            )}
 
-        {/* Pagination Bar */}
-        {data && (
-          <Pagination
-            page={page}
-            totalPages={Math.max(1, Math.ceil(data.total / data.limit))}
-            totalItems={data.total}
-            pageSize={data.limit}
-            onPageChange={setPage}
-            showRowsPerPage={false}
-          />
-        )}
-      </Card>
+            {data && (
+              <div style={{ marginTop: "16px" }}>
+                <Pagination
+                  page={page}
+                  totalPages={Math.max(1, Math.ceil(data.total / data.limit))}
+                  totalItems={data.total}
+                  pageSize={data.limit}
+                  onPageChange={setPage}
+                  showRowsPerPage={false}
+                />
+              </div>
+            )}
+          </Card>
+        </div>
+      ) : (
+        /* ADMIN VIEW: Full Table & Search */
+        <Card className="admin-table-card">
+          {/* Table Toolbar */}
+          <div className="admin-table-toolbar">
+            <div className="admin-search-input" style={{ flex: "1", maxWidth: "360px" }}>
+              <Icon name="search" />
+              <input
+                type="text"
+                placeholder={isEn ? "Search by title, ticket code..." : "Tìm theo tiêu đề, mã ticket..."}
+                aria-label={isEn ? "Search support requests" : "Tìm yêu cầu hỗ trợ"}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="admin-search-clear"
+                  onClick={() => setSearchTerm("")}
+                  aria-label={isEn ? "Clear search" : "Xóa tìm kiếm"}
+                >
+                  <Icon name="x" size="small" />
+                </button>
+              )}
+            </div>
+
+            <div className="support-filters-row" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <Select
+                label={isEn ? "Request category" : "Nhóm yêu cầu"}
+                hideLabel
+                value={categoryOptions.find((c) => c.key === categoryFilterKey)?.label || categoryOptions[0].label}
+                options={categoryOptions.map((c) => c.label)}
+                onChange={(v) => {
+                  const found = categoryOptions.find((c) => c.label === v);
+                  setCategoryFilterKey(found ? found.key : "ALL");
+                  setPage(1);
+                }}
+              />
+              <Select
+                label={isEn ? "Request status" : "Trạng thái yêu cầu"}
+                hideLabel
+                value={statusFilterOptions.find((s) => s.key === statusFilterKey)?.label || statusFilterOptions[0].label}
+                options={statusFilterOptions.map((s) => s.label)}
+                onChange={(v) => {
+                  const found = statusFilterOptions.find((s) => s.label === v);
+                  setStatusFilterKey(found ? found.key : "ALL");
+                  setPage(1);
+                }}
+              />
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setSearchTerm("");
+                  setCategoryFilterKey("ALL");
+                  setStatusFilterKey("ALL");
+                  setPage(1);
+                }}
+              >
+                {isEn ? "Reset" : "Đặt lại"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Table Content */}
+          {!data && !error ? (
+            <div style={{ padding: "var(--space-8)", textAlign: "center", color: "var(--color-text-muted)" }}>
+              {isEn ? "Loading support requests..." : "Đang tải dữ liệu yêu cầu hỗ trợ..."}
+            </div>
+          ) : (
+            <div className="table-scroll">
+              <table className="admin-users-table">
+                <thead>
+                  <tr>
+                    <th>{isEn ? "Ticket Code & Subject" : "Mã & Tiêu đề yêu cầu"}</th>
+                    <th>{isEn ? "Category" : "Phân loại"}</th>
+                    <th>{isEn ? "Status" : "Trạng thái"}</th>
+                    <th>{isEn ? "Last Updated" : "Cập nhật lần cuối"}</th>
+                    <th style={{ textAlign: "right" }}>{isEn ? "Action" : "Thao tác"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleItems.map((t) => (
+                    <tr key={t.id}>
+                      <td>
+                        <div>
+                          <button
+                            type="button"
+                            className="admin-table-link-btn"
+                            onClick={() => setParams({ ticket: t.id })}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              cursor: "pointer",
+                              textAlign: "left",
+                              color: "var(--color-primary-700)",
+                              fontWeight: 600,
+                              fontSize: "14px",
+                            }}
+                          >
+                            {t.subject}
+                          </button>
+                          <div style={{ marginTop: "2px", display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                            <code style={{ fontSize: "11px", background: "var(--color-bg)", padding: "1px 6px", borderRadius: "4px" }}>
+                              #{t.id.toUpperCase()}
+                            </code>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <Badge tone="soft">{categoryLabelMap[t.category] || t.category}</Badge>
+                      </td>
+                      <td>
+                        <Badge tone={statusToneMap[t.status] || "neutral"}>
+                          {statesMap[t.status] || t.status}
+                        </Badge>
+                      </td>
+                      <td>
+                        <small style={{ color: "var(--color-text-muted)", fontSize: "12px" }}>
+                          {new Date(t.updatedAt).toLocaleString(isEn ? "en-US" : "vi-VN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })}
+                        </small>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <Button
+                          variant="secondary"
+                          size="small"
+                          icon="message"
+                          onClick={() => setParams({ ticket: t.id })}
+                        >
+                          {isEn ? "View & Process" : "Xem & Xử lý"}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {visibleItems.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: "center", padding: "var(--space-8)" }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-2)" }}>
+                          <span style={{ color: "var(--color-text-muted)" }}>
+                            <Icon name="life-buoy" size="large" />
+                          </span>
+                          <strong style={{ color: "var(--color-primary-700)" }}>
+                            {isEn ? "No matching support requests" : "Chưa có yêu cầu hỗ trợ phù hợp"}
+                          </strong>
+                          <p style={{ margin: 0, fontSize: "13px", color: "var(--color-text-muted)" }}>
+                            {isEn
+                              ? "No tickets matched the current search criteria or filter."
+                              : "Không tìm thấy ticket nào khớp với điều kiện tìm kiếm hoặc bộ lọc hiện tại."}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination Bar */}
+          {data && (
+            <Pagination
+              page={page}
+              totalPages={Math.max(1, Math.ceil(data.total / data.limit))}
+              totalItems={data.total}
+              pageSize={data.limit}
+              onPageChange={setPage}
+              showRowsPerPage={false}
+            />
+          )}
+        </Card>
+      )}
 
       {/* Dialog Tạo yêu cầu mới */}
       <ResponsiveDialog
@@ -628,33 +795,38 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
             )}
 
             {/* Conversation Thread */}
-            <div className="support-thread" style={{ display: "grid", gap: "var(--space-3)", maxHeight: "380px", overflowY: "auto", padding: "var(--space-2)" }}>
+            <div className="ticket-messages support-conversation messages-list support-thread" style={{ display: "grid", gap: "14px", maxHeight: "400px", overflowY: "auto", padding: "12px" }}>
               {detail.messages.map((m) => {
                 const isAdmin = m.author.role === "ADMIN";
                 return (
                   <article
                     key={m.id}
+                    className={`chat-message ${isAdmin ? "assistant" : "user"}`}
                     style={{
-                      padding: "var(--space-4)",
-                      borderRadius: "var(--radius-md)",
-                      background: isAdmin ? "var(--color-surface-subtle)" : "var(--color-white)",
-                      border: `1px solid ${isAdmin ? "rgba(21, 58, 82, 0.2)" : "var(--color-border)"}`,
+                      padding: "14px 18px",
+                      borderRadius: isAdmin ? "16px 16px 16px 4px" : "16px 16px 4px 16px",
+                      background: isAdmin ? "var(--soft, #E8F2FE)" : "var(--navy, #052659)",
+                      color: isAdmin ? "var(--navy, #052659)" : "#fff",
+                      border: `1px solid ${isAdmin ? "var(--border, #D0E4FE)" : "var(--navy, #052659)"}`,
+                      maxWidth: "85%",
+                      marginLeft: isAdmin ? "0" : "auto",
+                      marginRight: isAdmin ? "auto" : "0",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-1)" }}>
-                      <strong style={{ color: isAdmin ? "var(--color-primary-700)" : "var(--color-text-strong)", fontSize: "13px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "6px" }}>
+                      <strong style={{ color: isAdmin ? "var(--primary, #334DAF)" : "#fff", fontSize: "13px" }}>
                         {isAdmin ? (isEn ? "An Huu Support" : "Hỗ trợ An Hưu") : m.author.fullName}
                         {isAdmin && (
-                          <span style={{ marginLeft: "var(--space-2)", fontSize: "10px", padding: "1px 6px", background: "var(--color-primary-700)", color: "var(--color-white)", borderRadius: "10px" }}>
+                          <span style={{ marginLeft: "6px", fontSize: "10px", padding: "1px 6px", background: "var(--primary, #334DAF)", color: "#fff", borderRadius: "10px" }}>
                             Admin
                           </span>
                         )}
                       </strong>
-                      <small style={{ color: "var(--color-text-muted)", fontSize: "11px" }}>
+                      <small style={{ color: isAdmin ? "var(--muted, #456B91)" : "rgba(255,255,255,0.75)", fontSize: "11px" }}>
                         {new Date(m.createdAt).toLocaleString(isEn ? "en-US" : "vi-VN")}
                       </small>
                     </div>
-                    <p style={{ margin: 0, fontSize: "13.5px", lineHeight: "1.55", color: "var(--color-text-main)", whiteSpace: "pre-wrap" }}>
+                    <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.6", color: isAdmin ? "var(--navy, #052659)" : "#fff", whiteSpace: "pre-wrap" }}>
                       {m.body}
                     </p>
                   </article>

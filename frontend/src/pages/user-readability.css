@@ -3,12 +3,724 @@
 .user-dashboard-shell .user-topbar .icon-button,
 .user-dashboard-shell .user-topbar .topbar-action-btn { min-width: 44px; min-height: 44px; }
 .mobile-navigation a { min-height: 48px; font-size: 16px; }
+:root {
+  --mobile-nav-height: 60px;
+}
+
+
+.topbar-ai-icon-mobile {
+  display: none !important;
+}
+.topbar-ai-icon-desktop {
+  display: inline-flex !important;
+}
+
 @media (max-width: 767px) {
-  .user-dashboard-shell .user-mobile-nav { height: calc(96px + env(safe-area-inset-bottom)); }
+
+  .topbar-ai-icon-desktop {
+    display: none !important;
+  }
+  .topbar-ai-icon-mobile {
+    display: inline-flex !important;
+  }
+
+  /* ==========================================================================
+     GLOBAL MOBILE RULES (D1 - D6)
+     ========================================================================== */
+  
+  /* D2: All inputs, selects, textareas must be at least 16px to prevent iOS auto-zoom */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* D1: No body text under 12px; readable content >= 12px */
+  .dashboard-main small,
+  .dashboard-main .stat-label,
+  .dashboard-main .age-card-badge,
+  .dashboard-main .form-section-index,
+  .dashboard-main .header-status-badge,
+  .dashboard-main .plan-milestones span,
+  .dashboard-main .plan-hero-tool__count,
+  .dashboard-main .rate-unit,
+  .dashboard-main .ai-welcome-kicker,
+  .dashboard-main .ai-chat-limits,
+  .dashboard-main .ai-plan-version,
+  .dashboard-main .ai-workspace-note,
+  .dashboard-main .asset-breakdown-heading > span,
+  .dashboard-main .asset-breakdown-empty,
+  .dashboard-main .debt-dti-badge,
+  .dashboard-main .debt-ratio-badge,
+  .dashboard-main .debt-reserve-subnote-item,
+  .dashboard-main .debt-loan-metric-item span,
+  .dashboard-main .notif-stat-content h4,
+  .dashboard-main .article-card p,
+  .dashboard-main .solution-card > p,
+  .dashboard-main .solution-details small,
+  .dashboard-main .solution-details strong,
+  .dashboard-main .solution-card > header strong,
+  .dashboard-main .solution-card > header small,
+  .dashboard-main .glossary-strip small,
+  .dashboard-main .glossary-strip p,
+  .dashboard-main .networth-eyebrow,
+  .dashboard-main .balance-footnote,
+  .dashboard-main .badge,
+  .dashboard-main .badge-soft,
+  .dashboard-main .badge-success,
+  .dashboard-main .badge-warning,
+  .dashboard-main .badge-danger,
+  .dashboard-main .badge-neutral,
+  .dashboard-main .chart-period button,
+  .dashboard-main .phase-view-switcher button,
+  .dashboard-main .section-eyebrow,
+  .dashboard-main .hero-eyebrow,
+  .dashboard-main .financial-profile-eyebrow,
+  .dashboard-main .plan-settings__eyebrow,
+  .dashboard-main .chart-legend,
+  .dashboard-main .guided-scenario-kind,
+  .dashboard-main .pf-glide-pos small,
+  .dashboard-main .pf-glide-bar span,
+  .dashboard-main .pf-glide-tag,
+  .dashboard-main .pf-scen-yaxis span,
+  .dashboard-main .pf-scen-xaxis,
+  .dashboard-main .debt-timeline-btn,
+  .dashboard-main .debt-hero-pill,
+  .dashboard-main .debt-dti-label,
+  .dashboard-main .debt-meta-small,
+  .dashboard-main .debt-metric-sub,
+  .dashboard-main .debt-breakdown-unit,
+  .dashboard-main .risk-choice-score,
+  .dashboard-main .risk-score-badge,
+  .dashboard-main .plan-section-nav a > span,
+  .dashboard-main .board-summary > span,
+  .dashboard-main .assumption-metric-label,
+  .dashboard-main .assumption-tag-badge,
+  .dashboard-main .pill-metric-label,
+  .dashboard-main .life-expectancy-pill-metric small,
+  .dashboard-main .life-expectancy-helper,
+  .dashboard-main .assumption-note-banner p,
+  .dashboard-main .goal-layout footer,
+  .dashboard-main .goal-layout footer span,
+  .dashboard-main .age-marker small,
+  .dashboard-main .age-card-footer-pill,
+  .dashboard-main .goal-summary-main > span,
+  .dashboard-main .goal-summary-main p,
+  .dashboard-main .goal-summary-main b,
+  .dashboard-main .goal-summary-stats span,
+  .dashboard-main .goal-summary-stats small,
+  .dashboard-main .goal-summary-stats strong,
+  .dashboard-main .goal-estimate span,
+  .dashboard-main .goal-estimate p,
+  .dashboard-main .goal-estimate small,
+  .dashboard-main .goal-stat-row span,
+  .dashboard-main .goal-stat-row strong,
+  .dashboard-main .ring-status-pill span,
+  .dashboard-main .stepper-baseline-info,
+  .dashboard-main .stepper-human-readable-subtext,
+  .dashboard-main .simulation-guidance p,
+  .dashboard-main .live-update span,
+  .dashboard-main [class*="eyebrow"],
+  .dashboard-main [class*="footnote"] {
+    font-size: 12px !important;
+  }
+
+  .age-hero-number-input {
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+
+  .article-card p {
+    font-size: 13.5px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* D4 & D5 & B4: Prevent overflow on 320px screens */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+  .user-wealth-card,
+  .user-wealth-card.asset-overview,
+  .debt-scenario-card,
+  .debt-loan-grid,
+  .debt-loan-card,
+  .debt-hero-card,
+  .dashboard-summary-header {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* ==========================================================================
+     A. KHUNG CHUNG (HEADER, BOTTOM NAV, DRAWER, ACCOUNT MODAL)
+     ========================================================================== */
+  
+  /* A1: Header on Mobile */
+  .user-topbar {
+    background: #ffffff !important;
+    background: var(--color-white) !important;
+    min-height: 56px !important;
+    height: 56px !important;
+    padding: 0 12px !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+  }
+  @supports (backdrop-filter: blur(16px)) or (-webkit-backdrop-filter: blur(16px)) {
+    .user-topbar {
+      background: rgba(255, 255, 255, 0.98) !important;
+      backdrop-filter: blur(16px) !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+    }
+  }
+  .user-topbar-actions {
+    gap: 6px !important;
+  }
+  .topbar-ai-pill {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 0 10px !important;
+  }
+  .topbar-action-btn,
+  .user-topbar .icon-button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+  .avatar-button {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    padding: 2px !important;
+    gap: 0 !important;
+  }
+  .avatar-copy,
+  .avatar-chevron {
+    display: none !important;
+  }
+
+  /* A2: Bottom Navigation (<= 64px + safe area) */
+  .user-dashboard-shell .user-mobile-nav {
+    position: fixed !important;
+    z-index: 60 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    height: auto !important;
+    min-height: var(--mobile-nav-height, 60px) !important;
+    max-height: 64px !important;
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    padding: 4px 2px calc(4px + env(safe-area-inset-bottom, 0px)) !important;
+    border-top: 1px solid var(--color-border) !important;
+    background: var(--color-white) !important;
+    box-sizing: border-box !important;
+  }
   .user-dashboard-shell .user-mobile-nav a,
-  .user-dashboard-shell .user-mobile-nav button { min-height: 84px; font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; }
-  .user-dashboard-shell .dashboard-main { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
-  html:has(.user-dashboard-shell) { scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
+  .user-dashboard-shell .user-mobile-nav button,
+  .user-dashboard-shell .user-mobile-nav .user-mobile-nav-btn {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 48px !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    padding: 2px 1px !important;
+    gap: 2px !important;
+    border: 0 !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--color-text-muted) !important;
+    background: transparent !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 1.1 !important;
+    text-align: center !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+  }
+  .user-dashboard-shell .user-mobile-nav a.is-active,
+  .user-dashboard-shell .user-mobile-nav button.is-active,
+  .user-dashboard-shell .user-mobile-nav .user-mobile-nav-btn.is-active {
+    color: var(--color-primary-700) !important;
+    background: var(--color-soft) !important;
+    font-weight: 700 !important;
+  }
+  .user-dashboard-shell .user-mobile-nav svg,
+  .user-dashboard-shell .user-mobile-nav .icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  .user-dashboard-shell .user-mobile-nav span {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    font-size: 11.5px !important;
+  }
+  .user-dashboard-shell .dashboard-main {
+    padding-bottom: calc(var(--mobile-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + 20px) !important;
+  }
+  html:has(.user-dashboard-shell) {
+    scroll-padding-bottom: calc(var(--mobile-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + 20px) !important;
+  }
+
+  /* A4: Modal tài khoản trên mobile */
+  .account-modal-sidebar {
+    padding: 8px 12px !important;
+  }
+  .account-modal-nav {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory !important;
+    gap: 6px !important;
+    padding-bottom: 2px !important;
+  }
+  .account-modal-tab-btn {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    min-height: 44px !important;
+    padding: 8px 6px !important;
+    font-size: 13px !important;
+    justify-content: center !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    scroll-snap-align: start !important;
+  }
+  .account-modal-tab-btn .tab-btn-title {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* ==========================================================================
+     B. P0 — LỖI CHẶN THAO TÁC
+     ========================================================================== */
+
+  /* B1: Retirement Plan Hero Buttons Stacking */
+  .retirement-plan-page .plan-hero-actions__main {
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    width: 100% !important;
+  }
+  .retirement-plan-page .plan-hero-actions__main .button,
+  .retirement-plan-page .plan-hero-actions__main .plan-hero-action {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-height: 48px !important;
+    max-height: 52px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* B2: Simulation View Switcher */
+  .phase-view-switcher {
+    position: fixed !important;
+    z-index: 55 !important;
+    right: var(--space-4) !important;
+    bottom: calc(var(--mobile-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + 10px) !important;
+    left: var(--space-4) !important;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15) !important;
+  }
+  .phase-view-switcher button {
+    min-height: 44px !important;
+  }
+  .simulation-page,
+  .simulation-tracking-page {
+    padding-bottom: calc(var(--mobile-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + 72px) !important;
+  }
+
+  /* B3: AI Assistant Suggestions & Note */
+  .user-dashboard-shell:has(.ai-chat-page) .dashboard-workspace {
+    height: calc(100dvh - var(--mobile-nav-height, 60px) - env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .ai-chat-suggestions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+    padding: 4px 4px 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    scroll-snap-type: x mandatory !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .ai-chat-suggestions button {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+    min-height: 44px !important;
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+    scroll-snap-align: start !important;
+  }
+  .ai-workspace-note {
+    position: static !important;
+    font-size: 12px !important;
+    margin: 8px 0 4px !important;
+    padding: 4px 12px !important;
+  }
+
+  /* ==========================================================================
+     C. P1 — TỪNG TRANG
+     ========================================================================== */
+
+  /* C1: Kế hoạch (/user/plan) */
+  .plan-section {
+    scroll-margin-top: calc(var(--topbar-height) + 54px) !important;
+  }
+  .plan-section-nav a.is-active,
+  .plan-section-nav a[aria-current="true"] {
+    color: var(--color-primary-700) !important;
+    background: var(--color-secondary-soft) !important;
+  }
+  .plan-section-nav a:not(.is-active):not([aria-current="true"]) {
+    color: var(--color-text-muted) !important;
+    background: transparent !important;
+  }
+  .retirement-plan-page .plan-metrics {
+    grid-template-columns: 1fr !important;
+  }
+  details.plan-analysis-collapsible {
+    margin-bottom: 14px !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 12px !important;
+    background: var(--color-white) !important;
+    overflow: hidden !important;
+  }
+  details.plan-analysis-collapsible > summary {
+    padding: 14px 16px !important;
+    min-height: 48px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    color: var(--color-neutral-dark) !important;
+    cursor: pointer !important;
+    background: var(--color-bg) !important;
+  }
+  details.plan-analysis-collapsible[open] > summary {
+    border-bottom: 1px solid var(--color-border) !important;
+  }
+
+  /* C2: Mục tiêu (/user/goal) */
+  .rate-num.rate-text {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    line-height: 1.3 !important;
+  }
+
+  /* C3: Tổng quan (/user/dashboard) */
+  .yoga-dashboard-content {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .yoga-dashboard-content > .dashboard-summary-header {
+    order: 0 !important;
+  }
+  .yoga-dashboard-content > .dashboard-plan-summary-wrapper {
+    order: 1 !important;
+  }
+  .yoga-dashboard-content > .dashboard-checklist-wrapper,
+  .yoga-dashboard-content > .onboarding-incomplete-card {
+    order: 2 !important;
+  }
+  .yoga-dashboard-content > .user-cashflow-section {
+    order: 3 !important;
+  }
+  .yoga-dashboard-content > .user-trajectory-wrap {
+    order: 4 !important;
+  }
+  .yoga-dashboard-content > .user-wealth-bento {
+    order: 5 !important;
+  }
+  .yoga-dashboard-content > .user-tools-grid {
+    order: 6 !important;
+  }
+  .user-cashflow-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-lg) !important;
+    background: var(--color-white) !important;
+    overflow: hidden !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+  }
+  .user-cashflow-card {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 12px 16px !important;
+    border-radius: 0 !important;
+    border: none !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    box-shadow: none !important;
+  }
+  .user-cashflow-card:last-child {
+    border-bottom: none !important;
+  }
+  .user-cashflow-card .cashflow-card-head {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin-bottom: 0 !important;
+  }
+  .user-cashflow-card .cashflow-sub {
+    display: none !important;
+  }
+  .user-cashflow-card .cashflow-value {
+    font-size: 15px !important;
+    text-align: right !important;
+  }
+  a.pension-link,
+  .user-plan-pending a,
+  .user-trajectory-wrap > a,
+  .user-trajectory-wrap a[href*="tab=actuals"] {
+    display: inline-flex !important;
+    align-items: center !important;
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+  }
+  .debt-ratio-badge {
+    font-family: inherit !important;
+    font-size: 12px !important;
+  }
+
+  /* C4: Khoản vay & Nợ (/user/debts) */
+  .debt-loan-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .debt-loan-card {
+    padding: 16px 14px !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .debt-loan-header {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  .debt-loan-footer {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  .debt-loan-metrics {
+    min-width: 0 !important;
+  }
+  .debt-loan-metric-item span {
+    font-size: 12px !important;
+  }
+  .debt-reserve-actuals-link {
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+  .debt-scenario-card {
+    padding: 16px 12px !important;
+  }
+  .debt-reserve-banner {
+    border: none !important;
+    background: transparent !important;
+    padding: 8px 0 !important;
+    margin: 8px 0 !important;
+    box-shadow: none !important;
+  }
+  .debt-reserve-banner-body {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .debt-reserve-banner-desc {
+    font-size: 13.5px !important;
+    line-height: 1.5 !important;
+  }
+  .debt-hero-visual.is-empty-dti .debt-dti-ring-container {
+    display: none !important;
+  }
+  .debt-hero-visual.is-empty-dti {
+    min-height: auto !important;
+    padding: 12px 16px !important;
+  }
+  .debt-results-overview:has(.debt-mobile-data-required-card) .debt-results-metrics {
+    display: none !important;
+  }
+  .debt-mobile-data-required-card {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 16px !important;
+    background: var(--color-bg) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 12px !important;
+    margin: 12px 0 !important;
+  }
+
+  /* C5: Khảo sát rủi ro (/user/risk-portfolio) */
+  .risk-survey-sticky-bar {
+    position: sticky !important;
+    top: 56px !important;
+    z-index: 10 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 8px 14px !important;
+    margin: 0 0 16px 0 !important;
+    border-radius: 10px !important;
+    background: #052659 !important;
+    color: #ffffff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(5, 38, 89, 0.15) !important;
+  }
+  .risk-survey-next-btn {
+    color: #ffffff !important;
+    background: var(--color-secondary-500) !important;
+    padding: 4px 10px !important;
+    border-radius: 6px !important;
+    text-decoration: none !important;
+    font-size: 12px !important;
+    min-height: 32px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+  a.risk-goal-link {
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 14px !important;
+  }
+
+  /* C6: Khám phá (/user/explore) */
+  .article-visual {
+    display: none !important;
+  }
+  .article-card-copy {
+    min-height: auto !important;
+    padding: var(--space-4) !important;
+  }
+  .explore-category-tabs {
+    scroll-snap-type: x mandatory !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 8px !important;
+  }
+  .explore-category-tabs button {
+    scroll-snap-align: start !important;
+    font-size: 13px !important;
+  }
+
+  /* C7: Hỗ trợ (/user/support) */
+  .support-filters-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .support-filters-row > * {
+    width: 100% !important;
+  }
+  .support-filters-row select,
+  .support-filters-row .select-wrap {
+    width: 100% !important;
+  }
+  .admin-search {
+    min-height: 44px !important;
+  }
+  .admin-search-input {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+  .pagination-nav-btn,
+  .pagination-num-btn {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  /* C8: Thông báo (/user/notifications) */
+  .notif-hub-stat-row {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
+  .notif-hub-stat-card {
+    min-width: 0 !important;
+    padding: 10px 4px !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 4px !important;
+    border-radius: 12px !important;
+    box-sizing: border-box !important;
+  }
+  .notif-stat-icon-wrap {
+    width: 32px !important;
+    height: 32px !important;
+    flex-shrink: 0 !important;
+  }
+  .notif-stat-content {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  .notif-stat-content h4 {
+    font-size: 12px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin: 0 !important;
+  }
+  .notif-stat-content .stat-val {
+    font-size: 16px !important;
+    margin: 0 !important;
+  }
+  .notif-hub-tab-btn {
+    min-height: 44px !important;
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+  }
+  .notif-hub-search-box input {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+}
+
+/* Specific 320px screen breakpoint */
+@media (max-width: 360px) {
+  .user-topbar {
+    padding: 0 8px !important;
+    gap: 4px !important;
+  }
+  .user-topbar-actions {
+    gap: 4px !important;
+  }
+  .user-mobile-brand .brand-logo-img {
+    max-width: 72px !important;
+  }
+  .debt-loan-metrics {
+    grid-template-columns: 1fr !important;
+  }
+  .user-wealth-card,
+  .user-wealth-card.asset-overview {
+    padding: 12px !important;
+  }
+  .asset-overview-total {
+    padding: 12px !important;
+  }
+  .debt-hero-card {
+    padding: 16px 12px !important;
+  }
+  .debt-hero-pill {
+    font-size: 12px !important;
+    padding: 6px 10px !important;
+  }
+  .notif-hub-stat-row {
+    gap: 4px !important;
+  }
+  .notif-hub-stat-card {
+    padding: 8px 2px !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .debt-mobile-data-required-card {
+    display: none !important;
+  }
 }
 
 .plan-contribution-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; }

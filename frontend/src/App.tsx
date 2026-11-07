@@ -17,6 +17,8 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 const HowItWorksPage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.HowItWorksPage })));
 const SimulationPage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.SimulationPage })));
 const AssistantPage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.AssistantPage })));
+const AboutPage = lazy(() => import("./pages/AboutPage"));
+const PolicyPage = lazy(() => import("./pages/PolicyPage"));
 import { applyPageSeo } from './marketing/seo';
 import { initGoogleAnalytics, trackPageView } from "./services/googleAnalytics";
 const ForgotPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.ForgotPage })));
@@ -28,11 +30,12 @@ const UserLayout = lazy(() => import("./pages/UserLayout"));
 const UserDashboard = lazy(() => import("./pages/UserDashboard"));
 const RetirementGoalPage = lazy(() => import("./pages/RetirementGoalPage"));
 const RetirementPlanPage = lazy(() => import("./pages/RetirementPlanPage"));
-const SimulationTrackingPage = lazy(() => import("./pages/SimulationTrackingPage"));
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const DebtAnalysisPage = lazy(() => import("./pages/DebtAnalysisPage"));
+const AdminInvestmentsPage = lazy(() => import("./pages/admin/AdminInvestmentsPage"));
 const RiskPortfolioPage = lazy(() => import("./pages/RiskPortfolioPage"));
 const ExplorePage = lazy(() => import("./pages/ExplorePage"));
+const KnowledgePage = lazy(() => import("./pages/KnowledgePage"));
 const AccountPage = lazy(() => import("./pages/AccountPage"));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersApi").then(module => ({ default: module.AdminUsersPage })));
@@ -42,6 +45,7 @@ const AdminPartnersPage = lazy(() => import("./pages/admin/AdminBusinessPages").
 const AdminAIManagementPage = lazy(() => import("./pages/admin/AdminAIConfigPages").then(module => ({ default: module.AdminAIManagementPage })));
 const AdminMarketDataPage = lazy(() => import("./pages/admin/AdminMarketDataPage"));
 const AdminFinancialConfigPage = lazy(() => import("./pages/admin/AdminFinancialConfigPage"));
+const AdminPortfolioPoliciesPage = lazy(() => import("./pages/admin/AdminPortfolioPoliciesPage"));
 const AdminLegalRulesPage = lazy(() => import("./pages/admin/AdminLegalRulesPage"));
 import { useAuth, type UserRole } from "./context/AuthContext";
 
@@ -64,7 +68,7 @@ function RouteEffects() {
   }, []);
 
   useEffect(() => {
-    const legacy: Record<string, string> = { '#quy-trinh': '/cach-hoat-dong', '#mo-phong': '/mo-phong', '#tro-ly-ai': '/tro-ly-ai', '#kien-thuc': '/' };
+    const legacy: Record<string, string> = { '#quy-trinh': '/cach-hoat-dong', '#mo-phong': '/mo-phong', '#tro-ly-ai': '/tro-ly-ai' };
     if (pathname === '/' && legacy[hash]) navigate(legacy[hash], { replace: true });
   }, [pathname, hash, navigate]);
 
@@ -76,9 +80,9 @@ function RouteEffects() {
   useEffect(() => {
     // Private layouts focus/scroll only once the new route has finished loading.
     if (pathname.startsWith("/user/") || pathname.startsWith("/admin/")) return;
-    const anchor = pathname === '/mo-phong' && ['#ke-hoach', '#kich-ban', '#phan-bo'].includes(hash) ? document.getElementById(hash.slice(1)) : null;
+    const anchor = (pathname === '/mo-phong' && ['#ke-hoach', '#kich-ban', '#phan-bo', '#co-so-tinh-toan'].includes(hash)) || (pathname === '/' && ['#gia-tri', '#quy-trinh', '#tro-ly-ai', '#kien-thuc', '#gioi-thieu'].includes(hash)) || (pathname === '/chinh-sach' && ['#bao-mat', '#dieu-khoan', '#gia-dinh', '#mien-tru'].includes(hash)) || (pathname === '/gioi-thieu' && ['#nguyen-tac'].includes(hash)) ? document.getElementById(hash.slice(1)) : null;
     if (anchor) anchor.scrollIntoView({ block: 'start', behavior: 'instant' });
-    else window.scrollTo({ top: 0, behavior: "instant" });
+    else if (!pathname.startsWith('/kien-thuc') || !hash) window.scrollTo({ top: 0, behavior: "instant" });
     const heading = anchor?.querySelector<HTMLElement>('h2') ?? document.querySelector<HTMLElement>("h1");
     heading?.setAttribute("tabindex", "-1");
     heading?.focus({ preventScroll: true });
@@ -100,7 +104,10 @@ export default function App() {
         <Route path="/cach-hoat-dong" element={<HowItWorksPage />} />
         <Route path="/mo-phong" element={<SimulationPage />} />
         <Route path="/tro-ly-ai" element={<AssistantPage />} />
-        <Route path="/kien-thuc/*" element={<Navigate to="/" replace />} />
+        <Route path="/kien-thuc" element={<KnowledgePage />} />
+        <Route path="/kien-thuc/*" element={<KnowledgePage />} />
+        <Route path="/gioi-thieu" element={<AboutPage />} />
+        <Route path="/chinh-sach" element={<PolicyPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPage />} />
@@ -114,11 +121,13 @@ export default function App() {
           <Route path="dashboard" element={<UserDashboard />} />
           <Route path="goal" element={<RetirementGoalPage />} />
           <Route path="plan" element={<RetirementPlanPage />} />
-          <Route path="simulation" element={<SimulationTrackingPage />} />
+          <Route path="simulation" element={<Navigate to="/user/plan" replace />} />
           <Route path="debts" element={<DebtAnalysisPage />} />
+          <Route path="investments" element={<Navigate to="/user/risk-portfolio" replace />} />
           <Route path="risk-portfolio" element={<RiskPortfolioPage />} />
           <Route path="assistant" element={<AIAssistantPage />} />
           <Route path="explore" element={<ExplorePage />} />
+          <Route path="knowledge" element={<KnowledgePage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
@@ -132,7 +141,9 @@ export default function App() {
           <Route path="content" element={<AdminContentPage />} />
           <Route path="partners" element={<AdminPartnersPage />} />
           <Route path="ai" element={<AdminAIManagementPage />} />
+          <Route path="investments" element={<AdminInvestmentsPage />} />
           <Route path="market-data" element={<AdminMarketDataPage />} />
+          <Route path="portfolio-policies" element={<AdminPortfolioPoliciesPage />} />
           <Route path="financial-config" element={<AdminFinancialConfigPage />} />
           <Route path="legal-rules" element={<AdminLegalRulesPage />} />
           <Route path="support" element={<SupportPage admin />} />

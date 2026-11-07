@@ -42,6 +42,20 @@ function getLoanCategory(label: string, language: "vi" | "en"): { name: string; 
   return { name: language === "en" ? "Personal Loan" : "Khoản vay cá nhân", icon: "file-text" };
 }
 
+function getLoanInterestRate(loan: DebtEntry): number {
+  if (loan.contract?.status === "KNOWN" && loan.contract.value) {
+    const raw = (loan.contract.value as Record<string, unknown>).interestRateAnnual;
+    if (raw && typeof raw === "object" && "status" in raw && (raw as { status: string; value?: unknown }).status === "KNOWN") {
+      const parsed = parseFloat(String((raw as { status: string; value?: unknown }).value));
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    } else if (raw) {
+      const parsed = parseFloat(String(raw));
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+  }
+  return 8.5;
+}
+
 export default function DebtAnalysisPage() {
   const { t, language } = useI18n();
   const { profile, v2Profile, schemaVersion, profileRevision, upgradeToV2, updateProfileV2 } = useFinancialProfile();
@@ -63,6 +77,7 @@ export default function DebtAnalysisPage() {
   const [showAddLoanModal, setShowAddLoanModal] = useState(false);
   const [loanToDelete, setLoanToDelete] = useState<DebtEntry | null>(null);
   const [isDeletingLoan, setIsDeletingLoan] = useState(false);
+  const [scheduleLoan, setScheduleLoan] = useState<DebtEntry | null>(null);
 
   const [editingLoan, setEditingLoan] = useState<DebtEntry | null>(null);
 
@@ -95,6 +110,18 @@ export default function DebtAnalysisPage() {
         const pay = parseFloat(d.payment.value);
         const share = d.paymentShare.status === "KNOWN" ? parseFloat(d.paymentShare.value) : 1;
         return acc + pay * share;
+      }
+      return acc;
+    }, 0);
+  }, [debtEntries]);
+
+  const totalEstimatedInterest = useMemo(() => {
+    return debtEntries.reduce((acc, loan) => {
+      if (loan.outstandingBalance.status === "KNOWN") {
+        const bal = parseFloat(loan.outstandingBalance.value);
+        const rate = getLoanInterestRate(loan);
+        const interest = Math.round(bal * (rate / 1200));
+        return acc + interest;
       }
       return acc;
     }, 0);
@@ -218,6 +245,29 @@ export default function DebtAnalysisPage() {
 
   return (
     <div className="debt-page-container">
+      {/* Breadcrumb Navigation */}
+      <nav className="breadcrumb" aria-label="Đường dẫn trang" style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--muted, #456B91)", marginBottom: "4px" }}>
+        <Link to="/user/account" className="btn-breadcrumb" style={{ color: "var(--primary, #334DAF)", textDecoration: "none", fontWeight: 600 }}>
+          ← {language === "en" ? "Your finances" : "Tài chính của bạn"}
+        </Link>
+        <span className="sep" style={{ color: "var(--border, #D0E4FE)" }}>/</span>
+        <span aria-current="page" style={{ fontWeight: 600, color: "var(--navy, #052659)" }}>
+          {language === "en" ? "Debts & Repayments" : "Khoản nợ & trả nợ"}
+        </span>
+      </nav>
+
+      {/* Page Heading */}
+      <div className="page-head" style={{ marginBottom: "16px" }}>
+        <div>
+          <h1 style={{ fontSize: "32px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 6px", letterSpacing: "-1px" }}>
+            {language === "en" ? "Debts & ability to pay" : "Khoản nợ & khả năng trả"}
+          </h1>
+          <p style={{ margin: 0, color: "var(--muted, #456B91)", fontSize: "14px" }}>
+            {language === "en" ? "Track balances, interest rates, and monthly repayments for each loan." : "Theo dõi dư nợ, lãi suất và tiền trả hàng tháng của từng khoản."}
+          </p>
+        </div>
+      </div>
+
       {/* 1. HERO COMMAND BANNER */}
       <motion.section
         className="debt-hero-card"
@@ -233,9 +283,9 @@ export default function DebtAnalysisPage() {
             {language === "en" ? "DEBT MANAGEMENT & RETIREMENT CASHFLOW" : "QUẢN TRỊ NỢ VÀ DÒNG TIỀN HƯU TRÍ"}
           </span>
 
-          <h1 className="debt-hero-title">
+          <div className="debt-hero-title" style={{ fontSize: "24px", fontWeight: 700, color: "#fff", margin: "0 0 10px" }}>
             {t("debt.page_title")}
-          </h1>
+          </div>
 
           <p className="debt-hero-description">
             {t("debt.page_subtitle")}
@@ -243,12 +293,12 @@ export default function DebtAnalysisPage() {
 
           <div className="debt-hero-pills">
             <div className="debt-hero-pill">
-              <span>{language === "en" ? "Total Personal Debt:" : "Tổng dư nợ cá nhân:"}</span>
+              <span>{language === "en" ? "Total debt:" : "Tổng dư nợ:"}</span>
               <strong>{formatCurrency(totalDebtBalance, language)}</strong>
             </div>
 
             <div className="debt-hero-pill">
-              <span>{language === "en" ? "Monthly Obligation:" : "Nghĩa vụ hàng tháng:"}</span>
+              <span>{language === "en" ? "Monthly payment:" : "Trả nợ trong tháng:"}</span>
               <strong>{formatCurrency(totalMonthlyPayment, language)}</strong>
             </div>
 
@@ -363,91 +413,94 @@ export default function DebtAnalysisPage() {
         </Alert>
       )}
 
-      {/* 2. LOAN PORTFOLIO LIST */}
-      <section>
-        <div className="debt-section-header">
-          <div className="debt-section-header-left">
-            <h2 className="debt-section-title">
-              {language === "en" ? "Current Loan Portfolio" : "Danh mục khoản vay hiện tại"}
-            </h2>
-            <Badge tone="soft">{debtEntries.length} {language === "en" ? "loans" : "khoản nợ"}</Badge>
+      {/* 2. LOAN PORTFOLIO LIST & PLAN IMPACT */}
+      <section className="card" style={{ background: "var(--white, #fff)", border: "1px solid var(--border, #D0E4FE)", borderRadius: "var(--r-lg, 24px)", padding: "28px" }}>
+        <div className="section-title" style={{ marginBottom: "16px" }}>
+          <div>
+            <div style={{ fontSize: "22px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 6px" }}>
+              {language === "en" ? "Debts & loans" : "Chi tiết các khoản vay"}
+            </div>
+            <p className="muted small" style={{ margin: 0, color: "var(--muted, #456B91)", fontSize: "13px" }}>
+              {language === "en"
+                ? "Monthly debt repayments are subtracted from your investable budget. When adding a loan, choose to split from the entered total or add a new loan. The remainder is calculated automatically."
+                : "Tiền trả nợ hàng tháng được trừ khỏi ngân sách có thể tích lũy. Khi thêm khoản, chọn tách từ số tổng đã nhập hoặc cộng khoản mới. Phần còn lại được tính tự động."}
+            </p>
           </div>
-
-          <Button variant="primary" onClick={() => openLoan()}>
-            <Icon name="plus" size="small" /> {language === "en" ? "Add New Loan" : "Thêm khoản vay mới"}
-          </Button>
         </div>
 
         {debtEntries.length === 0 ? (
-          <div className="debt-empty-card">
-            <div className="debt-empty-icon">
+          <div className="debt-empty-card" style={{ padding: "32px 16px", textAlign: "center" }}>
+            <div className="debt-empty-icon" style={{ marginBottom: "12px" }}>
               <Icon name="circle-check" />
             </div>
-            <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 700 }}>
+            <p style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 700, color: "var(--navy, #052659)" }}>
               {language === "en" ? "No loans recorded" : "Bạn không có khoản nợ nào được ghi nhận"}
-            </h3>
-            <p style={{ color: "var(--color-text-muted)", maxWidth: "480px", margin: "0 0 20px", fontSize: "14px", lineHeight: 1.55 }}>
+            </p>
+            <p style={{ color: "var(--muted, #456B91)", maxWidth: "480px", margin: "0 auto 20px", fontSize: "14px", lineHeight: 1.55 }}>
               {language === "en"
                 ? "All available monthly cash flow can be allocated entirely to emergency reserves and your independent retirement portfolio."
                 : "Toàn bộ dòng tiền khả dụng hàng tháng có thể được phân bổ trọn vẹn cho quỹ dự phòng khẩn cấp và danh mục tích lũy hưu trí độc lập."}
             </p>
             <Button variant="secondary" onClick={() => openLoan()}>
-              <Icon name="plus" size="small" /> {language === "en" ? "Declare loan if any" : "Khai báo khoản vay nếu có"}
+              <Icon name="plus" size="small" /> {language === "en" ? "Declare loan if any" : "Khai báo khoản nợ"}
             </Button>
           </div>
         ) : (
-          <div className="debt-loan-grid">
+          <div className="debt-loan-list" style={{ display: "grid" }}>
             {debtEntries.map((loan) => {
               const bal = loan.outstandingBalance.status === "KNOWN" ? parseFloat(loan.outstandingBalance.value) : 0;
               const pay = loan.payment.status === "KNOWN" ? parseFloat(loan.payment.value) : 0;
-              const share = loan.balanceShare.status === "KNOWN" ? parseFloat(loan.balanceShare.value) * 100 : 100;
               const isContractKnown = loan.contract?.status === "KNOWN";
+              const rate = getLoanInterestRate(loan);
+              const monthlyRate = rate / 1200;
+              const interest = Math.round(bal * monthlyRate);
+              const months = pay > interest && monthlyRate > 0
+                ? Math.ceil(-Math.log(1 - (bal * monthlyRate) / pay) / Math.log(1 + monthlyRate))
+                : (pay > 0 ? Math.ceil(bal / pay) : null);
+              const payoffStr = months
+                ? (language === "en" ? `Est. payoff: ${months} months` : `Ước tính trả hết: ${months} tháng`)
+                : (pay > 0 ? (language === "en" ? "Payment insufficient to reduce principal" : "Khoản trả chưa đủ giảm gốc") : (language === "en" ? "No payment entered" : "Chưa có tiền trả"));
               const category = getLoanCategory(loan.label, language);
 
               return (
-                <div key={loan.id} className="debt-loan-card">
-                  <div>
-                    <div className="debt-loan-header">
-                      <div className="debt-loan-icon-wrap">
-                        <Icon name={category.icon} />
-                      </div>
-
-                      <div className="debt-loan-title-group">
-                        <h3>{loan.label}</h3>
-                        <span className="debt-loan-sub">{category.name}</span>
-                      </div>
-
+                <div
+                  key={loan.id}
+                  className="ledger-row debt-row debt-card"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "16px",
+                    padding: "16px 0",
+                    borderBottom: "1px solid var(--border, #D0E4FE)",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: "220px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <Icon name={category.icon} size="small" />
+                      <strong style={{ fontSize: "15px", color: "var(--navy, #052659)" }}>{loan.label}</strong>
                       {isContractKnown ? (
                         <Badge tone="success">{language === "en" ? "Standard Contract" : "Hợp đồng chuẩn"}</Badge>
                       ) : (
                         <Badge tone="neutral">{language === "en" ? "Periodic Estimate" : "Ước tính định kỳ"}</Badge>
                       )}
                     </div>
-
-                    <div className="debt-loan-metrics">
-                      <div className="debt-loan-metric-item">
-                        <span>{language === "en" ? "Principal Balance" : "Dư nợ gốc"}</span>
-                        <strong>{formatCurrency(bal, language)}</strong>
-                      </div>
-
-                      <div className="debt-loan-metric-item">
-                        <span>{language === "en" ? "Monthly Payment" : "Trả hàng tháng"}</span>
-                        <strong>{formatCurrency(pay, language)}</strong>
-                      </div>
-                    </div>
+                    <p className="small muted" style={{ margin: "4px 0 0", fontSize: "12px", color: "var(--muted, #456B91)" }}>
+                      {language === "en" ? "Balance: " : "Dư nợ: "}{formatCurrency(bal, language)} · {language === "en" ? "Pay: " : "Trả: "}{formatCurrency(pay, language)}/{language === "en" ? "month" : "tháng"} · {payoffStr} · {language === "en" ? "Rate: " : "Lãi "}{rate}%/{language === "en" ? "year" : "năm"}
+                    </p>
                   </div>
 
-                  <div className="debt-loan-dates">
-                    <span>{language === "en" ? "Balance date: " : "Dư nợ tính đến: "}{loan.balanceAsOf.status === "KNOWN" ? formatDateVN(loan.balanceAsOf.value) : (language === "en" ? "Not entered" : "Chưa điền")}</span>
-                    <span>{language === "en" ? "Repayment months: " : "Thời gian trả nợ: "}{loan.startMonth.split("-").reverse().join("/")} → {loan.endMonth?.split("-").reverse().join("/") || (language === "en" ? "End month not entered" : "Chưa có tháng kết thúc")}</span>
-                  </div>
-                  <div className="debt-loan-footer">
-                    <span style={{ fontSize: "12px", color: "var(--color-text-muted)", fontWeight: 500 }}>
-                      {language === "en" ? "Personal share:" : "Nghĩa vụ cá nhân:"} <strong style={{ color: "var(--color-text-strong)" }}>{share}%</strong>
-                    </span>
+                  <strong style={{ fontSize: "16px", color: "var(--navy, #052659)", fontVariantNumeric: "tabular-nums" }}>
+                    {formatCurrency(bal, language)}
+                  </strong>
 
-                    <Button variant="secondary" size="small" onClick={() => openLoan(loan)}>
-                      {language === "en" ? "Edit loan" : "Sửa khoản vay"}
+                  <div className="row" style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    <Button variant="secondary" size="small" onClick={() => setScheduleLoan(loan)}>
+                      {language === "en" ? "Schedule" : "Xem lịch trả"}
+                    </Button>
+                    <Button variant="ghost" size="small" onClick={() => openLoan(loan)}>
+                      {language === "en" ? "Edit" : "Sửa"}
                     </Button>
                     <Button variant="ghost" size="small" onClick={() => setLoanToDelete(loan)}>
                       <Icon name="trash" size="small" /> {language === "en" ? "Delete" : "Xóa"}
@@ -456,8 +509,77 @@ export default function DebtAnalysisPage() {
                 </div>
               );
             })}
+
+            <div
+              className="detail-row"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "16px 0 10px",
+                borderBottom: "1px solid var(--border, #D0E4FE)",
+              }}
+            >
+              <strong style={{ fontSize: "15px", color: "var(--navy, #052659)" }}>
+                {language === "en" ? "Total debts" : "Tổng khoản nợ"}
+              </strong>
+              <strong style={{ fontSize: "18px", color: "var(--navy, #052659)", fontVariantNumeric: "tabular-nums" }}>
+                {formatCurrency(totalDebtBalance, language)}
+              </strong>
+            </div>
+
+            <div className="top-space" style={{ marginTop: "16px" }}>
+              <Button variant="primary" onClick={() => openLoan()}>
+                ＋ {language === "en" ? "Add debt" : "Thêm khoản nợ"}
+              </Button>
+            </div>
           </div>
         )}
+      </section>
+
+      {/* IMPACT ON PLAN CARD */}
+      <section className="card" style={{ background: "var(--white, #fff)", border: "1px solid var(--border, #D0E4FE)", borderRadius: "var(--r-lg, 24px)", padding: "28px" }}>
+        <h2 style={{ fontSize: "20px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 16px" }}>
+          {language === "en" ? "Impact on retirement plan" : "Ảnh hưởng tới kế hoạch"}
+        </h2>
+        <div className="detail-row" style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border, #D0E4FE)" }}>
+          <span style={{ color: "var(--muted, #456B91)", fontSize: "14px" }}>{language === "en" ? "Total remaining debt balance" : "Tổng dư nợ còn lại"}</span>
+          <strong style={{ color: "var(--navy, #052659)", fontSize: "15px" }}>{formatCurrency(totalDebtBalance, language)}</strong>
+        </div>
+        <div className="detail-row" style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border, #D0E4FE)" }}>
+          <span style={{ color: "var(--muted, #456B91)", fontSize: "14px" }}>{language === "en" ? "Total monthly debt payment" : "Tổng trả nợ mỗi tháng"}</span>
+          <strong style={{ color: "var(--navy, #052659)", fontSize: "15px" }}>{formatCurrency(totalMonthlyPayment, language)}</strong>
+        </div>
+        <div className="detail-row" style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border, #D0E4FE)" }}>
+          <span style={{ color: "var(--muted, #456B91)", fontSize: "14px" }}>{language === "en" ? "Estimated first-month interest" : "Ước tính lãi tháng đầu"}</span>
+          <strong style={{ color: "var(--navy, #052659)", fontSize: "15px" }}>{formatCurrency(totalEstimatedInterest, language)}</strong>
+        </div>
+        <div className="detail-row" style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border, #D0E4FE)" }}>
+          <span style={{ color: "var(--muted, #456B91)", fontSize: "14px" }}>{language === "en" ? "Debt-to-income ratio (DTI)" : "Tỷ lệ trả nợ / thu nhập"}</span>
+          <strong style={{ color: "var(--navy, #052659)", fontSize: "15px" }}>{effectiveDti !== null ? dtiText : (monthlyIncome > 0 ? `${Math.round(totalMonthlyPayment / monthlyIncome * 100)}%` : (language === "en" ? "No income recorded" : "Chưa có thu nhập"))}</strong>
+        </div>
+
+        {debtEntries.map((loan) => {
+          const bal = loan.outstandingBalance.status === "KNOWN" ? parseFloat(loan.outstandingBalance.value) : 0;
+          const pay = loan.payment.status === "KNOWN" ? parseFloat(loan.payment.value) : 0;
+          const rate = getLoanInterestRate(loan);
+          const monthlyRate = rate / 1200;
+          const interest = Math.round(bal * monthlyRate);
+          const months = pay > interest && monthlyRate > 0
+            ? Math.ceil(-Math.log(1 - (bal * monthlyRate) / pay) / Math.log(1 + monthlyRate))
+            : (pay > 0 ? Math.ceil(bal / pay) : null);
+          return (
+            <p key={loan.id} className="top-space" style={{ marginTop: "12px", fontSize: "14px", color: "var(--navy, #052659)" }}>
+              <strong>{loan.label}</strong>: {months ? (language === "en" ? `approx. ${months} months to payoff` : `khoảng ${months} tháng để trả hết`) : (language === "en" ? "payment insufficient to reduce principal" : "khoản trả chưa đủ giảm gốc")}. {interest > 0 ? (language === "en" ? `First-month interest approx. ${formatCurrency(interest, language)}.` : `Lãi tháng đầu khoảng ${formatCurrency(interest, language)}.`) : ""}
+            </p>
+          );
+        })}
+
+        <p className="small muted top-space" style={{ marginTop: "16px", fontSize: "12px", color: "var(--muted, #456B91)", lineHeight: 1.6 }}>
+          {language === "en"
+            ? "Estimates assume declining balance, fixed interest rates, and constant monthly payments, excluding fees. Detailed loans use this amortization schedule; overall amounts assume fixed payments."
+            : "Ước tính dư nợ giảm dần, lãi suất và khoản trả cố định, chưa gồm phí. Khoản đã kê chi tiết dùng lịch trả minh họa này trong dự phóng; khoản chỉ nhập tổng giữ tiền trả cố định."}
+        </p>
       </section>
 
       {/* 3. SCENARIO & CONTROLS */}
@@ -715,6 +837,100 @@ export default function DebtAnalysisPage() {
           </div>
         </div>
       )}
+
+      {/* 24-PERIOD LOAN AMORTIZATION SCHEDULE MODAL */}
+      {scheduleLoan && (() => {
+        const bal = scheduleLoan.outstandingBalance.status === "KNOWN" ? parseFloat(scheduleLoan.outstandingBalance.value) : 0;
+        const pay = scheduleLoan.payment.status === "KNOWN" ? parseFloat(scheduleLoan.payment.value) : 0;
+        const rate = getLoanInterestRate(scheduleLoan);
+        const monthlyRate = rate / 1200;
+        let curr = bal;
+        const scheduleRows: { m: number; principal: number; interest: number; closing: number }[] = [];
+        for (let m = 1; m <= Math.min(1200, pay > 0 ? bal / pay + 1200 : 24); m++) {
+          const interest = Math.round(curr * monthlyRate);
+          const payment = Math.min(curr + interest, pay);
+          const principal = Math.max(0, payment - interest);
+          const closing = Math.max(0, curr - principal);
+          scheduleRows.push({ m, principal, interest, closing });
+          curr = closing;
+          if (curr < 1 || principal <= 0) break;
+        }
+        const totalInterestCalc = scheduleRows.reduce((acc, r) => acc + r.interest, 0);
+
+        return (
+          <div className="debt-modal-backdrop" onClick={() => setScheduleLoan(null)}>
+            <div className="debt-modal-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ maxWidth: "680px", width: "100%", background: "var(--white, #fff)", borderRadius: "var(--r-lg, 24px)", padding: "28px", border: "1px solid var(--border, #D0E4FE)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "var(--navy, #052659)" }}>
+                    {language === "en" ? "Illustrative Repayment Schedule" : "Lịch trả nợ minh họa"}
+                  </h3>
+                  <p style={{ margin: "6px 0 0", fontSize: "14px", color: "var(--muted, #456B91)" }}>
+                    <strong>{scheduleLoan.label}</strong> · {language === "en" ? "Rate: " : "Lãi "}{rate}%/{language === "en" ? "year" : "năm"} · {language === "en" ? "Payment: " : "Trả "}{formatCurrency(pay, language)}/{language === "en" ? "month" : "tháng"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setScheduleLoan(null)}
+                  style={{ border: 0, background: "transparent", cursor: "pointer", color: "var(--muted, #456B91)" }}
+                  aria-label={language === "en" ? "Close" : "Đóng"}
+                >
+                  <Icon name="x" />
+                </button>
+              </div>
+
+              <div className="notice" style={{ background: "var(--soft, #E8F2FE)", color: "var(--navy, #052659)", padding: "12px 16px", borderRadius: "var(--r-sm, 12px)", fontSize: "13px", marginBottom: "16px" }}>
+                {language === "en"
+                  ? "Interest calculated on reducing balance; rate and payment are fixed. Excludes fees or contract amendments."
+                  : "Lãi tính trên dư nợ giảm dần; lãi suất và tiền trả cố định. Chưa gồm phí hoặc thay đổi hợp đồng."}
+              </div>
+
+              <div className="table-scroll" style={{ maxHeight: "360px", overflowY: "auto", border: "1px solid var(--border, #D0E4FE)", borderRadius: "var(--r-sm, 12px)" }}>
+                <table className="responsive-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                  <thead>
+                    <tr style={{ background: "var(--soft, #E8F2FE)", color: "var(--navy, #052659)" }}>
+                      <th style={{ padding: "10px 14px", textAlign: "left" }}>{language === "en" ? "Period" : "Kỳ"}</th>
+                      <th style={{ padding: "10px 14px", textAlign: "right" }}>{language === "en" ? "Principal" : "Tiền gốc"}</th>
+                      <th style={{ padding: "10px 14px", textAlign: "right" }}>{language === "en" ? "Interest" : "Tiền lãi"}</th>
+                      <th style={{ padding: "10px 14px", textAlign: "right" }}>{language === "en" ? "Remaining" : "Còn nợ"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleRows.slice(0, 24).map((r) => (
+                      <tr key={r.m} style={{ borderBottom: "1px solid var(--border, #D0E4FE)" }}>
+                        <td style={{ padding: "10px 14px" }}>{r.m}</td>
+                        <td style={{ padding: "10px 14px", textAlign: "right" }}>{formatCurrency(r.principal, language)}</td>
+                        <td style={{ padding: "10px 14px", textAlign: "right" }}>{formatCurrency(r.interest, language)}</td>
+                        <td style={{ padding: "10px 14px", textAlign: "right" }}>{formatCurrency(r.closing, language)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <p className="small muted" style={{ marginTop: "14px", fontSize: "12px", color: "var(--muted, #456B91)" }}>
+                {scheduleRows.length > 24 ? (language === "en" ? "Showing first 24 periods. " : "Đang hiển thị 24 kỳ đầu. ") : ""}
+                {curr < 1
+                  ? (language === "en" ? `Paid off in approx. ${scheduleRows.length} months; total interest ${formatCurrency(totalInterestCalc, language)}.` : `Trả hết trong khoảng ${scheduleRows.length} tháng; tổng lãi ${formatCurrency(totalInterestCalc, language)}.`)
+                  : (language === "en" ? "Payment insufficient to reduce principal." : "Khoản trả chưa đủ giảm gốc.")}
+              </p>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "20px" }}>
+                <Button variant="secondary" onClick={() => setScheduleLoan(null)}>
+                  {language === "en" ? "Close" : "Đóng"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Navigation Footer */}
+      <div style={{ marginTop: "24px" }}>
+        <Link to="/user/account" className="button button-secondary" style={{ display: "inline-flex", textDecoration: "none" }}>
+          ← {language === "en" ? "Back to your finances" : "Quay lại Tài chính của bạn"}
+        </Link>
+      </div>
     </div>
   );
 }

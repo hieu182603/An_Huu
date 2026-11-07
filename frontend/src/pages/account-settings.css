@@ -1,0 +1,20 @@
+/* Account settings, demo look: plain head, segmented tabs, flat cards. */
+.account-settings-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+.account-settings-head h1 { margin: 0; color: var(--navy, #052659); font-size: 32px; font-weight: 700; line-height: 1.35; letter-spacing: -1px; }
+.account-settings-head p { max-width: 640px; margin: 8px 0 0; color: var(--muted, #456B91); font-size: 14px; }
+.account-settings-head .button { flex-shrink: 0; }
+
+.account-settings-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.account-settings-tabs button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid var(--border, #D0E4FE); border-radius: var(--r-md, 16px); background: #fff; color: var(--navy, #052659); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s ease; }
+.account-settings-tabs button:hover { background: var(--bg, #F9FBFF); border-color: var(--input, #7DA0CA); }
+.account-settings-tabs button.is-active { border-color: var(--input, #7DA0CA); background: var(--soft, #E8F2FE); font-weight: 600; color: var(--primary, #334DAF); }
+.account-settings-tabs button:focus-visible { outline: 3px solid var(--input, #7DA0CA); outline-offset: 2px; }
+
+.account-settings-content { display: grid; gap: 20px; max-width: 880px; }
+.account-settings-page .account-card, .account-settings-page .report-card { border: 1px solid var(--border, #D0E4FE); border-radius: var(--r-md, 16px); box-shadow: none; background: #fff; }
+
+@media (max-width: 640px) {
+  .account-settings-head { flex-direction: column; }
+  .account-settings-head h1 { font-size: 28px; }
+  .account-settings-tabs button { flex: 1 1 100%; }
+}

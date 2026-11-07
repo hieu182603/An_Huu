@@ -138,3 +138,17 @@ test("quick-start profile: hasDebt không truyền (màn 1 chưa hỏi nợ) -> 
   assert.deepEqual(profile.debts, { status: "UNKNOWN" });
 });
 
+
+test("quick-start profile: bước Gia đình ghi hôn nhân và số người phụ thuộc", () => {
+  const base = { birthMonth: "1990-05", desiredRetirementMonth: "2050-05", monthlyIncome: 20_000_000, monthlyExpense: 12_000_000, retirementSavings: 0, hasDebt: false, valuationDate: "2026-11-01" };
+  const withFamily = createQuickStartProfileV2({ ...base, maritalStatus: "MARRIED", dependents: 2 });
+  assert.equal(withFamily.personal.maritalStatus, "MARRIED");
+  assert.deepEqual(withFamily.personal.dependents, { status: "KNOWN", value: 2 });
+
+  const zero = createQuickStartProfileV2({ ...base, dependents: 0 });
+  assert.deepEqual(zero.personal.dependents, { status: "KNOWN", value: 0 });
+
+  const blank = createQuickStartProfileV2({ ...base, maritalStatus: undefined, dependents: null });
+  assert.equal("maritalStatus" in blank.personal, false);
+  assert.equal("dependents" in blank.personal, false);
+});

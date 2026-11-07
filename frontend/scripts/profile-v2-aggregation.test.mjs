@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { profileFromV2 } from "../src/services/financialProfile.ts";
+import { profileFromV2, serverStep, clientStep } from "../src/services/financialProfile.ts";
 
 const emptyBase = {
   personal: { name: "", email: "", phone: "", city: "", age: 0, gender: "", maritalStatus: "", dependents: 0 },
@@ -13,7 +13,8 @@ const emptyBase = {
   plan: { targetFund: 0, projectedFund: 0, monthlySavings: 0, readinessScore: 0, lastUpdated: "" },
 };
 
-test("profileFromV2 calculates age, active monthly cashflows, asset shares and debt shares correctly", () => {
+test("profileFromV2 calculates age, active monthly cashflows, asset shares and debt shares correctly", (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-10-22T12:00:00+07:00") });
   const exampleV2 = {
     schemaVersion: 2,
     valuationDate: "2026-10-22",
@@ -163,4 +164,12 @@ test("profileFromV2 calculates age, active monthly cashflows, asset shares and d
   // 8. Tài sản ròng: 2 tỷ - 60tr = 1.940.000.000 (1,94 tỷ)
   const netWorth = totalAssets - totalDebt;
   assert.equal(netWorth, 1_940_000_000, "Net worth should be 1.94B");
+});
+
+
+test("quick survey steps use the supported API enum and retain resume stage", () => {
+  assert.equal(serverStep("quick-money"), "income");
+  assert.equal(serverStep("quick-risk"), "investment");
+  assert.equal(clientStep(serverStep("quick-risk")), "contribution");
+  assert.equal(clientStep(serverStep("quick-money")), "income");
 });

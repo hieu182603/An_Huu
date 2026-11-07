@@ -551,7 +551,7 @@ export default function OnboardingPage() {
         {hasOnboardingDraft && <details>
           <summary>{isEn ? "Review the saved survey draft" : "Xem lại bản nháp khảo sát đã lưu"}</summary>
           <p>{isEn ? "This draft is retained but has not been applied. Compare these values when editing your financial profile." : "Bản nháp vẫn được giữ lại, chưa được áp dụng vào hồ sơ. Bạn có thể đối chiếu các số liệu này khi sửa hồ sơ tài chính."}</p>
-          <dl>{draftValues.map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{value === "" ? "—" : value}</dd></div>)}</dl>
+          <dl>{draftValues.map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{value === "" ? "-" : value}</dd></div>)}</dl>
           <Link to="/user/account?tab=profile" target="_blank" rel="noopener noreferrer">{isEn ? "Edit profile in a new tab to compare" : "Mở hồ sơ trong tab mới để đối chiếu"}</Link>
         </details>}
       </Card>
@@ -1085,7 +1085,7 @@ export default function OnboardingPage() {
                   <p>{isEn ? "State pension from BHXH is a core pillar supporting your retirement cash flow." : "Lương hưu từ BHXH là trụ cột chính nuôi dưỡng quỹ hưu trí."}</p>
                 </div>
 
-                <Button variant="secondary" onClick={handleNext} disabled={working}>{isEn ? "Not sure yet — add later" : "Chưa biết, bổ sung sau"}</Button>
+                <Button variant="secondary" onClick={handleNext} disabled={working}>{isEn ? "Not sure yet - add later" : "Chưa biết, bổ sung sau"}</Button>
                 <p>{isEn ? "This step records contribution history only. No pension estimate is included until you declare it in the detailed profile." : "Bước này chỉ ghi lịch sử đóng. Chưa đưa lương hưu vào kế hoạch đến khi bạn khai báo trong hồ sơ chi tiết."}</p>
                 <details><summary>{isEn ? "Personal details for social insurance" : "Thông tin cá nhân dùng cho BHXH"}</summary><div className="form-grid">
                   <Input

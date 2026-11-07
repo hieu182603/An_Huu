@@ -17,7 +17,7 @@ interface MonthlyCashflowTableProps {
 
 const formatMoneyCell = (val: string | number) => {
   const num = typeof val === "string" ? parseFloat(val) : val;
-  if (!Number.isFinite(num)) return "—";
+  if (!Number.isFinite(num)) return "-";
   if (num === 0) return "0";
   const rounded = Math.round(num);
   const isNeg = rounded < 0;
@@ -213,7 +213,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
   };
   const detailGroup = (title: string, entries: [string, string | undefined][]) => (
     <section><h4>{title}</h4><dl>{entries.map(([label, value]) => (
-      <div key={label}><dt>{label}</dt><dd>{value === undefined ? "—" : formatMoneyCell(value)}</dd></div>
+      <div key={label}><dt>{label}</dt><dd>{value === undefined ? "-" : formatMoneyCell(value)}</dd></div>
     ))}</dl></section>
   );
 
