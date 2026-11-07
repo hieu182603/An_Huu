@@ -299,14 +299,22 @@ export function AssistantPage() {
       </section>
 
       {/* SECTION 5: FAQs */}
-      <section className="mk-container mk-faq">
-        <h2>Câu hỏi thường gặp về Trợ lý An Hưu</h2>
-        {assistantFaqs.map(faq => (
-          <details key={faq.q}>
-            <summary>{faq.q}<Icon name="plus" /></summary>
-            <p>{faq.a}</p>
-          </details>
-        ))}
+      <section className="mk-section mk-faq-section" aria-labelledby="assistant-faqs-title">
+        <div className="mk-container">
+          <div className="mk-faq-header">
+            <span className="mk-eyebrow">GIẢI ĐÁP THẮC MẮC</span>
+            <h2 id="assistant-faqs-title">Câu hỏi thường gặp về Trợ lý An Hưu</h2>
+            <p>Hiểu rõ nguyên lý vận hành độc lập, thuật toán toán học và cơ chế bảo vệ quyền riêng tư dữ liệu của bạn.</p>
+          </div>
+          <div className="mk-faq">
+            {assistantFaqs.map(faq => (
+              <details key={faq.q}>
+                <summary>{faq.q}<Icon name="plus" /></summary>
+                <p>{faq.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
       </section>
 
       <FinalCTA />
@@ -524,6 +532,18 @@ export function SimulationPage() {
   const validAllocation = Math.abs(totalWeight - 100) < .001;
 
   // Include the retirement milestone so the peak is not skipped by coarse sampling.
+  const [activeTab, setActiveTab] = useState(() => (typeof window !== 'undefined' && window.location.hash) || '#ke-hoach');
+
+  useEffect(() => {
+    const handleHash = () => {
+      if (['#ke-hoach', '#kich-ban', '#phan-bo'].includes(window.location.hash)) {
+        setActiveTab(window.location.hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
   const totalSpan = Math.max(1, input.lifeExpectancy - input.currentAge);
   const years = [...new Set([...Array.from({ length: totalSpan + 1 }, (_, index) => input.currentAge + index), input.retirementAge])].sort((a, b) => a - b);
   const balances = years.map(age => projectBalanceAtAge(input, age));
@@ -538,7 +558,9 @@ export function SimulationPage() {
         <button type="button" className="mk-scenario-reset" onClick={() => { setAdvancedOpen(true); requestAnimationFrame(() => { document.getElementById('num-sim-currentAge')?.focus(); }); }}><Icon name="settings" /> Sửa thông tin</button>
       </header>
       <nav className="mk-container mk-demo-nav" aria-label="Các phần mô phỏng">
-        <a href="#ke-hoach"><Icon name="chart" /> Kế hoạch của bạn</a><a href="#kich-ban"><Icon name="compass" /> Thử kịch bản</a><a href="#phan-bo"><Icon name="wallet" /> Phân bổ tài sản</a>
+        <a href="#ke-hoach" className={activeTab === '#ke-hoach' ? 'active' : ''} onClick={() => setActiveTab('#ke-hoach')}><Icon name="chart" /> Kế hoạch của bạn</a>
+        <a href="#kich-ban" className={activeTab === '#kich-ban' ? 'active' : ''} onClick={() => setActiveTab('#kich-ban')}><Icon name="compass" /> Thử kịch bản</a>
+        <a href="#phan-bo" className={activeTab === '#phan-bo' ? 'active' : ''} onClick={() => setActiveTab('#phan-bo')}><Icon name="wallet" /> Phân bổ tài sản</a>
       </nav>
       <div className="mk-container mk-demo-notice"><span><Icon name="info" /> Đây là ví dụ minh họa. Thay đổi trong demo chưa được lưu.</span><Link to="/register" onClick={() => saveSimulatorPrefill({ currentAge: input.currentAge, retirementAge: input.retirementAge, monthlyExpenseToday: input.monthlyExpenseToday })}>Tạo kế hoạch riêng <Icon name="arrow-right" /></Link></div>
       <section className="mk-container mk-purchasing-power" aria-label="Ảnh hưởng của lạm phát">
@@ -770,7 +792,7 @@ export function SimulationPage() {
         </aside></div>
       </section>
 
-      <section className="mk-container mk-assumptions">
+      <section className="mk-container mk-assumptions" id="co-so-tinh-toan">
         <h2>Hiểu các giả định phía sau kết quả</h2>
         <p>
           Đây là mô hình minh họa với lợi suất và lạm phát cố định, khoản tích lũy được góp vào cuối mỗi tháng. Chưa tính lương hưu BHXH, thuế, phí, nợ hoặc biến động thị trường. Tài sản ban đầu được xem là toàn bộ phần có thể dùng cho hưu trí.
@@ -779,6 +801,7 @@ export function SimulationPage() {
           Giai đoạn nghỉ hưu dùng cùng mức lợi suất giả định khai báo để tính toán dòng tiền rút dần bù đắp chi tiêu. Chi tiêu tăng theo lạm phát cho đến tuổi dự trù. Đây là giả định toán học của công cụ, không phải mức lợi suất được đảm bảo.
         </p>
       </section>
+      <FinalCTA />
     </div></MarketingLayout>
   );
 }

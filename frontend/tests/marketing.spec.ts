@@ -99,15 +99,43 @@ test('sample assistant works without authentication', async ({ page }) => {
   await expect(page.locator('.mk-chat-answer')).toContainText('bớt 10 năm tích lũy');
 });
 
-test('removed knowledge routes return home without loading the content API', async ({ page }) => {
+test('restored knowledge section on landing displays 3 article cards and links to knowledge hub without loading content API', async ({ page }) => {
   const contentRequests: string[] = [];
   page.on('request', request => { if (/\/content(?:[/?]|$)/.test(request.url())) contentRequests.push(request.url()); });
-  for (const path of ['/', '/kien-thuc', '/kien-thuc/hieu-ve-lam-phat', '/#kien-thuc']) {
-    await page.goto(path);
-    await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator('.mk-hero h1')).toBeVisible();
-    await expect(page.locator('a[href*="kien-thuc"], #kien-thuc')).toHaveCount(0);
+
+  // 1. Verify Section 5 (#kien-thuc) is rendered on the landing page
+  await page.goto('/');
+  const sec5 = page.locator('section#kien-thuc');
+  await expect(sec5).toBeVisible();
+  await expect(sec5.locator('.mk-eyebrow')).toHaveText('CẨM NANG KIẾN THỨC HƯU TRÍ');
+
+  // 2. Verify exactly 3 article cards with valid links
+  const cards = sec5.locator('.mk-landing-knowledge-grid article.mk-landing-article-card');
+  await expect(cards).toHaveCount(3);
+
+  const expectedArticles = [
+    { title: 'Cần bao nhiêu tiền để nghỉ hưu an tâm tại Việt Nam?', slug: '/kien-thuc#can-bao-nhieu-tien-de-nghi-huu' },
+    { title: 'Lương hưu BHXH tính thế nào theo quy định mới nhất?', slug: '/kien-thuc#luong-huu-bhxh-tinh-the-nao' },
+    { title: 'Tách vốn bảo vệ trước khi đầu tư tăng trưởng', slug: '/kien-thuc#thap-tai-san-bao-ve' },
+  ];
+
+  for (let i = 0; i < 3; i++) {
+    const card = cards.nth(i);
+    await expect(card.locator('.mk-card-img-wrap img')).toBeVisible();
+    await expect(card.locator('.mk-card-img-wrap .mk-card-category-badge')).toBeVisible();
+    await expect(card.locator('.mk-card-content h3')).toHaveText(expectedArticles[i].title);
+    await expect(card.locator('.mk-card-content p')).toBeVisible();
+    await expect(card.locator('.mk-card-content a.mk-card-action')).toHaveAttribute('href', expectedArticles[i].slug);
   }
+
+  // 3. Verify Section 5 CTA button links to knowledge hub
+  await expect(sec5.locator('a.mk-button.mk-secondary-btn')).toHaveAttribute('href', '/kien-thuc');
+
+  // 4. Verify public route /kien-thuc loads cleanly without redirecting home
+  await page.goto('/kien-thuc');
+  await expect(page).toHaveURL(/\/kien-thuc$/);
+  await expect(page.locator('h1')).toBeVisible();
+
   expect(contentRequests).toEqual([]);
 });
 
