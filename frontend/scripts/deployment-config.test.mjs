@@ -38,11 +38,11 @@ for (const [index, config] of configs.entries()) {
   test(`config ${index}: api and health endpoints proxy to Azure backend`, () => {
     const apiRule = config.rewrites.find(rule => matches(rule.source, '/api/v1/auth/login'));
     assert.ok(apiRule, 'API rewrite rule must exist');
-    assert.match(apiRule.destination, /^https:\/\/anhuu-backend-addwbfcshng0hcf7\.japaneast-01\.azurewebsites\.net/);
+    assert.match(apiRule.destination, /^https:\/\/anhuu-backend\.azurewebsites\.net/);
 
     const healthRule = config.rewrites.find(rule => matches(rule.source, '/health/ready'));
     assert.ok(healthRule, 'Health rewrite rule must exist');
-    assert.match(healthRule.destination, /^https:\/\/anhuu-backend-addwbfcshng0hcf7\.japaneast-01\.azurewebsites\.net/);
+    assert.match(healthRule.destination, /^https:\/\/anhuu-backend\.azurewebsites\.net/);
   });
 
   test(`config ${index}: only fingerprinted assets get immutable caching`, () => {
