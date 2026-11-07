@@ -114,14 +114,42 @@ export const assistantFaqs = [
   { q: 'Khi nào tôi nên cập nhật lại kế hoạch hưu trí?', a: 'Bạn nên rà soát lại kế hoạch khi có thay đổi lớn trong cuộc sống: tăng lương, chuyển việc, lập gia đình, sinh con, hoàn tất trả nợ mua nhà, hoặc định kỳ mỗi năm một lần.' },
 ];
 
-export const pageMetadata: Record<string, { title: string; description: string }> = {
-  '/': { title: 'An Hưu | Lập kế hoạch tài chính hưu trí cho người Việt', description: 'Chủ động chuẩn bị cho tuổi hưu cùng An Hưu. Khám phá lộ trình tích lũy, thử mô phỏng hưu trí và tìm hiểu kiến thức tài chính dễ hiểu.' },
-  '/cach-hoat-dong': { title: 'Cách hoạt động | Lập kế hoạch hưu trí với An Hưu', description: 'Tìm hiểu bốn bước lập kế hoạch với An Hưu: tổng hợp tài chính, xác định mục tiêu, mô phỏng kịch bản và theo dõi hành trình hưu trí.' },
-  '/mo-phong': { title: 'Mô phỏng hưu trí | Tính quỹ tích lũy cùng An Hưu', description: 'Thử mô phỏng hưu trí miễn phí. Điều chỉnh tuổi nghỉ hưu, tích lũy hàng tháng, lợi suất và lạm phát để so sánh quỹ dự kiến với mục tiêu.' },
-  '/kien-thuc': { title: 'Kiến thức hưu trí — An Hưu', description: 'Cẩm nang kiến thức hưu trí An Hưu — Cần bao nhiêu tiền để nghỉ hưu? Lương hưu BHXH tính thế nào? Hiểu rõ phương pháp tính toán độc lập, minh bạch.' },
-  '/tro-ly-ai': { title: 'Trợ lý AI An Hưu | Tìm hiểu kế hoạch hưu trí', description: 'Khám phá trợ lý An Hưu qua các câu hỏi mẫu về mục tiêu, tích lũy và mô phỏng hưu trí. Nội dung minh họa minh bạch, dễ hiểu.' },
-  '/gioi-thieu': { title: 'Giới thiệu — An Hưu', description: 'Giới thiệu về An Hưu — Đội ngũ chuyên môn, sứ mệnh và nguồn dữ liệu tính toán minh bạch cho kế hoạch hưu trí người Việt.' },
-  '/chinh-sach': { title: 'Chính sách & Điều khoản — An Hưu', description: 'Chính sách bảo mật và Điều khoản sử dụng An Hưu — Cam kết bảo mật dữ liệu phiên, minh bạch thuật toán và nguyên tắc độc lập.' },
+export const pageMetadata: Record<string, { title: string; description: string; keywords?: string }> = {
+  '/': {
+    title: 'An Hưu | Lập kế hoạch tài chính hưu trí độc lập cho người Việt',
+    description: 'Chủ động chuẩn bị cho tuổi hưu cùng An Hưu. Khám phá lộ trình tích lũy, tính khoảng thiếu hụt tài chính, mô phỏng quyền lợi BHXH và phân bổ tài sản độc lập 100%.',
+    keywords: 'kế hoạch hưu trí, tài chính cá nhân, tính tiền nghỉ hưu, hưu trí việt nam, mô phỏng hưu trí, an hưu, độc lập tài chính, FIRE việt nam'
+  },
+  '/cach-hoat-dong': {
+    title: 'Cách hoạt động | Lập kế hoạch hưu trí với An Hưu',
+    description: 'Tìm hiểu bốn bước lập kế hoạch với An Hưu: tổng hợp tài chính, xác định mục tiêu, mô phỏng kịch bản đa chiều và theo dõi đối soát dòng tiền thực tế.',
+    keywords: 'lập kế hoạch hưu trí, quy trình hưu trí, lộ trình tài chính, quản lý dòng tiền hưu trí, đối soát tài chính'
+  },
+  '/mo-phong': {
+    title: 'Công cụ tính hưu trí & Mô phỏng dòng tiền online | An Hưu',
+    description: 'Thử mô phỏng hưu trí miễn phí không cần đăng ký. Tính toán số tiền cần có khi nghỉ hưu, lương hưu BHXH, khoảng thiếu hụt và mức tiết kiệm cần thiết mỗi tháng.',
+    keywords: 'công cụ tính hưu trí, tính lương hưu online, mô phỏng nghỉ hưu, tính khoảng thiếu hụt, funding gap, bảng tính hưu trí'
+  },
+  '/kien-thuc': {
+    title: 'Kiến thức hưu trí & Cách tính lương hưu BHXH | An Hưu',
+    description: 'Cẩm nang kiến thức hưu trí An Hưu — Cần bao nhiêu tiền để nghỉ hưu? Lương hưu BHXH tính thế nào? Hiểu rõ quy tắc 3 rổ tài sản và phương pháp tính độc lập.',
+    keywords: 'kiến thức hưu trí, cách tính lương hưu bhxh, luật bhxh mới, 3 rổ tài sản, lạm phát tuổi già, cẩm nang hưu trí'
+  },
+  '/tro-ly-ai': {
+    title: 'Trợ lý AI An Hưu | Giải đáp tài chính hưu trí',
+    description: 'Trợ lý AI An Hưu giải đáp các câu hỏi về hưu trí: bắt đầu tích lũy tuổi 35, kịch bản hưu sớm tuổi 50 (FIRE), quyền lợi BHXH và bảo toàn sức mua trước lạm phát.',
+    keywords: 'trợ lý ai hưu trí, ai tư vấn hưu trí, hỏi đáp hưu trí, tính hưu sớm fire, ai an hưu'
+  },
+  '/gioi-thieu': {
+    title: 'Giới thiệu về An Hưu | Nguyên tắc độc lập & Sứ mệnh',
+    description: 'Giới thiệu về An Hưu — Nền tảng lập kế hoạch hưu trí độc lập 100% cho người Việt, không bán chéo bảo hiểm, cam kết minh bạch thuật toán.',
+    keywords: 'về an hưu, sứ mệnh an hưu, nguyên tắc độc lập tài chính, zero bias fintech'
+  },
+  '/chinh-sach': {
+    title: 'Chính sách bảo mật & Điều khoản sử dụng | An Hưu',
+    description: 'Chính sách bảo mật và Điều khoản sử dụng An Hưu — Cam kết bảo mật dữ liệu phiên, minh bạch thuật toán và nguyên tắc độc lập tuyệt đối.',
+    keywords: 'chính sách bảo mật, điều khoản sử dụng, an toàn dữ liệu tài chính, an hưu'
+  },
 };
 
 export function normalizePublicPath(path: string) { return path.replace(/\/+$/, '') || '/'; }

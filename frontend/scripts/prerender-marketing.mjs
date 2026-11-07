@@ -40,7 +40,42 @@ for (const route of Object.keys(pageMetadata)) {
     .replace('<div id="root"></div>', `<div id="root">${renderPage(route)}</div>`);
   await writeFile(path.join(folder, 'index.html'), html);
 }
-const robots = `User-agent: *\nAllow: /\nDisallow: /user/\nDisallow: /admin/\n${origin ? `Sitemap: ${origin}/sitemap.xml\n` : ''}`;
+const robots = `# Robots.txt for An Hưu
+User-agent: *
+Allow: /
+Disallow: /user/
+Disallow: /admin/
+Disallow: /app-shell.html
+
+# AI Search & Generation Crawlers
+User-agent: GPTBot
+Allow: /
+Disallow: /user/
+Disallow: /admin/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /user/
+Disallow: /admin/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /user/
+Disallow: /admin/
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+${origin ? `Sitemap: ${origin}/sitemap.xml\n` : ''}`;
 await writeFile(path.join(dist, 'robots.txt'), robots);
 if (origin) {
   const escapeXml = value => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');

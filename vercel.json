@@ -33,6 +33,30 @@
       "destination": "/tro-ly-ai/index.html"
     },
     {
+      "source": "/kien-thuc",
+      "destination": "/kien-thuc/index.html"
+    },
+    {
+      "source": "/kien-thuc/",
+      "destination": "/kien-thuc/index.html"
+    },
+    {
+      "source": "/gioi-thieu",
+      "destination": "/gioi-thieu/index.html"
+    },
+    {
+      "source": "/gioi-thieu/",
+      "destination": "/gioi-thieu/index.html"
+    },
+    {
+      "source": "/chinh-sach",
+      "destination": "/chinh-sach/index.html"
+    },
+    {
+      "source": "/chinh-sach/",
+      "destination": "/chinh-sach/index.html"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "https://anhuu-backend.azurewebsites.net/api/$1"
     },
