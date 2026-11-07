@@ -1,0 +1,39 @@
+# Robots.txt for An Hưu (https://anhuu.vn)
+# Standard Search Engine Crawlers
+User-agent: *
+Allow: /
+Disallow: /user/
+Disallow: /admin/
+Disallow: /app-shell.html
+
+# AI Search & Generation Crawlers (ChatGPT, Claude, Perplexity, Google Gemini, Apple, etc.)
+User-agent: GPTBot
+Allow: /
+Disallow: /user/
+Disallow: /admin/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /user/
+Disallow: /admin/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /user/
+Disallow: /admin/
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+# LLM Context files
+# AI models can read /llms.txt and /llms-full.txt for comprehensive context
+
