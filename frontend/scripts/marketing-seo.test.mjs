@@ -8,7 +8,8 @@ test('every public route has distinct prerendered HTML, metadata and valid local
   for (const [route, meta] of Object.entries(pageMetadata)) {
     const html = await readFile(new URL(`../dist${route === '/' ? '' : route}/index.html`, import.meta.url), 'utf8');
     assert.equal((html.match(/<h1(?:\s|>)/g) || []).length, 1, route);
-    assert.ok(html.includes(`<title>${meta.title}</title>`), route);
+    const escapedTitle = meta.title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    assert.ok(html.includes(`<title>${escapedTitle}</title>`), route);
     assert.ok(html.includes('content="index, follow, max-image-preview:large"'), route);
     assert.ok(!html.includes('content="noindex'), route);
     const json = html.match(/<script type="application\/ld\+json" id="marketing-schema">(.*?)<\/script>/s)[1];
