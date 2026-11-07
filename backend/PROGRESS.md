@@ -1,3 +1,15 @@
+## Kiểm duyệt remediation — 02/11/2026
+
+- Theo phân công mới: Antigravity triển khai task UI Site; Codex kiểm tra task trước trong ứng dụng chính. Lượt này không sửa runtime/backend/frontend nghiệp vụ, không đổi Site đang chờ Antigravity.
+- Chạy lại `npm run test:integration` trên PostgreSQL riêng: 18/18, 3 file. Browser thực `npx playwright test --config playwright.remediation.config.ts`: 3/3 trong 40,8s. Bao gồm four-eyes/publication, holdings 390px + reload, real risk simulation, onboarding mới + reload ở bước tiền/rủi ro + thêm mục tiêu + tạo kế hoạch/reload.
+- Sửa test chờ sai endpoint: lần lưu đầu POST /me/retirement/plans, không phải /versions. Xác nhận 201 + planId + version=1. Bản sửa quick-money/quick-risk→income/investment từ 01/11 được kiểm lại qua API thật, không còn 400 enum bước.
+- Kết quả còn hiệu lực 01/11 với runtime chưa đổi: backend 961/961 (85 file), frontend 101/101, typechecks và builds PASS; startup thiếu cấu hình chặn đúng. Upgrade14→16/rollback DB tạm giữ fingerprint40 bảng cũ PASS. Không diễn giải kết quả lịch sử thành chạy lại hôm nay.
+- Reports: CODEX_REMEDIATION_REPORT.md G–L và FINAL_IMPLEMENTATION_REPORT.md cập nhật; requirements-traceability giữ29 mã nhưng bỏ blanket ĐẠT CHUẨN; 00–14 đánh dấu historical. Logs được chọn + ảnh + 574 source hashes ở docs/implementation/remediation-evidence. Không sao chép fixture credential/trace.
+- Rà soát bounded16runtime files không thấy literal secret theo mẫu quét; không phải pentest. Diff-check phần ngoài UI baseline PASS; user-readability.css còn2dòng whitespace có trước, giữ nguyên tránh đè việc khác. 14 migration cũ không sửa.
+- Giới hạn còn mở: optimizer candidate chưa lưu xuyên suốt thành plan/product, legacy RBAC/MODEL_ADMIN, locked/maturity/lot cost ledger, OpenAPI investments, live providers/calibration/legal. Chưa duyệt deploy ứng dụng chính. Không push/commit/deploy main, không DB khách hàng, không gửi provider/đặt lệnh.
+- Đã kết thúc backend/Vite do lượt kiểm mở; dừng container test về trạng thái trước lượt kiểm, giữ dữ liệu synthetic để đối chiếu. Docker Desktop giữ nguyên, không can thiệp các dịch vụ khác.
+- Tiếp theo: review bàn giao Antigravity task PLAN_ALLOCATION_BIRTHDATE_2026-11-02 trong Site riêng, chỉ deploy Site khi đạt. Các giới hạn ứng dụng chính nêu trên cần task triển khai riêng và review lại, không đánh dấu toàn bộ đặc tả hoàn tất.
+
 ## Sửa phụ thuộc để CI deploy lại được — zod 4 (28/10/2026 tối, giờ Việt Nam)
 
 - CI 28/10 (bc5f6c3) dừng ở `npm audit --audit-level=high --omit=dev` nên không deploy: zod < 4.6.6, body-parser < 1.20.9, @azure/msal-node < 7.1.0 (high); nodemailer, qs (moderate). Typecheck/test/build khi đó đều PASS.
