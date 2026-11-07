@@ -95,12 +95,14 @@ an-huu-intro*
 *.mkv
 
 # Documentation, notes, and Office files
-/docs/
+/docs/*
+!/docs/implementation/
 *.doc
 *.docx
 *.md
 !README.md
 !**/README.md
+!/docs/implementation/**
 
 
 
@@ -108,4 +110,9 @@ an-huu-intro*
 
 # Sites and design experiments
 sites/
+site-artifacts/
 .impeccable/
+
+# Reproducible isolated remediation browser harness
+!/backend/scripts/remediation-e2e-server.cjs
+!/backend/scripts/remediation-migration-check.cjs
