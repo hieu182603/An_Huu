@@ -1,7 +1,7 @@
 # An Hưu
 
 > Nền tảng lập kế hoạch tài chính hưu trí và tính toán dòng tiền tuổi già độc lập 100% dành cho người Việt.
-> Website chính thức: https://anhuu.vn
+> Website chính thức: https://an-huu.vercel.app
 
 An Hưu giải quyết bài toán hưu trí và tài chính dài hạn phức tạp, mơ hồ thành lộ trình hành động định lượng, rõ ràng và khả thi cho từng giai đoạn cuộc đời người Việt. Nền tảng giúp xác định chính xác khoảng thiếu hụt tài chính (Funding Gap), mức tiết kiệm cần thiết mỗi tháng, ước tính quyền lợi BHXH theo luật Việt Nam và phân bổ tài sản thông minh theo mô hình 3 rổ.
 
@@ -11,21 +11,21 @@ An Hưu giải quyết bài toán hưu trí và tài chính dài hạn phức t�
 
 ## Các tính năng & Công cụ chính
 
-- [Mô phỏng hưu trí nhanh (Instant Simulator)](https://anhuu.vn/mo-phong): Công cụ tính toán nhanh số tiền cần có khi nghỉ hưu, lương hưu BHXH dự kiến và số tiền cần tích lũy mỗi tháng mà không cần tạo tài khoản.
-- [Cách hoạt động & Lộ trình 4 bước](https://anhuu.vn/cach-hoat-dong):
+- [Mô phỏng hưu trí nhanh (Instant Simulator)](https://an-huu.vercel.app/mo-phong): Công cụ tính toán nhanh số tiền cần có khi nghỉ hưu, lương hưu BHXH dự kiến và số tiền cần tích lũy mỗi tháng mà không cần tạo tài khoản.
+- [Cách hoạt động & Lộ trình 4 bước](https://an-huu.vercel.app/cach-hoat-dong):
   1. Hiểu hiện tại: Ghi nhận thu nhập, chi tiêu, tài sản và nghĩa vụ nợ.
   2. Xác định mục tiêu: Thiết lập tuổi nghỉ hưu mong muốn và chi tiêu tuổi già.
   3. Mô phỏng kịch bản đa chiều: Thử nghiệm tác động của lạm phát, tuổi thọ, tỷ suất đầu tư.
   4. Theo dõi & Đối soát: Cập nhật dòng tiền thực tế định kỳ hàng tháng để đảm bảo đúng tiến độ.
-- [Trợ lý AI giải thích tài chính hưu trí](https://anhuu.vn/tro-ly-ai): Giải đáp thấu đáo các bài toán tài chính: bắt đầu tích lũy tuổi 35, kịch bản hưu sớm tuổi 50 (FIRE), quyền lợi BHXH và lạm phát lũy kế.
-- [Cẩm nang kiến thức hưu trí](https://anhuu.vn/kien-thuc):
+- [Trợ lý AI giải thích tài chính hưu trí](https://an-huu.vercel.app/tro-ly-ai): Giải đáp thấu đáo các bài toán tài chính: bắt đầu tích lũy tuổi 35, kịch bản hưu sớm tuổi 50 (FIRE), quyền lợi BHXH và lạm phát lũy kế.
+- [Cẩm nang kiến thức hưu trí](https://an-huu.vercel.app/kien-thuc):
   - Cần bao nhiêu tiền để nghỉ hưu an nhàn tại Việt Nam?
   - Cách tính lương hưu BHXH chuẩn xác theo luật mới.
   - Tháp tài sản và nguyên tắc 3 rổ (An toàn, Tích lũy, Tăng trưởng).
   - Tác động của lạm phát và bảo toàn sức mua trong 25-30 năm hưu trí.
-- [Giới thiệu & Sứ mệnh](https://anhuu.vn/gioi-thieu): Giới thiệu nguyên tắc hoạt động, chuẩn mực dữ liệu và cam kết phục vụ người dùng.
-- [Chính sách & Bảo mật](https://anhuu.vn/chinh-sach): Bảo mật dữ liệu phiên, minh bạch thuật toán và tôn trọng quyền riêng tư.
+- [Giới thiệu & Sứ mệnh](https://an-huu.vercel.app/gioi-thieu): Giới thiệu nguyên tắc hoạt động, chuẩn mực dữ liệu và cam kết phục vụ người dùng.
+- [Chính sách & Bảo mật](https://an-huu.vercel.app/chinh-sach): Bảo mật dữ liệu phiên, minh bạch thuật toán và tôn trọng quyền riêng tư.
 
 ## Tài liệu chi tiết cho AI / LLM
-- [Tài liệu ngữ cảnh đầy đủ (Full Context)](https://anhuu.vn/llms-full.txt): Toàn bộ cơ sở pháp lý BHXH, công thức toán tài chính và mô hình phân bổ tài sản.
+- [Tài liệu ngữ cảnh đầy đủ (Full Context)](https://an-huu.vercel.app/llms-full.txt): Toàn bộ cơ sở pháp lý BHXH, công thức toán tài chính và mô hình phân bổ tài sản.
 

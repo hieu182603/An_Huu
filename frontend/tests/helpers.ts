@@ -248,7 +248,7 @@ export async function installRouteAuth(page: Page, userId = "USR-001") {
           systemName: "An Hưu",
           defaultLanguage: "Tiếng Việt",
           operatingTimezone: "GMT+7 (Việt Nam)",
-          supportEmail: "hotro@anhuu.vn",
+          supportEmail: "anhuuofficial@gmail.com",
           maintenanceMode: false,
         },
       },

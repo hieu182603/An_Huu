@@ -72,7 +72,7 @@ Vào trang quản trị của App Service vừa tạo > Menu bên trái chọn *
 | `NODE_ENV` | `production` |
 | `PORT` | `8080` (hoặc để mặc định, Azure App Service tự map) |
 | `WEBSITE_PORT` | `5000` |
-| `CLIENT_URL` | `https://anhuu.vn` (hoặc link Vercel frontend của bạn) |
+| `CLIENT_URL` | `https://an-huu.vercel.app` |
 | `DATABASE_URL` | `postgresql://anhuuadmin:AnHuuSecure2026!@an-huu-postgres.postgres.database.azure.com:5432/an_huu_db?sslmode=require` |
 | `JWT_SECRET` | Khóa bảo mật ngẫu nhiên (chuỗi dài tối thiểu 32 ký tự) |
 | `JWT_EXPIRES_IN` | `7d` |
