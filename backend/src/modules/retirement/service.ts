@@ -11,6 +11,7 @@ import { separateCapital, type CapitalSeparation } from "../capital/separation";
 import { assessLossConstraint } from "../capital/loss-constraint";
 import { essentialCoverage, adjustmentOptions, decisionExplanations } from "./preview-insights";
 import { logPreviewCoverage } from "../../common/logger";
+import { PreviewCache } from "./preview-cache";
 import type { ReforecastLineage } from "../actuals/lineage";
 import type { z } from "zod";
 import type { futureChangeSchema, sourceChangeSchema } from "../actuals/schema";
@@ -32,14 +33,18 @@ export type PreviewResult = ReturnType<RetirementService["previewCaptured"]>;
  * Its result is the JSON form of PreviewResult, i.e. what the HTTP response carries. */
 export type PreviewRunner = (snapshot: PreviewSnapshot, input: RetirementPreview, options: PreviewOptions) => Promise<PreviewResult>;
 export class RetirementService {
-  constructor(private db: PrismaClient, private runner?: PreviewRunner) {}
+  constructor(private db: PrismaClient, private runner?: PreviewRunner, private cache?: PreviewCache<PreviewResult>) {}
   async preview(userId: string, command: RetirementPreview, options: PreviewOptions = { adjustments: true }): Promise<PreviewResult> {
     const input = retirementPreviewSchema.parse(command);
     // Read-only: one profile row plus immutable PUBLISHED documents, so a
     // SERIALIZABLE transaction adds round trips without adding consistency.
     // Saving re-captures inside the write transaction and checks inputHash.
     const snapshot = await this.capture(this.db, userId, input);
-    return this.runner ? this.runner(snapshot, input, options) : this.previewCaptured(snapshot, input, options);
+    const compute = async () => this.runner ? this.runner(snapshot, input, options) : this.previewCaptured(snapshot, input, options);
+    if (!this.cache) return compute();
+    // The capture (and its revision check) always runs; only the CPU-bound computation is reused.
+    return this.cache.get(PreviewCache.key({ userId, revision: snapshot.revision, profile: snapshot.profile,
+      policy: snapshot.policy.documentHash, assumptions: snapshot.assumptions.documentHash, input, options }), compute);
   }
   /** HTTP preview from one authoritative capture, with every read-only supplement. */
   previewCaptured(snapshot: PreviewSnapshot, input: RetirementPreview, options: PreviewOptions = { adjustments: true }) {
