@@ -1,0 +1,541 @@
+{
+  "checkedAt": "2026-11-08",
+  "note": "Dữ liệu danh mục cho giai đoạn TEST. Nguồn: tài liệu dự án (phần sản phẩm đối tác do khách hàng gửi) + tra cứu trang công khai của tổ chức ngày 08/11/2026. Chỉ gồm tiết kiệm và đầu tư, không gồm bảo hiểm. Lãi suất/phí/NAV thay đổi theo thời kỳ: phải đối chiếu lại với đối tác trước khi go-live. Chưa có hợp đồng phân phối thực tế.",
+  "partners": [
+    {
+      "key": "lpbank",
+      "name": "Ngân hàng TMCP Lộc Phát Việt Nam (LPBank)",
+      "short": "LPB",
+      "type": "BANK",
+      "website": "https://lpbank.com.vn",
+      "color": "#F37021",
+      "isHighlight": true
+    },
+    {
+      "key": "bidv",
+      "name": "Ngân hàng TMCP Đầu tư và Phát triển Việt Nam (BIDV)",
+      "short": "BIDV",
+      "type": "BANK",
+      "website": "https://bidv.com.vn",
+      "color": "#006B68",
+      "isHighlight": true
+    },
+    {
+      "key": "tpbank",
+      "name": "Ngân hàng TMCP Tiên Phong (TPBank)",
+      "short": "TPB",
+      "type": "BANK",
+      "website": "https://tpb.vn",
+      "color": "#5B2C83",
+      "isHighlight": false
+    },
+    {
+      "key": "techcombank",
+      "name": "Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)",
+      "short": "TCB",
+      "type": "BANK",
+      "website": "https://techcombank.com",
+      "color": "#E21F26",
+      "isHighlight": false
+    },
+    {
+      "key": "vndirect",
+      "name": "Công ty CP Chứng khoán VNDIRECT",
+      "short": "VND",
+      "type": "SECURITIES",
+      "website": "https://www.vndirect.com.vn",
+      "color": "#E4002B",
+      "isHighlight": true
+    },
+    {
+      "key": "mbs",
+      "name": "Công ty CP Chứng khoán MB (MBS)",
+      "short": "MBS",
+      "type": "SECURITIES",
+      "website": "https://mbs.com.vn",
+      "color": "#1E4BA0",
+      "isHighlight": false
+    },
+    {
+      "key": "tcbs",
+      "name": "Công ty CP Chứng khoán Kỹ Thương (TCBS)",
+      "short": "TCBS",
+      "type": "SECURITIES",
+      "website": "https://www.tcbs.com.vn",
+      "color": "#0B5CAB",
+      "isHighlight": false
+    },
+    {
+      "key": "dragoncapital",
+      "name": "Công ty Quản lý Quỹ Dragon Capital Việt Nam (DCVFM)",
+      "short": "DC",
+      "type": "OPEN_FUND",
+      "website": "https://www.dragoncapital.com.vn",
+      "color": "#00573F",
+      "isHighlight": true,
+      "aliases": [
+        "Dragon Capital"
+      ]
+    },
+    {
+      "key": "vcbf",
+      "name": "Công ty Liên doanh Quản lý Quỹ Đầu tư Chứng khoán Vietcombank (VCBF)",
+      "short": "VCBF",
+      "type": "OPEN_FUND",
+      "website": "https://www.vcbf.com",
+      "color": "#007A3D",
+      "isHighlight": false
+    },
+    {
+      "key": "ssiam",
+      "name": "Công ty TNHH Quản lý Quỹ SSI (SSIAM)",
+      "short": "SSIAM",
+      "type": "OPEN_FUND",
+      "website": "https://ssiam.com.vn",
+      "color": "#C8102E",
+      "isHighlight": false,
+      "aliases": [
+        "Công ty Quản lý Quỹ SSI (SSIAM)"
+      ]
+    },
+    {
+      "key": "vinacapital",
+      "existingName": "VinaCapital",
+      "name": "VinaCapital",
+      "short": "VC",
+      "type": "OPEN_FUND",
+      "website": "https://vinacapital.com",
+      "color": "#003A70",
+      "isHighlight": true
+    },
+    {
+      "key": "vietcombank",
+      "existingName": "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)",
+      "name": "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)",
+      "short": "VCB",
+      "type": "BANK",
+      "website": "https://www.vietcombank.com.vn",
+      "color": "#006A4E",
+      "isHighlight": false
+    }
+  ],
+  "products": [
+    {
+      "key": "lpb-loc-phat-an-vui",
+      "partnerKey": "lpbank",
+      "name": "Tiết kiệm Lộc Phát An Vui",
+      "category": "Tiền gửi tiết kiệm",
+      "riskLevel": "LOW",
+      "expectedReturn": "Lãi tiền gửi theo biểu lãi suất LPBank tại thời điểm gửi; không phải lợi nhuận đầu tư.",
+      "description": "Sản phẩm tiết kiệm dành cho khách hàng lớn tuổi, người đã nghỉ hưu hoặc đang chuẩn bị nghỉ hưu. Gửi khoản tiền nhàn rỗi và hưởng lãi theo điều kiện sản phẩm, giúp bổ sung thu nhập từ lãi tiền gửi và quản lý khoản tích lũy. An Hưu gợi ý: phù hợp người ưu tiên sự ổn định, có tiền nhàn rỗi và muốn thêm nguồn thu trong giai đoạn nghỉ hưu.",
+      "annualFee": "Không thu phí mở sổ. Rút trước hạn có thể chỉ được hưởng lãi không kỳ hạn theo quy định LPBank.",
+      "conditions": "Khách hàng cá nhân theo đối tượng LPBank quy định cho sản phẩm (ưu tiên người cao tuổi/nghỉ hưu). Kỳ hạn, số tiền tối thiểu và cách nhận lãi theo biểu sản phẩm hiện hành.",
+      "disclosure": "Tiền gửi được bảo hiểm theo hạn mức của Bảo hiểm tiền gửi Việt Nam. Lãi suất thay đổi theo từng thời kỳ. An Hưu chỉ giới thiệu thông tin, không nhận tiền gửi hộ khách hàng.",
+      "investment": {
+        "code": "LPB_AN_VUI",
+        "category": "TERM_DEPOSIT",
+        "nav": "1",
+        "ter": "0",
+        "liquidityDays": 1,
+        "lotSize": 1,
+        "min": "1000000",
+        "riskScore": 1
+      }
+    },
+    {
+      "key": "lpb-tiet-kiem-thuong",
+      "partnerKey": "lpbank",
+      "name": "Tiết kiệm thường LPBank",
+      "category": "Tiền gửi tiết kiệm",
+      "riskLevel": "LOW",
+      "expectedReturn": "Lãi tiền gửi theo kỳ hạn và biểu lãi suất LPBank tại thời điểm gửi.",
+      "description": "Dành cho khách hàng có thu nhập ổn định đang tích lũy cho tương lai. Chọn kỳ hạn gửi và phương thức nhận lãi theo quy định của ngân hàng, giúp tiền nhàn rỗi sinh lãi và hình thành thói quen tiết kiệm. Phù hợp người muốn tích lũy một khoản tiền trong thời gian xác định và chưa cần dùng ngay.",
+      "annualFee": "Không thu phí mở sổ. Rút trước hạn áp dụng lãi suất không kỳ hạn theo quy định.",
+      "conditions": "Cá nhân từ đủ 15 tuổi hoặc theo quy định LPBank; kỳ hạn và số tiền tối thiểu theo biểu sản phẩm.",
+      "disclosure": "Tiền gửi được bảo hiểm theo hạn mức của Bảo hiểm tiền gửi Việt Nam. Lãi suất có thể thay đổi.",
+      "investment": {
+        "code": "LPB_TK_THUONG",
+        "category": "TERM_DEPOSIT",
+        "nav": "1",
+        "ter": "0",
+        "liquidityDays": 1,
+        "lotSize": 1,
+        "min": "1000000",
+        "riskScore": 1
+      }
+    },
+    {
+      "key": "bidv-tiet-kiem-online",
+      "partnerKey": "bidv",
+      "name": "Tiết kiệm online BIDV",
+      "category": "Tiền gửi tiết kiệm",
+      "riskLevel": "LOW",
+      "expectedReturn": "Lãi tiền gửi theo kỳ hạn, biểu lãi suất online của BIDV tại thời điểm gửi.",
+      "description": "Gửi và quản lý tiền tiết kiệm trên BIDV SmartBanking. Phù hợp người thường xuyên dùng ngân hàng số, muốn gửi tiền nhanh chóng.",
+      "annualFee": "Không thu phí mở/tất toán trực tuyến. Rút trước hạn hưởng lãi không kỳ hạn.",
+      "conditions": "Có tài khoản thanh toán và BIDV SmartBanking. Số tiền tối thiểu 1.000.000 VND.",
+      "disclosure": "Tiền gửi được bảo hiểm theo hạn mức của Bảo hiểm tiền gửi Việt Nam. Lãi suất thay đổi theo thời kỳ.",
+      "investment": {
+        "code": "BIDV_TK_ONLINE",
+        "category": "TERM_DEPOSIT",
+        "nav": "1",
+        "ter": "0",
+        "liquidityDays": 1,
+        "lotSize": 1,
+        "min": "1000000",
+        "riskScore": 1
+      }
+    },
+    {
+      "key": "bidv-tich-luy-online",
+      "partnerKey": "bidv",
+      "name": "Tích lũy online BIDV",
+      "category": "Tích lũy định kỳ",
+      "riskLevel": "LOW",
+      "expectedReturn": "Lãi tiền gửi theo biểu lãi suất tích lũy của BIDV.",
+      "description": "Gửi góp linh hoạt, có thể thiết lập lịch gửi tự động. Phù hợp người đi làm có thu nhập hàng tháng muốn tiết kiệm từng khoản nhỏ – cách đơn giản để trích lập quỹ hưu trí định kỳ.",
+      "annualFee": "Không thu phí duy trì. Tất toán trước hạn áp dụng lãi suất theo quy định sản phẩm.",
+      "conditions": "Có tài khoản BIDV và ngân hàng số. Số tiền tối thiểu mỗi lần góp 50.000 VND.",
+      "disclosure": "Tiền gửi được bảo hiểm theo hạn mức của Bảo hiểm tiền gửi Việt Nam. Lãi suất thay đổi theo thời kỳ.",
+      "investment": {
+        "code": "BIDV_TICH_LUY",
+        "category": "TERM_DEPOSIT",
+        "nav": "1",
+        "ter": "0",
+        "liquidityDays": 1,
+        "lotSize": 1,
+        "min": "50000",
+        "riskScore": 1
+      }
+    },
+    {
+      "key": "bidv-tich-luy-uoc-mo",
+      "partnerKey": "bidv",
+      "name": "Tích lũy ước mơ BIDV",
+      "category": "Tích lũy định kỳ",
+      "riskLevel": "LOW",
+      "expectedReturn": "Lãi tiền gửi theo biểu lãi suất của BIDV cho sản phẩm.",
+      "description": "Tích lũy theo mục tiêu cá nhân, có chứng nhận an sinh xã hội. Phù hợp người có mục tiêu tài chính rõ ràng và muốn tích lũy theo kế hoạch.",
+      "annualFee": "Không thu phí duy trì.",
+      "conditions": "Số tiền tối thiểu 500.000 VND; điều kiện theo quy định sản phẩm BIDV.",
+      "disclosure": "Tiền gửi được bảo hiểm theo hạn mức của Bảo hiểm tiền gửi Việt Nam.",
+      "investment": {
+        "code": "BIDV_UOC_MO",
+        "category": "TERM_DEPOSIT",
+        "nav": "1",
+        "ter": "0",
+        "liquidityDays": 1,
+        "lotSize": 1,
+        "min": "500000",
+        "riskScore": 1
+      }
+    },
+    {
+      "key": "bidv-chung-chi-tien-gui",
+      "partnerKey": "bidv",
+      "name": "Chứng chỉ tiền gửi BIDV",
+      "category": "Chứng chỉ tiền gửi",
+      "riskLevel": "LOW",
+      "expectedReturn": "Lãi suất cố định theo đợt phát hành chứng chỉ tiền gửi.",
+      "description": "Sản phẩm tiền gửi có mệnh giá và kỳ hạn xác định. Phù hợp người có khoản tiền nhàn rỗi tương đối lớn, hướng tới đầu tư tiền gửi theo kỳ hạn.",
+      "annualFee": "Không thu phí mua. Chuyển nhượng/rút trước hạn theo điều kiện từng đợt phát hành.",
+      "conditions": "Tối thiểu 50.000.000 VND; kỳ hạn theo từng đợt phát hành.",
+      "disclosure": "Điều kiện bảo hiểm tiền gửi và rút trước hạn tùy từng đợt phát hành; đọc kỹ điều khoản.",
+      "investment": {
+        "code": "BIDV_CCTG",
+        "category": "TERM_DEPOSIT",
+        "nav": "1",
+        "ter": "0",
+        "liquidityDays": 30,
+        "lotSize": 1,
+        "min": "50000000",
+        "riskScore": 2
+      }
+    },
+    {
+      "key": "tpb-tiet-kiem-dien-tu",
+      "partnerKey": "tpbank",
+      "name": "Tiết kiệm điện tử TPBank",
+      "category": "Tiền gửi tiết kiệm",
+      "riskLevel": "LOW",
+      "expectedReturn": "Biểu tham khảo trong tài liệu dự án: 1 tháng 3,5%; 3 tháng 3,8%; 6 tháng 4,7%; 12 tháng 5,2%; 18 tháng 5,4%; từ 24 tháng 5,6%/năm. Lãi suất thực tế theo TPBank tại thời điểm gửi.",
+      "description": "Gửi tiết kiệm trực tuyến từ 1 triệu đồng, không cần ra quầy. Rút trước hạn nhận lãi không kỳ hạn theo thời gian đã gửi.",
+      "annualFee": "Không thu phí mở/tất toán online.",
+      "conditions": "Có tài khoản TPBank và ứng dụng ngân hàng số. Tối thiểu 1.000.000 VND.",
+      "disclosure": "Biểu lãi suất trên là số liệu tham khảo do khách hàng cung cấp, cần đối chiếu biểu mới nhất. Tiền gửi được bảo hiểm theo hạn mức của Bảo hiểm tiền gửi Việt Nam.",
+      "investment": {
+        "code": "TPB_TK_DIENTU",
+        "category": "TERM_DEPOSIT",
+        "nav": "1",
+        "ter": "0",
+        "liquidityDays": 1,
+        "lotSize": 1,
+        "min": "1000000",
+        "riskScore": 1
+      }
+    },
+    {
+      "key": "tcb-tich-luy-nhu-y",
+      "partnerKey": "techcombank",
+      "name": "Tích lũy Như Ý Techcombank",
+      "category": "Tích lũy định kỳ",
+      "riskLevel": "LOW",
+      "expectedReturn": "Lãi suất thả nổi theo biểu Techcombank từng thời kỳ, tính trên số dư cuối ngày, trả cuối kỳ.",
+      "description": "Mở khoản tích lũy từ 100.000 đồng, không giới hạn các lần gửi tiếp. Nộp thêm bất cứ lúc nào hoặc đặt lịch trích tự động theo ngày/tuần/tháng. Kỳ hạn 3–12 tháng hoặc 15, 18, 24, 36, 48, 60 tháng; linh hoạt đổi số tiền mục tiêu và tất toán trước hạn.",
+      "annualFee": "Không thu phí duy trì.",
+      "conditions": "Có tài khoản Techcombank. Số tiền ban đầu tối thiểu 100.000 VND.",
+      "disclosure": "Lãi suất thả nổi, có thể thay đổi. Tiền gửi được bảo hiểm theo hạn mức của Bảo hiểm tiền gửi Việt Nam.",
+      "investment": {
+        "code": "TCB_NHU_Y",
+        "category": "TERM_DEPOSIT",
+        "nav": "1",
+        "ter": "0",
+        "liquidityDays": 1,
+        "lotSize": 1,
+        "min": "100000",
+        "riskScore": 1
+      }
+    },
+    {
+      "key": "vnd-dbond",
+      "partnerKey": "vndirect",
+      "name": "D-Bond / vBond VNDIRECT",
+      "category": "Trái phiếu",
+      "riskLevel": "MEDIUM",
+      "expectedReturn": "Lãi coupon theo từng trái phiếu và kỳ hạn nắm giữ; tối ưu khi giữ trọn kỳ hạn. Không cam kết.",
+      "description": "Gói đầu tư trái phiếu phù hợp nhu cầu nhận thu nhập cố định, ưu tiên bảo toàn vốn. Có thể bán lại theo thỏa thuận hợp đồng hoặc giao dịch thứ cấp.",
+      "annualFee": "Phí giao dịch theo biểu VNDIRECT. Thuế TNCN 5% trên lãi trái phiếu; 0,1% trên giá trị khi bán.",
+      "conditions": "Có tài khoản chứng khoán VNDIRECT; thao tác trên MyAccount. Một số trái phiếu chỉ dành cho nhà đầu tư chuyên nghiệp.",
+      "disclosure": "Lợi nhuận và tiền gốc phụ thuộc năng lực trả nợ của doanh nghiệp phát hành; VNDIRECT là đơn vị phân phối, không bảo lãnh thanh toán thay tổ chức phát hành."
+    },
+    {
+      "key": "vnd-dgoal",
+      "partnerKey": "vndirect",
+      "name": "D-Goal tích sản cổ phiếu VNDIRECT",
+      "category": "Tích sản cổ phiếu",
+      "riskLevel": "HIGH",
+      "expectedReturn": "Không cam kết lợi nhuận; giá trị biến động theo thị trường cổ phiếu.",
+      "description": "Tích sản cổ phiếu định kỳ cho mục tiêu tăng trưởng dài hạn. Cần kỷ luật đóng tiền đều và tầm nhìn 3–5 năm để trung bình hóa giá vốn.",
+      "annualFee": "Phí giao dịch theo biểu VNDIRECT; thuế 0,1% khi bán và 5% trên cổ tức tiền mặt.",
+      "conditions": "Có tài khoản VNDIRECT; điều chỉnh hạn mức tích sản trực tuyến trên MyAccount.",
+      "disclosure": "Đầu tư cổ phiếu có thể mất vốn. Hiệu quả quá khứ không bảo đảm kết quả tương lai."
+    },
+    {
+      "key": "vnd-icopy",
+      "partnerKey": "vndirect",
+      "name": "iCopy sao chép danh mục VNDIRECT",
+      "category": "Cổ phiếu",
+      "riskLevel": "HIGH",
+      "expectedReturn": "Không cam kết; phụ thuộc hoàn toàn năng lực giao dịch của chuyên gia (D-Leader) được sao chép.",
+      "description": "Sao chép danh mục của chuyên gia D-Leader. Phù hợp người chấp nhận rủi ro cao, có thể dừng sao chép trực tuyến bất cứ lúc nào.",
+      "annualFee": "Phí giao dịch theo biểu + phí quản lý/sao chép danh mục theo biểu iCopy hiện hành.",
+      "conditions": "Có tài khoản VNDIRECT; số vốn tối thiểu theo từng danh mục.",
+      "disclosure": "Rủi ro cao, có thể mất vốn. Không phù hợp với tiền dự phòng hoặc tiền cần dùng trong ngắn hạn."
+    },
+    {
+      "key": "mbs-ccq",
+      "partnerKey": "mbs",
+      "name": "Đầu tư chứng chỉ quỹ mở qua MBS",
+      "category": "Quỹ mở",
+      "riskLevel": "MEDIUM",
+      "expectedReturn": "Không cam kết; phụ thuộc hiệu quả danh mục từng quỹ.",
+      "description": "Tiếp cận các quỹ đầu tư thông qua chứng chỉ quỹ, đầu tư gián tiếp và đa dạng hóa. Phù hợp người mới đầu tư, ít thời gian theo dõi thị trường hoặc muốn tích lũy định kỳ dài hạn.",
+      "annualFee": "Phí mua/bán/quản lý theo bản cáo bạch của từng quỹ.",
+      "conditions": "Có tài khoản tại MBS; số tiền tối thiểu theo từng quỹ.",
+      "disclosure": "Giá trị chứng chỉ quỹ biến động theo tài sản cơ sở; hiệu quả đầu tư không được bảo đảm."
+    },
+    {
+      "key": "mbs-trai-phieu",
+      "partnerKey": "mbs",
+      "name": "Đầu tư trái phiếu MBS",
+      "category": "Trái phiếu",
+      "riskLevel": "MEDIUM",
+      "expectedReturn": "Lãi coupon theo điều kiện phát hành của từng trái phiếu.",
+      "description": "Tạo dòng thu nhập từ lãi trái phiếu, xác định trước kỳ hạn và lãi coupon. Phù hợp người quan tâm dòng tiền định kỳ.",
+      "annualFee": "Phí giao dịch theo biểu MBS; thuế TNCN theo quy định.",
+      "conditions": "Có tài khoản MBS; một số trái phiếu chỉ dành cho nhà đầu tư chuyên nghiệp.",
+      "disclosure": "Có rủi ro tổ chức phát hành không thanh toán được; giá có thể biến động và bán lại trước hạn không phải lúc nào cũng thuận lợi."
+    },
+    {
+      "key": "mbs-co-phieu",
+      "partnerKey": "mbs",
+      "name": "Đầu tư cổ phiếu MBS",
+      "category": "Cổ phiếu",
+      "riskLevel": "HIGH",
+      "expectedReturn": "Không cam kết; lợi nhuận từ chênh lệch giá và cổ tức.",
+      "description": "Mở tài khoản, môi giới và giao dịch cổ phiếu niêm yết. Phù hợp người có thu nhập ổn định, có tiền nhàn rỗi, hiểu thị trường và chấp nhận biến động giá.",
+      "annualFee": "Phí giao dịch theo biểu MBS; thuế 0,1% khi bán.",
+      "conditions": "Có tài khoản chứng khoán MBS.",
+      "disclosure": "Có thể thua lỗ, đặc biệt khi giao dịch theo tâm lý hoặc dùng đòn bẩy (margin)."
+    },
+    {
+      "key": "tcbs-ibond",
+      "partnerKey": "tcbs",
+      "name": "Trái phiếu iBond TCBS",
+      "category": "Trái phiếu",
+      "riskLevel": "MEDIUM",
+      "expectedReturn": "Mức lãi, kỳ hạn và phương thức trả lãi phụ thuộc từng đợt phát hành.",
+      "description": "Dùng tiền nhàn rỗi đầu tư trái phiếu doanh nghiệp; nhận lãi theo kỳ và nhận lại gốc khi đến hạn tùy điều khoản.",
+      "annualFee": "Phí giao dịch theo biểu TCBS; thuế TNCN theo quy định.",
+      "conditions": "Có tài khoản TCBS; điều kiện nhà đầu tư theo quy định trái phiếu doanh nghiệp.",
+      "disclosure": "Rủi ro tín dụng của tổ chức phát hành; TCBS không bảo đảm thanh toán thay."
+    },
+    {
+      "key": "tcbs-ifund",
+      "partnerKey": "tcbs",
+      "name": "iFund – quỹ mở và ETF qua TCBS",
+      "category": "Quỹ mở",
+      "riskLevel": "MEDIUM",
+      "expectedReturn": "Không cam kết; tăng/giảm theo hiệu quả danh mục quỹ.",
+      "description": "Nền tảng đầu tư quỹ mở và ETF do TCBS phân phối: góp tiền mua chứng chỉ quỹ, ủy thác cho công ty quản lý quỹ và bán lại theo quy định giao dịch từng quỹ.",
+      "annualFee": "Phí giao dịch quỹ theo biểu TCBS (tham khảo: 8.000 VND/giao dịch dưới 500 triệu, chưa VAT) + phí của từng quỹ.",
+      "conditions": "Có tài khoản TCBS.",
+      "disclosure": "Giá trị đầu tư biến động; đọc bản cáo bạch từng quỹ trước khi đầu tư."
+    },
+    {
+      "key": "tcbs-iplan",
+      "partnerKey": "tcbs",
+      "name": "iPlan – Thu nhập ổn định TCBS",
+      "category": "Kế hoạch đầu tư",
+      "riskLevel": "MEDIUM",
+      "expectedReturn": "Không cam kết; dòng tiền theo kế hoạch và hiệu quả tài sản cơ sở.",
+      "description": "Công cụ lập kế hoạch: nhận dòng tiền theo tuần/tháng/quý (Thu nhập ổn định) hoặc tự động tái đầu tư lãi trái phiếu vào chứng chỉ quỹ (Trái tức sinh lời). Phù hợp giai đoạn cần dòng tiền đều khi nghỉ hưu.",
+      "annualFee": "Theo phí của sản phẩm cơ sở (trái phiếu, chứng chỉ quỹ).",
+      "conditions": "Có tài khoản TCBS.",
+      "disclosure": "Dòng tiền không được bảo đảm; phụ thuộc sản phẩm cơ sở."
+    },
+    {
+      "key": "dc-dcds",
+      "partnerKey": "dragoncapital",
+      "name": "Quỹ Đầu tư Chứng khoán Năng động DC (DCDS)",
+      "category": "Quỹ mở cổ phiếu",
+      "riskLevel": "HIGH",
+      "expectedReturn": "Không cam kết lợi nhuận.",
+      "description": "Quỹ mở cổ phiếu đa dạng ngành do Dragon Capital quản lý. NAV/CCQ khoảng 93.241 VND (29/10/2026, trang sản phẩm DC).",
+      "annualFee": "Phí quản lý 1,95%/năm; tổng chi phí 12 tháng khoảng 2,11%. Không phí mua; phí bán 1,5% (1–364 ngày), 0,5% (365–729 ngày), 0% từ 730 ngày.",
+      "conditions": "Mở tài khoản quỹ tại Dragon Capital hoặc đại lý phân phối.",
+      "disclosure": "Quỹ cổ phiếu biến động mạnh, có thể mất vốn. Đọc bản cáo bạch trước khi đầu tư.",
+      "sourceUrl": "https://www.dragoncapital.com.vn/individual/vi/product/a0eJ2000001X9btIAC/dcds",
+      "investment": {
+        "code": "DCDS",
+        "category": "ACTIVE_EQUITY_FUND",
+        "nav": "93241",
+        "ter": "2.11",
+        "liquidityDays": 5,
+        "lotSize": 1,
+        "min": "100000",
+        "riskScore": 8,
+        "priceAsOf": "2026-10-29"
+      },
+      "aliases": [
+        "DCDS - Quỹ Đầu Tư Chứng Khoán Năng Động"
+      ]
+    },
+    {
+      "key": "dc-dcbf",
+      "partnerKey": "dragoncapital",
+      "name": "Quỹ Đầu tư Trái phiếu DC (DCBF)",
+      "category": "Quỹ mở trái phiếu",
+      "riskLevel": "LOW",
+      "expectedReturn": "Không cam kết lợi nhuận. Factsheet 02/2026 ghi lợi nhuận các năm trước khoảng 4,5%–9,1%/năm.",
+      "description": "Quỹ mở trái phiếu, khoảng 72% danh mục là trái phiếu doanh nghiệp (factsheet 02/2026).",
+      "annualFee": "Phí quản lý tối đa 1,2%/NAV/năm; tổng chi phí 12 tháng khoảng 1,35%. Không phí mua; phí bán 1% (1–179 ngày), 0,5% (180–364 ngày), 0% từ 365 ngày.",
+      "conditions": "Đầu tư từ 100.000 VND.",
+      "disclosure": "Rủi ro tín dụng và lãi suất của trái phiếu trong danh mục; LOW là phân nhóm của An Hưu, không phải xếp hạng chính thức.",
+      "sourceUrl": "https://dragoncapitalprod.blob.core.windows.net/cms1public/DCBF-202602-VN.pdf",
+      "aliases": [
+        "DCBF - Quỹ Đầu Tư Trái Phiếu Dragon"
+      ]
+    },
+    {
+      "key": "dc-e1vfvn30",
+      "partnerKey": "dragoncapital",
+      "name": "Quỹ ETF DCVFMVN30 (E1VFVN30)",
+      "category": "Quỹ ETF",
+      "riskLevel": "HIGH",
+      "expectedReturn": "Không cam kết; mô phỏng chỉ số VN30.",
+      "description": "Quỹ ETF mô phỏng VN30, giao dịch trên HOSE như cổ phiếu. NAV/CCQ 32.508 VND (02/11/2026, trang sản phẩm DC).",
+      "annualFee": "Phí quản lý 0,65%/năm (trừ dần vào NAV) + chi phí giám sát, lưu ký; phí môi giới và thuế 0,1% khi bán.",
+      "conditions": "Có tài khoản chứng khoán; lô giao dịch 100 chứng chỉ quỹ.",
+      "disclosure": "Giá biến động theo thị trường cổ phiếu, có thể mất vốn; có sai lệch mô phỏng so với chỉ số.",
+      "sourceUrl": "https://dautu.dragoncapital.com.vn/product/etf/e1vfvn30",
+      "investment": {
+        "code": "E1VFVN30",
+        "category": "EQUITY_ETF",
+        "nav": "32508.04",
+        "ter": "0.65",
+        "liquidityDays": 2,
+        "lotSize": 100,
+        "min": "3250804",
+        "riskScore": 7,
+        "priceAsOf": "2026-11-02"
+      }
+    },
+    {
+      "key": "vcbf-tbf",
+      "partnerKey": "vcbf",
+      "name": "Quỹ Đầu tư Cân bằng Chiến lược VCBF (VCBF-TBF)",
+      "category": "Quỹ mở cân bằng",
+      "riskLevel": "MEDIUM",
+      "expectedReturn": "Không cam kết lợi nhuận.",
+      "description": "Quỹ cân bằng phân bổ giữa cổ phiếu và trái phiếu, phù hợp tích lũy dài hạn với mức rủi ro trung bình.",
+      "annualFee": "Phí quản lý 1,5%/năm; phí mua đang miễn; phí bán 3% (<1 tháng), 2% (1–12 tháng), 0,5% (12–24 tháng), miễn sau 24 tháng.",
+      "conditions": "Mở tài khoản quỹ tại VCBF hoặc đại lý phân phối.",
+      "disclosure": "Giá trị đầu tư biến động; đọc bản cáo bạch và biểu phí hiện hành.",
+      "sourceUrl": "https://www.vcbf.com/quy-mo/cach-thuc-dau-tu-vao-quy-mo-1/gia-dich-vu/"
+    },
+    {
+      "key": "ssiam-fuessv30",
+      "partnerKey": "ssiam",
+      "name": "Quỹ ETF SSIAM VN30 (FUESSV30)",
+      "category": "Quỹ ETF",
+      "riskLevel": "HIGH",
+      "expectedReturn": "Không cam kết; mô phỏng chỉ số VN30.",
+      "description": "Quỹ ETF mô phỏng VN30 do SSIAM quản lý, giao dịch trên HOSE.",
+      "annualFee": "Phí quản lý khoảng 0,55%/năm theo nguồn tham khảo; phí môi giới và thuế 0,1% khi bán.",
+      "conditions": "Có tài khoản chứng khoán; lô giao dịch 100 chứng chỉ quỹ.",
+      "disclosure": "Giá biến động theo thị trường cổ phiếu, có thể mất vốn.",
+      "sourceUrl": "https://ssiam.com.vn/quy-etf-ssiam-vn30"
+    }
+  ],
+  "existingProducts": [
+    {
+      "name": "Tiết kiệm Vietcombank",
+      "partnerKey": "vietcombank",
+      "annualFee": "Không thu phí mở sổ. Rút trước hạn hưởng lãi không kỳ hạn.",
+      "conditions": "Cá nhân có giấy tờ tùy thân hợp lệ; kỳ hạn và số tiền tối thiểu theo biểu VCB.",
+      "disclosure": "Tiền gửi được bảo hiểm theo hạn mức của Bảo hiểm tiền gửi Việt Nam. Lãi suất thay đổi theo thời kỳ.",
+      "investment": {
+        "code": "VCB_SAVING",
+        "category": "TERM_DEPOSIT",
+        "nav": "1",
+        "ter": "0",
+        "liquidityDays": 1,
+        "lotSize": 1,
+        "min": "1000000",
+        "riskScore": 1
+      }
+    },
+    {
+      "name": "Quỹ Đầu Tư Cân Bằng Gắn Kết VinaCapital (VINACAPITAL-VIBF)",
+      "partnerKey": "vinacapital",
+      "annualFee": "Theo bản cáo bạch và biểu phí VinaCapital hiện hành.",
+      "conditions": "Mở tài khoản quỹ tại VinaCapital hoặc đại lý phân phối.",
+      "disclosure": "Giá trị đầu tư biến động; không cam kết lợi nhuận."
+    },
+    {
+      "name": "Quỹ Đầu Tư Cổ Phiếu Doanh Nghiệp Hàng Đầu VinaCapital (VINACAPITAL-VEOF)",
+      "partnerKey": "vinacapital",
+      "annualFee": "Phí quản lý 1,75%/năm theo trang sản phẩm; các phí khác theo bản cáo bạch.",
+      "conditions": "Đầu tư tối thiểu 100.000 VND.",
+      "disclosure": "Quỹ cổ phiếu biến động mạnh, có thể mất vốn."
+    },
+    {
+      "name": "Quỹ Đầu Tư Trái Phiếu Nâng Cao VinaCapital (VINACAPITAL-VFF)",
+      "partnerKey": "vinacapital",
+      "annualFee": "Theo bản cáo bạch và biểu phí VinaCapital hiện hành.",
+      "conditions": "Mở tài khoản quỹ tại VinaCapital hoặc đại lý phân phối.",
+      "disclosure": "Rủi ro tín dụng và lãi suất của trái phiếu trong danh mục."
+    }
+  ]
+}

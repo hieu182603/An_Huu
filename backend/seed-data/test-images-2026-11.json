@@ -1,0 +1,51 @@
+{
+  "checkedAt": "2026-11-08",
+  "note": "Ảnh lấy từ trang chính thức của đối tác (logo, ảnh trang sản phẩm) và Wikimedia Commons (ảnh bìa bài viết, giấy phép tự do). Chỉ dùng cho môi trường TEST; trước go-live cần xin bộ nhận diện/ảnh sản phẩm chính thức từ đối tác. Script tải qua trình duyệt rồi đưa lên Cloudinary (CLOUDINARY_FOLDER/seed-test).",
+  "partners": {
+    "lpbank": "https://lpbank.com.vn/assets/img/logo.png",
+    "bidv": "https://bidv.com.vn/wps/wcm/connect/c9046c68-bee6-440a-a62f-ad59ae902c5c/bidv_200x200.png?MOD=AJPERES",
+    "tpbank": "https://tpb.vn/wps/wcm/connect/a85b875d-ad73-4591-8fd5-e8417a69c316/logo-tpb.png?MOD=AJPERES&CACHEID=ROOTWORKSPACE-a85b875d-ad73-4591-8fd5-e8417a69c316-pjudclH",
+    "techcombank": "https://techcombank.com/content/dam/techcombank/public-site/seo/techcombank_logo_svg_86201e50d1.svg",
+    "vndirect": "https://www.vndirect.com.vn/nx/brand/vndirect-logo-color.svg",
+    "mbs": "https://www.mbs.com.vn/wp-content/uploads/2025/02/logo.png",
+    "tcbs": "https://www.tcbs.com.vn/wp-content/uploads/2025/10/logo-tcbs-300x33.png.webp",
+    "dragoncapital": "https://framerusercontent.com/images/hA9DHBHZ2iwVFYGtndkVQYAsZw.png",
+    "vcbf": "https://www.vcbf.com/themes/vip/assets/images/logo_vn.png",
+    "ssiam": "https://ssiam.com.vn/frontend/ssiam2024/images/logo.svg",
+    "vinacapital": "https://vinacapital.com/wp-content/themes/vinacap/favicon/apple-touch-icon-114x114.png",
+    "vietcombank": "https://www.vietcombank.com.vn/-/media/Project/VCB-Sites/VCB/Home-page/VCB-Logo/Logo-VCB-no-60.png"
+  },
+  "products": {
+    "lpb-loc-phat-an-vui": { "url": "https://lpbank.com.vn/api/content-file/public/file/view/51863d33-1352-41d0-bc89-0ee4fd8ee078", "page": "https://lpbank.com.vn/ca-nhan/tiet-kiem" },
+    "lpb-tiet-kiem-thuong": { "url": "https://lpbank.com.vn/api/content-file/public/file/view/92c820ca-dd4f-4f52-bb20-1cc2f41fda96", "page": "https://lpbank.com.vn/ca-nhan/tiet-kiem" },
+    "bidv-tiet-kiem-online": { "url": "https://bidv.com.vn/wps/wcm/connect/cb79b25a-e7b4-4ab5-881b-aa61a507990a/banner_canhanh-tietkiemthongthuong.png?MOD=AJPERES", "page": "https://bidv.com.vn/vn/ca-nhan/san-pham-dich-vu/tiet-kiem/tiet-kiem-online" },
+    "bidv-tich-luy-online": { "url": "https://bidv.com.vn/wps/wcm/connect/d41bfac5-62e4-418c-8ba3-0f00874852fc/banner_canhanh-tietkiemthongthuong.png?MOD=AJPERES", "page": "https://bidv.com.vn/vn/ca-nhan/san-pham-dich-vu/tiet-kiem/tich-luy-online" },
+    "bidv-tich-luy-uoc-mo": { "url": "https://bidv.com.vn/wps/wcm/connect/c28f756c-365d-43a8-b1ce-00110baacda8/794.png?MOD=AJPERES", "page": "https://bidv.com.vn/vn/ca-nhan/san-pham-dich-vu/tiet-kiem/tich-luy-online" },
+    "bidv-chung-chi-tien-gui": { "url": "https://bidv.com.vn/wps/wcm/connect/e5ff158d-f0ee-42d8-872e-6e1944d58c3e/banner_canhanh-tietkiemthongthuong.png?MOD=AJPERES", "page": "https://bidv.com.vn/vn/ca-nhan/san-pham-dich-vu/tiet-kiem/chung-chi-tien-gui" },
+    "tpb-tiet-kiem-dien-tu": { "url": "https://tpb.vn/wps/wcm/connect/44c35ae7-12ea-49ba-85af-d43516af3f18/iIlustrator-Bieu-tuong-chung-nhan-phien-ban-Digital-03.png?MOD=AJPERES", "page": "https://tpb.vn/cn-tiet-kiem-dien-tu-tiet-kiem-dien-tu-online" },
+    "tcb-tich-luy-nhu-y": { "url": "https://techcombank.com/content/dam/techcombank/public-site/articles/blog/gui-tiet-kiem-theo-ngay-thumbnail-180635fcb0.jpeg", "page": "https://techcombank.com/thong-tin/blog/gui-tiet-kiem-theo-ngay" },
+    "vnd-dbond": { "url": "https://www.vndirect.com.vn/nx/images/og-investment-home.jpg", "page": "https://www.vndirect.com.vn/sa%CC%89n-pha%CC%89m-trai-phieu-vndirect/" },
+    "vnd-dgoal": { "url": "https://www.vndirect.com.vn/nx/images/og-investment-home.jpg", "page": "https://www.vndirect.com.vn" },
+    "vnd-icopy": { "url": "https://www.vndirect.com.vn/nx/images/og-investment-home.jpg", "page": "https://www.vndirect.com.vn" },
+    "mbs-ccq": { "url": "https://mbs.com.vn/files/uploads/2026/09/Banner_WebMBS_Mobile.png", "page": "https://mbs.com.vn" },
+    "mbs-trai-phieu": { "url": "https://mbs.com.vn/files/uploads/2026/09/Banner_WebMBS_Mobile.png", "page": "https://mbs.com.vn" },
+    "mbs-co-phieu": { "url": "https://mbs.com.vn/files/uploads/2026/09/Banner_WebMBS_Mobile.png", "page": "https://mbs.com.vn" },
+    "tcbs-ibond": { "url": "https://www.tcbs.com.vn/wp-content/uploads/2025/10/ico-bond01.png", "page": "https://www.tcbs.com.vn/en/individual/ibond/" },
+    "tcbs-ifund": { "url": "https://www.tcbs.com.vn/documents/392342/570092/TCInvest-Fundmart.png", "page": "https://www.tcbs.com.vn/en/individual/ifund/" },
+    "tcbs-iplan": { "url": "https://www.tcbs.com.vn/wp-content/uploads/2025/10/img-slidehome-3.jpg", "page": "https://www.tcbs.com.vn" },
+    "dc-dcds": { "url": "https://framerusercontent.com/assets/GBYN0Tcfpt4gDYcUn0AAmzwKfiw.jpg", "page": "https://dautu.dragoncapital.com.vn" },
+    "dc-dcbf": { "url": "https://framerusercontent.com/images/rsp0EDRrBdCDlhQmedbbukuGROM.png?width=1920&height=1080", "page": "https://dautu.dragoncapital.com.vn/tin-tuc/bao-cao-hoat-dong-quy-thang-07.2026-quy-dcbf" },
+    "dc-e1vfvn30": { "url": "https://framerusercontent.com/assets/GBYN0Tcfpt4gDYcUn0AAmzwKfiw.jpg", "page": "https://dautu.dragoncapital.com.vn/product/etf/e1vfvn30" },
+    "vcbf-tbf": { "url": "https://www.vcbf.com/images/banner/hb-vfa-vcbf-giai-thuong-2026-desktop.jpg", "page": "https://www.vcbf.com/quy-mo/cac-quy-mo/quy-dau-tu-can-bang-chien-luoc-vcbf/" },
+    "ssiam-fuessv30": { "url": "https://ssiam.com.vn/upload/files/QuanLyQuy/%E1%BA%A3nh%20b%C3%ACa%20website%20(1).png", "page": "https://ssiam.com.vn/quy-etf-ssiam-vn30" },
+    "Tiết kiệm Vietcombank": { "url": "https://www.vietcombank.com.vn/-/media/Project/VCB-Sites/VCB/Images/Defaul/DefaulImageDesktop.png", "page": "https://www.vietcombank.com.vn" },
+    "Quỹ Đầu Tư Cân Bằng Gắn Kết VinaCapital (VINACAPITAL-VIBF)": { "url": "https://vinacapital.com/wp-content/uploads/2026/10/2026_Oct_LadingPage_1005.jpg", "page": "https://vinacapital.com/investment-solutions/dau-tu-quy-mo-vinacapital/" },
+    "Quỹ Đầu Tư Cổ Phiếu Doanh Nghiệp Hàng Đầu VinaCapital (VINACAPITAL-VEOF)": { "url": "https://vinacapital.com/wp-content/uploads/2026/10/2026_Oct_LadingPage_1005.jpg", "page": "https://vinacapital.com/investment-solutions/dau-tu-quy-mo-vinacapital/" },
+    "Quỹ Đầu Tư Trái Phiếu Nâng Cao VinaCapital (VINACAPITAL-VFF)": { "url": "https://vinacapital.com/wp-content/uploads/2026/10/2026_Oct_LadingPage_1005.jpg", "page": "https://vinacapital.com/investment-solutions/dau-tu-quy-mo-vinacapital/" }
+  },
+  "articles": {
+    "investment": { "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/54/Toa_nha_So_giao_Dich_Chung_Khoang_tp_Go_Chi_Minh%2C_Vietnam_-_panoramio.jpg/1280px-Toa_nha_So_giao_Dich_Chung_Khoang_tp_Go_Chi_Minh%2C_Vietnam_-_panoramio.jpg", "page": "https://commons.wikimedia.org/wiki/File:Toa_nha_So_giao_Dich_Chung_Khoang_tp_Go_Chi_Minh,_Vietnam_-_panoramio.jpg", "license": "CC BY 3.0", "author": "trungydang" },
+    "savings": { "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/32/Several_500%2C000-dong_banknotes_fanned_out_on_the_reverse_sides_and_stacked_to_form_a_circle-like_shape.jpg/1280px-Several_500%2C000-dong_banknotes_fanned_out_on_the_reverse_sides_and_stacked_to_form_a_circle-like_shape.jpg", "page": "https://commons.wikimedia.org/wiki/File:Several_500,000-dong_banknotes_fanned_out_on_the_reverse_sides_and_stacked_to_form_a_circle-like_shape.jpg", "license": "CC0", "author": "HuangWending18072009" },
+    "planning": { "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6b/Us_payroll_process_calculator.jpg/1280px-Us_payroll_process_calculator.jpg", "page": "https://commons.wikimedia.org/wiki/File:Us_payroll_process_calculator.jpg", "license": "CC0", "author": "Arun8388" }
+  }
+}
