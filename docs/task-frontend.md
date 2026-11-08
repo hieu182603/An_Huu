@@ -1388,3 +1388,25 @@ Thực hiện tuần tự các suite kiểm thử, không chạy song song (trá
 2. **C4 — Trạng thái người dùng không có nợ trên trang `/user/debts`**:
    - *Hiện trạng:* Khi chưa có nợ, trang có thể hiển thị các khung trống không cần thiết.
    - *Đã xử lý & xin ý kiến duyệt:* Khi không có khoản vay, hệ thống hiển thị thẻ tóm tắt `.debt-mobile-data-required-card` ("Không ghi nhận khoản nợ", CTA "Khai báo khoản vay nếu có"), tiết kiệm chiều dài màn hình (từ 4.782px xuống 1.497px). Khi có khoản vay (tài khoản thực tế), trang hiển thị đầy đủ danh mục nợ và mô phỏng DTI 21.7% với thiết kế 1 cột chống tràn mép ở 320px. Đề xuất duyệt áp dụng thiết kế phân tách 2 trạng thái này.
+
+---
+
+## FE-DEMO-PARITY-20261107 — API backend mới để khớp bản demo `sites/an-huu-trai-nghiem`
+
+Backend đã bổ sung các API sau (tương thích ngược, frontend hiện tại không hỏng). Việc của UI:
+
+1. **Yêu cầu tư vấn sản phẩm** `POST /me/products/:id/consult` (role USER):
+   - Body nhận thêm `channel: "PHONE" | "EMAIL" | "BRANCH"` (mặc định `PHONE`) và `consent: true`. `message` giờ không bắt buộc (tối đa 2000 ký tự); `phone` giữ nguyên.
+   - UI cần: chọn kênh liên hệ (Điện thoại tư vấn / Email tài liệu / Chi nhánh), checkbox đồng ý chia sẻ thông tin, **bắt buộc tick trước khi gửi** và gửi `consent: true`. Gửi `consent: false` bị 400.
+   - Response 201 có thêm `productId`. Nếu đã có yêu cầu `OPEN`/`IN_PROGRESS` cho cùng sản phẩm: **409 `CONSULT_ALREADY_OPEN`** → hiện "Bạn đã có yêu cầu đang xử lý cho sản phẩm này" và dẫn tới yêu cầu đó.
+   - Backend lưu ảnh chụp thông tin sản phẩm lúc gửi (nhóm, lợi suất tham khảo, rủi ro, phí, revision) trong nội dung ticket; sửa catalog sau đó không đổi yêu cầu cũ.
+2. **Danh sách yêu cầu tư vấn**: dùng `GET /me/support?category=Tư vấn sản phẩm`.
+3. **Huỷ yêu cầu** `POST /me/support/:id/cancel` body `{}`: chỉ khi trạng thái `OPEN`/`IN_PROGRESS` → `{ cancelled: true }`, trạng thái thành `CLOSED`. Đã `RESOLVED`/`CLOSED` → 409 `TICKET_NOT_CANCELLABLE`. Áp dụng cho mọi ticket hỗ trợ của chính người dùng.
+4. **Sản phẩm đã lưu** (tab "Đã lưu" của demo), role USER:
+   - `GET /me/saved-products` → mảng `{ id, name, category, expectedReturn, riskLevel, annualFee, imageUrl, partner: { id, name }, savedAt }`, mới nhất trước; sản phẩm bị ẩn không trả về.
+   - `PUT /me/saved-products/:id` body `{}` → `{ saved: true }` (lưu lại lần nữa vẫn OK). Sản phẩm ẩn → 404. Tối đa 200 → 409 `SAVED_LIMIT`.
+   - `DELETE /me/saved-products/:id` body `{}` → `{ saved: false }`.
+   - Giỏ so sánh (tối đa 3, cùng nhóm) vẫn giữ ở state client như demo.
+5. **Kịch bản sốc cổ phiếu mức nặng** (`POST /me/retirement/risk` mode `scenarios`): khi policy cấu hình `EQUITY_CRASH.severeShockPercent`, mảng `scenarios` có thêm một phần tử `kind: "EQUITY_CRASH"`, `level: "SEVERE"`, nằm ngay sau dòng `EQUITY_CRASH` cơ sở. UI phải phân biệt theo `kind + level` (không dùng `kind` làm key duy nhất), nhãn đề xuất: "Cổ phiếu giảm sâu (−50%)". Trang admin policy (`AdminPortfolioPoliciesPage`) cần thêm ô "Mức sốc nặng (%)" cho `severeShockPercent` (không bắt buộc, phải âm hơn mức cơ sở).
+
+Kiểm tra nghiệm thu: gửi yêu cầu khi chưa tick đồng ý bị chặn ở UI; gửi trùng hiện thông báo 409; huỷ xong trạng thái hiện "Đã đóng"; lưu/bỏ lưu đồng bộ sau khi tải lại trang và trên thiết bị khác; bảng kịch bản sốc hiện đủ 2 dòng cổ phiếu khi policy có mức nặng.

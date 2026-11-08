@@ -1,3 +1,11 @@
+## Đối chiếu bản demo `sites/an-huu-trai-nghiem` và bổ sung backend (07/11/2026, giờ Việt Nam)
+
+- Đối chiếu: engine dòng tiền, hồ sơ v2, kế hoạch/version/báo cáo, actuals/điều chỉnh tương lai, BHXH, nợ, AI, kiến thức, hỗ trợ đã có ở backend (backend rộng hơn demo). Phần phân bổ theo `DOI-CHIEU-THUAT-TOAN-2026-11-06.md`: equityShiftPoints và tham số 7 kịch bản sốc đã có ở commit 873670f.
+- Bổ sung: tư vấn sản phẩm nhận `channel`/`consent`, `message` không bắt buộc, lưu ảnh chụp điều khoản sản phẩm vào ticket + audit, liên kết `support_tickets.productId`, chặn trùng yêu cầu đang mở (409 CONSULT_ALREADY_OPEN, transaction Serializable); `POST /me/support/:id/cancel`; `GET/PUT/DELETE /me/saved-products/:id`; `EQUITY_CRASH.severeShockPercent` (phải sâu hơn mức cơ sở) → thêm kết quả `level: "SEVERE"`; policy nháp v4 đặt −35% và −50% (vẫn CHỜ DUYỆT, không công bố).
+- Migration mới `202611070001_saved_products_consult_link` (chỉ thêm cột nullable/bảng/index). Đã chạy 17 migration trên DB tạm local có pgvector: áp sạch, `migrate diff` với schema = không khác biệt; DB tạm đã xoá. Chưa áp lên Azure (sẽ tự áp khi deploy qua lệnh khởi động `migrate deploy`).
+- Kiểm: typecheck nguồn + test types PASS; 85 file, 968 test PASS; tsc emit + check-production-startup PASS. `prisma generate` mặc định vẫn EPERM do backend local giữ DLL (types đã sinh).
+- Chưa làm (cần quyết định chính sách): tăng `LIMITS.maxPaths` 500 → ≥1.000 theo đặc tả 7.1, ràng buộc thanh khoản 6.3.4, benchmark 1.4.5, chi phí y tế cuối đời trong LONGEVITY. UI: FE-DEMO-PARITY-20261107 trong docs/task-frontend.md.
+
 ## Kiểm duyệt remediation — 02/11/2026
 
 - Theo phân công mới: Antigravity triển khai task UI Site; Codex kiểm tra task trước trong ứng dụng chính. Lượt này không sửa runtime/backend/frontend nghiệp vụ, không đổi Site đang chờ Antigravity.
