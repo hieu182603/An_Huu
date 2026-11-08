@@ -15,6 +15,9 @@ import type { AssetClass, ProductMasterData, RecommendationResponse } from "./ty
 import { SsiFastConnectProvider, FiinGroupProvider } from "../market-data/provider";
 
 export const json = (v: unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonObject;
+/** JSON form that survives a PostgreSQL JSONB round-trip unchanged: floats lose digits past ~15 significant
+ * figures there, which broke the content hash. 12 significant digits is ample for portfolio weights. */
+export const storable = (v: unknown) => JSON.parse(JSON.stringify(v, (_k, x) => typeof x === "number" && !Number.isInteger(x) ? Number(x.toPrecision(12)) : x)) as Prisma.InputJsonObject;
 export const missing = () => new AppError(404, "NOT_FOUND", "Không tìm thấy dữ liệu.");
 export const conflict = () => new AppError(409, "REVISION_CONFLICT", "Dữ liệu đã thay đổi. Hãy tải lại.");
 export const review = (code: string) => new AppError(422, code, "Cần kiểm tra dữ liệu hoặc điều kiện nghiệp vụ trước khi tiếp tục.");
@@ -23,6 +26,22 @@ export async function requireInvestmentRole(tx: Prisma.TransactionClient, actor:
   if (!user || user.status !== "ACTIVE" || !user.investmentRoles.some(r => roles.includes(r.role)))
     throw new AppError(403, "FORBIDDEN", "Tài khoản chưa được cấp quyền cho thao tác này.");
 }
+/** Client risk tolerance from the risk survey pinned in the plan version (no legacy retirement_goals row).
+ * Band position on the pinned policy's scale: lower third LOW, middle MEDIUM, upper third HIGH. */
+export function riskToleranceFromAssessment(policy: { riskBands?: Array<{ id: string; minScore: number }> } | undefined, riskBandId: string | null | undefined): "LOW" | "MEDIUM" | "HIGH" | null {
+  const bands = [...(policy?.riskBands ?? [])].sort((a, b) => a.minScore - b.minScore);
+  const index = bands.findIndex(b => b.id === riskBandId);
+  if (index < 0) return null;
+  const position = bands.length === 1 ? 0.5 : index / (bands.length - 1);
+  return position < 1 / 3 ? "LOW" : position <= 2 / 3 ? "MEDIUM" : "HIGH";
+}
+/** Portfolio-policy asset classes → product asset classes. BALANCED follows the standard
+ * balanced-fund strategy of 50% equity / 50% fixed income; unmapped classes (e.g. REAL_ESTATE)
+ * still require review. */
+export const POLICY_ASSET_MAPPING: Record<string, Partial<Record<AssetClass, number>>> = {
+  CASH: { CASH: 1 }, BOND: { BOND: 1 }, GOV_BOND: { BOND: 1 }, EQUITY: { EQUITY: 1 }, STOCK: { EQUITY: 1 }, GOLD: { GOLD: 1 },
+  BALANCED: { BOND: 0.5, EQUITY: 0.5 },
+};
 const staff: InvestmentRole[] = ["ADVISOR", "APPROVER", "OPERATIONS", "SYSTEM_ADMIN"];
 type References = { holdingsHash: string; profileRevision: number; goalRevision: number; policyId: string; policyRevision: number; assumptionId: string; assumptionRevision: number; products: Array<{ id: string; hash: string; revision: number }> };
 export class RecommendationService {
@@ -80,8 +99,8 @@ export class RecommendationService {
   private async referencesCurrent(tx: Prisma.TransactionClient, userId: string, versionId: string, refs: References) {
     const version = await tx.planVersion.findUnique({ where: { id: versionId }, include: { plan: true } });
     const profile = await tx.financialProfile.findUnique({ where: { userId }, select: { revision: true } });
-    const goal = await tx.retirementGoal.findUnique({ where: { userId }, select: { revision: true } });
-    if (!version || version.plan.userId !== userId || version.plan.stale || version.plan.currentVersionId !== versionId || profile?.revision !== refs.profileRevision || goal?.revision !== refs.goalRevision) return false;
+    // Risk now comes from the pinned plan version; goalRevision stays in references for old rows only.
+    if (!version || version.plan.userId !== userId || version.plan.stale || version.plan.currentVersionId !== versionId || profile?.revision !== refs.profileRevision) return false;
     for (const [id, revision] of [[refs.policyId, refs.policyRevision], [refs.assumptionId, refs.assumptionRevision]] as const) {
       const row = await tx.assumptionSetVersion.findUnique({ where: { id } });
       if (!row || row.status !== "PUBLISHED" || row.revision !== revision) return false;
@@ -97,15 +116,18 @@ export class RecommendationService {
       const saved = await new PlansService(this.db).readVersion(tx, input.userId, input.planId, input.versionId);
       const { capture, version } = saved, preview = version.preview;
       const capital = separateCapital(capture.profile, capture.assumptions.data);
-      const goal = await tx.retirementGoal.findUnique({ where: { userId: input.userId } });
-      if (!goal?.riskLevel || capital.status !== "READY" || !capital.growthCapital || new D(capital.growthCapital).lte(0) || !preview.calculation || !preview.replayInput) throw review("COMPLETE_SUITABILITY_INPUTS_REQUIRED");
+      const riskTolerance = riskToleranceFromAssessment(capture.policy.data as { riskBands?: Array<{ id: string; minScore: number }> },
+        (preview.calculation as { assessment?: { riskBandId?: string | null } } | undefined)?.assessment?.riskBandId);
+      if (!riskTolerance || capital.status !== "READY" || !capital.growthCapital || new D(capital.growthCapital).lte(0) || !preview.calculation || !preview.replayInput) throw review("COMPLETE_SUITABILITY_INPUTS_REQUIRED");
       // Personal what-if/reforecast capital needs its own reviewed product mapping.
       if (preview.reforecast || preview.selection.whatIf) throw review("REVISED_CAPITAL_MAPPING_REVIEW_REQUIRED");
       const weights: Record<AssetClass, number> = { CASH: 0, BOND: 0, EQUITY: 0, GOLD: 0 };
       const holdings = preview.calculation.marketRows[0]?.holdings ?? [];
       for (const h of holdings) {
-        if (!(h.assetClass in weights)) throw review("PRODUCT_ASSET_MAPPING_REQUIRED");
-        weights[h.assetClass as AssetClass] += new D(h.startWeightPercent).div(100).toNumber();
+        const split = POLICY_ASSET_MAPPING[h.assetClass];
+        if (!split) throw review("PRODUCT_ASSET_MAPPING_REQUIRED");
+        for (const [assetClass, share] of Object.entries(split) as Array<[AssetClass, number]>)
+          weights[assetClass] += new D(h.startWeightPercent).div(100).mul(share).toNumber();
       }
       const loss = assessLossConstraint(capital, capture.profile, capture.policy.data, holdings);
       if (loss.status !== "WITHIN_LIMIT") throw review("LOSS_CONSTRAINT_NOT_SATISFIED");
@@ -115,17 +137,18 @@ export class RecommendationService {
       if (existing.some(h => !catalog.some(p => p.productId === h.productId && !p.stale && p.product.status === "ACTIVE"))) throw review("FRESH_HOLDING_PRICES_REQUIRED");
       const toIndex = (m: string) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7));
       const rec = generatePortfolioRecommendation({ recommendationId: randomUUID(), userId: input.userId, planId: input.planId,
-        targetAssetWeights: weights, growthCapitalVnd: capital.growthCapital, clientRiskTolerance: goal.riskLevel,
+        targetAssetWeights: weights, growthCapitalVnd: capital.growthCapital, clientRiskTolerance: riskTolerance,
         horizonYears: Math.max(0, (toIndex(preview.replayInput.retirementMonth) - toIndex(capture.profile.valuationDate)) / 12),
         existingHoldings: existing.map(h => ({ productId: h.productId, assetClass: catalog.find(p => p.productId === h.productId)?.data.assetClass ?? "CASH", quantity: h.quantity.toNumber(), costBasisVnd: h.unitCost.toFixed(), currentNav: catalog.find(p => p.productId === h.productId)?.data.nav ?? "0" })) }, catalog.map(p => p.product), undefined, actor);
       const selected = catalog.filter(p => rec.items.some(i => i.productId === p.productId) || existing.some(h => h.productId === p.productId));
-      const refs: References = { holdingsHash: await this.holdingsHash(tx, input.userId), profileRevision: version.profileRevision, goalRevision: goal.revision, policyId: capture.policy.id, policyRevision: capture.policy.revision,
+      const refs: References = { holdingsHash: await this.holdingsHash(tx, input.userId), profileRevision: version.profileRevision, goalRevision: 0, policyId: capture.policy.id, policyRevision: capture.policy.revision,
         assumptionId: capture.assumptions.id, assumptionRevision: capture.assumptions.revision,
         products: selected.map(p => ({ id: p.productId, hash: p.documentHash, revision: p.catalogRevision })) };
       if (!await this.referencesCurrent(tx, input.userId, input.versionId, refs)) throw review("CURRENT_REFERENCES_REQUIRED");
       const row = await tx.investmentRecommendation.create({ data: { id: rec.recommendationId, userId: input.userId, createdBy: actor, planVersionId: input.versionId,
-        document: json(rec), contentHash: recommendationContentHash(rec), references: json(refs), expiresAt: new Date(rec.expiresAt),
-        items: { create: rec.items.map(item => ({ productId: item.productId, document: json(item) })) } } });
+        // Hash exactly what JSONB keeps (12 significant digits for non-integers) so view() re-verifies the stored document.
+        document: storable(rec), contentHash: recommendationContentHash(storable(rec) as unknown as RecommendationResponse), references: json(refs), expiresAt: new Date(rec.expiresAt),
+        items: { create: rec.items.map(item => ({ productId: item.productId, document: storable(item) })) } } });
       await audit(tx, actor, "RECOMMENDATION_CREATED", "INVESTMENT_RECOMMENDATION", row.id, json({ snapshot: rec, references: refs, contentHash: row.contentHash }));
       return this.view(row);
     });
@@ -187,7 +210,7 @@ export class RecommendationService {
         if (error instanceof AppError) throw error;
         throw new AppError(422, "WORKFLOW_REJECTED", error instanceof Error ? error.message : "Thao tác không hợp lệ.");
       }
-      const updated = await tx.investmentRecommendation.updateMany({ where: { id, revision: input.expectedRevision, status: row.status }, data: { status: next.lifecycleStatus, revision: { increment: 1 }, document: json(next) } });
+      const updated = await tx.investmentRecommendation.updateMany({ where: { id, revision: input.expectedRevision, status: row.status }, data: { status: next.lifecycleStatus, revision: { increment: 1 }, document: storable(next) } });
       if (updated.count !== 1) throw conflict();
       await tx.investmentApproval.create({ data: { recommendationId: id, actorId: actor, revision: rec.revision, contentHash: row.contentHash, decision: action, reason: input.reason,
         snapshot: json({ before: rec, after: next, references: row.references, legalAuthorizationReference: action === "publish" ? this.legalAuthorizationReference : null }) } });
