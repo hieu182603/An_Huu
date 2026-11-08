@@ -172,7 +172,7 @@ export function deterministicStress(kind: typeof stressKinds[number], context: R
   if (kind === "HIGH_INFLATION") {
     const params = configured.HIGH_INFLATION!;
     market.forEach((r, i) => { if (rows[i].month >= start && rows[i].month <= end)
-      r.cpi = new D(r.cpi).plus(1).pow(12).plus(new D(params.annualDeltaPoints).div(100)).pow(new D(1).div(12)).minus(1).toFixed(); });
+      r.cpi = new D(r.cpi).plus(new D(params.annualDeltaPoints).div(1200)).toFixed(); });
   } else if (kind === "INCOME_LOSS") {
     rows.forEach(r => { if (r.month >= start && r.month <= end) r.income = new D(r.income).mul(new D(1).minus(new D(configured.INCOME_LOSS!.lostPercent).div(100))).toFixed(); });
   } else if (kind === "PROPERTY_ILLIQUIDITY") {

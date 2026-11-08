@@ -232,7 +232,7 @@ export function previewPortfolio(document: PortfolioDocument, assumptions: Assum
         if (!factorCache.has(key)) {
           const rate = new D(row.returnAnnualNetNominalPercent).plus(delta), inflation = new D(row.inflationAnnualPercent).plus(changes.inflationDeltaPoints);
           if (rate.lte(-100) || inflation.lte(-100)) return { ...context, status: "INCOMPLETE", issues: [{ path: `scenarios.${scenario.kind}.${year}.${code}`, code: "SCENARIO_RATE_OUT_OF_RANGE" }], scenarios: [] };
-          factorCache.set(key, { growth: rate.div(100).plus(1).pow(new D(1).div(12)), inflation: inflation.div(100).plus(1).pow(new D(1).div(12)).toFixed(), annualReturn: rate.toFixed(), annualInflation: inflation.toFixed() });
+          factorCache.set(key, { growth: rate.div(1200).plus(1), inflation: inflation.div(1200).plus(1).toFixed(), annualReturn: rate.toFixed(), annualInflation: inflation.toFixed() });
         }
         const factors = factorCache.get(key)!;
         const value = weights.get(code)!.mul(factors.growth); nextValues.set(code, value); grossFactor = grossFactor.plus(value);

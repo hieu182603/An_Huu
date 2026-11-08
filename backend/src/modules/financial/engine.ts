@@ -43,7 +43,7 @@ export function calculatePlan(input: { currentAge: number; initialInvestableAsse
   const annuals = [rates.annualInflationRate, rates.accumulation.annualReturnRate, rates.retirement.annualReturnRate].map(v => new D(v));
   if (annuals.some(v => !v.isFinite() || v.lt(-50) || v.gt(50)) || annuals[0].lt(0) || annuals[0].gt(20))
     throw new AppError(422, "INVALID_ASSUMPTIONS", "Bộ giả định ngoài miền tính toán.");
-  const monthly = annuals.map(v => v.div(100).plus(1).pow(new D(1).div(12)));
+  const monthly = annuals.map(v => v.div(1200).plus(1));
   const [inflation, growth, retirementGrowth] = monthly;
   const months = (goal.targetRetirementAge - input.currentAge) * 12;
   const retirementMonths = (goal.lifeExpectancy - goal.targetRetirementAge) * 12;
