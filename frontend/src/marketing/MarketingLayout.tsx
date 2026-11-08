@@ -49,7 +49,7 @@ export default function MarketingLayout({ children, home = false }: { children: 
     <main id="main-content">{children}</main>
     <footer className="mk-footer"><div className="mk-container">
       <div className="mk-footer-top">
-        <div className="mk-footer-brand"><Link to="/" aria-label="An Hưu - về trang chủ" className="mk-footer-logo"><BrandLogo inverted height={46} /></Link><p>Chuẩn bị hôm nay.<br /><span>An yên cho ngày mai.</span></p><small>Đồng hành cùng bạn trên hành trình chuẩn bị tài chính cho tuổi hưu.</small></div>
+        <div className="mk-footer-brand"><Link to="/" aria-label="An Hưu - về trang chủ" className="mk-footer-logo"><BrandLogo inverted height={34} /></Link><p>Chuẩn bị hôm nay.<br /><span>An yên cho ngày mai.</span></p><small>Đồng hành cùng bạn trên hành trình chuẩn bị tài chính cho tuổi hưu.</small></div>
         <nav className="mk-footer-links" aria-label="Khám phá An Hưu"><h2>Khám phá</h2>{marketingNavigation.map(item => <Link key={item.path} to={item.path}>{item.label}</Link>)}</nav>
         <nav className="mk-footer-links" aria-label="Chính sách & Điều khoản">
           <h2>Chính sách</h2>
@@ -84,8 +84,8 @@ export default function MarketingLayout({ children, home = false }: { children: 
         <div className="mk-footer-start"><span className="mk-footer-start-icon"><Icon name="compass" /></span><h2>Bắt đầu thật đơn giản.</h2><p>Thử một kịch bản hưu trí.<br />Chưa cần tạo tài khoản.</p><Link to="/mo-phong">Thử mô phỏng<span><Icon name="arrow-right" /></span></Link></div>
       </div>
       <div className="mk-footer-bottom">
-        <span>© An Hưu. Nền tảng lập kế hoạch hưu trí.</span>
-        <small>Công cụ tham khảo. Không cam kết kết quả tài chính.</small>
+        <span>© An Hưu. Nền tảng lập kế hoạch hưu trí cho người Việt.</span>
+        <small>Công cụ tham khảo và định hướng tài chính. Không cấu thành cam kết lợi nhuận.</small>
       </div>
     </div></footer>
   </div>;

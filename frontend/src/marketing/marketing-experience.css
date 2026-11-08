@@ -47,11 +47,10 @@
 .mk-simulation-intro h1 { font-size:clamp(27px,2.65vw,36px); line-height:1.3; letter-spacing:-.045em; font-weight:600; text-wrap:pretty; }
 .mk-simulation-intro > div > p { margin-top:12px; color:var(--mk-muted); font-size:13px; max-width:740px; }
 .mk-simulation-intro > button { flex-shrink:0; background:#fff; }
-.mk-simulation-page .mk-eyebrow { display:flex; align-items:center; gap:10px; }
-.mk-simulation-page .mk-eyebrow::before { content:''; width:22px; height:1px; background:currentColor; }
-.mk-demo-nav { display:flex; gap:5px; margin-bottom:22px; }
-.mk-demo-nav a { display:flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 16px; font-size:12px; border:1px solid var(--exp-line); border-radius:8px; background:#fff; }
-.mk-demo-nav a:first-child { color:#fff; background:var(--mk-jade); border-color:var(--mk-jade); }
+.mk-simulation-page .mk-eyebrow { display:block; }
+.mk-demo-nav { display:flex; gap:8px; margin-bottom:22px; }
+.mk-demo-nav a { display:flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 18px; font-size:12px; border:1px solid var(--exp-line); border-radius:999px; background:#fff; color:var(--mk-ink); }
+.mk-demo-nav a:first-child, .mk-demo-nav a.active { color:var(--mk-jade) !important; background:#f0fdf9 !important; border-color:var(--mk-jade) !important; font-weight:600; }
 .mk-demo-nav a:hover { box-shadow:0 0 0 2px var(--exp-soft); }
 .mk-demo-notice { display:flex; justify-content:space-between; align-items:center; gap:20px; border:1px solid var(--exp-line); background:#edf6f8; border-radius:10px; padding:14px 18px; font-size:11px; color:var(--mk-muted); }
 .mk-demo-notice span, .mk-demo-notice a { display:flex; align-items:center; gap:10px; }

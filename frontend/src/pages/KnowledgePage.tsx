@@ -110,7 +110,7 @@ function PublicKnowledgeView() {
                   onClick={() => openArticle(ARTICLES_DATA[0].id)}
                 >
                   <span>Bắt đầu đọc</span>
-                  <Icon name="arrow-right" />
+                  <Icon name="chevron-down" />
                 </button>
                 <Link to="/mo-phong" className="ed-link-btn">
                   Thử tính kế hoạch của tôi →
@@ -351,8 +351,6 @@ function PublicKnowledgeView() {
             </div>
           </section>
         )}
-
-        <FinalCTA />
       </div>
     </MarketingLayout>
   );

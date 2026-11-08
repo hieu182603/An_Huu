@@ -558,13 +558,18 @@ export default function OnboardingPage() {
     </main>;
   }
 
-  if (!hasProfile && !legacyOnboardingDraft) {
+  if (!legacyOnboardingDraft) {
     return (
       <div className="onboarding-app">
-        <header className="onboarding-header">
+        <header className="onboarding-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1180px", margin: "auto", padding: "24px 40px" }}>
           <div className="onboarding-header-brand">
             <Link to="/" aria-label={isEn ? "An Huu home" : "Về trang chủ An Hưu"}>
               <BrandLogo />
+            </Link>
+          </div>
+          <div className="onboarding-header-actions">
+            <Link to="/" className="button button-ghost button-small" style={{ fontSize: "13px", color: "var(--muted, #64748b)" }}>
+              {isEn ? "End trial session →" : "← Kết thúc phiên thử"}
             </Link>
           </div>
         </header>

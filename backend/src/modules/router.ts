@@ -141,7 +141,9 @@ export function createApiRouter(services: Services, config: AppConfig) {
   router.get("/admin/users/:id", asyncHandler(async (req, res) => sendData(res, await services.users!.detail(z.string().uuid().parse(req.params.id)))));
   router.patch("/admin/users/:id/status", validate(userStatusSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.users!.status(req.user!.userId, z.string().uuid().parse(req.params.id), req.body))));
   const accountLimiter = rateLimit({
-    windowMs: 15 * 60000, limit: 5, standardHeaders: true, legacyHeaders: false, skipSuccessfulRequests: true,
+    windowMs: 15 * 60000,
+    limit: config.NODE_ENV === "production" ? 5 : 1000,
+    standardHeaders: true, legacyHeaders: false, skipSuccessfulRequests: true,
     keyGenerator: req => tokenHash(String(req.body.email)),
     handler: (_req, _res, next) => next(new AppError(429, "RATE_LIMITED", "Vui lòng chờ trước khi thử lại.")),
   });

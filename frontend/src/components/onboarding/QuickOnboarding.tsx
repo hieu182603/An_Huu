@@ -85,6 +85,28 @@ export function QuickOnboarding() {
     return Math.max(0, currentYear - bYear);
   }, [birthMonth, currentYear]);
 
+  const currentRetireAge = useMemo(() => {
+    if (desiredRetirementMonth && birthMonth) {
+      const bYear = parseInt(birthMonth.slice(0, 4), 10);
+      const rYear = parseInt(desiredRetirementMonth.slice(0, 4), 10);
+      if (!isNaN(bYear) && !isNaN(rYear)) return rYear - bYear;
+    }
+    return 60;
+  }, [desiredRetirementMonth, birthMonth]);
+
+  const handleRetireAgeChange = (ageVal: number) => {
+    if (birthMonth) {
+      const bYear = parseInt(birthMonth.slice(0, 4), 10);
+      const bMonth = birthMonth.slice(5, 7) || "01";
+      if (!isNaN(bYear)) {
+        setDesiredRetirementMonth(`${bYear + ageVal}-${bMonth}`);
+        return;
+      }
+    }
+    const curYear = new Date().getFullYear();
+    setDesiredRetirementMonth(`${curYear + Math.max(1, ageVal - 30)}-01`);
+  };
+
   // Step 2: Current Finances
   const [hasNoSalary, setHasNoSalary] = useState(false);
   const [monthlyIncome, setMonthlyIncome] = useState<number>(() => {
@@ -213,8 +235,8 @@ export function QuickOnboarding() {
     else targetId = "HOR_SHORT";
 
     // Only auto-select if choice exists in policy question
-    const horizonQ = policyDetail.data.questions.find((q) => q.id === "Q_HORIZON");
-    if (horizonQ && horizonQ.choices.some((c) => c.id === targetId)) {
+    const horizonQ = policyDetail?.data?.questions?.find((q) => q.id === "Q_HORIZON");
+    if (horizonQ && horizonQ.choices?.some((c) => c.id === targetId)) {
       return targetId;
     }
     return null;
@@ -484,7 +506,10 @@ export function QuickOnboarding() {
       <div className="qo-card card setup-card">
       <div className="qo-caption setup-caption">
         <span>{isEn ? `STEP ${step}/4` : `BƯỚC ${step}/4`}</span>
-        <span>{step === 4 ? (isEn ? "Your result is next" : "Sắp có kết quả") : (isEn ? "At your own pace" : "Từng phần, theo nhịp của bạn")}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <Icon name="sparkles" size="small" />
+          {step === 4 ? (isEn ? "Your result is next" : "Sắp có kết quả") : (isEn ? "At your own pace" : "Từng phần, theo nhịp của bạn")}
+        </span>
       </div>
 
       {/* Simulator prefilled badge */}
@@ -511,75 +536,65 @@ export function QuickOnboarding() {
           </header>
 
           <div className="quick-field-group">
-            <div className="quick-field">
-              <Input
-                label={isEn ? "Birth month (required)" : "Tháng/năm sinh (bắt buộc)"}
-                type="month"
-                value={birthMonth}
-                onChange={(val) => setBirthMonth(val)}
-              />
-              {calculatedAge > 0 && (
-                <p className="quick-helper-text">
-                  {isEn ? `Age calculated from birth month: ${calculatedAge} years old` : `Tuổi tính từ tháng sinh: ${calculatedAge} tuổi`}
-                </p>
-              )}
-              {suggestedBirthYear && !birthMonth && (
-                <p className="quick-helper-text" style={{ color: "var(--color-primary-700)" }}>
-                  {isEn
-                    ? `Suggested birth year from simulation: ${suggestedBirthYear}. Please select your birth month.`
-                    : `Gợi ý năm sinh từ bản mô phỏng: ${suggestedBirthYear}. Vui lòng chọn tháng và năm sinh của bạn.`}
-                </p>
-              )}
+            <div className="two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+              <div className="quick-field">
+                <Input
+                  label={isEn ? "Date of birth" : "Ngày tháng năm sinh"}
+                  type="date"
+                  value={birthMonth.length === 7 ? `${birthMonth}-01` : birthMonth}
+                  placeholder={isEn ? "DD/MM/YYYY" : "Ngày/tháng/năm"}
+                  onChange={(val) => {
+                    const ym = val.slice(0, 7);
+                    setBirthMonth(ym);
+                    if (ym && currentRetireAge) {
+                      const bYear = parseInt(ym.slice(0, 4), 10);
+                      const bMonth = ym.slice(5, 7) || "01";
+                      if (!isNaN(bYear)) {
+                        setDesiredRetirementMonth(`${bYear + currentRetireAge}-${bMonth}`);
+                      }
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="quick-field">
+                <Input
+                  label={isEn ? "What age do you want to retire?" : "Bạn muốn nghỉ hưu năm bao nhiêu tuổi?"}
+                  type="number"
+                  min={calculatedAge > 0 ? calculatedAge : 18}
+                  max={80}
+                  suffix={isEn ? "years old" : "tuổi"}
+                  value={String(currentRetireAge)}
+                  onChange={(val) => handleRetireAgeChange(Number(val) || 60)}
+                />
+                {desiredRetirementMonth && (
+                  <p className="retirement-estimate" style={{ marginTop: "4px", fontSize: "12px", color: "var(--color-primary-700, #334DAF)" }}>
+                    {isEn
+                      ? `Estimated retirement: month ${desiredRetirementMonth.slice(5)}/${desiredRetirementMonth.slice(0, 4)}`
+                      : `Dự kiến nghỉ hưu: tháng ${desiredRetirementMonth.slice(5)}/${desiredRetirementMonth.slice(0, 4)}`}
+                  </p>
+                )}
+              </div>
             </div>
 
-            <div className="quick-field">
-              <Input
-                label={isEn ? "Desired retirement month (required)" : "Tháng bạn muốn nghỉ hưu (bắt buộc)"}
-                type="month"
-                value={desiredRetirementMonth}
-                onChange={(val) => setDesiredRetirementMonth(val)}
-              />
-              {desiredRetirementMonth && (
-                <p className="retirement-estimate">
-                  {isEn
-                    ? `Estimated retirement: month ${desiredRetirementMonth.slice(5)}/${desiredRetirementMonth.slice(0, 4)}`
-                    : `Dự kiến nghỉ hưu: tháng ${desiredRetirementMonth.slice(5)}/${desiredRetirementMonth.slice(0, 4)}`}
-                </p>
-              )}
-              <p className="quick-helper-text">
-                {isEn ? "For retired individuals: you can choose the current or a past month." : "Người đã nghỉ hưu: có thể chọn tháng hiện tại hoặc tháng trong quá khứ."}
-              </p>
-            </div>
-
-            <div className="quick-field">
+            <div className="quick-field" style={{ marginTop: "16px" }}>
               <CurrencyInput
-                label={isEn ? "Desired monthly spending (at today's prices)" : "Mức chi mong muốn mỗi tháng (theo giá hôm nay)"}
+                label={isEn ? "Retirement monthly spending" : "Chi tiêu nghỉ hưu mỗi tháng"}
                 value={monthlyExpense}
                 onChange={(val) => setMonthlyExpense(val)}
-                placeholder="20.000.000"
+                placeholder="0"
+                suffix="VND"
               />
-              <div className="quick-chips-row" role="group" aria-label={isEn ? "Spending quick choices" : "Gợi ý mức chi"}>
-                {[15_000_000, 20_000_000, 30_000_000, 40_000_000].map((amt) => {
-                  const label = isEn ? `${amt / 1_000_000} million` : `${amt / 1_000_000} triệu`;
-                  return (
-                    <button
-                      key={amt}
-                      type="button"
-                      className={`quick-chip ${monthlyExpense === amt ? "is-active" : ""}`}
-                      onClick={() => setMonthlyExpense(amt)}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+              <p className="quick-helper-text" style={{ fontSize: "12px", color: "var(--muted, #64748b)", marginTop: "4px" }}>
+                {isEn ? "At today's prices; excluding debt payments and separate support schedules." : "Theo giá hôm nay; chưa gồm trả nợ và khoản hỗ trợ có lịch riêng."}
+              </p>
             </div>
           </div>
 
-          <div className="quick-actions" style={{ justifyContent: "flex-end" }}>
+          <div className="quick-actions form-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "24px" }}>
+            <span className="small muted" style={{ fontSize: "13px", color: "var(--muted, #64748b)" }}>{isEn ? "Can be adjusted later" : "Có thể chỉnh sau"}</span>
             <Button variant="primary" disabled={working} onClick={handleNextStep1}>
-              {isEn ? "Continue" : "Tiếp tục"}
-              <Icon name="arrow-right" />
+              {isEn ? "Continue →" : "Tiếp tục →"}
             </Button>
           </div>
         </section>

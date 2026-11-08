@@ -30,6 +30,8 @@ const UserLayout = lazy(() => import("./pages/UserLayout"));
 const UserDashboard = lazy(() => import("./pages/UserDashboard"));
 const RetirementGoalPage = lazy(() => import("./pages/RetirementGoalPage"));
 const RetirementPlanPage = lazy(() => import("./pages/RetirementPlanPage"));
+const SimulationTrackingPage = lazy(() => import("./pages/SimulationTrackingPage"));
+const FinancialProfilePage = lazy(() => import("./pages/FinancialProfilePage"));
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const DebtAnalysisPage = lazy(() => import("./pages/DebtAnalysisPage"));
 const AdminInvestmentsPage = lazy(() => import("./pages/admin/AdminInvestmentsPage"));
@@ -121,13 +123,14 @@ export default function App() {
           <Route path="dashboard" element={<UserDashboard />} />
           <Route path="goal" element={<RetirementGoalPage />} />
           <Route path="plan" element={<RetirementPlanPage />} />
-          <Route path="simulation" element={<Navigate to="/user/plan" replace />} />
+          <Route path="simulation" element={<SimulationTrackingPage defaultTab="actuals" />} />
           <Route path="debts" element={<DebtAnalysisPage />} />
           <Route path="investments" element={<Navigate to="/user/risk-portfolio" replace />} />
           <Route path="risk-portfolio" element={<RiskPortfolioPage />} />
           <Route path="assistant" element={<AIAssistantPage />} />
           <Route path="explore" element={<ExplorePage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
+          <Route path="profile" element={<FinancialProfilePage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="notifications" element={<NotificationsPage />} />

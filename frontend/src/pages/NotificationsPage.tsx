@@ -52,204 +52,104 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="notif-hub-container">
-      {/* Hero Banner */}
-      <div className="notif-hub-header-card">
-        <div className="notif-hub-header-title-box">
-          <h1>{isEn ? "Notification Center" : "Trung tâm thông báo"}</h1>
-          <p>
-            {isEn
-              ? "Session reminders: Keep track of retirement progress, financial alerts, and account safety."
-              : "Nhắc việc trong phiên: Các thông báo giúp bạn biết việc gì cần làm tiếp."}
-          </p>
-        </div>
-
-        <div className="notif-hub-header-actions">
-          <button
-            type="button"
-            className="button button-secondary"
-            onClick={handleMarkAllAsRead}
-            disabled={busyAction || unreadCount === 0}
-          >
-            <Icon name="check" size="small" />
-            <span>{isEn ? "Mark all as read" : "Đánh dấu tất cả đã đọc"}</span>
-          </button>
-        </div>
+    <div className="notif-hub-container" style={{ maxWidth: "1200px", margin: "0 auto" }}>
+      {/* Page Heading matching Demo */}
+      <div style={{ marginBottom: "28px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 8px" }}>
+          {isEn ? "Session Reminders" : "Nhắc việc trong phiên"}
+        </h1>
+        <p style={{ fontSize: "14px", color: "var(--muted, #456B91)", margin: 0 }}>
+          {isEn
+            ? "Simulated notifications to help you know what to do next."
+            : "Các thông báo mô phỏng giúp bạn biết việc gì cần làm tiếp."}
+        </p>
       </div>
 
-      {/* Stats Cards Row */}
-      <div className="notif-hub-stat-row">
-        <div className="notif-hub-stat-card">
-          <div className="notif-stat-icon-wrap navy">
-            <Icon name="bell" size="default" />
-          </div>
-          <div className="notif-stat-content">
-            <h4>{isEn ? "Total Messages" : "Tổng thông báo"}</h4>
-            <div className="stat-val">{notifications.length}</div>
-          </div>
-        </div>
-
-        <div className="notif-hub-stat-card">
-          <div className="notif-stat-icon-wrap sky">
-            <Icon name="info" size="default" />
-          </div>
-          <div className="notif-stat-content">
-            <h4>{isEn ? "Unread Messages" : "Chưa đọc"}</h4>
-            <div className="stat-val" style={{ color: unreadCount > 0 ? "#0284c7" : "#021024" }}>
-              {unreadCount}
-            </div>
-          </div>
-        </div>
-
-        <div className="notif-hub-stat-card">
-          <div className="notif-stat-icon-wrap emerald">
-            <Icon name="check" size="default" />
-          </div>
-          <div className="notif-stat-content">
-            <h4>{isEn ? "Read Messages" : "Đã đọc"}</h4>
-            <div className="stat-val" style={{ color: "#059669" }}>
-              {Math.max(0, notifications.length - unreadCount)}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Toolbar & Filters */}
-      <div className="notif-hub-toolbar">
-        <div className="notif-hub-filter-tabs">
-          <button
-            type="button"
-            className={`notif-hub-tab-btn ${activeFilter === "all" ? "is-active" : ""}`}
-            onClick={() => setActiveFilter("all")}
-          >
-            {isEn ? "All" : "Tất cả"} ({notifications.length})
-          </button>
-          <button
-            type="button"
-            className={`notif-hub-tab-btn ${activeFilter === "unread" ? "is-active" : ""}`}
-            onClick={() => setActiveFilter("unread")}
-          >
-            {isEn ? "Unread" : "Chưa đọc"} {unreadCount > 0 ? `(${unreadCount})` : ""}
-          </button>
-          <button
-            type="button"
-            className={`notif-hub-tab-btn ${activeFilter === "support" ? "is-active" : ""}`}
-            onClick={() => setActiveFilter("support")}
-          >
-            {isEn ? "Support & Tickets" : "Hỗ trợ & Yêu cầu"}
-          </button>
-          <button
-            type="button"
-            className={`notif-hub-tab-btn ${activeFilter === "security" ? "is-active" : ""}`}
-            onClick={() => setActiveFilter("security")}
-          >
-            {isEn ? "Security & Account" : "Bảo mật"}
-          </button>
-        </div>
-
-        <div className="notif-hub-search-box">
-          <span className="search-icon">
-            <Icon name="search" size="small" />
-          </span>
-          <input
-            type="text"
-            placeholder={isEn ? "Filter messages…" : "Lọc nội dung…"}
-            aria-label={isEn ? "Filter notifications" : "Lọc thông báo"}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Feed List */}
-      <div className="notif-hub-feed-list">
-        {loading && notifications.length === 0 && (
-          <div className="notif-empty-state">
-            <p className="notif-empty-title">{isEn ? "Loading notifications…" : "Đang tải thông báo…"}</p>
-          </div>
-        )}
-
-        {!loading && filteredNotifications.length === 0 && (
-          <div className="notif-empty-state" style={{ background: "#ffffff", borderRadius: "var(--r-md, 16px)", padding: "48px 24px", textAlign: "center", border: "1px solid var(--border, #D0E4FE)" }}>
-            <div className="notif-empty-icon" style={{ fontSize: "32px", color: "var(--muted, #456B91)", marginBottom: "12px" }}>
-              <Icon name="bell" size="large" />
-            </div>
-            <p className="notif-empty-title" style={{ fontSize: "16px", fontWeight: 600, color: "var(--navy, #052659)", margin: "0 0 6px" }}>
-              {activeFilter === "unread"
-                ? (isEn ? "No unread notifications" : "Không có thông báo chưa đọc nào")
-                : (isEn ? "No notifications" : "Chưa có thông báo")}
-            </p>
-            <span className="notif-empty-sub" style={{ fontSize: "13px", color: "var(--muted, #456B91)" }}>
-              {isEn
-                ? "Save or update your plan to see session reminders."
-                : "Lưu hoặc cập nhật kế hoạch để thấy nhắc việc xuất hiện."}
+      {/* Main Card */}
+      <section className="card" style={{ background: "#ffffff", border: "1px solid var(--border, #D0E4FE)", borderRadius: "16px", padding: "28px", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--navy, #052659)", margin: 0 }}>
+            {isEn ? "Notifications Box" : "Hộp thông báo"}
+          </h2>
+          {unreadCount > 0 && (
+            <span style={{ background: "#E8F2FE", color: "#334DAF", padding: "4px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: 600 }}>
+              {unreadCount} {isEn ? "unread" : "chưa đọc"}
             </span>
+          )}
+        </div>
+
+        <div style={{ marginBottom: "24px" }}>
+          <button
+            type="button"
+            className="account-btn account-btn-secondary"
+            onClick={handleMarkAllAsRead}
+            disabled={busyAction || notifications.length === 0}
+            style={{
+              padding: "9px 16px",
+              background: "#ffffff",
+              border: "1px solid #CBD5E1",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "var(--navy, #052659)",
+              cursor: notifications.length === 0 ? "not-allowed" : "pointer",
+              opacity: notifications.length === 0 ? 0.6 : 1
+            }}
+          >
+            {isEn ? "Mark all as read" : "Đánh dấu tất cả đã đọc"}
+          </button>
+        </div>
+
+        {/* Notifications list or empty state */}
+        {notifications.length > 0 ? (
+          <div style={{ display: "grid", gap: "12px" }}>
+            {notifications.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  padding: "16px 20px",
+                  background: item.readAt ? "#F8FAFC" : "#F0F7FF",
+                  border: "1px solid",
+                  borderColor: item.readAt ? "#E2E8F0" : "#BFDBFE",
+                  borderRadius: "10px",
+                  gap: "16px"
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                    <span style={{ color: item.readAt ? "#94A3B8" : "#2563EB", fontSize: "12px" }}>
+                      {item.readAt ? "✓" : "●"}
+                    </span>
+                    <strong style={{ fontSize: "15px", color: "var(--navy, #052659)" }}>{item.title}</strong>
+                  </div>
+                  <p style={{ margin: "4px 0 0", fontSize: "13.5px", color: "#475569" }}>{item.message}</p>
+                </div>
+                {!item.readAt && (
+                  <button
+                    type="button"
+                    onClick={() => markAsRead(item.id)}
+                    style={{ background: "transparent", border: 0, color: "#334DAF", fontSize: "12px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    {isEn ? "Read" : "Đã đọc"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", padding: "60px 20px" }}>
+            <h3 style={{ fontSize: "16px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 8px" }}>
+              {isEn ? "No notifications" : "Chưa có thông báo"}
+            </h3>
+            <p style={{ fontSize: "14px", color: "var(--muted, #64748B)", margin: 0 }}>
+              {isEn ? "Save or update a plan to see session reminders appear." : "Lưu hoặc cập nhật kế hoạch để thấy nhắc việc xuất hiện."}
+            </p>
           </div>
         )}
-
-        {filteredNotifications.map((n) => {
-          const isUnread = !n.readAt;
-          const { tagEn, tagVi, icon, tone } = getNotificationMeta(n.title, n.message);
-
-          return (
-            <div
-              key={n.id}
-              className={`notif-hub-feed-card ${isUnread ? "is-unread" : "is-read"}`}
-            >
-              <div className={`notif-icon-bubble ${tone}`} style={{ width: "42px", height: "42px" }}>
-                <Icon name={icon} size="default" />
-              </div>
-
-              <div className="notif-hub-feed-content">
-                <div className="notif-hub-feed-header">
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                        color: "#5483B3",
-                        background: "rgba(193, 232, 255, 0.4)",
-                        padding: "2px 8px",
-                        borderRadius: "6px",
-                      }}
-                    >
-                      {isEn ? tagEn : tagVi}
-                    </span>
-                    <h3 className="notif-hub-feed-title">{n.title}</h3>
-                  </div>
-                  <span className="notif-hub-feed-date">
-                    {formatDate(n.createdAt, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-
-                <p className="notif-hub-feed-body">{n.message}</p>
-
-                <div className="notif-hub-feed-actions">
-                  {n.path && n.path !== "#" && (
-                    <Link to={n.path} className="notif-hub-view-btn">
-                      <span>{isEn ? "Open Page" : "Xem chi tiết"}</span>
-                      <Icon name="chevron-right" size="small" />
-                    </Link>
-                  )}
-
-                  {isUnread && (
-                    <button
-                      type="button"
-                      className="notif-hub-mark-btn"
-                      onClick={() => void markAsRead(n.id)}
-                    >
-                      <Icon name="check" size="small" />
-                      <span>{isEn ? "Mark read" : "Đánh dấu đã đọc"}</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      </section>
     </div>
   );
 }

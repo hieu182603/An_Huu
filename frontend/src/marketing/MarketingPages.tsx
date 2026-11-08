@@ -101,7 +101,7 @@ export function HowItWorksPage() {
         <span className="mk-eyebrow">CÁCH HOẠT ĐỘNG</span>
         <h1>Một ngày mai an yên.<br /><span>Bắt đầu từ bạn.</span></h1>
         <p>Không cần giỏi tài chính để bắt đầu. Chỉ cần biết cuộc sống bạn mong muốn — An Hưu giúp bạn nhìn rõ những bước tiếp theo.</p>
-        <MarketingButton to="/mo-phong">Thử kế hoạch của tôi</MarketingButton>
+        <MarketingButton to="/mo-phong">Xem kế hoạch mẫu</MarketingButton>
         <div className="mk-experience-note"><Icon name="circle-check" /> Không cần tài khoản · Bắt đầu với số liệu mẫu</div>
       </div>
       <div className="mk-how-visual">
@@ -772,7 +772,7 @@ export function SimulationPage() {
         <h2 id="allocation-title">Năm nhóm tài sản, mỗi nhóm một vai trò</h2>
         <p>Thử phân bổ phần vốn dành cho hưu trí. Các tỷ trọng và mức sinh lời dưới đây chỉ là số liệu minh họa để hiểu phép tính, không phải đề xuất danh mục hay dữ liệu thị trường.</p>
         <div className="mk-allocation-workspace"><div className="mk-allocation-assets">
-        {allocation.map((asset, index) => <details key={asset.name}>
+        {allocation.map((asset, index) => <details key={asset.name} open={index === 0}>
           <summary><span className={`mk-asset-dot mk-asset-${index}`} /><span>{asset.name}</span><b>{asset.weight}%</b><Icon name="plus" /></summary>
           <p>{asset.description}</p>
           <SimFieldInput id={`allocation-weight-${index}`} label={`Tỷ trọng ${asset.name}`} value={asset.weight} min={0} max={100} step={1} unit="%" onChange={weight => { setAllocation(current => current.map((item, i) => i === index ? { ...item, weight } : item)); setAllocationApplied(false); }} />

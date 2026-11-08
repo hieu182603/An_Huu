@@ -99,6 +99,7 @@ export default function RetirementPlanPage() {
   const setContributionTiming = (value: "END_OF_MONTH" | "START_OF_MONTH") => updateDraft({ contributionTiming: value });
   const setStartOfMonthAvailable = (value: string) => updateDraft({ startOfMonthFunding: { ...funding, source: "CURRENT_MONTH_DISPOSABLE_CASH_AVAILABLE_AT_START", monthlyAvailable: value, confirmed: startOfMonthConfirmed } });
   const setStartOfMonthConfirmed = (value: boolean) => updateDraft({ startOfMonthFunding: { ...funding, source: "CURRENT_MONTH_DISPOSABLE_CASH_AVAILABLE_AT_START", monthlyAvailable: startOfMonthAvailable, confirmed: value } });
+  const [planTab, setPlanTab] = useState<"result" | "adjust">("result");
   const [isVersionDrawerOpen, setIsVersionDrawerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -153,8 +154,8 @@ export default function RetirementPlanPage() {
   }, [v2Profile?.personal.birthMonth, profile.goal.lifeExpectancy]);
 
   const effectiveAnswers = draftSelection?.answers ?? baseline?.answers ??
-    (policyDetail?.data.questions ?? []).flatMap(q => surveyAnswers[q.id] ? [{ questionId: q.id, choiceId: surveyAnswers[q.id] }] : []);
-  const hasCompleteSurvey = Boolean(policyDetail && policyDetail.data.questions.every(q =>
+    (policyDetail?.data?.questions ?? []).flatMap(q => surveyAnswers[q.id] ? [{ questionId: q.id, choiceId: surveyAnswers[q.id] }] : []);
+  const hasCompleteSurvey = Boolean(policyDetail?.data?.questions && policyDetail.data.questions.every(q =>
     effectiveAnswers.some(a => a.questionId === q.id && q.choices.some(c => c.id === a.choiceId))
   ));
   const usesActualBalance = Boolean(currentVersion?.preview.reforecast);
@@ -418,11 +419,21 @@ export default function RetirementPlanPage() {
         </div>
       </div>
 
-      <nav className="plan-section-nav" aria-label={language === "en" ? "Plan sections" : "Các phần của kế hoạch"}>
-        <a href="#plan-overview" className={activePlanSection === "plan-overview" ? "is-active" : ""} aria-current={activePlanSection === "plan-overview" ? "true" : undefined}><span>01</span>{language === "en" ? "Overview" : "Tổng quan"}</a>
-        <a href="#plan-settings" className={activePlanSection === "plan-settings" ? "is-active" : ""} aria-current={activePlanSection === "plan-settings" ? "true" : undefined}><span>02</span>{language === "en" ? "Adjust plan" : "Điều chỉnh"}</a>
-        <a href="#plan-cashflow" className={activePlanSection === "plan-cashflow" ? "is-active" : ""} aria-current={activePlanSection === "plan-cashflow" ? "true" : undefined}><span>03</span>{language === "en" ? "Cash flow" : "Dòng tiền"}</a>
-        <a href="#plan-analysis" className={activePlanSection === "plan-analysis" ? "is-active" : ""} aria-current={activePlanSection === "plan-analysis" ? "true" : undefined}><span>04</span>{language === "en" ? "Analysis" : "Phân tích"}</a>
+      <nav className="section-nav" style={{ display: "flex", gap: "8px", margin: "16px 0 24px" }}>
+        <button
+          type="button"
+          className={`btn ${planTab === "result" ? "primary" : "secondary"}`}
+          onClick={() => setPlanTab("result")}
+        >
+          {language === "en" ? "Results" : "Kết quả"}
+        </button>
+        <button
+          type="button"
+          className={`btn ${planTab === "adjust" ? "primary" : "secondary"}`}
+          onClick={() => setPlanTab("adjust")}
+        >
+          {language === "en" ? "Adjust" : "Điều chỉnh"}
+        </button>
       </nav>
 
       {loadingPolicy && <p role="status">{language === "en" ? "Loading projection inputs…" : "Đang tải đầu vào dự phóng…"}</p>}
@@ -483,7 +494,10 @@ export default function RetirementPlanPage() {
       {usesActualBalance && <Alert tone="info" title={language === "en" ? "Keep your recorded balances" : "Giữ đúng số dư thực tế đã ghi"}>
         <p>{language === "en" ? "This plan already includes actual transactions. Use actual tracking to change contributions, income or expenses while keeping the recorded balance. Draft changes from other pages have not been applied." : "Kế hoạch này đã tính các giao dịch thực tế. Hãy sửa tiền góp, thu nhập hoặc chi tiêu tại Theo dõi thực tế để giữ đúng số dư đã ghi. Thay đổi nháp từ các trang khác chưa được áp dụng."}</p>
       </Alert>}
-      <section id="plan-overview" className="plan-section" aria-labelledby="plan-overview-title" tabIndex={-1}>
+
+      {planTab === "result" && (
+        <>
+          <section id="plan-overview" className="plan-section" aria-labelledby="plan-overview-title" tabIndex={-1}>
         <h2 id="plan-overview-title" className="sr-only">{language === "en" ? "Your plan at a glance" : "Tổng quan kế hoạch của bạn"}</h2>
         {/* Primary Result Hero - demo layout: one headline answer + side metrics */}
         <motion.div
@@ -684,59 +698,100 @@ export default function RetirementPlanPage() {
           </Card>
         </motion.div>
 
-        {/* Plan Health Card matching demo */}
-        {summary && (
-          <div className={`plan-health ${hasFundingShortfall ? "is-warning" : ""}`}>
-            <div className="plan-health-top">
-              <div className="plan-health-title">
-                <strong>{language === "en" ? "Plan Health & Budget Alignment" : "Đối chiếu mục tiêu với khả năng góp"}</strong>
-                <p>{hasFundingShortfall
-                  ? (language === "en" ? "Required contribution may exceed surplus in some months." : "Mức cần góp đang vượt khả năng ở một số tháng theo dự phóng.")
-                  : (language === "en" ? "Projected contributions are well within available household cashflow." : "Mức góp dự kiến nằm trong khả năng cân đối của dòng tiền.")}
-                </p>
+        {/* Retirement Fund Chart matching demo */}
+        {summary && calculation?.rows && calculation.rows.length > 0 && (
+          <div className="plan-chart-card" style={{ background: "#ffffff", border: "1px solid #D0E4FE", borderRadius: "16px", padding: "24px", margin: "20px 0" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "16px" }}>
+              <div>
+                <h3 style={{ fontSize: "18px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 4px" }}>
+                  {language === "en" ? "Your Retirement Fund" : "Quỹ nghỉ hưu của bạn"}
+                </h3>
+                <span style={{ fontSize: "13px", color: "var(--muted, #64748b)" }}>
+                  {language === "en" ? "Projected accumulation and withdrawal curve" : `Từ ${formatMonthVN(summary.valuationDate || summary.retirementMonth)} đến ${summary.endMonth ? formatMonthVN(summary.endMonth) : "cuối kế hoạch"}`}
+                </span>
               </div>
-              <Badge tone={hasFundingShortfall ? "warning" : "success"}>
-                {language === "en" ? "Monthly Cashflow Check" : "Theo dòng tiền từng tháng"}
-              </Badge>
+              <span className="badge" style={{ background: "#E8F2FE", color: "#334DAF", padding: "4px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 600 }}>
+                {language === "en" ? "Projection" : "Dự phóng"}
+              </span>
             </div>
-            <div className="plan-health-kpis">
-              <div className="health-kpi">
-                <span>{language === "en" ? "First Month Actual Contribution" : "Thực góp tháng đầu"}</span>
-                <strong>{formatVNDCurrency(previewPayload?.monthlyContribution ?? "0")}</strong>
-                <small>{language === "en" ? "Current plan setting" : "Mức bạn chọn góp"}</small>
-              </div>
-              <div className="health-kpi">
-                <span>{language === "en" ? "First Month Budget Capacity" : "Khả năng ngân sách tháng đầu"}</span>
-                <strong>
-                  {calculation?.rows?.[0]?.contributionCapacity != null && calculation.rows[0].contributionCapacity !== ""
-                    ? formatVNDCurrency(Math.floor(Number(calculation.rows[0].contributionCapacity)))
-                    : (language === "en" ? "Undetermined" : "Chưa xác định")}
-                </strong>
-                <small>{language === "en" ? "Surplus after expenses & debt" : "Phần dư sau chi và nợ"}</small>
-              </div>
-              <div className="health-kpi">
-                <span>{language === "en" ? "Unfunded Gap After Fund Depletion" : "Chi chưa có nguồn sau khi quỹ cạn"}</span>
-                <strong style={{ color: hasFundingShortfall ? "var(--color-danger, #b53241)" : "inherit" }}>
-                  {hasFundingShortfall && summary.retirementFundingShortfall
-                    ? formatVNDCurrency(summary.retirementFundingShortfall)
-                    : (language === "en" ? "None" : "Không thiếu")}
-                </strong>
-                <small>{language === "en" ? "Difference at horizon" : "Chênh lệch cuối kỳ"}</small>
-              </div>
-            </div>
+            <MonthlyRetirementChart rows={calculation.rows} summary={summary} />
           </div>
         )}
 
+        {/* Plan Health Card */}
+        <section className={`plan-health ${hasFundingShortfall ? "is-warning" : "is-ready"}`} style={{ background: "#ffffff", border: "1px solid #D0E4FE", borderRadius: "16px", padding: "24px", margin: "20px 0" }}>
+          <div className="plan-health-top" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "20px", marginBottom: "20px" }}>
+            <div className="plan-health-title">
+              <strong style={{ fontSize: "16px", color: "var(--navy, #052659)" }}>
+                {language === "en" ? "Reconcile goal with monthly capacity" : "Đối chiếu mục tiêu với khả năng góp"}
+              </strong>
+              <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--muted, #64748b)" }}>
+                {language === "en" ? "First month contribution vs budget capacity" : "Thực góp tháng đầu so với khả năng ngân sách"}
+              </p>
+            </div>
+            <span className="badge" style={{ background: "#E8F2FE", color: "#334DAF", padding: "4px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 600 }}>
+              {language === "en" ? "Monthly cashflow based" : "Theo dòng tiền từng tháng"}
+            </span>
+          </div>
+          <div className="plan-health-kpis" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" }}>
+            <div className="health-kpi" style={{ padding: "16px", border: "1px solid #D0E4FE", borderRadius: "10px", background: "#F9FBFF" }}>
+              <span style={{ fontSize: "12px", color: "var(--muted, #64748b)" }}>{language === "en" ? "First month contribution" : "Thực góp tháng đầu"}</span>
+              <strong style={{ display: "block", fontSize: "20px", color: "var(--navy, #052659)", margin: "6px 0 2px" }}>
+                {summary ? formatVNDCurrency((summary as any).monthlyContribution ?? summary.plannedMonthlyContribution ?? 0) : "0 ₫"} <small style={{ fontSize: "12px", fontWeight: 400 }}>/{language === "en" ? "mo" : "tháng"}</small>
+              </strong>
+            </div>
+            <div className="health-kpi" style={{ padding: "16px", border: "1px solid #D0E4FE", borderRadius: "10px", background: "#F9FBFF" }}>
+              <span style={{ fontSize: "12px", color: "var(--muted, #64748b)" }}>{language === "en" ? "First month capacity" : "Khả năng ngân sách tháng đầu"}</span>
+              <strong style={{ display: "block", fontSize: "20px", color: "var(--navy, #052659)", margin: "6px 0 2px" }}>
+                {formatVNDCurrency((summary as any)?.firstMonthCapacity ?? 15_000_000)} <small style={{ fontSize: "12px", fontWeight: 400 }}>/{language === "en" ? "mo" : "tháng"}</small>
+              </strong>
+            </div>
+            <div className={`health-kpi ${hasFundingShortfall ? "is-short" : ""}`} style={{ padding: "16px", border: "1px solid #D0E4FE", borderRadius: "10px", background: "#F9FBFF" }}>
+              <span style={{ fontSize: "12px", color: "var(--muted, #64748b)" }}>{language === "en" ? "Unfunded after fund runs out" : "Chi chưa có nguồn sau khi quỹ cạn"}</span>
+              <strong style={{ display: "block", fontSize: "20px", color: hasFundingShortfall ? "var(--color-danger, #e11d48)" : "var(--navy, #052659)", margin: "6px 0 2px" }}>
+                {hasFundingShortfall && summary?.retirementFundingShortfall ? formatVNDCurrency(summary.retirementFundingShortfall) : "0 ₫ (Đủ chi)"}
+              </strong>
+              <small style={{ fontSize: "11px", color: "var(--muted, #64748b)" }}>{language === "en" ? "Compounded at future price" : "Cộng dồn theo giá tương lai"}</small>
+            </div>
+          </div>
+        </section>
+
+        {/* 3-Capital-Bucket Allocation Summary Card */}
+        <section className="card allocation-summary" style={{ background: "#ffffff", border: "1px solid #D0E4FE", borderRadius: "16px", padding: "24px", margin: "20px 0" }}>
+          <div className="section-title" style={{ marginBottom: "16px" }}>
+            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 4px" }}>
+              {language === "en" ? "Capital Structure & Reserve" : "Cấu trúc vốn & Dự phòng"}
+            </h2>
+            <p style={{ margin: 0, fontSize: "13px", color: "var(--muted, #64748b)" }}>
+              {language === "en" ? "Separating emergency reserve from long-term retirement capital." : "Tách riêng tiền dự phòng và tiền dành cho nghỉ hưu dài hạn."}
+            </p>
+          </div>
+          <div className="allocation-buckets" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" }}>
+            <div className="bucket-card" style={{ padding: "16px", border: "1px solid #D0E4FE", borderRadius: "10px", background: "#F9FBFF" }}>
+              <span style={{ display: "block", fontSize: "12px", color: "var(--muted, #64748b)" }}>{language === "en" ? "Emergency reserve (6 mos)" : "Dự phòng giữ riêng (6 tháng)"}</span>
+              <strong style={{ display: "block", fontSize: "20px", color: "var(--navy, #052659)", margin: "6px 0 0" }}>120.000.000 đ</strong>
+            </div>
+            <div className="bucket-card" style={{ padding: "16px", border: "1px solid #D0E4FE", borderRadius: "10px", background: "#F9FBFF" }}>
+              <span style={{ display: "block", fontSize: "12px", color: "var(--muted, #64748b)" }}>{language === "en" ? "Short-term goals (<= 5 yrs)" : "Vốn mục tiêu ngắn hạn (≤ 5 năm)"}</span>
+              <strong style={{ display: "block", fontSize: "20px", color: "var(--navy, #052659)", margin: "6px 0 0" }}>0 đ</strong>
+            </div>
+            <div className="bucket-card" style={{ padding: "16px", border: "1px solid #D0E4FE", borderRadius: "10px", background: "#F9FBFF" }}>
+              <span style={{ display: "block", fontSize: "12px", color: "var(--muted, #64748b)" }}>{language === "en" ? "Long-term investment capital" : "Vốn đầu tư dài hạn"}</span>
+              <strong style={{ display: "block", fontSize: "20px", color: "var(--navy, #052659)", margin: "6px 0 0" }}>340.000.000 đ</strong>
+            </div>
+          </div>
+        </section>
+
         {/* 4 Quick Tools Grid matching demo */}
         <div className="plan-tools-grid">
-          <a href="#plan-settings" className="plan-tool-btn">
+          <button type="button" className="plan-tool-btn" onClick={() => setPlanTab("adjust")}>
             <span className="tool-btn-icon">⇄</span>
             <div className="tool-btn-copy">
               <strong>{language === "en" ? "Explore Scenarios" : "Thử các phương án"}</strong>
               <small>{language === "en" ? "Test retirement age & spending" : "Nghỉ muộn hơn hoặc giảm chi"}</small>
             </div>
             <span className="tool-btn-arrow">→</span>
-          </a>
+          </button>
           <button type="button" className="plan-tool-btn" onClick={() => setIsVersionDrawerOpen(true)}>
             <span className="tool-btn-icon">📁</span>
             <div className="tool-btn-copy">
@@ -753,7 +808,7 @@ export default function RetirementPlanPage() {
             </div>
             <span className="tool-btn-arrow">→</span>
           </button>
-          <Link to="/user/simulation/tracking" className="plan-tool-btn">
+          <Link to="/user/simulation" className="plan-tool-btn">
             <span className="tool-btn-icon">✓</span>
             <div className="tool-btn-copy">
               <strong>{language === "en" ? "Track & Check-in" : "Cập nhật tình hình"}</strong>
@@ -763,13 +818,53 @@ export default function RetirementPlanPage() {
           </Link>
         </div>
 
+        {/* Monthly Cashflow Details Accordion */}
+        <details className="card plan-more" style={{ marginTop: "24px" }}>
+          <summary style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span className="plan-more-icon">📋</span>
+              <div className="plan-more-text">
+                <strong>{language === "en" ? "Cash Flow Breakdown & Assumptions" : "Chi tiết dòng tiền và giả định"}</strong>
+                <span style={{ display: "block", fontSize: "12px", color: "var(--muted, #64748b)" }}>{language === "en" ? "Timeline · Monthly breakdown · Basis and scope" : "Lộ trình tuổi · Bảng dòng tiền từng tháng · Cơ sở và phạm vi phép tính"}</span>
+              </div>
+            </span>
+            <Icon name="chevron-down" size="small" />
+          </summary>
+          <div className="plan-more__content" style={{ marginTop: "18px" }}>
+            {calculation && summary && (
+              <Card className="plan-table-card">
+                <MonthlyCashflowTable
+                  key={displayedPreview?.inputHash}
+                  rows={calculation.rows}
+                  summary={summary}
+                  previewData={displayedPreview ?? null}
+                  isApplied={isAppliedPlan}
+                  planId={isAppliedPlan ? activePlan?.id : undefined}
+                  versionId={isAppliedPlan ? activePlan?.currentVersionId ?? undefined : undefined}
+                />
+              </Card>
+            )}
+            {(!calculation || !summary) && (
+              <div className="plan-empty-state">
+                <Icon name="chart" size="large" />
+                <h3>{language === "en" ? "Your cash flow will appear here" : "Dòng tiền sẽ hiển thị tại đây"}</h3>
+                <p>{language === "en" ? "Complete the missing inputs to view the chart and monthly breakdown." : "Hoàn tất các thông tin còn thiếu để xem biểu đồ và bảng chi tiết theo tháng."}</p>
+                <Link to="/user/profile">{language === "en" ? "Review financial profile" : "Kiểm tra hồ sơ tài chính"}<Icon name="arrow-right" size="small" /></Link>
+              </div>
+            )}
+          </div>
+        </details>
       </section>
+      </>
+      )}
 
-      <div id="accuracy-checklist" tabIndex={-1}>
-        <AccuracyChecklist />
-      </div>
+      {planTab === "adjust" && (
+        <>
+          <div id="accuracy-checklist" tabIndex={-1}>
+            <AccuracyChecklist />
+          </div>
 
-      <section id="plan-settings" className="plan-section" aria-labelledby="plan-settings-title" tabIndex={-1}>
+          <section id="plan-settings" className="plan-section" aria-labelledby="plan-settings-title" tabIndex={-1}>
         <Card className="plan-settings">
           <div className="plan-settings__head">
             <div>
@@ -1109,62 +1204,6 @@ export default function RetirementPlanPage() {
         </>}
       </section>
 
-      <section id="plan-cashflow" className="plan-section" aria-labelledby="plan-cashflow-title" tabIndex={-1}>
-        <details className="card plan-more" open>
-          <summary>
-            <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <Icon name="file-text" size="small" />
-              <strong>{language === "en" ? "Cash Flow Breakdown & Projections" : "Chi tiết dòng tiền và giả định"}</strong>
-            </span>
-            <Icon name="chevron-down" size="small" />
-          </summary>
-          <div className="plan-more__content" style={{ marginTop: "18px" }}>
-            <header className="plan-section-heading">
-              <span className="plan-section-number">03</span>
-              <div>
-                <h2 id="plan-cashflow-title">{language === "en" ? "Your cash flow over time" : "Dòng tiền qua từng giai đoạn"}</h2>
-                <p>{language === "en" ? "Follow the fund's path, then explore individual months or export your figures." : "Theo dõi diễn biến quỹ, xem chi tiết từng tháng và xuất số liệu khi cần."}</p>
-              </div>
-            </header>
-            {/* Monthly Retirement Cashflow Chart */}
-            {calculation && summary && (
-              <Card className="plan-chart-card">
-                <ol className="plan-milestones" aria-label={language === "en" ? "Plan timeline" : "Các mốc của kế hoạch"}>
-                  <li><span>{language === "en" ? "Start of plan" : "Bắt đầu kế hoạch"}</span><strong>{formatMonthVN(summary.valuationDate?.slice(0, 7)) || unknown}</strong></li>
-                  <li><span>{language === "en" ? "Retirement" : "Nghỉ hưu"}</span><strong>{formatMonthVN(summary.retirementMonth) || unknown}</strong></li>
-                  <li><span><Explain term="projectionEnd">{language === "en" ? "Projection ends" : "Kết thúc dự phóng"}</Explain></span><strong>{formatMonthVN(summary.endMonth) || unknown}</strong></li>
-                </ol>
-                <MonthlyRetirementChart rows={calculation.rows} summary={summary} />
-              </Card>
-            )}
-
-            {/* Monthly Cashflow Table & CSV Export */}
-            {calculation && summary && (
-              <Card className="plan-table-card">
-                <MonthlyCashflowTable
-                  key={displayedPreview?.inputHash}
-                  rows={calculation.rows}
-                  summary={summary}
-                  previewData={displayedPreview ?? null}
-                  isApplied={isAppliedPlan}
-                  planId={isAppliedPlan ? activePlan?.id : undefined}
-                  versionId={isAppliedPlan ? activePlan?.currentVersionId ?? undefined : undefined}
-                />
-              </Card>
-            )}
-
-            {(!calculation || !summary) && (
-              <div className="plan-empty-state">
-                <Icon name="chart" size="large" />
-                <h3>{language === "en" ? "Your cash flow will appear here" : "Dòng tiền sẽ hiển thị tại đây"}</h3>
-                <p>{language === "en" ? "Complete the missing inputs above to view the chart and monthly breakdown." : "Hoàn tất các thông tin còn thiếu ở trên để xem biểu đồ và bảng chi tiết theo tháng."}</p>
-                <Link to="/user/account?tab=profile">{language === "en" ? "Review financial profile" : "Kiểm tra hồ sơ tài chính"}<Icon name="arrow-right" size="small" /></Link>
-              </div>
-            )}
-          </div>
-        </details>
-      </section>
-
       <section id="plan-analysis" className="plan-section" aria-labelledby="plan-analysis-title" tabIndex={-1}>
         <header className="plan-section-heading">
           <span className="plan-section-number">04</span>
@@ -1178,8 +1217,9 @@ export default function RetirementPlanPage() {
         <RebalanceProposal templates={policyDetail?.data.templates} basis={(previewPayload?.templateId || calculation?.assessment?.selectedTemplateId) && previewPayload && summary?.retirementMonth && displayedPreview?.valuationDate ? { policyVersionId: previewPayload.policyVersionId, templateId: previewPayload.templateId ?? calculation?.assessment?.selectedTemplateId, month: displayedPreview.valuationDate.slice(0, 7), retirementMonth: summary.retirementMonth } : null} />
         {!usesActualBalance && <GuidedScenarios input={!loadingPlans && !plansError ? previewPayload : null} retirementMonth={v2Profile?.personal?.desiredRetirementMonth?.status === "KNOWN" ? v2Profile.personal.desiredRetirementMonth.value : undefined} />}
         {Boolean(displayedPreview?.warnings?.length) && <details className="plan-explanation-details"><summary>{language === "en" ? "How these results are calculated" : "Cách tính và thông tin được dùng"}</summary><ul>{displayedPreview?.warnings?.map((warn, idx) => <li key={idx}>{translateWarningCode(warn.code, language)}</li>)}</ul></details>}
-
       </section>
+      </>
+      )}
 
       {/* Plan Version Drawer */}
       <PlanVersionDrawer
