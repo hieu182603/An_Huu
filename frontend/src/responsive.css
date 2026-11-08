@@ -35,9 +35,35 @@ img { max-width: 100%; }
 .table-scroll, .admin-users-table-wrap, .business-table-scroll,
 .ai-source-table-scroll, .financial-table-scroll, .support-table-scroll,
 .audit-table-scroll, .comparison-table { position: relative; max-width: 100%; overflow-x: auto; }
-.user-sidebar, .admin-sidebar { position: sticky !important; top: 0 !important; height: 100dvh !important; z-index: 60 !important; }
+.user-sidebar, .admin-sidebar {
+  position: sticky !important;
+  top: 0 !important;
+  height: 100dvh !important;
+  z-index: 60 !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.user-sidebar::-webkit-scrollbar,
+.admin-sidebar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
 .user-topbar, .admin-topbar { position: sticky !important; top: 0 !important; z-index: 50 !important; }
-.user-sidebar nav, .admin-sidebar .admin-nav { min-height: 0; overflow-y: auto; flex: 1; align-content: start; }
+.user-sidebar nav, .admin-sidebar .admin-nav {
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1;
+  align-content: start;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.user-sidebar nav::-webkit-scrollbar,
+.admin-sidebar .admin-nav::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
 .user-sidebar-brand, .admin-sidebar-brand, .user-sidebar-footer, .admin-sidebar-footer, .sidebar-profile-progress { flex-shrink: 0; }
 .user-sidebar-footer > a { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 12px; color: var(--color-text-muted); border-radius: var(--radius-sm); font-size: 13px; }
 .user-sidebar-footer > a:hover { color: var(--color-primary-700); background: var(--color-soft); }

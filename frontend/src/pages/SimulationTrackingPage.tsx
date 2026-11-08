@@ -73,7 +73,11 @@ export { formatVNDText };
 const ActualsTab = lazy(() => import("./simulation/ActualsTab"));
 const WHAT_IF_DEBOUNCE_MS = 400;
 
-export default function SimulationTrackingPage() {
+interface SimulationTrackingPageProps {
+  defaultTab?: "actuals" | "what-if";
+}
+
+export default function SimulationTrackingPage({ defaultTab = "actuals" }: SimulationTrackingPageProps = {}) {
   const { t, language } = useI18n();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -83,7 +87,8 @@ export default function SimulationTrackingPage() {
 
   // Top level active tab: T08 (What-If & Compare) vs T09 (Actual Ledger & Reforecast)
   const [params, setParams] = useSearchParams();
-  const activeTab = params.get("tab") === "actuals" ? "actuals" : "what-if";
+  const tabParam = params.get("tab");
+  const activeTab = tabParam === "what-if" ? "what-if" : tabParam === "actuals" ? "actuals" : defaultTab;
   // Set by the actuals tab while it is writing, so the tab switch cannot interrupt a save.
   const [actualsBusy, setActualsBusy] = useState(false);
   // Once opened, the actuals tab stays mounted (hidden) so unsaved ledger input
@@ -339,44 +344,23 @@ export default function SimulationTrackingPage() {
 
   return (
     <>
-      <nav className="goal-breadcrumb" aria-label="Breadcrumb" style={{ marginBottom: "16px" }}>
-        <Link to="/user/plan" style={{ color: "var(--color-primary-700, #334DAF)", textDecoration: "none" }}>
-          {language === "en" ? "Retirement Plan" : "Kế hoạch nghỉ hưu"}
+      <nav className="breadcrumb" aria-label={language === "en" ? "Breadcrumb" : "Đường dẫn trang"} style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
+        <Link to="/user/plan" className="btn-breadcrumb" style={{ color: "var(--color-primary-700, #334DAF)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px", fontWeight: 500 }}>
+          ← {language === "en" ? "Retirement Plan" : "Kế hoạch nghỉ hưu"}
         </Link>
-        <span className="separator" style={{ margin: "0 8px", color: "#64748B" }}>&gt;</span>
-        <span style={{ color: "#64748B" }}>
-          {activeTab === "actuals" ? (language === "en" ? "Track & Check-in" : "Cập nhật tình hình") : (language === "en" ? "What-if Simulation" : "Thử nghiệm kịch bản")}
+        <span className="sep" style={{ color: "#94A3B8" }}>/</span>
+        <span aria-current="page" style={{ color: "#64748B", fontWeight: 600 }}>
+          {language === "en" ? "Track & Check-in" : "Cập nhật tình hình"}
         </span>
       </nav>
 
-      <div className="phase-page-header">
-        <div>
-          <Badge tone="soft">{language === "en" ? "ADVANCED ANALYTICS" : "CÔNG CỤ NÂNG CAO"}</Badge>
-          <h1>{t("simulation.page_title")}</h1>
-          <p>{t("simulation.page_subtitle")}</p>
-        </div>
-
-        {/* Segmented View Switcher */}
-        <div className="phase-view-switcher" aria-label={language === "en" ? "Switch view" : "Chuyển chế độ"}>
-          <button
-            type="button"
-            className={activeTab === "what-if" ? "is-active" : ""}
-            aria-pressed={activeTab === "what-if"}
-            disabled={applying || actualsBusy}
-            onClick={() => setActiveTab("what-if")}
-          >
-            <Icon name="sparkles" size="small" /> {language === "en" ? "Scenario Testing (What-if)" : "Thử thay đổi kế hoạch"}
-          </button>
-          <button
-            type="button"
-            className={activeTab === "actuals" ? "is-active" : ""}
-            aria-pressed={activeTab === "actuals"}
-            disabled={applying || actualsBusy}
-            onClick={() => setActiveTab("actuals")}
-          >
-            <Icon name="chart" size="small" /> {language === "en" ? "Track progress" : "Theo dõi tiến độ"}
-          </button>
-        </div>
+      <div className="heading" style={{ marginBottom: "24px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 6px" }}>
+          {language === "en" ? "Is your plan still on track?" : "Kế hoạch có còn phù hợp?"}
+        </h1>
+        <p style={{ fontSize: "15px", color: "var(--muted, #64748B)", margin: 0 }}>
+          {language === "en" ? "Only update when your income, spending or goals change." : "Chỉ cần cập nhật khi thu nhập, chi tiêu hoặc mục tiêu thay đổi."}
+        </p>
       </div>
 
       {Boolean(activePlan?.actualSourceChanged) && (
@@ -395,7 +379,7 @@ export default function SimulationTrackingPage() {
       {/* ========================================================= */}
       {/* TAB 1: THỬ NGHIỆM KỊCH BẢN & SO SÁNH (FE-T08)             */}
       {/* ========================================================= */}
-      {activeTab === "actuals" && <p className="flow-note">{language === "en" ? "Record contributions, withdrawals and investment gains or losses for the month, then check the closing balance. Recalculating uses these saved records to update the remaining plan." : "Ghi tiền góp, tiền rút và lãi hoặc lỗ đầu tư trong tháng, rồi kiểm tra số dư cuối tháng có khớp không. Sau khi lưu, bạn có thể tính lại phần kế hoạch còn lại từ số liệu này."} <Link to="/user/plan">{language === "en" ? "View current plan" : "Xem kế hoạch đang dùng"}</Link></p>}
+
       {activeTab === "what-if" && !currentVersion && !loadingPlans && <Alert tone="info" title={language === "en" ? "Choose a plan first" : "Cần có kế hoạch đang dùng để so sánh"}>
         {language === "en" ? "Set your goal and use a plan before trying changes." : "Hãy đặt mục tiêu và chọn dùng một kế hoạch trước khi thử thay đổi."} <Link to="/user/plan">{language === "en" ? "Open plan" : "Mở Kế hoạch"}</Link>
       </Alert>}

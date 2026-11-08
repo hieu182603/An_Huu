@@ -40,7 +40,7 @@ export default function UserLayout() {
 
   const userNavItems: UserNavItem[] = [
     { path: "/user/dashboard", label: t("nav.dashboard"), icon: "home" },
-    { path: "/user/account", label: language === "en" ? "Your finances" : "Tài chính của bạn", icon: "wallet" },
+    { path: "/user/profile", label: language === "en" ? "Your finances" : "Tài chính của bạn", icon: "wallet" },
     { path: "/user/goal", label: t("nav.goal"), icon: "target" },
     { path: "/user/plan", label: t("nav.plan"), icon: "compass" },
     { path: "/user/risk-portfolio", label: t("nav.risk_portfolio"), icon: "shield" },

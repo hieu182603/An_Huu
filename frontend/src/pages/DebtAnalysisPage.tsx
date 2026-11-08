@@ -247,7 +247,7 @@ export default function DebtAnalysisPage() {
     <div className="debt-page-container">
       {/* Breadcrumb Navigation */}
       <nav className="breadcrumb" aria-label="Đường dẫn trang" style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--muted, #456B91)", marginBottom: "4px" }}>
-        <Link to="/user/account" className="btn-breadcrumb" style={{ color: "var(--primary, #334DAF)", textDecoration: "none", fontWeight: 600 }}>
+        <Link to="/user/profile" className="btn-breadcrumb" style={{ color: "var(--primary, #334DAF)", textDecoration: "none", fontWeight: 600 }}>
           ← {language === "en" ? "Your finances" : "Tài chính của bạn"}
         </Link>
         <span className="sep" style={{ color: "var(--border, #D0E4FE)" }}>/</span>
@@ -268,139 +268,6 @@ export default function DebtAnalysisPage() {
         </div>
       </div>
 
-      {/* 1. HERO COMMAND BANNER */}
-      <motion.section
-        className="debt-hero-card"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-      >
-        <div className="debt-hero-ambient" />
-
-        <div className="debt-hero-content">
-          <span className="debt-hero-eyebrow">
-            <Icon name="shield" size="small" />
-            {language === "en" ? "DEBT MANAGEMENT & RETIREMENT CASHFLOW" : "QUẢN TRỊ NỢ VÀ DÒNG TIỀN HƯU TRÍ"}
-          </span>
-
-          <div className="debt-hero-title" style={{ fontSize: "24px", fontWeight: 700, color: "#fff", margin: "0 0 10px" }}>
-            {t("debt.page_title")}
-          </div>
-
-          <p className="debt-hero-description">
-            {t("debt.page_subtitle")}
-          </p>
-
-          <div className="debt-hero-pills">
-            <div className="debt-hero-pill">
-              <span>{language === "en" ? "Total debt:" : "Tổng dư nợ:"}</span>
-              <strong>{formatCurrency(totalDebtBalance, language)}</strong>
-            </div>
-
-            <div className="debt-hero-pill">
-              <span>{language === "en" ? "Monthly payment:" : "Trả nợ trong tháng:"}</span>
-              <strong>{formatCurrency(totalMonthlyPayment, language)}</strong>
-            </div>
-
-            <div className="debt-hero-pill">
-              <span>{language === "en" ? "Active Loans:" : "Khoản vay quản lý:"}</span>
-              <strong>{debtEntries.length} {language === "en" ? "loans" : "khoản"}</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Gauge */}
-        <div className="debt-hero-visual">
-          <div className="debt-dti-ring-container">
-            <svg className="debt-dti-svg" viewBox="0 0 160 160">
-              <circle
-                cx="80"
-                cy="80"
-                r="68"
-                fill="none"
-                stroke="rgba(255, 255, 255, 0.12)"
-                strokeWidth="12"
-              />
-              <circle
-                cx="80"
-                cy="80"
-                r="68"
-                fill="none"
-                stroke={
-                  effectiveDti === null
-                    ? "rgba(255, 255, 255, 0.25)"
-                    : effectiveDti < 30
-                    ? "#10B981"
-                    : effectiveDti <= 50
-                    ? "#F59E0B"
-                    : "#EF4444"
-                }
-                strokeWidth="12"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                style={{
-                  transition: "stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.4s ease",
-                  filter:
-                    effectiveDti !== null && effectiveDti < 30
-                      ? "drop-shadow(0 0 6px rgba(16, 185, 129, 0.4))"
-                      : effectiveDti !== null && effectiveDti <= 50
-                      ? "drop-shadow(0 0 6px rgba(245, 158, 11, 0.4))"
-                      : "drop-shadow(0 0 6px rgba(239, 68, 68, 0.4))",
-                }}
-              />
-            </svg>
-
-            <div className="debt-dti-center">
-              <span className={`debt-dti-number ${isDtiLong ? "is-compact" : ""}`}>
-                {dtiText}
-              </span>
-              <span className="debt-dti-label">{language === "en" ? "DTI INDEX" : "Chỉ số DTI"}</span>
-            </div>
-          </div>
-
-          <span className={`debt-dti-badge ${dtiStatusClass}`}>
-            <span className="status-pulse" />
-            {dtiStatusLabel}
-          </span>
-
-          <p className="debt-hero-visual-footer">
-            {effectiveDti === null
-              ? (language === "en"
-                  ? "Input your debt balances and income to calculate financial leverage and DTI ratio."
-                  : "Nhập số dư nợ và thu nhập để tính toán đòn bẩy tài chính và chỉ số DTI.")
-              : effectiveDti < 30
-              ? (language === "en"
-                  ? "Debt level is healthy. You can comfortably accumulate assets for retirement."
-                  : "Áp lực nợ ở mức lành mạnh, an tâm tích lũy tài sản cho mục tiêu hưu trí.")
-              : effectiveDti <= 50
-              ? (language === "en"
-                  ? "Consider accelerating principal payoff to free up cash flow for investments."
-                  : "Cần cân nhắc tăng cường chi trả bớt nợ gốc để giải phóng dòng tiền đầu tư.")
-              : (language === "en"
-                  ? "High debt pressure. Consider applying the Avalanche or Snowball strategy immediately."
-                  : "Khoản trả nợ đang chiếm tỷ lệ cao trong thu nhập. Hãy so sánh các cách trả nợ bên dưới trước khi chọn phương án.")}
-          </p>
-        </div>
-      </motion.section>
-
-      {/* Profile v1 Warning */}
-      {schemaVersion !== 2 && (
-        <Alert
-          tone="warning"
-          title={language === "en" ? "Financial profile requires detailed information" : "Hồ sơ tài chính cần bổ sung thông tin chi tiết"}
-          action={
-            <Button variant="primary" size="small" onClick={handleUpgrade} loading={isUpgrading}>
-              {language === "en" ? "Add detailed profile info" : "Bổ sung thông tin hồ sơ chi tiết"}
-            </Button>
-          }
-        >
-          {language === "en"
-            ? "Detailed debt payoff analysis requires comprehensive profile information to accurately determine personal debt obligations, maturity schedules, and early payoff terms."
-            : "Để phân tích trả nợ chi tiết, vui lòng bổ sung thông tin hồ sơ chi tiết nhằm xác định chính xác nghĩa vụ trả nợ cá nhân, lịch đáo hạn và điều khoản trả nợ trước hạn."}
-        </Alert>
-      )}
-
       {/* Notice about unknown contract schedules */}
       {hasUnknownContracts && debtEntries.length > 0 && (
         <Alert
@@ -415,10 +282,10 @@ export default function DebtAnalysisPage() {
 
       {/* 2. LOAN PORTFOLIO LIST & PLAN IMPACT */}
       <section className="card" style={{ background: "var(--white, #fff)", border: "1px solid var(--border, #D0E4FE)", borderRadius: "var(--r-lg, 24px)", padding: "28px" }}>
-        <div className="section-title" style={{ marginBottom: "16px" }}>
+        <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
           <div>
             <div style={{ fontSize: "22px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 6px" }}>
-              {language === "en" ? "Debts & loans" : "Chi tiết các khoản vay"}
+              {language === "en" ? "Debts" : "Khoản nợ"}
             </div>
             <p className="muted small" style={{ margin: 0, color: "var(--muted, #456B91)", fontSize: "13px" }}>
               {language === "en"
@@ -426,6 +293,9 @@ export default function DebtAnalysisPage() {
                 : "Tiền trả nợ hàng tháng được trừ khỏi ngân sách có thể tích lũy. Khi thêm khoản, chọn tách từ số tổng đã nhập hoặc cộng khoản mới. Phần còn lại được tính tự động."}
             </p>
           </div>
+          <Button variant="secondary" size="small" onClick={() => openLoan()}>
+            <Icon name="plus" size="small" /> {language === "en" ? "Add loan" : "Thêm khoản nợ"}
+          </Button>
         </div>
 
         {debtEntries.length === 0 ? (

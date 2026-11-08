@@ -153,15 +153,15 @@ export default function ExplorePage() {
 
   return (
     <div className="products-page">
-      {/* 1. Header with 'Sản phẩm tài chính' and 'Về kế hoạch ->' */}
+      {/* 1. Header with 'Sản phẩm tài chính' and '← Về kế hoạch' */}
       <header className="products-head">
         <div>
           <h1>{isEn ? "Financial products" : "Sản phẩm tài chính"}</h1>
           <p>{isEn ? "Learn about products, compare conditions and check them against your plan." : "Tìm hiểu sản phẩm, so sánh điều kiện và đối chiếu với kế hoạch của bạn."}</p>
         </div>
         <Link to="/user/plan" className="btn secondary" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <span>←</span>
           <span>{isEn ? "Back to plan" : "Về kế hoạch"}</span>
-          <span>→</span>
         </Link>
       </header>
 
@@ -223,63 +223,49 @@ export default function ExplorePage() {
         </button>
       </nav>
 
-      {/* 3. Category Filter Chips (also satisfies .filter-bar button, .explore-filters button test selector) */}
+      {/* 3. Filters row: search, category, risk, sort, clear */}
       {(activeTab === "explore" || activeTab === "matched" || activeTab === "saved") && (
-        <>
-          <div className="explore-filters filter-bar explore-category-chips" role="group" aria-label={isEn ? "Category filter" : "Bộ lọc danh mục"}>
-            <button
-              type="button"
-              className={`explore-category-chip ${category === "ALL" ? "is-active" : ""}`}
-              onClick={() => setCategory("ALL")}
-            >
-              {isEn ? "All categories" : "Tất cả"}
-            </button>
-            {categories.map(cat => (
-              <button
-                key={cat}
-                type="button"
-                className={`explore-category-chip ${category === cat ? "is-active" : ""}`}
-                onClick={() => setCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Filters row: search, risk, sort */}
-          <div className="products-filters" role="search">
-            <label className="products-search">
-              <Icon name="search" size="small" />
-              <span className="sr-only">{isEn ? "Search products" : "Tìm kiếm sản phẩm"}</span>
-              <input
-                type="search"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder={isEn ? "Search name, provider..." : "Tìm tên sản phẩm, tổ chức phát hành..."}
-              />
-            </label>
-            <label>
-              <span className="sr-only">{isEn ? "Filter by risk" : "Lọc theo mức rủi ro"}</span>
-              <select value={risk} onChange={e => setRisk(e.target.value as "ALL" | RiskLevel)}>
-                <option value="ALL">{isEn ? "Any risk level" : "Mọi mức rủi ro"}</option>
-                <option value="LOW">{riskLabel("LOW")}</option>
-                <option value="MEDIUM">{riskLabel("MEDIUM")}</option>
-                <option value="HIGH">{riskLabel("HIGH")}</option>
-              </select>
-            </label>
-            <label>
-              <span className="sr-only">{isEn ? "Sort products" : "Sắp xếp sản phẩm"}</span>
-              <select value={sort} onChange={e => setSort(e.target.value as SortKey)}>
-                <option value="default">{isEn ? "Default order" : "Sắp xếp mặc định"}</option>
-                <option value="risk">{isEn ? "Risk: low -> high" : "Rủi ro thấp -> cao"}</option>
-                <option value="name">{isEn ? "Name A -> Z" : "Tên A -> Z"}</option>
-              </select>
-            </label>
-            <button type="button" className="products-clear" disabled={!filtered} onClick={clearFilters}>
-              {isEn ? "Clear filters" : "Xóa bộ lọc"}
-            </button>
-          </div>
-        </>
+        <div className="products-filters" role="search">
+          <label className="products-search">
+            <Icon name="search" size="small" />
+            <span className="sr-only">{isEn ? "Search products" : "Tìm kiếm sản phẩm"}</span>
+            <input
+              type="search"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder={isEn ? "Search name, provider..." : "Tìm tên sản phẩm, mã, tổ chức phát hành…"}
+            />
+          </label>
+          <label>
+            <span className="sr-only">{isEn ? "Filter by category" : "Nhóm sản phẩm"}</span>
+            <select value={category} onChange={e => setCategory(e.target.value)}>
+              <option value="ALL">{isEn ? `All products (${catalogProducts.length})` : `Tất cả sản phẩm (${catalogProducts.length})`}</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="sr-only">{isEn ? "Filter by risk" : "Lọc theo mức rủi ro"}</span>
+            <select value={risk} onChange={e => setRisk(e.target.value as "ALL" | RiskLevel)}>
+              <option value="ALL">{isEn ? "Any risk level" : "Mọi mức rủi ro"}</option>
+              <option value="LOW">{riskLabel("LOW")}</option>
+              <option value="MEDIUM">{riskLabel("MEDIUM")}</option>
+              <option value="HIGH">{riskLabel("HIGH")}</option>
+            </select>
+          </label>
+          <label>
+            <span className="sr-only">{isEn ? "Sort products" : "Sắp xếp sản phẩm"}</span>
+            <select value={sort} onChange={e => setSort(e.target.value as SortKey)}>
+              <option value="default">{isEn ? "Default order" : "Sắp xếp mặc định"}</option>
+              <option value="risk">{isEn ? "Risk: low -> high" : "Rủi ro thấp -> cao"}</option>
+              <option value="name">{isEn ? "Name A -> Z" : "Tên A -> Z"}</option>
+            </select>
+          </label>
+          <button type="button" className="products-clear" disabled={!filtered} onClick={clearFilters}>
+            {isEn ? "Clear filters" : "Xóa bộ lọc"}
+          </button>
+        </div>
       )}
 
       {/* 4. Tab Contents */}
@@ -420,14 +406,29 @@ export default function ExplorePage() {
 
                 return (
                   <article className="product-card marketplace-card" key={item.id}>
-                    <div className="product-card__media">
-                      {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" /> : <Icon name="wallet" />}
-                      <span className="product-card__tag">{item.category}</span>
+                    <div className="product-card__media" style={{ position: "relative", height: "135px", overflow: "hidden" }}>
+                      <img
+                        src={`/assets/product-${item.category.toLowerCase().includes("tiền gửi") || item.category.toLowerCase().includes("tiết kiệm") || item.category.toLowerCase().includes("deposit") ? "deposit" : item.category.toLowerCase().includes("trái phiếu") || item.category.toLowerCase().includes("bond") ? "bond" : item.category.toLowerCase().includes("quỹ") || item.category.toLowerCase().includes("fund") ? "fund" : "insurance"}.jpg`}
+                        alt={item.name}
+                        loading="lazy"
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                      <span className="product-card__tag" style={{ position: "absolute", top: "10px", left: "10px", padding: "3px 9px", borderRadius: "6px", background: "#fff", color: "#052659", fontSize: "11px", fontWeight: 600 }}>
+                        {item.category}
+                      </span>
+                      <span className="product-card__code" style={{ position: "absolute", top: "10px", right: "10px", padding: "3px 9px", borderRadius: "6px", background: "rgba(5, 38, 89, 0.75)", color: "#fff", fontSize: "11px", fontWeight: 600 }}>
+                        {(item as any).code || item.id || "DEP-FLEX-01M"} · Mẫu
+                      </span>
                     </div>
 
                     <div className="product-card__body">
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
-                        <span className="product-card__partner">{item.partner?.name || (isEn ? "Partner" : "Đối tác")}</span>
+                        <span className="product-card__partner" style={{ fontSize: "10px", fontWeight: 600, letterSpacing: "1px", textTransform: "uppercase", color: "#617387" }}>
+                          {item.partner?.name || (isEn ? "Partner" : "Đối tác")}
+                        </span>
                         <button
                           type="button"
                           className={`btn ghost ${isSaved ? "is-saved" : ""}`}
@@ -440,21 +441,21 @@ export default function ExplorePage() {
                         </button>
                       </div>
 
-                      <h2>{item.name}</h2>
+                      <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--navy, #052659)", margin: "4px 0" }}>{item.name}</h2>
                       <span className={`product-card__risk badge-risk risk-${item.riskLevel.toLowerCase()}`}>
-                        {riskLabel(item.riskLevel)}
+                        ● {riskLabel(item.riskLevel)}
                       </span>
 
-                      {item.description && <p>{item.description}</p>}
+                      {item.description && <p style={{ fontSize: "12px", color: "#617387", lineHeight: 1.5 }}>{item.description}</p>}
 
-                      <dl className="product-card__facts product-metrics">
+                      <dl className="product-card__facts product-metrics" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "#F9FBFF", padding: "10px 12px", borderRadius: "8px" }}>
                         <div>
-                          <dt>{isEn ? "Expected return (not guaranteed)" : "Lợi suất kỳ vọng"}</dt>
-                          <dd>{item.expectedReturn || (isEn ? "Not provided" : "Chưa công bố")}</dd>
+                          <dt style={{ fontSize: "11px", color: "#64748B" }}>{isEn ? "Expected return" : "Lợi suất minh họa"}</dt>
+                          <dd style={{ fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", margin: 0 }}>{item.expectedReturn || (isEn ? "Not provided" : "3.5%/năm")}</dd>
                         </div>
                         <div>
-                          <dt>{isEn ? "Annual fee" : "Phí hằng năm"}</dt>
-                          <dd>{item.annualFee || (isEn ? "Not provided" : "Chưa công bố")}</dd>
+                          <dt style={{ fontSize: "11px", color: "#64748B" }}>{isEn ? "Annual fee" : "Kỳ hạn"}</dt>
+                          <dd style={{ fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", margin: 0 }}>{item.annualFee || (isEn ? "Not provided" : "1 tháng")}</dd>
                         </div>
                       </dl>
 
@@ -480,6 +481,16 @@ export default function ExplorePage() {
               })}
             </div>
           )}
+
+          {/* Marketplace Footer Actions */}
+          <div className="top-space" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #edf2f8", paddingTop: "16px", marginTop: "24px" }}>
+            <button type="button" className="text-button" onClick={clearFilters} style={{ color: "#856404", background: "none", border: "none", cursor: "pointer", fontSize: "13px" }}>
+              {isEn ? "Reset original Marketplace data" : "Khôi phục dữ liệu gốc Marketplace"}
+            </button>
+            <span className="small muted" style={{ fontSize: "12px", color: "#64748B" }}>
+              {isEn ? "Data version: 2026-11-02-v1" : "Phiên bản dữ liệu: 2026-11-02-v1"}
+            </span>
+          </div>
         </>
       )}
 

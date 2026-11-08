@@ -394,3 +394,64 @@
   }
 }
 
+/* Overview Metrics matching Demo clarity.css */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.metric-tile {
+  position: relative;
+  border: 1px solid #D0E4FE;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 22px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.metric-tile > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+.metric-tile-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--muted, #64748b);
+  font-weight: 500;
+}
+.metric-tile strong {
+  font-size: 24px;
+  color: #052659;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.metric-tile small {
+  font-size: 12px;
+  color: var(--muted, #64748b);
+}
+.metric-tile.projected {
+  border-top: 3px solid #334DAF;
+  background: #f0f6ff;
+}
+.metric-tile.target {
+  border-top: 3px solid #7c3aed;
+  background: #faf5ff;
+}
+.metric-tile.positive, .metric-tile.capacity {
+  border-top: 3px solid #10b981;
+  background: #f0fdf4;
+}
+@media (max-width: 768px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+

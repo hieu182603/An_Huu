@@ -1,1023 +1,312 @@
-import PlanSyncStatus from "../components/PlanSyncStatus";
-import { profileDisplayStatus } from "../services/profileDisplay";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { motion } from "motion/react";
-import { Alert, Badge, Button, Card, Icon, Input, Tooltip } from "../components/ui";
+import { Card, Icon } from "../components/ui";
 import CurrencyInput from "../components/CurrencyInput";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
-import { fetchUserAssumptions } from "../services/assumptions";
 import { useI18n } from "../i18n";
-import { formatNumberWithDots, formatVND } from "../utils/currency";
-import { Explain, type ExplainSource } from "../components/explanations/ExplainMode";
 import "./retirement-goal.css";
 
+const digits = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+function triple(n: number, full: boolean) {
+  const h = Math.floor(n / 100), t = Math.floor(n / 10) % 10, u = n % 10;
+  const a: string[] = [];
+  if (h || full) a.push(digits[h], 'trăm');
+  if (t > 1) a.push(digits[t], 'mươi'); else if (t === 1) a.push('mười'); else if (u && (h || full)) a.push('lẻ');
+  if (u) a.push(u === 1 && t > 1 ? 'mốt' : u === 5 && t > 0 ? 'lăm' : digits[u]);
+  return a.join(' ');
+}
+function moneyWords(value: number): string {
+  const n = Number(value);
+  if (!Number.isSafeInteger(n) || n < 0 || n > 1e15) return '';
+  if (n === 0) return 'Không đồng';
+  let rest = n;
+  const chunks: number[] = [];
+  while (rest > 0) { chunks.push(rest % 1000); rest = Math.floor(rest / 1000); }
+  const units = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ'];
+  const a: string[] = [];
+  for (let i = chunks.length - 1; i >= 0; i--) {
+    if (chunks[i]) a.push(triple(chunks[i], i < chunks.length - 1 && chunks[i] < 100), units[i]);
+  }
+  const text = a.filter(Boolean).join(' ') + ' đồng';
+  return text[0].toUpperCase() + text.slice(1);
+}
+
+function formatMonthDisplay(ym: string): string {
+  if (!ym || ym.length < 7) return "";
+  return `${ym.slice(5, 7)}/${ym.slice(0, 4)}`;
+}
+
+function prevMonthText(ym: string): string {
+  if (!ym || ym.length < 7) return "";
+  const year = parseInt(ym.slice(0, 4), 10);
+  const month = parseInt(ym.slice(5, 7), 10);
+  if (month === 1) return `12/${year - 1}`;
+  const m = String(month - 1).padStart(2, "0");
+  return `${m}/${year}`;
+}
+
 export default function RetirementGoalPage() {
-  const { t, language } = useI18n();
+  const { language } = useI18n();
   const navigate = useNavigate();
-  const { profile, v2Profile, updateProfileV2, saveStatus, saveError } = useFinancialProfile();
-  const cashflowKnown = profileDisplayStatus(v2Profile).surplus;
-  const { synchronization, currentVersion, loadingPlans, plansError, refreshPlans, draftSelection, updateDraft } = useRetirementPlan();
+  const { profile, v2Profile, updateProfileV2 } = useFinancialProfile();
+  const { currentVersion, draftSelection, updateDraft, loadingPlans } = useRetirementPlan();
 
   const [isSaving, setIsSaving] = useState(false);
-  const saving = useRef(false);
-  const fields = useRef<HTMLFieldSetElement>(null);
 
-  // Check valid age from profile
-  const hasValidProfileAge = Number.isFinite(profile.personal.age) && profile.personal.age >= 18 && profile.personal.age <= 74;
-  const [currentAge, setCurrentAge] = useState<number>(hasValidProfileAge ? profile.personal.age : 0);
+  // Birth date / month
+  const initialBirth = v2Profile?.personal.birthMonth?.status === "KNOWN" ? v2Profile.personal.birthMonth.value : "1991-11";
+  const [birthDate, setBirthDate] = useState<string>(initialBirth.length === 7 ? `${initialBirth}-15` : initialBirth);
+
+  const birthYear = useMemo(() => {
+    const y = parseInt(birthDate.slice(0, 4), 10);
+    return isNaN(y) ? 1991 : y;
+  }, [birthDate]);
+
+  const currentYear = new Date().getFullYear();
+  const currentAge = Math.max(18, currentYear - birthYear);
 
   // Target retirement age
-  const [targetAge, setTargetAge] = useState<number>(
-    profile.goal.targetRetireAge >= 18
-      ? profile.goal.targetRetireAge
-      : Math.max(60, hasValidProfileAge ? profile.personal.age + 5 : 60)
-  );
+  const [targetAge, setTargetAge] = useState<number>(() => {
+    if (profile.goal.targetRetireAge >= 18) return profile.goal.targetRetireAge;
+    return 60;
+  });
 
-  const [lifestyle, setLifestyle] = useState<"standard" | "comfortable" | "affluent">(profile.goal.lifestyle || "comfortable");
+  // Monthly expense
+  const [monthlyExpenseInRetirement, setMonthlyExpenseInRetirement] = useState<number>(() => {
+    if (profile.goal.monthlyExpenseInRetirement > 0) return profile.goal.monthlyExpenseInRetirement;
+    return 15_000_000;
+  });
 
-  // Monthly expense in retirement
-  const currentTotalExpense = profile.expenses.essentialExpense + profile.expenses.lifestyleExpense;
-  const initialExpense = profile.goal.monthlyExpenseInRetirement > 0
-    ? profile.goal.monthlyExpenseInRetirement
-    : currentTotalExpense;
-  const [monthlyExpenseInRetirement, setMonthlyExpenseInRetirement] = useState<number>(initialExpense);
+  // Valuation month
+  const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
+  const [valuationMonth, setValuationMonth] = useState<string>(currentMonth);
 
-  // Macro assumptions
-  const [assumptionsStatus, setAssumptionsStatus] = useState<"loading" | "published" | "unconfigured" | "error">("loading");
-  const [assumptionsAttempt, setAssumptionsAttempt] = useState(0);
+  // End month
+  const [endMonth, setEndMonth] = useState<string>(() => {
+    const endY = birthYear + 85;
+    const m = birthDate.slice(5, 7) || "11";
+    return `${endY}-${m}`;
+  });
 
-  const [lifeExpectancy, setLifeExpectancy] = useState<number>(
-    profile.goal.lifeExpectancy > targetAge ? profile.goal.lifeExpectancy : Math.max(80, targetAge + 15)
-  );
-  const edited = useRef(false);
-  useEffect(() => {
-    if (loadingPlans || edited.current) return;
-    const selection = { ...currentVersion?.preview.selection, ...draftSelection };
-    const birth = v2Profile?.personal.birthMonth;
-    const birthYear = birth?.status === "KNOWN" ? Number(birth.value.slice(0, 4)) : null;
-    const retirementMonth = draftSelection?.whatIf?.retirementMonth ?? (v2Profile?.personal.desiredRetirementMonth.status === "KNOWN" ? v2Profile.personal.desiredRetirementMonth.value : selection.whatIf?.retirementMonth ?? currentVersion?.preview.calculation?.summary.retirementMonth);
-    setCurrentAge(profile.personal.age);
-    if (birthYear && retirementMonth) setTargetAge(Number(retirementMonth.slice(0, 4)) - birthYear);
-    if (birthYear && selection.endMonth) setLifeExpectancy(Number(selection.endMonth.slice(0, 4)) - birthYear);
-    if (selection.monthlyExpenseToday !== undefined) setMonthlyExpenseInRetirement(Number(selection.monthlyExpenseToday));
-  }, [loadingPlans, currentVersion?.id, draftSelection, v2Profile?.personal.birthMonth, profile.personal.age]);
-  const [preparedInput, setPreparedInput] = useState("");
-  const [validationError, setValidationError] = useState("");
-  const [validationField, setValidationField] = useState("");
-  const inputKey = JSON.stringify([currentAge, targetAge, lifeExpectancy, lifestyle, monthlyExpenseInRetirement]);
+  // Lifestyle priority
+  const [lifestylePriority, setLifestylePriority] = useState<string>("unknown");
 
-  useEffect(() => { setValidationError(""); setValidationField(""); }, [inputKey]);
+  // Computed retirement month
+  const retirementMonth = useMemo(() => {
+    const rYear = birthYear + targetAge;
+    const m = birthDate.slice(5, 7) || "11";
+    return `${rYear}-${m}`;
+  }, [birthYear, targetAge, birthDate]);
 
-  useEffect(() => {
-    let active = true;
-    setAssumptionsStatus("loading");
-    fetchUserAssumptions()
-      .then((res) => {
-        if (!active) return;
-        if (res.status === "AVAILABLE" && res.items.length > 0) {
-          setAssumptionsStatus("published");
-        } else {
-          setAssumptionsStatus("unconfigured");
-        }
-      })
-      .catch(() => {
-        if (active) setAssumptionsStatus("error");
-      });
-    return () => { active = false; };
-  }, [assumptionsAttempt]);
+  const retirementMonthText = formatMonthDisplay(retirementMonth);
 
-  const yearsLeft = Math.max(0, targetAge - (currentAge || 18));
-  const retirementDuration = Math.max(0, lifeExpectancy - targetAge);
-
-  const planSummary = synchronization.preview?.calculation?.summary;
-  const estimatedTargetFund = planSummary?.atRetirement.requiredFund != null ? Number(planSummary.atRetirement.requiredFund) : null;
-  const currentSurplus = profile.income.primaryIncome + profile.income.secondaryIncome - currentTotalExpense - (profile.debt.hasDebt ? profile.debt.monthlyDebtService : 0);
-
-  const explanationSource: ExplainSource | null = synchronization.changed && synchronization.input
-    ? { kind: "PREVIEW", input: synchronization.input }
-    : currentVersion
-      ? { kind: "PLAN_VERSION", planId: currentVersion.planId, versionId: currentVersion.id }
-      : null;
-  const fail = (field: string, message: string, focus = true) => {
-    setValidationField(field); setValidationError(message);
-    if (focus) fields.current?.querySelector<HTMLInputElement>(field === 'expense' ? '.goal-spending-field input' : `#goal-${field}`)?.focus();
-    return false;
+  const handleBirthDateChange = (val: string) => {
+    setBirthDate(val);
+    const y = parseInt(val.slice(0, 4), 10);
+    const m = val.slice(5, 7) || "11";
+    if (!isNaN(y)) {
+      setEndMonth(`${y + 85}-${m}`);
+    }
   };
 
-  const handleSaveGoal = async (automatic = false) => {
-    if (loadingPlans || saving.current || saveStatus === "saving") return false;
-    if (!Number.isInteger(currentAge) || currentAge < 18 || currentAge > 74) {
-      const err = language === "en"
-        ? "Current age must be a whole number between 18 and 74."
-        : "Tuổi hiện tại phải là số nguyên từ 18 đến 74.";
-      return fail('current-age', err, !automatic);
-    }
-    if (!Number.isInteger(targetAge) || targetAge < currentAge || targetAge > 75) {
-      const err = language === "en"
-        ? "Target retirement age must be a whole number from your current age up to 75."
-        : "Tuổi nghỉ hưu mục tiêu phải là số nguyên từ tuổi hiện tại đến 75.";
-      return fail('target-age', err, !automatic);
-    }
-    if (!Number.isInteger(lifeExpectancy) || lifeExpectancy <= targetAge || lifeExpectancy > 110) {
-      const err = language === "en"
-        ? "Plan end age must be a whole number above retirement age and no greater than 110."
-        : "Tuổi kết thúc kế hoạch phải là số nguyên, lớn hơn tuổi nghỉ hưu và không vượt quá 110.";
-      return fail('life-age', err, !automatic);
-    }
-    if (!Number.isSafeInteger(monthlyExpenseInRetirement) || monthlyExpenseInRetirement <= 0) {
-      const err = language === "en"
-        ? "Enter a positive whole VND amount within the supported numeric range."
-        : "Nhập số tiền nguyên dương trong giới hạn số được hỗ trợ.";
-      return fail('expense', err, !automatic);
-    }
-    setValidationError("");
-
-    // Sync retirement month into v2 profile
-    const birthMonthStr = v2Profile?.personal.birthMonth?.status === "KNOWN" ? v2Profile.personal.birthMonth.value : null;
-    const birthYear = birthMonthStr
-      ? parseInt(birthMonthStr.slice(0, 4), 10)
-      : new Date().getFullYear() - currentAge;
-    if (v2Profile && (!birthMonthStr || currentAge !== profile.personal.age)) {
-      setValidationError(language === "en" ? "Update your birth month in Financial Profile first." : "Hãy cập nhật tháng sinh trong Hồ sơ tài chính trước khi tiếp tục.");
-      return false;
-    }
-    // Persist only the field covered by the profile contract. Goal assumptions
-    // remain a session preview until the user saves a plan version.
-    const savedSelection = { ...currentVersion?.preview.selection, ...draftSelection };
-    const savedRetirementMonth = savedSelection.whatIf?.retirementMonth ?? currentVersion?.preview.calculation?.summary.retirementMonth;
-    const retirementMonth = savedRetirementMonth && Number(savedRetirementMonth.slice(0, 4)) - birthYear === targetAge
-      ? savedRetirementMonth
-      : targetAge === profile.goal.targetRetireAge && v2Profile?.personal.desiredRetirementMonth.status === "KNOWN"
-        ? v2Profile.personal.desiredRetirementMonth.value
-        : `${birthYear + targetAge}-${birthMonthStr?.slice(5, 7) || "12"}`;
-    const endMonth = savedSelection.endMonth && Number(savedSelection.endMonth.slice(0, 4)) - birthYear === lifeExpectancy
-      ? savedSelection.endMonth : `${birthYear + lifeExpectancy}-${birthMonthStr?.slice(5, 7) || "12"}`;
-    saving.current = true; setIsSaving(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
     try {
-      if (v2Profile && (v2Profile.personal.desiredRetirementMonth.status !== "KNOWN" || v2Profile.personal.desiredRetirementMonth.value !== retirementMonth)) {
-        const saved = await updateProfileV2({
-          personal: { ...v2Profile.personal, desiredRetirementMonth: { status: "KNOWN", value: retirementMonth } },
+      if (updateDraft) {
+        updateDraft({
+          monthlyExpenseToday: String(monthlyExpenseInRetirement),
+          endMonth,
+          whatIf: {
+            retirementMonth,
+          },
         });
-        if (!saved) {
-          setValidationError(language === "en" ? "Could not save retirement date. Your inputs are unchanged; please retry." : "Chưa lưu được thời điểm nghỉ hưu. Dữ liệu nhập vẫn được giữ; hãy thử lại.");
-          return false;
-        }
       }
-      const mergedWhatIf = { ...currentVersion?.preview.selection.whatIf, ...draftSelection?.whatIf };
-      if (v2Profile) {
-        delete mergedWhatIf.retirementMonth;
-      } else if (retirementMonth) {
-        mergedWhatIf.retirementMonth = retirementMonth;
-      }
-      const hasWhatIf = Boolean(
-        (mergedWhatIf.retirementMonth && mergedWhatIf.retirementMonth.trim() !== "") ||
-        (Array.isArray(mergedWhatIf.assetValues) && mergedWhatIf.assetValues.length > 0)
-      );
-
-      updateDraft({
-        monthlyExpenseToday: String(monthlyExpenseInRetirement),
-        endMonth,
-        whatIf: hasWhatIf ? mergedWhatIf : undefined,
-      });
-
-      setPreparedInput(inputKey);
-      return true;
-    } catch {
-      setValidationError(language === "en" ? "Changes could not be saved. Keep this page open and try Preview again." : "Chưa lưu được thay đổi. Hãy giữ trang này và bấm Xem trước kế hoạch để thử lại.");
-      return false;
-    } finally { saving.current = false; setIsSaving(false); }
-  };
-
-  const latestSave = useRef(handleSaveGoal);
-  latestSave.current = handleSaveGoal;
-  const attemptedInput = useRef("");
-  useEffect(() => {
-    if (!edited.current || loadingPlans || isSaving || saveStatus === "saving" || preparedInput === inputKey || attemptedInput.current === inputKey) return;
-    const timer = window.setTimeout(() => {
-      attemptedInput.current = inputKey;
-      void latestSave.current(true);
-    }, 800);
-    return () => window.clearTimeout(timer);
-  }, [inputKey, loadingPlans, isSaving, saveStatus, preparedInput]);
-
-  const handleProceedToPlan = async () => {
-    if (await handleSaveGoal()) navigate("/user/plan");
+      navigate("/user/plan");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <>
-      <nav className="goal-breadcrumb breadcrumb" aria-label="Breadcrumb">
-        <Link to="/user/dashboard">{language === "en" ? "Overview" : "Tổng quan"}</Link>
-        <span className="crumb-separator">/</span>
-        <span className="crumb-current">{language === "en" ? "Retirement Goals" : "Mục tiêu nghỉ hưu"}</span>
+    <div className="content" style={{ maxWidth: "960px", margin: "0 auto", padding: "36px 20px" }}>
+      <nav className="breadcrumb" aria-label="Đường dẫn trang" style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+        <Link to="/user/dashboard" className="btn-breadcrumb" style={{ border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", padding: "6px 12px", background: "none", color: "var(--navy, #052659)", fontSize: "13px", fontWeight: 500, textDecoration: "none" }}>
+          ← {language === "en" ? "Overview" : "Tổng quan"}
+        </Link>
+        <span className="sep" style={{ color: "var(--muted, #64748b)" }}>/</span>
+        <span aria-current="page" style={{ fontSize: "13px", color: "var(--navy, #052659)", fontWeight: 600 }}>
+          {language === "en" ? "Retirement Goals" : "Mục tiêu nghỉ hưu"}
+        </span>
       </nav>
 
-      <div className="retirement-page-header goal-page-head">
-        <div className="retirement-header-main">
-          <span className="eyebrow" style={{ display: "block", color: "#456B91", fontSize: "12px", fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: "6px" }}>
-            {language === "en" ? "YOUR RETIREMENT TIMELINE" : "MỐC THỜI GIAN & MỨC SỐNG"}
-          </span>
-          <h1>
-            <Explain term="retirementGoal">
-              {language === "en" ? "Mục tiêu nghỉ hưu" : "Mục tiêu nghỉ hưu"}
-            </Explain>
-          </h1>
-          <p>{language === "en" ? "Choose your timeline, living standard, and preparation horizon." : "Chọn mốc thời gian, mức sống và thời gian cần chuẩn bị quỹ."}</p>
-        </div>
+      <div className="page-head" style={{ marginBottom: "24px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 8px" }}>
+          {language === "en" ? "Retirement goals" : "Mục tiêu nghỉ hưu"}
+        </h1>
+        <p style={{ color: "var(--muted, #64748b)", fontSize: "14px", margin: 0 }}>
+          {language === "en" ? "Choose your timeline, living standard, and preparation horizon." : "Chọn mốc thời gian, mức sống và thời gian cần chuẩn bị quỹ."}</p>
       </div>
 
-      {!hasValidProfileAge && !v2Profile && (
-        <div style={{ marginBottom: "var(--space-4)" }}>
-          <Alert
-            tone="warning"
-            title={language === "en" ? "Profile missing age information" : "Hồ sơ tài chính chưa có thông tin tuổi"}
-          >
-            {language === "en" ? (
-              <>
-                Your current age is not declared. Please enter your age below (18 to 74) for accurate calculation, or{" "}
-                <Link to="/onboarding" style={{ textDecoration: "underline", fontWeight: 600 }}>
-                  complete the initial survey
-                </Link>.
-              </>
-            ) : (
-              <>
-                Bạn chưa khai báo tuổi hiện tại trong hồ sơ tài chính. Vui lòng nhập số tuổi hiện tại bên dưới (18 đến 74 tuổi) để thuật toán tính toán chính xác, hoặc{" "}
-                <Link to="/onboarding" style={{ textDecoration: "underline", fontWeight: 600 }}>
-                  hoàn thành bảng khảo sát ban đầu
-                </Link>.
-              </>
-            )}
-          </Alert>
-        </div>
-      )}
+      {/* Card: Mục tiêu của bạn */}
+      <Card className="card" style={{ padding: "28px", borderRadius: "16px", marginBottom: "20px" }}>
+        <header style={{ marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--navy, #052659)", margin: 0 }}>
+            {language === "en" ? "Your goal" : "Mục tiêu của bạn"}
+          </h2>
+        </header>
 
-      <div className="goal-layout">
-        {/* Left Column: Form & Timeline */}
-        <motion.div
-          className="goal-form-column"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-        >
-          <fieldset onChange={() => { edited.current = true; }} onClick={() => { edited.current = true; }} ref={fields} className="goal-edit-fields" disabled={loadingPlans}>
-          {/* Section 1: Age Controls */}
-          <Card className="goal-form-card">
-            <header>
-              <span className="form-section-index">01</span>
-              <div>
-                <h2>
-                  <Explain term="retirementAge">
-                    {language === "en" ? "Desired Retirement Age Milestones" : "Mốc tuổi nghỉ hưu mong muốn"}
-                  </Explain>
-                </h2>
-                <p>{language === "en" ? "Adjust current age and the point you want to stop full-time work." : "Điều chỉnh tuổi hiện tại và thời điểm bạn muốn ngừng làm việc toàn thời gian."}</p>
-              </div>
-            </header>
-
-            <div className="age-controls-grid">
-              {/* Card 1: Tuổi hiện tại */}
-              <div className="age-control-card">
-                <div className="age-card-header">
-                  <div className="age-card-title-group">
-                    <span className="age-card-icon-pill">
-                      <Icon name="users" size="small" />
-                    </span>
-                    <span className="age-card-title">
-                      <Explain term="currentAge">
-                        {language === "en" ? "Your Current Age" : "Tuổi hiện tại của bạn"}
-                      </Explain>
-                    </span>
-                  </div>
-                  <span className="age-card-badge">
-                    <Explain term="currentAge">
-                      {language === "en" ? "Starting Point" : "Mốc bắt đầu"}
-                    </Explain>
-                  </span>
-                </div>
-
-                <div className="age-stepper-cluster">
-                  <button
-                    type="button"
-                    className="age-stepper-btn"
-                    aria-label={language === "en" ? "Decrease age by 1" : "Giảm 1 tuổi"}
-                    disabled={Boolean(v2Profile) || currentAge <= 18}
-                    onClick={() => setCurrentAge(Math.max(18, currentAge - 1))}
-                  >
-                    <Icon name="chevron-left" />
-                  </button>
-
-                  <div className="age-number-display-wrap">
-                    <input
-                      type="number"
-                      id="goal-current-age"
-                      disabled={Boolean(v2Profile)}
-                      aria-invalid={validationField === 'current-age'}
-                      aria-describedby={validationField === 'current-age' ? 'goal-current-error' : undefined}
-                      min={18}
-                      max={74}
-                      value={currentAge || ""}
-                      onChange={(e) => setCurrentAge(Number(e.target.value))}
-                      className="age-hero-number-input"
-                      aria-label={language === "en" ? "Enter your current age" : "Nhập tuổi hiện tại của bạn"}
-                      title={language === "en" ? "Click to enter age directly" : "Bấm để nhập số tuổi trực tiếp"}
-                    />
-                    <span className="age-hero-unit">
-                      <Explain term="currentAge" value={`${currentAge} ${language === "en" ? "years" : "tuổi"}`}>
-                        {language === "en" ? "years" : "tuổi"}
-                      </Explain>
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="age-stepper-btn"
-                    aria-label={language === "en" ? "Increase age by 1" : "Tăng 1 tuổi"}
-                    disabled={Boolean(v2Profile) || currentAge >= 74}
-                    onClick={() => setCurrentAge(Math.min(74, Math.max(18, currentAge + 1)))}
-                  >
-                    <Icon name="chevron-right" />
-                  </button>
-                </div>
-
-                {validationField === 'current-age' && <p id="goal-current-error" className="goal-field-error">{validationError}</p>}
-                <div className="age-card-footer-pill">
-                  <Icon name="info" size="small" />
-                  <Explain term="currentAge">
-                    <span>{language === "en" ? "Birth year:" : "Năm sinh:"} <strong>{v2Profile?.personal.birthMonth.status === "KNOWN" ? v2Profile.personal.birthMonth.value.slice(0, 4) : currentAge >= 18 ? `${new Date().getFullYear() - currentAge} (${language === "en" ? "estimate" : "ước tính"})` : "-"}</strong></span>
-                  </Explain>
-                </div>
-              </div>
-
-              {/* Card 2: Tuổi dự kiến nghỉ hưu */}
-              <div className="age-control-card is-highlight">
-                <div className="age-card-header">
-                  <div className="age-card-title-group">
-                    <span className="age-card-icon-pill">
-                      <Icon name="target" size="small" />
-                    </span>
-                    <span className="age-card-title">
-                      <Explain term="retirementAge">
-                        {language === "en" ? "Target Retirement Age" : "Tuổi dự kiến nghỉ hưu"}
-                      </Explain>
-                    </span>
-                  </div>
-                  <span className="age-card-badge is-highlight">
-                    <Explain term="retirementAge">
-                      {language === "en" ? "Target" : "Mục tiêu"}
-                    </Explain>
-                  </span>
-                </div>
-
-                <div className="age-stepper-cluster">
-                  <button
-                    type="button"
-                    className="age-stepper-btn"
-                    aria-label={language === "en" ? "Decrease retirement age" : "Giảm 1 tuổi hưu"}
-                    disabled={targetAge <= currentAge}
-                    onClick={() => setTargetAge(Math.max(currentAge, targetAge - 1))}
-                  >
-                    <Icon name="chevron-left" />
-                  </button>
-
-                  <div className="age-number-display-wrap">
-                    <input
-                      type="number"
-                      id="goal-target-age"
-                      aria-invalid={validationField === 'target-age'}
-                      aria-describedby={validationField === 'target-age' ? 'goal-target-error' : undefined}
-                      min={currentAge}
-                      max={75}
-                      value={targetAge || ""}
-                      onChange={(e) => setTargetAge(Number(e.target.value))}
-                      className="age-hero-number-input"
-                      aria-label={language === "en" ? "Enter target retirement age" : "Nhập tuổi dự kiến nghỉ hưu"}
-                      title={language === "en" ? "Click to enter age directly" : "Bấm để nhập số tuổi trực tiếp"}
-                    />
-                    <span className="age-hero-unit">
-                      <Explain term="retirementAge" value={`${targetAge} ${language === "en" ? "years" : "tuổi"}`}>
-                        {language === "en" ? "years" : "tuổi"}
-                      </Explain>
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="age-stepper-btn"
-                    aria-label={language === "en" ? "Increase retirement age" : "Tăng 1 tuổi hưu"}
-                    disabled={targetAge >= 75}
-                    onClick={() => setTargetAge(Math.min(75, Math.max(currentAge, targetAge + 1)))}
-                  >
-                    <Icon name="chevron-right" />
-                  </button>
-                </div>
-
-                {validationField === 'target-age' && <p id="goal-target-error" className="goal-field-error">{validationError}</p>}
-                <div className="age-card-footer-pill is-highlight">
-                  <Icon name="target" size="small" />
-                  <Explain term="accumulationPeriod">
-                    <span>
-                      {language === "en"
-                        ? `Accumulation duration: ${yearsLeft} years (retiring in ${new Date().getFullYear() + yearsLeft})`
-                        : `Thời gian tích lũy: ${yearsLeft} năm (về hưu năm ${new Date().getFullYear() + yearsLeft})`}
-                    </span>
-                  </Explain>
-                </div>
-                <p className="retirement-estimate">
-                  {v2Profile?.personal.birthMonth?.status === "KNOWN"
-                    ? `Dự kiến nghỉ hưu: tháng ${v2Profile.personal.birthMonth.value.slice(5)}/${Number(v2Profile.personal.birthMonth.value.slice(0, 4)) + targetAge}`
-                    : `Dự kiến nghỉ hưu: năm ${new Date().getFullYear() + yearsLeft}`}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          {/* Section 2: Lifestyle Choice */}
-          <Card className="goal-form-card">
-            <header>
-              <span className="form-section-index">02</span>
-              <div>
-                <h2>
-                  <Explain term="lifestyle">
-                    {language === "en" ? "Retirement Lifestyle & Spending" : "Mức sống & Chi tiêu khi nghỉ hưu"}
-                  </Explain>
-                </h2>
-                <p>{language === "en" ? "Choose living standards aligned with your vision of life in retirement." : "Lựa chọn tiêu chuẩn sinh hoạt phù hợp với định hướng cuộc sống tuổi hưu của bạn."}</p>
-              </div>
-            </header>
-
-            <div className="lifestyle-options">
-              {(() => {
-                const baseExp = currentTotalExpense;
-                return (
-                  <>
-                    <button
-                      type="button"
-                      className={lifestyle === "standard" ? "is-selected" : ""} aria-pressed={lifestyle === "standard"}
-                      disabled={baseExp <= 0}
-                      onClick={() => {
-                        setLifestyle("standard");
-                        setMonthlyExpenseInRetirement(Math.round(baseExp * 0.75));
-                      }}
-                    >
-                      <span><Icon name="home" /></span>
-                      <strong>
-                        <Explain term="lifestyleFrugal">
-                          {language === "en" ? "Frugal & Modest" : "Tiết kiệm & Giản dị"}
-                        </Explain>
-                      </strong>
-                      <small>
-                        {language === "en"
-                          ? "Approx 75% of current expenses. Essential living, peaceful family life in suburban areas."
-                          : "Khoảng 75% chi tiêu hiện tại. Ăn uống cơ bản, sinh hoạt gia đình tại vùng ngoại ô."}
-                      </small>
-                      {lifestyle === "standard" && <Icon name="check" />}
-                    </button>
-
-                    <button
-                      type="button"
-                      className={lifestyle === "comfortable" ? "is-selected" : ""} aria-pressed={lifestyle === "comfortable"}
-                      disabled={baseExp <= 0}
-                      onClick={() => {
-                        setLifestyle("comfortable");
-                        setMonthlyExpenseInRetirement(baseExp);
-                      }}
-                    >
-                      <span><Icon name="sparkles" /></span>
-                      <strong>
-                        <Explain term="lifestyleComfortable">
-                          {language === "en" ? "Comfortable & Independent" : "Thoải mái & Độc lập"}
-                        </Explain>
-                      </strong>
-                      <small>
-                        {language === "en"
-                          ? "Maintain 100% current living standards, domestic travel, proactive healthcare."
-                          : "Duy trì 100% mức sống hiện tại, du lịch trong nước, chăm sóc sức khỏe chủ động."}
-                      </small>
-                      {lifestyle === "comfortable" && <Icon name="check" />}
-                    </button>
-
-                    <button
-                      type="button"
-                      className={lifestyle === "affluent" ? "is-selected" : ""} aria-pressed={lifestyle === "affluent"}
-                      disabled={baseExp <= 0}
-                      onClick={() => {
-                        setLifestyle("affluent");
-                        setMonthlyExpenseInRetirement(Math.round(baseExp * 1.4));
-                      }}
-                    >
-                      <span><Icon name="compass" /></span>
-                      <strong>
-                        <Explain term="lifestyleLuxury">
-                          {language === "en" ? "Abundant & Exploring" : "Thảnh thơi & Khám phá"}
-                        </Explain>
-                      </strong>
-                      <small>
-                        {language === "en"
-                          ? "Approx 140% of current expenses. Frequent vacations, premium wellness and leisure."
-                          : "Khoảng 140% chi tiêu hiện tại. Du lịch thường xuyên, điều dưỡng tiện nghi cao cấp."}
-                      </small>
-                      {lifestyle === "affluent" && <Icon name="check" />}
-                    </button>
-                  </>
-                );
-              })()}
-            </div>
-
-            {currentTotalExpense <= 0 && <p>{language === "en" ? "No current spending is available for these suggestions. Enter your desired expense below." : "Chưa có chi tiêu hiện tại để tính các mức gợi ý. Hãy nhập mức chi tiêu mong muốn bên dưới."}</p>}
-            <div className="goal-spending-field">
-              <CurrencyInput
-                label={
-                  <Explain term="expenseToday">
-                    <span>{language === "en" ? "Projected monthly retirement expense (at today's price)" : "Mức chi tiêu dự kiến mỗi tháng (theo thời giá hiện tại)"}</span>
-                  </Explain>
-                }
-                labelAction={
-                  <Tooltip content={language === "en" ? "System automatically compounds annual future inflation into fund calculations." : "Hệ thống tự động cộng dồn lạm phát tương lai theo năm vào công thức tính quỹ."}>
-                    <button
-                      type="button"
-                      className="field-help-icon"
-                      style={{
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: 44,
-                        height: 44,
-                        border: 0,
-                        borderRadius: "50%",
-                        background: "rgba(5, 38, 89, 0.08)",
-                        color: "var(--color-primary-700)",
-                      }}
-                      aria-label={language === "en" ? "About expense inflation" : "Thông tin bổ sung về lạm phát chi tiêu"}
-                    >
-                      <Icon name="info" size="small" />
-                    </button>
-                  </Tooltip>
-                }
-                value={monthlyExpenseInRetirement || 0}
-                error={validationField === 'expense' ? validationError : undefined}
-                onChange={setMonthlyExpenseInRetirement}
-                suffix={language === "en" ? "VND / month" : "VND / tháng"}
-                helper={language === "en" ? "Average monthly amount desired to cover all living costs in old age." : "Số tiền trung bình bạn muốn có mỗi tháng để chi trả toàn bộ chi phí cuộc sống tuổi già."}
+        <form onSubmit={handleSubmit}>
+          {/* Row 1: Ngày sinh & Tuổi nghỉ hưu */}
+          <div className="goal-card-two-col two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <div className="field">
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
+                {language === "en" ? "Date of birth" : "Ngày tháng năm sinh"}
+              </label>
+              <input
+                type="date"
+                className="input"
+                value={birthDate}
+                onChange={e => handleBirthDateChange(e.target.value)}
+                style={{ width: "100%", height: "44px", padding: "0 14px", border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", fontSize: "14px" }}
               />
             </div>
-
-            <p className="flow-note">{language === "en" ? "Future purchasing power is calculated using the published annual assumption series on the Plan screen." : "Chi tiêu tương lai được tính theo chuỗi giả định từng năm tại trang Kế hoạch; không dùng tỷ lệ 0% thay cho dữ liệu chưa tải."}</p>
-
-          </Card>
-
-          {/* Section 3: Assumptions */}
-          <Card className="goal-form-card">
-            <header>
-              <span className="form-section-index">03</span>
-              <div>
-                <h2>
-                  <Explain term="pinnedAssumptions">
-                    {language === "en" ? "Assumptions & Plan Horizon" : "Giả định & Thời hạn kế hoạch"}
-                  </Explain>
-                </h2>
-                <p>{language === "en" ? "Foundational metrics to ensure financial projections reflect long-term reality." : "Các chỉ số nền tảng giúp kế hoạch tài chính phản ánh đúng thực tế theo thời gian."}</p>
+            <div className="field">
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
+                {language === "en" ? "What age do you want to retire?" : "Bạn muốn nghỉ hưu năm bao nhiêu tuổi?"}
+              </label>
+              <div style={{ position: "relative" }}>
+                <input
+                  type="number"
+                  className="input"
+                  min={18}
+                  max={80}
+                  value={targetAge}
+                  onChange={e => setTargetAge(Number(e.target.value) || 60)}
+                  style={{ width: "100%", height: "44px", padding: "0 44px 0 14px", border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", fontSize: "14px" }}
+                />
+                <span style={{ position: "absolute", right: "12px", top: "12px", fontSize: "13px", color: "var(--muted, #64748b)" }}>tuổi</span>
               </div>
-            </header>
-
-            {assumptionsStatus === "loading" && <p role="status">{language === "en" ? "Loading assumptions…" : "Đang tải giả định…"}</p>}
-            {assumptionsStatus === "error" && <Alert tone="warning" title={language === "en" ? "Could not load assumptions" : "Chưa tải được giả định"} action={<Button onClick={() => setAssumptionsAttempt(value => value + 1)}>{language === "en" ? "Retry assumptions" : "Tải lại giả định"}</Button>}>{language === "en" ? "Publication status could not be checked." : "Chưa kiểm tra được trạng thái công bố. Vui lòng thử lại."}</Alert>}
-            {assumptionsStatus === "unconfigured" && (
-              <div style={{ margin: "var(--space-4) 0" }}>
-                <Alert
-                  tone="info"
-                  title={language === "en" ? "No official macro assumption series published" : "Chưa có chuỗi giả định vĩ mô được phê duyệt"}
-                >
-                  {language === "en"
-                    ? "No annual assumptions are available. You can prepare inputs; projection requires a published series."
-                    : "Chưa có chuỗi giả định theo năm. Bạn có thể chuẩn bị đầu vào; việc dự phóng cần chuỗi đã công bố."}
-                </Alert>
-              </div>
-            )}
-
-            <div className="assumptions-container">
-              {/* 2 Cards: Lạm phát & Lợi suất */}
-              <div className="assumptions-cards-grid">
-                <div className="assumption-metric-box">
-                  <div className="assumption-metric-header">
-                    <span className="assumption-metric-label">
-                      <Explain term="inflation">
-                        {language === "en" ? "Long-Term Inflation" : "Lạm phát dài hạn"}
-                      </Explain>
-                    </span>
-                    <span className="assumption-tag-badge">
-                      {assumptionsStatus === "published"
-                        ? (language === "en" ? "Macro Standard" : "Chuẩn hóa vĩ mô")
-                        : (language === "en" ? "Not confirmed" : "Chưa xác nhận")}
-                    </span>
-                  </div>
-                  <div className="assumption-metric-value">
-                    <Explain term="inflation">
-                      <span className="rate-num rate-text">{language === "en" ? "By year" : "Theo từng năm"}</span>
-                      <span className="rate-unit">{language === "en" ? "/ year" : "/ năm"}</span>
-                    </Explain>
-                  </div>
-                  <p className="assumption-metric-desc">
-                    {language === "en"
-                      ? "Select a published annual assumption series on the Plan screen."
-                      : "Chọn chuỗi giả định theo năm đã công bố tại trang Kế hoạch."}
-                  </p>
-                </div>
-
-                <div className="assumption-metric-box">
-                  <div className="assumption-metric-header">
-                    <span className="assumption-metric-label">
-                      <Explain term="returnRate">
-                        {language === "en" ? "Expected Investment Return" : "Lợi suất đầu tư kỳ vọng"}
-                      </Explain>
-                    </span>
-                    <span className="assumption-tag-badge is-green">
-                      {assumptionsStatus === "published"
-                        ? (language === "en" ? "Published assumptions" : "Có chuỗi công bố")
-                        : (language === "en" ? "Not confirmed" : "Chưa xác nhận")}
-                    </span>
-                  </div>
-                  <div className="assumption-metric-value">
-                    <Explain term="returnRate">
-                      <span className="rate-num rate-green rate-text">{language === "en" ? "By portfolio" : "Theo danh mục"}</span>
-                      <span className="rate-unit">{language === "en" ? "/ year" : "/ năm"}</span>
-                    </Explain>
-                  </div>
-                  <p className="assumption-metric-desc">
-                    {language === "en"
-                      ? "Depends on the portfolio and assumptions selected on the Plan screen."
-                      : "Phụ thuộc danh mục và giả định được chọn tại trang Kế hoạch."}
-                  </p>
-                </div>
-              </div>
-
-              {/* Plan horizon */}
-              <div className="life-expectancy-card">
-                <div className="life-expectancy-input-side">
-                  <div className="life-expectancy-header">
-                    <span className="life-expectancy-title">
-                      <Explain term="lifeExpectancy">
-                        {language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}
-                      </Explain>
-                    </span>
-                  </div>
-
-                  <p id="goal-end-age-help">{language === "en" ? "The age through which this plan projects income and expenses; this is not a prediction of your lifespan." : "Mốc tuổi để tính thu chi đến cuối kế hoạch, không phải dự đoán tuổi thọ của bạn."}</p>
-                  <div className="life-expectancy-controls-row">
-                    <div className="life-expectancy-stepper-wrap">
-                      <button
-                        type="button"
-                        className="life-stepper-btn"
-                        aria-label={language === "en" ? "Decrease plan end age" : "Giảm 1 tuổi kết thúc kế hoạch"}
-                        disabled={lifeExpectancy <= targetAge + 1}
-                        onClick={() => setLifeExpectancy((prev) => Math.max(targetAge + 1, prev - 1))}
-                      >
-                        <Icon name="chevron-left" />
-                      </button>
-
-                      <div className="life-stepper-display">
-                        <input
-                          type="number"
-                          id="goal-life-age"
-                          aria-invalid={validationField === 'life-age'}
-                          aria-describedby={validationField === 'life-age' ? 'goal-end-age-help goal-life-error' : 'goal-end-age-help'}
-                          min={targetAge + 1}
-                          max={110}
-                          value={lifeExpectancy || ""}
-                          onChange={(e) => setLifeExpectancy(Number(e.target.value))}
-                          className="life-stepper-input"
-                          aria-label={language === "en" ? "Plan end age" : "Tuổi kết thúc kế hoạch"}
-                          title={language === "en" ? "Click to enter age directly" : "Bấm để nhập số tuổi trực tiếp"}
-                        />
-                        <span className="life-stepper-unit">
-                          <Explain term="lifeExpectancy" value={`${lifeExpectancy} ${language === "en" ? "years" : "tuổi"}`}>
-                            {language === "en" ? "years" : "tuổi"}
-                          </Explain>
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="life-stepper-btn"
-                        aria-label={language === "en" ? "Increase plan end age" : "Tăng 1 tuổi kết thúc kế hoạch"}
-                        disabled={lifeExpectancy >= 110}
-                        onClick={() => setLifeExpectancy((prev) => Math.min(110, Math.max(targetAge + 1, prev + 1)))}
-                      >
-                        <Icon name="chevron-right" />
-                      </button>
-                    </div>
-
-                    <div className="life-expectancy-presets">
-                      {[75, 80, 85, 90].map((presetAge) => {
-                        if (presetAge <= targetAge) return null;
-                        const isActive = lifeExpectancy === presetAge;
-                        return (
-                          <button
-                            key={presetAge}
-                            type="button"
-                            className={`life-preset-chip ${isActive ? "is-active" : ""}`}
-                            onClick={() => setLifeExpectancy(presetAge)}
-                            aria-pressed={isActive}
-                          >
-                            {presetAge} {language === "en" ? "yrs" : "tuổi"}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {validationField === 'life-age' && <p id="goal-life-error" className="goal-field-error">{validationError}</p>}
-                  <p className="life-expectancy-helper">
-                    {language === "en"
-                      ? `Projected retirement income stream needed across ${retirementDuration} years.`
-                      : `Dự kiến bạn sẽ cần nguồn thu nhập hưu trí trong suốt ${retirementDuration} năm.`}
-                  </p>
-                </div>
-                <div className="life-expectancy-pill-metric">
-                  <div className="pill-metric-icon">
-                    <Icon name="compass" />
-                  </div>
-                  <div className="pill-metric-content">
-                    <span className="pill-metric-label">
-                      <Explain term="retirementPeriod">
-                        {language === "en" ? "Retirement Duration" : "Thời gian hưởng hưu"}
-                      </Explain>
-                    </span>
-                    <div className="pill-metric-val">
-                      <Explain term="retirementPeriod" value={`${retirementDuration} ${language === "en" ? "years" : "năm"}`}>
-                        <strong>{retirementDuration}</strong> <span>{language === "en" ? "years" : "năm"}</span>
-                      </Explain>
-                    </div>
-                    <small>
-                      {language === "en"
-                        ? `From age ${targetAge} to age ${lifeExpectancy}`
-                        : `Từ tuổi ${targetAge} đến tuổi ${lifeExpectancy}`}
-                    </small>
-                  </div>
-                </div>
-              </div>
-
-              {/* Info Note */}
-              <div className="assumption-note-banner">
-                <span className="note-banner-icon"><Icon name="info" /></span>
-                <p>
-                  {language === "en"
-                    ? "An Huu algorithms automatically compound annual inflation to safeguard real purchasing power throughout retirement."
-                    : "Thuật toán An Hưu tự động tính toán lạm phát tích lũy theo từng năm nhằm đảm bảo sức mua thực tế của dòng tiền trong suốt giai đoạn hưu trí."}
-                </p>
-              </div>
+              <p style={{ fontSize: "12px", color: "var(--primary, #334DAF)", margin: "6px 0 0" }}>
+                {language === "en" ? `Projected retirement: month ${retirementMonthText}` : `Dự kiến nghỉ hưu: tháng ${retirementMonthText}`}
+              </p>
             </div>
-          </Card>
+          </div>
 
-          {/* Timeline Card */}
-          <Card className="goal-timeline-card">
-            <header>
-              <div>
-                <h2>
-                  <Explain term="timeline">
-                    {language === "en" ? "Life Milestones Trajectory" : "Lộ trình các mốc thời gian cuộc đời"}
-                  </Explain>
-                </h2>
-                <p>{language === "en" ? "Visualize journey stages from current age through end of life." : "Hình dung các chặng hành trình từ thời điểm hiện tại đến hết vòng đời."}</p>
-              </div>
-              <Explain term="accumulationPeriod">
-                <Badge tone="soft">{yearsLeft} {language === "en" ? "years accumulating" : "năm tích lũy"}</Badge>
-              </Explain>
-            </header>
+          {/* Row 2: Chi tiêu nghỉ hưu */}
+          <div className="field" style={{ margin: "20px 0" }}>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
+              {language === "en" ? "Monthly retirement spending" : "Chi tiêu nghỉ hưu mỗi tháng"}
+            </label>
+            <CurrencyInput
+              label={language === "en" ? "Monthly retirement spending" : "Chi tiêu nghỉ hưu mỗi tháng"}
+              hideLabel
+              value={monthlyExpenseInRetirement}
+              onChange={val => setMonthlyExpenseInRetirement(val)}
+              suffix="VND"
+            />
+            <span className="money-words" style={{ display: "block", color: "var(--primary, #334DAF)", fontSize: "12px", marginTop: "6px" }}>
+              {moneyWords(monthlyExpenseInRetirement)}
+            </span>
+            <p className="small muted" style={{ fontSize: "12px", color: "var(--muted, #64748b)", margin: "4px 0 0" }}>
+              {language === "en" ? "At today's prices; excluding debt payments and separate support schedules." : "Theo giá hôm nay; chưa gồm trả nợ và khoản hỗ trợ có lịch riêng."}
+            </p>
+          </div>
 
-            <ol className="life-timeline goal-milestones">
-              <li>
-                <span><Explain term="currentAge">{language === "en" ? "BẮT ĐẦU TÍNH" : "BẮT ĐẦU TÍNH"}</Explain></span>
-                <strong>{currentAge} {language === "en" ? "years old" : "tuổi"}</strong>
-                <small>{v2Profile?.personal.birthMonth?.status === "KNOWN" ? `Tháng ${v2Profile.personal.birthMonth.value.slice(5)}/${v2Profile.personal.birthMonth.value.slice(0, 4)}` : "Hôm nay"}</small>
-              </li>
-              <li className="is-target">
-                <span><Explain term="retirementAge">{language === "en" ? "NGHỈ HƯU MONG MUỐN" : "NGHỈ HƯU MONG MUỐN"}</Explain></span>
-                <strong>{targetAge} {language === "en" ? "years old" : "tuổi"}</strong>
-                <small>{yearsLeft === 0 ? (language === "en" ? "Retired now" : "Đã nghỉ hưu") : (language === "en" ? `${yearsLeft} years to go` : `Còn ${yearsLeft} năm`)}</small>
-              </li>
-              <li>
-                <span><Explain term="lifeExpectancy">{language === "en" ? "CHUẨN BỊ ĐẾN" : "CHUẨN BỊ ĐẾN"}</Explain></span>
-                <strong>{lifeExpectancy} {language === "en" ? "years old" : "tuổi"}</strong>
-                <small>{language === "en" ? `${retirementDuration} years in retirement` : `Dự tính chi tiêu ${retirementDuration} năm`}</small>
-              </li>
-            </ol>
-
-            <footer>
-              <Icon name="info" size="small" />
-              <span>
-                <Explain term="retirementPeriod">
-                  {language === "en"
-                    ? `Retirement stage lasting ${retirementDuration} years requires uninterrupted cashflow security.`
-                    : `Giai đoạn hưởng hưu kéo dài ${retirementDuration} năm đòi hỏi dòng tiền bảo đảm liên tục không bị gián đoạn.`}
-                </Explain>
-              </span>
-            </footer>
-          </Card>
-
-          {/* Card: Mục tiêu lớn khác */}
-          <section className="card goal-other-card">
-            <div className="goal-other-head">
-              <h2>{language === "en" ? "Other major life goals" : "Mục tiêu lớn khác"}</h2>
-              <Badge tone="soft">{language === "en" ? "Optional" : "Tùy chọn"}</Badge>
+          {/* Row 3: Tháng bắt đầu & Chuẩn bị đến */}
+          <div className="goal-card-two-col two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", margin: "20px 0" }}>
+            <div className="field">
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
+                {language === "en" ? "Planning start month" : "Tháng bắt đầu lập số liệu"}
+              </label>
+              <input
+                type="month"
+                className="input"
+                value={valuationMonth}
+                onChange={e => setValuationMonth(e.target.value)}
+                style={{ width: "100%", height: "44px", padding: "0 14px", border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", fontSize: "14px" }}
+              />
             </div>
-            <p>{language === "en" ? "College tuition, home buying, or other lump-sum commitments." : "Học phí đại học cho con, mua/sửa nhà hoặc các khoản chi lớn một lần."}</p>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-              <span style={{ fontSize: "14px", color: "#456B91" }}>
-                {(() => {
-                  const goals = v2Profile?.goals?.status === "KNOWN" ? v2Profile.goals.entries : [];
-                  const firstGoal = goals.length > 0 ? goals[0] : null;
-                  if (!firstGoal) return language === "en" ? "No other major goals added yet." : "Chưa có mục tiêu lớn khác.";
-                  const amount = firstGoal.amountToday?.status === "KNOWN" ? ` · ${formatVND(Number(firstGoal.amountToday.value))}` : "";
-                  return `${firstGoal.label}${amount}`;
-                })()}
-              </span>
-              <Link to="/user/account" className="button button-secondary button-small">
-                <span>{language === "en" ? "Edit other goals →" : "Xem & chỉnh sửa mục tiêu khác →"}</span>
-              </Link>
+            <div className="field">
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
+                {language === "en" ? "Prepare fund until month" : "Chuẩn bị quỹ đến tháng"}
+              </label>
+              <input
+                type="month"
+                className="input"
+                value={endMonth}
+                onChange={e => setEndMonth(e.target.value)}
+                style={{ width: "100%", height: "44px", padding: "0 14px", border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", fontSize: "14px" }}
+              />
             </div>
-          </section>
-          </fieldset>
-        </motion.div>
+          </div>
 
-        {/* Right Sticky Column: Summary Card */}
-        <motion.aside
-          className="goal-summary-column"
-          aria-label={language === "en" ? "Goals summary" : "Tóm tắt mục tiêu"}
-          initial={{ opacity: 0, x: 14 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.35, delay: 0.08, ease: "easeOut" }}
-        >
-          <Card className="goal-summary-card">
-            {loadingPlans && <p role="status">{language === "en" ? "Loading saved plan…" : "Đang tải kế hoạch đã lưu…"}</p>}
-            {plansError && <Alert tone="warning" title={language === "en" ? "Could not load plans" : "Chưa tải được kế hoạch"} action={<Button onClick={() => void refreshPlans()}>{language === "en" ? "Retry plans" : "Tải lại kế hoạch"}</Button>}>{plansError}</Alert>}
-            <PlanSyncStatus />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <Badge tone="soft">
-                <Explain term="goalsSummary">
-                  {language === "en" ? "GOALS SUMMARY" : "TỔNG HỢP MỤC TIÊU"}
-                </Explain>
-              </Badge>
-              {currentVersion && <Badge tone="info">v{currentVersion.version}</Badge>}
-            </div>
+          {/* Row 4: Mức sống mong muốn */}
+          <div className="field" style={{ margin: "20px 0" }}>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
+              {language === "en" ? "What lifestyle do you desire in retirement? (optional)" : "Khi về hưu, bạn mong muốn mức sống như thế nào? (không bắt buộc điền)"}
+            </label>
+            <select
+              value={lifestylePriority}
+              onChange={e => setLifestylePriority(e.target.value)}
+              style={{ width: "100%", height: "44px", padding: "0 14px", border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", fontSize: "14px", background: "#fff" }}
+            >
+              <option value="unknown">{language === "en" ? "Not selected" : "Chưa chọn"}</option>
+              <option value="balanced">{language === "en" ? "Balanced living" : "Sinh hoạt cân đối"}</option>
+              <option value="health">{language === "en" ? "Health and care" : "Sức khỏe và chăm sóc"}</option>
+              <option value="housing">{language === "en" ? "Housing / rent" : "Nhà ở / tiền thuê"}</option>
+              <option value="travel">{language === "en" ? "Travel and leisure" : "Du lịch và trải nghiệm"}</option>
+            </select>
+          </div>
 
-            <div className="goal-summary-main">
-              {planSummary && <p>{language === "en" ? "Calculated from the same profile and choices as the Plan page." : "Tính từ cùng hồ sơ và lựa chọn với trang Kế hoạch."}</p>}
-              <span>
-                <Explain term="requiredFund">
-                  {language === "en" ? "TARGET RETIREMENT FUND (K)" : "QUỸ NGHỈ HƯU CẦN ĐẠT (K)"}
-                </Explain>
-              </span>
-              {estimatedTargetFund != null && Number.isFinite(estimatedTargetFund) ? (
-                <>
-                  <strong className="font-mono">
-                    {explanationSource ? (
-                      <Explain metric="summary.atRetirement.requiredFund" source={explanationSource} value={String(estimatedTargetFund)}>
-                        {Math.round(estimatedTargetFund / 1000000000 * 10) / 10}
-                      </Explain>
-                    ) : (
-                      <Explain term="requiredFund" value={formatVND(estimatedTargetFund)}>
-                        {Math.round(estimatedTargetFund / 1000000000 * 10) / 10}
-                      </Explain>
-                    )}
-                  </strong>
-                  <p>
-                    {language === "en" ? "Billion VND (equivalent to " : "Tỷ đồng (tương đương "}
-                    <b className="font-mono">
-                      {explanationSource ? (
-                        <Explain metric="summary.atRetirement.requiredFund" source={explanationSource} value={String(estimatedTargetFund)}>
-                          {formatVND(estimatedTargetFund)}
-                        </Explain>
-                      ) : (
-                        <Explain term="requiredFund" value={formatVND(estimatedTargetFund)}>
-                          {formatVND(estimatedTargetFund)}
-                        </Explain>
-                      )}
-                    </b>)
-                  </p>
-                </>
-              ) : (
-                <>
-                  <strong style={{ fontSize: "20px" }}>
-                    <Explain term="requiredFund">
-                      {language === "en" ? "Awaiting Plan" : "Chờ kế hoạch"}
-                    </Explain>
-                  </strong>
-                  <p>
-                    {language === "en"
-                      ? "Target fund will be accurately quantified upon running simulation on Plan page."
-                      : "Số tiền mục tiêu sẽ được lượng hóa chính xác khi chạy dự phóng tại trang Kế hoạch."}
-                  </p>
-                </>
-              )}
-            </div>
+          <details className="field-help" style={{ margin: "16px 0", fontSize: "13px", color: "var(--muted, #64748b)" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 500, color: "var(--navy, #052659)" }}>{language === "en" ? "How retirement milestone is determined" : "Cách xác định mốc nghỉ hưu"}</summary>
+            <p style={{ margin: "8px 0 0" }}>{language === "en" ? "Calculated by birth month at chosen age. Social security start date is declared separately." : "Tính theo tháng sinh nhật ở tuổi bạn chọn. Tháng bắt đầu nhận BHXH được khai riêng."}</p>
+          </details>
 
-            <div className="goal-summary-stats">
-              <div>
-                <span>
-                  <Explain term="retirementAge">
-                    {language === "en" ? "Start Retirement Age:" : "Tuổi bắt đầu nghỉ:"}
-                  </Explain>
-                </span>
-                <strong className="font-mono">
-                  <Explain term="retirementAge" value={`${targetAge} ${language === "en" ? "years" : "tuổi"}`}>
-                    {targetAge} {language === "en" ? "years" : "tuổi"}
-                  </Explain>
-                </strong>
-              </div>
-              <div>
-                <span>
-                  <Explain term="accumulationPeriod">
-                    {language === "en" ? "Time Remaining:" : "Thời gian còn lại:"}
-                  </Explain>
-                </span>
-                <strong className="font-mono">
-                  <Explain term="accumulationPeriod" value={`${yearsLeft} ${language === "en" ? "years" : "năm"}`}>
-                    {yearsLeft} {language === "en" ? "years" : "năm"}
-                  </Explain>
-                </strong>
-              </div>
-              <div>
-                <span>
-                  <Explain term="retirementPeriod">
-                    {language === "en" ? "Retirement Duration:" : "Số năm hưởng hưu:"}
-                  </Explain>
-                </span>
-                <strong className="font-mono">
-                  <Explain term="retirementPeriod" value={`${retirementDuration} ${language === "en" ? "years" : "năm"}`}>
-                    {retirementDuration} {language === "en" ? "years" : "năm"}
-                  </Explain>
-                </strong>
-              </div>
-              <div>
-                <span>
-                  <Explain term="expenseToday">
-                    {language === "en" ? "Today's Expense (PV):" : "Chi tiêu hôm nay (PV):"}
-                  </Explain>
-                </span>
-                <strong className="font-mono">
-                  <Explain term="expenseToday" value={formatVND(monthlyExpenseInRetirement)}>
-                    {formatVND(monthlyExpenseInRetirement)}
-                  </Explain>
-                </strong>
-              </div>
-              <div>
-                <span>
-                  <Explain term="futureValue">
-                    {language === "en" ? "Retirement Expense (FV):" : "Chi tiêu lúc hưu (FV):"}
-                  </Explain>
-                </span>
-                <strong className="font-mono">
-                  {planSummary?.futureMonthlyExpense && explanationSource ? (
-                    <Explain metric="summary.futureMonthlyExpense" source={explanationSource} value={String(planSummary.futureMonthlyExpense)}>
-                      {formatVND(Number(planSummary.futureMonthlyExpense))}
-                    </Explain>
-                  ) : (
-                    <Explain term="futureValue" value={planSummary?.futureMonthlyExpense ? formatVND(Number(planSummary.futureMonthlyExpense)) : undefined}>
-                      {planSummary?.futureMonthlyExpense ? formatVND(Number(planSummary.futureMonthlyExpense)) : (language === "en" ? "Awaiting projection" : "Chờ dự phóng")}
-                    </Explain>
-                  )}
-                </strong>
-              </div>
-            </div>
+          <div className="form-actions" style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "24px" }}>
+            <button type="button" className="btn secondary" onClick={() => navigate("/user/dashboard")}>
+              {language === "en" ? "Cancel" : "Hủy"}
+            </button>
+            <button type="submit" className="btn primary" disabled={isSaving}>
+              {isSaving ? (language === "en" ? "Saving…" : "Đang lưu…") : (language === "en" ? "Save and see new results" : "Lưu và xem kết quả mới")}
+            </button>
+          </div>
+        </form>
+      </Card>
 
-            <div className="goal-estimate">
-              <span>
-                <Explain term="monthlySurplus">
-                  {language === "en" ? "Current monthly surplus:" : "Dòng tiền có thể tích lũy hiện tại:"}
-                </Explain>
-              </span>
-              <strong className="font-mono">
-                <Explain term="monthlySurplus" value={cashflowKnown ? `${formatVND(currentSurplus)} ${language === "en" ? "/ month" : "/ tháng"}` : undefined}>
-                  {cashflowKnown ? `${formatVND(currentSurplus)} ${language === "en" ? "/ month" : "/ tháng"}` : (language === "en" ? "Complete income, expenses and debt payments first." : "Cần bổ sung thu nhập, chi tiêu và khoản trả nợ.")}
-                </Explain>
-              </strong>
-              <small>
-                {language === "en" ? "Income minus living expenses and monthly debt payments in your current profile; not the plan's required contribution." : "Thu nhập trừ chi tiêu và tiền trả nợ hàng tháng trong hồ sơ hiện tại; không phải mức đóng góp cần duy trì của kế hoạch."}
-              </small>
-            </div>
+      {/* Card: Mục tiêu lớn khác */}
+      <Card className="card" style={{ padding: "24px 28px", borderRadius: "16px", marginBottom: "24px" }}>
+        <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 8px" }}>
+          {language === "en" ? "Other major life goals" : "Mục tiêu lớn khác"}
+        </h2>
+        <p style={{ color: "var(--muted, #64748b)", fontSize: "14px", margin: "0 0 16px" }}>
+          {language === "en" ? "No other major goals added yet (home, car, education fund...)." : "Chưa có mục tiêu lớn khác (mua nhà, xe, quỹ học vấn...)."}
+        </p>
+        <Link to="/user/profile" className="btn secondary">
+          {language === "en" ? "View & edit other goals →" : "Xem & chỉnh sửa mục tiêu khác →"}
+        </Link>
+      </Card>
 
-            <p className="goal-draft-note">{language === "en" ? "Changes save automatically. Preview your plan when you are ready." : "Thay đổi được tự động lưu. Bạn có thể xem trước kế hoạch khi đã chỉnh xong."}</p>
-            <p role="status" aria-live="polite" className="goal-autosave-status">{isSaving ? (language === "en" ? "Saving…" : "Đang lưu thay đổi…") : validationError ? (language === "en" ? "Changes not saved" : "Thay đổi chưa được lưu") : preparedInput === inputKey ? (language === "en" ? "Changes saved" : "Đã lưu thay đổi") : edited.current ? (language === "en" ? "Waiting to save…" : "Đang chờ lưu…") : (language === "en" ? "Autosave is on" : "Đã bật tự động lưu")}</p>
-            <small className="goal-autosave-scope">{v2Profile ? (language === "en" ? "Retirement date saves to your profile. Other inputs are saved in this browser tab until you save a plan version." : "Thời điểm nghỉ hưu lưu vào hồ sơ. Các lựa chọn khác được lưu nháp trong tab này, chờ bạn lưu phiên bản kế hoạch.") : (language === "en" ? "Your draft is saved in this browser tab until you save a plan version." : "Bản nháp được lưu trong tab này, chờ bạn lưu phiên bản kế hoạch.")}</small>
-            {validationError && <div id="goal-validation"><Alert tone="danger" title={language === "en" ? "Could not continue" : "Chưa thể tiếp tục"}>{validationError}{saveStatus === 'error' && saveError && <p>{saveError}</p>}</Alert></div>}
-
-            <div className="goal-summary-actions">
-              <Button
-                variant="primary"
-                size="large"
-                onClick={handleProceedToPlan}
-                className="goal-proceed-btn"
-                disabled={loadingPlans || isSaving || saveStatus === "saving"}
-              >
-                {language === "en" ? "Preview retirement plan" : "Xem trước kế hoạch"} <Icon name="arrow-right" />
-              </Button>
-            </div>
-          </Card>
-        </motion.aside>
-      </div>
-    </>
+      {/* Lộ trình cuộc đời (.life-timeline) */}
+      <ol className="life-timeline">
+        <li>
+          <span>{language === "en" ? "PLANNING START" : "BẮT ĐẦU TÍNH"}</span>
+          <strong>{formatMonthDisplay(valuationMonth)}</strong>
+          <small>{currentAge || 35} {language === "en" ? "years old" : "tuổi"}</small>
+        </li>
+        <li>
+          <span>{language === "en" ? "DESIRED RETIREMENT" : "NGHỈ HƯU MONG MUỐN"}</span>
+          <strong>{retirementMonthText}</strong>
+          <small>{targetAge} {language === "en" ? "years old" : "tuổi"}</small>
+        </li>
+        <li>
+          <span>{language === "en" ? "PREPARE UNTIL" : "CHUẨN BỊ ĐẾN"}</span>
+          <strong>{formatMonthDisplay(endMonth)}</strong>
+          <small>{language === "en" ? `Spend through end of month ${prevMonthText(endMonth)}` : `Dự tính chi tiêu đến hết tháng ${prevMonthText(endMonth)}`}</small>
+        </li>
+      </ol>
+    </div>
   );
 }

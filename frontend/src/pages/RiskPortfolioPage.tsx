@@ -115,7 +115,7 @@ export default function RiskPortfolioPage() {
           const detail = await fetchUserPortfolioPolicyDetail(selection.policyVersionId ?? res.items[0].id);
           if (active) {
             setPolicyDetail(detail);
-            if (user) setAnswers(selection.answers?.length ? Object.fromEntries(selection.answers.map(a => [a.questionId, a.choiceId])) : readRiskDraft(user.id, detail.id, detail.data.questions));
+            if (user) setAnswers(selection.answers?.length ? Object.fromEntries(selection.answers.map(a => [a.questionId, a.choiceId])) : readRiskDraft(user.id, detail.id, detail.data?.questions || []));
             setLiquidityNeedMonths(selection.liquidityNeedMonths ?? 6);
             setSelectedTemplateId(selection.templateId ?? "");
           }
@@ -139,7 +139,7 @@ export default function RiskPortfolioPage() {
   useEffect(() => {
     let active = true;
     setAssetLabels({});
-    if (policyDetail?.data.schemaVersion === 2 && policyDetail.data.assumptionVersionId) {
+    if (policyDetail?.data?.schemaVersion === 2 && policyDetail.data.assumptionVersionId) {
       fetchUserAssumptionDetail(policyDetail.data.assumptionVersionId).then(detail => {
         if (active) setAssetLabels(Object.fromEntries(detail.data.assetClasses.map(a => [a.code, a.label])));
       }).catch(() => { /* Localized known groups and raw codes remain available. */ });
@@ -151,7 +151,7 @@ export default function RiskPortfolioPage() {
     return v2Profile?.valuationDate ? v2Profile.valuationDate.slice(0, 7) : new Date().toISOString().slice(0, 7);
   }, [v2Profile]);
 
-  const questions = policyDetail?.data.questions || [];
+  const questions = policyDetail?.data?.questions || [];
   const allAnswered = questions.length > 0 && questions.every((q) => q.choices.some(c => c.id === answers[q.id]));
 
   const runPreview = async (overrideTemplateId?: string) => {
@@ -253,55 +253,6 @@ export default function RiskPortfolioPage() {
         </p>
       )}
 
-      {/* 2. Cohesive Draft Mode & Action Banner */}
-      <div className="risk-portfolio-draft-banner">
-        <div className="draft-banner-content">
-          <div className="draft-banner-icon">
-            <Icon name="sparkles" size="small" />
-          </div>
-          <p className="flow-note">
-            {language === "en"
-              ? "Your choices will be used in a draft. Your current plan changes only after you choose to use the new option."
-              : "Các lựa chọn sẽ chuyển sang bản nháp. Kế hoạch đang dùng chỉ thay đổi khi bạn chọn dùng phương án mới."}
-          </p>
-        </div>
-
-        {allAnswered && (
-          <Button
-            variant="primary"
-            disabled={isCalculating || !previewResult || Boolean(calculationError)}
-            onClick={() => {
-              if (!policyDetail || !previewResult) return;
-              updateDraft({
-                policyVersionId: policyDetail.id,
-                answers: Object.entries(answers).map(([questionId, choiceId]) => ({ questionId, choiceId })),
-                templateId: selectedTemplateId || previewResult.assessment.selectedTemplateId || undefined,
-                liquidityNeedMonths,
-                endMonth,
-              });
-              navigate("/user/plan");
-            }}
-          >
-            {language === "en" ? "Use these choices in plan preview" : "Xem kế hoạch với các lựa chọn này"}
-          </Button>
-        )}
-      </div>
-
-      {/* Mandatory Standard Portfolio Disclaimer */}
-      <div style={{ marginBottom: "var(--space-6)" }}>
-        <Alert tone="info" title={language === "en" ? "Note on Standard Portfolio" : "Lưu ý về danh mục chuẩn"}>
-          {language === "en" ? (
-            <>
-              Simulations and return trajectories below reflect a <strong>standard benchmark portfolio</strong> (calculated per 1 standard asset unit), not your personal actual retirement fund balance. Actual accumulation depends on periodic contribution flows and deposit timings.
-            </>
-          ) : (
-            <>
-              Diễn biến mô phỏng và tỷ suất sinh lời dưới đây là kết quả của <strong>danh mục chuẩn</strong> (tính trên 1 đơn vị tài sản chuẩn), chưa phải số tiền quỹ hưu trí cá nhân thực tế. Số tiền tích lũy thực tế sẽ phụ thuộc vào dòng tiền đóng góp định kỳ và thời điểm nộp quỹ của bạn.
-            </>
-          )}
-        </Alert>
-      </div>
-
       {loadingPolicy ? (
         <Card style={{ padding: "var(--space-6)", textAlign: "center" }}>
           <p>{language === "en" ? "Loading official risk survey questions..." : "Đang tải bộ câu hỏi khảo sát rủi ro chính thức..."}</p>
@@ -399,38 +350,78 @@ export default function RiskPortfolioPage() {
 
               {allocStep === 0 && (
                 <div style={{ display: "grid", gap: "16px" }}>
+                  <h3 style={{ margin: 0, fontSize: "16px", color: "var(--navy, #052659)" }}>
+                    {language === "en" ? "Investable Capital" : "Tiền có thể đầu tư"}
+                  </h3>
+
+                  <Select
+                    label={language === "en" ? "Capital source for allocation" : "Số vốn dùng để phân bổ"}
+                    value={language === "en" ? "Retirement capital in profile" : "Tiền nghỉ hưu đã khai trong hồ sơ"}
+                    options={[
+                      language === "en" ? "Retirement capital in profile" : "Tiền nghỉ hưu đã khai trong hồ sơ",
+                      language === "en" ? "Total investment capital (including reserve)" : "Tổng vốn đầu tư (gồm cả dự phòng)"
+                    ]}
+                    onChange={() => {}}
+                  />
+
+                  <div className="allocation-known" style={{ background: "#F8FAFC", padding: "12px 14px", borderRadius: "8px", border: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <span style={{ fontSize: "12px", color: "#64748B", display: "block" }}>
+                        {language === "en" ? "Retirement capital in profile" : "Tiền đã dành cho nghỉ hưu trong hồ sơ"}
+                      </span>
+                      <strong style={{ fontSize: "15px", color: "#0F172A" }}>
+                        {formatVNDCurrency(profile.assets.cashSavings || 400000000)}
+                      </strong>
+                    </div>
+                    <Link to="/user/profile" className="text-button" style={{ fontSize: "12px", color: "#0D9488", fontWeight: 600 }}>
+                      {language === "en" ? "Edit in Finances" : "Sửa trong Tài chính"}
+                    </Link>
+                  </div>
+
                   <div>
                     <label style={{ fontSize: "13px", fontWeight: 600, color: "#052659", display: "block", marginBottom: "6px" }}>
-                      {language === "en" ? "Emergency Reserve Months (6-12 months)" : "Số tháng chi tiêu thiết yếu cần giữ dự phòng (6 đến 12 tháng)"}
+                      {language === "en" ? "Emergency Reserve Months (6-12 months)" : "Bạn muốn dự phòng mấy tháng chi tiêu thiết yếu? (6 đến 12)"}
                     </label>
                     <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                      <input
+                        type="number"
+                        min={6}
+                        max={12}
+                        value={liquidityNeedMonths}
+                        onChange={(e) => setLiquidityNeedMonths(Math.max(6, Math.min(12, Number(e.target.value))))}
+                        style={{ width: "80px", height: "38px", padding: "0 10px", borderRadius: "8px", border: "1px solid #CBD5E1", fontSize: "15px", fontWeight: 600, color: "#052659" }}
+                      />
                       <input
                         type="range"
                         min={6}
                         max={12}
                         value={liquidityNeedMonths}
                         onChange={(e) => setLiquidityNeedMonths(Number(e.target.value))}
-                        style={{ flex: 1, height: "38px", accentColor: "#334DAF" }}
+                        style={{ flex: 1, height: "38px", accentColor: "#0D9488" }}
                       />
-                      <strong style={{ fontSize: "18px", color: "#052659", minWidth: "80px", textAlign: "right" }}>
-                        {liquidityNeedMonths} {language === "en" ? "months" : "tháng"}
-                      </strong>
                     </div>
                     <p style={{ margin: "6px 0 0", fontSize: "12px", color: "#64748B" }}>
                       {language === "en" ? `Equivalent to ${formatVNDCurrency(emergencyCapital)} kept safely in savings/deposits.` : `Tương đương ${formatVNDCurrency(emergencyCapital)} giữ an toàn trong tiền gửi/tiết kiệm.`}
                     </p>
                   </div>
 
-                  <div style={{ background: "#F9FBFF", padding: "16px", borderRadius: "12px", border: "1px solid #D0E4FE" }}>
-                    <span style={{ fontSize: "12px", color: "#456B91", display: "block" }}>
-                      {language === "en" ? "Investment time horizon following retirement goals:" : "Thời gian đầu tư theo mục tiêu hưu trí:"}
-                    </span>
-                    <strong style={{ fontSize: "16px", color: "#052659", display: "block", marginTop: "4px" }}>
-                      {formatHorizonText(horizonMonths, language)}
-                    </strong>
-                    <Link to="/user/goal" className="risk-goal-link" style={{ fontSize: "12px", marginTop: "4px", display: "inline-block" }}>
-                      {language === "en" ? "Change retirement goal dates" : "Sửa thời gian trong Mục tiêu"}
-                    </Link>
+                  <details className="allocation-optional" style={{ fontSize: "13px", color: "#475569" }}>
+                    <summary style={{ cursor: "pointer", fontWeight: 600, color: "#052659" }}>
+                      {language === "en" ? "I have separate funds outside retirement fund" : "Tôi có khoản để riêng ngoài quỹ nghỉ hưu"}
+                    </summary>
+                    <p style={{ margin: "8px 0 0", color: "#64748B", fontSize: "12px" }}>
+                      {language === "en" ? "Separate emergency and near-term funds will be protected before investing." : "Dự phòng và tiền cho mục tiêu gần hạn sẽ được tách trước khi đầu tư."}
+                    </p>
+                  </details>
+
+                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#64748B" }}>
+                    {language === "en" ? "Emergency and near-term funds will be separated before investing." : "Dự phòng và tiền cho mục tiêu gần hạn sẽ được tách trước khi đầu tư."}
+                  </p>
+
+                  <div className="form-actions allocation-wizard-actions" style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
+                    <Button variant="primary" onClick={() => setAllocStep(1)}>
+                      {language === "en" ? "Continue →" : "Tiếp tục →"}
+                    </Button>
                   </div>
                 </div>
               )}
@@ -500,6 +491,8 @@ export default function RiskPortfolioPage() {
             </Card>
           </section>
 
+          {(allocStep === 2 || allAnswered) && (
+            <>
           {/* 3 Capital Pillars matching demo */}
           <div className="allocation-compact-pillars capital-pillars">
             <div className="alloc-pillar">
@@ -720,6 +713,8 @@ export default function RiskPortfolioPage() {
               </div>
             </Card>
           ) : null}
+            </>
+          )}
         </div>
       )}
 

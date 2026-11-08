@@ -1756,73 +1756,15 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
               <dd>{retireAge} {language === "en" ? "yrs" : "tuổi"}</dd>
             </div>
           </dl>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <Link to="/user/plan" className="button button-primary button-small">
-              <span>{language === "en" ? "View Plan" : "Xem kế hoạch"}</span>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "16px" }}>
+            <Link to="/user/plan" className="button button-primary button-small" style={{ background: "var(--color-primary-700, #334DAF)", color: "#fff", padding: "10px 18px", borderRadius: "8px", fontWeight: 600, textDecoration: "none" }}>
+              <span>{language === "en" ? "Quick Update" : "Cập nhật nhanh"}</span>
             </Link>
-            <Link to="/user/goal" className="button button-secondary button-small">
-              <span>{language === "en" ? "Adjust Goals" : "Sửa mục tiêu"}</span>
+            <Link to="/user/plan" className="button button-secondary button-small" style={{ background: "#F1F5F9", color: "#334DAF", padding: "10px 18px", borderRadius: "8px", fontWeight: 600, textDecoration: "none", border: "1px solid #CBD5E1" }}>
+              <span>{language === "en" ? "View Plan" : "Xem kế hoạch"}</span>
             </Link>
           </div>
         </section>
-
-        {/* 2. Track Grid (Current Month Progress & Session History) */}
-        <div className="track-grid">
-          <section className="card" style={{ padding: "24px" }}>
-            <span className="eyebrow" style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-primary-700, #334DAF)", letterSpacing: "0.05em" }}>
-              {language === "en" ? `MONTH ${selectedPeriod}` : `THÁNG ${formatMonthVN(selectedPeriod)}`}
-            </span>
-            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#052659", margin: "8px 0 0" }}>
-              {language === "en" ? "You have contributed" : "Bạn đã góp"}
-            </h2>
-            <div className="month-stat">
-              {formatVND(monthContributed)}
-            </div>
-            <p style={{ margin: "4px 0 0", color: "#64748B", fontSize: "13px" }}>
-              {language === "en" ? `Target: ${formatVND(targetContribution)}/month` : `Mục tiêu: ${formatVND(targetContribution)}/tháng`}
-            </p>
-            <div className="hero-progress" style={{ background: "#EDF2F7", margin: "16px 0", height: "8px", borderRadius: "4px", overflow: "hidden" }}>
-              <span style={{ display: "block", height: "100%", background: "#334DAF", width: `${contributionPercent}%`, transition: "width 0.3s ease" }} />
-            </div>
-            <p style={{ margin: 0, fontSize: "13px", color: "#456B91" }}>
-              {targetContribution === 0
-                ? (language === "en" ? "Plan has not set a monthly contribution." : "Kế hoạch chưa đặt mức góp tháng.")
-                : monthContributed >= targetContribution
-                ? (language === "en" ? "You reached the monthly contribution target." : "Bạn đã đạt mức góp của tháng này.")
-                : (language === "en"
-                    ? `${formatVND(Math.max(0, targetContribution - monthContributed))} remaining to target.`
-                    : `Còn ${formatVND(Math.max(0, targetContribution - monthContributed))} để đạt mức góp đang dùng.`)}
-            </p>
-          </section>
-
-          <section className="card" style={{ padding: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#052659", margin: 0 }}>
-                {language === "en" ? "Monthly Transactions" : "Khoản ghi nhận trong tháng"}
-              </h2>
-              <Badge tone="soft">{entries.length} {language === "en" ? "items" : "khoản"}</Badge>
-            </div>
-            {entries.length > 0 ? (
-              <div style={{ maxHeight: "180px", overflowY: "auto" }}>
-                {entries.map((entry, idx) => (
-                  <div key={idx} className="entry-row">
-                    <div>
-                      <strong>{getActualKindLabel(entry.kind, language)}</strong>
-                      <p>{entry.note || (language === "en" ? "Recorded in ledger" : "Đã ghi nhận trong sổ")}</p>
-                    </div>
-                    <strong className="font-mono">{formatVND(Number(entry.amount))}</strong>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ textAlign: "center", padding: "24px 0", color: "#64748B" }}>
-                <p style={{ margin: 0, fontSize: "13px" }}>
-                  {language === "en" ? "No transactions recorded yet for this month." : "Chưa có khoản ghi nhận nào trong tháng này."}
-                </p>
-              </div>
-            )}
-          </section>
-        </div>
 
         {/* 3. Checkin Events (3 triggers) */}
         <section className="checkin-events">
@@ -1848,9 +1790,9 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
         </section>
 
         {/* 4. Monthly Ledger in Collapsible details */}
-        <details className="checkin-ledger" open>
+        <details className="checkin-ledger">
           <summary>
-            <span>{language === "en" ? "Monthly Ledger & Statement Reconciliation (Optional)" : "Sổ từng tháng (tùy chọn đối soát)"}</span>
+            <span>{language === "en" ? "Monthly Ledger (Optional)" : "Sổ từng tháng — tùy chọn"}</span>
             <Icon name="chevron-down" size="small" />
           </summary>
           <p className="help">
