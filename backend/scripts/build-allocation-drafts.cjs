@@ -118,7 +118,7 @@ const scenarioDelta = { BASE: { cpi: "0", CASH: "0", GOV_BOND: "0", EQUITY: "0",
 const policy = portfolioDocumentV2Schema.parse({
   allocationRisk: {
     evidence: "CHỜ DUYỆT — tài liệu khách: bootstrap khối 12–36 tháng (chọn 12); CVaR alpha 95%; ngưỡng p thiết yếu 90–95% (chọn 90%); dải tái cân bằng 5 điểm %. " +
-      "Bước dịch cổ phiếu ±10 điểm và tham số cú sốc lấy theo mục 9.1 tài liệu thuật toán (cận nhẹ của mỗi khoảng); số nào tài liệu không nêu là lựa chọn An Hưu, đều CHỜ DUYỆT, chưa công bố. " +
+      "Bước dịch cổ phiếu ±10 điểm và tham số cú sốc lấy theo mục 9.1 tài liệu thuật toán (cận nhẹ của mỗi khoảng; riêng cổ phiếu chạy cả −35% và −50%); số nào tài liệu không nêu là lựa chọn An Hưu, đều CHỜ DUYỆT, chưa công bố. " +
       "CREDIT không cấu hình vì danh mục nền không có trái phiếu doanh nghiệp (mục 4.3: TPCP không có rủi ro vỡ nợ). Không dùng chuỗi thị trường giả lập.",
     blockMonths: 12, cvarAlpha: "0.95", essentialThreshold: "0.90", rebalanceBandPoints: "5",
     // CHỜ DUYỆT: 3 ứng viên = danh mục nền và ±10 điểm cổ phiếu (bù bằng tiền gửi).
@@ -127,8 +127,8 @@ const policy = portfolioDocumentV2Schema.parse({
     stresses: {
       // KB1: tài liệu không nêu biên độ; chọn +3 điểm/năm trong 5 năm đầu nghỉ hưu.
       HIGH_INFLATION: { offsetMonths: 0, durationMonths: 60, annualDeltaPoints: "3" },
-      // KB2: cổ phiếu giảm 35%–50% ngay trước hoặc trong 2 năm đầu nghỉ hưu; chọn −35% đúng tháng nghỉ hưu.
-      EQUITY_CRASH: { offsetMonths: 0, assetClass: "EQUITY", shockPercent: "-35" },
+      // KB2: cổ phiếu giảm 35%–50% ngay trước hoặc trong 2 năm đầu nghỉ hưu; chạy cả hai đầu khoảng đúng tháng nghỉ hưu.
+      EQUITY_CRASH: { offsetMonths: 0, assetClass: "EQUITY", shockPercent: "-35", severeShockPercent: "-50" },
       // KB3: tài liệu không nêu biên độ; chọn lợi suất +2 điểm, duration 5 năm (≈ −10% giá TPCP).
       RATE_RISE: { offsetMonths: 0, assetClass: "GOV_BOND", durationYears: "5", yieldRisePoints: "2" },
       // KB5: spread nới 5%–10%; chọn giá vàng −20% và spread 5 điểm.

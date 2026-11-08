@@ -7,7 +7,7 @@ import { marketDocumentSchema } from "../modules/allocation-risk/market-schema";
 import { riskRequestSchema } from "../modules/allocation-risk/schema";
 import { riskPolicySchema, stressKinds } from "../modules/allocation-risk/policy";
 import { bootstrapIndices, randomGenerator, cvar, wilson, runPath, simulate, marketRows, portfolioFactors } from "../modules/allocation-risk/simulation";
-import { sequenceOfReturns, deterministicStress } from "../modules/allocation-risk/stresses";
+import { sequenceOfReturns, deterministicStress, severeEquityCrash } from "../modules/allocation-risk/stresses";
 import { totalReturn, cagr, shrinkMean, ledoitWolf, realReturn, domesticReturn } from "../modules/allocation-risk/estimation";
 import { allocationCandidates, selectCandidate } from "../modules/allocation-risk/selection";
 import { proposeRebalance, rebalanceInputSchema } from "../modules/allocation-risk/rebalance";
@@ -146,6 +146,30 @@ describe("P2-2 deterministic stresses", () => {
     for (const kind of stressKinds)
       expect(deterministicStress(kind, c, market, configured, [{ month: "2026-01", amount: "200" }]).status).toBe("READY");
     expect(deterministicStress("PROPERTY_ILLIQUIDITY", c, market, configured).status).toBe("REVIEW_REQUIRED");
+  });
+});
+describe("severe equity crash level (spec 9.1: -35% to -50%)", () => {
+  const c = riskContext(12), market = c.projection.rows.map(() => ({ cpi: "0", returns: { CASH: "0", EQUITY: "0" } }));
+  const policy = (equity: Record<string, unknown>) => riskPolicySchema.parse({ evidence: "Fixture scenario policy", stresses: { EQUITY_CRASH: equity } });
+  it("runs only when configured and loses at least as much as the base level", () => {
+    expect(severeEquityCrash(c, market, policy({ offsetMonths: 0, assetClass: "EQUITY", shockPercent: "-35" }))).toBeNull();
+    expect(severeEquityCrash(c, market, undefined)).toBeNull();
+    const configured = policy({ offsetMonths: 0, assetClass: "EQUITY", shockPercent: "-35", severeShockPercent: "-50" });
+    const base = deterministicStress("EQUITY_CRASH", c, market, configured), severe = severeEquityCrash(c, market, configured)!;
+    expect(base.status).toBe("READY");
+    expect(severe).toMatchObject({ kind: "EQUITY_CRASH", level: "SEVERE", status: "READY", parameters: { shockPercent: "-50" } });
+    if (base.status !== "READY" || severe.status !== "READY") throw new Error("not ready");
+    expect(new D(severe.result.essentialLossToday).gte(base.result.essentialLossToday)).toBe(true);
+    expect(new D(severe.result.balances.at(-1)!).lte(base.result.balances.at(-1)!)).toBe(true);
+  });
+  it("rejects a severe level that is not deeper than the base level", () => {
+    expect(() => policy({ offsetMonths: 0, assetClass: "EQUITY", shockPercent: "-35", severeShockPercent: "-20" })).toThrow();
+    expect(() => policy({ offsetMonths: 0, assetClass: "EQUITY", shockPercent: "-35", severeShockPercent: "-35" })).toThrow();
+  });
+  it("keeps the reviewed draft policy at both ends of the range", () => {
+    const draft = JSON.parse(readFileSync("seed-data/allocation-2026-10/draft-policy-v4.json", "utf8"));
+    expect(draft.allocationRisk.stresses.EQUITY_CRASH).toMatchObject({ shockPercent: "-35", severeShockPercent: "-50" });
+    expect(() => riskPolicySchema.parse(draft.allocationRisk)).not.toThrow();
   });
 });
 describe("P2-3 candidate rules", () => {

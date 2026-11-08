@@ -28,7 +28,9 @@ export const riskPolicySchema = z.object({
   }).strict().optional(),
   stresses: z.object({
     HIGH_INFLATION: z.object({ ...timing, annualDeltaPoints: positive }).strict().optional(),
-    EQUITY_CRASH: z.object({ offsetMonths: timing.offsetMonths, assetClass: code, shockPercent: shock }).strict().optional(),
+    // Spec 9.1 asks for a -35% to -50% range: shockPercent is the base level, severeShockPercent an optional deeper level.
+    EQUITY_CRASH: z.object({ offsetMonths: timing.offsetMonths, assetClass: code, shockPercent: shock, severeShockPercent: shock.optional() }).strict()
+      .refine(v => v.severeShockPercent === undefined || new Prisma.Decimal(v.severeShockPercent).lt(v.shockPercent), { path: ["severeShockPercent"], message: "Mức sốc nặng phải sâu hơn mức cơ sở." }).optional(),
     RATE_RISE: z.object({ offsetMonths: timing.offsetMonths, assetClass: code, durationYears: positive, yieldRisePoints: positive }).strict().optional(),
     CREDIT: z.object({ offsetMonths: timing.offsetMonths, assetClass: code, defaultPercent: percent, recoveryPercent: percent }).strict().optional(),
     GOLD: z.object({ offsetMonths: timing.offsetMonths, assetClass: code, shockPercent: shock, spreadPoints: percent }).strict().optional(),

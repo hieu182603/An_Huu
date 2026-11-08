@@ -6151,7 +6151,7 @@
     ]
   },
   "allocationRisk": {
-    "evidence": "CHỜ DUYỆT — tài liệu khách: bootstrap khối 12–36 tháng (chọn 12); CVaR alpha 95%; ngưỡng p thiết yếu 90–95% (chọn 90%); dải tái cân bằng 5 điểm %. Bước dịch cổ phiếu ±10 điểm và tham số cú sốc lấy theo mục 9.1 tài liệu thuật toán (cận nhẹ của mỗi khoảng); số nào tài liệu không nêu là lựa chọn An Hưu, đều CHỜ DUYỆT, chưa công bố. CREDIT không cấu hình vì danh mục nền không có trái phiếu doanh nghiệp (mục 4.3: TPCP không có rủi ro vỡ nợ). Không dùng chuỗi thị trường giả lập.",
+    "evidence": "CHỜ DUYỆT — tài liệu khách: bootstrap khối 12–36 tháng (chọn 12); CVaR alpha 95%; ngưỡng p thiết yếu 90–95% (chọn 90%); dải tái cân bằng 5 điểm %. Bước dịch cổ phiếu ±10 điểm và tham số cú sốc lấy theo mục 9.1 tài liệu thuật toán (cận nhẹ của mỗi khoảng; riêng cổ phiếu chạy cả −35% và −50%); số nào tài liệu không nêu là lựa chọn An Hưu, đều CHỜ DUYỆT, chưa công bố. CREDIT không cấu hình vì danh mục nền không có trái phiếu doanh nghiệp (mục 4.3: TPCP không có rủi ro vỡ nợ). Không dùng chuỗi thị trường giả lập.",
     "blockMonths": 12,
     "cvarAlpha": "0.95",
     "essentialThreshold": "0.90",
@@ -6166,7 +6166,8 @@
       "EQUITY_CRASH": {
         "offsetMonths": 0,
         "assetClass": "EQUITY",
-        "shockPercent": "-35"
+        "shockPercent": "-35",
+        "severeShockPercent": "-50"
       },
       "RATE_RISE": {
         "offsetMonths": 0,
