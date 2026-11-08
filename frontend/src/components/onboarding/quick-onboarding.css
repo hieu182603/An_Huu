@@ -190,59 +190,583 @@
   font-weight: 600;
 }
 
-/* ---- Demo layout (sites/an-huu-trai-nghiem: .setup-shell / .setup-card) ---- */
-.quick-onboarding-container.qo-shell { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 72px; max-width: 1080px; margin: 32px auto 64px; padding: 0 40px; font-family: "Be Vietnam Pro", system-ui, sans-serif; color: #052659; }
-.qo-shell .qo-aside { padding-top: 16px; }
-.qo-shell .qo-eyebrow { display: block; margin-bottom: 12px; color: #456B91; font-size: 12px; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; }
-.qo-shell .qo-aside h2 { margin: 0; color: #052659; font-size: 28px; font-weight: 600; line-height: 1.35; letter-spacing: -.8px; }
-.qo-shell .qo-aside > p { margin: 12px 0 0; color: #456B91; font-size: 14px; line-height: 1.65; }
-.qo-shell .onboarding-stages.qo-steps { display: block; margin: 36px 0; padding: 0; list-style: none; }
-.qo-shell .qo-steps li { display: flex; align-items: center; gap: 12px; padding: 0 0 28px; border: 0; border-radius: 0; background: none; color: #456B91; font-size: 14px; font-weight: 500; }
-.qo-shell .qo-steps li[aria-current] { border: 0; background: none; color: #052659; font-weight: 600; }
-.qo-shell .qo-step-number { display: grid; flex: 0 0 36px; place-items: center; width: 36px; height: 36px; border: 1px solid #D0E4FE; border-radius: 50%; background: #fff; font-size: 13px; text-align: center; }
-.qo-shell .qo-steps li[aria-current] .qo-step-number { border-color: #334DAF; background: #334DAF; color: #fff; }
-.qo-shell .qo-steps li.is-done .qo-step-number { border-color: transparent; background: #E6F8F0; color: #1E7E55; }
-.qo-shell .qo-step-copy small { display: block; margin-top: 2px; color: #456B91; font-size: 12px; font-weight: 400; }
-.qo-shell .qo-privacy, .qo-shell .qo-bottom { display: flex; align-items: center; gap: 8px; margin: 0; color: #456B91; font-size: 12px; }
-.qo-shell .qo-bottom { margin-top: 20px; }
-
-.qo-shell .qo-card { padding: 36px 40px; border: 1px solid #D0E4FE; border-radius: 24px; background: #fff; box-shadow: 0 8px 24px rgba(5, 38, 89, .06); }
-.qo-shell .qo-caption { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; color: #456B91; font-size: 12px; letter-spacing: .4px; }
-.qo-shell .qo-error { margin-bottom: 20px; padding: 12px 16px; border-radius: 12px; background: #FDE8E8; color: #C0392B; font-size: 13px; }
-.qo-shell .quick-onboarding-header { margin-bottom: 28px; }
-.qo-shell .quick-onboarding-header h1 { margin: 0 0 8px; color: #052659; font-size: 32px; font-weight: 700; line-height: 1.35; letter-spacing: -1px; }
-.qo-shell .quick-onboarding-header p { color: #456B91; font-size: 14px; }
-.qo-shell .quick-field-label, .qo-shell .quick-field label { color: #052659; font-size: 14px; font-weight: 600; }
-.qo-shell .quick-field input:not([type=checkbox]):not([type=radio]), .qo-shell .quick-field select { min-height: 50px; border: 1px solid #7DA0CA; border-radius: 12px; background: #fff; color: #052659; font-family: inherit; }
-.qo-shell .quick-field input:focus { border-color: #334DAF; outline: 3px solid #84afe0; outline-offset: 1px; }
-.qo-shell .quick-helper-text { color: #456B91; font-size: 12px; }
-.qo-shell .quick-chips-row button, .qo-shell .quick-chips-row .chip { min-height: 40px; padding: 7px 15px; border: 1px solid #D0E4FE; border-radius: 99px; background: #fff; color: #052659; font-size: 13px; }
-.qo-shell .quick-chips-row button[aria-pressed="true"], .qo-shell .quick-chips-row .is-active { border-color: #334DAF; background: #E8F2FE; font-weight: 600; }
-.qo-shell .quick-actions { margin-top: 28px; padding-top: 20px; border-top: 1px solid #E8F2FE; }
-.qo-shell .quick-actions .button { min-height: 48px; padding: 12px 20px; border-radius: 12px; font-weight: 600; }
-.qo-shell .quick-actions .button-primary { background: #334DAF; box-shadow: none; }
-.qo-shell .quick-actions .button-primary:hover:not(:disabled) { background: #091F5C; }
-
-@media (max-width: 900px) {
-  .quick-onboarding-container.qo-shell { display: block; max-width: 650px; margin: 4px auto 40px; padding: 0 24px; }
-  .qo-shell .qo-aside { padding: 0; }
-  .qo-shell .qo-aside h2, .qo-shell .qo-aside > p, .qo-shell .qo-eyebrow, .qo-shell .qo-privacy { display: none; }
-  .qo-shell .onboarding-stages.qo-steps { display: flex; justify-content: space-between; gap: 12px; margin: 20px 0 24px; }
-  .qo-shell .qo-steps li { flex: 1; gap: 8px; padding: 0; font-size: 12px; }
-  .qo-shell .qo-step-number { flex-basis: 28px; width: 28px; height: 28px; font-size: 12px; }
-  .qo-shell .qo-step-copy small { display: none; }
-  .qo-shell .qo-card { padding: 28px; }
+/* =========================================================================
+   Atmospheric Onboarding Canvas & Top Navigation (Impeccable & Hallmark)
+   ========================================================================= */
+.onboarding-app {
+  min-height: 100vh;
+  background-color: #f8fafd;
+  background-image: 
+    radial-gradient(ellipse at 15% 10%, rgba(208, 228, 254, 0.45) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 15%, rgba(232, 242, 254, 0.6) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 95%, rgba(209, 232, 255, 0.35) 0%, transparent 50%);
+  display: flex;
+  flex-direction: column;
 }
-@media (max-width: 480px) {
-  .quick-onboarding-container.qo-shell { padding: 0 16px; }
-  .qo-shell .qo-card { padding: 24px 20px; border-radius: 16px; }
-  .qo-shell .quick-onboarding-header h1 { font-size: 26px; }
-  .qo-shell .qo-steps li { gap: 6px; font-size: 11px; }
+
+.onboarding-top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(208, 228, 254, 0.85);
+  box-shadow: 0 2px 10px rgba(5, 38, 89, 0.025);
 }
-.qo-shell .qo-steps li > .qo-step-copy { flex: 1 1 auto; min-width: 0; text-align: left; }
-.qo-shell .qo-steps li > .qo-step-number { flex: 0 0 36px; }
-.qo-shell .quick-actions .button { gap: 10px; }
-@media (max-width: 900px) { .qo-shell .qo-steps li > .qo-step-number { flex-basis: 28px; } }
+
+.onboarding-top-nav-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.onboarding-top-brand .brand-logo-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.onboarding-top-milestone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.onboarding-step-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  border-radius: 99px;
+  background: #f0f6ff;
+  border: 1px solid #d0e4fe;
+  font-size: 13px;
+  color: #052659;
+}
+
+.onboarding-step-pill .step-badge {
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.onboarding-step-pill .step-sep {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.onboarding-step-pill .step-label {
+  font-weight: 600;
+  color: #052659;
+}
+
+.onboarding-mini-progress {
+  width: 160px;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.onboarding-mini-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #334daf, #2563eb);
+  border-radius: 99px;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.onboarding-top-meta .security-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #456b91;
+  background: #f8fafc;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.onboarding-main-viewport {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 8px 0 48px;
+}
+
+/* ---- Survey Layout (.setup-shell / .setup-card) ---- */
+.quick-onboarding-container.qo-shell {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 48px;
+  max-width: 1220px;
+  margin: 32px auto 60px;
+  padding: 0 32px;
+  font-family: "Be Vietnam Pro", system-ui, sans-serif;
+  color: #052659;
+  align-items: start;
+}
+
+.qo-shell .qo-aside {
+  padding-top: 8px;
+  position: sticky;
+  top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.qo-shell .qo-aside-header .qo-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: #e8f2fe;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.qo-shell .qo-aside-header h2 {
+  margin: 0;
+  color: #052659;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.32;
+  letter-spacing: -0.6px;
+}
+
+.qo-shell .qo-aside-header p {
+  margin: 10px 0 0;
+  color: #456b91;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Stepper Track with continuous line */
+.qo-shell .setup-steps.qo-steps,
+.qo-shell .qo-steps {
+  position: relative;
+  display: block;
+  margin: 32px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qo-shell .qo-steps li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 0 32px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.qo-shell .qo-steps li:last-child {
+  padding-bottom: 0;
+}
+
+/* Connector line between steps */
+.qo-shell .qo-steps li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 17px;
+  top: 36px;
+  bottom: 0px;
+  width: 2px;
+  background: #E2E8F0;
+  z-index: 1;
+}
+
+.qo-shell .qo-steps li.is-done:not(:last-child)::after,
+.qo-shell .qo-steps li.done:not(:last-child)::after {
+  background: #CBD5E1;
+}
+
+.qo-shell .qo-steps li[aria-current="step"],
+.qo-shell .qo-steps li.is-active {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.qo-shell .qo-step-number {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 50%;
+  border: 1.5px solid #D0E4FE;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748B;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.qo-shell .qo-steps li.is-active .qo-step-number,
+.qo-shell .qo-steps li[aria-current="step"] .qo-step-number {
+  border-color: #052659;
+  background: #052659;
+  color: #ffffff;
+  box-shadow: 0 0 0 5px rgba(5, 38, 89, 0.12);
+}
+
+.qo-shell .qo-steps li.is-done .qo-step-number,
+.qo-shell .qo-steps li.done .qo-step-number {
+  border-color: #10B981;
+  background: #10B981;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+.qo-shell .qo-step-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+.qo-shell .qo-step-copy strong {
+  font-size: 15px;
+  color: #052659;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.qo-shell .qo-steps li:not(.is-done):not([aria-current="step"]) .qo-step-copy strong {
+  color: #64748B;
+  font-weight: 600;
+}
+
+.qo-shell .qo-step-copy small {
+  display: block;
+  font-size: 12.5px;
+  color: #64748B;
+  font-weight: 400;
+  line-height: 1.4;
+  margin-top: 1px;
+}
+
+.qo-shell .qo-steps li[aria-current="step"] .qo-step-copy small {
+  color: #456B91;
+}
+
+/* Aside Tip Card */
+.qo-aside-tip-card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #d0e4fe;
+  box-shadow: 0 4px 14px rgba(5, 38, 89, 0.04);
+}
+
+.qo-tip-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.qo-tip-icon-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.qo-tip-head strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #052659;
+}
+
+.qo-tip-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #456b91;
+}
+
+/* Aside Trust Footnotes */
+.qo-aside-trust {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(240, 246, 255, 0.7);
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+}
+
+.qo-trust-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #475569;
+}
+
+/* Right Survey Card */
+.qo-shell .qo-card {
+  padding: 40px 44px;
+  border: 1px solid rgba(208, 228, 254, 0.95);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 
+    0 4px 6px -1px rgba(5, 38, 89, 0.03),
+    0 16px 32px -4px rgba(5, 38, 89, 0.07),
+    0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+  position: relative;
+}
+
+.qo-shell .qo-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+
+.qo-shell .qo-step-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: #e8f2fe;
+  color: #173d68;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+}
+
+.qo-shell .qo-pace-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.qo-shell .qo-error {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fde8e8;
+  color: #c0392b;
+  font-size: 13px;
+  border: 1px solid #fca5a5;
+}
+
+.qo-shell .quick-onboarding-header {
+  margin-bottom: 28px;
+}
+
+.qo-shell .quick-onboarding-header h1 {
+  margin: 0 0 8px;
+  color: #052659;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.32;
+  letter-spacing: -0.6px;
+}
+
+.qo-shell .quick-onboarding-header p {
+  color: #456b91;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.qo-shell .quick-field-label,
+.qo-shell .quick-field label {
+  color: #052659;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.qo-shell .quick-field input:not([type=checkbox]):not([type=radio]),
+.qo-shell .quick-field select {
+  min-height: 50px;
+  border: 1px solid #7da0ca;
+  border-radius: 12px;
+  background: #fff;
+  color: #052659;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.qo-shell .quick-field input:focus,
+.qo-shell .quick-field select:focus {
+  border-color: #334daf;
+  outline: 3px solid rgba(51, 77, 175, 0.2);
+  outline-offset: 1px;
+}
+
+.qo-shell .quick-helper-text {
+  color: #456b91;
+  font-size: 12px;
+}
+
+.qo-shell .quick-chips-row button,
+.qo-shell .quick-chips-row .chip {
+  min-height: 40px;
+  padding: 7px 15px;
+  border: 1px solid #d0e4fe;
+  border-radius: 99px;
+  background: #fff;
+  color: #052659;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.qo-shell .quick-chips-row button:hover,
+.qo-shell .quick-chips-row .chip:hover {
+  border-color: #7da0ca;
+  background: #f8fafc;
+}
+
+.qo-shell .quick-chips-row button[aria-pressed="true"],
+.qo-shell .quick-chips-row .is-active {
+  border-color: #334daf;
+  background: #e8f2fe;
+  color: #334daf;
+  font-weight: 600;
+}
+
+.qo-shell .quick-actions {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e8f2fe;
+}
+
+.qo-shell .qo-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  color: #64748b;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Choice card enhancement */
+.choice {
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.choice:hover {
+  border-color: #5483b3 !important;
+  box-shadow: 0 4px 12px rgba(5, 38, 89, 0.05);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1024px) {
+  .quick-onboarding-container.qo-shell {
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 32px;
+    padding: 0 24px;
+  }
+}
+
+@media (max-width: 850px) {
+  .quick-onboarding-container.qo-shell {
+    display: block;
+    max-width: 680px;
+    margin: 16px auto 40px;
+    padding: 0 20px;
+  }
+  .qo-shell .qo-aside {
+    position: static;
+    padding-top: 0;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .qo-shell .qo-aside-header h2,
+  .qo-shell .qo-aside-header p,
+  .qo-shell .qo-aside-header .qo-eyebrow,
+  .qo-aside-tip-card,
+  .qo-aside-trust {
+    display: none;
+  }
+  .qo-shell .setup-steps.qo-steps,
+  .qo-shell .qo-steps {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0 16px;
+  }
+  .qo-shell .qo-steps li:not(:last-child)::after {
+    display: none;
+  }
+  .qo-shell .qo-steps li {
+    flex: 1;
+    padding: 8px 6px;
+    justify-content: center;
+    text-align: center;
+  }
+  .qo-shell .qo-steps li .qo-step-copy small {
+    display: none;
+  }
+  .qo-shell .qo-step-number {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  .qo-shell .qo-card {
+    padding: 28px 24px;
+    border-radius: 20px;
+  }
+  .onboarding-top-nav-inner {
+    padding: 12px 20px;
+  }
+  .onboarding-top-meta {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .quick-onboarding-container.qo-shell {
+    padding: 0 16px;
+  }
+  .qo-shell .qo-card {
+    padding: 24px 18px;
+    border-radius: 16px;
+  }
+  .qo-shell .quick-onboarding-header h1 {
+    font-size: 24px;
+  }
+  .onboarding-step-pill .step-label {
+    display: none;
+  }
+  .onboarding-mini-progress {
+    width: 100px;
+  }
+}
 
 /* =========================================================================
    Demo Survey Questions Styling (sites/an-huu-trai-nghiem/dist/survey-questions.css)
@@ -297,13 +821,14 @@
 .survey-branch:has(.survey-toggle input:checked) .survey-branch-status .status-on { display: inline; }
 .survey-branch-body { padding: 18px 20px 20px; background: #fcfdff; }
 .survey-branch-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; align-items: start; }
-.survey-branch-grid > .field, .survey-branch-grid > .survey-duration-col > .field, .survey-branch-grid > .survey-branch-full > .field { margin-bottom: 0; }
-.survey-branch-grid .field > label { display: block; font-size: 13px; font-weight: 600; color: #0f294a; margin-bottom: 6px; line-height: 1.4; min-height: 18px; }
-.survey-branch-grid .field select, .survey-branch-grid select { min-height: 50px; height: 50px; border-radius: 12px; padding: 10px 14px; font-size: 14px; line-height: 1.5; background-color: #fff; border: 1px solid #7DA0CA; color: #052659; box-sizing: border-box; width: 100%; }
-.survey-branch-grid .input-wrap input { min-height: 50px; height: 50px; border-radius: 12px; box-sizing: border-box; }
+.survey-branch-grid > .field, .survey-branch-grid > .survey-duration-col > .field, .survey-branch-grid > .survey-branch-full > .field, .survey-branch-grid > .currency-input-wrap { margin-bottom: 0; }
+.survey-branch-grid .field > label, .survey-branch-grid .currency-input-wrap > label { display: block; font-size: 13px !important; font-weight: 600 !important; color: #0f294a !important; margin-bottom: 6px !important; line-height: 1.4 !important; min-height: 20px !important; }
+.survey-branch-grid .field select, .survey-branch-grid select { min-height: 50px !important; height: 50px !important; border-radius: 12px !important; padding: 10px 14px !important; font-size: 14px !important; line-height: 1.5 !important; background-color: #fff !important; border: 1px solid #7DA0CA !important; color: #052659 !important; box-sizing: border-box !important; width: 100% !important; }
+.survey-branch-grid .input-wrap input { min-height: 50px !important; height: 50px !important; border-radius: 12px !important; box-sizing: border-box !important; }
 .survey-branch-full { grid-column: 1 / -1; }
-.survey-support-note { margin: 6px 0 0 !important; color: #475569 !important; font-size: 12px !important; line-height: 1.45; }
-.survey-source-field { padding-top: 12px; border-top: 1px dashed #e2e8f0; }
+.survey-support-note { margin: 6px 0 0 !important; color: #475569 !important; font-size: 12px !important; line-height: 1.45 !important; }
+.survey-support-note:empty { display: none !important; }
+.survey-source-field { padding-top: 16px !important; margin-top: 8px !important; border-top: 1px dashed #e2e8f0 !important; }
 .survey-pension { margin-top: 24px; padding: 20px 22px; background: #ffffff; border: 1px solid #dbe3ec; border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04); }
 .survey-pension-head { margin-bottom: 14px; }
 .survey-pension h2 { font-size: 16px; font-weight: 700; color: #0f294a; line-height: 1.4; margin: 0; letter-spacing: -0.01em; }
@@ -321,7 +846,243 @@
 .survey-safety-selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
 .survey-safety-selects select { min-height: 50px; height: 50px; border-radius: 12px; padding: 10px 14px; font-size: 14px; border: 1px solid #7DA0CA; color: #052659; width: 100%; }
 .reserve-months.is-warning { color: #b42318; font-weight: 600; }
-.retirement-estimate { margin-top: 8px; font-size: 13px; font-weight: 600; color: #334DAF; }
+.retirement-estimate { background: none; padding: 0; margin: 6px 0 0; font-size: 13px; color: #416787; font-weight: 500; }
+.retirement-estimate:empty { display: none; }
+.money-words { display: block; color: #24568c; font-size: 12px; line-height: 1.6; margin-top: 6px; overflow-wrap: anywhere; min-height: 19px; }
+.money-words:empty { display: none; }
+.input-wrap.money input { text-align: right; padding-right: 48px !important; }
+.qo-shell .input-suffix,
+.qo-shell .suffix,
+.input-wrap .suffix,
+.input-wrap .input-suffix {
+  background: none !important;
+  border: none !important;
+  color: #64748b !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  padding: 0 !important;
+  height: auto !important;
+  right: 16px !important;
+  pointer-events: none;
+}
+
+/* Setup shell field & select standard styles */
+.qo-shell .field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.qo-shell .field > label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #052659;
+  line-height: 1.4;
+  margin-bottom: 0;
+}
+.qo-shell .field select,
+.qo-shell select {
+  width: 100%;
+  min-height: 50px;
+  height: 50px;
+  border: 1px solid #7DA0CA !important;
+  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  background-color: #fff !important;
+  color: #052659 !important;
+  font: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+/* Primary Button Styling */
+.qo-shell .btn-primary,
+.qo-shell .button-primary,
+.form-actions .btn-primary,
+.form-actions .button-primary,
+.setup-card button[type="submit"] {
+  min-height: 48px !important;
+  padding: 12px 24px !important;
+  border-radius: 12px !important;
+  background-color: #173d68 !important;
+  color: #ffffff !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s ease;
+}
+.qo-shell .btn-primary:hover:not(:disabled),
+.qo-shell .button-primary:hover:not(:disabled),
+.form-actions .btn-primary:hover:not(:disabled),
+.form-actions .button-primary:hover:not(:disabled),
+.setup-card button[type="submit"]:hover:not(:disabled) {
+  background-color: #0f294a !important;
+}
+.qo-shell .btn-primary:disabled,
+.qo-shell .button-primary:disabled,
+.form-actions .btn-primary:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Detail row in summary accordions */
+.detail-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  padding: 8px 0 !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  font-size: 13px !important;
+}
+.detail-row:last-of-type {
+  border-bottom: 0 !important;
+}
+.detail-row dt {
+  color: #475569 !important;
+  font-weight: 500 !important;
+  margin: 0 !important;
+}
+.detail-row dd {
+  font-weight: 600 !important;
+  color: #0f294a !important;
+  margin: 0 !important;
+}
+
+/* Button ghost (back button) */
+.qo-shell .btn.ghost,
+.setup-card .btn.ghost,
+.qo-shell .button-ghost,
+.qo-shell .btn-ghost,
+.form-actions .btn.ghost,
+.form-actions .button-ghost {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  color: #475569 !important;
+  padding: 10px 14px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  text-decoration: none !important;
+}
+.qo-shell .btn.ghost:hover,
+.setup-card .btn.ghost:hover,
+.qo-shell .button-ghost:hover,
+.qo-shell .btn-ghost:hover,
+.form-actions .btn.ghost:hover,
+.form-actions .button-ghost:hover {
+  background: #f1f5fb !important;
+  color: #0f294a !important;
+}
+
+/* Hiển thị số tiền bằng chữ */
+.money-words {
+  display: block;
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+.money-words:empty {
+  display: none;
+}
+
+/* Amount suggestions - Gợi ý số tiền (chỉ hiện khi focus/nhập) */
+.amount-suggestions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+.amount-suggestions[hidden] {
+  display: none;
+}
+.amount-suggestions > span {
+  font-size: 10px;
+  color: #73869d;
+  margin-right: 2px;
+}
+.amount-suggestions button {
+  border: 1px solid #ceddec;
+  background: #f3f7fd;
+  color: #24568c;
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+.amount-suggestions button:hover {
+  background: #e3eefc;
+  border-color: #8dadcf;
+}
+.amount-suggestions button:focus-visible {
+  outline: 3px solid #86aed1;
+  outline-offset: 2px;
+}
+@media (max-width: 650px) {
+  .amount-suggestions {
+    gap: 6px;
+  }
+  .amount-suggestions button {
+    min-height: 40px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .amount-suggestions > span {
+    flex-basis: 100%;
+  }
+}
+
+/* Input Error Validation Styling - báo đỏ viền và dòng chữ ngay dưới input */
+.form-field.has-error input,
+.month-field.has-error input,
+.field.has-error input,
+.form-field.has-error select,
+.field.has-error select,
+.qo-shell input[aria-invalid="true"],
+.qo-shell select[aria-invalid="true"] {
+  border-color: #dc2626 !important;
+  background-color: #fff5f5 !important;
+  box-shadow: 0 0 0 1px #dc2626 !important;
+}
+
+.form-field.has-error input:focus,
+.month-field.has-error input:focus,
+.field.has-error input:focus,
+.qo-shell input[aria-invalid="true"]:focus,
+.qo-shell select[aria-invalid="true"]:focus {
+  outline: 3px solid rgba(220, 38, 38, 0.25) !important;
+  border-color: #dc2626 !important;
+}
+
+.field-error-text,
+.error-text,
+.form-field.has-error small,
+.month-field.has-error small,
+.field.has-error small {
+  display: block !important;
+  color: #dc2626 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  margin-top: 6px !important;
+  line-height: 1.4 !important;
+}
 @media (max-width: 650px) {
   .survey-family.two-col, .survey-branch-grid, .survey-safety-selects { grid-template-columns: 1fr; gap: 14px; }
   .survey-extra.survey-family-details, .survey-pension { padding: 16px; }

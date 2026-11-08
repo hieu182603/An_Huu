@@ -62,9 +62,9 @@ function readGroupOfThree(threeDigits: number, hasHigherGroup: boolean): string 
 
 /**
  * Đọc số tiền thành chữ tiếng Việt chuẩn (dùng cho ngân hàng & tài chính)
- * Ví dụ: 30000000 -> "Ba mươi triệu VND"
+ * Ví dụ: 30000000 -> "Ba mươi triệu đồng"
  */
-export function numberToVietnameseWords(amount: number, suffix = "VND"): string {
+export function numberToVietnameseWords(amount: number, suffix = "đồng"): string {
   if (amount === undefined || amount === null || isNaN(amount) || amount <= 0) return "";
   const num = Math.floor(amount);
   if (num === 0) return "";
@@ -93,5 +93,6 @@ export function numberToVietnameseWords(amount: number, suffix = "VND"): string 
   const rawText = resultParts.join(" ").replace(/\s+/g, " ").trim();
   if (!rawText) return "";
   const capitalized = rawText.charAt(0).toUpperCase() + rawText.slice(1);
-  return `${capitalized} ${suffix}`;
+  const finalSuffix = suffix === "VND" || suffix === "đ" || suffix === "₫" || !suffix ? "đồng" : suffix;
+  return `${capitalized} ${finalSuffix}`.trim();
 }

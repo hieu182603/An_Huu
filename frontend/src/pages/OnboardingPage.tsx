@@ -134,6 +134,7 @@ export default function OnboardingPage() {
   const retirementMonth = draftSelection?.whatIf?.retirementMonth ?? "";
   const contribution = Number(draftSelection?.monthlyContribution ?? 0);
   const [showPower, setShowPower] = useState(false);
+  const [quickStep, setQuickStep] = useState<1 | 2 | 3 | 4>(1);
   useEffect(() => { if (showPower) { window.scrollTo(0, 0); document.getElementById("purchasing-power-title")?.focus({ preventScroll: true }); } }, [showPower]);
 
 
@@ -559,22 +560,48 @@ export default function OnboardingPage() {
   }
 
   if (!legacyOnboardingDraft) {
+    const stepLabels = [
+      isEn ? "Your Wish" : "Mong muốn",
+      isEn ? "Money Today" : "Tiền hôm nay",
+      isEn ? "Family" : "Gia đình",
+      isEn ? "Risk Tolerance" : "Khả năng chịu rủi ro",
+    ];
+
     return (
       <div className="onboarding-app">
-        <header className="onboarding-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1180px", margin: "auto", padding: "24px 40px" }}>
-          <div className="onboarding-header-brand">
-            <Link to="/" aria-label={isEn ? "An Huu home" : "Về trang chủ An Hưu"}>
-              <BrandLogo />
-            </Link>
-          </div>
-          <div className="onboarding-header-actions">
-            <Link to="/" className="button button-ghost button-small" style={{ fontSize: "13px", color: "var(--muted, #64748b)" }}>
-              {isEn ? "End trial session →" : "← Kết thúc phiên thử"}
-            </Link>
+        <header className="onboarding-top-nav">
+          <div className="onboarding-top-nav-inner">
+            <div className="onboarding-top-brand">
+              <Link to="/" aria-label={isEn ? "An Huu home" : "Về trang chủ An Hưu"} className="brand-logo-link">
+                <BrandLogo />
+              </Link>
+            </div>
+
+            <div className="onboarding-top-milestone" aria-live="polite">
+              <div className="onboarding-step-pill">
+                <span className="step-badge">{isEn ? `Bước ${quickStep}/4` : `Bước ${quickStep}/4`}</span>
+                <span className="step-sep">•</span>
+                <span className="step-label">{stepLabels[quickStep - 1]}</span>
+              </div>
+              <div className="onboarding-mini-progress" aria-hidden="true">
+                <div
+                  className="onboarding-mini-progress-fill"
+                  style={{ width: `${(quickStep / 4) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="onboarding-top-meta">
+              <div className="security-tag" title={isEn ? "Encrypted & secure" : "Dữ liệu được bảo mật"}>
+                <Icon name="shield" size="small" />
+                <span>{isEn ? "Bank-grade Security" : "Bảo mật & Tự động lưu"}</span>
+              </div>
+            </div>
           </div>
         </header>
-        <main id="main-content">
-          <QuickOnboarding />
+
+        <main id="main-content" className="onboarding-main-viewport">
+          <QuickOnboarding onStepChange={setQuickStep} />
         </main>
       </div>
     );

@@ -1410,3 +1410,18 @@ Backend đã bổ sung các API sau (tương thích ngược, frontend hiện t�
 5. **Kịch bản sốc cổ phiếu mức nặng** (`POST /me/retirement/risk` mode `scenarios`): khi policy cấu hình `EQUITY_CRASH.severeShockPercent`, mảng `scenarios` có thêm một phần tử `kind: "EQUITY_CRASH"`, `level: "SEVERE"`, nằm ngay sau dòng `EQUITY_CRASH` cơ sở. UI phải phân biệt theo `kind + level` (không dùng `kind` làm key duy nhất), nhãn đề xuất: "Cổ phiếu giảm sâu (−50%)". Trang admin policy (`AdminPortfolioPoliciesPage`) cần thêm ô "Mức sốc nặng (%)" cho `severeShockPercent` (không bắt buộc, phải âm hơn mức cơ sở).
 
 Kiểm tra nghiệm thu: gửi yêu cầu khi chưa tick đồng ý bị chặn ở UI; gửi trùng hiện thông báo 409; huỷ xong trạng thái hiện "Đã đóng"; lưu/bỏ lưu đồng bộ sau khi tải lại trang và trên thiết bị khác; bảng kịch bản sốc hiện đủ 2 dòng cổ phiếu khi policy có mức nặng.
+
+## FE-ADMIN-GAPS (08/11/2026) — LÀM SAU, chưa bắt đầu
+
+Ba phần quản lý admin còn thiếu. Mục 1 cần backend làm trước; mục 2 và 3 có thể làm UI ngay với API hiện có.
+
+1. **Phân quyền đầu tư** (cần backend trước — chưa có API).
+   - Vai trò: `OPERATIONS`, `DATA_ADMIN` (nhập dữ liệu sản phẩm đầu tư), `MODEL_ADMIN`, `ADVISOR` (lập đề xuất), `APPROVER` (duyệt đề xuất), `SYSTEM_ADMIN`. Bảng `investment_role_grants`.
+   - Hiện chỉ cấp được bằng script/DB; admin mới bị 403 FORBIDDEN ở trang Đầu tư.
+   - UI dự kiến: trong chi tiết người dùng ADMIN, danh sách vai trò có thể bật/tắt, có xác nhận và ghi audit. Chặn tự thu hồi vai trò cuối cùng của chính mình.
+2. **Gửi thông báo toàn hệ thống** — API có sẵn `POST /api/v1/admin/notifications/broadcast` body `{ title, message }`.
+   - Lưu ý: backend hiện chỉ đẩy socket, KHÔNG lưu vào `notifications` → người không online không thấy. Backend sẽ sửa để lưu; UI nên hiển thị cảnh báo này cho tới khi sửa.
+   - UI: form tiêu đề + nội dung, xem trước, xác nhận trước khi gửi.
+3. **Giám sát vận hành** — API có sẵn `GET /api/v1/admin/operations` (trạng thái API/DB, uptime, `mailJobs` theo trạng thái, `recentFailures` 20 job lỗi gần nhất, `lastJobCompletedAt`).
+   - Route `/admin/operations` hiện redirect về dashboard; dashboard không hiển thị các số liệu này.
+   - UI: thẻ trạng thái + bảng job lỗi; ghi rõ "COMPLETED = nhà cung cấp email đã nhận, chưa chắc đã giao" (`mailDeliveryEvidence`).
