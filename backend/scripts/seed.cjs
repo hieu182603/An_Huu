@@ -102,7 +102,7 @@ async function main() {
             kind: "AN_HUU_LONG_TERM",
             title: "Giả định dài hạn An Hưu 2026-2040",
             publisher: "An Hưu",
-            url: "https://anhuu.vn/governance/assumptions/local-dev",
+            url: "https://an-huu.vercel.app/governance/assumptions/local-dev",
             release: "AH-LOCAL-DEV",
             publishedOn: "2026-01-01",
             retrievedOn: "2026-10-01",
@@ -115,7 +115,7 @@ async function main() {
             kind: "ASSET_RESEARCH",
             title: "Nghiên cứu lợi suất kỳ vọng các lớp tài sản Việt Nam",
             publisher: "An Hưu",
-            url: "https://anhuu.vn/research/cma-local",
+            url: "https://an-huu.vercel.app/research/cma-local",
             release: "CMA-LOCAL",
             publishedOn: "2026-01-01",
             retrievedOn: "2026-10-01",
@@ -191,7 +191,7 @@ async function main() {
           assumptionVersionId: published.id,
           source: {
             title: "Khung chính sách danh mục An Hưu (Local Dev)",
-            url: "https://anhuu.vn/governance/portfolio-policy/local-dev",
+            url: "https://an-huu.vercel.app/governance/portfolio-policy/local-dev",
             release: "AH-PORTFOLIO-LOCAL",
             reviewedOn: "2026-01-01"
           },
@@ -329,7 +329,7 @@ async function main() {
 
     // ── 6. System settings ───────────────────────────────────────────────────
     const systemSettings = [
-      { key: "general",       category: "GENERAL",       value: { systemName: "An Hưu", defaultLanguage: "Tiếng Việt", operatingTimezone: "GMT+7 (Việt Nam)", supportEmail: "hotro@anhuu.vn", maintenanceMode: false } },
+      { key: "general",       category: "GENERAL",       value: { systemName: "An Hưu", defaultLanguage: "Tiếng Việt", operatingTimezone: "GMT+7 (Việt Nam)", supportEmail: "anhuuofficial@gmail.com", maintenanceMode: false } },
       { key: "security",      category: "SECURITY",      value: { sessionTimeoutMinutes: 60, maxLoginAttempts: 5, accountLockMinutes: 15, passwordMinLength: 8, passwordRequireUppercase: true, passwordRequireLowercase: true, passwordRequireNumber: true, passwordRequireSpecial: false, admin2faRequired: false } },
       { key: "notifications", category: "NOTIFICATIONS", value: { emailEnabled: true, inAppEnabled: true, smsEnabled: false, notifyAccount: true, notifySupport: true, notifyFinancial: true, notifySystem: true } },
     ];

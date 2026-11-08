@@ -63,7 +63,7 @@ Toàn bộ dữ liệu đã được làm sạch và nạp mới qua kịch bả
 │    - Căn cứ: Mục tiêu kiểm soát lạm phát bình quân dưới 4.0% của Ngân hàng Nhà nước Việt Nam    │
 │      theo Nghị quyết Quốc hội về Kế hoạch phát triển KTXH 5 năm & 10 năm                        │
 │    - Tỷ lệ áp dụng: 4.0%/năm (tỷ lệ hiệu dụng danh nghĩa)                                       │
-│    - Văn bản nội bộ: AH-MACRO-2026-V2; URL: https://anhuu.vn/governance/assumptions/2026-v2-macro│
+│    - Văn bản nội bộ: AH-MACRO-2026-V2; URL: https://an-huu.vercel.app/governance/assumptions/2026-v2-macro│
 │    - Phân định rõ ràng: Tuyệt đối không gắn nhãn nguồn IMF cho giai đoạn 2031 - 2055.           │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 4. Nguồn Lợi suất Thị trường Vốn (2026 - 2055): Báo cáo FiinGroup & An Hưu                      │
@@ -71,7 +71,7 @@ Toàn bộ dữ liệu đã được làm sạch và nạp mới qua kịch bả
 │    - Đơn vị nghiên cứu: Khối Nghiên cứu Thị trường Vốn An Hưu hợp tác cùng FiinGroup           │
 │    - Dữ liệu cơ sở: Chuỗi lợi suất lịch sử 2010 - 2025 của VN-Index, Trái phiếu Chính phủ       │
 │      kỳ hạn 5-10 năm, Lãi suất tiền gửi bình quân nhóm NHTM Nhà nước (Big 4)                     │
-│    - Báo cáo: CMA-VN-2026-FINAL; URL: https://anhuu.vn/research/capital-market-assumptions-2026│
+│    - Báo cáo: CMA-VN-2026-FINAL; URL: https://an-huu.vercel.app/research/capital-market-assumptions-2026│
 └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 

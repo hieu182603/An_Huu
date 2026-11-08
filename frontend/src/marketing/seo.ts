@@ -73,7 +73,7 @@ export function structuredData(pathname: string, origin = configuredOrigin) {
     });
   }
 
-  if (['/', '/tro-ly-ai', '/kien-thuc', '/cach-hoat-dong'].includes(path)) {
+  if (['/', '/mo-phong', '/tro-ly-ai', '/kien-thuc', '/cach-hoat-dong'].includes(path)) {
     graph.push({
       '@type': 'FAQPage',
       ...(origin ? { '@id': `${origin}${path}#faq` } : {}),

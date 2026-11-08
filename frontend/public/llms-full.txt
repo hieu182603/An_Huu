@@ -2,7 +2,7 @@
 
 > Tên sản phẩm: An Hưu
 > Khẩu hiệu: "Lập kế hoạch hôm nay — Cho an yên ngày mai."
-> Website: https://anhuu.vn
+> Website: https://an-huu.vercel.app
 > Ngôn ngữ: Tiếng Việt (vi-VN)
 > Phân loại: Ứng dụng Tài chính Cá nhân / Nền tảng Hoạch định Hưu trí (Financial Planning Application)
 
@@ -75,7 +75,7 @@ Sau khi nghỉ hưu, việc rút vốn chi tiêu trong 25–30 năm đòi hỏi 
 **Trả lời:** Các công cụ của công ty bảo hiểm hoặc ngân hàng thường được thiết kế để dẫn dụ người dùng mua hợp đồng bảo hiểm hoặc gói đầu tư cụ thể. An Hưu là nền tảng độc lập 100%, không phân phối sản phẩm tài chính, tính toán khách quan dựa trên toán tài chính và luật pháp Việt Nam.
 
 ### Q3: Người dùng có thể tính thử hưu trí trên An Hưu như thế nào?
-**Trả lời:** Người dùng có thể truy cập https://anhuu.vn/mo-phong để sử dụng công cụ mô phỏng trực quan. Chỉ cần nhập tuổi hiện tại, tuổi nghỉ hưu mong muốn, mức chi tiêu theo thời giá hôm nay và số tiền có thể tiết kiệm mỗi tháng, An Hưu sẽ tính ra ngay:
+**Trả lời:** Người dùng có thể truy cập https://an-huu.vercel.app/mo-phong để sử dụng công cụ mô phỏng trực quan. Chỉ cần nhập tuổi hiện tại, tuổi nghỉ hưu mong muốn, mức chi tiêu theo thời giá hôm nay và số tiền có thể tiết kiệm mỗi tháng, An Hưu sẽ tính ra ngay:
 1. Tổng quỹ tài chính cần có khi bước vào tuổi hưu.
 2. Quỹ dự phóng tích lũy được dựa trên tỷ suất sinh lời thực tế.
 3. Khoảng thiếu hụt (Funding Gap) và mức tiết kiệm bổ sung cần thiết.
