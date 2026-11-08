@@ -246,7 +246,7 @@
 .mk-faq-header p { font-size: 14px; color: #536b7e; line-height: 1.65; }
 
 /* Sub-nav active */
-.mk-demo-nav a.active { color: #fff !important; background: var(--mk-jade) !important; border-color: var(--mk-jade) !important; }
+.mk-demo-nav a.active { color: var(--mk-jade) !important; background: #f0fdf9 !important; border-color: var(--mk-jade) !important; font-weight: 600; }
 .mk-footer-bottom { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 28px; border-top: 1px solid rgba(255, 255, 255, 0.1); margin-top: 40px; padding-top: 22px; color: #8faec4; font-size: 12px; }
 .mk-footer-bottom span { color: #8faec4; }
 .mk-footer-bottom small { font-size: 11px; color: #6888a2; }

@@ -19,7 +19,7 @@ export default function LandingPage() {
         <p className="mk-hero-kicker">KẾ HOẠCH HƯU TRÍ CHO NGƯỜI VIỆT</p>
         <h1 id="hero-title">An tâm hôm nay,<br /><span>an yên ngày mai.</span></h1>
         <p className="mk-hero-description">Bạn muốn sống thế nào khi nghỉ hưu?<br className="mk-desktop-break" /> Hiểu số tiền cần có, khoản còn thiếu và bước có thể làm từ hôm nay.</p>
-        <div className="mk-hero-actions"><MarketingButton to="/mo-phong">Thử kế hoạch của tôi</MarketingButton><Link className="mk-hero-secondary" to="/mo-phong#phan-bo">Khám phá phân bổ tài sản<Icon name="arrow-right" /></Link></div>
+        <div className="mk-hero-actions"><MarketingButton to="/mo-phong">Xem kế hoạch mẫu</MarketingButton><Link className="mk-hero-secondary" to="/mo-phong#phan-bo">Khám phá phân bổ tài sản<Icon name="arrow-right" /></Link></div>
         <div className="mk-hero-cards">
           <div className="mk-hero-side mk-hero-left">
             <div className="mk-hero-card mk-saving-card"><span className="mk-card-icon"><Icon name="wallet" /></span><p>Từng chút hôm nay</p><strong>Cho những điều<br />bạn mong đợi.</strong><div className="mk-saving-bars" aria-hidden="true">{[22, 31, 28, 42, 52, 65, 78, 95].map((height, i) => <i key={i} style={{ height: `${height}%` }} />)}</div><Link to="/mo-phong">Khám phá cách tích lũy<Icon name="arrow-right" /></Link></div>
@@ -160,7 +160,7 @@ export default function LandingPage() {
             </div>
 
             <div className="mk-about-card-foot">
-              <Link to="/cach-hoat-dong" className="mk-card-action">
+              <Link to="/gioi-thieu" className="mk-card-action">
                 <span>Tìm hiểu thêm về đội ngũ</span>
                 <Icon name="arrow-right" />
               </Link>
@@ -208,7 +208,7 @@ export default function LandingPage() {
             </div>
 
             <div className="mk-about-card-foot">
-              <Link to="/mo-phong#co-so-tinh-toan" className="mk-card-action">
+              <Link to="/gioi-thieu" className="mk-card-action">
                 <span>Xem minh bạch nguồn dữ liệu</span>
                 <Icon name="arrow-right" />
               </Link>

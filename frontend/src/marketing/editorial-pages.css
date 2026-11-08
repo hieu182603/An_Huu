@@ -46,8 +46,8 @@
   text-underline-offset: 6px; text-decoration-thickness: 2px;
 }
 .ed-link-btn:hover { color: var(--ed-jade); }
-.ed-link-light { color: #fff; text-decoration-color: #83d8c8; }
-.ed-link-light:hover { color: #83d8c8; }
+.ed-link-btn.ed-link-light, .ed-link-light { color: #ffffff !important; text-decoration-color: #83d8c8; }
+.ed-link-btn.ed-link-light:hover, .ed-link-light:hover { color: #83d8c8 !important; }
 .mk-button:active { transform: translateY(1px) scale(0.99); }
 
 .ed-hero-media { margin: 0; position: relative; }
