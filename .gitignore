@@ -31,6 +31,7 @@ tmp-shots/
 # Temporary, OS and local artifacts
 .DS_Store
 Thumbs.db
+.vscode/
 .tmp/
 .tmp-*
 artifacts/
@@ -96,13 +97,11 @@ an-huu-intro*
 
 # Documentation, notes, and Office files
 /docs/*
-!/docs/implementation/
 *.doc
 *.docx
 *.md
 !README.md
 !**/README.md
-!/docs/implementation/**
 
 
 
