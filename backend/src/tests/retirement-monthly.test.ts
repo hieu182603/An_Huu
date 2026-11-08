@@ -137,7 +137,7 @@ describe("T06 profile / debt / assumptions / pension adapter", () => {
     const cfg = retirementConfiguration(); cfg.assumptions.inflation.find(r => r.year === 2027)!.percent = "12";
     const r = run(undefined, undefined, cfg).calculation!;
     expect(r.rows[3].livingExpense).toBe("100");
-    expect(Number(r.rows[4].livingExpense)).toBeCloseTo(100 * 1.12 ** (1 / 12), 10);
+    expect(Number(r.rows[4].livingExpense)).toBeCloseTo(100 * (1 + 0.12 / 12), 10);
     expect(r.rows[4].growthFactor).toBe("1");
   });
   it("does not deduct debt principal from initial capital; debt caps affordable deposits", () => {
@@ -188,8 +188,8 @@ describe("T06 profile / debt / assumptions / pension adapter", () => {
     c.scenario = "ADVERSE";
     const r = run(undefined, c, cfg).calculation!;
     expect(r.marketRows[0].returnMonthlyFactor).toBe(r.rows[0].growthFactor);
-    expect(Number(r.rows[0].growthFactor)).toBeCloseTo(0.98 ** (1 / 12), 14);
-    expect(Number(r.rows[0].inflationFactor)).toBeCloseTo(1.01 ** (1 / 12), 14);
+    expect(Number(r.rows[0].growthFactor)).toBeCloseTo(1 - 0.02 / 12, 14);
+    expect(Number(r.rows[0].inflationFactor)).toBeCloseTo(1 + 0.01 / 12, 14);
   });
   it("charges actual turnover cost once when a drifting allocation is rebalanced", () => {
     const cfg = retirementConfiguration(), c = retirementCommand();
@@ -197,7 +197,7 @@ describe("T06 profile / debt / assumptions / pension adapter", () => {
     cfg.policy.templates.find(t => t.id === "GROWTH")!.rebalance.turnoverCostPercent = "1";
     c.answers.forEach(a => a.choiceId = "HIGH"); c.liquidityNeedMonths = 24;
     const result = run(undefined, c, cfg).calculation!;
-    const stock = 1.12 ** (1 / 12), stockWeight = stock ** 3 / (1 + stock ** 3);
+    const stock = 1 + 0.12 / 12, stockWeight = stock ** 3 / (1 + stock ** 3);
     const expectedFactor = (1 - (stockWeight - 0.5) * 0.01) * (0.5 + 0.5 * stock);
     expect(Number(result.marketRows[3].rebalanceCostFraction)).toBeGreaterThan(0);
     expect(Number(result.rows[3].growthFactor)).toBeCloseTo(expectedFactor, 14);
@@ -217,7 +217,7 @@ describe("T06 profile / debt / assumptions / pension adapter", () => {
     p.pension = { ...declaredPension(), monthlyAmount: "100", priceBasis: "TODAY", basisMonth: "2026-10" };
     c.scenario = "ADVERSE";
     const r = run(p, c, cfg).calculation!;
-    expect(Number(r.rows[3].pension)).toBeCloseTo(100 * 1.01 ** (3 / 12), 12);
+    expect(Number(r.rows[3].pension)).toBeCloseTo(100 * (1 + 0.01 / 12) ** 3, 12);
     expect(r.rows[4].pension).toBe(r.rows[3].pension);
     cfg.assumptions.inflation = cfg.assumptions.inflation.filter(r => r.year !== 2027);
     expect(run(p, c, cfg).status).toBe("INCOMPLETE");

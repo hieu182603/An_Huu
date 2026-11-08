@@ -53,7 +53,7 @@ export function validateRetirementInput(input: RetirementCalculationInput): stri
 }
 
 export function futureValue(principal: number, monthlyContribution: number, annualRate: number, months: number): number {
-  const monthlyRate = Math.pow(1 + annualRate / 100, 1 / 12) - 1;
+  const monthlyRate = annualRate / 1200;
   if (months <= 0) return principal;
   if (Math.abs(monthlyRate) < 1e-10) return principal + monthlyContribution * months;
   const factor = Math.pow(1 + monthlyRate, months);
@@ -67,8 +67,8 @@ export function requiredFundAtRetirement(
   annualInflation: number,
   months: number
 ): number {
-  const monthlyReturn = Math.pow(1 + annualReturn / 100, 1 / 12) - 1;
-  const monthlyInflation = Math.pow(1 + annualInflation / 100, 1 / 12) - 1;
+  const monthlyReturn = annualReturn / 1200;
+  const monthlyInflation = annualInflation / 1200;
   let required = 0;
   for (let month = months - 1; month >= 0; month--) {
     const withdrawal = Math.max(0, monthlyExpense * Math.pow(1 + monthlyInflation, month) - monthlyPension);

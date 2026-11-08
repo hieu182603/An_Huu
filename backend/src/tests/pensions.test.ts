@@ -37,9 +37,9 @@ describe("T05 pension amounts and cashflows", () => {
     p.pension = { ...declaredPension(), priceBasis: "TODAY", basisMonth: "2026-10" };
     p.personal.pensionStartMonth = known("2028-01");
     expect(pensionAtMonth(p, "2028-01").amount).toBeNull();
-    // Oct-Dec 2026: 0%; twelve months in 2027: 4%. Independent annual expectation.
+    // Oct-Dec 2026: 0%; twelve months in 2027 at 4% / 12 per month.
     const amount = Number(pensionAtMonth(p, "2028-01", a).amount);
-    expect(amount).toBeCloseTo(5200000, 6);
+    expect(amount).toBeCloseTo(5000000 * (1 + 0.04 / 12) ** 12, 6);
     expect(pensionAtMonth(p, "2040-01", a).amount).toBe(pensionAtMonth(p, "2028-01", a).amount);
     a.inflation = a.inflation.filter(r => r.year !== 2027);
     expect(pensionAtMonth(p, "2028-01", a)).toMatchObject({ amount: null, issues: [{ code: "INFLATION_YEAR_MISSING" }] });
@@ -59,7 +59,7 @@ describe("T05 pension amounts and cashflows", () => {
     p.pension = { ...declaredPension(), priceBasis: "TODAY", basisMonth: "2026-10" };
     p.personal.pensionStartMonth = known("2028-01");
     a.inflation.find(r => r.year === 2027)!.percent = "-4";
-    expect(Number(pensionAtMonth(p, "2028-01", a).amount)).toBeCloseTo(4800000, 6);
+    expect(Number(pensionAtMonth(p, "2028-01", a).amount)).toBeCloseTo(5000000 * (1 - 0.04 / 12) ** 12, 6);
   });
   it("includes pension once and marks unresolved active nominal totals unknown", () => {
     const p = pensionProfile(); p.valuationDate = "2027-01-01";

@@ -31,7 +31,7 @@ export function pensionAtMonth(profile: Pick<ProfileV2, "pension" | "personal">,
       const year = Number(period.slice(0, 4));
       const row = assumptions.inflation.find(r => r.year === year);
       if (!row) return fail("INFLATION_YEAR_MISSING");
-      const factor = factors.get(year) ?? new D(row.percent).div(100).plus(1).pow(new D(1).div(12));
+      const factor = factors.get(year) ?? new D(row.percent).div(1200).plus(1);
       factors.set(year, factor);
       amount = amount.mul(factor);
     }

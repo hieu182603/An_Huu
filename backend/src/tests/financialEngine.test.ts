@@ -55,6 +55,6 @@ describe("Financial Calculation Engine", () => {
   it("handles future value computation with zero contribution", () => {
     const fv = futureValue(100000000, 0, 10, 12);
     expect(fv).toBeGreaterThan(100000000);
-    expect(Math.round(fv)).toBe(110000000);
+    expect(Math.round(fv)).toBe(Math.round(100000000 * (1 + 0.10 / 12) ** 12));
   });
 });

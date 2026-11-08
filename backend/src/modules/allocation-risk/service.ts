@@ -80,7 +80,7 @@ function contextOf(capture: Capture, preview: PlanPreview): RiskContext | null {
 function deterministicMarket(preview: PlanPreview): PathMarket[] {
   return preview.calculation!.marketRows.map(r => ({ cpi: new D(r.inflationMonthlyFactor).minus(1).toFixed(),
     returns: Object.fromEntries(r.holdings.map(h => [h.assetClass,
-      new D(h.annualNetNominalReturnPercent).div(100).plus(1).pow(new D(1).div(12)).minus(1).toFixed()])) }));
+      new D(h.annualNetNominalReturnPercent).div(1200).toFixed()])) }));
 }
 export class AllocationRiskService {
   constructor(private db: PrismaClient, private optimizer = { continuous: false, fallback: false }) {}

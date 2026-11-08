@@ -96,7 +96,7 @@ export function resolveYearSeries(document: AssumptionDocument, command: SeriesR
     if (!annualFactors.has(year)) {
       const net = normalizedAnnualReturn(row, cpi.percent)!;
       annualFactors.set(year, { net: net.mul(100).toFixed(),
-        inflation: new D(cpi.percent).div(100).plus(1).pow(new D(1).div(12)).toFixed(), growth: net.plus(1).pow(new D(1).div(12)).toFixed() });
+        inflation: new D(cpi.percent).div(1200).plus(1).toFixed(), growth: net.div(12).plus(1).toFixed() });
     }
     const factors = annualFactors.get(year)!;
     months.push({ month, inflationAnnualPercent: cpi.percent, returnAnnualNetNominalPercent: factors.net,

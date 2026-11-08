@@ -73,7 +73,7 @@ describe("T04 multi-factor policy and scenarios", () => {
     const result = previewPortfolio(portfolioFixture(), portfolioAssumptionsFixture(), { ...portfolioCommand(), horizonMonths: 4 });
     expect(result.status).toBe("READY");
     const base = result.scenarios.find(s => s.kind === "BASE")!;
-    const factor = Math.pow(1 + Number(portfolioAssumptionsFixture().returns[3].rate.percent) / 100, 1 / 12);
+    const factor = 1 + Number(portfolioAssumptionsFixture().returns[3].rate.percent) / 1200;
     expect(Number(base.rows[0].unitValue)).toBeCloseTo(0.5 + 0.5 * factor, 12);
     expect(Number(base.rows[2].unitValue)).toBeCloseTo(0.5 + 0.5 * Math.pow(factor, 3), 12);
     expect(base.rows[1].rebalanced).toBe(false);

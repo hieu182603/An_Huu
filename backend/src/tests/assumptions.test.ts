@@ -21,10 +21,10 @@ describe("T03 annual series validation and normalization", () => {
     expect(result.months[0]).toMatchObject({ month: "2026-12", inflationAnnualPercent: "0", returnAnnualNetNominalPercent: "0" });
     expect(result.months[1]).toMatchObject({ month: "2027-01", inflationAnnualPercent: "4", returnAnnualNetNominalPercent: "10", inflationKind: "FORECAST" });
     expect(result.months[13]).toMatchObject({ month: "2028-01", inflationAnnualPercent: "3", inflationKind: "LONG_TERM", inflationSourceId: "LONG" });
-    // Independent annual cash checks: all 12 month factors compound to 1.04/1.10, not CPI 90% history.
+    // Independent checks: monthly rate = annual / 12, compounded 12 times; not CPI 90% history.
     const year = result.months.slice(1, 13);
-    expect(year.reduce((v, r) => v.mul(r.inflationMonthlyFactor), new D(100)).toNumber()).toBeCloseTo(104, 12);
-    expect(year.reduce((v, r) => v.mul(r.returnMonthlyFactor), new D(100)).toNumber()).toBeCloseTo(110, 12);
+    expect(year.reduce((v, r) => v.mul(r.inflationMonthlyFactor), new D(100)).toNumber()).toBeCloseTo(100 * (1 + 0.04 / 12) ** 12, 12);
+    expect(year.reduce((v, r) => v.mul(r.returnMonthlyFactor), new D(100)).toNumber()).toBeCloseTo(100 * (1 + 0.10 / 12) ** 12, 12);
   });
   it("converts real to nominal once and applies only explicit fees/taxes", () => {
     const data = assumptionFixture(), row = data.returns[1]; row.priceBasis = "REAL";
