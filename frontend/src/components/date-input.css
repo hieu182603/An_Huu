@@ -1,0 +1,295 @@
+/* Vietnamese Date & Month Picker Component - Matching Demo clarity.css */
+.month-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.month-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.month-input-wrap input[data-month-display] {
+  padding-left: 40px !important;
+  padding-right: 76px !important;
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid #7da0ca;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #052659;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.month-input-wrap input[data-month-display]:focus {
+  border-color: #334daf;
+  outline: 3px solid #84afe0;
+  outline-offset: 1px;
+}
+
+.date-prefix {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  color: #61758b;
+  pointer-events: none;
+}
+
+.date-prefix svg {
+  width: 18px;
+  height: 18px;
+}
+
+.month-open,
+.date-clear {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #61758b;
+  padding: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.month-open {
+  right: 6px;
+}
+
+.date-clear {
+  right: 40px;
+}
+
+.month-open svg,
+.date-clear svg {
+  width: 18px;
+  height: 18px;
+}
+
+.month-open:hover,
+.date-clear:hover {
+  background: #edf3fa;
+  color: #16375a;
+}
+
+/* Calendar Popup */
+.month-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 316px;
+  max-width: calc(100vw - 16px);
+  padding: 12px;
+  border: 1px solid #d7e2ee;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #16375a;
+  box-shadow: 0 10px 28px rgba(10, 35, 65, 0.15);
+  z-index: 100;
+  box-sizing: border-box;
+}
+
+.month-picker-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.month-picker-heading > button {
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 36px;
+  padding: 7px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #50677d;
+  cursor: pointer;
+}
+
+.month-picker-heading svg {
+  width: 16px;
+  height: 16px;
+}
+
+.calendar-period {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.calendar-period select {
+  width: auto;
+  max-width: 60%;
+  min-width: 0;
+  min-height: 36px !important;
+  height: 36px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+  padding: 4px 18px 4px 4px !important;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px !important;
+  color: #16375a;
+  cursor: pointer;
+}
+
+.calendar-period select:last-child {
+  max-width: 44%;
+}
+
+.calendar-weekdays,
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.calendar-weekdays {
+  margin-bottom: 4px;
+}
+
+.calendar-weekdays span {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #61758b;
+  padding: 6px 0;
+}
+
+.calendar-days button {
+  min-width: 0;
+  min-height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  color: #203a54;
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.calendar-days .adjacent {
+  color: #758494;
+  opacity: 0.6;
+}
+
+.calendar-days .today {
+  border-color: #2d65b3;
+  font-weight: 700;
+}
+
+.calendar-days button[aria-pressed="true"],
+.month-grid button[aria-pressed="true"] {
+  background: #245db1;
+  color: white;
+  font-weight: 600;
+}
+
+.calendar-days button:hover:not(:disabled):not([aria-pressed="true"]),
+.month-picker-heading button:hover:not(:disabled) {
+  background: #edf3fa;
+}
+
+.month-popup button:disabled {
+  color: #a2acb7;
+  background: #f5f6f8;
+  cursor: not-allowed;
+}
+
+.calendar-footer {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #edf0f4;
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.calendar-footer button {
+  border: 0;
+  background: transparent;
+  color: #245db1;
+  padding: 6px 8px;
+  min-height: 32px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.calendar-footer button:hover {
+  background: #edf3fa;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.month-grid button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 6px;
+  background: #f6f8fb;
+  color: #355575;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.month-popup :is(button, select):focus-visible,
+.month-open:focus-visible,
+.date-clear:focus-visible {
+  outline: 2px solid #245db1;
+  outline-offset: 1px;
+}
+
+@media (max-width: 650px) {
+  .month-popup {
+    padding: 10px;
+    width: 290px;
+  }
+  .calendar-days button {
+    min-height: 40px;
+  }
+  .month-picker-heading > button,
+  .calendar-period select {
+    min-height: 40px !important;
+  }
+  .calendar-footer button {
+    min-height: 38px;
+  }
+  .month-open,
+  .date-clear {
+    height: 44px;
+  }
+  .month-grid button {
+    min-height: 44px;
+  }
+}
+

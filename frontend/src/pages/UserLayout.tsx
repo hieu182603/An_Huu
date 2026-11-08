@@ -2,6 +2,7 @@ import "./user-readability.css";
 import "./user-demo-theme.css";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import logoMark from "../assets/logo-mark.webp";
 import { Avatar, Badge, BrandLogo, Drawer, Icon, IconButton, Tooltip, useNotification, type IconName } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
@@ -124,14 +125,30 @@ export default function UserLayout() {
       {/* Sidebar */}
       <aside className={`user-sidebar ${collapsed ? "is-collapsed" : ""}`} aria-label={t("nav.main_navigation")}>
         <div className="user-sidebar-brand">
-          <Link to="/user/dashboard" className={`dashboard-brand ${collapsed ? "is-compact" : ""}`} aria-label={language === "en" ? "An Huu Dashboard" : "Trang tổng quan An Hưu"}>
-            <BrandLogo compact={collapsed} inverted />
+          <Link
+            to="/user/dashboard"
+            className={`sidebar-brand-lockup ${collapsed ? "is-compact" : ""}`}
+            aria-label={language === "en" ? "An Huu Dashboard" : "Trang tổng quan An Hưu"}
+          >
+            <div className="sidebar-brand-badge">
+              <img src={logoMark} alt="An Hưu" className="sidebar-brand-emblem" />
+            </div>
+            {!collapsed && (
+              <div className="sidebar-brand-info">
+                <span className="sidebar-brand-title">An Hưu</span>
+                <span className="sidebar-brand-subtitle">{language === "en" ? "Peaceful Planning" : "Kế hoạch an yên"}</span>
+              </div>
+            )}
           </Link>
-          <IconButton
-            icon={collapsed ? "panel-right" : "panel-left"}
-            label={collapsed ? (language === "en" ? "Expand sidebar" : "Mở rộng thanh menu") : (language === "en" ? "Collapse sidebar" : "Thu gọn thanh menu")}
+          <button
+            type="button"
+            className="sidebar-collapse-toggle"
+            aria-label={collapsed ? (language === "en" ? "Expand sidebar" : "Mở rộng thanh menu") : (language === "en" ? "Collapse sidebar" : "Thu gọn thanh menu")}
+            title={collapsed ? (language === "en" ? "Expand sidebar" : "Mở rộng thanh menu") : (language === "en" ? "Collapse sidebar" : "Thu gọn thanh menu")}
             onClick={() => setCollapsed(!collapsed)}
-          />
+          >
+            <Icon name={collapsed ? "panel-right" : "panel-left"} />
+          </button>
         </div>
 
         <nav>
@@ -152,7 +169,9 @@ export default function UserLayout() {
                     <Icon name={item.icon} />
                     {!collapsed && <span>{item.label}</span>}
                     {!collapsed && item.badge && (
-                      <span className="sidebar-badge"><Badge tone="honey">{item.badge}</Badge></span>
+                      <span className="sidebar-ai-badge">
+                        <span>{item.badge}</span>
+                      </span>
                     )}
                   </NavLink>
                 );

@@ -1,4 +1,4 @@
-import { useId, useRef, useState, useEffect, type ReactNode } from "react";
+import { useId, useRef, useState, useEffect, useMemo, type ReactNode } from "react";
 import { formatNumberWithDots, numberToVietnameseWords } from "../utils/currency";
 
 export interface CurrencyInputProps {
@@ -13,6 +13,7 @@ export interface CurrencyInputProps {
   disabled?: boolean;
   hideLabel?: boolean;
   showWords?: boolean;
+  showZeroWords?: boolean;
   min?: number;
   max?: number;
 }
@@ -22,13 +23,14 @@ export function CurrencyInput({
   labelAction,
   value,
   onChange,
-  suffix = "VND",
+  suffix = "đ",
   helper,
   error,
   placeholder = "0",
   disabled = false,
   hideLabel = false,
   showWords = true,
+  showZeroWords = false,
   max,
 }: CurrencyInputProps) {
   const id = useId();
@@ -38,6 +40,7 @@ export function CurrencyInput({
   const [displayText, setDisplayText] = useState<string>(() => {
     return value > 0 ? formatNumberWithDots(value) : (value === 0 ? "0" : "");
   });
+  const [isFocused, setIsFocused] = useState(false);
 
   // Sync when prop value changes from outside
   useEffect(() => {
@@ -49,6 +52,21 @@ export function CurrencyInput({
       setDisplayText(value > 0 ? formatNumberWithDots(value) : (value === 0 ? "0" : ""));
     }
   }, [value]);
+
+  // Dynamic suggestions: only computed when focused and value > 0
+  const suggestions = useMemo(() => {
+    if (!isFocused || !value || value <= 0 || value > 1e15 || !Number.isSafeInteger(value)) return [];
+    const n = Math.abs(value);
+    const factors = n < 1000 ? [1e5, 1e6, 1e7] : n < 1e6 ? [100, 1000, 10000] : [0.1, 1, 10];
+    const rawAmounts = Array.from(
+      new Set(
+        factors
+          .map((f) => Math.round(value * f))
+          .filter((v) => Number.isSafeInteger(v) && v > 0 && v <= 1e15)
+      )
+    );
+    return rawAmounts;
+  }, [isFocused, value]);
 
   // Vietnamese IMEs (Telex/VNI) compose text in-place; reformatting mid-composition makes digits repeat (7 -> 77).
   const composing = useRef(false);
@@ -96,13 +114,35 @@ export function CurrencyInput({
     (e.target as HTMLElement).blur();
   };
 
-  const words = showWords && value > 0 ? numberToVietnameseWords(value, suffix) : "";
+  const handleFocus = () => {
+    setIsFocused(true);
+    // If value is 0, clear it on focus so user can type cleanly
+    if (value === 0 && displayText === "0") {
+      setDisplayText("");
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (displayText.trim() === "") {
+      setDisplayText("0");
+      onChange(0);
+    }
+  };
+
+  const words = showWords
+    ? value > 0
+      ? numberToVietnameseWords(value, suffix)
+      : value === 0 && showZeroWords
+      ? "Không đồng"
+      : ""
+    : "";
 
   return (
-    <div className={`form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`}>
+    <div className={`field form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`}>
       {!hideLabel ? (
-        <label className="field-header-row" htmlFor={id}>
-          <span className="field-label">{label}</span>
+        <label className="field-header-row field-label" htmlFor={id}>
+          <span>{label}</span>
           {labelAction}
         </label>
       ) : (
@@ -111,15 +151,18 @@ export function CurrencyInput({
         </label>
       )}
 
-      <span className="input-wrap">
+      <span className="input-wrap money">
         <input
           id={id}
+          data-money
           type="text"
           inputMode="numeric"
           disabled={disabled}
           placeholder={placeholder}
           value={displayText}
           onChange={handleChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           onCompositionStart={() => { composing.current = true; }}
           onCompositionEnd={(e) => {
             composing.current = false;
@@ -129,20 +172,56 @@ export function CurrencyInput({
           onWheel={handleWheel}
           aria-invalid={Boolean(error)}
           aria-describedby={helper || error || words ? messageId : undefined}
-          style={{ fontVariantNumeric: "tabular-nums" }}
+          style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", paddingRight: "48px" }}
         />
-        {suffix && <span className="input-suffix">{suffix}</span>}
+        {suffix && <span className="suffix input-suffix">{suffix}</span>}
       </span>
 
-      {/* Hiển thị số tiền bằng chữ ngay dưới ô input */}
+      {/* Hiển thị số tiền bằng chữ dạng text thuần theo Demo */}
       {words && !error && (
-        <div className="currency-words-preview" role="status" aria-live="polite">
-          <span className="currency-words-label">Bằng chữ:</span>
-          <span className="currency-words-text">{words}</span>
+        <span className="money-words" role="status" aria-live="polite">
+          {words}
+        </span>
+      )}
+
+      {/* Gợi ý số tiền: CHỈ HIỂN THỊ KHI ĐANG FOCUS/NHẬP và không có lỗi */}
+      {isFocused && suggestions.length > 0 && !error && (
+        <div className="amount-suggestions" role="group" aria-label="Gợi ý số tiền">
+          <span>Chọn nhanh</span>
+          {suggestions.map((amt: number) => {
+            const abs = Math.abs(amt);
+            const unit = abs >= 1e9 ? 1e9 : abs >= 1e6 ? 1e6 : abs >= 1000 ? 1000 : 1;
+            const unitLabel = unit === 1e9 ? "tỷ" : unit === 1e6 ? "triệu" : unit === 1000 ? "nghìn" : "đồng";
+            const numStr = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(amt / unit);
+            const labelText = `${numStr} ${unitLabel}`;
+
+            return (
+              <button
+                key={amt}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(amt);
+                  setDisplayText(formatNumberWithDots(amt));
+                }}
+                aria-label={`Chọn ${formatNumberWithDots(amt)} đồng`}
+              >
+                {labelText}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {(helper || error) && <small id={messageId}>{error || helper}</small>}
+      {error ? (
+        <small id={messageId} className="field-error-text error-text" style={{ color: "#dc2626", display: "block", marginTop: "6px", fontSize: "12px", fontWeight: 500 }}>
+          {error}
+        </small>
+      ) : helper ? (
+        <small id={messageId} className="help">
+          {helper}
+        </small>
+      ) : null}
     </div>
   );
 }
