@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
-import bcrypt from "bcryptjs";
+// Native bcrypt: same $2a/$2b hashes as bcryptjs, but hashing runs on the libuv pool instead of blocking the event loop.
+import bcrypt from "bcrypt";
 import { OAuth2Client, type TokenPayload as GoogleTokenPayload } from "google-auth-library";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Prisma, type PrismaClient, type User, type TokenType } from "@prisma/client";
@@ -120,34 +121,32 @@ export class AuthService {
 
   async login(input: { email: string; password: string; remember: boolean }, meta?: { ipAddress?: string; userAgent?: string }) {
     const emailNorm = input.email.toLowerCase().trim();
-    if (this.settings) {
-      const secSettings = await this.settings.getSecuritySettings().catch(() => null);
-      const maxAttempts = secSettings?.maxLoginAttempts ?? 5;
-      const lockMinutes = secSettings?.accountLockMinutes ?? 15;
-      const lockWindow = new Date(Date.now() - lockMinutes * 60000);
-      const recentFails = await this.db.loginLog.count({
-        where: {
-          identifier: emailNorm,
-          status: "FAILED",
-          createdAt: { gte: lockWindow },
-        },
-      }).catch(() => 0);
-      if (recentFails >= maxAttempts) {
-        await this.settings.recordLoginLog({
-          identifier: emailNorm,
-          status: "LOCKED",
-          ipAddress: meta?.ipAddress,
-          userAgent: meta?.userAgent,
-          failureReason: `Tài khoản tạm thời bị khóa do sai quá ${maxAttempts} lần.`,
-        });
-        throw new AppError(423, "ACCOUNT_LOCKED", `Tài khoản tạm thời bị khóa do nhập sai mật khẩu quá ${maxAttempts} lần. Vui lòng thử lại sau ${lockMinutes} phút.`);
-      }
-    }
-
-    const found = await this.db.user.findUnique({ where: { email: input.email } });
+    // Independent reads run together; the hash comparison overlaps the lock count. A locked account
+    // is still refused before the comparison result is used.
+    const [secSettings, found] = await Promise.all([
+      this.settings ? this.settings.getSecuritySettings().catch(() => null) : Promise.resolve(null),
+      this.db.user.findUnique({ where: { email: input.email } }),
+    ]);
     // Fixed valid bcrypt hash keeps the unknown-email branch expensive too.
     const hash = found?.passwordHash ?? "$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW";
-    const passwordMatch = await bcrypt.compare(input.password, hash);
+    const maxAttempts = secSettings?.maxLoginAttempts ?? 5;
+    const lockMinutes = secSettings?.accountLockMinutes ?? 15;
+    const [recentFails, passwordMatch] = await Promise.all([
+      this.settings ? this.db.loginLog.count({
+        where: { identifier: emailNorm, status: "FAILED", createdAt: { gte: new Date(Date.now() - lockMinutes * 60000) } },
+      }).catch(() => 0) : Promise.resolve(0),
+      bcrypt.compare(input.password, hash),
+    ]);
+    if (this.settings && recentFails >= maxAttempts) {
+      await this.settings.recordLoginLog({
+        identifier: emailNorm,
+        status: "LOCKED",
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+        failureReason: `Tài khoản tạm thời bị khóa do sai quá ${maxAttempts} lần.`,
+      });
+      throw new AppError(423, "ACCOUNT_LOCKED", `Tài khoản tạm thời bị khóa do nhập sai mật khẩu quá ${maxAttempts} lần. Vui lòng thử lại sau ${lockMinutes} phút.`);
+    }
     if (!passwordMatch || !found) {
       if (this.settings) {
         await this.settings.recordLoginLog({

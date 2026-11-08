@@ -34,6 +34,7 @@
     "@azure/identity": "4.13.3",
     "@azure/service-bus": "7.9.5",
     "@prisma/client": "^5.22.0",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "cloudinary": "2.11.0",
     "compression": "1.8.2",
@@ -52,6 +53,7 @@
   },
   "devDependencies": {
     "@apidevtools/swagger-parser": "12.1.0",
+    "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "1.8.1",
     "@types/cors": "^2.8.17",
