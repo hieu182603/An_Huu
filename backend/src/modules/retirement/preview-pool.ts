@@ -6,9 +6,9 @@ import type { PreviewOptions, PreviewResult, PreviewRunner, PreviewSnapshot } fr
 import type { RetirementPreview } from "./schema";
 
 export type PreviewJob = { snapshot: PreviewSnapshot; input: RetirementPreview; options: PreviewOptions };
-export type PreviewReply = { id: number; result?: unknown; error?: { status?: number; code?: string; message: string } };
+export type PreviewReply = { id: number; ready?: true; result?: unknown; error?: { status?: number; code?: string; message: string } };
 type Task = { id: number; job: PreviewJob; resolve: (value: PreviewResult) => void; reject: (error: Error) => void };
-type Slot = { worker: Worker; task?: Task; timer?: NodeJS.Timeout };
+type Slot = { worker: Worker; task?: Task; timer?: NodeJS.Timeout; ready: Promise<void> };
 
 // Under ts-node (dev) and Vitest this file is .ts, so the worker registers ts-node
 // itself; the compiled server (dist) loads the .js worker directly.
@@ -42,9 +42,12 @@ export function createPreviewPool({ size, timeoutMs, maxQueue = 32 }: { size: nu
     task?.reject(error);
   };
   const addSlot = () => {
-    const slot: Slot = { worker: spawnWorker() };
+    const worker = spawnWorker();
+    let markReady!: () => void;
+    const slot: Slot = { worker, ready: new Promise<void>(resolve => { markReady = resolve; }) };
+    worker.once("exit", () => markReady());
     slot.worker.unref();
-    slot.worker.on("message", (reply: PreviewReply) => settle(slot, reply));
+    slot.worker.on("message", (reply: PreviewReply) => reply.ready ? markReady() : settle(slot, reply));
     slot.worker.on("error", error => { log("error", "preview.worker_error", { cause: error.name }); fail(slot, error); });
     slot.worker.on("exit", () => {
       slots.splice(slots.indexOf(slot), 1);
@@ -73,14 +76,28 @@ export function createPreviewPool({ size, timeoutMs, maxQueue = 32 }: { size: nu
   const run: PreviewRunner = (snapshot, input, options) => new Promise((resolve, reject) => {
     if (closing) return reject(new AppError(503, "PREVIEW_UNAVAILABLE", "Máy chủ đang dừng."));
     if (queue.length >= maxQueue) return reject(new AppError(503, "PREVIEW_BUSY", "Đang có nhiều yêu cầu tính kế hoạch. Vui lòng thử lại sau ít phút."));
-    queue.push({ id: nextId++, job: { snapshot, input, options }, resolve, reject });
+    const task = { id: nextId++, job: { snapshot, input, options }, resolve, reject };
+    // A plain preview takes well under a second; the adjustment search can take many.
+    // Plain previews therefore wait only behind other plain previews.
+    const firstSearch = options.adjustments ? -1 : queue.findIndex(t => t.job.options.adjustments);
+    if (firstSearch < 0) queue.push(task); else queue.splice(firstSearch, 0, task);
     dispatch();
   });
+  /** Starts every worker ahead of the first request so no user pays for loading them.
+   * Never throws: a worker that fails or exceeds the wait is simply started on demand later. */
+  const warm = async (maxWaitMs = 30_000) => {
+    while (!closing && slots.length < size) addSlot();
+    let timer: NodeJS.Timeout | undefined;
+    const startedAt = Date.now();
+    await Promise.race([Promise.all(slots.map(s => s.ready)), new Promise<void>(resolve => { timer = setTimeout(resolve, maxWaitMs); })]);
+    clearTimeout(timer);
+    log("info", "preview.pool_warm", { batches: slots.length, durationMs: Date.now() - startedAt });
+  };
   const close = async () => {
     closing = true;
     for (const task of queue.splice(0)) task.reject(new AppError(503, "PREVIEW_UNAVAILABLE", "Máy chủ đang dừng."));
     await Promise.all(slots.map(slot => slot.worker.terminate()));
   };
-  return { run, close };
+  return { run, warm, close };
 }
 export type PreviewPool = ReturnType<typeof createPreviewPool>;

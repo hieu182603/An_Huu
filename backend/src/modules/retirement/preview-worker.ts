@@ -6,6 +6,8 @@ import type { PreviewJob, PreviewReply } from "./preview-pool";
 // Pure computation: the snapshot was captured by the main thread, so no database
 // client is created here. The reply is JSON-shaped exactly as the HTTP response.
 const service = new RetirementService(null as never);
+// Loading this module graph is the slow part of a cold worker; tell the pool it is done.
+parentPort!.postMessage({ id: -1, ready: true });
 parentPort!.on("message", ({ id, job }: { id: number; job: PreviewJob }) => {
   let reply: PreviewReply;
   try {
