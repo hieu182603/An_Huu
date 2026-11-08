@@ -200,3 +200,11 @@ export function deterministicStress(kind: typeof stressKinds[number], context: R
   return { kind, status: "READY" as const, parameters: p, result: runPath(context, market, rows),
     assumptions: ["SINGLE_SCENARIO_NOT_PROBABILITY", "RATE_RISE_FIRST_ORDER_DURATION", "GOLD_SPREAD_LIQUIDATION_MARK_AT_SHOCK", "INCOME_LOSS_ALL_NON_PENSION_INCOME"] };
 }
+
+/** The deeper equity level of spec 9.1, run only when the approved policy configures severeShockPercent. */
+export function severeEquityCrash(context: RiskContext, baseMarket: PathMarket[], policy: RiskPolicy | undefined) {
+  const base = policy?.stresses?.EQUITY_CRASH;
+  if (!base?.severeShockPercent) return null;
+  const severePolicy = { ...policy!, stresses: { ...policy!.stresses, EQUITY_CRASH: { ...base, shockPercent: base.severeShockPercent } } };
+  return { ...deterministicStress("EQUITY_CRASH", context, baseMarket, severePolicy), level: "SEVERE" as const };
+}

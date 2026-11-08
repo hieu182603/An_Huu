@@ -18,7 +18,7 @@ import { LIMITS, simulate, runPath, type RiskContext, type PathMarket } from "./
 import { stressKinds } from "./policy";
 import { continuousCandidate } from "./optimizer-candidate";
 import { checkPortfolioFeasibility } from "./optimizer";
-import { deterministicStress, extendLongevityContext } from "./stresses";
+import { deterministicStress, extendLongevityContext, severeEquityCrash } from "./stresses";
 import { allocationCandidates, selectCandidate } from "./selection";
 import { proposeRebalance, rebalanceInputSchema, type Allocation } from "./rebalance";
 import type { z } from "zod";
@@ -117,7 +117,10 @@ export class AllocationRiskService {
         if (plan?.status !== "CONFIRMED" || plan.kind === "RENT" || !mapping || plan.netAmount.status !== "KNOWN" || a.retirementShare.status !== "KNOWN" || a.ownershipShare.status !== "KNOWN") return [];
         return [{ month: plan.startMonth, amount: new D(plan.netAmount.value).mul(a.retirementShare.value).mul(mapping.amountScope === "WHOLE_ASSET" ? a.ownershipShare.value : 1).toFixed() }];
       });
-      const scenarios = stressKinds.filter(k => k !== "LONGEVITY").map(k => deterministicStress(k, context, deterministicMarket(preview), policy, propertyInjections));
+      const market = deterministicMarket(preview);
+      const scenarios: Array<ReturnType<typeof deterministicStress> & { level?: "SEVERE" }> = stressKinds.filter(k => k !== "LONGEVITY").map(k => deterministicStress(k, context, market, policy, propertyInjections));
+      const severe = severeEquityCrash(context, market, policy);
+      if (severe) scenarios.splice(scenarios.findIndex(r => r.kind === "EQUITY_CRASH") + 1, 0, severe);
       const longevity = (policy?.stresses?.LONGEVITY?.extraYears ?? []).map(extraYears => {
         const endMonth = addMonths(preview.selection.endMonth, extraYears * 12);
         if (preview.reforecast || !monthSchema.safeParse(endMonth).success) return { extraYears, ...review("EXTENDED_SOURCE_CASHFLOW_REVIEW_REQUIRED") };
