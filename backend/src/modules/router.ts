@@ -194,6 +194,7 @@ export function createApiRouter(services: Services, config: AppConfig) {
   router.post("/me/support", consultationLimiter, validate(ticketInput), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.createTicket(req.user!.userId, req.body), 201)));
   router.get("/me/support/:id", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.ticket(req.user!.userId, uuidParam(req.params.id)))));
   router.post("/me/support/:id/messages", consultationLimiter, validate(replyInput), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.reply(req.user!.userId, false, uuidParam(req.params.id), req.body.message), 201)));
+  router.post("/me/support/:id/cancel", validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.cancelTicket(req.user!.userId, uuidParam(req.params.id)))));
   router.use("/me/consultations", retiredConsultations);
   router.post("/me/products/:id/consult", requireRole("USER"), consultationLimiter, validate(consultInput), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.consultProduct(req.user!.userId, uuidParam(req.params.id), req.body), 201)));
   if (services.catalog) {
@@ -203,6 +204,9 @@ export function createApiRouter(services: Services, config: AppConfig) {
   router.get("/me/notifications", asyncHandler(async (req: AuthenticatedRequest, res) => { const q = listParams(req.query); sendData(res, await services.community!.notifications(req.user!.userId, q.page, q.limit)); }));
   router.post("/me/notifications/read-all", validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.readNotification(req.user!.userId))));
   router.post("/me/notifications/:id/read", validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.readNotification(req.user!.userId, uuidParam(req.params.id)))));
+  router.get("/me/saved-products", requireRole("USER"), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.savedProducts(req.user!.userId))));
+  router.put("/me/saved-products/:id", requireRole("USER"), validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.saveProduct(req.user!.userId, uuidParam(req.params.id), true))));
+  router.delete("/me/saved-products/:id", requireRole("USER"), validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.saveProduct(req.user!.userId, uuidParam(req.params.id), false))));
   router.get("/me/saved-articles", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.content!.saved(req.user!.userId))));
   router.get("/me/saved-content", validate(contentQuery, "query"), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.content!.list(req.query as unknown as z.infer<typeof contentQuery>, false, req.user!.userId))));
   router.put("/me/saved-articles/:id", validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.content!.save(req.user!.userId, z.string().uuid().parse(req.params.id), true))));

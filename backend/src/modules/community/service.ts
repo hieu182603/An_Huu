@@ -7,7 +7,15 @@ import { AppError } from "../../common/errors";
 import { SocketService } from "../../services/socketService";
 export const PRODUCT_CONSULT = "Tư vấn sản phẩm";
 export const listQuery = paginationSchema(["createdAt", "updatedAt"]).extend({ status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]).optional(), category: z.string().trim().max(80).optional() });
-export const consultInput = z.object({ message: z.string().trim().min(3).max(2000), phone: z.string().trim().regex(/^[0-9+().\s-]{8,20}$/).optional() }).strict();
+export const CONSULT_CHANNELS = { PHONE: "Điện thoại tư vấn", EMAIL: "Email tài liệu", BRANCH: "Chi nhánh" } as const;
+// message stays optional so a request can be sent with only a channel; consent, when sent, must be an explicit true.
+export const consultInput = z.object({
+  message: z.string().trim().max(2000).default(""),
+  phone: z.string().trim().regex(/^[0-9+().\s-]{8,20}$/).optional(),
+  channel: z.enum(["PHONE", "EMAIL", "BRANCH"]).default("PHONE"),
+  consent: z.literal(true).optional(),
+}).strict();
+const ACTIVE_TICKET = ["OPEN", "IN_PROGRESS"];
 export const ticketInput = z.object({ subject: z.string().trim().min(3).max(200), category: z.enum(["Tài khoản", "Sử dụng website", "Nội dung", "Khác"]), message: z.string().trim().min(3).max(5000) }).strict();
 export const replyInput = z.object({ message: z.string().trim().min(1).max(5000) }).strict();
 export const ticketStatusInput = z.object({ expectedRevision: z.number().int().min(0), status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]) }).strict();
@@ -42,17 +50,53 @@ export class CommunityService {
     });
   }
   /** Product consultations reuse the ticket thread, status and notification flow. */
-  async consultProduct(userId: string, productId: string, input: z.infer<typeof consultInput>) {
-    const product = await this.db.partnerProduct.findFirst({ where: { id: productId, isVisible: true, partner: { isVisible: true } }, select: { name: true, partner: { select: { name: true } } } });
+  async consultProduct(userId: string, productId: string, input: z.input<typeof consultInput>) {
+    const { message, phone, channel, consent } = consultInput.parse(input);
+    const product = await this.db.partnerProduct.findFirst({ where: { id: productId, isVisible: true, partner: { isVisible: true } },
+      select: { name: true, category: true, expectedReturn: true, riskLevel: true, annualFee: true, revision: true, partner: { select: { name: true } } } });
     if (!product) throw new AppError(404, "NOT_FOUND", "Sản phẩm không còn được phân phối.");
+    // The terms the user saw are frozen into the request; later catalog edits do not rewrite it.
+    const snapshot = { name: product.name, partner: product.partner.name, category: product.category, expectedReturn: product.expectedReturn,
+      riskLevel: product.riskLevel, annualFee: product.annualFee ?? null, revision: product.revision };
     const subject = `Tư vấn: ${product.name} (${product.partner.name})`.slice(0, 200);
-    const body = `Sản phẩm: ${product.name}\nĐối tác: ${product.partner.name}${input.phone ? `\nSố điện thoại liên hệ: ${input.phone}` : ""}\n\n${input.message}`;
+    const body = [`Sản phẩm: ${product.name}`, `Đối tác: ${product.partner.name}`, `Hình thức liên hệ: ${CONSULT_CHANNELS[channel]}`,
+      ...(phone ? [`Số điện thoại liên hệ: ${phone}`] : []),
+      `Thông tin sản phẩm lúc gửi: ${product.category} · lợi suất tham khảo ${product.expectedReturn} · rủi ro ${product.riskLevel}${product.annualFee ? ` · phí ${product.annualFee}` : ""}`,
+    ].join("\n") + (message ? `\n\n${message}` : "");
     return transaction(this.db, async tx => {
-      const ticket = await tx.supportTicket.create({ data: { userId, subject, category: PRODUCT_CONSULT }, select: ticketSelect });
+      if (await tx.supportTicket.findFirst({ where: { userId, productId, status: { in: ACTIVE_TICKET } }, select: { id: true } }))
+        throw new AppError(409, "CONSULT_ALREADY_OPEN", "Bạn đã có yêu cầu tư vấn đang xử lý cho sản phẩm này.");
+      const ticket = await tx.supportTicket.create({ data: { userId, subject, category: PRODUCT_CONSULT, productId }, select: ticketSelect });
       await tx.supportMessage.create({ data: { ticketId: ticket.id, authorId: userId, body } });
-      await audit(tx, userId, "PRODUCT_CONSULT_REQUESTED", "PRODUCT", productId, { ticketId: ticket.id });
+      await audit(tx, userId, "PRODUCT_CONSULT_REQUESTED", "PRODUCT", productId, { ticketId: ticket.id, channel, consent: consent ?? null, snapshot });
       return ticket;
     });
+  }
+  /** The requester may withdraw an unfinished request; resolved or closed requests stay as they are. */
+  async cancelTicket(userId: string, id: string) {
+    return transaction(this.db, async tx => {
+      const ticket = await tx.supportTicket.findFirst({ where: { id, userId }, select: { status: true } });
+      if (!ticket) throw missing();
+      if (!ACTIVE_TICKET.includes(ticket.status)) throw new AppError(409, "TICKET_NOT_CANCELLABLE", "Yêu cầu đã hoàn tất hoặc đã đóng.");
+      const changed = await tx.supportTicket.updateMany({ where: { id, userId, status: ticket.status }, data: { status: "CLOSED", revision: { increment: 1 } } });
+      if (!changed.count) throw conflict();
+      await audit(tx, userId, "SUPPORT_CANCELLED", "SUPPORT", id, { from: ticket.status });
+      return { cancelled: true };
+    });
+  }
+  async savedProducts(userId: string) {
+    const rows = await this.db.savedProduct.findMany({ where: { userId, product: { isVisible: true, partner: { isVisible: true } } }, orderBy: [{ createdAt: "desc" }, { productId: "asc" }], take: 200,
+      select: { createdAt: true, product: { select: { id: true, name: true, category: true, expectedReturn: true, riskLevel: true, annualFee: true, imageUrl: true, partner: { select: { id: true, name: true } } } } } });
+    return rows.map(r => ({ ...r.product, savedAt: r.createdAt }));
+  }
+  async saveProduct(userId: string, productId: string, saved: boolean) {
+    if (!saved) { await this.db.savedProduct.deleteMany({ where: { userId, productId } }); return { saved: false }; }
+    if (!(await this.db.partnerProduct.findFirst({ where: { id: productId, isVisible: true, partner: { isVisible: true } }, select: { id: true } })))
+      throw new AppError(404, "NOT_FOUND", "Sản phẩm không còn được phân phối.");
+    if (await this.db.savedProduct.findUnique({ where: { userId_productId: { userId, productId } }, select: { userId: true } })) return { saved: true };
+    if ((await this.db.savedProduct.count({ where: { userId } })) >= 200) throw new AppError(409, "SAVED_LIMIT", "Bạn đã lưu tối đa 200 sản phẩm.");
+    await this.db.savedProduct.upsert({ where: { userId_productId: { userId, productId } }, create: { userId, productId }, update: {} });
+    return { saved: true };
   }
   async reply(actor: string, admin: boolean, id: string, message: string) {
     return transaction(this.db, async tx => {

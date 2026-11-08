@@ -89,6 +89,7 @@ model User {
   auditLogs      AuditLog[]           @relation("UserAuditLogs")
   aiConversations AiConversation[]
   savedArticles SavedArticle[]
+  savedProducts SavedProduct[]
   supportTickets SupportTicket[]
   supportMessages SupportMessage[]
   notifications Notification[]
@@ -387,6 +388,8 @@ model SupportTicket {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   subject String
   category String
+  // Set only for product consultations; links the request to the product it was opened for.
+  productId String?
   status String @default("OPEN")
   revision Int @default(0)
   messages SupportMessage[]
@@ -394,6 +397,7 @@ model SupportTicket {
   updatedAt DateTime @updatedAt
   @@index([userId, updatedAt])
   @@index([status, updatedAt])
+  @@index([userId, productId, status])
   @@map("support_tickets")
 }
 
@@ -449,6 +453,7 @@ model PartnerProduct {
   investmentData InvestmentProductData?
   investmentHoldings InvestmentHolding[]
   recommendationItems InvestmentRecommendationItem[]
+  savedBy        SavedProduct[]
   riskLevel      RiskLevel @default(MEDIUM)
   description    String?   @db.Text
   annualFee      String?   @db.Text
@@ -849,4 +854,15 @@ model InvestmentApproval {
   @@unique([recommendationId, revision, decision])
   @@index([recommendationId, createdAt])
   @@map("investment_approvals")
+}
+
+model SavedProduct {
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   PartnerProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  @@id([userId, productId])
+  @@index([userId, createdAt])
+  @@map("saved_products")
 }
