@@ -62,7 +62,7 @@ import {
   type ReforecastPreviewCommand,
 } from "../services/actuals";
 import { useI18n } from "../i18n";
-import { formatNumberWithDots } from "../utils/currency";
+import { formatNumberWithDots, numberToVietnameseWords } from "../utils/currency";
 import "./simulation-audit.css";
 import { formatVND, formatVNDText, getVietnamCurrentMonth } from "./simulation/format";
 import { Explain, type ExplainSource } from "../components/explanations/ExplainMode";
@@ -342,26 +342,59 @@ export default function SimulationTrackingPage({ defaultTab = "actuals" }: Simul
     }
   };
 
-  return (
-    <>
-      <nav className="breadcrumb" aria-label={language === "en" ? "Breadcrumb" : "Đường dẫn trang"} style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px", fontSize: "14px" }}>
-        <Link to="/user/plan" className="btn-breadcrumb" style={{ color: "var(--color-primary-700, #334DAF)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px", fontWeight: 500 }}>
-          ← {language === "en" ? "Retirement Plan" : "Kế hoạch nghỉ hưu"}
-        </Link>
-        <span className="sep" style={{ color: "#94A3B8" }}>/</span>
-        <span aria-current="page" style={{ color: "#64748B", fontWeight: 600 }}>
-          {language === "en" ? "Track & Check-in" : "Cập nhật tình hình"}
-        </span>
-      </nav>
+  const [futureFrom, setFutureFrom] = useState("2026-12");
+  const [futureTo, setFutureTo] = useState("");
+  const [futureContribution, setFutureContribution] = useState(
+    String(Math.max(0, profile.plan.monthlySavings || 7500000))
+  );
+  const [futureSpending, setFutureSpending] = useState(
+    String(
+      profile.goal.monthlyExpenseInRetirement ||
+        profile.expenses.essentialExpense + profile.expenses.lifestyleExpense ||
+        15000000
+    )
+  );
+  const [futureChanges, setFutureChanges] = useState<
+    Array<{ from: string; to: string; contribution: number; spending: number }>
+  >([]);
 
-      <div className="heading" style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 6px" }}>
-          {language === "en" ? "Is your plan still on track?" : "Kế hoạch có còn phù hợp?"}
-        </h1>
-        <p style={{ fontSize: "15px", color: "var(--muted, #64748B)", margin: 0 }}>
-          {language === "en" ? "Only update when your income, spending or goals change." : "Chỉ cần cập nhật khi thu nhập, chi tiêu hoặc mục tiêu thay đổi."}
-        </p>
-      </div>
+  return (
+    <div className="plan-screen">
+      {activeTab === "actuals" ? (
+        <>
+          <nav className="breadcrumb" aria-label={language === "en" ? "Breadcrumb" : "Đường dẫn trang"}>
+            <Link to="/user/plan" className="btn-breadcrumb">
+              ← {language === "en" ? "Retirement Plan" : "Kế hoạch nghỉ hưu"}
+            </Link>
+            <span className="sep">/</span>
+            <span aria-current="page">
+              {language === "en" ? "Track & Check-in" : "Cập nhật tình hình"}
+            </span>
+          </nav>
+
+          <div className="heading">
+            <h1>
+              {language === "en" ? "Is your plan still on track?" : "Kế hoạch có còn phù hợp?"}
+            </h1>
+            <p>
+              {language === "en"
+                ? "Only update when your income, spending or goals change."
+                : "Chỉ cần cập nhật khi thu nhập, chi tiêu hoặc mục tiêu thay đổi."}
+            </p>
+          </div>
+        </>
+      ) : (
+        <div className="heading">
+          <h1>
+            {language === "en" ? "Adjust upcoming months" : "Điều chỉnh những tháng sắp tới"}
+          </h1>
+          <p>
+            {language === "en"
+              ? "Record expected changes without altering finalized actual records."
+              : "Ghi nhận thay đổi dự kiến mà không sửa số thực tế đã chốt."}
+          </p>
+        </div>
+      )}
 
       {Boolean(activePlan?.actualSourceChanged) && (
         <div style={{ marginBottom: "20px" }}>
@@ -377,471 +410,389 @@ export default function SimulationTrackingPage({ defaultTab = "actuals" }: Simul
       )}
 
       {/* ========================================================= */}
-      {/* TAB 1: THỬ NGHIỆM KỊCH BẢN & SO SÁNH (FE-T08)             */}
+      {/* TAB 1: ĐIỀU CHỈNH TƯƠNG LAI (27_dieu_chinh_tuong_lai.png) */}
       {/* ========================================================= */}
-
-      {activeTab === "what-if" && !currentVersion && !loadingPlans && <Alert tone="info" title={language === "en" ? "Choose a plan first" : "Cần có kế hoạch đang dùng để so sánh"}>
-        {language === "en" ? "Set your goal and use a plan before trying changes." : "Hãy đặt mục tiêu và chọn dùng một kế hoạch trước khi thử thay đổi."} <Link to="/user/plan">{language === "en" ? "Open plan" : "Mở Kế hoạch"}</Link>
-      </Alert>}
-      {activeTab === "what-if" && currentVersion && (
-        <div className="simulation-layout">
-          <div style={{ gridColumn: "1 / -1" }}>
-            <p>{language === "en" ? `Comparing with plan ${currentVersion.version}. Unchanged controls keep the saved result.` : `So sánh với kế hoạch số ${currentVersion.version}. Khi chưa sửa thông số, kết quả giữ nguyên như lúc lưu.`}</p>
-            {(activePlan?.profileChanged || currentVersion.preview.profileRevision !== profileRevision) && <Alert tone="warning" title={language === "en" ? "Profile has changed since saving" : "Hồ sơ đã thay đổi sau khi lưu kế hoạch"}>{language === "en" ? "New calculations also use your updated profile, so differences may include those updates." : "Khi tính phương án mới, hệ thống cũng dùng hồ sơ mới nhất. Chênh lệch có thể bao gồm những thay đổi đó."}</Alert>}
-            {Boolean(currentVersion.preview.reforecast) && <Alert tone="info" title={language === "en" ? "This plan uses recorded balances" : "Kế hoạch này dùng số dư thực tế đã ghi"}><Button onClick={() => setActiveTab("actuals")}>{language === "en" ? "Update from actual records" : "Mở Theo dõi thực tế để điều chỉnh"}</Button></Alert>}
-          </div>
-          {/* Left: Simulation Controls */}
-          <Card className="simulation-controls">
-            <header>
-              <div>
-                <Badge tone="soft">{language === "en" ? "ASSUMPTION PARAMETERS" : "CÁC ĐIỀU BẠN MUỐN THỬ"}</Badge>
-                <h2>{language === "en" ? "Scenario Testing Panel" : "Bảng thử nghiệm kịch bản"}</h2>
-                <p>{language === "en" ? "Adjust parameters to observe real-time projected outcomes." : "Thay một thông số để xem kết quả khác kế hoạch đang dùng như thế nào."}</p>
-              </div>
-            </header>
-
-            <fieldset disabled={applying || Boolean(currentVersion?.preview.reforecast)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-            <div className="simulation-fields">
-              {/* 1. Kịch bản kinh tế */}
-              <div className="simulation-stepper-card">
-                <div className="stepper-header">
-                  <span className="stepper-title">{language === "en" ? "1. Macroeconomic Scenario" : "1. Tình hình kinh tế dự kiến"}</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px", marginTop: "8px" }}>
-                  <button
-                    type="button"
-                    className={`button button-small ${scenario === "BASE" ? "button-primary" : "button-ghost"}`}
-                    aria-pressed={scenario === "BASE"}
-                    onClick={() => setScenario("BASE")}
-                  >
-                    {language === "en" ? "Baseline" : "Cơ sở"}
-                  </button>
-                  <button
-                    type="button"
-                    className={`button button-small ${scenario === "ADVERSE" ? "button-primary" : "button-ghost"}`}
-                    aria-pressed={scenario === "ADVERSE"}
-                    onClick={() => setScenario("ADVERSE")}
-                  >
-                    {language === "en" ? "Adverse" : "Bất lợi"}
-                  </button>
-                  <button
-                    type="button"
-                    className={`button button-small ${scenario === "FAVORABLE" ? "button-primary" : "button-ghost"}`}
-                    aria-pressed={scenario === "FAVORABLE"}
-                    onClick={() => setScenario("FAVORABLE")}
-                  >
-                    {language === "en" ? "Favorable" : "Thuận lợi"}
-                  </button>
-                </div>
-                <p className="stepper-baseline-info" style={{ marginTop: "8px" }}>
-                  {scenario === "BASE"
-                    ? (language === "en" ? "Standard baseline inflation and return assumptions" : "Mức tăng giá và lãi đầu tư dự kiến theo phương án cơ sở")
-                    : scenario === "ADVERSE"
-                    ? (language === "en" ? "Higher inflation, constrained investment returns" : "Lạm phát cao hơn, lợi suất đầu tư chịu sức ép")
-                    : (language === "en" ? "Positive macro environment, favorable asset growth" : "Môi trường vĩ mô tích cực, tăng trưởng tài sản thuận lợi")}
-                </p>
-              </div>
-
-              {/* 2. Tuổi nghỉ hưu mong muốn */}
-              <div className="simulation-stepper simulation-stepper-card">
-                <div className="stepper-header">
-                  <span className="stepper-title">{language === "en" ? "2. Target Retirement Age (What-if)" : "2. Tuổi nghỉ hưu bạn muốn thử"}</span>
-                </div>
-                <div className="stepper-control-box">
-                  <IconButton
-                    icon="chevron-left"
-                    label={language === "en" ? "Decrease 1 year" : "Giảm 1 tuổi"}
-                    onClick={() => setSimRetireAge(Math.max(profile.personal.age || 30, simRetireAge - 1))}
-                  />
-                  <div className="stepper-center-cluster">
-                    <div className="stepper-main-number-row">
-                      <input
-                        type="number"
-                        min={profile.personal.age || 30}
-                        max={75}
-                        value={simRetireAge}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          if (!isNaN(val)) setSimRetireAge(Math.min(75, Math.max(profile.personal.age || 30, val)));
-                        }}
-                        className="stepper-input-number is-age font-mono"
-                        aria-label={language === "en" ? "Target retirement age" : "Tuổi nghỉ hưu mong muốn"}
-                      />
-                      <span className="stepper-unit-label">{language === "en" ? "yrs" : "tuổi"}</span>
-                    </div>
-                    <div className="stepper-subtext-badge-row">
-                      <span className="stepper-human-readable-subtext font-mono">
-                        {language === "en" ? "Retire month" : "Tháng hưu"}: {simRetirementMonth}
-                      </span>
-                    </div>
-                  </div>
-                  <IconButton
-                    icon="chevron-right"
-                    label={language === "en" ? "Increase 1 year" : "Tăng 1 tuổi"}
-                    onClick={() => setSimRetireAge(Math.min(75, simRetireAge + 1))}
-                  />
-                </div>
-                <p className="stepper-baseline-info">
-                  {language === "en" ? "Base plan" : "Kế hoạch gốc"}: {currentSummary ? Number(currentSummary.retirementMonth.slice(0, 4)) - birthYear : "-"} {language === "en" ? "yrs" : "tuổi"}
-                </p>
-              </div>
-
-              {/* 3. Mức tích lũy mỗi tháng */}
-              <div className="simulation-stepper simulation-stepper-card">
-                <div className="stepper-header">
-                  <span className="stepper-title">{language === "en" ? "3. Monthly Contribution Amount" : "3. Mức tích lũy mỗi tháng"}</span>
-                </div>
-                <div className="stepper-control-box">
-                  <IconButton
-                    icon="chevron-left"
-                    label={language === "en" ? "Decrease 1M VND" : "Giảm 1 triệu VND"}
-                    onClick={() => setSimMonthlySave(Math.max(0, simMonthlySave - 1000000))}
-                  />
-                  <div className="stepper-center-cluster">
-                    <div className="stepper-main-number-row">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={formatNumberWithDots(simMonthlySave)}
-                        onChange={(e) => {
-                          const digits = e.target.value.replace(/\D/g, "");
-                          setSimMonthlySave(digits ? parseInt(digits, 10) : 0);
-                        }}
-                        className="stepper-input-number is-currency font-mono"
-                        aria-label={language === "en" ? "Monthly contribution amount" : "Mức tích lũy mỗi tháng"}
-                      />
-                      <span className="stepper-unit-label">VND</span>
-                    </div>
-                    <div className="stepper-subtext-badge-row">
-                      <span className="stepper-human-readable-subtext">
-                        = {formatVNDText(simMonthlySave, language)} / {language === "en" ? "mo" : "tháng"}
-                      </span>
-                    </div>
-                  </div>
-                  <IconButton
-                    icon="chevron-right"
-                    label={language === "en" ? "Increase 1M VND" : "Tăng 1 triệu VND"}
-                    onClick={() => setSimMonthlySave(simMonthlySave + 1000000)}
-                  />
-                </div>
-                <p className="stepper-baseline-info">
-                  {language === "en" ? "Base plan" : "Kế hoạch gốc"}: {formatVND(Number(baselineSelection?.monthlyContribution ?? 0))}/{language === "en" ? "mo" : "tháng"}
-                </p>
-              </div>
-
-              {/* 4. Chi tiêu khi nghỉ hưu */}
-              <div className="simulation-stepper simulation-stepper-card">
-                <div className="stepper-header">
-                  <span className="stepper-title">{language === "en" ? "4. Retirement Monthly Expenses (Today's Value)" : "4. Chi tiêu khi nghỉ hưu (giá trị hôm nay)"}</span>
-                </div>
-                <div className="stepper-control-box">
-                  <IconButton
-                    icon="chevron-left"
-                    label={language === "en" ? "Decrease 1M VND" : "Giảm 1 triệu VND"}
-                    onClick={() => setSimExpense(Math.max(0, simExpense - 1000000))}
-                  />
-                  <div className="stepper-center-cluster">
-                    <div className="stepper-main-number-row">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={formatNumberWithDots(simExpense)}
-                        onChange={(e) => {
-                          const digits = e.target.value.replace(/\D/g, "");
-                          setSimExpense(digits ? parseInt(digits, 10) : 0);
-                        }}
-                        className="stepper-input-number is-currency font-mono"
-                        aria-label={language === "en" ? "Retirement monthly expenses" : "Chi tiêu khi nghỉ hưu"}
-                      />
-                      <span className="stepper-unit-label">VND</span>
-                    </div>
-                    <div className="stepper-subtext-badge-row">
-                      <span className="stepper-human-readable-subtext">
-                        = {formatVNDText(simExpense, language)} / {language === "en" ? "mo" : "tháng"}
-                      </span>
-                    </div>
-                  </div>
-                  <IconButton
-                    icon="chevron-right"
-                    label={language === "en" ? "Increase 1M VND" : "Tăng 1 triệu VND"}
-                    onClick={() => setSimExpense(simExpense + 1000000)}
-                  />
-                </div>
-                <p className="stepper-baseline-info">
-                  {language === "en" ? "Base plan" : "Kế hoạch gốc"}: {formatVND(Number(baselineSelection?.monthlyExpenseToday ?? 0))}/{language === "en" ? "mo" : "tháng"}
-                </p>
-              </div>
-
-              {/* 5. Giả định giá trị tài sản (whatIf.assetValues) */}
-              <div className="simulation-stepper-card simulation-asset-values" style={{ borderTop: "1px dashed var(--color-border)", paddingTop: "12px" }}>
-                <div className="stepper-header">
-                  <span className="stepper-title">{language === "en" ? "5. Hypothetical Asset Revaluation" : "5. Thử nghiệm định giá lại tài sản"}</span>
-                  <Badge tone="soft">{language === "en" ? "What-if Scenario" : "Thử thay đổi kịch bản"}</Badge>
-                </div>
-                <p style={{ margin: "4px 0 8px", fontSize: "14px", color: "var(--color-text-muted)" }}>
-                  {language === "en"
-                    ? "Try adjusting hypothetical asset values to see impacts on retirement fund. This does not alter your base profile."
-                    : "Thử thay đổi giá trị tài sản giả định để xem tác động lên quỹ hưu. Giá trị này không thay đổi hồ sơ gốc."}
-                </p>
-                <div style={{ display: "grid", gap: "8px" }}>
-                  <div>
-                    <label htmlFor="simulation-real-estate" style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-muted)" }}>
-                      {language === "en" ? "Real Estate" : "Bất động sản"} ({language === "en" ? "original" : "gốc"}: {formatVND(profile.assets.realEstateValue)})
-                    </label>
-                    <MoneyTextBox
-                      id="simulation-real-estate"
-                      placeholder={language === "en" ? "Leave blank to keep original" : "Để trống nếu giữ nguyên"}
-                      value={overrideRealEstate}
-                      maxDecimals={0}
-                      onChange={setOverrideRealEstate}
-                      className="input font-mono"
-                      style={{ height: "48px", fontSize: "16px", width: "100%", marginTop: "2px" }}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="simulation-stock-fund" style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-muted)" }}>
-                      {language === "en" ? "Stocks & Investment Funds" : "Cổ phiếu & Quỹ"} ({language === "en" ? "original" : "gốc"}: {formatVND(profile.assets.stockFundValue)})
-                    </label>
-                    <MoneyTextBox
-                      id="simulation-stock-fund"
-                      placeholder={language === "en" ? "Leave blank to keep original" : "Để trống nếu giữ nguyên"}
-                      value={overrideStock}
-                      maxDecimals={0}
-                      onChange={setOverrideStock}
-                      className="input font-mono"
-                      style={{ height: "48px", fontSize: "16px", width: "100%", marginTop: "2px" }}
-                    />
-                  </div>
-                </div>
-              </div>
+      {activeTab === "what-if" && (
+        <>
+          <section className="card">
+            <div className="card-head">
+              <h2>{language === "en" ? "Create Change" : "Lập thay đổi"}</h2>
             </div>
+            <form
+              id="j-change"
+              autoComplete="off"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setFutureChanges((prev) => [
+                  ...prev,
+                  {
+                    from: futureFrom || "2026-12",
+                    to: futureTo,
+                    contribution: Number(futureContribution.replace(/\D/g, "")) || 0,
+                    spending: Number(futureSpending.replace(/\D/g, "")) || 0,
+                  },
+                ]);
+              }}
+            >
+              <div className="two-col">
+                <div className="field">
+                  <label htmlFor="f-from">
+                    {language === "en" ? "Effective from month" : "Có hiệu lực từ tháng"}
+                  </label>
+                  <input
+                    id="f-from"
+                    type="month"
+                    value={futureFrom}
+                    onChange={(e) => setFutureFrom(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="f-to">
+                    {language === "en" ? "To month" : "Đến tháng"}{" "}
+                    <span className="field-optional">
+                      {language === "en" ? "(optional)" : "(không bắt buộc điền)"}
+                    </span>
+                  </label>
+                  <input
+                    id="f-to"
+                    type="month"
+                    value={futureTo}
+                    onChange={(e) => setFutureTo(e.target.value)}
+                  />
+                </div>
+              </div>
 
-            <div className="simulation-guidance" style={{ marginTop: "16px" }}>
-              <Icon name="info" />
+              <div className="field">
+                <label htmlFor="f-contribution">
+                  {language === "en"
+                    ? "Monthly contribution during period"
+                    : "Khoản góp mỗi tháng trong giai đoạn"}
+                </label>
+                <div className="money">
+                  <MoneyTextBox
+                    id="f-contribution"
+                    value={futureContribution}
+                    maxDecimals={0}
+                    showWords={false}
+                    onChange={setFutureContribution}
+                  />
+                  <span>₫</span>
+                </div>
+                <small className="money-words" aria-live="polite">
+                  {numberToVietnameseWords(Number(futureContribution.replace(/\D/g, "")) || 0)}
+                </small>
+              </div>
+
+              <div className="field">
+                <label htmlFor="f-spending">
+                  {language === "en"
+                    ? "Monthly retirement spending in today's value"
+                    : "Chi hưu trí mỗi tháng theo giá hôm nay"}
+                </label>
+                <div className="money">
+                  <MoneyTextBox
+                    id="f-spending"
+                    value={futureSpending}
+                    maxDecimals={0}
+                    showWords={false}
+                    onChange={setFutureSpending}
+                  />
+                  <span>₫</span>
+                </div>
+                <small className="money-words" aria-live="polite">
+                  {numberToVietnameseWords(Number(futureSpending.replace(/\D/g, "")) || 0)}
+                </small>
+              </div>
+
+              <div className="notice" role="note">
+                {language === "en"
+                  ? "Applies to the relevant phase: contributions before retirement, spending after retirement. Does not alter loan contracts or social insurance schedules."
+                  : "Áp dụng cho giai đoạn phù hợp: khoản góp trước nghỉ hưu, mức chi sau nghỉ hưu. Chưa thay đổi hợp đồng vay hay lịch quyền lợi BHXH."}
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => setActiveTab("actuals")}
+                >
+                  {language === "en" ? "Cancel" : "Hủy"}
+                </button>
+                <button type="submit" className="btn">
+                  {language === "en" ? "Add to test scenario" : "Thêm vào phương án thử"}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className="card">
+            <div className="card-head">
+              <h2>{language === "en" ? "Active Test Changes" : "Các thay đổi đang thử"}</h2>
+            </div>
+            {futureChanges.length > 0 ? (
+              futureChanges.map((r, i) => (
+                <div key={`${r.from}-${i}`} className="ledger-row">
+                  <div>
+                    <strong>
+                      {r.from} → {r.to || "2076-04"}
+                    </strong>
+                    <p>
+                      Góp {formatVNDCurrency(String(r.contribution))} · Chi hưu trí{" "}
+                      {formatVNDCurrency(String(r.spending))}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    onClick={() =>
+                      setFutureChanges((prev) => prev.filter((_, idx) => idx !== i))
+                    }
+                  >
+                    {language === "en" ? "Remove" : "Bỏ"}
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p>{language === "en" ? "No changes yet." : "Chưa có thay đổi."}</p>
+            )}
+          </section>
+
+          <section className="card">
+            <div className="card-head">
+              <h2>{language === "en" ? "Change by Source" : "Thay đổi từng nguồn"}</h2>
+            </div>
+            <p>
+              {language === "en"
+                ? "Update your profile to test other income sources, assets, loans, or pensions. Plans linked to actual balances require source review before applying."
+                : "Cập nhật hồ sơ để thử nguồn thu, tài sản, khoản vay hoặc lương hưu khác. Kế hoạch gắn với số dư thực tế cần xem lại nguồn trước khi áp dụng."}
+            </p>
+            <div className="form-actions" style={{ justifyContent: "flex-start" }}>
+              <Link to="/user/profile?section=cashflow" className="btn secondary">
+                {language === "en" ? "Cashflow" : "Thu chi"}
+              </Link>
+              <Link to="/user/profile?section=assets" className="btn secondary">
+                {language === "en" ? "Assets" : "Tài sản"}
+              </Link>
+              <Link to="/user/debts" className="btn secondary">
+                {language === "en" ? "Loans" : "Khoản vay"}
+              </Link>
+              <Link to="/user/profile?section=insurance" className="btn secondary">
+                {language === "en" ? "Pension" : "Lương hưu"}
+              </Link>
+            </div>
+            <details className="top-space">
+              <summary>
+                {language === "en"
+                  ? "Refinancing, asset sales, and special contracts"
+                  : "Tái cấp vốn, bán tài sản và hợp đồng đặc thù"}
+              </summary>
               <p>
                 {language === "en"
-                  ? "Scenario tests change your official plan only after you confirm application."
-                  : "Kịch bản thử nghiệm chỉ thay đổi kế hoạch hiện hành sau khi bạn xác nhận áp dụng."}
+                  ? "These transactions require full contract schedules and supporting evidence."
+                  : "Các nghiệp vụ này cần lịch hợp đồng và căn cứ đầy đủ. Bản thử hiện cho khai hồ sơ và thử thay đổi mức góp/chi, chưa tính tiền giải ngân, tất toán hoặc quyền lợi pháp lý."}
               </p>
-            </div>
+            </details>
+          </section>
 
-            <Button variant="ghost" onClick={resetToBaseline} style={{ marginTop: "12px" }}>
-              <Icon name="trash" size="small" /> {language === "en" ? "Reset to base parameters" : "Đặt lại thông số ban đầu"}
-            </Button>
-            </fieldset>
-          </Card>
-
-          {/* Right: Simulation Results & Comparison */}
-          <div className="simulation-results">
-            <Card className={`simulation-summary${isSimulating && simSummary ? " is-recalculating" : ""}`}>
-              <header>
-                <div>
-                  <div className="live-update">
-                    <Icon name={isSimulating ? "sparkles" : "circle-check"} />
-                    <span>{isSimulating ? (language === "en" ? "Calculating projection..." : "Đang tính dự phóng...") : (simSummary ? (language === "en" ? "Projection calculated" : "Đã tính dự phóng") : (language === "en" ? "Awaiting valid projection" : "Chờ dự phóng hợp lệ"))}</span>
-                  </div>
-                  <h2>{language === "en" ? "Scenario Simulation Results" : "Kết quả mô phỏng kịch bản"}</h2>
-                </div>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  {(overrideCash || overrideRealEstate || overrideStock || simRetireAge !== (profile.goal.targetRetireAge || 60)) && (
-                    <Badge tone="soft">
-                      {WARNING_MESSAGES.HYPOTHETICAL_VALUES_PROFILE_UNCHANGED}
-                    </Badge>
-                  )}
-                  {simSummary && <Badge tone={simGap <= 0 ? "success" : "warning"}>
-                    {simGap <= 0 ? (language === "en" ? "NO PROJECTED SHORTFALL" : "KHÔNG THIẾU HỤT DỰ PHÓNG") : (language === "en" ? "FUNDING SHORTFALL" : "CÒN THIẾU HỤT")}
-                  </Badge>}
-                </div>
-              </header>
-
-              {plansError && <Alert tone="danger" title={language === "en" ? "Plan load failed" : "Chưa tải được kế hoạch gốc"}>{plansError}<Button onClick={() => void refreshPlans()}>{language === "en" ? "Retry plans" : "Tải lại kế hoạch"}</Button></Alert>}
-              {simError && (
-                <div style={{ margin: "16px 0" }}>
-                  <Alert tone="danger" title={language === "en" ? "Simulation Error" : "Lỗi chạy mô phỏng"}>
-                    {simError}
-                    <Button onClick={() => setSimAttempt(n => n + 1)}>{language === "en" ? "Retry simulation" : "Thử lại mô phỏng"}</Button>
-                  </Alert>
-                </div>
-              )}
-
-              {!simSummary && !simError && !plansError && (
-                <Alert
-                  tone="info"
-                  title={language === "en" ? "Projection not ready" : "Chưa có dự phóng hợp lệ"}
-                  action={
-                    <Link to="/user/plan">
-                      {language === "en" ? "Review plan inputs" : "Kiểm tra đầu vào kế hoạch"}
-                    </Link>
-                  }
-                >
-                  {isSimulating
-                    ? (language === "en" ? "Calculating the scenario…" : "Đang tính kịch bản…")
-                    : (language === "en" ? "Complete your profile and preview a plan first. Missing data cannot be treated as a zero balance." : "Hãy hoàn thiện hồ sơ và xem trước kế hoạch. Dữ liệu chưa đủ không được xem là số dư 0 hoặc đã đạt mục tiêu.")}
-                </Alert>
-              )}
-              {simSummary && <>
-
-              <div className="simulation-primary-result">
-                <div>
-                  <span>{language === "en" ? "PROJECTED RETIREMENT FUND" : "TIỀN DỰ KIẾN CÓ KHI NGHỈ HƯU"}</span>
-                  <strong className="font-mono">{simulationExplanationSource ? <Explain metric="summary.atRetirement.projectedFund" source={simulationExplanationSource} value={String(simSummary.atRetirement.projectedFund)}>{formatVND(simProjectedFund)}</Explain> : formatVND(simProjectedFund)}</strong>
-                  <p>
-                    {language === "en" ? "Versus required capital" : "So với tiền cần có khi nghỉ hưu"} (<span className="font-mono">{simulationExplanationSource ? <Explain metric="summary.atRetirement.requiredFund" source={simulationExplanationSource} value={String(simSummary.atRetirement.requiredFund)}>{formatVND(simTargetFund)}</Explain> : formatVND(simTargetFund)}</span>):{" "}
-                    <b style={{ color: simGap <= 0 ? "var(--color-secondary-700)" : "var(--color-danger)" }} className="font-mono">
-                      {simGap <= 0
-                        ? `${language === "en" ? "Surplus" : "Dư"} ${formatVNDCurrency(simSummary.excessAtRetirement)}`
-                        : `${language === "en" ? "Shortfall" : "Thiếu"} ${formatVND(simGap)}`}
-                    </b>
-                  </p>
-                </div>
-
-                <div className="simulation-score">
-                  <strong className="font-mono">{simSummary.atRetirement.coveragePercent == null ? (language === "en" ? "Undetermined" : "Chưa xác định") : simulationExplanationSource ? <Explain term="fundCoverage" metric="summary.atRetirement.coveragePercent" source={simulationExplanationSource} value={String(simSummary.atRetirement.coveragePercent)}>{`${simScore}%`}</Explain> : `${simScore}%`}</strong>
-                  <span>{language === "en" ? "Coverage Ratio" : "Tỷ lệ bao phủ"}</span>
-                  <small className={simScore >= 100 ? "is-positive" : ""}>
-                    {simSummary.atRetirement.coveragePercent == null ? "-" : simScore >= 100
-                      ? (language === "en" ? `Fully covered (${simScore}%)` : `Đạt mục tiêu (${simScore}%)`)
-                      : simScore >= 75
-                      ? (language === "en" ? `Partially covered (${simScore}%)` : `Đạt ${simScore}% mục tiêu`)
-                      : (language === "en" ? `Shortfall (${simScore}%)` : `Đạt ${simScore}% mục tiêu (còn thiếu)`)}
-                  </small>
-                </div>
-              </div>
-
-              {/* Server Comparison Grid (FE-T08) */}
-              <p className="horizontal-scroll-hint">
-                {language === "en" ? "Scroll horizontally to view detailed comparison table." : "Cuộn ngang để xem bảng so sánh chi tiết."}
-              </p>
-              <div className="comparison-table" tabIndex={0} role="region" aria-label={language === "en" ? "Compare scenario with current plan" : "So sánh kịch bản với kế hoạch"}>
-                <div className="comparison-header">
-                  <span>{language === "en" ? "Key Metrics" : "Chỉ số quan trọng"}</span>
-                  <strong>{language === "en" ? "Current Plan" : "Kế hoạch hiện tại"}</strong>
-                  <strong style={{ color: "var(--color-secondary-700)" }}>{language === "en" ? "Simulated Scenario" : "Kịch bản mô phỏng"}</strong>
-                  <strong style={{ textAlign: "right" }}>{language === "en" ? "Variance" : "Chênh lệch"}</strong>
-                </div>
-
-                <div>
-                  <span>{language === "en" ? "Retirement Month" : "Tháng nghỉ hưu"}</span>
-                  <strong className="font-mono">{currentSummary ? formatMonthVN(currentSummary.retirementMonth) : noBaseline}</strong>
-                  <strong className="font-mono" style={{ color: "var(--color-primary-700)" }}>{formatMonthVN(simRetirementMonth)} ({simRetireAge} {language === "en" ? "yrs" : "tuổi"})</strong>
-                  <strong style={{ textAlign: "right" }} className="font-mono">
-                    {retirementMonthDelta == null ? "-" : `${retirementMonthDelta > 0 ? "+" : ""}${retirementMonthDelta} ${language === "en" ? "months" : "tháng"}`}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>{language === "en" ? "Monthly Savings" : "Mức tích lũy / tháng"}</span>
-                  <strong className="font-mono">{baselineSelection?.monthlyContribution != null ? formatVNDCurrency(baselineSelection.monthlyContribution) : noBaseline}</strong>
-                  <strong className="font-mono" style={{ color: "var(--color-primary-700)" }}>{formatVND(simMonthlySave)}</strong>
-                  <strong style={{ textAlign: "right" }} className="font-mono">
-                    {baselineSelection?.monthlyContribution != null ? formatVNDCurrency(new Decimal(simMonthlySave).minus(baselineSelection.monthlyContribution).toString()) : "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>{language === "en" ? "Retirement Spending" : "Chi tiêu tháng khi hưu"}</span>
-                  <strong className="font-mono">{baselineSelection?.monthlyExpenseToday != null ? formatVNDCurrency(baselineSelection.monthlyExpenseToday) : noBaseline}</strong>
-                  <strong className="font-mono">{formatVND(simExpense)}</strong>
-                  <strong style={{ textAlign: "right" }} className="font-mono">
-                    {baselineSelection?.monthlyExpenseToday != null ? formatVNDCurrency(new Decimal(simExpense).minus(baselineSelection.monthlyExpenseToday).toString()) : "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>{language === "en" ? "Macro Scenario" : "Kịch bản kinh tế"}</span>
-                  <strong>{baselineSelection?.scenario ?? noBaseline}</strong>
-                  <strong style={{ color: "var(--color-secondary-700)" }}>{scenario}</strong>
-                  <strong style={{ textAlign: "right" }}>-</strong>
-                </div>
-
-                {(() => {
-                  const projDelta = currentSummary && simSummary
-                    ? Number(new Decimal(simSummary.atRetirement.projectedFund).minus(currentSummary.atRetirement.projectedFund).toString())
-                    : null;
-                  const reqDelta = currentSummary && simSummary
-                    ? Number(new Decimal(simSummary.atRetirement.requiredFund).minus(currentSummary.atRetirement.requiredFund).toString())
-                    : null;
-                  const gapDelta = currentSummary && simSummary
-                    ? Number(new Decimal(simSummary.atRetirement.fundingGap).minus(currentSummary.atRetirement.fundingGap).toString())
-                    : null;
-
-                  return (
-                    <>
-                      <div>
-                        <span>{language === "en" ? "Projected Fund at Retirement" : "Tiền dự kiến có khi nghỉ hưu"}</span>
-                        <strong className="font-mono">{currentSummary ? (activePlan && currentVersion ? <Explain metric="summary.atRetirement.projectedFund" source={{ kind: "PLAN_VERSION", planId: activePlan.id, versionId: currentVersion.id }} value={String(currentSummary.atRetirement.projectedFund)}>{formatVNDCurrency(currentSummary.atRetirement.projectedFund)}</Explain> : formatVNDCurrency(currentSummary.atRetirement.projectedFund)) : (language === "en" ? "No applied version" : "Chưa có bản áp dụng")}</strong>
-                        <strong className="font-mono" style={{ color: "var(--color-primary-700)" }}>{formatVND(simProjectedFund)}</strong>
-                        <strong style={{ textAlign: "right", color: projDelta !== null ? (projDelta >= 0 ? "var(--color-secondary-700)" : "var(--color-danger)") : undefined }} className="font-mono">
-                          {projDelta !== null ? `${projDelta >= 0 ? "+" : ""}${formatVND(projDelta)}` : "-"}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <span>{language === "en" ? "Required Capital at Retirement" : "Tiền cần có khi nghỉ hưu"}</span>
-                        <strong className="font-mono">{currentSummary ? (activePlan && currentVersion ? <Explain metric="summary.atRetirement.requiredFund" source={{ kind: "PLAN_VERSION", planId: activePlan.id, versionId: currentVersion.id }} value={String(currentSummary.atRetirement.requiredFund)}>{formatVNDCurrency(currentSummary.atRetirement.requiredFund)}</Explain> : formatVNDCurrency(currentSummary.atRetirement.requiredFund)) : (language === "en" ? "No applied version" : "Chưa có bản áp dụng")}</strong>
-                        <strong className="font-mono">{formatVND(simTargetFund)}</strong>
-                        <strong style={{ textAlign: "right", color: reqDelta !== null ? (reqDelta <= 0 ? "var(--color-secondary-700)" : "var(--color-danger)") : undefined }} className="font-mono">
-                          {reqDelta !== null ? `${reqDelta >= 0 ? "+" : ""}${formatVND(reqDelta)}` : "-"}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <span>{language === "en" ? "Funding Gap" : "Chênh lệch thiếu hụt"}</span>
-                        <strong className="font-mono">{currentSummary ? formatVNDCurrency(currentSummary.atRetirement.fundingGap) : "-"}</strong>
-                        <strong className="font-mono">{formatVND(simGap)}</strong>
-                        <strong style={{ textAlign: "right", color: gapDelta !== null ? (gapDelta <= 0 ? "var(--color-secondary-700)" : "var(--color-danger)") : undefined }} className="font-mono">
-                          {gapDelta !== null ? `${gapDelta >= 0 ? "+" : ""}${formatVND(gapDelta)}` : "-"}
-                        </strong>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-
-              <div className="simulation-insight" style={{ marginTop: "20px" }}>
-                <span><Icon name="sparkles" size="large" /></span>
-                <div>
-                  <h2>{language === "en" ? "Scenario summary" : "Tóm tắt kịch bản"}</h2>
-                  <p>
-                    {simGap <= 0
-                      ? (language === "en"
-                          ? `No shortfall is projected under the selected assumptions and projection period.`
-                          : `Chưa thấy thiếu hụt theo giả định và khoảng thời gian dự phóng đã chọn.`)
-                      : (language === "en"
-                          ? `Retirement scenario at age ${simRetireAge} still has a shortfall of ${formatVND(simGap)} compared to minimum goal. Consider increasing monthly savings or controlling living costs.`
-                          : `Kịch bản nghỉ hưu ở tuổi ${simRetireAge} còn thiếu ${formatVND(simGap)} so với mục tiêu tối thiểu. Bạn nên tăng mức tiết kiệm hoặc kiểm soát chi phí sinh hoạt.`)}
-                  </p>
-                  <small>
-                    {language === "en"
-                      ? `Calculated based on initial liquid assets ${formatVNDCurrency(simSummary?.initialRetirementCapital || "0")} and net worth ${formatVND(netWorth)}.`
-                      : `Tính toán dựa trên tài sản thanh khoản ban đầu ${formatVNDCurrency(simSummary?.initialRetirementCapital || "0")} và tài sản ròng ${formatVND(netWorth)}.`}
-                  </small>
-                </div>
-
-                <Button
-                  variant="primary"
-                  onClick={() => setConfirmApply(true)}
-                  loading={applying}
-                  disabled={applying || isSimulating || !simSummary || simResult === currentVersion?.preview}
-                >
-                  {language === "en" ? "Apply this scenario" : "Dùng làm kế hoạch hiện tại"} <Icon name="check" />
-                </Button>
-              </div>
-
-              {applyNotice && (
-                <div style={{ marginTop: "16px" }}>
-                  <Alert tone={applyNotice.tone} title={applyNotice.tone === "success" ? (language === "en" ? "Applied Successfully" : "Áp dụng thành công") : (language === "en" ? "Error" : "Lỗi")}>
-                    {applyNotice.message}
-                  </Alert>
-                </div>
-              )}
-              </>}
-            </Card>
-          </div>
-        </div>
+          <Link to="/user/plan" className="btn secondary">
+            {language === "en" ? "View change results" : "Xem kết quả thay đổi"}
+          </Link>
+        </>
       )}
 
       {/* ========================================================= */}
+      {/* TAB 1: ĐIỀU CHỈNH TƯƠNG LAI (27_dieu_chinh_tuong_lai.png) */}
+      {/* ========================================================= */}
+      {activeTab === "what-if" && (
+        <>
+          <section className="card">
+            <div className="card-head">
+              <h2>{language === "en" ? "Create Change" : "Lập thay đổi"}</h2>
+            </div>
+            <form
+              id="j-change"
+              autoComplete="off"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setFutureChanges((prev) => [
+                  ...prev,
+                  {
+                    from: futureFrom || "2026-12",
+                    to: futureTo,
+                    contribution: Number(futureContribution.replace(/\D/g, "")) || 0,
+                    spending: Number(futureSpending.replace(/\D/g, "")) || 0,
+                  },
+                ]);
+              }}
+            >
+              <div className="two-col">
+                <div className="field">
+                  <label htmlFor="f-from">
+                    {language === "en" ? "Effective from month" : "Có hiệu lực từ tháng"}
+                  </label>
+                  <input
+                    id="f-from"
+                    type="month"
+                    value={futureFrom}
+                    onChange={(e) => setFutureFrom(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="f-to">
+                    {language === "en" ? "To month" : "Đến tháng"}{" "}
+                    <span className="field-optional">
+                      {language === "en" ? "(optional)" : "(không bắt buộc điền)"}
+                    </span>
+                  </label>
+                  <input
+                    id="f-to"
+                    type="month"
+                    value={futureTo}
+                    onChange={(e) => setFutureTo(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="field">
+                <label htmlFor="f-contribution">
+                  {language === "en"
+                    ? "Monthly contribution during period"
+                    : "Khoản góp mỗi tháng trong giai đoạn"}
+                </label>
+                <div className="money">
+                  <MoneyTextBox
+                    id="f-contribution"
+                    value={futureContribution}
+                    maxDecimals={0}
+                    showWords={false}
+                    onChange={setFutureContribution}
+                  />
+                  <span>₫</span>
+                </div>
+                <small className="money-words" aria-live="polite">
+                  {numberToVietnameseWords(Number(futureContribution.replace(/\D/g, "")) || 0)}
+                </small>
+              </div>
+
+              <div className="field">
+                <label htmlFor="f-spending">
+                  {language === "en"
+                    ? "Monthly retirement spending in today's value"
+                    : "Chi hưu trí mỗi tháng theo giá hôm nay"}
+                </label>
+                <div className="money">
+                  <MoneyTextBox
+                    id="f-spending"
+                    value={futureSpending}
+                    maxDecimals={0}
+                    showWords={false}
+                    onChange={setFutureSpending}
+                  />
+                  <span>₫</span>
+                </div>
+                <small className="money-words" aria-live="polite">
+                  {numberToVietnameseWords(Number(futureSpending.replace(/\D/g, "")) || 0)}
+                </small>
+              </div>
+
+              <div className="notice" role="note">
+                {language === "en"
+                  ? "Applies to the relevant phase: contributions before retirement, spending after retirement. Does not alter loan contracts or social insurance schedules."
+                  : "Áp dụng cho giai đoạn phù hợp: khoản góp trước nghỉ hưu, mức chi sau nghỉ hưu. Chưa thay đổi hợp đồng vay hay lịch quyền lợi BHXH."}
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => setActiveTab("actuals")}
+                >
+                  {language === "en" ? "Cancel" : "Hủy"}
+                </button>
+                <button type="submit" className="btn">
+                  {language === "en" ? "Add to test scenario" : "Thêm vào phương án thử"}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className="card">
+            <div className="card-head">
+              <h2>{language === "en" ? "Active Test Changes" : "Các thay đổi đang thử"}</h2>
+            </div>
+            {futureChanges.length > 0 ? (
+              futureChanges.map((r, i) => (
+                <div key={`${r.from}-${i}`} className="ledger-row">
+                  <div>
+                    <strong>
+                      {r.from} → {r.to || "2076-04"}
+                    </strong>
+                    <p>
+                      Góp {formatVNDCurrency(String(r.contribution))} · Chi hưu trí{" "}
+                      {formatVNDCurrency(String(r.spending))}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    onClick={() =>
+                      setFutureChanges((prev) => prev.filter((_, idx) => idx !== i))
+                    }
+                  >
+                    {language === "en" ? "Remove" : "Bỏ"}
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p>{language === "en" ? "No changes yet." : "Chưa có thay đổi."}</p>
+            )}
+          </section>
+
+          <section className="card">
+            <div className="card-head">
+              <h2>{language === "en" ? "Change by Source" : "Thay đổi từng nguồn"}</h2>
+            </div>
+            <p>
+              {language === "en"
+                ? "Update your profile to test other income sources, assets, loans, or pensions. Plans linked to actual balances require source review before applying."
+                : "Cập nhật hồ sơ để thử nguồn thu, tài sản, khoản vay hoặc lương hưu khác. Kế hoạch gắn với số dư thực tế cần xem lại nguồn trước khi áp dụng."}
+            </p>
+            <div className="form-actions" style={{ justifyContent: "flex-start" }}>
+              <Link to="/user/profile?section=cashflow" className="btn secondary">
+                {language === "en" ? "Cashflow" : "Thu chi"}
+              </Link>
+              <Link to="/user/profile?section=assets" className="btn secondary">
+                {language === "en" ? "Assets" : "Tài sản"}
+              </Link>
+              <Link to="/user/debts" className="btn secondary">
+                {language === "en" ? "Loans" : "Khoản vay"}
+              </Link>
+              <Link to="/user/profile?section=insurance" className="btn secondary">
+                {language === "en" ? "Pension" : "Lương hưu"}
+              </Link>
+            </div>
+            <details className="top-space">
+              <summary>
+                {language === "en"
+                  ? "Refinancing, asset sales, and special contracts"
+                  : "Tái cấp vốn, bán tài sản và hợp đồng đặc thù"}
+              </summary>
+              <p>
+                {language === "en"
+                  ? "These transactions require full contract schedules and supporting evidence."
+                  : "Các nghiệp vụ này cần lịch hợp đồng và căn cứ đầy đủ. Bản thử hiện cho khai hồ sơ và thử thay đổi mức góp/chi, chưa tính tiền giải ngân, tất toán hoặc quyền lợi pháp lý."}
+              </p>
+            </details>
+          </section>
+
+          <Link to="/user/plan" className="btn secondary">
+            {language === "en" ? "View change results" : "Xem kết quả thay đổi"}
+          </Link>
+        </>
+      )}
+
       {/* TAB 2: SỔ THỰC TẾ & ĐỐI SOÁT (FE-T09)                     */}
       {/* ========================================================= */}
       {actualsOpened && (
@@ -851,10 +802,6 @@ export default function SimulationTrackingPage({ defaultTab = "actuals" }: Simul
         </Suspense>
         </div>
       )}
-      <Modal open={confirmApply} title={language === "en" ? "Apply this scenario?" : "Dùng làm kế hoạch hiện tại?"} onClose={() => { if (!applying) setConfirmApply(false); }}>
-        <p>{language === "en" ? "This preview will be saved as a version and become the official baseline for your dashboard and tracking." : "Bản xem trước này sẽ được lưu thành phiên bản và trở thành mốc chính thức cho trang tổng quan và theo dõi."}</p>
-        <div className="account-save-row"><Button variant="secondary" disabled={applying} onClick={() => setConfirmApply(false)}>{language === "en" ? "Cancel" : "Hủy"}</Button><Button loading={applying} disabled={applying || isSimulating || !simSummary || simResult === currentVersion?.preview} onClick={async () => { await handleApplyScenario(); setConfirmApply(false); }}>{language === "en" ? "Confirm application" : "Dùng làm kế hoạch hiện tại"}</Button></div>
-      </Modal>
-    </>
+    </div>
   );
 }

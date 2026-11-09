@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Input } from "./ui";
 import { useI18n } from "../i18n";
 import { numberToVietnameseWords } from "../utils/currency";
@@ -38,6 +38,7 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const focused = useRef(false);
+  const [isFocused, setIsFocused] = useState(false);
   // Skip reformatting while a Vietnamese IME is composing, otherwise digits repeat (7 -> 77).
   const composing = useRef(false);
   const display = (v: string) => format === "money" ? moneyText(v, vi) : dateText(v);
@@ -49,6 +50,20 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
     : (vi ? `Nhập ${format === "month" ? "tháng/năm" : "ngày/tháng/năm"} hợp lệ.` : "Enter a valid date.");
   const message = invalid ? invalidMessage : error;
   const hint = helper || (format === "money" ? undefined : dateHint);
+
+  const numericValue = Number(value) || 0;
+  const suggestions = useMemo(() => {
+    if (!isFocused || format !== "money" || !value || numericValue <= 0 || numericValue > 1e15 || !Number.isSafeInteger(numericValue)) return [];
+    const n = Math.abs(numericValue);
+    const factors = n < 1000 ? [1e5, 1e6, 1e7] : n < 1e6 ? [100, 1000, 10000] : [0.1, 1, 10];
+    return Array.from(
+      new Set(
+        factors
+          .map((f) => Math.round(numericValue * f))
+          .filter((v) => Number.isSafeInteger(v) && v > 0 && v <= 1e15)
+      )
+    );
+  }, [isFocused, format, value, numericValue]);
 
   useEffect(() => {
     if (!focused.current) { setDraft(display(value)); setInvalid(false); }
@@ -91,6 +106,7 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
         aria-invalid={Boolean(message)} aria-describedby={message || hint ? `${id}-hint` : undefined}
         onFocus={(event) => {
           focused.current = true;
+          setIsFocused(true);
           onFocus?.(event);
         }}
         onCompositionStart={() => { composing.current = true; }}
@@ -101,6 +117,7 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
         onChange={event => { if (composing.current) setDraft(event.target.value); else handleInput(event.target); }}
         onBlur={(event) => {
           focused.current = false;
+          setIsFocused(false);
           const parsed = parse(draft);
           if (parsed !== null) setDraft(display(parsed.endsWith(".") ? parsed.slice(0, -1) : parsed));
           onBlur?.(event);
@@ -116,9 +133,47 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
           }} />
       </span>}
     </span>
-    {format === "money" && !message && Number(value) > 0 && <div className="currency-words-preview" role="status" aria-live="polite">
-      <span className="currency-words-label">{vi ? "Bằng chữ:" : "In words:"}</span> <span className="currency-words-text">{numberToVietnameseWords(Number(value), "VND")}</span>
-    </div>}
-    {(message || hint) && <small id={`${id}-hint`}>{message || hint}</small>}
+    {format === "money" && !message && numericValue > 0 && (
+      <span className="money-words" role="status" aria-live="polite">
+        {numberToVietnameseWords(numericValue, "VND")}
+      </span>
+    )}
+    {format === "money" && isFocused && suggestions.length > 0 && !message && (
+      <div className="amount-suggestions" role="group" aria-label="Gợi ý số tiền">
+        <span>{vi ? "Chọn nhanh" : "Quick pick"}</span>
+        {suggestions.map((amt: number) => {
+          const abs = Math.abs(amt);
+          const unit = abs >= 1e9 ? 1e9 : abs >= 1e6 ? 1e6 : abs >= 1000 ? 1000 : 1;
+          const unitLabel = unit === 1e9 ? (vi ? "tỷ" : "B") : unit === 1e6 ? (vi ? "triệu" : "M") : unit === 1000 ? (vi ? "nghìn" : "k") : (vi ? "đồng" : "");
+          const numStr = new Intl.NumberFormat(vi ? "vi-VN" : "en-US", { maximumFractionDigits: 2 }).format(amt / unit);
+          const labelText = `${numStr} ${unitLabel}`.trim();
+
+          return (
+            <button
+              key={amt}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const str = String(amt);
+                setDraft(moneyText(str, vi));
+                setInvalid(false);
+                inputRef.current?.setCustomValidity("");
+                onChange?.(str);
+              }}
+              aria-label={`Chọn ${amt} VND`}
+            >
+              {labelText}
+            </button>
+          );
+        })}
+      </div>
+    )}
+    {message ? (
+      <small id={`${id}-hint`} className="field-error-text error-text" style={{ color: "#dc2626", display: "block", marginTop: "6px", fontSize: "12px", fontWeight: 500 }}>
+        {message}
+      </small>
+    ) : hint ? (
+      <small id={`${id}-hint`}>{hint}</small>
+    ) : null}
   </div>;
 }

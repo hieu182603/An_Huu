@@ -1,349 +1,413 @@
-import { useMemo, useState } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from "recharts";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../../i18n";
 import type { RetirementRow, RetirementSummary } from "../../services/retirement";
-import { formatCompactVND, formatFullVND } from "../../utils/currency";
 import { formatMonthVN } from "../../utils/date";
 
 interface MonthlyRetirementChartProps {
   rows: RetirementRow[];
   summary: RetirementSummary;
+  birthYear?: number;
 }
 
 export type ChartFilterMode = "annual" | "all-months" | "first-5y" | "retirement-phase";
 
-const CustomTooltip = ({ active, payload, isEn }: any) => {
-  if (!active || !payload || !payload.length) return null;
-  const data = payload[0].payload;
+function formatCompactCurrency(val: number): string {
+  const n = Number(val) || 0;
+  if (Math.abs(n) >= 1e9) {
+    const v = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n / 1e9);
+    return `${v} tỷ ₫`;
+  }
+  if (Math.abs(n) >= 1e6) {
+    const v = new Intl.NumberFormat("vi-VN", {
+      minimumFractionDigits: Math.round(n / 1e5) % 10 === 0 ? 0 : 1,
+      maximumFractionDigits: 1,
+    }).format(n / 1e6);
+    return `${v} triệu ₫`;
+  }
+  return `${new Intl.NumberFormat("vi-VN").format(Math.round(n))} ₫`;
+}
 
-  return (
-    <div
-      style={{
-        background: "rgba(5, 38, 89, 0.95)",
-        backdropFilter: "blur(12px)",
-        border: "1px solid rgba(208, 228, 254, 0.25)",
-        borderRadius: "10px",
-        padding: "12px 16px",
-        color: "#F9FBFF",
-        boxShadow: "0 10px 25px -5px rgba(2, 16, 36, 0.5)",
-        fontSize: "12.5px",
-        minWidth: "260px",
-        pointerEvents: "none",
-        zIndex: 50,
-      }}
-    >
-      <div
-        style={{
-          borderBottom: "1px solid rgba(208, 228, 254, 0.25)",
-          paddingBottom: "6px",
-          marginBottom: "8px",
-          fontWeight: 700,
-          color: "#F9FBFF",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <span>{isEn ? `Month: ${data.month}` : `Tháng: ${data.month}`}</span>
-        <span
-          style={{
-            fontSize: "11px",
-            padding: "2px 6px",
-            borderRadius: "4px",
-            background: data.phase === "RETIREMENT" ? "rgba(51, 77, 175, 0.25)" : "rgba(112, 150, 209, 0.25)",
-            color: data.phase === "RETIREMENT" ? "#C1E8FF" : "#D0E4FE",
-          }}
-        >
-          {data.phase === "RETIREMENT"
-            ? (isEn ? "Retirement Phase" : "Giai đoạn hưu trí")
-            : (isEn ? "Accumulation Phase" : "Giai đoạn tích lũy")}
-        </span>
-      </div>
+function formatAxisCompact(val: number): string {
+  const n = Number(val) || 0;
+  if (Math.abs(n) >= 1e9) {
+    const v = new Intl.NumberFormat("vi-VN", {
+      minimumFractionDigits: Math.round(n / 1e8) % 10 === 0 ? 0 : 1,
+      maximumFractionDigits: 2,
+    }).format(n / 1e9);
+    return `${v} tỷ`;
+  }
+  if (Math.abs(n) >= 1e6) {
+    const v = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(n / 1e6);
+    return `${v} triệu`;
+  }
+  return `${new Intl.NumberFormat("vi-VN").format(Math.round(n))} ₫`;
+}
 
-      <div style={{ display: "grid", gap: "6px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-          <span style={{ color: "#C1E8FF", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#052659", border: "1px solid #7DA0CA", display: "inline-block" }} />
-            {isEn ? "Projected Balance:" : "Số dư dự phóng:"}
-          </span>
-          <strong style={{ color: data.closingBalance < 0 ? "var(--color-danger, #C0392B)" : "#FFFFFF" }}>
-            {formatFullVND(data.closingBalance, !isEn)}
-          </strong>
-        </div>
+function formatFullVnd(val: number): string {
+  return `${new Intl.NumberFormat("vi-VN").format(Math.round(Number(val) || 0))} ₫`;
+}
 
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-          <span style={{ color: "#7096D1", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#334DAF", display: "inline-block" }} />
-            {isEn ? "Minimum Required Capital:" : "Vốn yêu cầu tối thiểu:"}
-          </span>
-          <strong style={{ color: "#FFFFFF" }}>{formatFullVND(data.requiredClosingBalance, !isEn)}</strong>
-        </div>
+function normalizeYearMonth(month: string): string {
+  const m = String(month || "").trim();
+  if (/^\d{2}\/\d{4}$/.test(m)) {
+    const [mm, yyyy] = m.split("/");
+    return `${yyyy}-${mm}`;
+  }
+  return m;
+}
 
-        {data.unfundedWithdrawal > 0 && (
-          <div
-            style={{
-              marginTop: "4px",
-              paddingTop: "6px",
-              borderTop: "1px dashed rgba(192, 57, 43, 0.4)",
-              display: "flex",
-              justifyContent: "space-between",
-              color: "#F87171",
-              fontWeight: 600,
-            }}
-          >
-            <span>{isEn ? "Shortfall this month:" : "Thiếu hụt tháng này:"}</span>
-            <span>{formatFullVND(data.unfundedWithdrawal, !isEn)}</span>
-          </div>
-        )}
+function ageAtMonth(month: string, birthYear: number): number {
+  const norm = normalizeYearMonth(month);
+  const y = Number(norm.slice(0, 4));
+  if (!Number.isFinite(y) || y <= 0) return 35;
+  return Math.max(18, y - birthYear);
+}
 
-        <div
-          style={{
-            marginTop: "6px",
-            paddingTop: "6px",
-            borderTop: "1px solid rgba(208, 228, 254, 0.2)",
-            display: "grid",
-            gap: "3px",
-            fontSize: "11px",
-            color: "#CBD5E1",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>{isEn ? "Fund Contribution:" : "Đóng góp vào quỹ:"}</span>
-            <span>{formatFullVND(data.contribution, !isEn)}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>{isEn ? "Living Withdrawal:" : "Rút chi tiêu từ quỹ:"}</span>
-            <span>{formatFullVND(data.withdrawal, !isEn)}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+function rowClosing(r: RetirementRow | undefined): number {
+  if (!r) return 0;
+  return Number(r.fundedClosingBalance ?? r.closingBalance ?? (r as any).closingFund ?? 0);
+}
 
-export function MonthlyRetirementChart({ rows, summary }: MonthlyRetirementChartProps) {
+function rowOpening(r: RetirementRow | undefined): number {
+  if (!r) return 0;
+  return Number(r.openingBalance ?? (r as any).openingFund ?? rowClosing(r));
+}
+
+export function MonthlyRetirementChart({ rows, summary, birthYear = 1991 }: MonthlyRetirementChartProps) {
   const { language } = useI18n();
   const isEn = language === "en";
 
-  const [filterMode, setFilterMode] = useState<ChartFilterMode>("annual");
+  const retIdx = useMemo(() => {
+    if (!rows || rows.length === 0) return 0;
+    const targetMonth = normalizeYearMonth(summary.retirementMonth);
+    const idx = rows.findIndex(
+      r => normalizeYearMonth(r.month) === targetMonth || r.phase === "RETIREMENT"
+    );
+    return idx >= 0 ? idx : Math.min(Math.max(0, summary.accumulationMonths - 1), rows.length - 1);
+  }, [rows, summary.retirementMonth, summary.accumulationMonths]);
 
-  const chartData = useMemo(() => {
-    if (!rows || rows.length === 0) return [];
+  const defaultSelectedIdx = useMemo(() => {
+    if (!rows || rows.length === 0) return 0;
+    // Match demo: select the last accumulation month (or retirement boundary)
+    return Math.max(0, retIdx > 0 ? retIdx - 1 : retIdx);
+  }, [rows, retIdx]);
 
-    let filtered = rows;
+  const [selectedIdx, setSelectedIdx] = useState<number>(defaultSelectedIdx);
 
-    if (filterMode === "first-5y") {
-      filtered = rows.slice(0, Math.min(60, rows.length));
-    } else if (filterMode === "retirement-phase") {
-      filtered = rows.filter((r) => r.phase === "RETIREMENT");
-    } else if (filterMode === "annual" && rows.length > 36) {
-      filtered = rows.filter((r, idx) => {
-        const isYearEnd = r.month.endsWith("-12");
-        const isRetirement = r.month === summary.retirementMonth;
-        const isStart = idx === 0;
-        const isEnd = idx === rows.length - 1;
-        return isYearEnd || isRetirement || isStart || isEnd;
-      });
-    }
-
-    return filtered.map((r) => ({
-      month: r.month,
-      phase: r.phase,
-      closingBalance: parseFloat(r.closingBalance),
-      requiredClosingBalance: parseFloat(r.requiredClosingBalance),
-      fundedClosingBalance: parseFloat(r.fundedClosingBalance),
-      unfundedWithdrawal: parseFloat(r.unfundedWithdrawal),
-      contribution: parseFloat(r.contribution),
-      withdrawal: parseFloat(r.withdrawal),
-    }));
-  }, [rows, summary.retirementMonth, filterMode]);
-
-  const hasNegativeBalance = useMemo(() => {
-    return chartData.some((d) => d.closingBalance < 0);
-  }, [chartData]);
+  useEffect(() => {
+    setSelectedIdx(defaultSelectedIdx);
+  }, [defaultSelectedIdx]);
 
   if (!rows || rows.length === 0) {
     return (
-      <div style={{ padding: "40px", textAlign: "center", color: "var(--color-text-muted)" }}>
-        {isEn ? "No cashflow projection data available." : "Chưa có dữ liệu dòng tiền dự phóng."}
+      <div style={{ padding: "32px", textAlign: "center", color: "var(--muted, #64748b)" }}>
+        {isEn ? "No projection data available." : "Chưa có dữ liệu dòng tiền dự phóng."}
       </div>
     );
   }
 
+  const safeIdx = Math.min(Math.max(0, selectedIdx), rows.length - 1);
+  const currentRow = rows[safeIdx];
+  const firstRow = rows[0];
+  const lastRow = rows[rows.length - 1];
+  const retRow = rows[Math.max(0, retIdx > 0 ? retIdx - 1 : retIdx)] || rows[retIdx] || firstRow;
+
+  const startAge = Number((firstRow as any).age) || ageAtMonth(firstRow.month, birthYear);
+  const retAge = Number((rows[retIdx] as any)?.age) || ageAtMonth(summary.retirementMonth || retRow.month, birthYear);
+  const endAge = Number((lastRow as any).age) || ageAtMonth(lastRow.month, birthYear);
+  const selectedAge = Number((currentRow as any).age) || ageAtMonth(currentRow.month, birthYear);
+
+  const requiredAtRetirement = Number(summary.atRetirement?.requiredFund || 0);
+  const projectedAtRetirement = Number(summary.atRetirement?.projectedFund || rowClosing(retRow));
+  const initialFund = rowOpening(firstRow);
+
+  const maxBalance = useMemo(() => {
+    let m = requiredAtRetirement;
+    for (const r of rows) {
+      const b = Math.max(0, rowClosing(r));
+      if (b > m) m = b;
+    }
+    return Math.max(m, 1);
+  }, [rows, requiredAtRetirement]);
+
+  // SVG layout matching plan-chart.js
+  const W = 840;
+  const H = 310;
+  const pad = { l: 82, r: 22, t: 24, b: 44 };
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+
+  const xOf = (i: number) => pad.l + (rows.length <= 1 ? 0 : (i / (rows.length - 1)) * plotW);
+  const yOf = (val: number) => {
+    const clamped = Math.max(0, Number(val) || 0);
+    return pad.t + plotH - Math.min(1, clamped / maxBalance) * plotH;
+  };
+
+  const splitIdx = Math.max(0, Math.min(rows.length - 1, retIdx > 0 ? retIdx - 1 : retIdx));
+
+  const accPoints = rows
+    .slice(0, splitIdx + 1)
+    .map((r, idx) => `${xOf(idx).toFixed(1)},${yOf(rowClosing(r)).toFixed(1)}`)
+    .join(" ");
+  const accArea = `${xOf(0).toFixed(1)},${(pad.t + plotH).toFixed(1)} ${accPoints} ${xOf(splitIdx).toFixed(1)},${(pad.t + plotH).toFixed(1)}`;
+
+  const retSlice = rows.slice(splitIdx);
+  const retPoints = retSlice
+    .map((r, offset) => {
+      const idx = splitIdx + offset;
+      return `${xOf(idx).toFixed(1)},${yOf(rowClosing(r)).toFixed(1)}`;
+    })
+    .join(" ");
+  const retArea =
+    retSlice.length > 0
+      ? `${xOf(splitIdx).toFixed(1)},${(pad.t + plotH).toFixed(1)} ${retPoints} ${xOf(rows.length - 1).toFixed(1)},${(pad.t + plotH).toFixed(1)}`
+      : "";
+
+  const retX = xOf(splitIdx);
+  const selX = xOf(safeIdx);
+  const selBalance = Math.max(0, rowClosing(currentRow));
+  const selY = yOf(selBalance);
+  const targetY = yOf(requiredAtRetirement);
+
+  const firstShortfallRow = useMemo(
+    () => rows.find(r => Number(r.unfundedWithdrawal || 0) > 0),
+    [rows]
+  );
+
+  const selectedContribution = Number(currentRow.contribution || 0);
+  const selectedOutflow = Number(currentRow.withdrawal || 0) + Number((currentRow as any).fee || 0);
+
   return (
-    <div className="monthly-retirement-chart-container">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
-        <div>
-          <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            {isEn ? "ACCUMULATION FUND AND REQUIRED CAPITAL OVER TIME" : "QUỸ TÍCH LŨY VÀ VỐN YÊU CẦU THEO THÁNG"}
-          </span>
-          <p style={{ margin: "2px 0 0", fontSize: "13px", color: "var(--color-text-subtle)" }}>
-            {isEn
-              ? "The actual balance curve accurately reflects cashflow dynamics, retaining negative values during deficits."
-              : "Đường số dư thực tế phản ánh chính xác dòng tiền và giữ nguyên giá trị âm khi thiếu hụt."}
-          </p>
-        </div>
+    <div className="plan-chart-interactive">
+      <div className="chart-frame" style={{ width: "100%", overflowX: "auto" }}>
+        <svg
+          className="projection-svg"
+          viewBox={`0 0 ${W} ${H}`}
+          role="img"
+          aria-label={isEn ? "Monthly retirement fund projection chart" : "Biểu đồ số dư quỹ nghỉ hưu theo từng tháng"}
+          style={{ width: "100%", height: "auto", display: "block" }}
+        >
+          {[0, 0.25, 0.5, 0.75, 1].map(p => {
+            const y = pad.t + plotH - p * plotH;
+            const v = maxBalance * p;
+            return (
+              <g key={p}>
+                <line x1={pad.l} x2={W - pad.r} y1={y} y2={y} stroke="#e3ebf3" strokeWidth="1" />
+                <text x={pad.l - 10} y={y + 4} textAnchor="end" fill="#5e7285" fontSize="11">
+                  {formatAxisCompact(v)}
+                </text>
+              </g>
+            );
+          })}
 
-        <div className="chart-period">
-          <button
-            type="button"
-            className={filterMode === "annual" ? "is-active" : ""}
-            onClick={() => setFilterMode("annual")}
-          >
-            {isEn ? "Annual" : "Mốc năm"}
-          </button>
-          <button
-            type="button"
-            className={filterMode === "first-5y" ? "is-active" : ""}
-            onClick={() => setFilterMode("first-5y")}
-          >
-            {isEn ? "First 5 Years" : "5 năm đầu"}
-          </button>
-          <button
-            type="button"
-            className={filterMode === "retirement-phase" ? "is-active" : ""}
-            onClick={() => setFilterMode("retirement-phase")}
-          >
-            {isEn ? "Retirement Phase" : "Giai đoạn hưu"}
-          </button>
-          <button
-            type="button"
-            className={filterMode === "all-months" ? "is-active" : ""}
-            onClick={() => setFilterMode("all-months")}
-          >
-            {isEn ? "All Months" : "Tất cả tháng"}
-          </button>
-        </div>
-      </div>
-
-      <div style={{ width: "100%", height: 380 }} tabIndex={0} role="region" aria-label={isEn ? "Monthly retirement cashflow chart" : "Biểu đồ dòng tiền hưu trí theo tháng"}>
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 12, right: 16, left: 16, bottom: 8 }}>
-            <defs>
-              <linearGradient id="balanceGradSafe" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#052659" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#052659" stopOpacity={0.0} />
-              </linearGradient>
-              <linearGradient id="balanceGradWarning" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#A14D47" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#A14D47" stopOpacity={0.05} />
-              </linearGradient>
-              <linearGradient id="requiredFundGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#334DAF" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#334DAF" stopOpacity={0.0} />
-              </linearGradient>
-            </defs>
-
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(216, 226, 217, 0.25)" vertical={false} />
-
-            <XAxis
-              dataKey="month"
-              stroke="#586B61"
-              fontSize={11}
-              tickLine={false}
-              axisLine={{ stroke: "rgba(216, 226, 217, 0.4)" }}
-              minTickGap={28}
+          {accPoints && <polygon points={accArea} fill="rgba(34,94,170,0.14)" />}
+          {retPoints && <polygon points={retArea} fill="rgba(125,91,166,0.14)" />}
+          {accPoints && (
+            <polyline
+              fill="none"
+              stroke="#225eaa"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              points={accPoints}
             />
-
-            <YAxis
-              stroke="#586B61"
-              fontSize={11}
-              tickLine={false}
-              axisLine={{ stroke: "rgba(216, 226, 217, 0.4)" }}
-              tickFormatter={(v) => formatCompactVND(v, !isEn)}
-              width={72}
-            />
-
-            <Tooltip content={<CustomTooltip isEn={isEn} />} />
-
-            {/* Zero threshold line when balance can be negative */}
-            {hasNegativeBalance && (
-              <ReferenceLine
-                y={0}
-                stroke="#A14D47"
-                strokeDasharray="3 3"
-                label={{
-                  value: isEn ? "Deficit Threshold (0 VND)" : "Ngưỡng thâm hụt (0 VND)",
-                  fill: "#A14D47",
-                  fontSize: 11,
-                }}
-              />
-            )}
-
-            {/* Reference Line for Retirement Month */}
-            <ReferenceLine
-              x={summary.retirementMonth}
-              stroke="#334DAF"
-              strokeWidth={2}
-              strokeDasharray="4 4"
-              label={{
-                value: isEn ? `Retirement Month (${summary.retirementMonth})` : `Tháng hưu (${formatMonthVN(summary.retirementMonth)})`,
-                fill: "#052659",
-                fontSize: 11,
-                position: "insideTopLeft",
-              }}
-            />
-
-            {/* Required Fund Area / Line */}
-            <Area
-              type="monotone"
-              dataKey="requiredClosingBalance"
-              stroke="#334DAF"
-              strokeWidth={2}
-              fill="url(#requiredFundGrad)"
-              name={isEn ? "Minimum Capital Required" : "Vốn yêu cầu tối thiểu"}
-            />
-
-            {/* Projected Fund Closing Balance Area */}
-            <Area
-              type="monotone"
-              dataKey="closingBalance"
-              stroke="#052659"
-              strokeWidth={2.5}
-              fill={hasNegativeBalance ? "url(#balanceGradWarning)" : "url(#balanceGradSafe)"}
-              name={isEn ? "Projected Fund Balance" : "Số dư quỹ dự phóng"}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginTop: "12px", fontSize: "12px", color: "var(--color-text-muted)" }}>
-        <div style={{ display: "flex", gap: "18px", flexWrap: "wrap" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: 10, height: 10, borderRadius: "2px", background: "#052659" }} />
-            {isEn ? "Projected Fund Balance" : "Số tiền dự kiến còn lại cuối tháng"}
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: 10, height: 10, borderRadius: "2px", background: "#334DAF" }} />
-            {isEn ? "Minimum Required Capital" : "Số tiền cần còn lại để chi cho các tháng sau"}
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ width: 12, height: 2, background: "#5483B3" }} />
-            {isEn ? "Retirement Milestone" : "Mốc bắt đầu nghỉ hưu"}
-          </span>
-        </div>
-
-        <div>
-          {isEn ? (
-            <>
-              Total Periods: <strong>{rows.length} months</strong> ({summary.accumulationMonths} accumulation months, {summary.retirementMonths} retirement months)
-            </>
-          ) : (
-            <>
-              Tổng số kỳ: <strong>{rows.length} tháng</strong> ({summary.accumulationMonths} tháng tích lũy, {summary.retirementMonths} tháng hưu)
-            </>
           )}
-        </div>
+          {retPoints && (
+            <polyline
+              fill="none"
+              stroke="#7d5ba6"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              points={retPoints}
+            />
+          )}
+
+          <line
+            x1={retX}
+            x2={retX}
+            y1={pad.t}
+            y2={pad.t + plotH}
+            stroke="#7a8ea3"
+            strokeDasharray="4 4"
+            strokeWidth="1.2"
+          />
+
+          {requiredAtRetirement > 0 && (
+            <g>
+              <circle cx={retX} cy={targetY} r="4.5" fill="#7d5ba6" />
+              <text
+                x={Math.min(W - pad.r - 4, retX + 8)}
+                y={Math.max(pad.t + 12, targetY - 6)}
+                fill="#5e3d82"
+                fontSize="11"
+                fontWeight="700"
+              >
+                {isEn ? `Need ${formatAxisCompact(requiredAtRetirement)}` : `Cần ${formatAxisCompact(requiredAtRetirement)}`}
+              </text>
+            </g>
+          )}
+
+          <line
+            x1={selX}
+            x2={selX}
+            y1={pad.t}
+            y2={pad.t + plotH}
+            stroke="#173a6a"
+            strokeWidth="1.2"
+            opacity="0.55"
+          />
+          <circle cx={selX} cy={selY} r="5.5" fill="#173a6a" stroke="#fff" strokeWidth="2" />
+
+          <text x={pad.l} y={H - 14} fill="#5e7285" fontSize="11">
+            {startAge} {isEn ? "yrs" : "tuổi"}
+          </text>
+          <text x={retX} y={H - 14} textAnchor="middle" fill="#173a6a" fontSize="11" fontWeight="700">
+            {isEn ? `Retire · ${retAge} yrs` : `Nghỉ hưu · ${retAge} tuổi`}
+          </text>
+          <text x={W - pad.r} y={H - 14} textAnchor="end" fill="#5e7285" fontSize="11">
+            {endAge} {isEn ? "yrs" : "tuổi"}
+          </text>
+        </svg>
       </div>
+
+      <div
+        className="chart-phase-key"
+        aria-label={isEn ? "Phase legend" : "Chú giải giai đoạn"}
+        style={{ display: "flex", gap: "18px", flexWrap: "wrap", fontSize: "12px", color: "#4f6478", margin: "8px 0 14px" }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <i style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#225eaa", display: "inline-block" }} />
+          {isEn ? `Accumulate until age ${retAge}` : `Tích lũy đến ${retAge} tuổi`}
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <i style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#7d5ba6", display: "inline-block" }} />
+          {isEn ? "Spend fund in retirement" : "Dùng quỹ khi nghỉ hưu"}
+        </span>
+      </div>
+
+      <div
+        className="chart-inspector"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "16px",
+          padding: "14px 18px",
+          background: "#f8fbff",
+          border: "1px solid #d8e5f3",
+          borderRadius: "12px",
+          marginBottom: "14px",
+        }}
+      >
+        <div>
+          <span style={{ display: "block", fontSize: "12px", color: "#536779", marginBottom: "2px" }}>
+            {isEn
+              ? `End of ${formatMonthVN(currentRow.month)} · age ${selectedAge}`
+              : `Cuối tháng ${formatMonthVN(currentRow.month)} · ${selectedAge} tuổi`}
+          </span>
+          <strong style={{ fontSize: "22px", fontWeight: 700, color: "#052659" }}>
+            {formatFullVnd(selBalance)}
+          </strong>
+        </div>
+        <dl style={{ display: "flex", gap: "24px", margin: 0, flexWrap: "wrap" }}>
+          <div>
+            <dt style={{ fontSize: "11.5px", color: "#637589", marginBottom: "2px" }}>
+              {isEn ? "Contribution in month" : "Góp trong tháng"}
+            </dt>
+            <dd style={{ margin: 0, fontSize: "13.5px", fontWeight: 700, color: "#052659" }}>
+              {formatFullVnd(selectedContribution)}
+            </dd>
+          </div>
+          <div>
+            <dt style={{ fontSize: "11.5px", color: "#637589", marginBottom: "2px" }}>
+              {isEn ? "Withdrawal from fund, incl. fees" : "Chi từ quỹ, gồm phí nếu có"}
+            </dt>
+            <dd style={{ margin: 0, fontSize: "13.5px", fontWeight: 700, color: "#052659" }}>
+              {formatFullVnd(selectedOutflow)}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <label
+        className="chart-slider-label"
+        htmlFor="plan-chart-month-slider"
+        style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#456B91", marginBottom: "6px" }}
+      >
+        {isEn ? "Drag to inspect each month" : "Kéo để xem từng tháng"}
+      </label>
+      <input
+        id="plan-chart-month-slider"
+        type="range"
+        min={0}
+        max={Math.max(0, rows.length - 1)}
+        value={safeIdx}
+        onChange={e => setSelectedIdx(Number(e.target.value))}
+        aria-label={isEn ? "Select month on chart" : "Chọn tháng trên biểu đồ"}
+        style={{ width: "100%", accentColor: "#225eaa", cursor: "pointer", marginBottom: "12px" }}
+      />
+
+      <div
+        className="chart-milestones"
+        style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}
+      >
+        <button
+          type="button"
+          onClick={() => setSelectedIdx(0)}
+          style={{
+            padding: "6px 12px",
+            borderRadius: "8px",
+            border: "1px solid #cddfee",
+            background: "#fff",
+            color: "#052659",
+            fontSize: "12px",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          {isEn ? `Start · ${formatCompactCurrency(initialFund)}` : `Bắt đầu · ${formatCompactCurrency(initialFund)}`}
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedIdx(splitIdx)}
+          style={{
+            padding: "6px 12px",
+            borderRadius: "8px",
+            border: "1px solid #cddfee",
+            background: "#fff",
+            color: "#052659",
+            fontSize: "12px",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          {isEn
+            ? `Retire · ${retAge} yrs · ${formatCompactCurrency(projectedAtRetirement)}`
+            : `Nghỉ hưu · ${retAge} tuổi · ${formatCompactCurrency(projectedAtRetirement)}`}
+        </button>
+        <span style={{ fontSize: "12px", color: "#536779", marginLeft: "4px" }}>
+          {firstShortfallRow
+            ? isEn
+              ? `Shortfall starts ${formatMonthVN(firstShortfallRow.month)} · first month gap ${formatCompactCurrency(Number(firstShortfallRow.unfundedWithdrawal || 0))}`
+              : `Bắt đầu thiếu từ ${formatMonthVN(firstShortfallRow.month)} · thiếu tháng đầu ${formatCompactCurrency(Number(firstShortfallRow.unfundedWithdrawal || 0))}`
+            : isEn
+            ? `Lasts until age ${endAge} (${formatMonthVN(lastRow.month)})`
+            : `Đủ dùng đến ${endAge} tuổi (${formatMonthVN(lastRow.month)})`}
+        </span>
+      </div>
+
+      <details className="chart-explanation" style={{ fontSize: "12.5px", color: "#456B91", borderTop: "1px solid #e6eef7", paddingTop: "10px" }}>
+        <summary style={{ cursor: "pointer", fontWeight: 600, color: "#052659" }}>
+          {isEn ? "How to read the chart" : "Cách đọc biểu đồ"}
+        </summary>
+        <p style={{ margin: "6px 0 0", lineHeight: 1.55 }}>
+          {isEn
+            ? "The blue line shows the accumulation phase before retirement. The purple area shows the retirement spending phase. Drag the slider to inspect the balance, contribution, and withdrawal of any month."
+            : "Đường màu xanh là giai đoạn tích lũy trước nghỉ hưu. Vùng màu tím là giai đoạn rút quỹ để chi tiêu khi nghỉ hưu. Kéo thanh trượt để kiểm tra số dư, tiền góp và tiền rút của từng tháng."}
+        </p>
+      </details>
     </div>
   );
 }

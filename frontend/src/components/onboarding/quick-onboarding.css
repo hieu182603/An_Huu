@@ -384,7 +384,8 @@
 .qo-shell .qo-steps li:not(:last-child)::after {
   content: '';
   position: absolute;
-  left: 17px;
+  left: 18px;
+  transform: translateX(-50%);
   top: 36px;
   bottom: 0px;
   width: 2px;

@@ -50,7 +50,7 @@ export const en: Record<keyof typeof vi, string> = {
   "nav.demo_disclaimer": "Profile and pension data are currently for illustration.",
 
   // Topbar - User
-  "topbar.search_placeholder": "Search features, simulations, retirement goals, articles...",
+  "topbar.search_placeholder": "Search goals, debts, pension...",
   "topbar.ai_assistant": "AI Assistant",
   "topbar.support": "Help & Support",
   "topbar.notifications": "Notifications",

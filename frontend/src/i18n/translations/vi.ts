@@ -48,7 +48,7 @@ export const vi = {
   "nav.demo_disclaimer": "Dữ liệu hồ sơ và BHXH hiện dùng cho mục đích minh họa.",
 
   // Topbar - User
-  "topbar.search_placeholder": "Tìm kiếm tính năng, mô phỏng hưu trí, mục tiêu, bài viết...",
+  "topbar.search_placeholder": "Tìm mục tiêu, khoản nợ, BHXH...",
   "topbar.ai_assistant": "Trợ lý AI",
   "topbar.support": "Hỗ trợ & giải đáp",
   "topbar.notifications": "Thông báo",

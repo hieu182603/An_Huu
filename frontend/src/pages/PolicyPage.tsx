@@ -16,10 +16,10 @@ export default function PolicyPage() {
           <p className="mk-page-hero-desc">An Hưu tuân thủ nguyên tắc tôn trọng quyền riêng tư dữ liệu tài chính cá nhân và công khai toàn bộ các giả định tính toán để bạn hoàn toàn yên tâm sử dụng.</p>
 
           <div className="mk-quick-jump-chips">
-            <a href="#bao-mat" className="mk-chip">🔒 Chính sách bảo mật</a>
-            <a href="#dieu-khoan" className="mk-chip">⚖️ Điều khoản sử dụng</a>
-            <a href="#gia-dinh" className="mk-chip">📊 Cơ sở giả định</a>
-            <a href="#mien-tru" className="mk-chip">🛡️ Miễn trừ tư vấn</a>
+            <a href="#bao-mat" className="mk-chip">Chính sách bảo mật</a>
+            <a href="#dieu-khoan" className="mk-chip">Điều khoản sử dụng</a>
+            <a href="#gia-dinh" className="mk-chip">Cơ sở giả định</a>
+            <a href="#mien-tru" className="mk-chip">Miễn trừ tư vấn</a>
           </div>
         </div>
       </section>

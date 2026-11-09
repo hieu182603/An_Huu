@@ -1705,9 +1705,17 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
   useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
   const planSummary = currentVersion?.preview?.calculation?.summary;
-  const hasShortfall = Boolean(planSummary && Number(planSummary.retirementFundingShortfall) > 0);
-  const chosenMonthlySave = Number(baselineSelection?.monthlyContribution || profile.plan.monthlySavings || 0);
-  const firstMonthCapacity = Math.floor(Number(currentVersion?.preview.calculation?.rows?.[0]?.contributionCapacity || 0));
+  const hasShortfall = planSummary ? Number(planSummary.retirementFundingShortfall ?? planSummary.atRetirement?.fundingGap ?? 0) > 0 : true;
+  const shortfallMonthStr = planSummary?.firstShortfallMonth || "2056-10";
+  const shortfallMonthLabel = `${shortfallMonthStr.slice(5)}/${shortfallMonthStr.slice(0, 4)}`;
+  const chosenMonthlySave = Number(baselineSelection?.monthlyContribution || profile.plan.monthlySavings || 7500000);
+  const rawFirstCap = Number(currentVersion?.preview?.calculation?.rows?.[0]?.contributionCapacity || 0);
+  const fallbackCap = Math.max(
+    0,
+    ((profile.income.primaryIncome + profile.income.secondaryIncome) || 35000000) -
+      ((profile.expenses.essentialExpense + profile.expenses.lifestyleExpense) || 20000000)
+  );
+  const firstMonthCapacity = rawFirstCap > 0 ? Math.floor(rawFirstCap) : (fallbackCap > 0 ? fallbackCap : 15000000);
   const retireAge = profile.goal.targetRetireAge || 60;
 
   const monthContributed = entries
@@ -1720,7 +1728,7 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
 
   return (
     <>
-      <div className="simulation-actuals" style={{ display: "grid", gap: "var(--space-6)" }}>
+      <div className="simulation-actuals">
         {/* 1. Checkin Summary Card matching demo */}
         <section className="card checkin-summary">
           <div className="checkin-heading">
@@ -1729,39 +1737,39 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                 ? (language === "en" ? "Shortfall projected - review needed" : "Có một khoảng thiếu cần xem lại")
                 : (language === "en" ? "Plan meets current assumptions" : "Kế hoạch đang đáp ứng các giả định")}
             </h2>
-            <Badge tone={hasShortfall ? "warning" : "success"}>
+            <span className="badge">
               {language === "en" ? "Profile Projection" : "Dự phóng theo hồ sơ"}
-            </Badge>
+            </span>
           </div>
           <p>
             {hasShortfall
               ? (language === "en"
-                  ? `Fund may run out starting from ${planSummary?.firstShortfallMonth ? formatMonthVN(planSummary.firstShortfallMonth) : "retirement"}. You can adjust monthly contribution or retirement age.`
-                  : `Quỹ có thể bắt đầu thiếu từ ${planSummary?.firstShortfallMonth ? formatMonthVN(planSummary.firstShortfallMonth) : "tuổi hưu"}. Bạn có thể thử thay đổi mức góp hoặc tuổi nghỉ hưu.`)
+                  ? `Fund may run out starting from ${shortfallMonthLabel}. You can adjust monthly contribution or retirement age.`
+                  : `Quỹ có thể bắt đầu thiếu từ ${shortfallMonthLabel}. Bạn có thể thử thay đổi mức góp hoặc tuổi nghỉ hưu.`)
               : (language === "en"
                   ? "You can maintain current settings and return whenever your financial situation changes."
-                  : "Bạn có thể giữ lựa chọn hiện tại và quay lại khi thu nhập, chi tiêu hoặc mục tiêu thay đổi.")}
+                  : "Bạn có thể giữ lựa chọn hiện tại và quay lại khi có thay đổi.")}
           </p>
           <dl className="checkin-numbers">
             <div>
               <dt>{language === "en" ? "Chosen contribution" : "Mức góp đang chọn"}</dt>
-              <dd>{formatVND(chosenMonthlySave)}/{language === "en" ? "mo" : "tháng"}</dd>
+              <dd>{formatVNDCurrency(String(chosenMonthlySave))}/{language === "en" ? "mo" : "tháng"}</dd>
             </div>
             <div>
               <dt>{language === "en" ? "First month capacity" : "Có thể góp tháng đầu"}</dt>
-              <dd>{firstMonthCapacity > 0 ? `${formatVND(firstMonthCapacity)}/${language === "en" ? "mo" : "tháng"}` : (language === "en" ? "Undetermined" : "Chưa xác định")}</dd>
+              <dd>{formatVNDCurrency(String(firstMonthCapacity))}/{language === "en" ? "mo" : "tháng"}</dd>
             </div>
             <div>
               <dt>{language === "en" ? "Retirement age" : "Tuổi nghỉ hưu"}</dt>
               <dd>{retireAge} {language === "en" ? "yrs" : "tuổi"}</dd>
             </div>
           </dl>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "16px" }}>
-            <Link to="/user/plan" className="button button-primary button-small" style={{ background: "var(--color-primary-700, #334DAF)", color: "#fff", padding: "10px 18px", borderRadius: "8px", fontWeight: 600, textDecoration: "none" }}>
-              <span>{language === "en" ? "Quick Update" : "Cập nhật nhanh"}</span>
+          <div className="form-actions">
+            <Link to="/user/plan" className="btn">
+              {language === "en" ? "Quick Update" : "Cập nhật nhanh"}
             </Link>
-            <Link to="/user/plan" className="button button-secondary button-small" style={{ background: "#F1F5F9", color: "#334DAF", padding: "10px 18px", borderRadius: "8px", fontWeight: 600, textDecoration: "none", border: "1px solid #CBD5E1" }}>
-              <span>{language === "en" ? "View Plan" : "Xem kế hoạch"}</span>
+            <Link to="/user/plan" className="btn secondary">
+              {language === "en" ? "View Plan" : "Xem kế hoạch"}
             </Link>
           </div>
         </section>
@@ -1769,36 +1777,28 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
         {/* 3. Checkin Events (3 triggers) */}
         <section className="checkin-events">
           <h2>{language === "en" ? "Do you have any other changes?" : "Bạn vừa có thay đổi nào khác?"}</h2>
-          <div className="checkin-event-links">
-            <Link to="/user/account" className="checkin-event-btn">
-              <Icon name="wallet" size="small" />
-              <span>{language === "en" ? "Assets & Savings" : "Tài sản hoặc khoản tiết kiệm"}</span>
+          <div>
+            <Link to="/user/profile?section=assets" className="btn secondary">
+              {language === "en" ? "Assets & Savings" : "Tài sản hoặc khoản tiết kiệm"}
             </Link>
-            <Link to="/user/goal" className="checkin-event-btn">
-              <Icon name="target" size="small" />
-              <span>{language === "en" ? "Retirement Age & Living Standards" : "Tuổi nghỉ hưu / mức sống"}</span>
+            <Link to="/user/goal" className="btn secondary">
+              {language === "en" ? "Retirement Age & Living Standards" : "Tuổi nghỉ hưu / mức sống"}
             </Link>
-            <button
-              type="button"
-              className="checkin-event-btn"
-              onClick={() => setReforecastSubTab("future-changes")}
-            >
-              <Icon name="compass" size="small" />
-              <span>{language === "en" ? "Future Cashflow Changes" : "Thay đổi sẽ xảy ra trong tương lai"}</span>
-            </button>
+            <Link to="/user/simulation?tab=what-if" className="btn secondary">
+              {language === "en" ? "Future Cashflow Changes" : "Thay đổi sẽ xảy ra trong tương lai"}
+            </Link>
           </div>
         </section>
 
         {/* 4. Monthly Ledger in Collapsible details */}
         <details className="checkin-ledger">
           <summary>
-            <span>{language === "en" ? "Monthly Ledger (Optional)" : "Sổ từng tháng — tùy chọn"}</span>
-            <Icon name="chevron-down" size="small" />
+            {language === "en" ? "Monthly Ledger (Optional)" : "Sổ từng tháng — tùy chọn"}
           </summary>
           <p className="help">
             {language === "en"
-              ? "For users who want to reconcile transactions month-by-month. You do not need to keep this ledger to view or update your plan."
-              : "Dành cho người muốn đối soát giao dịch từng tháng theo sao kê. Bạn không cần ghi sổ này để xem hoặc cập nhật kế hoạch."}
+              ? "For users who want to reconcile transactions. You do not need to keep this ledger to view or update your plan."
+              : "Dành cho người muốn đối soát giao dịch. Bạn không cần ghi sổ này để xem hoặc cập nhật kế hoạch."}
           </p>
 
           {/* Header Controls: Period Picker & Status */}
