@@ -47,7 +47,7 @@ export default function DebtAnalysisResults({ data, loans, horizonMonths }: { da
   });
   const strategies = [
     { key: "CONTRACT", title: en ? "Current schedule" : "Theo lịch hiện tại", description: en ? "Pay the agreed amounts without an extra payment budget." : "Trả theo lịch đã khai báo, không dùng ngân sách trả thêm.", result: baseline, alternative: null },
-    ...data.alternatives.map(alternative => ({ key: alternative.strategy,
+    ...(Array.isArray(data?.alternatives) ? data.alternatives : []).map(alternative => ({ key: alternative.strategy,
       title: alternative.strategy === "AVALANCHE" ? (en ? "Highest interest first" : "Ưu tiên khoản lãi cao") : alternative.strategy === "SNOWBALL" ? (en ? "Smallest balance first" : "Ưu tiên khoản nợ nhỏ") : (en ? "Selected loan first" : "Ưu tiên khoản đã chọn"),
       description: alternative.strategy === "AVALANCHE" ? (en ? "Use the extra budget for the highest-rate loan first, subject to prepayment terms." : "Dùng ngân sách trả thêm cho khoản lãi suất cao trước, theo điều kiện trả trước của hợp đồng.") : alternative.strategy === "SNOWBALL" ? (en ? "Use the extra budget for the smallest balance first." : "Dùng ngân sách trả thêm để thanh toán khoản có dư nợ nhỏ trước.") : (en ? "Use the extra budget for your selected loan first." : "Dùng ngân sách trả thêm cho khoản vay bạn đã chọn."),
       result: alternative.status === "INCOMPLETE" ? null : alternative.result, alternative })),
@@ -112,7 +112,7 @@ export default function DebtAnalysisResults({ data, loans, horizonMonths }: { da
         <span className="debt-missing-icon" aria-hidden="true"><Icon name="file-text" /></span>
         <div>
           <h3>{en ? "Complete these items to compare repayment options" : "Cần bổ sung để so sánh cách trả nợ"}</h3>
-          {data.issues.length > 0 && <ul>{issues(data.issues)}</ul>}
+          {(data?.issues || []).length > 0 && <ul>{issues(data.issues)}</ul>}
           <p>{en ? "A monthly payment alone is not enough to calculate interest savings or a debt-free date." : "Chỉ số tiền trả hàng tháng chưa đủ để tính tiền lãi tiết kiệm hoặc ngày hết nợ."}</p>
         </div>
       </div>}
@@ -126,7 +126,7 @@ export default function DebtAnalysisResults({ data, loans, horizonMonths }: { da
         return <article key={key} className="debt-option strategy-card"><h3>{title}</h3><p>{description}</p><span className="debt-comparison-scope">{!result ? unknown : alternative?.comparisonScope === "SAME_HORIZON_ONLY" || result.status === "HORIZON_LIMIT" ? (en ? `Only within ${horizonMonths} months` : `Chỉ tính trong ${horizonMonths} tháng`) : (en ? "Until fully repaid" : "Tính đến khi trả hết nợ")}</span>
           {alternative && <div className={`debt-comparison-savings ${extraCost ? "has-deficit" : ""}`}><span>{extraCost ? (en ? "Additional interest & fees" : "Lãi và phí tăng thêm") : (en ? "Interest & fees saved" : "Lãi và phí giảm được")}</span><strong>{hasSavings ? money(extraCost ? new Decimal(saved!).mul(-1).toFixed() : saved) : unknown}</strong></div>}
           <dl><div><dt>{en ? "Interest & fees in period" : "Lãi và phí trong kỳ"}</dt><dd>{money(result?.totals.interestAndFees)}</dd></div><div><dt>{en ? "Expected debt-free date" : "Ngày dự tính hết nợ"}</dt><dd>{date(result)}</dd></div><div><dt>{en ? "Debt remaining at period end" : "Dư nợ cuối kỳ phân tích"}</dt><dd>{money(result?.totals.closingLoanBalance)}</dd></div></dl>
-          {!!alternative?.issues.length && <ul className="debt-option-issues">{issues(alternative.issues)}</ul>}
+          {!!alternative?.issues?.length && <ul className="debt-option-issues">{issues(alternative.issues)}</ul>}
         </article>;
       })}</div>
       {baseline.cashflowAssessment?.shortfallStatus === "UNKNOWN" && <p className="debt-results-missing">{en ? "Income or expense data is incomplete in part of the period. A missing shortfall date does not confirm that cashflow is sufficient." : "Một phần kỳ phân tích còn thiếu thu nhập hoặc chi tiêu. Chưa có mốc thiếu tiền không có nghĩa dòng tiền đã đủ."}</p>}

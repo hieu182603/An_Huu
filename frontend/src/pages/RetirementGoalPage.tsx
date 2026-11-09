@@ -2,35 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Card, Icon } from "../components/ui";
 import CurrencyInput from "../components/CurrencyInput";
+import DateInput from "../components/DateInput";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { useI18n } from "../i18n";
 import "./retirement-goal.css";
-
-const digits = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
-function triple(n: number, full: boolean) {
-  const h = Math.floor(n / 100), t = Math.floor(n / 10) % 10, u = n % 10;
-  const a: string[] = [];
-  if (h || full) a.push(digits[h], 'trăm');
-  if (t > 1) a.push(digits[t], 'mươi'); else if (t === 1) a.push('mười'); else if (u && (h || full)) a.push('lẻ');
-  if (u) a.push(u === 1 && t > 1 ? 'mốt' : u === 5 && t > 0 ? 'lăm' : digits[u]);
-  return a.join(' ');
-}
-function moneyWords(value: number): string {
-  const n = Number(value);
-  if (!Number.isSafeInteger(n) || n < 0 || n > 1e15) return '';
-  if (n === 0) return 'Không đồng';
-  let rest = n;
-  const chunks: number[] = [];
-  while (rest > 0) { chunks.push(rest % 1000); rest = Math.floor(rest / 1000); }
-  const units = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ'];
-  const a: string[] = [];
-  for (let i = chunks.length - 1; i >= 0; i--) {
-    if (chunks[i]) a.push(triple(chunks[i], i < chunks.length - 1 && chunks[i] < 100), units[i]);
-  }
-  const text = a.filter(Boolean).join(' ') + ' đồng';
-  return text[0].toUpperCase() + text.slice(1);
-}
 
 function formatMonthDisplay(ym: string): string {
   if (!ym || ym.length < 7) return "";
@@ -99,6 +75,13 @@ export default function RetirementGoalPage() {
     return `${rYear}-${m}`;
   }, [birthYear, targetAge, birthDate]);
 
+  const otherGoalsAssets = useMemo(() => {
+    if (v2Profile?.assets?.status !== "KNOWN") return [];
+    return v2Profile.assets.entries.filter(
+      a => a.otherGoalsShare.status === "KNOWN" && Number(a.otherGoalsShare.value) > 0
+    );
+  }, [v2Profile?.assets]);
+
   const retirementMonthText = formatMonthDisplay(retirementMonth);
 
   const handleBirthDateChange = (val: string) => {
@@ -130,9 +113,9 @@ export default function RetirementGoalPage() {
   };
 
   return (
-    <div className="content" style={{ maxWidth: "960px", margin: "0 auto", padding: "36px 20px" }}>
+    <div className="content">
       <nav className="breadcrumb" aria-label="Đường dẫn trang" style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-        <Link to="/user/dashboard" className="btn-breadcrumb" style={{ border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", padding: "6px 12px", background: "none", color: "var(--navy, #052659)", fontSize: "13px", fontWeight: 500, textDecoration: "none" }}>
+        <Link to="/user/dashboard" className="btn-breadcrumb" style={{ border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", padding: "6px 12px", background: "#fff", color: "var(--navy, #052659)", fontSize: "13px", fontWeight: 500, textDecoration: "none" }}>
           ← {language === "en" ? "Overview" : "Tổng quan"}
         </Link>
         <span className="sep" style={{ color: "var(--muted, #64748b)" }}>/</span>
@@ -160,18 +143,12 @@ export default function RetirementGoalPage() {
         <form onSubmit={handleSubmit}>
           {/* Row 1: Ngày sinh & Tuổi nghỉ hưu */}
           <div className="goal-card-two-col two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-            <div className="field">
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
-                {language === "en" ? "Date of birth" : "Ngày tháng năm sinh"}
-              </label>
-              <input
-                type="date"
-                className="input"
-                value={birthDate}
-                onChange={e => handleBirthDateChange(e.target.value)}
-                style={{ width: "100%", height: "44px", padding: "0 14px", border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", fontSize: "14px" }}
-              />
-            </div>
+            <DateInput
+              label={language === "en" ? "Date of birth" : "Ngày tháng năm sinh"}
+              mode="date"
+              value={birthDate}
+              onChange={val => handleBirthDateChange(val)}
+            />
             <div className="field">
               <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
                 {language === "en" ? "What age do you want to retire?" : "Bạn muốn nghỉ hưu năm bao nhiêu tuổi?"}
@@ -181,34 +158,33 @@ export default function RetirementGoalPage() {
                   type="number"
                   className="input"
                   min={18}
-                  max={80}
+                  max={100}
                   value={targetAge}
-                  onChange={e => setTargetAge(Number(e.target.value) || 60)}
-                  style={{ width: "100%", height: "44px", padding: "0 44px 0 14px", border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", fontSize: "14px" }}
+                  onChange={e => setTargetAge(Number(e.target.value) || 0)}
+                  style={{ width: "100%", height: "44px", padding: "0 44px 0 14px", border: `1px solid ${(targetAge < 18 || targetAge > 100) ? "#dc2626" : "var(--border, #D0E4FE)"}`, borderRadius: "8px", fontSize: "14px" }}
                 />
                 <span style={{ position: "absolute", right: "12px", top: "12px", fontSize: "13px", color: "var(--muted, #64748b)" }}>tuổi</span>
               </div>
-              <p style={{ fontSize: "12px", color: "var(--primary, #334DAF)", margin: "6px 0 0" }}>
-                {language === "en" ? `Projected retirement: month ${retirementMonthText}` : `Dự kiến nghỉ hưu: tháng ${retirementMonthText}`}
-              </p>
+              {(targetAge < 18 || targetAge > 100) ? (
+                <small className="field-error-text error-text" style={{ color: "#dc2626", display: "block", marginTop: "6px", fontSize: "12px", fontWeight: 500 }}>
+                  {language === "en" ? "Retirement age must be between 18 and 100." : "Tuổi nghỉ hưu phải từ 18 đến 100 tuổi."}
+                </small>
+              ) : (
+                <p style={{ fontSize: "12px", color: "var(--primary, #334DAF)", margin: "6px 0 0" }}>
+                  {language === "en" ? `Projected retirement: month ${retirementMonthText}` : `Dự kiến nghỉ hưu: tháng ${retirementMonthText}`}
+                </p>
+              )}
             </div>
           </div>
 
           {/* Row 2: Chi tiêu nghỉ hưu */}
           <div className="field" style={{ margin: "20px 0" }}>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
-              {language === "en" ? "Monthly retirement spending" : "Chi tiêu nghỉ hưu mỗi tháng"}
-            </label>
             <CurrencyInput
               label={language === "en" ? "Monthly retirement spending" : "Chi tiêu nghỉ hưu mỗi tháng"}
-              hideLabel
               value={monthlyExpenseInRetirement}
               onChange={val => setMonthlyExpenseInRetirement(val)}
-              suffix="VND"
+              suffix="₫"
             />
-            <span className="money-words" style={{ display: "block", color: "var(--primary, #334DAF)", fontSize: "12px", marginTop: "6px" }}>
-              {moneyWords(monthlyExpenseInRetirement)}
-            </span>
             <p className="small muted" style={{ fontSize: "12px", color: "var(--muted, #64748b)", margin: "4px 0 0" }}>
               {language === "en" ? "At today's prices; excluding debt payments and separate support schedules." : "Theo giá hôm nay; chưa gồm trả nợ và khoản hỗ trợ có lịch riêng."}
             </p>
@@ -216,30 +192,18 @@ export default function RetirementGoalPage() {
 
           {/* Row 3: Tháng bắt đầu & Chuẩn bị đến */}
           <div className="goal-card-two-col two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", margin: "20px 0" }}>
-            <div className="field">
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
-                {language === "en" ? "Planning start month" : "Tháng bắt đầu lập số liệu"}
-              </label>
-              <input
-                type="month"
-                className="input"
-                value={valuationMonth}
-                onChange={e => setValuationMonth(e.target.value)}
-                style={{ width: "100%", height: "44px", padding: "0 14px", border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", fontSize: "14px" }}
-              />
-            </div>
-            <div className="field">
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
-                {language === "en" ? "Prepare fund until month" : "Chuẩn bị quỹ đến tháng"}
-              </label>
-              <input
-                type="month"
-                className="input"
-                value={endMonth}
-                onChange={e => setEndMonth(e.target.value)}
-                style={{ width: "100%", height: "44px", padding: "0 14px", border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", fontSize: "14px" }}
-              />
-            </div>
+            <DateInput
+              label={language === "en" ? "Planning start month" : "Tháng bắt đầu lập số liệu"}
+              mode="month"
+              value={valuationMonth}
+              onChange={val => setValuationMonth(val)}
+            />
+            <DateInput
+              label={language === "en" ? "Prepare fund until month" : "Chuẩn bị quỹ đến tháng"}
+              mode="month"
+              value={endMonth}
+              onChange={val => setEndMonth(val)}
+            />
           </div>
 
           {/* Row 4: Mức sống mong muốn */}
@@ -265,11 +229,21 @@ export default function RetirementGoalPage() {
             <p style={{ margin: "8px 0 0" }}>{language === "en" ? "Calculated by birth month at chosen age. Social security start date is declared separately." : "Tính theo tháng sinh nhật ở tuổi bạn chọn. Tháng bắt đầu nhận BHXH được khai riêng."}</p>
           </details>
 
-          <div className="form-actions" style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "24px" }}>
-            <button type="button" className="btn secondary" onClick={() => navigate("/user/dashboard")}>
+          <div className="form-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", marginTop: "24px" }}>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => navigate("/user/dashboard")}
+              style={{ background: "transparent", border: 0, color: "#052659", fontWeight: 600, fontSize: "13.5px", cursor: "pointer" }}
+            >
               {language === "en" ? "Cancel" : "Hủy"}
             </button>
-            <button type="submit" className="btn primary" disabled={isSaving}>
+            <button
+              type="submit"
+              className="btn primary"
+              disabled={isSaving}
+              style={{ background: "#052659", color: "#fff", border: 0, borderRadius: "10px", padding: "10px 18px", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" }}
+            >
               {isSaving ? (language === "en" ? "Saving…" : "Đang lưu…") : (language === "en" ? "Save and see new results" : "Lưu và xem kết quả mới")}
             </button>
           </div>
@@ -281,10 +255,40 @@ export default function RetirementGoalPage() {
         <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 8px" }}>
           {language === "en" ? "Other major life goals" : "Mục tiêu lớn khác"}
         </h2>
-        <p style={{ color: "var(--muted, #64748b)", fontSize: "14px", margin: "0 0 16px" }}>
-          {language === "en" ? "No other major goals added yet (home, car, education fund...)." : "Chưa có mục tiêu lớn khác (mua nhà, xe, quỹ học vấn...)."}
-        </p>
-        <Link to="/user/profile" className="btn secondary">
+        {otherGoalsAssets.length > 0 ? (
+          <ul style={{ margin: "0 0 16px", paddingLeft: "20px" }}>
+            {otherGoalsAssets.map(a => {
+              const othShareNum = a.otherGoalsShare.status === "KNOWN" ? Number(a.otherGoalsShare.value) : 0;
+              const valNum = a.value.status === "KNOWN" ? Number(a.value.value) : 0;
+              const goalAmount = Math.round(valNum * othShareNum);
+              return (
+                <li key={a.id} style={{ fontSize: "14px", color: "var(--navy, #052659)", marginBottom: "4px" }}>
+                  <strong>{a.label}</strong>: {Math.round(othShareNum * 100)}% ({new Intl.NumberFormat("vi-VN").format(goalAmount)} ₫)
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p style={{ color: "var(--muted, #64748b)", fontSize: "14px", margin: "0 0 16px" }}>
+            {language === "en" ? "No other major goals added yet (home, car, education fund...)." : "Chưa có mục tiêu lớn khác (mua nhà, xe, quỹ học vấn...)."}
+          </p>
+        )}
+        <Link
+          to="/user/profile?section=constraints"
+          className="btn secondary"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "9px 16px",
+            borderRadius: "10px",
+            border: "1px solid #cddfee",
+            background: "#fff",
+            color: "#052659",
+            fontSize: "13px",
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
           {language === "en" ? "View & edit other goals →" : "Xem & chỉnh sửa mục tiêu khác →"}
         </Link>
       </Card>

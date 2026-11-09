@@ -48,7 +48,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
     subLabel: 'Tỷ lệ rút tham chiếu',
     subVal: '4,0% - 4,5%/năm',
     statNote: 'Chu kỳ hưu trí 25 - 30 năm',
-    pillText: '📌 Tỷ lệ rút an toàn: 4% - 4,5%/năm',
+    pillText: 'Tỷ lệ rút an toàn: 4% - 4,5%/năm',
     highlights: [
       'Tính theo giá hiện tại để dễ hình dung mức sống thực tế.',
       'Áp dụng tỷ lệ rút an toàn 4% - 4,5%/năm bù đắp lạm phát dài hạn.',
@@ -68,7 +68,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
         <li><strong>Chi phí y tế tăng nhanh:</strong> Nhu cầu chăm sóc sức khỏe, bảo hiểm và hỗ trợ sinh hoạt thường tăng vọt sau tuổi 65.</li>
       </ul>
       <blockquote class="editorial-quote">
-        <strong>💡 Nguyên tắc cốt lõi cần nhớ:</strong>
+        <strong>Nguyên tắc cốt lõi cần nhớ:</strong>
         <p>Đặt mục tiêu theo giá hôm nay để dễ hình dung mức sống thực tế, rồi để mô phỏng tự động tính trượt giá lũy kế qua từng tháng tích lũy.</p>
       </blockquote>
 
@@ -138,7 +138,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
     subLabel: 'Mốc đóng tối thiểu',
     subVal: '15 năm (Nữ) / 20 năm (Nam)',
     statNote: 'Nam đủ 35 năm, Nữ đủ 30 năm',
-    pillText: '📌 Tỷ lệ tối đa: 75% lương đóng bình quân',
+    pillText: 'Tỷ lệ tối đa: 75% lương đóng bình quân',
     highlights: [
       'Nam đóng đủ 20 năm hưởng 45%, mỗi năm thêm +2%, tối đa 75% ở 35 năm.',
       'Nữ đóng đủ 15 năm hưởng 45%, đủ 20 năm hưởng 55%, tối đa 75% ở 30 năm.',
@@ -182,7 +182,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
       </div>
 
       <blockquote class="editorial-quote">
-        <strong>💡 Lưu ý mấu chốt về tỷ lệ thay thế thu nhập:</strong>
+        <strong>Lưu ý mấu chốt về tỷ lệ thay thế thu nhập:</strong>
         <p>Mức lương đóng BHXH của đa số người lao động chỉ chiếm 40% đến 60% tổng thu nhập thực nhận. Vì vậy, đạt mức trần 75% trên lương đóng thực chất chỉ bù đắp được khoảng 30% đến 45% mức sống trước khi nghỉ hưu.</p>
       </blockquote>
 
@@ -231,7 +231,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
     subLabel: 'Mục tiêu ngắn hạn',
     subVal: 'Khóa an toàn 1-2 năm',
     statNote: 'Bảo toàn thanh khoản tuyệt đối',
-    pillText: '📌 Quỹ dự phòng: 3 - 6 tháng chi phí',
+    pillText: 'Quỹ dự phòng: 3 - 6 tháng chi phí',
     highlights: [
       'Tách riêng dòng tiền sinh hoạt khẩn cấp khỏi danh mục đầu tư dài hạn.',
       'Dự phòng rủi ro biến cố sức khỏe để không ăn phạm vào vốn gốc tích lũy.',
@@ -247,7 +247,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
       <h2>1. Vì sao nhà đầu tư thường thất bại khi không tách lớp vốn?</h2>
       <p>Sai lầm phổ biến nhất khi tham gia thị trường là dồn toàn bộ tiền nhàn rỗi vào các kênh đầu tư sinh lời cao. Khi gặp biến cố gia đình (mất việc, tai nạn, chi phí y tế đột xuất) hoặc khi thị trường rơi vào giai đoạn điều chỉnh sâu, bạn sẽ buộc phải bán tháo tài sản ở mức giá thấp nhất để có tiền trang trải sinh hoạt.</p>
       <blockquote class="editorial-quote">
-        <strong>💡 Nguyên tắc cốt lõi:</strong>
+        <strong>Nguyên tắc cốt lõi:</strong>
         <p>Bạn chỉ có thể an tâm nắm giữ tài sản tăng trưởng qua các chu kỳ biến động khi biết chắc rằng tiền sinh hoạt 6 tháng tới đã nằm yên trong két an toàn.</p>
       </blockquote>
 
@@ -315,7 +315,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
     subLabel: 'Chu kỳ nhân đôi giá',
     subVal: '~20 năm (Quy tắc 72)',
     statNote: 'Ăn mòn sức mua nếu chỉ giữ tiền mặt',
-    pillText: '📌 Lạm phát tham chiếu: 3,5%/năm',
+    pillText: 'Lạm phát tham chiếu: 3,5%/năm',
     highlights: [
       'Phân biệt rạch ròi giữa số tiền danh nghĩa và sức mua thực tế của giỏ hàng.',
       'Tỷ suất sinh lời thực = Lãi suất danh nghĩa - Tỷ lệ lạm phát.',
@@ -331,7 +331,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
       <h2>1. Kẻ thù vô hình của người về hưu</h2>
       <p>Nhiều người cảm thấy an tâm khi có sổ tiết kiệm vài trăm triệu đồng, nhưng quên mất rằng lạm phát âm thầm làm giảm sức mua theo từng năm. Một giỏ hàng hóa thiết yếu trị giá 10 triệu đồng hôm nay sẽ cần gần 20 triệu đồng sau 20 năm để mua cùng lượng hàng hóa tương đương.</p>
       <blockquote class="editorial-quote">
-        <strong>💡 Quy tắc 72 trong tài chính:</strong>
+        <strong>Quy tắc 72 trong tài chính:</strong>
         <p>Lấy 72 chia cho tỷ lệ lạm phát hàng năm sẽ ra số năm mà vật giá tăng gấp đôi. Với lạm phát 3,5%/năm: 72 / 3,5 ≈ 20,5 năm. Chi phí sinh hoạt tuổi già sẽ nhân đôi sau mỗi hai thập kỷ!</p>
       </blockquote>
 
@@ -401,7 +401,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
     subLabel: 'Lợi thế bắt đầu sớm',
     subVal: 'Góp ít hơn 3 lần',
     statNote: 'So với bắt đầu muộn ở tuổi 45',
-    pillText: '📌 Bắt đầu sớm: Góp ít hơn 3 lần',
+    pillText: 'Bắt đầu sớm: Góp ít hơn 3 lần',
     highlights: [
       'Góp đều hàng tháng giúp bình quân giá vốn và loại bỏ áp lực tâm lý.',
       'Thời gian tích lũy dài quan trọng hơn việc cố tìm tỷ suất sinh lời vượt trội.',
@@ -417,7 +417,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
       <h2>1. Sức mạnh cấp số nhân của lãi kép qua chu kỳ 20 năm</h2>
       <p>Albert Einstein từng gọi lãi kép là kỳ quan thứ 8 của thế giới: "Ai hiểu được nó sẽ kiếm được tiền; ai không hiểu sẽ phải trả giá cho nó". Khi bạn bắt đầu tích lũy sớm, tiền lãi sinh ra ở các năm đầu tiếp tục sinh lãi ở các năm sau, tạo nên đường cong tài sản tăng vọt về cuối kỳ.</p>
       <blockquote class="editorial-quote">
-        <strong>💡 Bài học từ nhà đầu tư kiên nhẫn:</strong>
+        <strong>Bài học từ nhà đầu tư kiên nhẫn:</strong>
         <p>Hơn 80% giá trị gia tăng của một kế hoạch hưu trí 30 năm được tạo ra trong 10 năm cuối cùng nhờ hiệu ứng quả cầu tuyết của lãi kép.</p>
       </blockquote>
 
@@ -486,7 +486,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
     subLabel: 'Ngưỡng kích hoạt điều chỉnh',
     subVal: '±5% tỷ trọng tài sản',
     statNote: 'Tái cân bằng dòng tiền đóng mới',
-    pillText: '📌 Tần suất đối soát: 1 - 2 lần/năm',
+    pillText: 'Tần suất đối soát: 1 - 2 lần/năm',
     highlights: [
       'Cập nhật số dư thực tế vào sổ tay để theo dõi sát sao đường dự phóng.',
       'Tái cân bằng khi danh mục có sự xê dịch tỷ trọng vượt quá 5%.',
@@ -502,7 +502,7 @@ export const ARTICLES_DATA: KnowledgeArticle[] = [
       <h2>1. Vì sao kế hoạch tài chính cần được đối soát thường xuyên?</h2>
       <p>Cuộc sống luôn có những biến số khó lường trước: tăng lương, chuyển việc, biến cố y tế, thị trường tăng hoặc giảm mạnh. Một kế hoạch tài chính lập ra năm 30 tuổi chắc chắn sẽ cần những tinh chỉnh phù hợp khi bạn bước sang tuổi 35 hay 40.</p>
       <blockquote class="editorial-quote">
-        <strong>💡 Triết lý quản trị kế hoạch An Hưu:</strong>
+        <strong>Triết lý quản trị kế hoạch An Hưu:</strong>
         <p>Lập kế hoạch không phải để đoán trúng tương lai, mà để luôn có phương án hành động rõ ràng và chủ động khi tương lai xảy ra khác với dự tính ban đầu.</p>
       </blockquote>
 

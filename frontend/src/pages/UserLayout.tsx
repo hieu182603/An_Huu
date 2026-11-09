@@ -3,6 +3,7 @@ import "./user-demo-theme.css";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import logoMark from "../assets/logo-mark.webp";
+import logoFull from "../assets/logo.webp";
 import { Avatar, Badge, BrandLogo, Drawer, Icon, IconButton, Tooltip, useNotification, type IconName } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
@@ -64,7 +65,18 @@ export default function UserLayout() {
     { path: "/user/debts", label: language === "en" ? "Your finances" : "Tài chính của bạn", icon: "wallet" as IconName },
   ].find(item => location.pathname.startsWith(item.path))?.label;
   const settingsTab = location.pathname === "/user/account" && /[?&]tab=(settings|reports)\b/.test(location.search);
-  const locationLabel = settingsTab ? (language === "en" ? "Account settings" : "Cài đặt tài khoản") : currentNavLabel;
+  const profileTab = location.pathname === "/user/account" && !settingsTab;
+  const simulationWhatIf = location.pathname.startsWith("/user/simulation") && /[?&]tab=what-if\b/.test(location.search);
+  const simulationActuals = location.pathname.startsWith("/user/simulation") && !simulationWhatIf;
+  const locationLabel = settingsTab
+    ? (language === "en" ? "Account settings" : "Cài đặt tài khoản")
+    : profileTab
+    ? (language === "en" ? "Personal info" : "Thông tin cá nhân")
+    : simulationWhatIf
+    ? (language === "en" ? "Future changes" : "Thay đổi tương lai")
+    : simulationActuals
+    ? (language === "en" ? "Track & Check-in" : "Cập nhật tình hình")
+    : currentNavLabel;
 
   const drawerNavItems: UserNavItem[] = [
     ...userNavItems,
@@ -124,30 +136,30 @@ export default function UserLayout() {
     <div className={`user-dashboard-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
       {/* Sidebar */}
       <aside className={`user-sidebar ${collapsed ? "is-collapsed" : ""}`} aria-label={t("nav.main_navigation")}>
-        <div className="user-sidebar-brand">
+        <div className="sidebar-brand">
           <Link
             to="/user/dashboard"
-            className={`sidebar-brand-lockup ${collapsed ? "is-compact" : ""}`}
-            aria-label={language === "en" ? "An Huu Dashboard" : "Trang tổng quan An Hưu"}
+            className="brand-button"
+            aria-label={language === "en" ? "An Huu — Overview" : "An Hưu — Tổng quan"}
           >
-            <div className="sidebar-brand-badge">
-              <img src={logoMark} alt="An Hưu" className="sidebar-brand-emblem" />
-            </div>
-            {!collapsed && (
-              <div className="sidebar-brand-info">
-                <span className="sidebar-brand-title">An Hưu</span>
-                <span className="sidebar-brand-subtitle">{language === "en" ? "Peaceful Planning" : "Kế hoạch an yên"}</span>
-              </div>
+            {collapsed ? (
+              <img className="logo-mark" src={logoMark} alt="An Hưu" width="30" height="30" />
+            ) : (
+              <img className="logo" src={logoFull} alt="An Hưu — Lập kế hoạch hôm nay, cho an yên ngày mai" width="124" height="41" />
             )}
           </Link>
           <button
             type="button"
-            className="sidebar-collapse-toggle"
-            aria-label={collapsed ? (language === "en" ? "Expand sidebar" : "Mở rộng thanh menu") : (language === "en" ? "Collapse sidebar" : "Thu gọn thanh menu")}
-            title={collapsed ? (language === "en" ? "Expand sidebar" : "Mở rộng thanh menu") : (language === "en" ? "Collapse sidebar" : "Thu gọn thanh menu")}
+            className="sidebar-collapse"
+            aria-label={collapsed ? (language === "en" ? "Expand navigation" : "Mở rộng thanh điều hướng") : (language === "en" ? "Collapse navigation" : "Thu gọn thanh điều hướng")}
+            title={collapsed ? (language === "en" ? "Expand navigation" : "Mở rộng thanh điều hướng") : (language === "en" ? "Collapse navigation" : "Thu gọn thanh điều hướng")}
+            aria-expanded={!collapsed}
             onClick={() => setCollapsed(!collapsed)}
           >
-            <Icon name={collapsed ? "panel-right" : "panel-left"} />
+            <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M9 4v16m6-12-3 4 3 4" />
+            </svg>
           </button>
         </div>
 
@@ -181,20 +193,27 @@ export default function UserLayout() {
         </nav>
 
         {!collapsed && (
-          <Link to="/user/account" className="sidebar-profile-progress" aria-label={language === "en" ? "View and complete financial profile" : "Xem và hoàn thiện hồ sơ tài chính"}>
-            <div className="sidebar-profile-heading">
-              <Icon name="users" />
-              <span>{language === "en" ? "Financial profile" : "Hồ sơ tài chính"}</span>
-            </div>
-            <div className="sidebar-profile-status"><span>{language === "en" ? "Completed" : "Đã hoàn thiện"}</span><strong>{completenessPercentage}%</strong></div>
-            <div className="progress-track" role="progressbar" aria-label={t("nav.profile_progress")} aria-valuenow={completenessPercentage} aria-valuemin={0} aria-valuemax={100}>
-              <span style={{ "--progress": `${completenessPercentage}%` } as React.CSSProperties} />
-            </div>
-            <span className="sidebar-profile-action"><Icon name="edit" size="small" /><span>{language === "en" ? "Edit profile" : "Chỉnh sửa hồ sơ"}</span><Icon name="chevron-right" size="small" /></span>
-          </Link>
+          <div className="sidebar-bottom">
+            <Link to="/user/account" className="profile-progress" aria-label={language === "en" ? "Profile completeness progress" : "Tiến độ hoàn thiện hồ sơ"}>
+              <span className="profile-progress-title">
+                <Icon name="users" />
+                <strong>{language === "en" ? "Profile completion" : "Hoàn thiện hồ sơ"}</strong>
+                <b>{Math.min(5, Math.max(1, Math.round((completenessPercentage / 100) * 5)))}/5</b>
+              </span>
+              <span className="profile-progress-track" aria-hidden="true">
+                <i style={{ width: `${completenessPercentage}%` }} />
+              </span>
+              <small>{completenessPercentage >= 100 ? (language === "en" ? "5 initial information groups ready" : "Đã có 5 nhóm thông tin ban đầu") : (language === "en" ? "Review and complete remaining items" : "Lương hưu, mục tiêu khác...")}</small>
+            </Link>
+          </div>
         )}
 
-        {collapsed && <Link to="/user/account" className="sidebar-profile-compact" aria-label={language === "en" ? "View and complete financial profile" : "Xem và hoàn thiện hồ sơ tài chính"} title={language === "en" ? "Financial profile" : "Hồ sơ tài chính"}><Icon name="users" /><span>{completenessPercentage}%</span></Link>}
+        {collapsed && (
+          <Link to="/user/account" className="sidebar-profile-compact" aria-label={language === "en" ? "Profile completion" : "Hoàn thiện hồ sơ"} title={language === "en" ? "Financial profile" : "Hồ sơ tài chính"}>
+            <Icon name="users" />
+            <span>{completenessPercentage}%</span>
+          </Link>
+        )}
       </aside>
 
       {/* Main Workspace */}
@@ -248,7 +267,8 @@ export default function UserLayout() {
             >
               <Icon name="sparkles" className="topbar-ai-icon-desktop" />
               <Icon name="info" className="topbar-ai-icon-mobile" />
-              <span>{t("topbar.ai_assistant")}</span>
+              <span>{language === "en" ? "Assistant" : "Trợ lý"}</span>
+              <small>AI</small>
             </button>
             <LanguageSwitcher />
             <Tooltip content={t("topbar.support")}>

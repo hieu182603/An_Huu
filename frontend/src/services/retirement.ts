@@ -331,10 +331,26 @@ export async function previewMonthlyRetirement(
 export function formatVNDCurrency(amount: string | number | null | undefined): string {
   if (amount === null || amount === undefined) return "Chưa xác định";
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (!Number.isFinite(num)) return "0 VND";
+  if (!Number.isFinite(num)) return "0 đ";
   const rounded = Math.round(num);
   const isNeg = rounded < 0;
-  return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
+  return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} đ`;
+}
+
+export function formatCompactVND(amount: string | number | null | undefined, perMonth = false): string {
+  if (amount === null || amount === undefined) return "Chưa xác định";
+  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (!Number.isFinite(num)) return "0 đ";
+  const abs = Math.abs(num);
+  if (abs >= 1e9) {
+    const v = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(abs / 1e9);
+    return `${num < 0 ? "-" : ""}${v} tỷ đ${perMonth ? "/tháng" : ""}`;
+  }
+  if (abs >= 1e6) {
+    const v = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: (Math.round(abs / 1e5) % 10 === 0) ? 0 : 1, maximumFractionDigits: 1 }).format(abs / 1e6);
+    return `${num < 0 ? "-" : ""}${v} triệu đ${perMonth ? "/tháng" : ""}`;
+  }
+  return formatVNDCurrency(amount) + (perMonth ? "/tháng" : "");
 }
 
 export function formatPercentNumber(rate: string | number | null | undefined): string {

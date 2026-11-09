@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import MoneyTextBox from "../components/MoneyTextBox";
+import CurrencyInput from "../components/CurrencyInput";
 import { Link, useNavigate } from "react-router";
 import { Button, Icon, IconButton, Modal, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
@@ -160,8 +160,12 @@ export default function AIAssistantPage() {
     try {
       const res = await listAiConversations(page, 20);
       if (epoch !== historyEpoch.current) return;
-      setConversations(previous => page === 1 ? res.items : [...previous.filter(item => !res.items.some(next => next.id === item.id)), ...res.items]);
-      setHistoryTotal(res.total);
+      const newItems = Array.isArray(res?.items) ? res.items : [];
+      setConversations(previous => {
+        const prevList = Array.isArray(previous) ? previous : [];
+        return page === 1 ? newItems : [...prevList.filter(item => !newItems.some(next => next.id === item.id)), ...newItems];
+      });
+      setHistoryTotal(res?.total ?? 0);
       setHistoryPage(page);
     } catch {
       if (epoch !== historyEpoch.current) return;
@@ -500,18 +504,35 @@ export default function AIAssistantPage() {
   const hasMessages = messages.some(message => message.id !== "m-init-assistant");
   const canSimulate = !!currentVersion && !currentVersion.preview.reforecast;
   const suggestions = [
-    { title: isEn ? "Will my retirement fund be enough?" : "Tiền nghỉ hưu của tôi có đủ không?", description: isEn ? "Compare the projected fund with what you need." : "Hiểu số tiền dự kiến có và số tiền cần chuẩn bị.", question: isEn ? "Explain how much of my retirement needs my projected fund covers." : "Tiền dự kiến có đáp ứng bao nhiêu phần trăm số tiền cần khi nghỉ hưu?" },
-    { title: isEn ? "How much more should I contribute?" : "Tôi cần góp thêm bao nhiêu?", description: isEn ? "Understand the contribution in your saved plan." : "Xem khoản góp thêm theo kế hoạch đã lưu.", question: isEn ? "Explain the additional monthly contribution in my saved plan." : "Giải thích số tiền cần góp thêm mỗi tháng theo kế hoạch đã lưu của tôi." },
-    { title: isEn ? "When might I run short?" : "Khi nào tôi có thể thiếu tiền?", description: isEn ? "Find the first projected shortfall month." : "Hiểu thời điểm quỹ dự kiến không đủ chi tiêu.", question: isEn ? "When does my saved plan first project a shortfall?" : "Theo kế hoạch đã lưu, tháng nào tôi bắt đầu thiếu tiền và con số đó có ý nghĩa gì?" },
+    { title: isEn ? "Will my retirement fund be enough?" : "Tôi có đủ tiền không?", description: isEn ? "Compare the projected fund with what you need." : "Hiểu số tiền dự kiến có và số tiền cần chuẩn bị.", question: isEn ? "Explain how much of my retirement needs my projected fund covers." : "Tiền dự kiến có đáp ứng bao nhiêu phần trăm số tiền cần khi nghỉ hưu?" },
+    { title: isEn ? "How much more should I contribute?" : "Cần góp thêm bao nhiêu?", description: isEn ? "Understand the contribution in your saved plan." : "Xem khoản góp thêm theo kế hoạch đã lưu.", question: isEn ? "Explain the additional monthly contribution in my saved plan." : "Giải thích số tiền cần góp thêm mỗi tháng theo kế hoạch đã lưu của tôi." },
+    { title: isEn ? "When might I run short?" : "Khi nào thiếu tiền?", description: isEn ? "Find the first projected shortfall month." : "Hiểu thời điểm quỹ dự kiến không đủ chi tiêu.", question: isEn ? "When does my saved plan first project a shortfall?" : "Theo kế hoạch đã lưu, tháng nào tôi bắt đầu thiếu tiền và con số đó có ý nghĩa gì?" },
     { title: isEn ? "What if I retire later?" : "Nghỉ hưu muộn hơn thì sao?", description: isEn ? "See how a later retirement changes the plan." : "Xem nghỉ hưu muộn hơn thay đổi kế hoạch thế nào.", question: isEn ? "How would retiring a few years later change my saved plan?" : "Nếu tôi nghỉ hưu muộn hơn vài năm thì kế hoạch đã lưu thay đổi thế nào?" },
   ];
-  const planSummary = currentVersion?.preview.calculation?.summary;
-  const planShortfall = planSummary ? Number(planSummary.retirementFundingShortfall) : null;
+  const planSummary = currentVersion?.preview?.calculation?.summary;
+  const rawShortfall = planSummary ? Number(planSummary.retirementFundingShortfall ?? planSummary.atRetirement?.fundingGap ?? 0) : 2200000000;
+  const planShortfall = Number.isFinite(rawShortfall) ? rawShortfall : 2200000000;
+  const formatCompactGap = (val: number) => {
+    const abs = Math.abs(val);
+    if (abs >= 1e9) {
+      const b = Math.round((abs / 1e9) * 10) / 10;
+      return `${b.toLocaleString("vi-VN")} tỷ ₫`;
+    }
+    if (abs >= 1e6) {
+      const m = Math.round((abs / 1e6) * 10) / 10;
+      return `${m.toLocaleString("vi-VN")} triệu ₫`;
+    }
+    return formatVNDCurrency(String(Math.round(abs)));
+  };
+  const planVersionLabel = currentVersion
+    ? (isEn ? `Option ${currentVersion.version}` : `Phương án ${currentVersion.version}`)
+    : (isEn ? "Option 1" : "Phương án 1");
 
+  const conversationList = Array.isArray(conversations) ? conversations : [];
   const historyList = <div className="ai-history-list">
     {historyError && <div role="alert"><p>{historyError}</p><Button onClick={() => loadConversations()}>{isEn ? "Retry" : "Tải lại hội thoại"}</Button></div>}
-    {conversations.length === 0 && <p className="ai-history-empty">{privacy?.saveHistory ? (isEn ? "Your saved conversations will appear here." : "Hội thoại đã lưu sẽ xuất hiện ở đây.") : (isEn ? "History is off. You can turn it on in privacy settings." : "Bạn đang tắt lưu lịch sử. Có thể bật trong Quyền riêng tư.")}</p>}
-    {conversations.map(c => <div key={c.id} className={`ai-history-item ${c.id === currentConversationId ? "is-active" : ""}`}>
+    {conversationList.length === 0 && <p className="ai-history-empty">{privacy?.saveHistory ? (isEn ? "Your saved conversations will appear here." : "Hội thoại đã lưu sẽ xuất hiện ở đây.") : (isEn ? "History is off. You can turn it on in privacy settings." : "Bạn đang tắt lưu lịch sử. Có thể bật trong Quyền riêng tư.")}</p>}
+    {conversationList.map(c => <div key={c.id} className={`ai-history-item ${c.id === currentConversationId ? "is-active" : ""}`}>
       {renamingId === c.id ? <div className="ai-history-rename">
         <input aria-label="Tên hội thoại" className="input" maxLength={120} value={newTitle} onChange={e => setNewTitle(e.target.value)} autoFocus />
         <Button size="small" onClick={() => handleRename(c.id, c.revision)}>{isEn ? "Save" : "Lưu"}</Button>
@@ -521,7 +542,7 @@ export default function AIAssistantPage() {
         <div className="ai-history-tools"><IconButton icon="edit" label={isEn ? "Rename" : "Đổi tên"} onClick={() => { setRenamingId(c.id); setNewTitle(c.title); }} /><IconButton icon="trash" label={isEn ? "Delete" : "Xóa"} onClick={() => setDeleteTarget(c.id)} /></div>
       </>}
     </div>)}
-    {conversations.length < historyTotal && <Button variant="ghost" onClick={() => loadConversations(historyPage + 1)}>{isEn ? "Load more" : "Xem thêm hội thoại"}</Button>}
+    {conversationList.length < historyTotal && <Button variant="ghost" onClick={() => loadConversations(historyPage + 1)}>{isEn ? "Load more" : "Xem thêm hội thoại"}</Button>}
     {historyTotal > 0 && <button className="ai-history-clear" onClick={() => setDeleteTarget("ALL")}>{isEn ? "Delete all history" : "Xóa toàn bộ lịch sử"}</button>}
   </div>;
 
@@ -531,7 +552,7 @@ export default function AIAssistantPage() {
         <header className="ai-chat-header">
           <div className="ai-chat-heading"><h1>{isEn ? "An Huu assistant" : "Trợ lý An Hưu"}</h1></div>
           <div className="ai-chat-actions">
-            <button className="ai-plan-trigger" type="button" title={isEn ? "View the retirement plan used for answers" : "Xem kế hoạch nghỉ hưu dùng để trả lời"} aria-haspopup="dialog" onClick={() => setPlanDetailsOpen(true)}><Icon name="file-text" size="small" /><span>{isEn ? "Retirement plan" : "Kế hoạch nghỉ hưu"}</span><span className="ai-plan-version">{loadingPlans ? (isEn ? "Loading..." : "Đang tải...") : currentVersion ? (isEn ? `V${currentVersion.version}` : `Bản ${currentVersion.version}`) : (isEn ? "Not set" : "Chưa có")}</span><Icon name="chevron-down" size="small" /></button>
+            <button className="ai-plan-trigger" type="button" title={isEn ? "View the retirement plan used for answers" : "Xem kế hoạch nghỉ hưu dùng để trả lời"} aria-haspopup="dialog" onClick={() => setPlanDetailsOpen(true)}><Icon name="file-text" size="small" /><span>{isEn ? "Retirement plan" : "Kế hoạch nghỉ hưu"}</span><span className="ai-plan-version">{loadingPlans ? (isEn ? "Loading..." : "Đang tải...") : planVersionLabel}</span><Icon name="chevron-down" size="small" /></button>
             <button ref={historyToggleRef} className="ai-history-toggle" data-ai="history" type="button" aria-label={isEn ? "Chat history" : "Lịch sử chat"} aria-expanded={drawerOpen} aria-controls="ai-saved-conversations" onClick={() => setDrawerOpen(open => !open)}><Icon name="message" size="small" /><span>{isEn ? "Chat history" : "Lịch sử chat"}</span></button>
             <button className="ai-new-chat" data-ai="new" type="button" onClick={() => void handleNewConversation()}><Icon name="edit" size="small" /><span>{isEn ? "New chat" : "Chat mới"}</span></button>
           </div>
@@ -540,10 +561,18 @@ export default function AIAssistantPage() {
         <div className="ai-chat-stage">
           {!hasMessages && !conversationLoading && <section className="ai-chat-welcome">
             <h2>{isEn ? "What would you like to ask?" : "Bạn muốn hỏi gì?"}</h2>
-            {planSummary && planShortfall != null && Number.isFinite(planShortfall) && <p className={`ai-plan-status ${planShortfall > 0 ? "is-short" : "is-ok"}`}>
-              <span>{currentVersion ? (isEn ? `Plan v${currentVersion.version}` : `Kế hoạch bản ${currentVersion.version}`) : ""}</span>
-              <strong>{planShortfall > 0 ? `${isEn ? "Short" : "Thiếu"} ${formatVNDCurrency(planSummary.retirementFundingShortfall)}` : (isEn ? "Goal met" : "Đủ mục tiêu")}</strong>
-            </p>}
+            <button
+              type="button"
+              className="ai-welcome-plan"
+              data-ai="plan-dialog"
+              onClick={() => setPlanDetailsOpen(true)}
+              title={isEn ? "Click to view plan details" : "Xem kế hoạch trợ lý đang dùng"}
+            >
+              <span>{planVersionLabel}</span>
+              <strong className={planShortfall > 0 ? "is-short" : "is-ok"}>
+                {planShortfall > 0 ? `${isEn ? "Short" : "Thiếu"} ${formatCompactGap(planShortfall)}` : (isEn ? "Goal met" : "Đủ mục tiêu")}
+              </strong>
+            </button>
             <div className="ai-chat-suggestions" aria-label={isEn ? "Suggested questions" : "Câu hỏi gợi ý"}>
               {suggestions.map(suggestion => (
                 <button
@@ -585,7 +614,7 @@ export default function AIAssistantPage() {
           <form className="ai-chat-composer" onSubmit={event => { event.preventDefault(); void handleSend(); }}>
             <label className="sr-only" htmlFor="ai-chat-question">{isEn ? "Question for AI assistant" : "Câu hỏi dành cho trợ lý AI"}</label>
             <textarea id="ai-chat-question" ref={textareaRef} placeholder={isEn ? "For example: How much more should I contribute each month?" : "Bạn muốn hỏi gì về kế hoạch nghỉ hưu?"} value={inputPrompt} onChange={event => setInputPrompt(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} rows={2} maxLength={2000} disabled={isTyping} />
-            <div className="ai-chat-composer-actions"><span className="ai-chat-shortcut">{isEn ? "Enter to send · Shift + Enter for a new line" : "Enter để gửi · Shift + Enter để xuống dòng"}</span>
+            <div className="ai-chat-composer-actions"><span />
               <div>{inputPrompt.trim() && !isTyping && <button type="button" className="ai-chat-clear" onClick={() => { setInputPrompt(""); textareaRef.current?.focus(); }}>{isEn ? "Clear question" : "Xóa câu hỏi"}</button>}
                 <button type="submit" className="ai-chat-send" disabled={!inputPrompt.trim() || isTyping || conversationLoading || loadingPlans || privacyLoading || privacyError || !privacy}>{isTyping ? (isEn ? "Processing…" : "Đang xử lý…") : (isEn ? "Send question" : "Gửi câu hỏi")}<Icon name="arrow-right" size="small" /></button>
               </div>
@@ -643,12 +672,18 @@ export default function AIAssistantPage() {
           <input id="ai-retirement-month" type="month" className="input" value={whatIfRetirementMonth}
             min={v2Profile?.valuationDate.slice(0, 7)} max={currentVersion?.preview.selection.endMonth}
             disabled={whatIfSimulating} onChange={e => { setWhatIfRetirementMonth(e.target.value); setWhatIfResult(null); }} />
-          <label htmlFor="ai-contribution">Tiền góp mỗi tháng (đồng)</label>
-          <MoneyTextBox id="ai-contribution" className="input" value={whatIfMonthlyContribution}
-            disabled={whatIfSimulating} onChange={v => { setWhatIfMonthlyContribution(v); setWhatIfResult(null); }} />
-          <label htmlFor="ai-expense">Chi tiêu mỗi tháng khi nghỉ hưu, theo giá hôm nay (đồng)</label>
-          <MoneyTextBox id="ai-expense" className="input" value={whatIfMonthlyExpense}
-            disabled={whatIfSimulating} onChange={v => { setWhatIfMonthlyExpense(v); setWhatIfResult(null); }} />
+          <CurrencyInput
+            label={isEn ? "Monthly contribution" : "Tiền góp mỗi tháng"}
+            value={Number(whatIfMonthlyContribution) || 0}
+            disabled={whatIfSimulating}
+            onChange={v => { setWhatIfMonthlyContribution(String(v)); setWhatIfResult(null); }}
+          />
+          <CurrencyInput
+            label={isEn ? "Monthly retirement spending, today's value" : "Chi tiêu mỗi tháng khi nghỉ hưu, theo giá hôm nay"}
+            value={Number(whatIfMonthlyExpense) || 0}
+            disabled={whatIfSimulating}
+            onChange={v => { setWhatIfMonthlyExpense(String(v)); setWhatIfResult(null); }}
+          />
           <p>Có thể nhập 0; để trống là chưa nhập.</p>
           {simulationError && <p role="alert">{simulationError}</p>}
           <Button variant="primary" loading={whatIfSimulating} disabled={!currentVersion || !!currentVersion.preview.reforecast} onClick={handleRunWhatIfSimulation}>Tính phương án thử</Button>

@@ -56,12 +56,12 @@ export default function NotificationsPage() {
       {/* Page Heading matching Demo */}
       <div style={{ marginBottom: "28px" }}>
         <h1 style={{ fontSize: "28px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 8px" }}>
-          {isEn ? "Session Reminders" : "Nhắc việc trong phiên"}
+          {isEn ? "Scheduled Reminders" : "Nhắc việc định kỳ"}
         </h1>
         <p style={{ fontSize: "14px", color: "var(--muted, #456B91)", margin: 0 }}>
           {isEn
-            ? "Simulated notifications to help you know what to do next."
-            : "Các thông báo mô phỏng giúp bạn biết việc gì cần làm tiếp."}
+            ? "Notifications and reminders to help you know what to do next."
+            : "Các thông báo hỗ trợ giúp bạn biết việc gì cần làm tiếp."}
         </p>
       </div>
 

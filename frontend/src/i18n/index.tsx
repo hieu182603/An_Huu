@@ -56,15 +56,15 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const formatCurrency = useCallback(
     (amount: number | string | null | undefined): string => {
-      if (amount === null || amount === undefined || amount === "") return "0 VND";
+      if (amount === null || amount === undefined || amount === "") return "0 đ";
       const num = typeof amount === "string" ? parseFloat(amount) : amount;
-      if (isNaN(num)) return "0 VND";
+      if (isNaN(num)) return "0 đ";
 
       const rounded = Math.round(num);
       const isNeg = rounded < 0;
       const formatted = Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
-      return `${isNeg ? "-" : ""}${formatted} VND`;
+      return `${isNeg ? "-" : ""}${formatted} đ`;
     },
     [language]
   );
@@ -127,12 +127,12 @@ export function useI18n(): I18nContextType {
         return text;
       },
       formatCurrency: (amount) => {
-        if (!amount) return "0 VND";
+        if (!amount) return "0 đ";
         const num = typeof amount === "string" ? parseFloat(amount) : amount;
-        if (isNaN(num)) return "0 VND";
+        if (isNaN(num)) return "0 đ";
         const rounded = Math.round(num);
         const isNeg = rounded < 0;
-        return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
+        return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} đ`;
       },
       formatDate: (date, options) => {
         if (!date) return "";

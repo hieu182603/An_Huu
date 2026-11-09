@@ -325,7 +325,7 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
           v2Form.pension.basisMonth = v2Form.valuationDate.slice(0, 7);
         }
       }
-      if (v2Form.pension.adjustment.kind === "EXPLICIT_SCHEDULE") {
+      if (v2Form.pension.adjustment?.kind === "EXPLICIT_SCHEDULE" && Array.isArray(v2Form.pension.adjustment.entries)) {
         const seen = new Set<string>();
         for (const entry of v2Form.pension.adjustment.entries) {
           if (!entry.effectiveMonth || !/^(19|20|21)\d{2}-(0[1-9]|1[0-2])$/.test(entry.effectiveMonth)) {
@@ -730,8 +730,10 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
             </div>
 
             {(error || saveError) && (
-              <div style={{ marginTop: "var(--space-4)" }}>
-                <Alert tone="danger" title={isVi ? "Lỗi thông tin" : "Information Error"}>{error || saveError}</Alert>
+              <div style={{ marginTop: "var(--space-3)" }} role="alert">
+                <small className="field-error-text error-text" style={{ color: "#dc2626", display: "block", fontSize: "13px", fontWeight: 500 }}>
+                  {error || saveError}
+                </small>
               </div>
             )}
 
@@ -936,8 +938,10 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
             )}
 
             {(error || saveError) && (
-              <div style={{ marginTop: "var(--space-4)" }}>
-                <Alert tone="danger" title={isVi ? "Lỗi thông tin" : "Information Error"}>{error || saveError}</Alert>
+              <div style={{ marginTop: "var(--space-3)" }} role="alert">
+                <small className="field-error-text error-text" style={{ color: "#dc2626", display: "block", fontSize: "13px", fontWeight: 500 }}>
+                  {error || saveError}
+                </small>
               </div>
             )}
 
@@ -1103,8 +1107,10 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
             )}
 
             {(error || saveError) && (
-              <div style={{ marginTop: "var(--space-4)" }}>
-                <Alert tone="danger" title={isVi ? "Lỗi thông tin" : "Information Error"}>{error || saveError}</Alert>
+              <div style={{ marginTop: "var(--space-3)" }} role="alert">
+                <small className="field-error-text error-text" style={{ color: "#dc2626", display: "block", fontSize: "13px", fontWeight: 500 }}>
+                  {error || saveError}
+                </small>
               </div>
             )}
 
@@ -1185,7 +1191,7 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
                         { value: "UNKNOWN", label: isVi ? "Chưa biết tháng bắt đầu nhận" : "Start month is not known" },
                         { value: "NOT_APPLICABLE", label: isVi ? "Tôi không nhận lương hưu" : "I will not receive a pension" },
                       ]}
-                      value={v2Form.personal.pensionStartMonth.status}
+                      value={v2Form.personal?.pensionStartMonth?.status || "UNKNOWN"}
                       onChange={(val) => {
                         if (val.includes("KNOWN") && !val.includes("UNKNOWN")) {
                           setV2Form({
@@ -1228,13 +1234,13 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
                       }
                     />
 
-                    {v2Form.personal.pensionStartMonth.status === "KNOWN" && (
+                    {v2Form.personal?.pensionStartMonth?.status === "KNOWN" && (
                       <Input
                         type="month"
                         label={isVi ? "Tháng bắt đầu nhận lương hưu" : "Start Month (YYYY-MM)"}
                         value={v2Form.personal.pensionStartMonth.value}
                         onChange={(m) => {
-                          if (v2Form.personal.pensionStartMonth.status === "KNOWN") {
+                          if (v2Form.personal?.pensionStartMonth?.status === "KNOWN") {
                             setV2Form({
                               ...v2Form,
                               personal: {
@@ -1252,12 +1258,12 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
                       />
                     )}
 
-                    {v2Form.personal.pensionStartMonth.status === "NOT_APPLICABLE" && (
+                    {v2Form.personal?.pensionStartMonth?.status === "NOT_APPLICABLE" && (
                       <Input
                         label={isVi ? "Lý do không áp dụng tháng nhận" : "Reason for Non-Applicability"}
                         value={v2Form.personal.pensionStartMonth.reason}
                         onChange={(r) => {
-                          if (v2Form.personal.pensionStartMonth.status === "NOT_APPLICABLE") {
+                          if (v2Form.personal?.pensionStartMonth?.status === "NOT_APPLICABLE") {
                             setV2Form({
                               ...v2Form,
                               personal: {
@@ -1385,7 +1391,7 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
                             { value: "NONE", label: isVi ? "Giữ nguyên số tiền sau khi nhận" : "Maintain Nominal Level After Receipt" },
                             { value: "EXPLICIT_SCHEDULE", label: isVi ? "Thay đổi theo các mốc đã khai" : "Declare Explicit Periodic Adjustment Schedule" },
                           ]}
-                          value={p.adjustment.kind}
+                          value={p.adjustment?.kind || "NONE"}
                           onChange={(v) => {
                             if (v === "EXPLICIT_SCHEDULE" || v.includes("EXPLICIT_SCHEDULE")) {
                               updatePensionKnown((prev) => ({
@@ -1412,7 +1418,7 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
                           }
                         />
 
-                        {p.adjustment.kind === "EXPLICIT_SCHEDULE" && (() => {
+                        {p.adjustment?.kind === "EXPLICIT_SCHEDULE" && Array.isArray(p.adjustment?.entries) && (() => {
                           const adj = p.adjustment;
                           return (
                             <div style={{ marginTop: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
@@ -1668,7 +1674,11 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
               </div>
 
               {(error || saveError) && (
-                <Alert tone="danger" title={isVi ? "Lỗi thông tin" : "Information Error"}>{error || saveError}</Alert>
+                <div style={{ marginTop: "var(--space-3)" }} role="alert">
+                  <small className="field-error-text error-text" style={{ color: "#dc2626", display: "block", fontSize: "13px", fontWeight: 500 }}>
+                    {error || saveError}
+                  </small>
+                </div>
               )}
 
               {pensionPreviewError && (
@@ -1760,14 +1770,14 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
                     <Card className="pension-milestone-card">
                       <small>{isVi ? "Tháng nhận theo luật định" : "Statutory Pension Start Month"}</small>
                       <strong style={{ color: "var(--color-primary-700)" }}>
-                        {pensionPreview.legalRetirementAge.pensionStartMonth
+                        {pensionPreview?.legalRetirementAge?.pensionStartMonth
                           ? pensionPreview.legalRetirementAge.pensionStartMonth
-                          : pensionPreview.legalRetirementAge.pensionStartStatus === "REQUIRES_BENEFIT_ASSESSMENT"
+                          : pensionPreview?.legalRetirementAge?.pensionStartStatus === "REQUIRES_BENEFIT_ASSESSMENT"
                           ? (isVi ? "Cần xét điều kiện hưởng" : "Requires benefit assessment")
                           : (isVi ? "Chưa xác định" : "Unspecified")}
                       </strong>
                       <small style={{ color: "var(--color-text-muted)" }}>
-                        {pensionPreview.legalRetirementAge.referenceFollowingMonth
+                        {pensionPreview?.legalRetirementAge?.referenceFollowingMonth
                           ? `${isVi ? "Tháng kế tiếp mốc tuổi:" : "Month after age benchmark:"} ${pensionPreview.legalRetirementAge.referenceFollowingMonth}`
                           : (isVi ? "Đầu tháng kế tiếp tháng nghỉ" : "Start of month following retirement")}
                       </small>
@@ -1776,7 +1786,7 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
                     <Card className="pension-milestone-card">
                       <small>{isVi ? "Tháng nhận người dùng khai" : "User Declared Start Month"}</small>
                       <strong>
-                        {v2Form.personal.pensionStartMonth.status === "KNOWN"
+                        {v2Form.personal?.pensionStartMonth?.status === "KNOWN"
                           ? v2Form.personal.pensionStartMonth.value
                           : isVi ? "Chưa xác định" : "Unspecified"}
                       </strong>
@@ -1788,7 +1798,7 @@ export default function FinancialProfilePanel({ section, sectionRequest = 0 }: {
                     <Card className="pension-milestone-card">
                       <small>{isVi ? "Tháng mong muốn cá nhân" : "Personal Target Month"}</small>
                       <strong>
-                        {pensionPreview.legalRetirementAge.desiredRetirementMonth || (isVi ? "Chưa chọn" : "Not selected")}
+                        {pensionPreview?.legalRetirementAge?.desiredRetirementMonth || (isVi ? "Chưa chọn" : "Not selected")}
                       </strong>
                       <small style={{ color: "var(--color-text-muted)" }}>
                         {isVi ? "Mục tiêu lập kế hoạch riêng" : "Custom planning milestone target"}

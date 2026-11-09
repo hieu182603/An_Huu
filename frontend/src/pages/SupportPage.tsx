@@ -254,10 +254,10 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
       ) : (
         <div style={{ marginBottom: "28px" }}>
           <h1 style={{ fontSize: "28px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 8px" }}>
-            {isEn ? "Support in trial session" : "Hỗ trợ trong phiên thử"}
+            {isEn ? "Member support & requests" : "Hỗ trợ thành viên"}
           </h1>
           <p style={{ fontSize: "14px", color: "var(--muted, #456B91)", margin: 0 }}>
-            {isEn ? "Test sending requests and view conversations. No external messages are sent." : "Thử gửi yêu cầu và xem hội thoại. Không có tin nhắn gửi ra ngoài."}
+            {isEn ? "Send support requests and review conversation history." : "Gửi yêu cầu hỗ trợ và xem lại lịch sử phản hồi."}
           </p>
         </div>
       )}
@@ -393,7 +393,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
                       opacity: busy || !subject.trim() ? 0.7 : 1
                     }}
                   >
-                    {isEn ? "Log trial request" : "Ghi yêu cầu thử"}
+                    {isEn ? "Send request" : "Gửi yêu cầu"}
                   </button>
                 </div>
               </fieldset>
@@ -429,7 +429,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
                     <div>
                       <strong style={{ fontSize: "15px", color: "var(--navy, #052659)" }}>{t.subject}</strong>
                       <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--muted, #64748B)" }}>
-                        {isEn ? "New · Not sent to support" : "Mới · Chưa gửi cho người hỗ trợ"}
+                        {t.category} · {statesMap[t.status] || (isEn ? "Received" : "Đã tiếp nhận")}
                       </p>
                     </div>
                     <button

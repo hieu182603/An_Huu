@@ -86,7 +86,7 @@ export default function NotFoundView({ admin = false }: { admin?: boolean }) {
               onMouseLeave={() => setHoveredHotspot(null)}
             >
               <span className="ah-robot-bubble">
-                {isEn ? "Hello! Let me guide you back to the right path ✨" : "Chào bạn! Để tôi dẫn bạn quay lại lộ trình nhé ✨"}
+                {isEn ? "Hello! Let me guide you back to the right path." : "Chào bạn! Để tôi dẫn bạn quay lại lộ trình nhé."}
               </span>
             </div>
           </div>

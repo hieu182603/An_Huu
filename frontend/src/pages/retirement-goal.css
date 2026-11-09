@@ -80,43 +80,57 @@
 }
 
 .life-timeline {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
   list-style: none;
   padding: 0;
-  margin: 20px 0 28px;
+  margin: 18px 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 .life-timeline li {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 20px 22px;
-  border: 1px solid #D0E4FE;
-  border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 4px 16px rgba(5, 38, 89, 0.04);
+  border-top: 2px solid #d5e0ec;
+  padding: 18px 0 0;
+  position: relative;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .life-timeline li:nth-child(2) {
-  border-color: #334DAF;
-  background: #E8F2FE;
+  border-color: #d5e0ec;
+  background: transparent;
+}
+.life-timeline li::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #225eaa;
+  position: absolute;
+  top: -6px;
+  left: 0;
 }
 .life-timeline span {
+  display: block;
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  color: #456B91;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #536779;
+  font-weight: 600;
 }
 .life-timeline strong {
-  font-size: 22px;
+  display: block;
+  font-size: 20px;
   font-weight: 700;
   color: #052659;
+  margin-top: 4px;
   font-variant-numeric: tabular-nums;
 }
 .life-timeline small {
-  font-size: 13px;
-  color: #456B91;
+  color: #536779;
+  font-size: 12.5px;
 }
 
 .goal-card-two-col {

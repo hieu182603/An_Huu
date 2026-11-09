@@ -115,169 +115,28 @@
 @media (prefers-reduced-motion: reduce) { .simulation-summary.is-recalculating > :not(header) { transition: none; } }
 
 /* ==========================================================================
-   Screen 10 Demo Components (sites/an-huu-trai-nghiem: .checkin-summary, .track-grid, .checkin-events, .checkin-ledger)
+   Screen 10 Demo Components (sites/an-huu-trai-nghiem/dist/refinement.css)
    ========================================================================== */
-.card.checkin-summary {
-  border: 1px solid #D0E4FE;
-  border-radius: 16px;
-  background: #ffffff;
-  padding: 24px 28px;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 16px rgba(5, 38, 89, 0.03);
-}
-.checkin-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-.checkin-heading h2 {
-  font-size: 20px;
-  font-weight: 700;
-  color: #052659;
-  margin: 0;
-}
-.card.checkin-summary p {
-  color: #456B91;
-  font-size: 14px;
-  line-height: 1.6;
-  margin: 0 0 18px;
-}
-.checkin-numbers {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin: 0 0 20px;
-  padding: 16px 20px;
-  border-radius: 12px;
-  background: #F9FBFF;
-  border: 1px solid #D0E4FE;
-}
-.checkin-numbers dt {
-  font-size: 12px;
-  color: #456B91;
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-.checkin-numbers dd {
-  font-size: 18px;
-  font-weight: 700;
-  color: #052659;
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-}
+.checkin-heading { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
+.checkin-summary { margin: 28px 0; }
+.checkin-heading h2 { max-width: 32ch; margin: 0; }
+.checkin-summary > p { max-width: 68ch; color: #536982; margin: 16px 0 24px; }
+.checkin-numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 24px 0; margin: 0; border-top: 1px solid #e1e7ef; border-bottom: 1px solid #e1e7ef; background: transparent; border-left: 0; border-right: 0; border-radius: 0; }
+.checkin-numbers dt { color: #536982; font-size: 13px; }
+.checkin-numbers dd { margin: 8px 0 0; font-size: 20px; font-weight: 600; color: #052659; font-variant-numeric: tabular-nums; }
+.checkin-events { padding: 12px 0 32px; border: 0; background: transparent; margin: 0; }
+.checkin-events h2 { font-size: 20px; margin: 0 0 16px; }
+.checkin-events > div { display: flex; gap: 12px; flex-wrap: wrap; }
+.checkin-ledger { border: 0; border-top: 1px solid #dce3ed; border-radius: 0; background: transparent; padding: 24px 0 0; margin: 0; }
+.checkin-ledger > summary { color: #536982; font-size: 14px; cursor: pointer; min-height: 44px; display: list-item; }
+.checkin-ledger > .help { margin-bottom: 24px; color: #536982; font-size: 13px; }
+.checkin-ledger .card { margin-top: 24px; }
 
-.track-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  margin-bottom: 24px;
-}
-.month-stat {
-  font-size: 36px;
-  font-weight: 700;
-  color: #052659;
-  font-variant-numeric: tabular-nums;
-  margin: 12px 0 8px;
-}
-.month-stat .small {
-  font-size: 20px;
-  font-weight: 500;
-  color: #456B91;
-}
-.entry-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid #E2E8F0;
-}
-.entry-row:last-child {
-  border-bottom: none;
-}
-.entry-row strong {
-  font-size: 15px;
-  color: #052659;
-}
-.entry-row p {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: #64748B;
-}
-
-.checkin-events {
-  border: 1px solid #D0E4FE;
-  border-radius: 16px;
-  background: #F9FBFF;
-  padding: 20px 24px;
-  margin-bottom: 24px;
-}
-.checkin-events h2 {
-  font-size: 16px;
-  font-weight: 700;
-  color: #052659;
-  margin: 0 0 14px;
-}
-.checkin-event-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.checkin-event-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 1px solid #D0E4FE;
-  background: #ffffff;
-  color: #052659;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.checkin-event-btn:hover {
-  background: #E8F2FE;
-  border-color: #334DAF;
-}
-
-details.checkin-ledger {
-  border: 1px solid #D0E4FE;
-  border-radius: 16px;
-  background: #ffffff;
-  padding: 20px 24px;
-  margin-bottom: 24px;
-}
-details.checkin-ledger summary {
-  cursor: pointer;
-  font-size: 17px;
-  font-weight: 700;
-  color: #052659;
-  padding: 4px 0;
-  outline: none;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-details.checkin-ledger summary::-webkit-details-marker {
-  display: none;
-}
-details.checkin-ledger .help {
-  color: #456B91;
-  font-size: 13px;
-  line-height: 1.6;
-  margin: 8px 0 20px;
-}
-
-@media (max-width: 768px) {
-  .track-grid {
-    grid-template-columns: 1fr;
-  }
-  .checkin-numbers {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 800px) {
+  .checkin-heading { display: block; }
+  .checkin-heading .badge { margin-top: 12px; }
+  .checkin-numbers { grid-template-columns: 1fr; gap: 18px; }
+  .checkin-numbers > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .checkin-numbers dd { font-size: 16px; margin: 0; text-align: right; }
+  .checkin-events > div { display: grid; }
 }
