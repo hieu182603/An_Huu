@@ -132,7 +132,7 @@ test('assistant: selecting suggestion fills draft without auto-sending', async (
   await expect(textbox).toHaveValue('');
 
   // Click first chip
-  await page.getByRole('button', { name: 'Tiền nghỉ hưu của tôi có đủ không?' }).click();
+  await page.getByRole('button', { name: 'Tôi có đủ tiền không?' }).click();
   await expect(textbox).toHaveValue('Tiền dự kiến có đáp ứng bao nhiêu phần trăm số tiền cần khi nghỉ hưu?');
   await expect(textbox).toBeFocused();
 
@@ -146,7 +146,7 @@ test('assistant: selecting suggestion preserves existing draft without overwriti
   await textbox.fill('Tôi muốn hỏi cụ thể:');
 
   // Click second chip
-  await page.getByRole('button', { name: 'Tôi cần góp thêm bao nhiêu?' }).click();
+  await page.getByRole('button', { name: 'Cần góp thêm bao nhiêu?' }).click();
   await expect(textbox).toHaveValue('Tôi muốn hỏi cụ thể:\nGiải thích số tiền cần góp thêm mỗi tháng theo kế hoạch đã lưu của tôi.');
   await expect(textbox).toBeFocused();
 
@@ -168,6 +168,8 @@ test('assistant: no plan shows explicit baseline badge', async ({ page }) => {
   await setupAssistant(page, { noPlan: true });
   await page.locator('.ai-plan-trigger').click();
   await expect(page.locator('.ai-chat-plan-name')).toContainText('chưa có kế hoạch đang áp dụng');
+  await expect(page.locator('.ai-welcome-plan')).toContainText('Chưa có dự phóng');
+  await expect(page.locator('.ai-welcome-plan')).not.toContainText('Thiếu');
 });
 
 for (const viewport of [{ width: 1920, height: 850 }, { width: 1366, height: 768 }, { width: 1440, height: 1000 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 390, height: 400 }]) {
@@ -305,11 +307,11 @@ test('assistant simulation uses saved month and explicit zero, and reports incom
   await input.fill('Thử thay đổi'); await expect(page.locator('.ai-chat-send')).toBeEnabled(); await input.press('Enter');
   await page.locator('.ai-plan-trigger').click();await page.getByRole('button',{name:'Thử thay đổi kế hoạch',exact:true}).click();
   await expect(page.locator('#ai-retirement-month')).toHaveValue('2054-10');
-  await expect(page.locator('#ai-contribution')).toHaveValue('0');
-  await expect(page.locator('#ai-expense')).toHaveValue('10000000');
-  await page.locator('#ai-contribution').fill(''); await page.getByRole('button',{name:'Tính phương án thử'}).click();
+  await expect(page.getByLabel('Tiền góp mỗi tháng',{exact:true})).toHaveValue('0');
+  await expect(page.getByLabel('Chi tiêu mỗi tháng khi nghỉ hưu, theo giá hôm nay',{exact:true})).toHaveValue('10.000.000');
+  await page.getByLabel('Tiền góp mỗi tháng',{exact:true}).fill(''); await page.getByRole('button',{name:'Tính phương án thử'}).click();
   await expect(page.getByRole('dialog')).toContainText('Hãy nhập tháng nghỉ hưu'); expect(commands).toHaveLength(0);
-  await page.locator('#ai-contribution').fill('0'); await page.getByRole('button',{name:'Tính phương án thử'}).click();
+  await page.getByLabel('Tiền góp mỗi tháng',{exact:true}).fill('0'); await page.getByRole('button',{name:'Tính phương án thử'}).click();
   await expect(page.getByRole('dialog')).toContainText('Chưa đủ dữ liệu để tính thay đổi này');
   expect(commands[0].changes).toEqual({retirementMonth:'2054-10',monthlyContribution:'0',monthlyExpenseToday:'10000000'});
   await expect(page.getByRole('region',{name:'Kết quả mô phỏng'})).toHaveCount(0);
@@ -361,8 +363,8 @@ test('assistant comparison names both valuation dates and keeps non-comparable d
 
 test('assistant redesign exposes only supported actions and keeps privacy accessible', async ({page}) => {
   await setupAssistant(page);
-  await expect(page.getByRole('heading',{name:'Bạn muốn hiểu rõ điều gì?'})).toBeVisible();
-  await expect(page.locator('.ai-chat-suggestions button')).toHaveCount(3);
+  await expect(page.getByRole('heading',{name:'Bạn muốn hỏi gì?'})).toBeVisible();
+  await expect(page.locator('.ai-chat-suggestions button')).toHaveCount(4);
   await page.locator('.ai-plan-trigger').click();await expect(page.getByRole('button',{name:'Thử thay đổi kế hoạch',exact:true})).toBeVisible();await page.getByRole('dialog').locator('.dialog-close').click();
   await expect(page.getByRole('button',{name:/Tải hội thoại/})).toHaveCount(0);
   await expect(page.getByText('Nghỉ hưu sớm hơn 2 năm cần thêm vốn gì?',{exact:true})).toHaveCount(0);
@@ -406,7 +408,7 @@ for (const viewport of [{width:1920,height:850},{width:1366,height:768}]) {
     const panelBox=(await panel.boundingBox())!;
     expect(panelBox.y).toBeGreaterThanOrEqual(chatBody.y);
     expect(panelBox.y+panelBox.height).toBeLessThanOrEqual(chatBody.y+chatBody.height+1);
-    expect(await page.locator('#root').evaluate(el=>el.inert)).toBe(false);
+    expect(await page.locator('#root').evaluate(el=>(el as HTMLElement).inert)).toBe(false);
     const planBox=(await page.locator('.ai-plan-trigger').boundingBox())!,toggleBox=(await toggle.boundingBox())!;
     expect(toggleBox.x).toBeGreaterThanOrEqual(planBox.x+planBox.width);
     await expect(page.locator('.ai-plan-trigger')).toContainText('Kế hoạch nghỉ hưu');

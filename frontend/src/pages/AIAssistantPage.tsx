@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import CurrencyInput from "../components/CurrencyInput";
+import ProfileFormattedInput from "../components/ProfileFormattedInput";
 import { Link, useNavigate } from "react-router";
-import { Button, Icon, IconButton, Modal, useNotification } from "../components/ui";
+import { Button, Icon, IconButton, useNotification } from "../components/ui";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import {
@@ -30,6 +30,7 @@ import { formatDateVN } from "../utils/date";
 import type { SimulatePlanResponse } from "../services/plans";
 import { ApiError } from "../services/api";
 import "./ai-assistant.css";
+import ResponsiveDialog from "../components/ResponsiveDialog";
 
 interface ChatMessage {
   id: string;
@@ -48,7 +49,7 @@ export default function AIAssistantPage() {
   const navigate = useNavigate();
   const { notify } = useNotification();
   const { profileRevision, v2Profile } = useFinancialProfile();
-  const { activePlan, currentVersion, loadingPlans } = useRetirementPlan();
+  const { activePlan, currentVersion, loadingPlans, plansError } = useRetirementPlan();
 
   const [inputPrompt, setInputPrompt] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -509,9 +510,9 @@ export default function AIAssistantPage() {
     { title: isEn ? "When might I run short?" : "Khi nào thiếu tiền?", description: isEn ? "Find the first projected shortfall month." : "Hiểu thời điểm quỹ dự kiến không đủ chi tiêu.", question: isEn ? "When does my saved plan first project a shortfall?" : "Theo kế hoạch đã lưu, tháng nào tôi bắt đầu thiếu tiền và con số đó có ý nghĩa gì?" },
     { title: isEn ? "What if I retire later?" : "Nghỉ hưu muộn hơn thì sao?", description: isEn ? "See how a later retirement changes the plan." : "Xem nghỉ hưu muộn hơn thay đổi kế hoạch thế nào.", question: isEn ? "How would retiring a few years later change my saved plan?" : "Nếu tôi nghỉ hưu muộn hơn vài năm thì kế hoạch đã lưu thay đổi thế nào?" },
   ];
-  const planSummary = currentVersion?.preview?.calculation?.summary;
-  const rawShortfall = planSummary ? Number(planSummary.retirementFundingShortfall ?? planSummary.atRetirement?.fundingGap ?? 0) : 2200000000;
-  const planShortfall = Number.isFinite(rawShortfall) ? rawShortfall : 2200000000;
+  const planSummary = !loadingPlans&&!plansError?currentVersion?.preview?.calculation?.summary:undefined;
+  const rawShortfall = planSummary?.retirementFundingShortfall ?? planSummary?.atRetirement?.fundingGap;
+  const planShortfall = rawShortfall!=null&&Number.isFinite(Number(rawShortfall)) ? Number(rawShortfall) : null;
   const formatCompactGap = (val: number) => {
     const abs = Math.abs(val);
     if (abs >= 1e9) {
@@ -569,8 +570,8 @@ export default function AIAssistantPage() {
               title={isEn ? "Click to view plan details" : "Xem kế hoạch trợ lý đang dùng"}
             >
               <span>{planVersionLabel}</span>
-              <strong className={planShortfall > 0 ? "is-short" : "is-ok"}>
-                {planShortfall > 0 ? `${isEn ? "Short" : "Thiếu"} ${formatCompactGap(planShortfall)}` : (isEn ? "Goal met" : "Đủ mục tiêu")}
+              <strong className={planShortfall!==null&&planShortfall > 0 ? "is-short" : "is-ok"}>
+                {planShortfall===null?(isEn?"No projection yet":"Chưa có dự phóng"):planShortfall>0?`${isEn?"Short":"Thiếu"} ${formatCompactGap(planShortfall)}`:(isEn?"Goal met":"Đủ mục tiêu")}
               </strong>
             </button>
             <div className="ai-chat-suggestions" aria-label={isEn ? "Suggested questions" : "Câu hỏi gợi ý"}>
@@ -634,7 +635,7 @@ export default function AIAssistantPage() {
           </aside>
         </div>
       </div>
-      <Modal className="ai-plan-dialog" open={planDetailsOpen} onClose={() => setPlanDetailsOpen(false)} title={isEn ? "Plan used for answers" : "Kế hoạch dùng để trả lời"}>
+      <ResponsiveDialog className="ai-plan-dialog" open={planDetailsOpen} onClose={() => setPlanDetailsOpen(false)} title={isEn ? "Plan used for answers" : "Kế hoạch dùng để trả lời"}>
       <section className="ai-chat-plan" aria-label={isEn ? "Plan used for new questions" : "Kế hoạch dùng cho câu hỏi mới"}>
         <div className="ai-chat-plan-copy">
           <Icon name="file-text" />
@@ -649,8 +650,8 @@ export default function AIAssistantPage() {
       </section>
 
 
-      </Modal>
-      <Modal open={consentModalOpen} onClose={() => { if (!updatingConsent) setConsentModalOpen(false); }} title={isEn ? "Privacy & conversation history" : "Quyền riêng tư & lịch sử"}>
+      </ResponsiveDialog>
+      <ResponsiveDialog open={consentModalOpen} onClose={() => { if (!updatingConsent) setConsentModalOpen(false); }} title={isEn ? "Privacy & conversation history" : "Quyền riêng tư & lịch sử"}>
         <div className="ai-chat-privacy">
           <p>{processingNotice || (isEn ? "Questions, plan summary figures and approved excerpts may be sent to Google Gemini to prepare an explanation." : "Câu hỏi, số liệu tóm tắt kế hoạch và trích đoạn tài liệu đã duyệt có thể được gửi tới Google Gemini để hỗ trợ giải thích.")}</p>
           <p>{isEn ? "Do not include passwords, identity numbers or sensitive personal details in a question." : "Không nhập mật khẩu, số giấy tờ hoặc thông tin cá nhân nhạy cảm vào câu hỏi."}</p>
@@ -663,26 +664,26 @@ export default function AIAssistantPage() {
             <Button variant="ghost" disabled={updatingConsent || !privacy} onClick={() => handleConsent(false, false)}>{isEn ? "Decline processing" : "Từ chối xử lý"}</Button>
           </div>
         </div>
-      </Modal>
+      </ResponsiveDialog>
 
-      <Modal open={whatIfModalOpen} onClose={() => { simulationEpoch.current++; setWhatIfModalOpen(false); setWhatIfSimulating(false); }} title={language === "en" ? "Try plan changes" : "Thử thay đổi kế hoạch"}>
+      <ResponsiveDialog open={whatIfModalOpen} onClose={() => { simulationEpoch.current++; setWhatIfModalOpen(false); setWhatIfSimulating(false); }} title={language === "en" ? "Try plan changes" : "Thử thay đổi kế hoạch"}>
         <div className="ai-simulation-form">
           <p>Các giá trị dưới đây lấy từ phiên bản đang áp dụng. Kết quả thử không tự lưu hoặc thay đổi kế hoạch của bạn.</p>
           <label htmlFor="ai-retirement-month">Tháng bắt đầu nghỉ hưu</label>
           <input id="ai-retirement-month" type="month" className="input" value={whatIfRetirementMonth}
             min={v2Profile?.valuationDate.slice(0, 7)} max={currentVersion?.preview.selection.endMonth}
             disabled={whatIfSimulating} onChange={e => { setWhatIfRetirementMonth(e.target.value); setWhatIfResult(null); }} />
-          <CurrencyInput
+          <ProfileFormattedInput format="money"
             label={isEn ? "Monthly contribution" : "Tiền góp mỗi tháng"}
-            value={Number(whatIfMonthlyContribution) || 0}
+            value={whatIfMonthlyContribution}
             disabled={whatIfSimulating}
-            onChange={v => { setWhatIfMonthlyContribution(String(v)); setWhatIfResult(null); }}
+            onChange={v => { setWhatIfMonthlyContribution(v); setWhatIfResult(null); }}
           />
-          <CurrencyInput
+          <ProfileFormattedInput format="money"
             label={isEn ? "Monthly retirement spending, today's value" : "Chi tiêu mỗi tháng khi nghỉ hưu, theo giá hôm nay"}
-            value={Number(whatIfMonthlyExpense) || 0}
+            value={whatIfMonthlyExpense}
             disabled={whatIfSimulating}
-            onChange={v => { setWhatIfMonthlyExpense(String(v)); setWhatIfResult(null); }}
+            onChange={v => { setWhatIfMonthlyExpense(v); setWhatIfResult(null); }}
           />
           <p>Có thể nhập 0; để trống là chưa nhập.</p>
           {simulationError && <p role="alert">{simulationError}</p>}
@@ -707,17 +708,17 @@ export default function AIAssistantPage() {
             </section>
           )}
         </div>
-      </Modal>
-      <Modal open={deleteTarget !== null} onClose={() => { if (!deleting) setDeleteTarget(null); }} title={deleteTarget === "ALL" ? "Xóa toàn bộ lịch sử?" : "Xóa hội thoại này?"}>
+      </ResponsiveDialog>
+      <ResponsiveDialog open={deleteTarget !== null} onClose={() => { if (!deleting) setDeleteTarget(null); }} title={deleteTarget === "ALL" ? "Xóa toàn bộ lịch sử?" : "Xóa hội thoại này?"}>
         <p>Nội dung đã xóa không thể khôi phục. Hồ sơ tài chính và kế hoạch của bạn vẫn được giữ nguyên.</p>
         <Button variant="secondary" disabled={deleting} onClick={() => setDeleteTarget(null)}>Giữ lại</Button>
         <Button variant="primary" loading={deleting} onClick={() => deleteTarget && handleDelete(deleteTarget)}>Xác nhận xóa</Button>
-      </Modal>
-      <Modal open={editingMessage !== null} onClose={() => { if (!savingEdit) setEditingMessage(null); }} title="Sửa câu hỏi đã lưu">
+      </ResponsiveDialog>
+      <ResponsiveDialog open={editingMessage !== null} onClose={() => { if (!savingEdit) setEditingMessage(null); }} title="Sửa câu hỏi đã lưu">
         <p>Câu trả lời cũ của câu hỏi này sẽ được bỏ. Sau khi lưu, bạn có thể gửi lại câu hỏi đã sửa.</p>
         <textarea aria-label="Nội dung câu hỏi đã sửa" className="input" value={editedQuestion} maxLength={2000} onChange={e => setEditedQuestion(e.target.value)} />
         <Button loading={savingEdit} disabled={!editedQuestion.trim()} onClick={handleEditMessage}>Lưu câu hỏi đã sửa</Button>
-      </Modal>
+      </ResponsiveDialog>
     </div>
   );
 }

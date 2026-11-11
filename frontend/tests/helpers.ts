@@ -1,5 +1,10 @@
 import type { Page } from "@playwright/test";
 
+export async function toggleExplainMode(page: Page) {
+  await page.getByRole("button", { name: /^Tài khoản:/ }).click();
+  await page.getByRole("menuitem", { name: "Giải thích số liệu", exact: true }).click();
+}
+
 export async function installRouteAuth(page: Page, userId = "USR-001") {
   let currentUser = { id: userId, fullName: "Nguyễn Minh An", email: "user@demo.com", role: "USER", status: "ACTIVE", phone: null as string | null, city: null as string | null, avatarUrl: null as string | null, revision: 0, emailVerifiedAt: "2026-10-03T00:00:00.000Z" };
 
@@ -382,7 +387,7 @@ export async function installRouteAuth(page: Page, userId = "USR-001") {
     const search = url.searchParams.get("search")?.trim() || "";
     const category = url.searchParams.get("category");
     const pool = kind === "GLOSSARY" ? defaultGlossary : defaultArticles;
-    let filtered = pool;
+    let filtered: Array<(typeof defaultArticles)[number] | (typeof defaultGlossary)[number]> = pool;
     if (category && category !== "all") {
       filtered = filtered.filter(item => item.category === category);
     }

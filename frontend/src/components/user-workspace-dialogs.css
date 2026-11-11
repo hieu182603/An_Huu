@@ -1,0 +1,104 @@
+/* Portal surfaces inherit the user area's demo palette without changing auth UI. */
+.overlay:has(> .user-workspace-dialog) { padding: 24px; align-items: center; backdrop-filter: blur(4px); }
+.user-workspace-dialog { --workspace-ink: #132e4c; --workspace-muted: #536b85; position: relative; inset: auto; color: var(--workspace-ink); font-family: "Be Vietnam Pro", sans-serif; width: min(100%, 620px); max-height: calc(100dvh - 48px); border-radius: 24px; display: flex; flex-direction: column; }
+.user-workspace-dialog, .user-workspace-dialog * { box-sizing: border-box; }
+.user-workspace-dialog > header { flex: 0 0 auto; min-height: 92px; gap: 16px; padding: 20px 28px; border-color: #d9e4f0; }
+.user-workspace-dialog > header h2 { color: var(--workspace-ink); font-size: 20px; font-weight: 700; line-height: 1.5; }
+.user-workspace-dialog .dialog-close { flex-shrink: 0; width: 44px; height: 44px; border: 1px solid #d9e4f0; border-radius: 12px; background: #fff; color: #132e4c; }
+.user-workspace-dialog .modal-body { flex: 1 1 auto; min-height: 0; padding: 24px 28px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #afc4df #f4f7fb; }
+.user-workspace-dialog button, .user-workspace-dialog input { font: inherit; }
+.user-workspace-dialog :focus-visible { outline: 2px solid #2560b4; outline-offset: 3px; }
+.user-workspace-dialog p { color: var(--workspace-muted); font-size: 13px; line-height: 1.75; }
+.user-feature-search { width: min(100%, 540px); height: min(640px, calc(100dvh - 48px)); }
+.feature-search-box { display: flex; align-items: center; gap: 12px; min-height: 50px; padding: 0 14px; border: 1px solid #b4cceb; background: #f7faff; border-radius: 10px; }
+.feature-search-box > .icon { flex-shrink: 0; width: 18px; }
+.feature-search-box input { width: 100%; min-width: 0; min-height: 48px; border: 0; background: transparent; color: #132e4c; font-size: 13px; }
+.feature-search-box input::placeholder { color: #5e7085; }
+.user-workspace-dialog .feature-search-status { margin: 18px 0 8px; font-size: 11px; }
+.feature-search-results { display: grid; }
+.feature-search-result { display: flex; align-items: center; gap: 14px; min-height: 74px; padding: 14px 10px; border: 0; border-bottom: 1px solid #e2eaf5; border-radius: 7px; background: #fff; color: #24496e; text-align: left; cursor: pointer; }
+.feature-search-result:hover { background: #f2f7fe; }
+.feature-search-result > .icon { width: 18px; flex-shrink: 0; }
+.feature-search-result > span { flex: 1; min-width: 0; }
+.feature-search-result strong { display: block; font-size: 13px; font-weight: 500; }
+.feature-search-result small { display: block; margin-top: 4px; color: #536b85; font-size: 11px; line-height: 1.6; }
+.feature-search-empty { padding: 24px 0; font-size: 14px; }
+.user-profile-progress-dialog { width: min(100%, 860px); }
+.profile-checklist-modal { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 24px; }
+.checklist-overview-panel { padding: 24px 20px; border: 1px solid #dbe9fa; border-radius: 15px; background: #f7faff; text-align: center; }
+.checklist-gauge-wrap { position: relative; width: 92px; height: 92px; margin: 0 auto 18px; }
+.checklist-gauge-wrap > div { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.checklist-gauge-wrap strong { font-size: 23px; line-height: 1.3; }
+.checklist-gauge-wrap small { font-size: 11px; color: #536b85; }
+.checklist-overview-panel h3 { margin: 0 0 8px; font-size: 14px; }
+.checklist-overview-panel > p { margin: 0 0 16px; font-size: 12px; }
+.checklist-status-badge { display: flex; align-items: center; gap: 8px; padding: 9px 12px; margin-top: 8px; border-radius: 8px; background: #eaf2ff; color: #174e9c; font-size: 12px; font-weight: 600; text-align: left; }
+.checklist-status-badge.is-done { color: #126044; background: #eaf7f1; }
+.checklist-status-badge .icon { width: 14px; }
+.checklist-overview-panel .checklist-footer-note { display: flex; align-items: flex-start; gap: 8px; margin: 18px 0 0; padding-top: 14px; border-top: 1px solid #dbe9fa; font-size: 11px; line-height: 1.6; text-align: left; }
+.checklist-footer-note .icon { width: 14px; flex-shrink: 0; margin-top: 3px; }
+.user-workspace-dialog .checklist-items-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 14px; font-size: 11px; }
+.profile-checklist-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin-bottom: 8px; border: 1px solid #cedff8; border-radius: 12px; }
+.profile-checklist-item.is-done { border-color: #d0eadb; background: #f8fcfa; }
+.profile-checklist-item-icon { display: grid; place-items: center; width: 27px; height: 27px; flex-shrink: 0; background: #eaf2ff; border-radius: 50%; color: #2560b4; font-size: 13px; font-weight: 600; }
+.profile-checklist-item.is-done .profile-checklist-item-icon { background: #1d8052; color: #fff; }
+.profile-checklist-item-icon .icon { width: 14px; }
+.profile-checklist-item > div { flex: 1; min-width: 0; }
+.profile-checklist-item strong { display: block; font-size: 13px; line-height: 1.5; }
+.profile-checklist-item p { margin: 0; font-size: 11px; line-height: 1.5; }
+.profile-checklist-item a { display: inline-flex; align-items: center; min-height: 44px; flex-shrink: 0; font-size: 12px; color: #1755a6; text-decoration: none; font-weight: 600; }
+.dashboard-detail-dialog dl { margin: 20px 0; }
+.dashboard-detail-dialog dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 12px 0; border-bottom: 1px solid #e2eaf5; font-size: 13px; }
+.dashboard-detail-dialog dt { color: #536b85; }
+.dashboard-detail-dialog dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dashboard-detail-dialog li { margin: 8px 0; font-size: 13px; line-height: 1.7; color: #536b85; }
+.dashboard-dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.user-workspace-dialog [role=alert] { padding: 12px 16px; border-radius: 10px; background: #fff2ee; color: #8a3427; }
+.user-workspace-dialog [role=alert] p { color: inherit; }
+.user-workspace-dialog .dashboard-detail-note { font-size: 12px; }
+.user-dashboard-shell button.profile-progress { width: 100%; text-align: left; font: inherit; cursor: pointer; }
+.user-dashboard-shell .topbar-search-trigger { display: flex; align-items: center; gap: 10px; width: 390px; padding: 0 12px; cursor: pointer; color: #536b85; text-align: left; }
+.user-dashboard-shell .topbar-search-trigger .topbar-search-icon { position: static; transform: none; flex-shrink: 0; }
+.topbar-search-label { min-width: 0; flex: 1; font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.user-dashboard-shell .topbar-search-trigger .topbar-search-shortcut { position: static; transform: none; }
+.drawer-feature-search, .drawer-profile-progress { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 12px 16px; border: 1px solid #d9e4f0; border-radius: 10px; background: #f7faff; color: #24496e; font: inherit; text-align: left; cursor: pointer; }
+.drawer-feature-search .topbar-search-icon { position: static; transform: none; }
+.user-language-menu { position: relative; flex-shrink: 0; }
+.user-language-trigger { display: inline-flex; justify-content: center; align-items: center; gap: 5px; min-height: 44px; min-width: 44px; padding: 8px; border: 0; border-radius: 10px; background: transparent; color: #456181; font: 600 12px "Be Vietnam Pro", sans-serif; cursor: pointer; }
+.user-language-trigger:hover, .user-language-trigger[aria-expanded=true] { background: #f0f5fc; }
+.user-language-trigger .icon { width: 10px; height: 10px; }
+.user-language-options { position: absolute; z-index: 90; top: calc(100% + 12px); right: 0; width: 180px; padding: 8px; border: 1px solid #d9e4f0; border-radius: 14px; background: #fff; box-shadow: 0 12px 30px #0b25451a; }
+.user-language-options button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: #fff; color: #24496e; font: 13px "Be Vietnam Pro", sans-serif; text-align: left; cursor: pointer; }
+.user-language-options button[aria-checked=true], .user-language-options button:hover { background: #edf4fd; }
+.user-language-options .icon { width: 13px; }
+.user-dashboard-shell .chart-shortfall-jump { min-height: 44px; padding: 8px 12px; border: 1px solid #edd0c5; border-radius: 8px; background: #fff8f5; color: #943e2c; font: 12px "Be Vietnam Pro", sans-serif; cursor: pointer; }
+.overview-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 11px 18px; border: 1px solid transparent; border-radius: 12px; background: #2560b4; color: #fff; font: 600 13px/1.5 "Be Vietnam Pro", sans-serif; text-align: center; text-decoration: none; cursor: pointer; }
+.overview-button:hover:not(:disabled) { background: #174b91; color: #fff; }
+.overview-button.secondary { background: #fff; color: #173d67; border-color: #d9e4f0; }
+.overview-button.secondary:hover:not(:disabled) { background: #edf4fd; color: #173d67; }
+.overview-button:focus-visible { outline: 2px solid #2560b4; outline-offset: 3px; }
+.overview-button:disabled { opacity: .55; cursor: wait; }
+.user-dashboard-shell:not(.sidebar-collapsed) { grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
+.user-dashboard-shell .user-sidebar:not(.is-collapsed) nav a { justify-content: flex-start; }
+.user-dashboard-shell .user-sidebar:not(.is-collapsed) nav a > span { display: inline; }
+.user-dashboard-shell .user-sidebar:not(.is-collapsed) .sidebar-label { display: block; }
+.user-dashboard-shell .user-sidebar.is-collapsed .sidebar-brand { flex-direction: column; align-items: center; gap: 12px; margin: 0 0 20px; }
+.user-dashboard-shell .user-sidebar.is-collapsed .sidebar-brand .brand-button { padding: 6px; flex-shrink: 0; }
+@media (max-width: 1000px) { .user-dashboard-shell .topbar-search-trigger { width: 44px; max-width: 44px; flex: 0 0 44px; justify-content: center; } .topbar-search-trigger .topbar-search-label, .user-dashboard-shell .topbar-search-trigger .topbar-search-shortcut { display: none; } }
+@media (max-width: 767px) { .user-workspace-dialog.modal { width: 100% !important; max-width: 100% !important; } }
+@media (max-width: 640px) {
+  .overlay:has(> .user-workspace-dialog) { padding: 12px; }
+  .user-workspace-dialog { max-height: calc(100dvh - 24px); border-radius: 18px; }
+  .user-workspace-dialog > header { min-height: 76px; padding: 16px 18px; }
+  .user-workspace-dialog > header h2 { font-size: 18px; }
+  .user-workspace-dialog .modal-body { padding: 20px 18px; }
+  .user-feature-search { height: min(640px, calc(100dvh - 24px)); }
+  .feature-search-box input { font-size: 16px; }
+  .profile-checklist-modal { grid-template-columns: 1fr; gap: 20px; }
+  .checklist-overview-panel { padding: 18px; }
+  .profile-checklist-item { flex-wrap: wrap; gap: 8px; }
+  .profile-checklist-item > div { flex-basis: calc(100% - 40px); }
+  .profile-checklist-item a { margin-left: 35px; }
+  .dashboard-detail-dialog dl > div { flex-wrap: wrap; gap: 6px; }
+  .dashboard-dialog-actions > button { flex: 1 1 auto; }
+}

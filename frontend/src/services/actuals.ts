@@ -342,11 +342,10 @@ export async function saveReforecast(
   idempotencyKey?: string
 ): Promise<{ planId: string; planRevision: number; version: number; versionId: string }> {
   const key = idempotencyKey || crypto.randomUUID();
-  return authenticatedRequest<{ planId: string; planRevision: number; version: number; versionId: string }>(
-    `/me/retirement/plans/${encodeURIComponent(planId)}/reforecasts`,
-    command,
-    "POST",
-    { "Idempotency-Key": key }
+  const result=await authenticatedRequest<{planId:string;revision:number;saved:{id:string;version:number}}>(
+    `/me/retirement/plans/${encodeURIComponent(planId)}/reforecasts`,command,"POST",{"Idempotency-Key":key}
   );
+  if(!result.saved?.id||!Number.isInteger(result.saved.version)||!Number.isInteger(result.revision))throw new Error("Chưa nhận được phiên bản đã lưu. Hãy thử lại cùng phương án.");
+  return {planId:result.planId,planRevision:result.revision,versionId:result.saved.id,version:result.saved.version};
 }
 

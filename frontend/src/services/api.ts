@@ -118,8 +118,10 @@ export async function ensureFreshSession() {
 // [] = nothing (read-only POST), null = clear everything (unknown or global
 // writes). A trailing "$" means that exact path only, e.g. "/me$" must not
 // clear "/me/notifications".
-const READ_ONLY_POST = /\/(preview|simulate|compare|metric)$/;
+const READ_ONLY_POST = /\/(preview|simulate|compare|metric|pension-impact|replay)$/;
 const RULES: Array<[RegExp, string[]]> = [
+  [/^\/me\/saved-products(\/|$)/, ["/me/saved-products"]],
+  [/^\/me\/products\/[^/]+\/consult$/, ["/me/support"]],
   [/^\/me\/notifications(\/|$)/, ["/me/notifications"]],
   [/^\/me\/notification-settings$/, ["/me/notification-settings"]],
   [/^\/me\/saved-articles(\/|$)/, ["/me/saved-articles", "/me/saved-content", "/content"]],
@@ -133,7 +135,7 @@ const RULES: Array<[RegExp, string[]]> = [
 ];
 export function cacheInvalidationScope(method: string, path: string): string[] | null {
   const pathname = path.split("?")[0];
-  if (method.toUpperCase() === "POST" && READ_ONLY_POST.test(pathname)) return [];
+  if (method.toUpperCase() === "POST" && (READ_ONLY_POST.test(pathname) || /^\/me\/retirement\/risk\/(simulation|scenarios|selection|rebalance)$/.test(pathname))) return [];
   const rule = RULES.find(([pattern]) => pattern.test(pathname));
   return rule ? rule[1] : null;
 }

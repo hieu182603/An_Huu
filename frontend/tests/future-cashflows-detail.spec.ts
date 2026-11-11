@@ -18,10 +18,10 @@ async function setup(page: Page, modelVersion = 'retirement-monthly-v3') {
   await page.route('**/me/retirement/plans**', route => { const path = new URL(route.request().url()).pathname; return route.fulfill({ json: { data: path.endsWith('/plans') ? { items: [plan] } : path.endsWith('/versions') ? { items: [] } : plan } }); });
   await page.route('**/me/retirement/actuals/*', route => { const period = new URL(route.request().url()).pathname.split('/').at(-1)!; return route.fulfill({ json: { data: { id: period, period, revision: 2, updatedAt: '2026-10-09', history: [], data: { currency: 'VND', openingBalance: '100000', closingBalance: '100000', entries: [], correctionReason: 'Đã đối soát' } } } }); });
   await page.route(previewUrl, route => route.fulfill({ json: { data: preview() } }));
-  await page.route(saveUrl, route => route.fulfill({ json: { data: saved } }));
+  await page.route(saveUrl, route => route.fulfill({ json: { data: {planId:saved.planId,revision:saved.planRevision,saved:{id:saved.versionId,version:saved.version}} } }));
   await page.goto('/user/simulation?tab=actuals');
-  await page.getByLabel('Kỳ đối soát tháng (Việt Nam)', { exact: true }).fill('2026-08');
-  await expect(page.getByRole('button', { name: 'Chạy dự báo neo số dư', exact: true })).toBeEnabled();
+  await page.locator('.checkin-ledger > summary').click();await page.locator('#actual-period').fill('2026-08');
+  await expect(page.getByRole('button', { name: 'Tính lại từ số dư đã ghi', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: /^Dòng tiền tương lai/ }).click();
 }
 async function draft(page: Page, amount = '1000000.50', field = 'income', from = '2026-09', to = '2026-12') {
@@ -93,26 +93,26 @@ test('future: retry clears previous result; server failure can recover', async (
 
 test('future: save retries exact preview body and key, then disables duplicate save', async ({ page }) => {
   await setup(page); await ready(page); const bodies: any[] = []; let fail = true;
-  await page.route(saveUrl, route => { bodies.push({ body: route.request().postDataJSON(), key: route.request().headers()['idempotency-key'] }); return fail ? route.fulfill({ status: 503, json: { error: { code: 'UNAVAILABLE', message: 'Save unavailable' } } }) : route.fulfill({ json: { data: saved } }); });
+  await page.route(saveUrl, route => { bodies.push({ body: route.request().postDataJSON(), key: route.request().headers()['idempotency-key'] }); return fail ? route.fulfill({ status: 503, json: { error: { code: 'UNAVAILABLE', message: 'Save unavailable' } } }) : route.fulfill({ json: { data: {planId:saved.planId,revision:saved.planRevision,saved:{id:saved.versionId,version:saved.version}} } }); });
   await save(page).click(); await expect(section(page).getByRole('alert')).toContainText('Save unavailable'); fail = false; await save(page).click();
   await expect(page.getByRole('button', { name: 'Đã lưu phiên bản', exact: true })).toBeDisabled(); expect(bodies).toHaveLength(2); expect(bodies[0]).toEqual(bodies[1]); expect(bodies[0].body.expectedRevision).toBe(2); expect(bodies[0].body.expectedInputHash).toBe('a'.repeat(64)); expect(bodies[0].key).toBeTruthy();
 });
 
 test('future: saving locks month, ledger, drafts, tabs and preview', async ({ page }) => {
   await setup(page); await ready(page); let release!: () => void; const gate = new Promise<void>(r => { release = r; });
-  await page.route(saveUrl, async route => { await gate; return route.fulfill({ json: { data: saved } }); });
-  await save(page).click(); await expect(page.locator('#fc-amount')).toBeDisabled(); await expect(page.locator('#actual-period')).toBeDisabled(); await expect(page.getByRole('button', { name: /Lưu sổ tháng/ })).toBeDisabled(); await expect(run(page)).toBeDisabled(); await expect(page.getByRole('button', { name: /Thử nghiệm kịch bản/ })).toBeDisabled();
+  await page.route(saveUrl, async route => { await gate; return route.fulfill({ json: { data: {planId:saved.planId,revision:saved.planRevision,saved:{id:saved.versionId,version:saved.version}} } }); });
+  await save(page).click(); await expect(page.locator('#fc-amount')).toBeDisabled(); await expect(page.locator('#actual-period')).toBeDisabled(); await expect(page.getByRole('button', { name: /Lưu sổ tháng/ })).toBeDisabled(); await expect(run(page)).toBeDisabled(); await expect(page.getByRole('button', { name: "Điều chỉnh tương lai", exact:true })).toBeDisabled();
   release(); await expect(page.getByRole('button', { name: 'Áp dụng bản v2', exact: true })).toBeEnabled();
 });
 
 test('future: applying requires confirmation; retry uses saved version and server revision', async ({ page }) => {
   await setup(page); await ready(page); await save(page).click(); await expect(page.getByRole('button', { name: 'Áp dụng bản v2', exact: true })).toBeVisible(); let saves = 0; const requests: any[] = [];
-  await page.route(saveUrl, route => { saves++; return route.fulfill({ json: { data: saved } }); });
+  await page.route(saveUrl, route => { saves++; return route.fulfill({ json: { data: {planId:saved.planId,revision:saved.planRevision,saved:{id:saved.versionId,version:saved.version}} } }); });
   await page.route(applyUrl, route => { requests.push({ body: route.request().postDataJSON(), key: route.request().headers()['idempotency-key'] }); return route.fulfill({ status: 503, json: { error: { code: 'UNAVAILABLE', message: 'Apply unavailable' } } }); });
   await page.getByRole('button', { name: 'Áp dụng bản v2', exact: true }).click(); const dialog = page.getByRole('dialog'); await expect(dialog).toBeVisible(); expect(requests).toHaveLength(0);
   for (let i = 0; i < 6; i++) { await page.keyboard.press(i < 3 ? 'Tab' : 'Shift+Tab'); expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true); }
   await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0);
-  for (let i = 0; i < 2; i++) { await page.getByRole('button', { name: 'Áp dụng bản v2', exact: true }).click(); await dialog.getByRole('button', { name: 'Xác nhận áp dụng', exact: true }).click(); await expect(section(page).getByRole('alert')).toContainText('Apply unavailable'); }
+  for (let i = 0; i < 2; i++) { await page.getByRole('button', { name: 'Áp dụng bản v2', exact: true }).click(); await dialog.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại', exact: true }).click(); await expect(section(page).getByRole('alert')).toContainText('Apply unavailable'); }
   expect(requests).toHaveLength(2); expect(requests[0]).toEqual(requests[1]); expect(requests[0].body.versionId).toBe('future-v2'); expect(requests[0].body.expectedRevision).toBe(3); expect(saves).toBe(0);
 });
 
@@ -141,13 +141,13 @@ test('future: changed reconciliation month cannot submit a now-past adjustment',
 test('future: source-managed plan points to supported source adjustments', async ({ page }) => {
   await setup(page, 'retirement-monthly-v4'); await expect(run(page)).toBeDisabled(); await expect(page.locator('#fc-amount')).toBeDisabled();
   await page.getByRole('button', { name: 'Mở điều chỉnh từng nguồn', exact: true }).click();
-  await expect(page.getByRole('button', { name: /Lệnh nguồn \(V4\)/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: "Điều chỉnh thu chi & tài sản", exact:true })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('future: pending apply prevents closing confirmation and success opens plan', async ({ page }) => {
   await setup(page); await ready(page); await save(page).click(); let release!: () => void; const gate = new Promise<void>(r => { release = r; }); let calls = 0;
   await page.route(applyUrl, async route => { calls++; await gate; return route.fulfill({ json: { data: { planId: 'future-plan', revision: 4, currentVersionId: 'future-v2' } } }); });
-  await page.getByRole('button', { name: 'Áp dụng bản v2', exact: true }).click(); const dialog = page.getByRole('dialog'); await dialog.getByRole('button', { name: 'Xác nhận áp dụng', exact: true }).click();
+  await page.getByRole('button', { name: 'Áp dụng bản v2', exact: true }).click(); const dialog = page.getByRole('dialog'); await dialog.getByRole('button', { name: 'Dùng làm kế hoạch hiện tại', exact: true }).click();
   await expect.poll(() => calls).toBe(1); await page.keyboard.press('Escape'); await expect(dialog).toBeVisible(); await expect(dialog.getByRole('button', { name: 'Hủy', exact: true })).toBeDisabled();
   release(); await expect(page).toHaveURL(/\/user\/plan$/); expect(calls).toBe(1);
 });

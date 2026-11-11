@@ -1,0 +1,56 @@
+.user-dashboard-shell:has(.financial-assets-page), .user-dashboard-shell:has(.financial-assets-page) .dashboard-workspace { background: #f5f7fa; }
+.financial-assets-page { min-width: 0; color: #132e4c; }
+.assets-ledger > p { margin-bottom: 18px; }
+.assets-ledger ul { list-style: none; margin: 0; padding: 0; }
+.assets-ledger li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 20px; padding: 20px 0; border-bottom: 1px solid #dfe6ef; font-size: 14px; }
+.assets-ledger li p { margin: 6px 0 0; font-size: 12px; }
+.assets-ledger li > strong { text-align: right; }
+.assets-row-actions { display: flex; gap: 14px; }
+.assets-row-actions button { padding: 8px 0; background: transparent; border: 0; color: #536b85; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.assets-row-actions button:hover { color: #245fb3; text-decoration: underline; text-underline-offset: 3px; }
+.asset-add { margin-top: 6px; }
+.assets-detail-rows { margin: 0 0 18px; font-size: 13px; }
+.assets-detail-rows > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid #e0e8f2; }
+.assets-detail-rows > div:last-child { border-bottom: 0; }
+.assets-detail-rows dt { color: #536b85; }
+.assets-detail-rows dd { margin: 0; font-weight: 600; text-align: right; }
+.assets-wealth-layout { display: grid; grid-template-columns: 1.15fr 1fr; gap: 20px; align-items: start; }
+.assets-composition-top { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 20px; align-items: center; margin: 28px 0; }
+.assets-composition-top svg { width: 140px; max-width: 100%; }
+.assets-composition-top text { fill: #536b85; font-family: inherit; font-size: 10px; }
+.assets-composition-top .assets-ring-value { fill: #132e4c; font-weight: 600; font-size: 18px; }
+.assets-composition-top strong { display: block; margin: 10px 0; font-size: 23px; line-height: 1.6; }
+.assets-role-list { list-style: none; padding: 0; margin: 0; }
+.assets-role-list li { padding: 16px 0; border-bottom: 1px solid #e0e8f2; font-size: 12px; }
+.assets-role-list li > div { display: flex; align-items: baseline; gap: 14px; justify-content: space-between; }
+.assets-role-list li > div + div { margin-top: 10px; color: #536b85; }
+.assets-role-list i { display: inline-block; width: 8px; height: 8px; margin-right: 7px; background: var(--asset-color); border-radius: 50%; }
+.assets-role-track { display: block; width: 100px; height: 5px; border-radius: 10px; overflow: hidden; background: #edf3fb; }
+.assets-role-track > span { display: block; height: 100%; background: var(--asset-color); }
+.assets-net-worth { padding: 22px; border: 1px solid #cfe8df; border-radius: 12px; background: #eef8f4; margin: 8px 0 16px; }
+.assets-net-worth > span { display: flex; align-items: center; gap: 9px; font-size: 12px; }
+.assets-net-worth > span button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid #b4c9e6; border-radius: 50%; background: #fff; color: #245c9c; cursor: pointer; }
+.assets-net-worth .icon { width: 14px; height: 14px; }
+.assets-net-worth > strong { display: block; margin: 14px 0; font-size: 28px; line-height: 1.5; }
+.assets-balance > a, .assets-pension > a { display: inline-block; margin-top: 18px; text-decoration: none; }
+.financial-assets-page :focus-visible, .asset-entry-dialog :focus-visible { outline: 2px solid #2560b4; outline-offset: 3px; }
+.financial-assets-page strong, .assets-detail-rows dd, .asset-entry-dialog strong { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.financial-assets-page button:disabled { opacity: .55; cursor: wait; }
+.asset-share-field { min-width: 0; margin-bottom: 20px; }
+.asset-share-field > label { margin-bottom: 8px; }
+.asset-share-grid { display: grid; grid-template-columns: 1fr; }
+.asset-ownership-details > p { margin-bottom: 20px; }
+.asset-ownership-details .cashflow-field-grid { margin-top: 18px; }
+.asset-form .profile-formatted-field { margin-bottom: 20px; }
+@media (max-width: 1000px) { .assets-wealth-layout { grid-template-columns: 1fr; } }
+@media (max-width: 650px) {
+  .assets-ledger li { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+  .assets-row-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .assets-composition-top { grid-template-columns: 110px minmax(0, 1fr); gap: 14px; }
+  .assets-composition-top strong { font-size: 20px; }
+  .assets-detail-rows > div { flex-wrap: wrap; gap: 8px 16px; }
+  .assets-detail-rows dd { margin-left: auto; }
+  .assets-net-worth { padding: 18px; }
+  .assets-net-worth > strong { font-size: 24px; }
+  .assets-role-list li > div:first-child { flex-wrap: wrap; gap: 8px 12px; }
+}

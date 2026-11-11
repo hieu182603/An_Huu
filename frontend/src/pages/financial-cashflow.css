@@ -1,0 +1,96 @@
+.user-dashboard-shell:has(.financial-cashflow-page), .user-dashboard-shell:has(.financial-cashflow-page) .dashboard-workspace { background: #f5f7fa; }
+.financial-cashflow-page { color: #132e4c; min-width: 0; }
+.cashflow-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 13px; margin-bottom: 20px; }
+.cashflow-heading { margin-bottom: 30px; }
+.cashflow-heading h1 { margin: 0 0 8px; color: #052659; font-size: 32px; font-weight: 700; line-height: 1.35; letter-spacing: -.8px; }
+.cashflow-heading p, .cashflow-card p { margin: 0; color: #536b85; font-size: 13px; line-height: 1.75; }
+.cashflow-heading p { font-size: 14px; }
+.cashflow-card { min-width: 0; padding: 26px; background: #fff; border: 1px solid #dfe6ef; border-radius: 16px; margin-bottom: 24px; }
+.cashflow-card h2 { color: #132e4c; font-size: 20px; font-weight: 700; margin: 0 0 22px; line-height: 1.5; }
+.cashflow-card > header { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 26px; }
+.cashflow-card > header h2 { margin: 0; }
+.cashflow-card .cashflow-period { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; font-weight: 600; margin: 0 0 8px; }
+.cashflow-budget-status, .cashflow-count { background: #e6f8f0; color: #18664d; border-radius: 20px; padding: 4px 10px; font-size: 11px; white-space: nowrap; font-weight: 600; }
+.cashflow-budget-status.is-negative { background: #fcecef; color: #a33448; }
+.cashflow-budget-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 38px; align-items: center; }
+.cashflow-budget-income, .cashflow-total { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 24px; font-size: 13px; }
+.cashflow-budget-income > strong { font-size: 24px; line-height: 1.5; }
+.cashflow-budget-bar { display: flex; height: 15px; overflow: hidden; border-radius: 6px; background: #edf2f8; margin-bottom: 18px; }
+.cashflow-budget-bar > span { min-width: 0; flex-shrink: 1; border-right: 2px solid #fff; }
+.cashflow-budget-bar > span:last-child { border-right: 0; }
+.financial-cashflow-page .budget-spend { background: #df9d4f; }
+.financial-cashflow-page .budget-debt { background: #c65d70; }
+.financial-cashflow-page .budget-reserve { background: #9aabc5; }
+.financial-cashflow-page .budget-fund { background: #2861ae; }
+.financial-cashflow-page .budget-free { background: #278e7c; }
+.cashflow-budget-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; margin: 0; }
+.cashflow-budget-legend > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; min-width: 0; }
+.cashflow-budget-legend dt { color: #536b85; }
+.cashflow-budget-legend dt i { display: inline-block; width: 8px; height: 8px; border-radius: 1px; margin-right: 6px; }
+.cashflow-budget-legend dd { margin: 0; text-align: right; font-weight: 600; }
+.cashflow-budget-note { margin-top: 20px !important; }
+.cashflow-budget-focus { min-width: 0; padding: 24px; border-radius: 12px; background: #f0f5ff; font-size: 13px; }
+.cashflow-budget-focus > span { display: block; color: #385777; margin-bottom: 12px; }
+.cashflow-budget-focus > strong { font-size: 28px; color: #052659; display: block; line-height: 1.5; }
+.cashflow-budget-focus small { display: block; font-size: 12px; font-weight: 400; }
+.cashflow-budget-focus dl { display: grid; gap: 16px; margin: 24px 0; font-size: 12px; }
+.cashflow-budget-focus dl > div { display: flex; gap: 16px; justify-content: space-between; }
+.cashflow-budget-focus dd { margin: 0; text-align: right; }
+.cashflow-budget-focus .cashflow-warning { color: #9a3447; margin-bottom: 14px; }
+.cashflow-ledgers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.cashflow-ledger > header { margin-bottom: 22px; }
+.cashflow-ledger > p { margin-bottom: 20px; }
+.cashflow-ledger ul { list-style: none; padding: 0; margin: 0; }
+.cashflow-ledger li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 20px; padding: 16px 0; border-bottom: 1px solid #e0e8f2; font-size: 13px; align-items: start; }
+.cashflow-ledger li p { margin-top: 5px; font-size: 11px; }
+.cashflow-ledger li > strong { text-align: right; }
+.cashflow-ledger li a { font-size: 12px; color: #245c9c; text-underline-offset: 3px; }
+.cashflow-row-actions { display: flex; gap: 14px; grid-column: 1 / -1; justify-content: flex-end; }
+.cashflow-row-actions button, .cashflow-text-button, .cashflow-suggestions button { padding: 8px 0; border: 0; background: transparent; color: #536b85; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cashflow-row-actions button:hover, .cashflow-text-button:hover, .cashflow-suggestions button:hover { color: #245fb3; text-decoration: underline; text-underline-offset: 3px; }
+.cashflow-total { padding: 16px 0; border-bottom: 1px solid #dfe6ef; margin-bottom: 22px; }
+.cashflow-empty { padding: 18px 0; font-size: 14px; }
+.cashflow-empty p { margin: 7px 0; }
+.cashflow-inactive { color: #79572e; }
+.cashflow-form { margin-top: 20px; }
+.cashflow-form fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.cashflow-form label { display: grid; gap: 9px; margin: 0 0 18px; color: #132e4c; font-size: 13px; font-weight: 500; line-height: 1.6; }
+.cashflow-form input:not([type=checkbox]), .cashflow-form select { display: block; box-sizing: border-box; width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; border: 1px solid #b4c9e6; border-radius: 8px; color: #132e4c; background: #fff; font: inherit; font-size: 14px; }
+.cashflow-form small { color: #536b85; font-size: 12px; font-weight: 400; line-height: 1.7; }
+.cashflow-form .cashflow-checkbox { display: flex; align-items: center; gap: 10px; }
+.cashflow-checkbox input { width: 17px; height: 17px; flex-shrink: 0; accent-color: #245fb3; }
+.cashflow-suggestions { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 2px 0 18px; }
+.cashflow-entry-dialog { width: min(100%, 540px); }
+.cashflow-entry-dialog .cashflow-form { margin-top: 0; }
+.cashflow-form details { margin: 24px 0 18px; }
+.cashflow-form summary { cursor: pointer; font-size: 14px; margin-bottom: 18px; color: #294e77; }
+.cashflow-form details > p { margin-bottom: 16px; }
+.cashflow-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.cashflow-form footer, .cashflow-confirm-dialog footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #dfe6ef; }
+.cashflow-form .cashflow-split-preview { padding: 12px 0; border-top: 1px solid #e0e8f2; font-size: 12px; }
+.cashflow-error { padding: 14px; border: 1px solid #ebc2c8; background: #fff4f5; border-radius: 10px; margin: 12px 0; color: #9a3447; font-size: 13px; }
+.cashflow-error p { margin: 0 0 8px; color: inherit; }
+.cashflow-error button { margin-top: 8px; }
+.cashflow-entry-dialog .money-words { display: block; margin: -8px 0 14px; font-size: 12px; color: #536b85; line-height: 1.6; }
+.cashflow-entry-dialog [data-large-amount] .money-words { display: none; }
+/* Keep this compact editor stable on blur and leave the next field unobscured. */
+.cashflow-entry-dialog .amount-suggestions { display: none; }
+.financial-cashflow-page strong, .financial-cashflow-page dd, .cashflow-entry-dialog strong { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.financial-cashflow-page :focus-visible, .cashflow-entry-dialog :focus-visible { outline: 2px solid #2560b4; outline-offset: 3px; }
+.financial-cashflow-page button:disabled, .cashflow-entry-dialog button:disabled { opacity: .55; cursor: wait; }
+.cashflow-form input:disabled, .cashflow-form select:disabled { background: #f3f6fa; color: #536b85; }
+@media (max-width: 1150px) { .cashflow-budget-layout { grid-template-columns: 1fr; gap: 24px; } .cashflow-budget-focus > strong small { display: inline; margin-left: 8px; } }
+@media (max-width: 800px) { .cashflow-ledgers { grid-template-columns: 1fr; gap: 0; } }
+@media (max-width: 520px) {
+  .cashflow-heading h1 { font-size: 28px; }
+  .cashflow-card { padding: 20px; }
+  .cashflow-card > header { flex-wrap: wrap; gap: 14px; }
+  .cashflow-budget-income { flex-wrap: wrap; gap: 8px; }
+  .cashflow-budget-legend { grid-template-columns: 1fr; }
+  .cashflow-budget-focus { padding: 18px; }
+  .cashflow-budget-focus > strong { font-size: 25px; }
+  .cashflow-total { flex-wrap: wrap; }
+  .cashflow-form input:not([type=checkbox]), .cashflow-form select { font-size: 16px; }
+  .cashflow-field-grid { grid-template-columns: 1fr; }
+  .cashflow-form footer, .cashflow-confirm-dialog footer { flex-wrap: wrap; }
+}

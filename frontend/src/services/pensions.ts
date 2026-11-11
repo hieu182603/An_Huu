@@ -1,4 +1,7 @@
 import { authenticatedRequest } from "./api";
+import type { OptionalMonth } from "./financialProfile";
+export type PensionWorkspaceReport = { profileRevision: number; valuationDate: string; declaration: PensionDeclaration; pensionStartMonth: OptionalMonth; ageAtStartMonths: number | null; currentMonthAmount: string | null; issues: PensionIssue[]; entitlement: "NOT_ASSESSED"; fundReduction: null };
+export const fetchPensionWorkspace = () => authenticatedRequest<PensionWorkspaceReport>("/me/financial-profile/pension", undefined, "GET", undefined, { skipCache: true });
 
 export type PensionPriceBasis = "TODAY" | "NOMINAL_AT_START";
 

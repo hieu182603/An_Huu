@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
 import type { RetirementRow, RetirementSummary } from "../../services/retirement";
 import { formatMonthVN } from "../../utils/date";
@@ -7,6 +7,8 @@ interface MonthlyRetirementChartProps {
   rows: RetirementRow[];
   summary: RetirementSummary;
   birthYear?: number;
+  birthMonth?: string;
+  responsive?: boolean;
 }
 
 export type ChartFilterMode = "annual" | "all-months" | "first-5y" | "retirement-phase";
@@ -56,10 +58,13 @@ function normalizeYearMonth(month: string): string {
   return m;
 }
 
-function ageAtMonth(month: string, birthYear: number): number {
+function ageAtMonth(month: string, birthYear?: number, birthMonth?: string): number | null {
   const norm = normalizeYearMonth(month);
   const y = Number(norm.slice(0, 4));
-  if (!Number.isFinite(y) || y <= 0) return 35;
+  if (birthMonth && /^\d{4}-\d{2}$/.test(birthMonth) && /^\d{4}-\d{2}$/.test(norm)) {
+    return Math.max(0, Math.floor(((y - Number(birthMonth.slice(0, 4))) * 12 + Number(norm.slice(5, 7)) - Number(birthMonth.slice(5, 7))) / 12));
+  }
+  if (!Number.isFinite(y) || y <= 0 || birthYear == null || !Number.isFinite(birthYear)) return null;
   return Math.max(18, y - birthYear);
 }
 
@@ -73,9 +78,18 @@ function rowOpening(r: RetirementRow | undefined): number {
   return Number(r.openingBalance ?? (r as any).openingFund ?? rowClosing(r));
 }
 
-export function MonthlyRetirementChart({ rows, summary, birthYear = 1991 }: MonthlyRetirementChartProps) {
+export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, responsive = false }: MonthlyRetirementChartProps) {
   const { language } = useI18n();
   const isEn = language === "en";
+  const frame = useRef<HTMLDivElement>(null);
+  const [frameWidth, setFrameWidth] = useState(840);
+  const hasRows = Boolean(rows?.length);
+  useEffect(() => {
+    if (!responsive || !frame.current) return;
+    const observer = new ResizeObserver(([entry]) => setFrameWidth(entry.contentRect.width));
+    observer.observe(frame.current);
+    return () => observer.disconnect();
+  }, [responsive, hasRows]);
 
   const retIdx = useMemo(() => {
     if (!rows || rows.length === 0) return 0;
@@ -112,28 +126,28 @@ export function MonthlyRetirementChart({ rows, summary, birthYear = 1991 }: Mont
   const lastRow = rows[rows.length - 1];
   const retRow = rows[Math.max(0, retIdx > 0 ? retIdx - 1 : retIdx)] || rows[retIdx] || firstRow;
 
-  const startAge = Number((firstRow as any).age) || ageAtMonth(firstRow.month, birthYear);
-  const retAge = Number((rows[retIdx] as any)?.age) || ageAtMonth(summary.retirementMonth || retRow.month, birthYear);
-  const endAge = Number((lastRow as any).age) || ageAtMonth(lastRow.month, birthYear);
-  const selectedAge = Number((currentRow as any).age) || ageAtMonth(currentRow.month, birthYear);
+  const startAge = Number((firstRow as any).age) || ageAtMonth(firstRow.month, birthYear, birthMonth);
+  const retAge = Number((rows[retIdx] as any)?.age) || ageAtMonth(summary.retirementMonth || retRow.month, birthYear, birthMonth);
+  const endAge = Number((lastRow as any).age) || ageAtMonth(lastRow.month, birthYear, birthMonth);
+  const selectedAge = Number((currentRow as any).age) || ageAtMonth(currentRow.month, birthYear, birthMonth);
 
   const requiredAtRetirement = Number(summary.atRetirement?.requiredFund || 0);
-  const projectedAtRetirement = Number(summary.atRetirement?.projectedFund || rowClosing(retRow));
+  const projectedAtRetirement = Number(summary.atRetirement?.projectedFund ?? rowClosing(retRow));
   const initialFund = rowOpening(firstRow);
 
-  const maxBalance = useMemo(() => {
+  const maxBalance = (() => {
     let m = requiredAtRetirement;
     for (const r of rows) {
       const b = Math.max(0, rowClosing(r));
       if (b > m) m = b;
     }
     return Math.max(m, 1);
-  }, [rows, requiredAtRetirement]);
+  })();
 
   // SVG layout matching plan-chart.js
-  const W = 840;
+  const W = responsive ? Math.max(240, Math.min(840, frameWidth)) : 840;
   const H = 310;
-  const pad = { l: 82, r: 22, t: 24, b: 44 };
+  const pad = { l: W < 500 ? 60 : 82, r: W < 500 ? 16 : 22, t: 24, b: 44 };
   const plotW = W - pad.l - pad.r;
   const plotH = H - pad.t - pad.b;
 
@@ -169,17 +183,15 @@ export function MonthlyRetirementChart({ rows, summary, birthYear = 1991 }: Mont
   const selY = yOf(selBalance);
   const targetY = yOf(requiredAtRetirement);
 
-  const firstShortfallRow = useMemo(
-    () => rows.find(r => Number(r.unfundedWithdrawal || 0) > 0),
-    [rows]
-  );
+  const firstShortfallRow = rows.find(r => Number(r.unfundedWithdrawal || 0) > 0);
 
   const selectedContribution = Number(currentRow.contribution || 0);
-  const selectedOutflow = Number(currentRow.withdrawal || 0) + Number((currentRow as any).fee || 0);
+  // The API's withdrawal already includes any advisory fee paid from the fund.
+  const selectedOutflow = Number(currentRow.withdrawal || 0);
 
   return (
     <div className="plan-chart-interactive">
-      <div className="chart-frame" style={{ width: "100%", overflowX: "auto" }}>
+      <div ref={frame} className="chart-frame" style={{ width: "100%", overflowX: "auto" }}>
         <svg
           className="projection-svg"
           viewBox={`0 0 ${W} ${H}`}
@@ -260,13 +272,13 @@ export function MonthlyRetirementChart({ rows, summary, birthYear = 1991 }: Mont
           <circle cx={selX} cy={selY} r="5.5" fill="#173a6a" stroke="#fff" strokeWidth="2" />
 
           <text x={pad.l} y={H - 14} fill="#5e7285" fontSize="11">
-            {startAge} {isEn ? "yrs" : "tuổi"}
+            {startAge === null ? formatMonthVN(firstRow.month) : `${startAge} ${isEn ? "yrs" : "tuổi"}`}
           </text>
-          <text x={retX} y={H - 14} textAnchor="middle" fill="#173a6a" fontSize="11" fontWeight="700">
-            {isEn ? `Retire · ${retAge} yrs` : `Nghỉ hưu · ${retAge} tuổi`}
-          </text>
+          {W >= 500 && <text x={retX} y={H - 14} textAnchor="middle" fill="#173a6a" fontSize="11" fontWeight="700">
+            {retAge === null ? (isEn ? "Retirement" : "Nghỉ hưu") : isEn ? `Retire · ${retAge} yrs` : `Nghỉ hưu · ${retAge} tuổi`}
+          </text>}
           <text x={W - pad.r} y={H - 14} textAnchor="end" fill="#5e7285" fontSize="11">
-            {endAge} {isEn ? "yrs" : "tuổi"}
+            {endAge === null ? formatMonthVN(lastRow.month) : `${endAge} ${isEn ? "yrs" : "tuổi"}`}
           </text>
         </svg>
       </div>
@@ -278,7 +290,7 @@ export function MonthlyRetirementChart({ rows, summary, birthYear = 1991 }: Mont
       >
         <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
           <i style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#225eaa", display: "inline-block" }} />
-          {isEn ? `Accumulate until age ${retAge}` : `Tích lũy đến ${retAge} tuổi`}
+          {retAge === null ? (isEn ? "Accumulate before retirement" : "Tích lũy trước nghỉ hưu") : isEn ? `Accumulate until age ${retAge}` : `Tích lũy đến ${retAge} tuổi`}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
           <i style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#7d5ba6", display: "inline-block" }} />
@@ -304,8 +316,8 @@ export function MonthlyRetirementChart({ rows, summary, birthYear = 1991 }: Mont
         <div>
           <span style={{ display: "block", fontSize: "12px", color: "#536779", marginBottom: "2px" }}>
             {isEn
-              ? `End of ${formatMonthVN(currentRow.month)} · age ${selectedAge}`
-              : `Cuối tháng ${formatMonthVN(currentRow.month)} · ${selectedAge} tuổi`}
+              ? `End of ${formatMonthVN(currentRow.month)}${selectedAge === null ? "" : ` · age ${selectedAge}`}`
+              : `Cuối tháng ${formatMonthVN(currentRow.month)}${selectedAge === null ? "" : ` · ${selectedAge} tuổi`}`}
           </span>
           <strong style={{ fontSize: "22px", fontWeight: 700, color: "#052659" }}>
             {formatFullVnd(selBalance)}
@@ -346,6 +358,7 @@ export function MonthlyRetirementChart({ rows, summary, birthYear = 1991 }: Mont
         value={safeIdx}
         onChange={e => setSelectedIdx(Number(e.target.value))}
         aria-label={isEn ? "Select month on chart" : "Chọn tháng trên biểu đồ"}
+        aria-valuetext={`${formatMonthVN(currentRow.month)} · ${formatFullVnd(selBalance)}`}
         style={{ width: "100%", accentColor: "#225eaa", cursor: "pointer", marginBottom: "12px" }}
       />
 
@@ -384,18 +397,14 @@ export function MonthlyRetirementChart({ rows, summary, birthYear = 1991 }: Mont
           }}
         >
           {isEn
-            ? `Retire · ${retAge} yrs · ${formatCompactCurrency(projectedAtRetirement)}`
-            : `Nghỉ hưu · ${retAge} tuổi · ${formatCompactCurrency(projectedAtRetirement)}`}
+            ? `Retire${retAge === null ? "" : ` · ${retAge} yrs`} · ${formatCompactCurrency(projectedAtRetirement)}`
+            : `Nghỉ hưu${retAge === null ? "" : ` · ${retAge} tuổi`} · ${formatCompactCurrency(projectedAtRetirement)}`}
         </button>
-        <span style={{ fontSize: "12px", color: "#536779", marginLeft: "4px" }}>
-          {firstShortfallRow
-            ? isEn
+        {firstShortfallRow ? <button type="button" className="chart-shortfall-jump" onClick={() => setSelectedIdx(rows.indexOf(firstShortfallRow))}>
+          {isEn
               ? `Shortfall starts ${formatMonthVN(firstShortfallRow.month)} · first month gap ${formatCompactCurrency(Number(firstShortfallRow.unfundedWithdrawal || 0))}`
-              : `Bắt đầu thiếu từ ${formatMonthVN(firstShortfallRow.month)} · thiếu tháng đầu ${formatCompactCurrency(Number(firstShortfallRow.unfundedWithdrawal || 0))}`
-            : isEn
-            ? `Lasts until age ${endAge} (${formatMonthVN(lastRow.month)})`
-            : `Đủ dùng đến ${endAge} tuổi (${formatMonthVN(lastRow.month)})`}
-        </span>
+              : `Bắt đầu thiếu từ ${formatMonthVN(firstShortfallRow.month)} · thiếu tháng đầu ${formatCompactCurrency(Number(firstShortfallRow.unfundedWithdrawal || 0))}`}
+        </button> : <span style={{ fontSize: "12px", color: "#536779", marginLeft: "4px" }}>{endAge === null ? (isEn ? `Projected through ${formatMonthVN(lastRow.month)}` : `Dự phóng đến ${formatMonthVN(lastRow.month)}`) : isEn ? `Lasts until age ${endAge} (${formatMonthVN(lastRow.month)})` : `Đủ dùng đến ${endAge} tuổi (${formatMonthVN(lastRow.month)})`}</span>}
       </div>
 
       <details className="chart-explanation" style={{ fontSize: "12.5px", color: "#456B91", borderTop: "1px solid #e6eef7", paddingTop: "10px" }}>

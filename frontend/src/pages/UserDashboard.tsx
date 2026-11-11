@@ -1,533 +1,89 @@
-import "./dashboard-readability.css";
+import { useState } from "react";
 import { Link } from "react-router";
 import { MonthlyRetirementChart } from "../components/charts";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n";
-
-function formatEasyMoney(val: number, perMonth = false): string {
-  const n = Number(val) || 0;
-  if (Math.abs(n) >= 1e9) {
-    const v = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n / 1e9);
-    return `${v} tỷ ₫${perMonth ? "/tháng" : ""}`;
-  }
-  if (Math.abs(n) >= 1e6) {
-    const v = new Intl.NumberFormat("vi-VN", {
-      minimumFractionDigits: Math.round(n / 1e5) % 10 === 0 ? 0 : 1,
-      maximumFractionDigits: 1,
-    }).format(n / 1e6);
-    return `${v} triệu ₫${perMonth ? "/tháng" : ""}`;
-  }
-  return `${new Intl.NumberFormat("vi-VN").format(Math.round(n))} ₫${perMonth ? "/tháng" : ""}`;
-}
-
-function formatFullMoney(val: number): string {
-  return `${new Intl.NumberFormat("vi-VN").format(Math.round(Number(val) || 0))} ₫`;
-}
+import { Icon } from "../components/ui";
+import PlanSyncStatus from "../components/PlanSyncStatus";
+import DashboardDetailsDialog, { overviewNumber, overviewMoney, type DashboardDetail } from "../components/DashboardDetailsDialog";
+import DashboardSaveDialog from "../components/DashboardSaveDialog";
+import { formatMonthVN } from "../utils/date";
+import { userProfileProgress } from "../utils/userProfileProgress";
+import type { RetirementPreviewResult } from "../services/retirement";
+import "./dashboard-overview.css";
 
 export default function UserDashboard() {
   const { user } = useAuth();
-  const { profile, v2Profile, profileSummary, hasProfile, onboardingDraft } = useFinancialProfile();
-  const { synchronization, currentVersion, previewData } = useRetirementPlan();
+  const { profile, v2Profile, profileSummary, hasProfile, loadError, profileRevision } = useFinancialProfile();
+  const { synchronization: sync, currentVersion, previewData, previewStatus, previewError, loadingPlans, plansError, refreshPlans } = useRetirementPlan();
   const { language } = useI18n();
+  const en = language === "en", lang = en ? 1 : 0;
+  const [detail, setDetail] = useState<DashboardDetail | null>(null);
+  const [savePreview, setSavePreview] = useState<RetirementPreviewResult | null>(null);
 
-  const summaryValues = profileSummary;
-  const income = summaryValues?.monthlyIncome != null ? Number(summaryValues.monthlyIncome) : profile.income.primaryIncome + profile.income.secondaryIncome;
-  const expense = summaryValues?.monthlyExpense != null ? Number(summaryValues.monthlyExpense) : profile.expenses.essentialExpense + profile.expenses.lifestyleExpense;
-  const debtService = summaryValues?.monthlyDebtService != null ? Number(summaryValues.monthlyDebtService) : profile.debt.hasDebt ? profile.debt.monthlyDebtService : 0;
-  const surplus = summaryValues?.availableMonthlySurplus != null ? Number(summaryValues.availableMonthlySurplus) : income - expense - debtService;
+  // Pending/failed synchronization must not expose an older snapshot as current.
+  const source = currentVersion ? (sync.status === "ready" ? sync.preview : null)
+    : previewStatus === "ready" && previewData?.profileRevision === profileRevision ? previewData : null;
+  const preview = hasProfile && !loadError && !loadingPlans && !plansError && source?.status === "READY" ? source : null;
+  const calculation = preview?.calculation, summary = calculation?.summary;
+  const rows = calculation?.rows ?? [];
+  const projected = overviewNumber(summary?.atRetirement?.projectedFund), required = overviewNumber(summary?.atRetirement?.requiredFund);
+  const cashflow = !hasProfile || loadError ? null : overviewNumber(profileSummary?.availableMonthlySurplus);
+  const capacity = calculation ? overviewNumber(rows[0]?.contributionCapacity) : cashflow;
+  const capacityValue = capacity === null ? null : Math.max(0, capacity);
+  const contribution = overviewNumber(summary?.plannedMonthlyContribution ?? preview?.selection.monthlyContribution);
+  const busy = loadingPlans || Boolean(currentVersion && sync.status === "loading") || (!currentVersion && previewStatus === "loading");
+  const changed = Boolean(currentVersion && sync.changed);
+  const name = user?.name?.trim().split(/\s+/).pop();
+  const progress = userProfileProgress(profile, v2Profile, hasProfile, Boolean(currentVersion?.preview.status === "READY" && currentVersion.preview.selection?.answers?.length));
+  const birthYear = v2Profile?.personal.birthMonth.status === "KNOWN" ? overviewNumber(v2Profile.personal.birthMonth.value.slice(0, 4)) : profile.personal.age > 0 && preview?.valuationDate ? Number(preview.valuationDate.slice(0, 4)) - profile.personal.age : null;
+  const warnings = preview?.warnings ?? [];
+  const pensionOmitted = warnings.some(w => w.code === "PENSION_NOT_INCLUDED");
+  const hasPension = rows.some(row => (overviewNumber(row.pension) ?? 0) > 0);
+  const hypothetical = Boolean(preview?.selection.whatIf || warnings.some(w => w.code === "HYPOTHETICAL_VALUES_PROFILE_UNCHANGED"));
+  const needsPlan = !currentVersion || changed;
+  const next = !hasProfile ? { path: "/onboarding", title: ["Hoàn tất bản kế hoạch đầu tiên", "Finish your first plan"] }
+    : needsPlan ? { path: "/user/plan", title: ["Xem và dùng một phương án làm kế hoạch chính", "Review and use an option as your main plan"] }
+    : { path: "/user/simulation", title: ["Cập nhật tình hình theo kế hoạch chính", "Check in on your main plan"] };
+  const metrics: Array<{ key: DashboardDetail; title: string; value: number | null }> = [
+    { key: "projected", title: en ? "Projected fund at retirement" : "Quỹ dự kiến khi nghỉ hưu", value: projected },
+    { key: "required", title: en ? "Required fund for your goal" : "Quỹ cần cho mục tiêu", value: required },
+    { key: "capacity", title: en ? "First-month contribution capacity" : "Có thể góp tháng đầu", value: capacityValue },
+  ];
 
-  const activeCalculation =
-    synchronization.preview?.calculation ??
-    previewData?.calculation ??
-    currentVersion?.preview?.calculation ??
-    null;
-  const planSummary = activeCalculation?.summary;
+  return <div className="yoga-dashboard-layout dashboard-overview"><div className="yoga-dashboard-content">
+    <header className="dashboard-greeting"><span className="eyebrow">{en ? "YOUR RETIREMENT PICTURE" : "BỨC TRANH NGHỈ HƯU CỦA BẠN"}</span><h1 className="user-hero-title">{en ? `Hi${name ? ` ${name}` : ""}, one calm step at a time.` : `Chào${name ? ` ${name}` : " bạn"}, an tâm từng bước.`}</h1><p>{en ? "See where you stand and take one next step." : "Xem mình đang ở đâu và chọn một việc tiếp theo."}</p></header>
 
-  const stepsRemaining =
-    onboardingDraft?.step === "quick-risk"
-      ? 1
-      : ["quick-family", "personal"].includes(onboardingDraft?.step ?? "")
-      ? 2
-      : onboardingDraft?.step === "quick-money"
-      ? 3
-      : 4;
-  const firstName = user?.name?.trim() || (language === "en" ? "Minh An" : "Minh An");
-  const shortfall = Number(planSummary?.retirementFundingShortfall ?? 0) > 0;
-  const currentContribution = Number(planSummary?.plannedMonthlyContribution || synchronization.input?.monthlyContribution || 0);
-  const birthYear =
-    v2Profile?.personal.birthMonth?.status === "KNOWN"
-      ? Number(v2Profile.personal.birthMonth.value.slice(0, 4))
-      : 1991;
+    {plansError && !currentVersion && <div className="dashboard-load-error" role="alert"><div><strong>{en ? "Could not load your plan" : "Chưa tải được kế hoạch"}</strong><p>{plansError}</p></div><button type="button" className="overview-button secondary" onClick={() => void refreshPlans()}>{en ? "Retry" : "Tải lại kế hoạch"}</button></div>}
+    <PlanSyncStatus />
+    {!currentVersion && !plansError && previewStatus === "error" && <p className="dashboard-load-error" role="alert">{previewError}<Link to="/user/plan">{en ? "Review and retry" : "Mở kế hoạch để thử lại"}</Link></p>}
+    {busy && <p className="dashboard-loading" role="status">{en ? "Loading your plan figures…" : "Đang tải số liệu kế hoạch…"}</p>}
 
-  const nextStep = !hasProfile
-    ? {
-        to: "/onboarding",
-        title: language === "en" ? "Finish your first plan" : "Hoàn tất bản kế hoạch đầu tiên",
-        description:
-          language === "en"
-            ? `${stepsRemaining} steps left. Your answers are saved.`
-            : `Còn ${stepsRemaining} bước nữa là thấy kế hoạch. Các câu đã trả lời được giữ lại.`,
-      }
-    : {
-        to: "/user/plan",
-        title:
-          language === "en"
-            ? "Review and use one option as your main plan"
-            : "Xem và dùng một phương án làm kế hoạch chính",
-        description:
-          language === "en"
-            ? "Each step helps you understand and control your plan."
-            : "Mỗi bước giúp bạn hiểu và kiểm soát kế hoạch rõ hơn.",
-      };
+    {hasProfile && !busy && !plansError && <section className={`dashboard-plan-status ${needsPlan ? "is-draft" : "is-applied"}`} aria-label={en ? "Plan status" : "Trạng thái kế hoạch"}>
+      <span className="dashboard-status-dot" aria-hidden="true" />
+      <div><strong>{needsPlan ? (changed ? (en ? "Your changes have not been applied" : "Thay đổi chưa được dùng làm kế hoạch chính") : (en ? "Next step: save this option as your main plan" : "Bước tiếp theo: lưu phương án này làm kế hoạch chính")) : (en ? `Version ${currentVersion.version} is your main plan` : `Phiên bản ${currentVersion.version} là kế hoạch chính đang dùng`)}</strong>
+        {needsPlan ? <ol><li>{contribution === null ? (en ? "Review results and choose your monthly contribution." : "Xem kết quả và chọn mức góp mỗi tháng.") : (en ? `Check your contribution: ${overviewMoney(contribution, en)}/month.` : `Kiểm tra mức góp đang thử: ${overviewMoney(contribution, en)}/tháng.`)}</li><li>{en ? "Confirm a main plan to track progress and view reports." : "Xác nhận kế hoạch chính để theo dõi tiến độ và xem báo cáo."}</li></ol>
+          : <p>{currentVersion.preview.reforecast ? (en ? "This plan uses a recorded actual balance. Update it from progress tracking." : "Kế hoạch dùng số dư thực tế đã ghi. Cập nhật tiếp tại Cập nhật tình hình.") : (en ? "Track progress or compare options when your situation changes." : "Theo dõi tiến độ hoặc so sánh phương án khác khi tình hình thay đổi.")}</p>}</div>
+      {needsPlan && preview?.inputHash && !currentVersion?.preview.reforecast ? <button type="button" className="overview-button" onClick={() => setSavePreview(preview)}>{changed ? (en ? "Save changes" : "Lưu thay đổi") : (en ? "Save as main plan" : "Lưu làm kế hoạch chính")}</button>
+        : <Link className="overview-button" to={needsPlan ? "/user/plan" : "/user/simulation"}>{needsPlan ? (en ? "Review plan" : "Xem kế hoạch") : (en ? "Update progress" : "Cập nhật tình hình")}</Link>}
+    </section>}
 
-  const projectedFund = Number(planSummary?.atRetirement?.projectedFund ?? 1803892454);
-  const targetFund = Number(planSummary?.atRetirement?.requiredFund ?? 8040623523);
-  const initialCapacity = surplus > 0 ? surplus : 15000000;
+    <section className="dashboard-next-step"><div><span className="eyebrow">{en ? "YOUR NEXT STEP" : "VIỆC TIẾP THEO CỦA BẠN"}</span><h2>{next.title[lang]}</h2><p>{en ? "Each step helps you understand and control your plan." : "Mỗi bước giúp bạn hiểu và kiểm soát kế hoạch rõ hơn."}</p></div><Link to={next.path} className="overview-button">{en ? "Continue →" : "Tiếp tục →"}</Link></section>
+    <details className="dashboard-prep-steps"><summary>{en ? "Plan preparation steps" : "Các bước chuẩn bị kế hoạch"}</summary><div className="dashboard-journey">
+      {[...progress.slice(0, 3), { key: "plan", title: ["Dùng kế hoạch chính", "Use a main plan"], path: "/user/plan", done: Boolean(currentVersion) }, progress[4]].map((item, index) => <Link key={item.key} to={item.path}><span aria-hidden="true">{item.done ? <Icon name="check" /> : index + 1}</span><span>{item.title[lang]}<small>{item.done ? (en ? "Ready to review" : "Đã có · Xem lại") : (en ? "Review and complete" : "Rà soát và bổ sung")}</small></span></Link>)}
+    </div></details>
 
-  return (
-    <div className="yoga-dashboard-layout">
-      <div className="yoga-dashboard-content">
-        <header className="page-head dashboard-greeting">
-          <div>
-            <span className="eyebrow">{language === "en" ? "YOUR RETIREMENT PICTURE" : "BỨC TRANH NGHỈ HƯU CỦA BẠN"}</span>
-            <h1 className="user-hero-title">
-              {language === "en" ? `Hi ${firstName}, one calm step at a time.` : `Chào ${firstName}, an tâm từng bước.`}
-            </h1>
-            <p>{language === "en" ? "See where you stand and take one next step." : "Xem mình đang ở đâu và chọn một việc tiếp theo."}</p>
-          </div>
-        </header>
+    <div className="dashboard-metric-grid" aria-busy={busy}>{metrics.map(({ key, title, value }) => <section key={key} className={`dashboard-metric is-${key}`} aria-label={title}><div className="dashboard-metric-label"><span>{title}</span><button type="button" className="metric-info-btn" aria-label={`${en ? "Explain" : "Giải thích"} ${title}`} aria-haspopup="dialog" onClick={() => setDetail(key)}><Icon name="info" /></button></div><strong>{busy && key !== "capacity" ? (en ? "Calculating…" : "Đang tính…") : overviewMoney(value, en, true)}{key === "capacity" && value !== null && <small>/{en ? "month" : "tháng"}</small>}</strong><span className="dashboard-metric-full">{value === null ? (en ? "Add details or calculate a plan" : "Bổ sung thông tin hoặc tính kế hoạch") : `${overviewMoney(value, en)}${key === "capacity" ? (en ? "/month" : "/tháng") : ""}`}</span></section>)}</div>
+    <p className="dashboard-result-note"><Icon name="info" /><span>{en ? "Projection under selected assumptions" : "Dự phóng theo giả định đã chọn"}{pensionOmitted ? (en ? " · Pension not included" : " · Chưa tính lương hưu BHXH") : hasPension ? (en ? " · Declared pension included" : " · Đã tính lương hưu đã khai") : ""}{hypothetical ? (en ? " · Hypothetical option" : " · Phương án giả định") : ""} · <button type="button" onClick={() => setDetail("assumptions")} aria-haspopup="dialog">{en ? "View assumptions" : "Xem giả định"}</button></span></p>
 
-        {/* Step Status Callout Banner (.plan-status.plan-next) */}
-        <section
-          className="plan-status plan-next"
-          aria-label={language === "en" ? "Plan status" : "Trạng thái kế hoạch"}
-          style={{
-            background: "#fffbeb",
-            border: "1px solid #f5d996",
-            borderRadius: "14px",
-            padding: "16px 22px",
-            marginBottom: "16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "16px",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", minWidth: 0, flex: 1 }}>
-            <span
-              style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                background: "#d97706",
-                marginTop: "7px",
-                flexShrink: 0,
-              }}
-            />
-            <div>
-              <strong style={{ color: "#132b45", fontSize: "14px", display: "block", marginBottom: "4px" }}>
-                {language === "en"
-                  ? "Next step: save this option as your main plan"
-                  : "Bước tiếp theo: lưu phương án này làm kế hoạch chính"}
-              </strong>
-              <ol style={{ margin: 0, paddingLeft: "18px", fontSize: "13px", color: "#4f6478", lineHeight: 1.55 }}>
-                <li>
-                  {language === "en"
-                    ? `Choose your monthly contribution (currently trying ${formatFullMoney(currentContribution)}).`
-                    : `Chọn mức góp mỗi tháng (hiện đang thử ${formatFullMoney(currentContribution)}).`}
-                </li>
-                <li>
-                  {language === "en"
-                    ? "Save as main plan to track progress and view reports."
-                    : "Lưu làm kế hoạch chính để theo dõi tiến độ và xem báo cáo."}
-                </li>
-              </ol>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexShrink: 0 }}>
-            <Link
-              to="/user/plan"
-              className="btn secondary"
-              style={{
-                minHeight: "38px",
-                padding: "8px 16px",
-                fontSize: "13px",
-                fontWeight: 600,
-                borderRadius: "10px",
-                border: "1px solid #cddfee",
-                background: "#fff",
-                color: "#052659",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-            >
-              {language === "en" ? "Choose contribution" : "Chọn mức góp"}
-            </Link>
-            <Link
-              to="/user/plan"
-              className="btn primary"
-              style={{
-                minHeight: "38px",
-                padding: "8px 16px",
-                fontSize: "13px",
-                fontWeight: 600,
-                borderRadius: "10px",
-                background: "#052659",
-                color: "#fff",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-            >
-              {language === "en" ? "Save as main plan" : "Lưu làm kế hoạch chính"}
-            </Link>
-          </div>
-        </section>
-
-        {/* Recommended Next Step Card (.welcome-next) */}
-        <section
-          className="card welcome-next"
-          style={{
-            marginBottom: "14px",
-            padding: "20px 24px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "20px",
-            background: "#ffffff",
-            border: "1px solid #d5e3f0",
-            borderRadius: "14px",
-          }}
-          aria-labelledby="dashboard-next-step-title"
-        >
-          <div>
-            <span
-              className="eyebrow"
-              style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "1.1px", color: "#456B91", textTransform: "uppercase" }}
-            >
-              {language === "en" ? "YOUR NEXT STEP" : "VIỆC TIẾP THEO CỦA BẠN"}
-            </span>
-            <h2 id="dashboard-next-step-title" style={{ fontSize: "19px", fontWeight: 700, color: "#052659", margin: "4px 0 4px" }}>
-              {nextStep.title}
-            </h2>
-            <p style={{ margin: 0, fontSize: "13px", color: "#536779" }}>{nextStep.description}</p>
-          </div>
-          <Link
-            to={nextStep.to}
-            className="btn secondary"
-            style={{
-              flexShrink: 0,
-              textDecoration: "none",
-              padding: "9px 18px",
-              borderRadius: "10px",
-              border: "1px solid #cddfee",
-              background: "#fff",
-              color: "#052659",
-              fontWeight: 600,
-              fontSize: "13.5px",
-            }}
-          >
-            {language === "en" ? "Continue →" : "Tiếp tục →"}
-          </Link>
-        </section>
-
-        {/* Collapsible Journey Progress Details */}
-        <details
-          className="journey-progress-details"
-          style={{
-            marginBottom: "16px",
-            background: "#ffffff",
-            border: "1px solid #d5e3f0",
-            borderRadius: "12px",
-            padding: "12px 18px",
-          }}
-        >
-          <summary style={{ cursor: "pointer", fontSize: "13.5px", fontWeight: 600, color: "#052659" }}>
-            {language === "en" ? "Plan preparation steps" : "Các bước chuẩn bị kế hoạch"}
-          </summary>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-              gap: "10px",
-              marginTop: "12px",
-            }}
-          >
-            {[
-              { title: "1. Hồ sơ cơ bản", desc: "Đã có thông tin ban đầu", to: "/user/profile", done: true },
-              { title: "2. Xem kế hoạch", desc: "Hiểu số tiền cần chuẩn bị", to: "/user/plan", done: Boolean(currentVersion) },
-              { title: "3. Hoàn thiện tài chính", desc: "BHXH, mục tiêu khác...", to: "/user/profile", done: false },
-              { title: "4. Chọn danh mục", desc: "Kiểm tra phân bổ tài sản", to: "/user/risk-portfolio", done: false },
-              { title: "5. Theo dõi định kỳ", desc: "Cập nhật khi thu chi đổi", to: "/user/simulation", done: false },
-            ].map(item => (
-              <Link
-                key={item.title}
-                to={item.to}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: "10px",
-                  border: "1px solid #dce7f3",
-                  background: item.done ? "#f2f8ff" : "#fff",
-                  textDecoration: "none",
-                  color: "#052659",
-                }}
-              >
-                <strong style={{ display: "block", fontSize: "13px", marginBottom: "2px" }}>{item.title}</strong>
-                <span style={{ fontSize: "11.5px", color: "#536779" }}>{item.desc}</span>
-              </Link>
-            ))}
-          </div>
-        </details>
-
-        {/* 3 Metric Cards */}
-        <div
-          className="metric-grid overview-metrics"
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "16px", marginBottom: "10px" }}
-        >
-          <div
-            className="metric-tile projected"
-            style={{
-              background: "#f2f7ff",
-              border: "1px solid #cddfee",
-              borderTop: "3px solid #2563eb",
-              borderRadius: "14px",
-              padding: "18px 22px",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <span style={{ fontSize: "12px", color: "#536779", fontWeight: 500 }}>
-                {language === "en" ? "Projected fund at retirement" : "Quỹ dự kiến khi nghỉ hưu"}
-              </span>
-              <span
-                className="metric-info-btn"
-                title={language === "en" ? "Explanation" : "Xem giải thích và công thức"}
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  border: "1px solid #c0cedb",
-                  background: "#fff",
-                  color: "#4f6b85",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  fontStyle: "italic",
-                }}
-              >
-                i
-              </span>
-            </div>
-            <strong style={{ display: "block", fontSize: "26px", fontWeight: 700, color: "#052659", letterSpacing: "-0.4px" }}>
-              {formatEasyMoney(projectedFund > 0 ? projectedFund : 1803892454)}
-            </strong>
-            <span style={{ display: "block", fontSize: "11.5px", color: "#637589", marginTop: "6px" }}>
-              {formatFullMoney(projectedFund > 0 ? projectedFund : 1803892454)}
-            </span>
-          </div>
-
-          <div
-            className="metric-tile target"
-            style={{
-              background: "#fbf6fd",
-              border: "1px solid #e5d7f0",
-              borderTop: "3px solid #795290",
-              borderRadius: "14px",
-              padding: "18px 22px",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <span style={{ fontSize: "12px", color: "#536779", fontWeight: 500 }}>
-                {language === "en" ? "Required fund for goal" : "Quỹ cần cho mục tiêu"}
-              </span>
-              <span
-                className="metric-info-btn"
-                title={language === "en" ? "Explanation" : "Xem giải thích và công thức"}
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  border: "1px solid #c0cedb",
-                  background: "#fff",
-                  color: "#4f6b85",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  fontStyle: "italic",
-                }}
-              >
-                i
-              </span>
-            </div>
-            <strong style={{ display: "block", fontSize: "26px", fontWeight: 700, color: "#052659", letterSpacing: "-0.4px" }}>
-              {formatEasyMoney(targetFund > 0 ? targetFund : 8040623523)}
-            </strong>
-            <span style={{ display: "block", fontSize: "11.5px", color: "#637589", marginTop: "6px" }}>
-              {formatFullMoney(targetFund > 0 ? targetFund : 8040623523)}
-            </span>
-          </div>
-
-          <div
-            className="metric-tile positive"
-            style={{
-              background: "#f0fdf4",
-              border: "1px solid #b6dccc",
-              borderTop: "3px solid #208769",
-              borderRadius: "14px",
-              padding: "18px 22px",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <span style={{ fontSize: "12px", color: "#536779", fontWeight: 500 }}>
-                {language === "en" ? "Initial monthly contribution capacity" : "Có thể góp tháng đầu"}
-              </span>
-              <span
-                className="metric-info-btn"
-                title={language === "en" ? "Explanation" : "Xem giải thích và công thức"}
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  border: "1px solid #c0cedb",
-                  background: "#fff",
-                  color: "#4f6b85",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  fontStyle: "italic",
-                }}
-              >
-                i
-              </span>
-            </div>
-            <strong style={{ display: "block", fontSize: "26px", fontWeight: 700, color: "#052659", letterSpacing: "-0.4px" }}>
-              {formatEasyMoney(initialCapacity, true)}
-            </strong>
-            <span style={{ display: "block", fontSize: "11.5px", color: "#637589", marginTop: "6px" }}>
-              {formatFullMoney(initialCapacity)}/tháng
-            </span>
-          </div>
-        </div>
-
-        <p className="result-note" style={{ fontSize: "12px", color: "#64748b", margin: "4px 0 18px", display: "flex", alignItems: "center", gap: "6px" }}>
-          <span>ⓘ</span>
-          <span>{language === "en" ? "Illustrative estimate · Excludes statutory pension · " : "Ước tính minh họa · Chưa tính lương hưu BHXH · "}</span>
-          <Link to="/user/plan" style={{ color: "#334daf", textDecoration: "underline", fontWeight: 500 }}>
-            {language === "en" ? "View assumptions" : "Xem giả định"}
-          </Link>
-        </p>
-
-        {/* Full-Width Retirement Chart Card */}
-        <div className="overview-grid" style={{ display: "block", marginBottom: "18px" }}>
-          <section className="card chart-explorer" style={{ padding: "22px 24px", borderRadius: "16px", background: "#fff", border: "1px solid #d5e3f0" }}>
-            <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px", gap: "12px", flexWrap: "wrap" }}>
-              <div>
-                <h2 style={{ margin: "0 0 4px", fontSize: "18px", fontWeight: 700, color: "#052659" }}>
-                  {language === "en" ? "Your retirement fund" : "Quỹ nghỉ hưu của bạn"}
-                </h2>
-                <p style={{ margin: 0, fontSize: "13px", color: "#536779" }}>
-                  {language === "en" ? "Uses the same figures as the detailed Plan page." : "Dùng cùng số liệu với trang Kế hoạch chi tiết."}
-                </p>
-              </div>
-              <span style={{ fontSize: "12px", color: "#637589", fontWeight: 500 }}>
-                {language === "en" ? "Monthly model" : "Mô hình theo tháng"}
-              </span>
-            </header>
-            {activeCalculation && planSummary ? (
-              <MonthlyRetirementChart rows={activeCalculation.rows} summary={planSummary} birthYear={birthYear} />
-            ) : (
-              <p style={{ color: "#456B91", fontSize: "14px" }}>
-                {language === "en" ? "No projection data available." : "Chưa có số liệu dự phóng."}
-              </p>
-            )}
-          </section>
-        </div>
-
-        {/* Bottom 4 Simple Buttons (.plan-tools-grid) */}
-        <nav
-          className="plan-tools-grid"
-          aria-label={language === "en" ? "Explore more" : "Xem thêm tình hình"}
-          style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px", marginTop: "16px" }}
-        >
-          <Link
-            to="/user/plan"
-            className="btn secondary"
-            style={{
-              textDecoration: "none",
-              textAlign: "center",
-              padding: "11px 16px",
-              borderRadius: "10px",
-              border: "1px solid #cddfee",
-              background: "#fff",
-              color: "#052659",
-              fontWeight: 600,
-              fontSize: "13.5px",
-            }}
-          >
-            {language === "en" ? "See plan" : "Xem kế hoạch"}
-          </Link>
-          <Link
-            to="/user/profile"
-            className="btn secondary"
-            style={{
-              textDecoration: "none",
-              textAlign: "center",
-              padding: "11px 16px",
-              borderRadius: "10px",
-              border: "1px solid #cddfee",
-              background: "#fff",
-              color: "#052659",
-              fontWeight: 600,
-              fontSize: "13.5px",
-            }}
-          >
-            {language === "en" ? "See finances" : "Xem tài chính"}
-          </Link>
-          <Link
-            to="/user/risk-portfolio"
-            className="btn secondary"
-            style={{
-              textDecoration: "none",
-              textAlign: "center",
-              padding: "11px 16px",
-              borderRadius: "10px",
-              border: "1px solid #cddfee",
-              background: "#fff",
-              color: "#052659",
-              fontWeight: 600,
-              fontSize: "13.5px",
-            }}
-          >
-            {language === "en" ? "See allocation" : "Xem phân bổ"}
-          </Link>
-          <Link
-            to="/user/simulation"
-            className="btn secondary"
-            style={{
-              textDecoration: "none",
-              textAlign: "center",
-              padding: "11px 16px",
-              borderRadius: "10px",
-              border: "1px solid #cddfee",
-              background: "#fff",
-              color: "#052659",
-              fontWeight: 600,
-              fontSize: "13.5px",
-            }}
-          >
-            {language === "en" ? "Update progress" : "Cập nhật tình hình"}
-          </Link>
-        </nav>
-      </div>
-    </div>
-  );
+    <section className="dashboard-chart-card"><header><div><h2>{en ? "Your retirement fund" : "Quỹ nghỉ hưu của bạn"}</h2><p>{rows.length ? (en ? `From ${formatMonthVN(rows[0].month)} to ${formatMonthVN(summary!.endMonth)}` : `Từ ${formatMonthVN(rows[0].month)} đến ${formatMonthVN(summary!.endMonth)}`) : (en ? "Uses the same figures as the detailed Plan page." : "Dùng cùng số liệu với trang Kế hoạch chi tiết.")}</p></div><span>{changed || !currentVersion ? (en ? "Preview" : "Bản xem trước") : (en ? "Projection" : "Dự phóng")}</span></header>
+      {rows.length && summary ? <MonthlyRetirementChart birthMonth={v2Profile?.personal.birthMonth.status === "KNOWN" ? v2Profile.personal.birthMonth.value : undefined} responsive key={preview?.inputHash} rows={rows} summary={summary} {...(birthYear !== null ? { birthYear } : {})} /> : <div className="dashboard-chart-empty"><Icon name="chart" /><h3>{busy ? (en ? "Updating projection…" : "Đang cập nhật dự phóng…") : (en ? "No projection data available" : "Chưa có số liệu dự phóng")}</h3><p>{en ? "Review your details and calculate a plan to see your fund over time." : "Rà soát thông tin và tính kế hoạch để xem quỹ nghỉ hưu qua từng tháng."}</p><Link to={hasProfile ? "/user/plan" : "/onboarding"} className="overview-button secondary">{hasProfile ? (en ? "Open plan" : "Mở kế hoạch") : (en ? "Add your information" : "Khai báo thông tin")}</Link></div>}
+    </section>
+    <nav className="dashboard-quick-links" aria-label={en ? "Explore more" : "Xem thêm tình hình"}>{[["/user/plan", "Xem kế hoạch", "See plan"], ["/user/profile", "Xem tài chính", "See finances"], ["/user/risk-portfolio", "Xem phân bổ", "See allocation"], ["/user/simulation", "Cập nhật tình hình", "Update progress"]].map(([path, vi, english]) => <Link to={path} key={path} className="overview-button secondary">{en ? english : vi}</Link>)}</nav>
+  </div>
+    {detail && <DashboardDetailsDialog detail={detail} preview={preview} capacity={capacity} onClose={() => setDetail(null)} />}
+    {savePreview && <DashboardSaveDialog preview={savePreview} onClose={() => setSavePreview(null)} />}
+  </div>;
 }

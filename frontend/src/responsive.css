@@ -280,7 +280,7 @@ img { max-width: 100%; }
 
 @media (max-width: 1024px) {
   .admin-user-detail-grid { grid-template-columns: minmax(0, 1fr) !important; }
-  .user-dashboard-shell, .user-dashboard-shell.sidebar-collapsed { grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr) !important; }
+  .user-dashboard-shell.sidebar-collapsed { grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr); }
   .user-sidebar .dashboard-brand > span:last-child, .user-sidebar-brand > .icon-button, .user-sidebar nav button span, .sidebar-label, .sidebar-profile-progress > *, .user-sidebar-footer > button span { display: none; }
   .user-sidebar-brand, .user-sidebar nav button, .user-sidebar-footer > button { justify-content: center; padding-inline: 0; }
   .user-sidebar nav { padding-inline: var(--space-3); }

@@ -1,316 +1,46 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
-import { Card, Icon } from "../components/ui";
-import CurrencyInput from "../components/CurrencyInput";
-import DateInput from "../components/DateInput";
-import { useFinancialProfile } from "../context/FinancialProfileContext";
-import { useRetirementPlan } from "../context/RetirementPlanContext";
-import { useI18n } from "../i18n";
-import "./retirement-goal.css";
-
-function formatMonthDisplay(ym: string): string {
-  if (!ym || ym.length < 7) return "";
-  return `${ym.slice(5, 7)}/${ym.slice(0, 4)}`;
+import {useEffect,useRef,useState,type FormEvent} from "react";
+import {Link,useNavigate} from "react-router";
+import {useFinancialProfile} from "../context/FinancialProfileContext";
+import {useRetirementPlan} from "../context/RetirementPlanContext";
+import {useI18n} from "../i18n";
+import type {ProfileV2} from "../services/financialProfile";
+import ProfileFormattedInput from "../components/ProfileFormattedInput";
+import ResponsiveDialog from "../components/ResponsiveDialog";
+import {DiscoveryError} from "../components/DiscoveryParts";
+import {formatMoneyDecimal as financeMoney} from "../utils/moneyDisplay";
+import {formatMonthVN} from "../utils/date";
+import "../components/user-workspace-dialogs.css";
+import "./remaining-user-sync.css";
+const monthIndex=(s:string)=>/^\d{4}-(0[1-9]|1[0-2])$/.test(s)?Number(s.slice(0,4))*12+Number(s.slice(5,7))-1:null;
+function GoalForm({data}:{data:ProfileV2}){
+ const en=useI18n().language==="en",t=(v:string,e:string)=>en?e:v,navigate=useNavigate();
+ const {profileRevision,updateRetirementGoal,saveError,reloadProfile}=useFinancialProfile(),{draftSelection,currentVersion,updateDraft}=useRetirementPlan();
+ const selection={...currentVersion?.preview.selection,...draftSelection},original=()=>({birth:data.personal.birthMonth.status==="KNOWN"?data.personal.birthMonth.value:"",retirement:data.personal.desiredRetirementMonth.status==="KNOWN"?data.personal.desiredRetirementMonth.value:"",end:data.retirementGoal?.endMonth??selection.endMonth??"",expense:data.retirementGoal?.monthlyExpenseToday??selection.monthlyExpenseToday??"",lifestyle:data.retirementGoal?.lifestylePriority??""});
+ const [form,setForm]=useState(original),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false),[error,setError]=useState(""),[popup,setPopup]=useState<"explain"|"discard"|null>(null);
+ const committed=useRef<{key:string;revision:number}|null>(null);
+ useEffect(()=>{if(!dirty&&!busy)setForm(original());},[profileRevision,currentVersion?.id]);
+ const set=(key:keyof typeof form,value:string)=>{setDirty(true);setForm(f=>({...f,[key]:value}));};
+ const ageMonths=monthIndex(form.birth)!==null&&monthIndex(form.retirement)!==null?monthIndex(form.retirement)!-monthIndex(form.birth)!:null;
+ const save=async(e:FormEvent)=>{
+  e.preventDefault();if(busy)return;setError("");
+  const start=monthIndex(data.valuationDate.slice(0,7)),birth=monthIndex(form.birth),ret=monthIndex(form.retirement),end=monthIndex(form.end);
+  if(birth===null||ret===null||end===null||birth>start!||end<start!||ret<=birth||end<ret||ageMonths!<216||ageMonths!>1200||!form.expense){setError(t("Bổ sung tháng sinh, tháng nghỉ hưu từ 18–100 tuổi, tháng kết thúc từ kỳ định giá và không trước nghỉ hưu, cùng mức chi mỗi tháng.","Enter valid birth, retirement (age 18–100), end month and monthly spending. End must be at or after valuation and retirement."));return;}
+  setBusy(true);const key=JSON.stringify(form);
+  try{
+   let revision=profileRevision;
+   if(committed.current?.key!==key||committed.current.revision!==profileRevision){
+    const ok=await updateRetirementGoal({birthMonth:form.birth,retirementMonth:form.retirement,goal:{endMonth:form.end,monthlyExpenseToday:form.expense,lifestylePriority:(form.lifestyle||null) as NonNullable<ProfileV2["retirementGoal"]>["lifestylePriority"]}});
+    if(!ok)return;revision++;committed.current={key,revision};
+   }
+   updateDraft({expectedProfileRevision:revision,endMonth:form.end,monthlyExpenseToday:form.expense,whatIf:{...selection.whatIf,retirementMonth:form.retirement}});
+   setDirty(false);navigate("/user/plan");
+  }catch(e){setError(e instanceof Error?e.message:t("Chưa chuyển được mục tiêu sang bản nháp. Thử lại sẽ dùng dữ liệu đã lưu.","Could not update the draft. Retry uses the saved goal."));}finally{setBusy(false);}
+ };
+ const cancel=()=>{if(dirty)setPopup("discard");else navigate("/user/dashboard");};
+ return <div className="remaining-user-page goal-sync-page"><Link className="overview-button secondary" to="/user/dashboard" onClick={e=>{if(dirty){e.preventDefault();cancel();}}}>{t("← Tổng quan","← Overview")}</Link><header><h1>{t("Mục tiêu nghỉ hưu","Retirement goals")}</h1><p>{t("Chọn mốc thời gian, mức sống và thời gian cần chuẩn bị quỹ.","Choose your timeline, spending and preparation horizon.")}</p></header>
+ <section className="remaining-card"><h2>{t("Mục tiêu của bạn","Your goal")}</h2><form onSubmit={save} className="remaining-form"><fieldset disabled={busy}><div className="remaining-grid"><ProfileFormattedInput format="month" label={t("Tháng năm sinh","Birth month")} value={form.birth} onChange={v=>set("birth",v)}/><label>{t("Bạn muốn nghỉ hưu năm bao nhiêu tuổi?","Desired retirement age")}<input aria-label={t("Tuổi nghỉ hưu mong muốn","Desired retirement age")} type="number" min={18} max={100} value={ageMonths!==null?Math.floor(ageMonths/12):""} onChange={e=>{const age=Number(e.target.value);if(form.birth&&e.target.value&&Number.isInteger(age)){set("retirement",`${Number(form.birth.slice(0,4))+age}-${form.birth.slice(5,7)}`);}}}/><small>{t("Tháng nghỉ hưu chính xác được giữ ở ô bên dưới.","The exact retirement month is retained below.")}</small></label><ProfileFormattedInput format="month" label={t("Tháng nghỉ hưu mong muốn","Desired retirement month")} value={form.retirement} onChange={v=>set("retirement",v)}/><ProfileFormattedInput format="month" label={t("Chuẩn bị quỹ đến tháng","Prepare fund through month")} value={form.end} min={form.retirement||data.valuationDate.slice(0,7)} onChange={v=>set("end",v)}/></div><ProfileFormattedInput format="money" label={t("Chi tiêu nghỉ hưu mỗi tháng","Monthly retirement spending")} value={form.expense} onChange={v=>set("expense",v)}/><p>{t("Theo giá hôm nay; trả nợ và khoản hỗ trợ có lịch riêng được tính riêng.","At today's prices; debt and separately scheduled support are modeled separately.")}</p><p>{t("Kỳ số liệu trong hồ sơ:","Profile valuation period:")} <strong>{formatMonthVN(data.valuationDate.slice(0,7))}</strong>. {t("Rà soát định giá tài sản trong Tài chính khi muốn đổi kỳ số liệu.","Review asset valuations in Finances before changing the valuation period.")}</p><label>{t("Mức sống mong muốn (không bắt buộc)","Lifestyle preference (optional)")}<select aria-label={t("Mức sống mong muốn","Lifestyle preference")} value={form.lifestyle} onChange={e=>set("lifestyle",e.target.value)}>{[["",t("Chưa chọn","Not selected")],["BALANCED",t("Sinh hoạt cân đối","Balanced living")],["HEALTH",t("Sức khỏe và chăm sóc","Health and care")],["HOUSING",t("Nhà ở / tiền thuê","Housing / rent")],["TRAVEL",t("Du lịch và trải nghiệm","Travel and leisure")]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label></fieldset>{(error||saveError)&&<div role="alert" className="remaining-error">{error||saveError}<button type="button" className="overview-button secondary" onClick={reloadProfile}>{t("Tải lại hồ sơ","Reload profile")}</button></div>}<button type="button" className="remaining-text" onClick={()=>setPopup("explain")}>{t("Cách xác định mốc nghỉ hưu","How retirement dates are determined")}</button><footer><button type="button" className="overview-button secondary" disabled={busy} onClick={cancel}>{t("Hủy","Cancel")}</button><button className="overview-button primary" disabled={busy}>{busy?t("Đang lưu…","Saving…"):t("Lưu và xem kết quả mới","Save and see new results")}</button></footer></form></section>
+ <section className="remaining-card"><h2>{t("Mục tiêu lớn khác","Other major goals")}</h2>{data.goals?.status==="KNOWN"?data.goals.entries.length?<ul>{data.goals.entries.map(g=><li key={g.id}>{g.label} · {financeMoney(g.amountToday.status==="KNOWN"?g.amountToday.value:null,en)} · {g.dueMonth.status==="KNOWN"?formatMonthVN(g.dueMonth.value):t("Chưa có kỳ hạn","No due month")}</li>)}</ul>:<p>{t("Đã xác nhận chưa có mục tiêu khác.","No other goals declared.")}</p>:<p>{t("Mục tiêu khác chưa được xác nhận.","Other goals have not been confirmed.")}</p>}<Link className="overview-button secondary" to="/user/profile?section=constraints">{t("Xem & chỉnh sửa mục tiêu khác →","Review other goals →")}</Link></section>
+ <ol className="goal-sync-timeline">{[[t("Bắt đầu tính","Valuation"),data.valuationDate.slice(0,7)],[t("Nghỉ hưu mong muốn","Retirement"),form.retirement],[t("Chuẩn bị đến hết tháng","Through end of month"),form.end]].map(([label,date])=><li key={label}><span>{label}</span><strong>{date?formatMonthVN(date):t("Chưa xác định","Undetermined")}</strong></li>)}</ol>
+ <ResponsiveDialog open={popup!==null} title={popup==="discard"?t("Bỏ thay đổi chưa lưu?","Discard unsaved changes?"):t("Mốc thời gian trong kế hoạch","Planning dates")} className="user-workspace-dialog" onClose={()=>{if(!busy)setPopup(null);}}>{popup==="discard"?<><p>{t("Các thay đổi chưa lưu sẽ được bỏ khi quay lại Tổng quan.","Unsaved edits will be discarded when returning to Overview.")}</p><button className="overview-button secondary" onClick={()=>setPopup(null)}>{t("Tiếp tục sửa","Keep editing")}</button><button className="overview-button primary" onClick={()=>navigate("/user/dashboard")}>{t("Bỏ thay đổi","Discard changes")}</button></>:<p>{t("Hồ sơ lưu tháng sinh và tháng nghỉ hưu, không tự tạo ngày sinh cụ thể. Chọn tuổi sẽ dùng tháng sinh ở tuổi đó; bạn có thể chỉnh tháng nghỉ hưu chính xác. Kỳ kết thúc được tính đến hết tháng đã chọn. Tháng nhận BHXH khai riêng. Lưu mục tiêu đánh dấu kế hoạch cần xem lại; việc dùng làm kế hoạch chính được xác nhận ở màn Kế hoạch.","The profile stores birth and retirement months without inventing a birth day. Choosing an age uses that birth month, while the exact retirement month stays editable. The horizon includes its final month. Pension start is declared separately. Saving marks plans for review; applying a main plan is confirmed on the Plan page.")}</p>}</ResponsiveDialog></div>;
 }
-
-function prevMonthText(ym: string): string {
-  if (!ym || ym.length < 7) return "";
-  const year = parseInt(ym.slice(0, 4), 10);
-  const month = parseInt(ym.slice(5, 7), 10);
-  if (month === 1) return `12/${year - 1}`;
-  const m = String(month - 1).padStart(2, "0");
-  return `${m}/${year}`;
-}
-
-export default function RetirementGoalPage() {
-  const { language } = useI18n();
-  const navigate = useNavigate();
-  const { profile, v2Profile, updateProfileV2 } = useFinancialProfile();
-  const { currentVersion, draftSelection, updateDraft, loadingPlans } = useRetirementPlan();
-
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Birth date / month
-  const initialBirth = v2Profile?.personal.birthMonth?.status === "KNOWN" ? v2Profile.personal.birthMonth.value : "1991-11";
-  const [birthDate, setBirthDate] = useState<string>(initialBirth.length === 7 ? `${initialBirth}-15` : initialBirth);
-
-  const birthYear = useMemo(() => {
-    const y = parseInt(birthDate.slice(0, 4), 10);
-    return isNaN(y) ? 1991 : y;
-  }, [birthDate]);
-
-  const currentYear = new Date().getFullYear();
-  const currentAge = Math.max(18, currentYear - birthYear);
-
-  // Target retirement age
-  const [targetAge, setTargetAge] = useState<number>(() => {
-    if (profile.goal.targetRetireAge >= 18) return profile.goal.targetRetireAge;
-    return 60;
-  });
-
-  // Monthly expense
-  const [monthlyExpenseInRetirement, setMonthlyExpenseInRetirement] = useState<number>(() => {
-    if (profile.goal.monthlyExpenseInRetirement > 0) return profile.goal.monthlyExpenseInRetirement;
-    return 15_000_000;
-  });
-
-  // Valuation month
-  const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
-  const [valuationMonth, setValuationMonth] = useState<string>(currentMonth);
-
-  // End month
-  const [endMonth, setEndMonth] = useState<string>(() => {
-    const endY = birthYear + 85;
-    const m = birthDate.slice(5, 7) || "11";
-    return `${endY}-${m}`;
-  });
-
-  // Lifestyle priority
-  const [lifestylePriority, setLifestylePriority] = useState<string>("unknown");
-
-  // Computed retirement month
-  const retirementMonth = useMemo(() => {
-    const rYear = birthYear + targetAge;
-    const m = birthDate.slice(5, 7) || "11";
-    return `${rYear}-${m}`;
-  }, [birthYear, targetAge, birthDate]);
-
-  const otherGoalsAssets = useMemo(() => {
-    if (v2Profile?.assets?.status !== "KNOWN") return [];
-    return v2Profile.assets.entries.filter(
-      a => a.otherGoalsShare.status === "KNOWN" && Number(a.otherGoalsShare.value) > 0
-    );
-  }, [v2Profile?.assets]);
-
-  const retirementMonthText = formatMonthDisplay(retirementMonth);
-
-  const handleBirthDateChange = (val: string) => {
-    setBirthDate(val);
-    const y = parseInt(val.slice(0, 4), 10);
-    const m = val.slice(5, 7) || "11";
-    if (!isNaN(y)) {
-      setEndMonth(`${y + 85}-${m}`);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      if (updateDraft) {
-        updateDraft({
-          monthlyExpenseToday: String(monthlyExpenseInRetirement),
-          endMonth,
-          whatIf: {
-            retirementMonth,
-          },
-        });
-      }
-      navigate("/user/plan");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="content">
-      <nav className="breadcrumb" aria-label="Đường dẫn trang" style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-        <Link to="/user/dashboard" className="btn-breadcrumb" style={{ border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", padding: "6px 12px", background: "#fff", color: "var(--navy, #052659)", fontSize: "13px", fontWeight: 500, textDecoration: "none" }}>
-          ← {language === "en" ? "Overview" : "Tổng quan"}
-        </Link>
-        <span className="sep" style={{ color: "var(--muted, #64748b)" }}>/</span>
-        <span aria-current="page" style={{ fontSize: "13px", color: "var(--navy, #052659)", fontWeight: 600 }}>
-          {language === "en" ? "Retirement Goals" : "Mục tiêu nghỉ hưu"}
-        </span>
-      </nav>
-
-      <div className="page-head" style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 8px" }}>
-          {language === "en" ? "Retirement goals" : "Mục tiêu nghỉ hưu"}
-        </h1>
-        <p style={{ color: "var(--muted, #64748b)", fontSize: "14px", margin: 0 }}>
-          {language === "en" ? "Choose your timeline, living standard, and preparation horizon." : "Chọn mốc thời gian, mức sống và thời gian cần chuẩn bị quỹ."}</p>
-      </div>
-
-      {/* Card: Mục tiêu của bạn */}
-      <Card className="card" style={{ padding: "28px", borderRadius: "16px", marginBottom: "20px" }}>
-        <header style={{ marginBottom: "20px" }}>
-          <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--navy, #052659)", margin: 0 }}>
-            {language === "en" ? "Your goal" : "Mục tiêu của bạn"}
-          </h2>
-        </header>
-
-        <form onSubmit={handleSubmit}>
-          {/* Row 1: Ngày sinh & Tuổi nghỉ hưu */}
-          <div className="goal-card-two-col two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-            <DateInput
-              label={language === "en" ? "Date of birth" : "Ngày tháng năm sinh"}
-              mode="date"
-              value={birthDate}
-              onChange={val => handleBirthDateChange(val)}
-            />
-            <div className="field">
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
-                {language === "en" ? "What age do you want to retire?" : "Bạn muốn nghỉ hưu năm bao nhiêu tuổi?"}
-              </label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type="number"
-                  className="input"
-                  min={18}
-                  max={100}
-                  value={targetAge}
-                  onChange={e => setTargetAge(Number(e.target.value) || 0)}
-                  style={{ width: "100%", height: "44px", padding: "0 44px 0 14px", border: `1px solid ${(targetAge < 18 || targetAge > 100) ? "#dc2626" : "var(--border, #D0E4FE)"}`, borderRadius: "8px", fontSize: "14px" }}
-                />
-                <span style={{ position: "absolute", right: "12px", top: "12px", fontSize: "13px", color: "var(--muted, #64748b)" }}>tuổi</span>
-              </div>
-              {(targetAge < 18 || targetAge > 100) ? (
-                <small className="field-error-text error-text" style={{ color: "#dc2626", display: "block", marginTop: "6px", fontSize: "12px", fontWeight: 500 }}>
-                  {language === "en" ? "Retirement age must be between 18 and 100." : "Tuổi nghỉ hưu phải từ 18 đến 100 tuổi."}
-                </small>
-              ) : (
-                <p style={{ fontSize: "12px", color: "var(--primary, #334DAF)", margin: "6px 0 0" }}>
-                  {language === "en" ? `Projected retirement: month ${retirementMonthText}` : `Dự kiến nghỉ hưu: tháng ${retirementMonthText}`}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Row 2: Chi tiêu nghỉ hưu */}
-          <div className="field" style={{ margin: "20px 0" }}>
-            <CurrencyInput
-              label={language === "en" ? "Monthly retirement spending" : "Chi tiêu nghỉ hưu mỗi tháng"}
-              value={monthlyExpenseInRetirement}
-              onChange={val => setMonthlyExpenseInRetirement(val)}
-              suffix="₫"
-            />
-            <p className="small muted" style={{ fontSize: "12px", color: "var(--muted, #64748b)", margin: "4px 0 0" }}>
-              {language === "en" ? "At today's prices; excluding debt payments and separate support schedules." : "Theo giá hôm nay; chưa gồm trả nợ và khoản hỗ trợ có lịch riêng."}
-            </p>
-          </div>
-
-          {/* Row 3: Tháng bắt đầu & Chuẩn bị đến */}
-          <div className="goal-card-two-col two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", margin: "20px 0" }}>
-            <DateInput
-              label={language === "en" ? "Planning start month" : "Tháng bắt đầu lập số liệu"}
-              mode="month"
-              value={valuationMonth}
-              onChange={val => setValuationMonth(val)}
-            />
-            <DateInput
-              label={language === "en" ? "Prepare fund until month" : "Chuẩn bị quỹ đến tháng"}
-              mode="month"
-              value={endMonth}
-              onChange={val => setEndMonth(val)}
-            />
-          </div>
-
-          {/* Row 4: Mức sống mong muốn */}
-          <div className="field" style={{ margin: "20px 0" }}>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--navy, #052659)", marginBottom: "6px" }}>
-              {language === "en" ? "What lifestyle do you desire in retirement? (optional)" : "Khi về hưu, bạn mong muốn mức sống như thế nào? (không bắt buộc điền)"}
-            </label>
-            <select
-              value={lifestylePriority}
-              onChange={e => setLifestylePriority(e.target.value)}
-              style={{ width: "100%", height: "44px", padding: "0 14px", border: "1px solid var(--border, #D0E4FE)", borderRadius: "8px", fontSize: "14px", background: "#fff" }}
-            >
-              <option value="unknown">{language === "en" ? "Not selected" : "Chưa chọn"}</option>
-              <option value="balanced">{language === "en" ? "Balanced living" : "Sinh hoạt cân đối"}</option>
-              <option value="health">{language === "en" ? "Health and care" : "Sức khỏe và chăm sóc"}</option>
-              <option value="housing">{language === "en" ? "Housing / rent" : "Nhà ở / tiền thuê"}</option>
-              <option value="travel">{language === "en" ? "Travel and leisure" : "Du lịch và trải nghiệm"}</option>
-            </select>
-          </div>
-
-          <details className="field-help" style={{ margin: "16px 0", fontSize: "13px", color: "var(--muted, #64748b)" }}>
-            <summary style={{ cursor: "pointer", fontWeight: 500, color: "var(--navy, #052659)" }}>{language === "en" ? "How retirement milestone is determined" : "Cách xác định mốc nghỉ hưu"}</summary>
-            <p style={{ margin: "8px 0 0" }}>{language === "en" ? "Calculated by birth month at chosen age. Social security start date is declared separately." : "Tính theo tháng sinh nhật ở tuổi bạn chọn. Tháng bắt đầu nhận BHXH được khai riêng."}</p>
-          </details>
-
-          <div className="form-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", marginTop: "24px" }}>
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() => navigate("/user/dashboard")}
-              style={{ background: "transparent", border: 0, color: "#052659", fontWeight: 600, fontSize: "13.5px", cursor: "pointer" }}
-            >
-              {language === "en" ? "Cancel" : "Hủy"}
-            </button>
-            <button
-              type="submit"
-              className="btn primary"
-              disabled={isSaving}
-              style={{ background: "#052659", color: "#fff", border: 0, borderRadius: "10px", padding: "10px 18px", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" }}
-            >
-              {isSaving ? (language === "en" ? "Saving…" : "Đang lưu…") : (language === "en" ? "Save and see new results" : "Lưu và xem kết quả mới")}
-            </button>
-          </div>
-        </form>
-      </Card>
-
-      {/* Card: Mục tiêu lớn khác */}
-      <Card className="card" style={{ padding: "24px 28px", borderRadius: "16px", marginBottom: "24px" }}>
-        <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--navy, #052659)", margin: "0 0 8px" }}>
-          {language === "en" ? "Other major life goals" : "Mục tiêu lớn khác"}
-        </h2>
-        {otherGoalsAssets.length > 0 ? (
-          <ul style={{ margin: "0 0 16px", paddingLeft: "20px" }}>
-            {otherGoalsAssets.map(a => {
-              const othShareNum = a.otherGoalsShare.status === "KNOWN" ? Number(a.otherGoalsShare.value) : 0;
-              const valNum = a.value.status === "KNOWN" ? Number(a.value.value) : 0;
-              const goalAmount = Math.round(valNum * othShareNum);
-              return (
-                <li key={a.id} style={{ fontSize: "14px", color: "var(--navy, #052659)", marginBottom: "4px" }}>
-                  <strong>{a.label}</strong>: {Math.round(othShareNum * 100)}% ({new Intl.NumberFormat("vi-VN").format(goalAmount)} ₫)
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p style={{ color: "var(--muted, #64748b)", fontSize: "14px", margin: "0 0 16px" }}>
-            {language === "en" ? "No other major goals added yet (home, car, education fund...)." : "Chưa có mục tiêu lớn khác (mua nhà, xe, quỹ học vấn...)."}
-          </p>
-        )}
-        <Link
-          to="/user/profile?section=constraints"
-          className="btn secondary"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            padding: "9px 16px",
-            borderRadius: "10px",
-            border: "1px solid #cddfee",
-            background: "#fff",
-            color: "#052659",
-            fontSize: "13px",
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
-        >
-          {language === "en" ? "View & edit other goals →" : "Xem & chỉnh sửa mục tiêu khác →"}
-        </Link>
-      </Card>
-
-      {/* Lộ trình cuộc đời (.life-timeline) */}
-      <ol className="life-timeline">
-        <li>
-          <span>{language === "en" ? "PLANNING START" : "BẮT ĐẦU TÍNH"}</span>
-          <strong>{formatMonthDisplay(valuationMonth)}</strong>
-          <small>{currentAge || 35} {language === "en" ? "years old" : "tuổi"}</small>
-        </li>
-        <li>
-          <span>{language === "en" ? "DESIRED RETIREMENT" : "NGHỈ HƯU MONG MUỐN"}</span>
-          <strong>{retirementMonthText}</strong>
-          <small>{targetAge} {language === "en" ? "years old" : "tuổi"}</small>
-        </li>
-        <li>
-          <span>{language === "en" ? "PREPARE UNTIL" : "CHUẨN BỊ ĐẾN"}</span>
-          <strong>{formatMonthDisplay(endMonth)}</strong>
-          <small>{language === "en" ? `Spend through end of month ${prevMonthText(endMonth)}` : `Dự tính chi tiêu đến hết tháng ${prevMonthText(endMonth)}`}</small>
-        </li>
-      </ol>
-    </div>
-  );
-}
+export default function RetirementGoalPage(){const {v2Profile,loading,loadError,reloadProfile}=useFinancialProfile();return loading?<p role="status">Đang tải mục tiêu…</p>:loadError?<DiscoveryError message={loadError} retry={reloadProfile}/>:v2Profile?<GoalForm data={v2Profile}/>:<div className="remaining-user-page"><h1>Mục tiêu nghỉ hưu</h1><p>Hãy hoàn tất hoặc nâng cấp hồ sơ tài chính trước khi lưu mục tiêu.</p><Link to="/user/profile">Mở Tài chính</Link></div>;}

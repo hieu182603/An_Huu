@@ -1,3 +1,4 @@
+import { toggleExplainMode } from "./helpers";
 import { test, expect, type Page } from '@playwright/test';
 import { mkdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -100,7 +101,7 @@ test('explanation metric compares raw value and requests MONTHLY only after the 
       assumptions: { version: 2, sources: [] }, notes: ['Chi tiết phép tính được cung cấp bởi máy chủ.'], limitations: ['Đây là ước tính.']
     } } });
   });
-  await page.getByRole('button', { name: 'Trợ lý AI', exact: true }).click();
+  await toggleExplainMode(page);
   const value = page.locator('.result-total [role="button"]');
   await expect(value).toBeVisible(); await value.click();
   const popup = page.getByRole('dialog', { name: 'Quỹ cần có khi nghỉ hưu' });
@@ -117,7 +118,7 @@ test('explanation metric mismatch hides the formula and tells the user to reload
     metricKey: 'summary.atRetirement.requiredFund', detail: 'SUMMARY', label: { vi: 'Quỹ cần có khi nghỉ hưu', en: 'Required fund' }, value: '999', unit: 'VND',
     formula: { vi: 'Công thức không được hiển thị.', en: 'Do not show this formula.', symbolic: 'A + B' }, steps: [], assumptions: { version: 2, sources: [] }, notes: [], limitations: []
   } } }));
-  await page.getByRole('button', { name: 'Trợ lý AI', exact: true }).click();
+  await toggleExplainMode(page);
   await page.locator('.result-total [role="button"]').click();
   const popup = page.getByRole('dialog');
   await expect(popup).toContainText('Số liệu đã thay đổi, hãy tải lại');
@@ -131,7 +132,7 @@ for (const scenario of [
   test(`explanation ${scenario.name} shows a localized message and does not fabricate a formula`, async ({ page }) => {
     await planPage(page, { coverage: '60' });
     await page.route('**/api/v1/me/explanations/metric', route => route.fulfill({ status: scenario.status, json: { error: { code: scenario.code, message: 'API fixture response' } } }));
-    await page.getByRole('button', { name: 'Trợ lý AI', exact: true }).click();
+    await toggleExplainMode(page);
     await page.locator('.result-total [role="button"]').click();
     const popup = page.getByRole('dialog');
     await expect(popup).toContainText(scenario.message);

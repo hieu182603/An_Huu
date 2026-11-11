@@ -1,4 +1,10 @@
 import { authenticatedRequest } from "./api.ts";
+export type InsurancePeriod = { id: string; fromMonth: string; toMonth: string; months: number; details: InsuranceContributionMonth; advancedOnly: boolean };
+export type InsurancePeriodsReport = { historyRevision: number; historyId: string | null; documentHash: string | null; recordedAt: string | null; state: "NOT_DECLARED" | "DECLARED"; declaredContributionMonths: number | null; unknownMonths: number | null; missingEvidenceMonths: number | null; periods: InsurancePeriod[] };
+export type InsurancePeriodEntry = { fromMonth: string; toMonth: string; scheme: "COMPULSORY" | "VOLUNTARY"; salaryRegime: "EMPLOYER" | "VOLUNTARY_INCOME" | "UNKNOWN"; contributionBase: string | null };
+export type InsurancePeriodCommand = { kind: "ADD"; entry: InsurancePeriodEntry } | { kind: "UPDATE"; id: string; entry: InsurancePeriodEntry } | { kind: "DELETE"; id: string };
+export const fetchInsurancePeriods = () => authenticatedRequest<InsurancePeriodsReport>("/me/pension/history/periods", undefined, "GET", undefined, { skipCache: true });
+export const patchInsurancePeriods = (expectedHistoryRevision: number, command: InsurancePeriodCommand, key: string) => authenticatedRequest<InsurancePeriodsReport>("/me/pension/history/periods", { expectedHistoryRevision, command }, "PATCH", { "Idempotency-Key": key });
 
 export interface InsuranceEvidence {
   reference: string;

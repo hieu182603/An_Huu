@@ -6,6 +6,7 @@ import "./profile-formatted-input.css";
 
 type Props = ComponentProps<typeof Input> & {
   format: "money" | "month" | "date";
+  currency?: string;
   onFocus?: React.FocusEventHandler<HTMLInputElement>;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
 };
@@ -32,7 +33,7 @@ function parseDate(text: string, monthOnly: boolean): string | null {
   return `${parts[0]}-${String(month).padStart(2, "0")}${monthOnly ? "" : `-${String(day).padStart(2, "0")}`}`;
 }
 
-export default function ProfileFormattedInput({ format, label, value = "", onChange, helper, error, disabled, placeholder, min, max, onFocus, onBlur }: Props) {
+export default function ProfileFormattedInput({ format, currency = "VND", label, value = "", onChange, helper, error, disabled, placeholder, min, max, onFocus, onBlur }: Props) {
   const { language } = useI18n();
   const vi = language !== "en";
   const id = useId();
@@ -122,7 +123,7 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
           if (parsed !== null) setDraft(display(parsed.endsWith(".") ? parsed.slice(0, -1) : parsed));
           onBlur?.(event);
         }} />
-      {format === "money" ? <span className="input-suffix">VND</span> : <span className="profile-date-picker">
+      {format === "money" ? <span className="input-suffix">{currency}</span> : <span className="profile-date-picker">
         <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
         <input type={format} value={value} disabled={disabled} min={min} max={max}
           aria-label={`${vi ? "Mở lịch chọn" : "Open calendar for"} ${typeof label === "string" ? label.toLowerCase() : ""}`}
@@ -133,9 +134,9 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
           }} />
       </span>}
     </span>
-    {format === "money" && !message && numericValue > 0 && (
+    {format === "money" && vi && !message && numericValue > 0 && Number.isSafeInteger(numericValue) && (
       <span className="money-words" role="status" aria-live="polite">
-        {numberToVietnameseWords(numericValue, "VND")}
+        {numberToVietnameseWords(numericValue, currency)}
       </span>
     )}
     {format === "money" && isFocused && suggestions.length > 0 && !message && (
@@ -160,7 +161,7 @@ export default function ProfileFormattedInput({ format, label, value = "", onCha
                 inputRef.current?.setCustomValidity("");
                 onChange?.(str);
               }}
-              aria-label={`Chọn ${amt} VND`}
+              aria-label={`${vi ? "Chọn" : "Choose"} ${amt} ${currency}`}
             >
               {labelText}
             </button>

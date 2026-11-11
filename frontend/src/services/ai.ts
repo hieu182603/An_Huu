@@ -126,7 +126,7 @@ export interface AiConversationListResponse {
 }
 
 export async function getAiPrivacy(): Promise<AiPrivacyResponse> {
-  return authenticatedRequest<AiPrivacyResponse>("/me/ai/privacy");
+  return authenticatedRequest<AiPrivacyResponse>("/me/ai/privacy",undefined,"GET",undefined,{skipCache:true});
 }
 
 export async function updateAiPrivacy(command: {
@@ -158,7 +158,7 @@ export async function simulateViaAi(command: AiSimulationCommand): Promise<Simul
 }
 
 export async function listAiConversations(page = 1, limit = 20): Promise<AiConversationListResponse> {
-  return authenticatedRequest<AiConversationListResponse>(`/me/ai/conversations?page=${page}&limit=${limit}`);
+  return authenticatedRequest<AiConversationListResponse>(`/me/ai/conversations?page=${page}&limit=${limit}`,undefined,"GET",undefined,{skipCache:true});
 }
 
 export async function createAiConversation(): Promise<{ id: string; title: string; revision: number; expiresAt: string }> {
@@ -166,7 +166,7 @@ export async function createAiConversation(): Promise<{ id: string; title: strin
 }
 
 export async function getAiConversation(id: string): Promise<AiConversationDetail> {
-  return authenticatedRequest<AiConversationDetail>(`/me/ai/conversations/${encodeURIComponent(id)}`);
+  return authenticatedRequest<AiConversationDetail>(`/me/ai/conversations/${encodeURIComponent(id)}`,undefined,"GET",undefined,{skipCache:true});
 }
 
 export async function renameAiConversation(

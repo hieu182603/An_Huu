@@ -17,6 +17,12 @@ import {
   type DraftRecord,
   type ProfileV2,
   type FinancialData,
+  type CashflowCommand,
+  type AssetCommand,
+  type DebtCommand,
+  type PensionDeclaration,
+  type OptionalMonth,
+  type FamilyValues,
 } from "../services/financialProfile";
 import { useAuth } from "./AuthContext";
 import { calculateRetirement, inputFromProfile } from "../domain/retirementCalculator";
@@ -230,7 +236,9 @@ function useProfileState() {
     if (user?.role?.toLowerCase() !== "user") return;
     let active = true;
     setLoading(true); setLoadError(null);
-    Promise.all([authenticatedRequest<ProfileRecord | null>("/me/financial-profile"), authenticatedRequest<DraftRecord | null>("/me/onboarding-draft")])
+    // An explicit reload after a conflict must reach the server, not the cached revision.
+    const reloadOptions = { skipCache: reload > 0 };
+    Promise.all([authenticatedRequest<ProfileRecord | null>("/me/financial-profile", undefined, "GET", undefined, reloadOptions), authenticatedRequest<DraftRecord | null>("/me/onboarding-draft", undefined, "GET", undefined, reloadOptions)])
       .then(([record, draft]) => {
         if (!active) return;
         recordRef.current = record; draftRef.current = draft;
@@ -286,19 +294,16 @@ function useProfileState() {
     finally { busy.current = false; }
   };
 
-  const updateProfileV2 = async (changes: Partial<ProfileV2>): Promise<boolean> => {
+  const persistV2 = async (path: string, body: object): Promise<boolean> => {
     if (busy.current || loading || loadError) return false;
     if (!recordRef.current) { setSaveError("Hãy hoàn tất khai báo hồ sơ trước khi cập nhật."); setSaveStatus("error"); return false; }
     busy.current = true; setSaveStatus("saving"); setSaveError(null);
     try {
       const payload = {
         expectedRevision: recordRef.current.revision,
-        changes: {
-          schemaVersion: 2,
-          ...changes,
-        },
+        ...body,
       };
-      const record = await authenticatedRequest<ProfileRecord>("/me/financial-profile", payload, "PATCH");
+      const record = await authenticatedRequest<ProfileRecord>(path, payload, "PATCH");
       recordRef.current = record;
       const { profile: nextProfile, v2 } = loadedProfile(base, record);
       setProfile(nextProfile);
@@ -310,6 +315,15 @@ function useProfileState() {
     } catch (e) { setSaveStatus("error"); setSaveError(failure(e)); return false; }
     finally { busy.current = false; }
   };
+
+  const updateProfileV2 = (changes: Partial<ProfileV2>) => persistV2("/me/financial-profile", { changes: { schemaVersion: 2, ...changes } });
+  const updateCashflow = (command: CashflowCommand) => persistV2("/me/financial-profile/cashflow", { command });
+  const updateAssets = (command: AssetCommand) => persistV2("/me/financial-profile/assets", { command });
+  const updateDebts = (command: DebtCommand) => persistV2("/me/financial-profile/debts", { command });
+  const updatePension = (pension: PensionDeclaration, pensionStartMonth: OptionalMonth) => persistV2("/me/financial-profile/pension", { pension, pensionStartMonth });
+  const updateRetirementGoal = (values:{birthMonth:string;retirementMonth:string;goal:NonNullable<ProfileV2["retirementGoal"]>})=>persistV2("/me/financial-profile/retirement-goal",values);
+  const updateFamily = (values: FamilyValues) => persistV2("/me/financial-profile/family", values);
+  const updatePlanning = (values: import("../services/financialProfile").PlanningValues) => persistV2("/me/financial-profile/planning", values);
 
   const upgradeToV2 = async (): Promise<boolean> => {
     const defaultV2 = createDefaultProfileV2(profile);
@@ -454,6 +468,13 @@ function useProfileState() {
     hasUnsavedChanges,
     updateProfile,
     updateProfileV2,
+    updateCashflow,
+    updateAssets,
+    updateDebts,
+    updatePension,
+    updateFamily,
+    updateRetirementGoal,
+    updatePlanning,
     upgradeToV2,
     onboardingConstraints,
     legacyOnboardingDraft,

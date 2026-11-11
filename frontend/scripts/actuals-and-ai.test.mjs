@@ -252,9 +252,8 @@ test("FE-03 & FE-04: Wire tests for previewReforecast and saveReforecast with id
       capturedSaveReq = { url, options, body: JSON.parse(options.body) };
       return jsonResponse({
         planId: "p1",
-        planRevision: 2,
-        version: 2,
-        versionId: "v2",
+        revision: 2,
+        saved: {id:"v2",version:2},
       });
     }
 
@@ -296,6 +295,8 @@ test("FE-03 & FE-04: Wire tests for previewReforecast and saveReforecast with id
     );
 
     assert.equal(saveRes.planRevision, 2);
+    assert.equal(saveRes.versionId,"v2");
+    assert.equal(saveRes.version,2);
     assert.equal(capturedSaveReq.options.headers["Idempotency-Key"], "custom-idem-key-123");
     assert.equal(capturedSaveReq.body.expectedInputHash, "input-hash-ref-1");
   } finally {

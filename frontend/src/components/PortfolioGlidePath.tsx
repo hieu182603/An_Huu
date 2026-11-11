@@ -54,7 +54,7 @@ export function PortfolioGlidePath({ points, month, retirementMonth, language, a
         </ul>
       </div> : <p className="pf-glide-missing">{en ? "Retirement month or valuation month is missing; current position is undetermined." : "Chưa đủ tháng nghỉ hưu hoặc tháng định giá để xác định vị trí hiện tại."}</p>}
 
-      <table className="sr-only">
+      <div className="sr-only"><table>
         <caption>{en ? "Retirement allocation path" : "Lộ trình phân bổ tới nghỉ hưu"}</caption>
         <thead><tr><th scope="col">{en ? "Years to retirement" : "Số năm tới nghỉ hưu"}</th>{codes.map(code => <th scope="col" key={code}>{label(code)}</th>)}</tr></thead>
         <tbody>{rows.map(row => {
@@ -64,7 +64,7 @@ export function PortfolioGlidePath({ points, month, retirementMonth, language, a
             {codes.map(code => <td key={code}>{percent.format(weightOf(row, code))}%</td>)}
           </tr>;
         })}</tbody>
-      </table>
+      </table></div>
       <ol className="pf-glide-rows" aria-hidden="true">
         {rows.map(row => {
           const isCurrent = row.yearsToAnchor === years;

@@ -67,9 +67,12 @@ import {
 import { useI18n } from "../../i18n";
 import { formatNumberWithDots } from "../../utils/currency";
 import "../simulation-audit.css";
+import ProfileFormattedInput from "../../components/ProfileFormattedInput";
+import ResponsiveDialog from "../../components/ResponsiveDialog";
+import {formatMoneyDecimal as financeMoney} from "../../utils/moneyDisplay";
 import { formatVND, formatVNDText, getVietnamCurrentMonth } from "./format";
 
-export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boolean) => void }) {
+export default function ActualsTab({ onBusyChange, futureMode=false }: { onBusyChange?: (busy: boolean) => void; futureMode?:boolean }) {
   const { t, language } = useI18n();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -79,7 +82,7 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
 
   // Top level active tab: T08 (What-If & Compare) vs T09 (Actual Ledger & Reforecast)
   const [params, setParams] = useSearchParams();
-  const activeTab = params.get("tab") === "actuals" ? "actuals" : "what-if";
+  const activeTab = "actuals";
   const baselineSelection = currentVersion?.preview.selection;
   const setActiveTab = (tab: "what-if" | "actuals") => setParams(prev => { const next = new URLSearchParams(prev); next.set("tab", tab); return next; });
 
@@ -295,6 +298,13 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
 
   // Future & Source Changes (P13/P15 & Q15-03)
   const [reforecastSubTab, setReforecastSubTab] = useState<"standard" | "future-changes" | "sources-v4">("standard");
+  useEffect(()=>{if(futureMode)setReforecastSubTab("future-changes");},[futureMode]);
+  const [quickFrom,setQuickFrom]=useState("");
+  const [quickTo,setQuickTo]=useState("");
+  const [quickContribution,setQuickContribution]=useState("");
+  const [quickSpending,setQuickSpending]=useState("");
+  const [quickError,setQuickError]=useState("");
+  const [ledgerExpanded,setLedgerExpanded]=useState(false);
   const [futureChanges, setFutureChanges] = useState<FutureChange[]>([]);
   const [reforecastCandidate, setReforecastCandidate] = useState<ReforecastPreviewResponse | null>(null);
   const [previewingCandidate, setPreviewingCandidate] = useState<boolean>(false);
@@ -318,13 +328,13 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
   const [fcEditingId, setFcEditingId] = useState<string | null>(null);
   const [fcError, setFcError] = useState("");
   const candidateBusy = savingCandidate || applyingCandidate;
-  const candidateKey = JSON.stringify([user?.id, activePlan?.id, activePlan?.revision, currentVersion?.id, currentVersion?.snapshotHash, profileRevision, selectedPeriod, monthDetail?.revision, ledgerReady, ledgerDirty, currentPayload, activeTab, loadingPlans, plansError, futureChanges, fcField, fcAmount, fcStartMonth, fcEndMonth, fcReason, fcEditingId]);
+  const candidateKey = JSON.stringify([user?.id, activePlan?.id, activePlan?.revision, currentVersion?.id, currentVersion?.snapshotHash, profileRevision, selectedPeriod, monthDetail?.revision, ledgerReady, ledgerDirty, currentPayload, activeTab, loadingPlans, plansError, quickFrom,quickTo,quickContribution,quickSpending,futureChanges, fcField, fcAmount, fcStartMonth, fcEndMonth, fcReason, fcEditingId]);
   const latestCandidateKey = useRef(candidateKey); latestCandidateKey.current = candidateKey;
   const currentCandidate = candidateSnapshot?.key === candidateKey ? reforecastCandidate : null;
   const candidateComplete = currentCandidate?.status === "READY" && Boolean(currentCandidate.inputHash && currentCandidate.candidate?.calculation?.summary?.atRetirement);
   const candidateEndMonth = currentVersion?.preview?.calculation?.summary?.endMonth;
   const candidateUsesSources = currentVersion?.preview?.modelVersion === "retirement-monthly-v4";
-  const candidateCanPreview = !candidateUsesSources && ledgerReady && !ledgerDirty && !savingActual && !loadingPlans && !plansError && Boolean(activePlan?.id && currentVersion?.id) && profileRevision > 0 && futureChanges.length > 0 && !fcAmount && !fcReason && !fcEditingId;
+  const candidateCanPreview = !candidateUsesSources && ledgerReady && !ledgerDirty && !savingActual && !loadingPlans && !plansError && Boolean(activePlan?.id && currentVersion?.id) && profileRevision > 0 && futureChanges.length > 0 && !fcAmount && !fcReason && !fcEditingId && (!futureMode||(!quickContribution&&!quickSpending));
   useEffect(() => {
     ++candidateRequest.current;
     setReforecastCandidate(null); setCandidateSnapshot(null); setSavedCandidateVersion(null);
@@ -341,13 +351,7 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
     livingExpense: language === "en" ? "Living expenses" : "Sinh hoạt",
     additionalExpense: language === "en" ? "Additional expenses" : "Chi bổ sung",
   })[field];
-  const futureMoney = (value: string | null | undefined) => {
-    if (value == null || !/^-?\d+(\.\d+)?$/.test(value)) return language === "en" ? "Unknown" : "Chưa xác định";
-    const [whole, fraction = ""] = value.replace(/^-/, "").split(".");
-    const decimals = fraction.replace(/0+$/, "");
-    const formattedWhole = language === "en" ? whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return `${value.startsWith("-") ? "-" : ""}${formattedWhole}${decimals ? `${language === "en" ? "." : ","}${decimals}` : ""} VND`;
-  };
+  const futureMoney = (value: string | null | undefined) => financeMoney(value??null,language==="en");
 
   // Source commands v4 state
   const [sourceCommands, setSourceCommands] = useState<FlowSourceCommand[]>([]);
@@ -1704,36 +1708,46 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
   useEffect(() => { onBusyChange?.(writing); }, [writing, onBusyChange]);
   useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
 
-  const planSummary = currentVersion?.preview?.calculation?.summary;
-  const hasShortfall = planSummary ? Number(planSummary.retirementFundingShortfall ?? planSummary.atRetirement?.fundingGap ?? 0) > 0 : true;
-  const shortfallMonthStr = planSummary?.firstShortfallMonth || "2056-10";
-  const shortfallMonthLabel = `${shortfallMonthStr.slice(5)}/${shortfallMonthStr.slice(0, 4)}`;
-  const chosenMonthlySave = Number(baselineSelection?.monthlyContribution || profile.plan.monthlySavings || 7500000);
-  const rawFirstCap = Number(currentVersion?.preview?.calculation?.rows?.[0]?.contributionCapacity || 0);
-  const fallbackCap = Math.max(
-    0,
-    ((profile.income.primaryIncome + profile.income.secondaryIncome) || 35000000) -
-      ((profile.expenses.essentialExpense + profile.expenses.lifestyleExpense) || 20000000)
-  );
-  const firstMonthCapacity = rawFirstCap > 0 ? Math.floor(rawFirstCap) : (fallbackCap > 0 ? fallbackCap : 15000000);
-  const retireAge = profile.goal.targetRetireAge || 60;
-
+  const planSummary = !loadingPlans&&!plansError?currentVersion?.preview?.calculation?.summary:undefined;
+  const knownShortfall=planSummary?.retirementFundingShortfall??planSummary?.atRetirement?.fundingGap;
+  const hasShortfall = knownShortfall!=null&&validMoney(knownShortfall,true)?new Decimal(knownShortfall).gt(0):null;
+  const shortfallMonthStr = planSummary?.firstShortfallMonth;
+  const shortfallMonthLabel = shortfallMonthStr ? `${shortfallMonthStr.slice(5)}/${shortfallMonthStr.slice(0,4)}` : (language==="en"?"not specified":"chưa xác định");
+  const chosenMonthlySave = baselineSelection?.monthlyContribution??null;
+  const firstMonthCapacity = currentVersion?.preview.calculation?.rows?.[0]?.contributionCapacity??null;
+  const birth=v2Profile?.personal.birthMonth.status==="KNOWN"?v2Profile.personal.birthMonth.value:null;
+  const retireAge=birth&&planSummary?Math.floor(((Number(planSummary.retirementMonth.slice(0,4))-Number(birth.slice(0,4)))*12+Number(planSummary.retirementMonth.slice(5))-Number(birth.slice(5)))/12):"—";
+  const exactMoney=(value:string|null)=>financeMoney(value,language==="en");
   const monthContributed = entries
     .filter(e => e.kind === "CONTRIBUTION")
     .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const targetContribution = chosenMonthlySave;
+  const targetContribution = Number(chosenMonthlySave??0);
   const contributionPercent = targetContribution > 0
     ? Math.min(100, Math.round((monthContributed / targetContribution) * 100))
     : 0;
 
+  const addQuickChange=()=>{
+    if(candidateBusy)return;
+    const end=quickTo||candidateEndMonth,retirement=(currentVersion?.preview.reforecast as {originalRetirementMonth?:string}|undefined)?.originalRetirementMonth??planSummary?.retirementMonth;
+    if(!end||!retirement||!/^\d{4}-(0[1-9]|1[0-2])$/.test(quickFrom)||quickFrom<=selectedPeriod||quickFrom>end||end>(candidateEndMonth??"")){setQuickError(language==="en"?"Choose future months after reconciliation and within the plan horizon.":"Chọn tháng sau kỳ đối soát, trong kỳ dự báo; tháng bắt đầu không được sau tháng kết thúc.");return;}
+    if(!quickContribution&&!quickSpending){setQuickError(language==="en"?"Enter at least one amount, including 0 if intended.":"Nhập ít nhất một số tiền; có thể nhập 0 nếu muốn thay bằng 0.");return;}
+    const prevRetirement=new Date(retirement+"-01T00:00:00Z");prevRetirement.setUTCMonth(prevRetirement.getUTCMonth()-1);
+    const rows:FutureChange[]=[];
+    const add=(field:FutureChangeField,amount:string,startMonth:string,endMonth:string)=>{if(amount!==""&&startMonth<=endMonth)rows.push({id:crypto.randomUUID(),field,amount,startMonth,endMonth,operation:"REPLACE_MONTHLY_TOTAL",reason:language==="en"?"Expected change declared by account owner":"Thay đổi dự kiến do chủ tài khoản khai"});};
+    add("plannedContribution",quickContribution,quickFrom,end<retirement?end:prevRetirement.toISOString().slice(0,7));
+    add("livingExpense",quickSpending,quickFrom>retirement?quickFrom:retirement,end);
+    const error=rows.map(validateFutureChange).find(Boolean);
+    if(error||!rows.length||futureChanges.length+rows.length>200||rows.some(row=>futureChanges.some(c=>c.field===row.field&&c.startMonth<=row.endMonth&&row.startMonth<=c.endMonth))){setQuickError(error||(language==="en"?"The period is outside the relevant phase, overlaps an existing change, or exceeds 200 rows.":"Khoảng tháng chưa thuộc giai đoạn áp dụng, trùng thay đổi đang thử hoặc vượt 200 dòng."));return;}
+    setFutureChanges(prev=>[...prev,...rows]);setQuickContribution("");setQuickSpending("");setQuickError("");
+  };
   return (
     <>
       <div className="simulation-actuals">
         {/* 1. Checkin Summary Card matching demo */}
-        <section className="card checkin-summary">
+        {!futureMode&&(planSummary?<section className="card checkin-summary">
           <div className="checkin-heading">
             <h2>
-              {hasShortfall
+              {hasShortfall===null?(language==="en"?"Review the saved projection":"Kiểm tra kết quả dự phóng đã lưu"):hasShortfall
                 ? (language === "en" ? "Shortfall projected - review needed" : "Có một khoảng thiếu cần xem lại")
                 : (language === "en" ? "Plan meets current assumptions" : "Kế hoạch đang đáp ứng các giả định")}
             </h2>
@@ -1742,7 +1756,7 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
             </span>
           </div>
           <p>
-            {hasShortfall
+            {hasShortfall===null?(language==="en"?"Open the plan to review its result before concluding whether the fund is sufficient.":"Mở kế hoạch để kiểm tra kết quả trước khi kết luận quỹ có đủ hay không."):hasShortfall
               ? (language === "en"
                   ? `Fund may run out starting from ${shortfallMonthLabel}. You can adjust monthly contribution or retirement age.`
                   : `Quỹ có thể bắt đầu thiếu từ ${shortfallMonthLabel}. Bạn có thể thử thay đổi mức góp hoặc tuổi nghỉ hưu.`)
@@ -1753,11 +1767,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
           <dl className="checkin-numbers">
             <div>
               <dt>{language === "en" ? "Chosen contribution" : "Mức góp đang chọn"}</dt>
-              <dd>{formatVNDCurrency(String(chosenMonthlySave))}/{language === "en" ? "mo" : "tháng"}</dd>
+              <dd>{exactMoney(chosenMonthlySave)}/{language === "en" ? "mo" : "tháng"}</dd>
             </div>
             <div>
               <dt>{language === "en" ? "First month capacity" : "Có thể góp tháng đầu"}</dt>
-              <dd>{formatVNDCurrency(String(firstMonthCapacity))}/{language === "en" ? "mo" : "tháng"}</dd>
+              <dd>{exactMoney(firstMonthCapacity)}/{language === "en" ? "mo" : "tháng"}</dd>
             </div>
             <div>
               <dt>{language === "en" ? "Retirement age" : "Tuổi nghỉ hưu"}</dt>
@@ -1772,10 +1786,38 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
               {language === "en" ? "View Plan" : "Xem kế hoạch"}
             </Link>
           </div>
-        </section>
+        </section>:<section className="remaining-card"><p role="status">{loadingPlans?(language==="en"?"Loading plan…":"Đang tải kế hoạch…"):plansError??(language==="en"?"Apply a plan to see its projection.":"Chọn kế hoạch chính để xem dự phóng.")}</p><Link to="/user/plan">{language==="en"?"Open plan":"Mở kế hoạch"}</Link></section>)}
 
+        {futureMode&&<div className="upcoming-workspace future-cashflows">
+          <section className="remaining-card remaining-form"><h2>{language==="en"?"Create change":"Lập thay đổi"}</h2><form onSubmit={e=>{e.preventDefault();addQuickChange();}}><fieldset disabled={candidateBusy||previewingCandidate||loadingPlans||!currentVersion}>
+            <div className="remaining-grid"><ProfileFormattedInput format="month" label={language==="en"?"Effective from month":"Có hiệu lực từ tháng"} value={quickFrom} onChange={setQuickFrom}/><ProfileFormattedInput format="month" label={language==="en"?"To month (optional)":"Đến tháng (không bắt buộc điền)"} value={quickTo} onChange={setQuickTo}/></div>
+            <ProfileFormattedInput format="money" label={language==="en"?"Monthly contribution during period":"Khoản góp mỗi tháng trong giai đoạn"} value={quickContribution} onChange={setQuickContribution}/>
+            <ProfileFormattedInput format="money" label={language==="en"?"Monthly retirement spending (nominal VND)":"Chi hưu trí mỗi tháng (VND danh nghĩa)"} value={quickSpending} onChange={setQuickSpending}/>
+            <p>{language==="en"?"Contributions apply before retirement; spending applies after retirement. Spending is the nominal amount paid in each selected month. Pension, loan and market assumptions stay pinned. Blank amounts leave that field unchanged; blank end month uses the plan end.":"Khoản góp áp dụng trước nghỉ hưu, mức chi áp dụng sau nghỉ hưu. Mức chi là số tiền danh nghĩa trả trong từng tháng đã chọn. Lịch BHXH, nợ và giả định thị trường giữ theo phiên bản. Để trống số tiền nếu không đổi hạng mục; để trống tháng kết thúc để dùng mốc cuối kế hoạch."}</p>
+            {quickError&&<p role="alert">{quickError}</p>}<footer><button className="overview-button secondary" type="button" onClick={()=>{setQuickContribution("");setQuickSpending("");setQuickError("");}}>{language==="en"?"Discard input":"Bỏ nội dung đang nhập"}</button><button className="overview-button primary">{language==="en"?"Add to test scenario":"Thêm vào phương án thử"}</button></footer>
+          </fieldset></form>{!currentVersion&&!loadingPlans&&<Link to="/user/plan">{language==="en"?"Choose a main plan first":"Chọn kế hoạch chính trước khi thử thay đổi"}</Link>}</section>
+          <section className="remaining-card"><h2>{language==="en"?"Active test changes":"Các thay đổi đang thử"}</h2>{futureChanges.length?futureChanges.map(row=><div className="notification-record" key={row.id}><div><strong>{row.startMonth} → {row.endMonth}</strong><p>{futureFieldLabel(row.field)}: {futureMoney(row.amount)}</p></div><button className="overview-button secondary" disabled={candidateBusy} onClick={()=>handleRemoveFutureChange(row.id)}>{language==="en"?"Remove":"Bỏ"}</button></div>):<p>{language==="en"?"No changes yet.":"Chưa có thay đổi."}</p>}
+            {(!ledgerReady||ledgerDirty)&&<p>{language==="en"?"Reconcile and save a closed month before previewing.":"Đối soát và lưu sổ một tháng đã kết thúc trước khi xem kết quả."}</p>}
+            {candidateUsesSources&&<p>{language==="en"?"This plan requires changes by source below.":"Kế hoạch này cần điều chỉnh từng nguồn ở phần đối soát bên dưới."}</p>}
+            <button className="overview-button primary" disabled={!candidateCanPreview||candidateBusy||previewingCandidate} onClick={handlePreviewCandidate}>{language==="en"?"View change results":"Xem kết quả thay đổi"}</button>
+            <button className="remaining-text" onClick={()=>setLedgerExpanded(v=>!v)}>{language==="en"?"Open ledger and source adjustments":"Mở sổ đối soát và điều chỉnh nguồn"}</button>
+            {candidateError&&<div role="alert" className="remaining-error">{candidateError}</div>}
+            {currentCandidate&&currentCandidate.status!=="READY"&&<p role="status">{language==="en"?"Not ready: review reconciliation months before retrying.":"Chưa đủ điều kiện tính: kiểm tra các tháng đối soát rồi thử lại."} {currentCandidate.issues?.map(i=>i.month).join(", ")}</p>}
+                {candidateComplete && <div className="future-result">
+                  <h3>{language === "en" ? "Before and after adjustments" : "So sánh trước và sau điều chỉnh"}</h3>
+                  <p>{savedCandidateVersion ? (language === "en" ? "Saved version " : "Đã lưu phiên bản ") + "v" + savedCandidateVersion.version + (language === "en" ? "; not yet applied." : "; chưa áp dụng.") : (language === "en" ? "Preview only; not saved or applied." : "Chỉ là bản xem trước; chưa lưu hoặc áp dụng.")}</p>
+                  <div className="future-grid"><div><span>{language === "en" ? "Fund before adjustments" : "Quỹ trước điều chỉnh"}</span><strong>{futureMoney(currentCandidate!.beforeChanges?.summary?.atRetirement?.projectedFund)}</strong></div><div><span>{language === "en" ? "Fund after adjustments" : "Quỹ sau điều chỉnh"}</span><strong>{futureMoney(currentCandidate!.candidate.calculation.summary.atRetirement.projectedFund)}</strong></div><div><span>{language === "en" ? "Revised coverage" : "Tỷ lệ bao phủ mới"}</span><strong>{currentCandidate!.candidate.calculation.summary.atRetirement.coveragePercent == null ? (language === "en" ? "Unknown" : "Chưa xác định") : currentCandidate!.candidate.calculation.summary.atRetirement.coveragePercent + "%"}</strong></div></div>
+                  <div className="future-actions"><Button variant="secondary" onClick={handleSaveCandidate} loading={savingCandidate} disabled={candidateBusy || Boolean(savedCandidateVersion)}>{savedCandidateVersion ? (language === "en" ? "Version saved" : "Đã lưu phiên bản") : (language === "en" ? "Save as new version" : "Lưu thành phiên bản mới")}</Button>{savedCandidateVersion && <Button variant="primary" disabled={candidateBusy} onClick={() => setConfirmCandidate(true)}>{language === "en" ? "Apply version " : "Áp dụng bản "}v{savedCandidateVersion.version}</Button>}</div>
+                </div>}
+                <ResponsiveDialog className="user-workspace-dialog" open={confirmCandidate} title={language === "en" ? "Confirm scenario application" : "Dùng làm kế hoạch hiện tại điều chỉnh"} onClose={() => { if (!candidateWriting.current) setConfirmCandidate(false); }}>
+                  <p>{language === "en" ? "This will make the saved version your official retirement plan. Your actual ledger stays unchanged." : "Phiên bản đã lưu sẽ trở thành kế hoạch hưu trí chính thức. Sổ thực tế giữ nguyên."}</p>
+                  <p>{language === "en" ? "Version: " : "Phiên bản: "}v{savedCandidateVersion?.version} · {language === "en" ? "Through month: " : "Kỳ đối soát: "}{selectedPeriod}</p>
+                  <div className="future-actions"><Button variant="secondary" disabled={applyingCandidate} onClick={() => setConfirmCandidate(false)}>{language === "en" ? "Cancel" : "Hủy"}</Button><Button variant="primary" loading={applyingCandidate} onClick={handleApplyCandidateVersion}>{language === "en" ? "Confirm application" : "Dùng làm kế hoạch hiện tại"}</Button></div>
+                </ResponsiveDialog>
+          </section><section className="remaining-card"><h2>{language==="en"?"Change by source":"Thay đổi từng nguồn"}</h2><p>{language==="en"?"Review cashflow, assets, loans or pensions. Source changes linked to actual balances need their own supporting records and confirmation.":"Kiểm tra thu chi, tài sản, khoản vay hoặc lương hưu. Thay đổi nguồn gắn với số dư thực tế cần căn cứ và xác nhận riêng."}</p><div className="saved-actions">{[["cashflow","Thu chi","Cashflow"],["assets","Tài sản","Assets"],["debts","Khoản vay","Loans"],["insurance","Lương hưu","Pension"]].map(([section,vi,en])=><Link key={section} className="overview-button secondary" to={section==="debts"?"/user/debts":"/user/profile?section="+section}>{language==="en"?en:vi}</Link>)}</div></section>
+        </div>}
         {/* 3. Checkin Events (3 triggers) */}
-        <section className="checkin-events">
+        <section className="checkin-events" hidden={futureMode}>
           <h2>{language === "en" ? "Do you have any other changes?" : "Bạn vừa có thay đổi nào khác?"}</h2>
           <div>
             <Link to="/user/profile?section=assets" className="btn secondary">
@@ -1791,7 +1833,7 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
         </section>
 
         {/* 4. Monthly Ledger in Collapsible details */}
-        <details className="checkin-ledger">
+        <details className="checkin-ledger" open={futureMode?ledgerExpanded:undefined} onToggle={e=>{if(futureMode)setLedgerExpanded(e.currentTarget.open);}}>
           <summary>
             {language === "en" ? "Monthly Ledger (Optional)" : "Sổ từng tháng — tùy chọn"}
           </summary>
@@ -2256,7 +2298,7 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
             {/* ========================================================= */}
             {/* SUBTAB 2: FUTURE CASH FLOW ADJUSTMENTS (P13/P15 & Q15-03)   */}
             {/* ========================================================= */}
-            {reforecastSubTab === "future-changes" && (
+            {reforecastSubTab === "future-changes" && !futureMode && (
               <section className="future-cashflows" aria-label={language === "en" ? "Future cash flow adjustments" : "Điều chỉnh dòng tiền tương lai"}>
                 <h3>{language === "en" ? "Adjust monthly totals" : "Điều chỉnh tổng tiền từng tháng"}</h3>
                 {candidateUsesSources && <Alert tone="info" title={language === "en" ? "Adjust individual sources" : "Kế hoạch cần điều chỉnh theo từng nguồn"}><p>{language === "en" ? "This plan tracks individual sources. Use source adjustments to preserve their schedules and supporting records." : "Kế hoạch này quản lý từng nguồn riêng. Hãy điều chỉnh nguồn để giữ đúng lịch và căn cứ của từng khoản."}</p><Button onClick={() => setReforecastSubTab("sources-v4")}>{language === "en" ? "Open source adjustments" : "Mở điều chỉnh từng nguồn"}</Button></Alert>}
@@ -2267,7 +2309,7 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                     <label htmlFor="fc-field">{language === "en" ? "Field to adjust" : "Hạng mục điều chỉnh"}<select id="fc-field" className="input" value={fcField} onChange={e => { setFcField(e.target.value as FutureChangeField); setFcError(""); }}>{(["plannedContribution", "livingExpense", "income", "additionalExpense"] as FutureChangeField[]).map(field => <option key={field} value={field}>{futureFieldLabel(field)}</option>)}</select></label>
                     <label htmlFor="fc-start">{language === "en" ? "Start month" : "Tháng bắt đầu"}<input id="fc-start" className="input" type="month" max={candidateEndMonth} value={fcStartMonth} onChange={e => { setFcStartMonth(e.target.value); setFcError(""); }} /></label>
                     <label htmlFor="fc-end">{language === "en" ? "End month" : "Tháng kết thúc"}<input id="fc-end" className="input" type="month" min={fcStartMonth || undefined} max={candidateEndMonth} value={fcEndMonth} onChange={e => { setFcEndMonth(e.target.value); setFcError(""); }} /></label>
-                    <label htmlFor="fc-amount">{language === "en" ? "New monthly amount (VND)" : "Số tiền thay thế mỗi tháng (VND)"}<MoneyTextBox id="fc-amount" className="input" placeholder="5.000.000" value={fcAmount} onChange={v => { setFcAmount(v); setFcError(""); }} /></label>
+                    <label htmlFor="fc-amount">{language === "en" ? "New monthly amount (VND)" : "Số tiền thay thế mỗi tháng (VND)"}<input id="fc-amount" className="input" inputMode="decimal" placeholder="5000000.50" value={fcAmount} onChange={e => { setFcAmount(e.target.value); setFcError(""); }} /></label>
                   </div>
                   <label htmlFor="fc-reason">{language === "en" ? "Reason (required)" : "Lý do điều chỉnh (bắt buộc)"}<input id="fc-reason" className="input" maxLength={500} value={fcReason} onChange={e => { setFcReason(e.target.value); setFcError(""); }} /></label>
                   <p>{language === "en" ? "Use months after " : "Chọn tháng sau "}{selectedPeriod}{candidateEndMonth ? (language === "en" ? " through " : " đến ") + candidateEndMonth : ""}. {language === "en" ? "Use a dot for decimals, for example 1000000.50; zero is allowed." : "Dùng dấu chấm cho phần lẻ, ví dụ 1000000.50; có thể nhập 0."}</p>
@@ -2300,11 +2342,11 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                   <div className="future-grid"><div><span>{language === "en" ? "Fund before adjustments" : "Quỹ trước điều chỉnh"}</span><strong>{futureMoney(currentCandidate!.beforeChanges?.summary?.atRetirement?.projectedFund)}</strong></div><div><span>{language === "en" ? "Fund after adjustments" : "Quỹ sau điều chỉnh"}</span><strong>{futureMoney(currentCandidate!.candidate.calculation.summary.atRetirement.projectedFund)}</strong></div><div><span>{language === "en" ? "Revised coverage" : "Tỷ lệ bao phủ mới"}</span><strong>{currentCandidate!.candidate.calculation.summary.atRetirement.coveragePercent == null ? (language === "en" ? "Unknown" : "Chưa xác định") : currentCandidate!.candidate.calculation.summary.atRetirement.coveragePercent + "%"}</strong></div></div>
                   <div className="future-actions"><Button variant="secondary" onClick={handleSaveCandidate} loading={savingCandidate} disabled={candidateBusy || Boolean(savedCandidateVersion)}>{savedCandidateVersion ? (language === "en" ? "Version saved" : "Đã lưu phiên bản") : (language === "en" ? "Save as new version" : "Lưu thành phiên bản mới")}</Button>{savedCandidateVersion && <Button variant="primary" disabled={candidateBusy} onClick={() => setConfirmCandidate(true)}>{language === "en" ? "Apply version " : "Áp dụng bản "}v{savedCandidateVersion.version}</Button>}</div>
                 </div>}
-                <Modal open={confirmCandidate} title={language === "en" ? "Confirm scenario application" : "Dùng làm kế hoạch hiện tại điều chỉnh"} onClose={() => { if (!candidateWriting.current) setConfirmCandidate(false); }}>
+                <ResponsiveDialog className="user-workspace-dialog" open={confirmCandidate} title={language === "en" ? "Confirm scenario application" : "Dùng làm kế hoạch hiện tại điều chỉnh"} onClose={() => { if (!candidateWriting.current) setConfirmCandidate(false); }}>
                   <p>{language === "en" ? "This will make the saved version your official retirement plan. Your actual ledger stays unchanged." : "Phiên bản đã lưu sẽ trở thành kế hoạch hưu trí chính thức. Sổ thực tế giữ nguyên."}</p>
                   <p>{language === "en" ? "Version: " : "Phiên bản: "}v{savedCandidateVersion?.version} · {language === "en" ? "Through month: " : "Kỳ đối soát: "}{selectedPeriod}</p>
                   <div className="future-actions"><Button variant="secondary" disabled={applyingCandidate} onClick={() => setConfirmCandidate(false)}>{language === "en" ? "Cancel" : "Hủy"}</Button><Button variant="primary" loading={applyingCandidate} onClick={handleApplyCandidateVersion}>{language === "en" ? "Confirm application" : "Dùng làm kế hoạch hiện tại"}</Button></div>
-                </Modal>
+                </ResponsiveDialog>
               </section>
             )}
 
@@ -3920,7 +3962,7 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
 
           {/* History Drawer Modal */}
           {historyOpen && monthDetail && (
-            <Modal
+            <ResponsiveDialog className="user-workspace-dialog"
               title={language === "en" ? `Revision History for ${selectedPeriod}` : `Lịch sử chỉnh sửa tháng ${selectedPeriod}`}
               open={historyOpen}
               onClose={() => setHistoryOpen(false)}
@@ -3943,16 +3985,16 @@ export default function ActualsTab({ onBusyChange }: { onBusyChange?: (busy: boo
                   </div>
                 ))}
               </div>
-            </Modal>
+            </ResponsiveDialog>
           )}
           </fieldset>
         </details>
       </div>
-      <Modal open={confirmV4Apply} title={language === "en" ? "Apply saved source version?" : "Áp dụng phiên bản nguồn đã lưu?"} onClose={() => { if (!v4Writing.current) setConfirmV4Apply(false); }}>
+      <ResponsiveDialog className="user-workspace-dialog" open={confirmV4Apply} title={language === "en" ? "Apply saved source version?" : "Áp dụng phiên bản nguồn đã lưu?"} onClose={() => { if (!v4Writing.current) setConfirmV4Apply(false); }}>
         <p>{language === "en" ? "This saved version will become the official plan. Your actual ledger stays unchanged." : "Phiên bản đã lưu sẽ trở thành kế hoạch chính thức. Sổ thực tế giữ nguyên."}</p>
         <p>{language === "en" ? "Version " : "Phiên bản "}v{savedV4Version?.version} · {selectedPeriod}</p>
         <div className="future-actions"><Button variant="secondary" disabled={applyingV4} onClick={() => setConfirmV4Apply(false)}>{language === "en" ? "Cancel" : "Hủy"}</Button><Button loading={applyingV4} onClick={handleApplyV4Version}>{language === "en" ? "Confirm application" : "Dùng làm kế hoạch hiện tại nguồn"}</Button></div>
-      </Modal>
+      </ResponsiveDialog>
     </>
   );
 }
