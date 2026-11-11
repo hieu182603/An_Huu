@@ -12,6 +12,7 @@ import { assessLossConstraint } from "../capital/loss-constraint";
 import { essentialCoverage, adjustmentOptions, decisionExplanations } from "./preview-insights";
 import { logPreviewCoverage } from "../../common/logger";
 import { PreviewCache } from "./preview-cache";
+import { pensionImpact } from "../pensions/impact";
 import type { ReforecastLineage } from "../actuals/lineage";
 import type { z } from "zod";
 import type { futureChangeSchema, sourceChangeSchema } from "../actuals/schema";
@@ -34,6 +35,10 @@ export type PreviewResult = ReturnType<RetirementService["previewCaptured"]>;
 export type PreviewRunner = (snapshot: PreviewSnapshot, input: RetirementPreview, options: PreviewOptions) => Promise<PreviewResult>;
 export class RetirementService {
   constructor(private db: PrismaClient, private runner?: PreviewRunner, private cache?: PreviewCache<PreviewResult>) {}
+  async pensionImpact(userId: string, command: RetirementPreview) {
+    const input = retirementPreviewSchema.parse(command), snapshot = await this.capture(this.db, userId, input);
+    return { ...pensionImpact(snapshot.profile, input, snapshot.policy.data, snapshot.assumptions.data), profileRevision: snapshot.revision, valuationDate: snapshot.profile.valuationDate, endMonth: input.endMonth, currency: "VND" as const, basis: "SAME_PROFILE_SELECTION_AND_PUBLISHED_DOCUMENTS" as const, policyVersionId: snapshot.policy.id, policyHash: snapshot.policy.documentHash, assumptionVersionId: snapshot.assumptions.id, assumptionHash: snapshot.assumptions.documentHash };
+  }
   async preview(userId: string, command: RetirementPreview, options: PreviewOptions = { adjustments: true }): Promise<PreviewResult> {
     const input = retirementPreviewSchema.parse(command);
     // Read-only: one profile row plus immutable PUBLISHED documents, so a

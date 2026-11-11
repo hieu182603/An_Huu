@@ -25,6 +25,9 @@ export class ContentService {
     const [items, total] = await Promise.all([this.db.article.findMany({ where, select, orderBy: [{ [query.sortBy]: query.order }, { id: "asc" }], skip: (query.page - 1) * query.limit, take: query.limit }), this.db.article.count({ where })]);
     return { items, total, page: query.page, limit: query.limit };
   }
+  async facets() {
+    return this.db.article.groupBy({ by: ["category"], where: { kind: "ARTICLE", status: "PUBLISHED" }, _count: { _all: true }, orderBy: { category: "asc" } });
+  }
   async write(actor: string, input: z.infer<typeof contentInput>, id?: string, revision?: number) {
     try { return await transaction(this.db, async tx => {
       const current = id ? await tx.article.findUnique({ where: { id } }) : null;

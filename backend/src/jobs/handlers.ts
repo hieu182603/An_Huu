@@ -24,7 +24,7 @@ export function createEventHandler(db: PrismaClient, config: AppConfig, send: Ma
         id: event.id, userId: user.id,
         title: passwordChanged ? "Mật khẩu đã được thay đổi" : "Thông tin tài khoản đã cập nhật",
         message: passwordChanged ? "Các phiên đăng nhập trước đã được thu hồi." : "Thông tin cá nhân của bạn vừa được thay đổi.",
-        path: user.role === "ADMIN" ? "/admin/settings" : "/user/account",
+        path: user.role === "ADMIN" ? "/admin/settings" : passwordChanged ? "/user/account?tab=settings" : "/user/account",
       } });
       return;
     }

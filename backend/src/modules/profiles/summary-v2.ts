@@ -4,10 +4,45 @@ import { declaredDebtPayment } from "../debts/loan";
 import { profileMonthlyCashflow } from "./cashflow";
 
 const D = Prisma.Decimal.clone({ precision: 48 });
-type Metric = "monthlyIncome" | "monthlyExpense" | "monthlyDebtService" | "totalAssets" | "totalDebt" | "netWorth" | "retirementLiquidAssets" | "availableMonthlySurplus";
+type Metric = "monthlyIncome" | "monthlyExpense" | "monthlyDebtService" | "totalAssets" | "totalDebt" | "netWorth" | "retirementLiquidAssets" | "emergencyReserve" | "availableMonthlySurplus";
 type Issue = { path: string; code: string };
 type Amount = { status: "KNOWN"; value: string } | { status: "UNKNOWN" };
 type Group<T> = { status: "KNOWN"; entries: T[] } | { status: "UNKNOWN" } | { status: "NOT_APPLICABLE"; reason: string };
+
+export function liquidAssets(data: ProfileV2, purpose: "retirementShare" | "emergencyShare") {
+  const issues: Issue[] = [];
+  const missing = (path: string, code = "UNKNOWN_VALUE"): null => { issues.push({ path, code }); return null; };
+  const amount = (value: Amount, path: string) => value.status === "KNOWN" ? new D(value.value) : missing(path);
+  const group = data.assets;
+  let value: Prisma.Decimal | null = new D(0);
+  if (group.status === "UNKNOWN") value = missing("assets");
+  if (group.status === "KNOWN") {
+    const amounts = group.entries.map((entry, index) => {
+      const path = `assets.entries.${index}`;
+      // A residence or future sale/rent is not cash available at the valuation date.
+      if (entry.type === "PRIMARY_HOME" || entry.type === "REAL_ESTATE") {
+        issues.push({ path, code: entry.housingPlan?.status === "CONFIRMED" ? "HOUSING_PLAN_FOR_FORECAST" : "HOUSING_NOT_RETIREMENT_CASH" });
+        return new D(0);
+      }
+      if (entry[purpose].status === "KNOWN" && new D(entry[purpose].value).isZero()) return new D(0);
+      if (entry.liquidity.status !== "KNOWN") return missing(path + ".liquidity");
+      if (entry.liquidity.value !== "LIQUID") return new D(0);
+      if (entry.availableFromMonth.status !== "KNOWN") return missing(path + ".availableFromMonth");
+      if (entry.availableFromMonth.value > data.valuationDate.slice(0, 7)) return new D(0);
+      let owned: Prisma.Decimal | null = null;
+      if (entry.currency !== "VND") missing(path + ".currency", "FX_RULE_REQUIRED");
+      else if (entry.valuedOn.status !== "KNOWN" || entry.valuedOn.value !== data.valuationDate) missing(path + ".valuedOn", "VALUATION_DATE_REQUIRED");
+      else {
+        const price = amount(entry.value, path + ".value"), ownership = amount(entry.ownershipShare, path + ".ownershipShare");
+        if (price !== null && ownership !== null) owned = price.mul(ownership);
+      }
+      const share = amount(entry[purpose], path + "." + purpose);
+      return owned !== null && share !== null ? owned.mul(share) : null;
+    });
+    for (const item of amounts) value = value !== null && item !== null ? value.plus(item) : null;
+  }
+  return { value, issues };
+}
 
 export function profileV2Summary(data: ProfileV2) {
   const issues: Issue[] = [];
@@ -56,25 +91,14 @@ export function profileV2Summary(data: ProfileV2) {
     return multiply(amount(entry.value, path + ".value"), amount(entry.ownershipShare, path + ".ownershipShare"));
   };
   const totalAssets = sum(data.assets, "assets", (entry, index) => assetValue(entry, `assets.entries.${index}`));
-  const retirementLiquidAssets = sum(data.assets, "assets", (entry, index) => {
-    const path = `assets.entries.${index}`;
-    // A residence or future sale/rent is not cash available at the valuation date.
-    if (entry.type === "PRIMARY_HOME" || entry.type === "REAL_ESTATE") {
-      issues.push({ path, code: entry.housingPlan?.status === "CONFIRMED" ? "HOUSING_PLAN_FOR_FORECAST" : "HOUSING_NOT_RETIREMENT_CASH" });
-      return new D(0);
-    }
-    if (entry.retirementShare.status === "KNOWN" && new D(entry.retirementShare.value).isZero()) return new D(0);
-    if (entry.liquidity.status !== "KNOWN") return missing(path + ".liquidity");
-    if (entry.liquidity.value !== "LIQUID") return new D(0);
-    if (entry.availableFromMonth.status !== "KNOWN") return missing(path + ".availableFromMonth");
-    if (entry.availableFromMonth.value > month) return new D(0);
-    return multiply(assetValue(entry, path), amount(entry.retirementShare, path + ".retirementShare"));
-  });
+  const retirement = liquidAssets(data, "retirementShare"), reserve = liquidAssets(data, "emergencyShare");
+  const retirementLiquidAssets = retirement.value, emergencyReserve = reserve.value;
+  issues.push(...retirement.issues, ...reserve.issues.map(issue => ({ ...issue, path: "emergencyReserve." + issue.path })));
   const netWorth = totalAssets !== null && totalDebt !== null ? totalAssets.minus(totalDebt) : null;
   const availableMonthlySurplus = monthlyIncome !== null && monthlyExpense !== null && monthlyDebtService !== null
     ? monthlyIncome.minus(monthlyExpense).minus(monthlyDebtService) : null;
   const values: Record<Metric, Prisma.Decimal | null> = {
-    monthlyIncome, monthlyExpense, monthlyDebtService, totalAssets, totalDebt, netWorth, retirementLiquidAssets, availableMonthlySurplus,
+    monthlyIncome, monthlyExpense, monthlyDebtService, totalAssets, totalDebt, netWorth, retirementLiquidAssets, emergencyReserve, availableMonthlySurplus,
   };
   return {
     currency: data.currency, valuationDate: data.valuationDate, periodUnit: data.periodUnit,

@@ -6,7 +6,7 @@ export const ASSUMPTION_SERIES_CODE = "assumption-series-v2";
 const code = z.string().regex(/^[A-Z][A-Z0-9_]{0,39}$/);
 const year = z.number().int().min(1900).max(2199);
 export const ratePercentSchema = z.string().regex(/^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$/)
-  .refine(v => new Prisma.Decimal(v).gt(-100) && new Prisma.Decimal(v).lte(100), "Tỷ lệ phải lớn hơn -100% và không quá 100%.");
+  .refine(v => { try { return new Prisma.Decimal(v).gt(-100) && new Prisma.Decimal(v).lte(100); } catch { return false; } }, "Tỷ lệ phải lớn hơn -100% và không quá 100%.");
 const note = z.string().trim().min(3).max(2000);
 export const assumptionSourceSchema = z.object({
   id: code, kind: z.enum(["HISTORICAL_OFFICIAL", "FORECAST", "AN_HUU_LONG_TERM", "ASSET_RESEARCH"]),

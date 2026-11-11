@@ -1,0 +1,481 @@
+Input:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedProfileRevision:
+      type: integer
+      minimum: 1
+    policyVersionId:
+      type: string
+      format: uuid
+    answers:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          questionId:
+            type: string
+            minLength: 1
+            maxLength: 100
+          choiceId:
+            type: string
+            minLength: 1
+            maxLength: 100
+        required:
+          - questionId
+          - choiceId
+      maxItems: 30
+    liquidityNeedMonths:
+      type: integer
+      minimum: 0
+      maximum: 1200
+    templateId:
+      type: string
+      minLength: 1
+      maxLength: 100
+    endMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    retirementMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+  required:
+    - expectedProfileRevision
+    - policyVersionId
+    - answers
+    - liquidityNeedMonths
+RiskPatch:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    policyVersionId:
+      type: string
+      format: uuid
+    reaction:
+      type: string
+      enum:
+        - SELL
+        - HOLD
+        - BUY_MORE
+    limit:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - PERCENT
+            value:
+              type: string
+              pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+          required:
+            - kind
+            - value
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - AMOUNT
+            value:
+              type: string
+              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+          required:
+            - kind
+            - value
+  required:
+    - expectedRevision
+    - policyVersionId
+    - reaction
+    - limit
+Result:
+  type: object
+  additionalProperties: false
+  required:
+    - profileRevision
+    - valuationDate
+    - policyVersionId
+    - assumptionVersionId
+    - capital
+    - loss
+    - portfolio
+    - allocations
+    - assetLabels
+    - issues
+    - informationalOnly
+  properties:
+    profileRevision:
+      type: integer
+    valuationDate: &a1
+      type: string
+    policyVersionId: *a1
+    assumptionVersionId: *a1
+    capital:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+            - READY
+            - INCOMPLETE
+        informationalOnly:
+          type: boolean
+          enum:
+            - true
+        currency:
+          type: string
+          enum:
+            - VND
+        valuationMonth:
+          type: string
+        assumptionBasis:
+          type: string
+          enum:
+            - PINNED_BASE
+        essentialMonthlyExpense:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        reserveMonths:
+          anyOf:
+            - type: integer
+            - type: object
+              nullable: true
+              enum:
+                - null
+        requiredEmergencyReserve:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        declaredEmergencyReserve:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        emergencyShortfall:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        retirementLiquidAssets:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        nearTermGoalsPresentValue:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        growthCapital:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        investableLiquidAssets:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        declaredOtherGoalsCapital:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        goals:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+              dueMonth:
+                type: string
+              monthsUntilDue:
+                type: integer
+              treatment:
+                type: string
+                enum:
+                  - RESERVED
+                  - LONG_TERM
+              futureAmount:
+                anyOf:
+                  - type: string
+                    pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  - type: object
+                    nullable: true
+                    enum:
+                      - null
+              presentValue:
+                anyOf:
+                  - type: string
+                    pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  - type: object
+                    nullable: true
+                    enum:
+                      - null
+              inflationBasis:
+                type: string
+                enum:
+                  - GOAL_SPECIFIC
+                  - PINNED_ASSUMPTIONS
+              inflationSourceIds:
+                type: array
+                items:
+                  type: string
+              depositSourceIds:
+                type: array
+                items:
+                  type: string
+            required:
+              - id
+              - dueMonth
+              - monthsUntilDue
+              - treatment
+              - futureAmount
+              - presentValue
+              - inflationBasis
+              - inflationSourceIds
+              - depositSourceIds
+        issues:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              path:
+                type: string
+              code:
+                type: string
+            required:
+              - path
+              - code
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              path:
+                type: string
+              code:
+                type: string
+            required:
+              - path
+              - code
+      required:
+        - status
+        - informationalOnly
+        - currency
+        - valuationMonth
+        - assumptionBasis
+        - essentialMonthlyExpense
+        - reserveMonths
+        - requiredEmergencyReserve
+        - declaredEmergencyReserve
+        - emergencyShortfall
+        - retirementLiquidAssets
+        - nearTermGoalsPresentValue
+        - growthCapital
+        - investableLiquidAssets
+        - declaredOtherGoalsCapital
+        - goals
+        - issues
+        - warnings
+    loss:
+      type: object
+      additionalProperties: false
+      properties:
+        informationalOnly:
+          type: boolean
+          enum:
+            - true
+        status:
+          type: string
+          enum:
+            - WITHIN_LIMIT
+            - REDUCE_RISK
+            - NOT_FEASIBLE
+            - REVIEW_REQUIRED
+        message:
+          type: string
+        issues:
+          type: array
+          items:
+            type: string
+        growthCapital:
+          anyOf:
+            - type: string
+            - type: object
+              nullable: true
+              enum:
+                - null
+        lossAmount:
+          anyOf:
+            - type: string
+            - type: object
+              nullable: true
+              enum:
+                - null
+        lossPercentOfGrowth:
+          anyOf:
+            - type: string
+            - type: object
+              nullable: true
+              enum:
+                - null
+        lossPercentOfInvestableAssets:
+          anyOf:
+            - type: string
+            - type: object
+              nullable: true
+              enum:
+                - null
+        allowedLossAmount:
+          anyOf:
+            - type: string
+            - type: object
+              nullable: true
+              enum:
+                - null
+        exceedsTolerance:
+          anyOf:
+            - type: boolean
+            - type: object
+              nullable: true
+              enum:
+                - null
+        maxEquityWeightPercent:
+          anyOf:
+            - type: string
+            - type: object
+              nullable: true
+              enum:
+                - null
+        proposedLossAmount:
+          anyOf:
+            - type: string
+            - type: object
+              nullable: true
+              enum:
+                - null
+        proposedAllocations:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              assetClass:
+                type: string
+              weightPercent:
+                type: string
+            required:
+              - assetClass
+              - weightPercent
+      required:
+        - informationalOnly
+        - status
+        - message
+        - issues
+        - growthCapital
+        - lossAmount
+        - lossPercentOfGrowth
+        - lossPercentOfInvestableAssets
+        - allowedLossAmount
+        - exceedsTolerance
+        - maxEquityWeightPercent
+        - proposedLossAmount
+        - proposedAllocations
+    portfolio:
+      anyOf:
+        - $ref: ./portfolios.openapi.yaml#/Preview
+        - type: object
+          nullable: true
+          enum:
+            - null
+    allocations:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - assetClass
+          - weightPercent
+          - amountVnd
+        properties:
+          assetClass: *a1
+          weightPercent: *a1
+          amountVnd:
+            type: string
+            nullable: true
+    assetLabels:
+      type: object
+      additionalProperties: *a1
+    issues:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - path
+          - code
+        properties:
+          path: *a1
+          code: *a1
+    informationalOnly:
+      type: boolean
+      enum:
+        - true
+Envelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Result"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a1

@@ -12,22 +12,36 @@ export function memoryDb() {
     "financialProfile", "onboardingDraft", "retirementPlan", "planVersion", "financialModelVersion", "idempotencyRecord", "notification", "assumptionSetVersion", "actualMonth", "actualMonthRevision", "actualEventIdentity", "aiPrivacy", "aiConversation", "aiMessage", "knowledgeSource", "knowledgeChunk", "partner", "partnerProduct", "notificationPreference", "consultation"];
   names.push("legalRuleSetVersion", "socialInsuranceHistoryVersion", "pensionEstimate");
   names.push("systemSetting", "loginLog", "systemLog", "retirementGoal");
+  names.push("article", "savedArticle", "savedProduct", "supportTicket", "supportMessage");
+  function relation(row: Row, key: string): any {
+    if (key in row) return row[key];
+    const links: Record<string, [string, string]> = { partner: ["partner", "partnerId"], product: ["partnerProduct", "productId"], article: ["article", "articleId"], author: ["user", "authorId"], user: ["user", "userId"] };
+    if (links[key]) { const [table, foreignKey] = links[key]; return tables[table]?.find(item => item.id === row[foreignKey]) ?? null; }
+    if (key === "savedBy") return tables.savedArticle?.filter(item => item.articleId === row.id) ?? [];
+    return undefined;
+  }
   function match(row: Row, where: Row = {}): boolean {
     return Object.entries(where).every(([key, value]) => {
       if (key === "OR") return value.some((v: Row) => match(row, v));
-      if (key === "userId_scope_key") return match(row, value);
+      if (key === "AND") return (Array.isArray(value) ? value : [value]).every((v: Row) => match(row, v));
+      if (key === "NOT") return !(Array.isArray(value) ? value : [value]).some((v: Row) => match(row, v));
+      if (["userId_scope_key", "userId_productId", "userId_articleId"].includes(key)) return match(row, value);
+      const field = relation(row, key);
       if (value && typeof value === "object" && !(value instanceof Date)) {
-        return Object.entries(value).every(([op, v]) => op === "mode" ? true : op === "contains" ? String(row[key] || "").toLowerCase().includes(String(v).toLowerCase()) : op === "gt" ? row[key] > (v as any) :
-          op === "lt" ? row[key] < (v as any) : op === "lte" ? row[key] <= (v as any) : op === "gte" ? row[key] >= (v as any) : op === "in" ? (v as any[]).includes(row[key]) : op === "not" ? row[key] !== v : false);
+        if ("some" in value) return Array.isArray(field) && field.some(item => match(item, value.some));
+        const operators = ["mode", "startsWith", "contains", "gt", "lt", "lte", "gte", "in", "notIn", "not", "equals"];
+        if (Object.keys(value).some(k => !operators.includes(k))) return field !== null && field !== undefined && match(field, value);
+        return Object.entries(value).every(([op, v]) => op === "mode" ? true : op === "startsWith" ? String(field ?? "").startsWith(String(v)) : op === "contains" ? String(field ?? "").toLowerCase().includes(String(v).toLowerCase()) : op === "gt" ? field > (v as any) :
+          op === "lt" ? field < (v as any) : op === "lte" ? field <= (v as any) : op === "gte" ? field >= (v as any) : op === "in" ? (v as any[]).includes(field) : op === "notIn" ? !(v as any[]).includes(field) : op === "not" ? field !== v : op === "equals" ? field === v : false);
       }
-      return row[key] === value;
+      return field === value;
     });
   }
-  function decorate(row: Row | undefined, options: Row) {
+  function decorate(row: Row | undefined, options: Row): any {
     if (!row) return null;
     const value = structuredClone(row);
     if (options.include?.user) value.user = structuredClone(tables.user.find(u => u.id === row.userId));
-    if (options.select) return Object.fromEntries(Object.keys(options.select).map(key => [key, value[key]]));
+    if (options.select) return Object.fromEntries(Object.entries(options.select).filter(([, selected]) => selected).map(([key, selected]) => [key, selected === true ? relation(value, key) : decorate(relation(value, key), selected as Row)]));
     return value;
   }
   function mutate(row: Row, data: Row) {
@@ -53,8 +67,17 @@ export function memoryDb() {
         }
         return rows.slice(options.skip || 0, options.take === undefined ? undefined : (options.skip || 0) + options.take).map(r => decorate(r, options));
       },
+      groupBy: async (options: Row) => {
+        const result = new Map<string, Row>();
+        for (const row of tables[name].filter(item => match(item, options.where))) {
+          const fields = Object.fromEntries(options.by.map((key: string) => [key, row[key]])), key = JSON.stringify(fields);
+          const group = result.get(key) ?? { ...fields, _count: { _all: 0 } }; group._count._all++; result.set(key, group);
+        }
+        return [...result.values()];
+      },
       count: async (options: Row = {}) => tables[name].filter(r => match(r, options.where)).length,
-      create: async ({ data }: Row) => {
+      create: async (options: Row) => {
+        const { data } = options;
         if (name === failModel) throw new Error("Injected write failure");
         const now = new Date();
         const defaults = { id: randomUUID(), createdAt: now, updatedAt: now };
@@ -62,7 +85,9 @@ export function memoryDb() {
           legalRuleSetVersion: { revision: 1, status: "DRAFT", knowledgeAsOf: now, publishedAt: null, publishedBy: null, reviewedBy: null, validation: null, review: null },
           socialInsuranceHistoryVersion: { recordedAt: now, schemaVersion: 1, parentVersionId: null, parentHash: null },
           notificationPreference: { revision: 1, emailDigest: false, goalAlerts: false, partnerUpdates: false },
-          partner: { revision: 0, isVisible: false }, partnerProduct: { revision: 0, isVisible: false },
+          partner: { revision: 0, isVisible: false }, partnerProduct: { revision: 0, isVisible: false, annualFee: null, conditions: null, disclosure: null, description: null, imageUrl: null },
+          article: { revision: 0, status: "DRAFT", kind: "ARTICLE", publishedAt: null, thumbnail: null, searchText: "" },
+          supportTicket: { revision: 0, status: "OPEN", productId: null },
           user: { securityVersion: 0, revision: 0, status: "ACTIVE", role: "USER", phone: null, city: null, avatarUrl: null },
           verificationToken: { attempts: 0, consumedAt: null },
           refreshToken: { usedAt: null, revokedAt: null, persistent: false },
@@ -75,7 +100,7 @@ export function memoryDb() {
         };
         const row = { ...defaults, ...modelDefaults[name], ...structuredClone(data) };
         tables[name].push(row);
-        return structuredClone(row);
+        return decorate(row, options);
       },
       update: async (options: Row) => {
         const row = tables[name].find(r => match(r, options.where));

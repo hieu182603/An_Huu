@@ -2,8 +2,9 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { moneySchema, partialKeepAbsent, unrefined } from "../../common/http";
 import { dateSchema, monthSchema } from "../../common/calendar";
-import { contractDeclarationSchema } from "../debts/schema";
+import { contractDeclarationSchema, percentSchema } from "../debts/schema";
 import { buildContractSchedule } from "../debts/loan";
+import { retirementGoalValues } from "./retirement-goal";
 import { pensionSchema, retirementConditionSchema } from "../pensions/schema";
 import { ratePercentSchema } from "../assumptions/schema";
 export { dateSchema, monthSchema } from "../../common/calendar";
@@ -79,6 +80,7 @@ export const debtEntrySchema = z.object({
   outstandingBalance: amountSchema, balanceAsOf: knownOrUnknown(dateSchema), currency,
   payment: amountSchema, paymentShare: share, balanceShare: share,
   contract: contractDeclarationSchema.optional(),
+  illustration: z.object({ annualRatePercent: knownOrUnknown(percentSchema) }).strict().optional(),
   responsibility: z.discriminatedUnion("status", [unknown,
     z.object({ status: z.literal("KNOWN"), scope: z.enum(["ALLOCATED_ONLY", "FULL", "CAPPED"]),
       confirmedDocument: z.string().trim().min(1).max(300), limit: amountSchema }).strict(),
@@ -92,7 +94,8 @@ const personalV2 = z.object({
   birthMonth: knownOrUnknown(monthSchema), desiredRetirementMonth: knownOrUnknown(monthSchema), pensionStartMonth: optionalMonth,
   gender: z.enum(["MALE", "FEMALE", "OTHER", "UNDISCLOSED"]).optional(),
   retirementCondition: retirementConditionSchema.optional(),
-  maritalStatus: z.enum(["SINGLE", "MARRIED", "OTHER"]).optional(),
+  maritalStatus: z.enum(["SINGLE", "MARRIED", "DIVORCED", "OTHER"]).nullable().optional(),
+  careResponsibility: knownOrUnknown(z.enum(["SELF", "CHILDREN", "PARENTS", "BOTH", "OTHER"])).optional(),
   dependents: knownOrUnknown(z.number().int().min(0).max(30)).optional(), city: z.string().trim().max(120).optional(),
 }).strict();
 // Percent points (20 means 20%), unlike the existing asset shares in [0, 1].
@@ -108,6 +111,7 @@ export const profileV2Object = z.object({
   personal: personalV2, income: collectionSchema(incomeEntrySchema), expenses: collectionSchema(expenseEntrySchema),
   assets: collectionSchema(assetEntrySchema), debts: collectionSchema(debtEntrySchema),
   pension: pensionSchema.optional(),
+  retirementGoal: retirementGoalValues.optional(),
   lossTolerance: z.object({ amountVnd: amountSchema.optional(), percent: knownOrUnknown(lossPercent).optional(),
     reaction: knownOrUnknown(z.enum(["SELL", "HOLD", "BUY_MORE"])).optional() }).strict().optional(),
   incomeStability: knownOrUnknown(z.enum(["STABLE", "VARIABLE", "UNCERTAIN"])).optional(),
@@ -228,6 +232,8 @@ export const partialProfileV2Schema = partialProfileV2Object.superRefine(referen
 export type ProfileV2 = z.infer<typeof profileV2Schema>;
 export type ProfileV2Changes = z.infer<typeof partialProfileV2Schema>;
 export type AssetEntry = z.infer<typeof assetEntrySchema>;
+export type IncomeEntry = z.infer<typeof incomeEntrySchema>;
+export type ExpenseEntry = z.infer<typeof expenseEntrySchema>;
 export type DebtEntry = z.infer<typeof debtEntrySchema>;
 export const isV2 = (value: unknown): value is { schemaVersion: 2 } =>
   typeof value === "object" && value !== null && "schemaVersion" in value && value.schemaVersion === 2;

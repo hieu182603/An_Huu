@@ -1,0 +1,117 @@
+RetirementGoalPatch:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    birthMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    retirementMonth:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    goal:
+      type: object
+      additionalProperties: false
+      properties:
+        endMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        monthlyExpenseToday:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        lifestylePriority:
+          anyOf:
+            - type: string
+              enum:
+                - BALANCED
+                - HEALTH
+                - HOUSING
+                - TRAVEL
+            - type: object
+              nullable: true
+              enum:
+                - null
+      required:
+        - endMonth
+        - monthlyExpenseToday
+        - lifestylePriority
+  required:
+    - expectedRevision
+    - birthMonth
+    - retirementMonth
+    - goal
+NotificationListQuery:
+  type: object
+  additionalProperties: false
+  properties:
+    page:
+      type: integer
+      minimum: 1
+      maximum: 100000
+    limit:
+      type: integer
+      minimum: 1
+      maximum: 100
+    sortBy:
+      type: string
+      enum:
+        - createdAt
+      default: createdAt
+    order:
+      type: string
+      enum:
+        - asc
+        - desc
+      default: desc
+    search:
+      type: string
+      maxLength: 120
+    unread:
+      type: string
+      enum:
+        - "true"
+        - "false"
+    kind:
+      type: string
+      enum:
+        - support
+        - security
+SupportListQuery:
+  type: object
+  additionalProperties: false
+  properties:
+    page:
+      type: integer
+      minimum: 1
+      maximum: 100000
+    limit:
+      type: integer
+      minimum: 1
+      maximum: 100
+    sortBy:
+      type: string
+      enum:
+        - createdAt
+        - updatedAt
+      default: createdAt
+    order:
+      type: string
+      enum:
+        - asc
+        - desc
+      default: desc
+    status:
+      type: string
+      enum:
+        - OPEN
+        - IN_PROGRESS
+        - RESOLVED
+        - CLOSED
+    category:
+      type: string
+      maxLength: 80
+    search:
+      type: string
+      maxLength: 120

@@ -1,0 +1,1422 @@
+DebtPatch:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    command:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - ADD
+                - UPDATE
+            entry:
+              type: object
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  pattern: ^[a-zA-Z0-9_-]+$
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                sharedLoanId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  pattern: ^[a-zA-Z0-9_-]+$
+                outstandingBalance:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                balanceAsOf:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                currency:
+                  type: string
+                  pattern: ^[A-Z]{3}$
+                  default: VND
+                payment:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                paymentShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                balanceShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                contract:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            contractVersion:
+                              type: integer
+                              enum:
+                                - 1
+                            source:
+                              type: string
+                              minLength: 1
+                              maxLength: 300
+                            confirmedOn:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            balanceAsOf:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            interestBasis:
+                              type: string
+                              enum:
+                                - REDUCING_BALANCE
+                            periodConvention:
+                              type: string
+                              enum:
+                                - DECLARED_FULL_MONTH_OR_EXPLICIT_DAYS
+                            maturityDate:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            settleRemainingAtMaturity:
+                              type: boolean
+                            parties:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                properties:
+                                  reference:
+                                    type: string
+                                    minLength: 1
+                                    maxLength: 100
+                                    pattern: ^[a-zA-Z0-9_-]+$
+                                  role:
+                                    type: string
+                                    enum: &a1
+                                      - BORROWER
+                                      - CO_OBLIGOR
+                                required:
+                                  - reference
+                                  - role
+                              minItems: 1
+                              maxItems: 20
+                            periods:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                properties:
+                                  dueDate:
+                                    type: string
+                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                  rate:
+                                    oneOf:
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - EFFECTIVE_ANNUAL
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - NOMINAL_ANNUAL_MONTHLY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - EFFECTIVE_MONTHLY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - SIMPLE_ANNUAL_DAILY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                          days:
+                                            type: integer
+                                            minimum: 1
+                                            maximum: 366
+                                          yearDays:
+                                            anyOf:
+                                              - type: integer
+                                                enum:
+                                                  - 360
+                                              - type: integer
+                                                enum:
+                                                  - 365
+                                              - type: integer
+                                                enum:
+                                                  - 366
+                                        required:
+                                          - kind
+                                          - percent
+                                          - days
+                                          - yearDays
+                                  repayment:
+                                    oneOf:
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - PRINCIPAL_PLUS_INTEREST
+                                          amount:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                        required:
+                                          - kind
+                                          - amount
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - TOTAL_PAYMENT
+                                          amount:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                        required:
+                                          - kind
+                                          - amount
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - INTEREST_ONLY
+                                        required:
+                                          - kind
+                                  minimumPayment:
+                                    type: string
+                                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                  fee:
+                                    type: string
+                                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                  prepayment:
+                                    oneOf:
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          status:
+                                            type: string
+                                            enum:
+                                              - UNKNOWN
+                                        required:
+                                          - status
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          status:
+                                            type: string
+                                            enum:
+                                              - PROHIBITED
+                                          reason:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 300
+                                        required:
+                                          - status
+                                          - reason
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          status:
+                                            type: string
+                                            enum:
+                                              - ALLOWED
+                                          mode:
+                                            type: string
+                                            enum: &a2
+                                              - PARTIAL_OR_FULL
+                                              - FULL_ONLY
+                                          minimumPrincipal:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          maximumPrincipal:
+                                            anyOf:
+                                              - type: string
+                                                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                              - type: object
+                                                nullable: true
+                                                enum:
+                                                  - null
+                                          fixedFee:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          feePercent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                          effect:
+                                            type: string
+                                            enum:
+                                              - REDUCE_TERM_KEEP_SCHEDULE
+                                          funding:
+                                            type: string
+                                            enum: &a3
+                                              - SOLE_BORROWER
+                                              - PRO_RATA_CONFIRMED
+                                          evidence:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 300
+                                        required:
+                                          - status
+                                          - mode
+                                          - minimumPrincipal
+                                          - maximumPrincipal
+                                          - fixedFee
+                                          - feePercent
+                                          - effect
+                                          - funding
+                                          - evidence
+                                required:
+                                  - dueDate
+                                  - rate
+                                  - repayment
+                                  - minimumPayment
+                                  - fee
+                                  - prepayment
+                              minItems: 1
+                              maxItems: 600
+                          required:
+                            - contractVersion
+                            - source
+                            - confirmedOn
+                            - balanceAsOf
+                            - interestBasis
+                            - periodConvention
+                            - maturityDate
+                            - settleRemainingAtMaturity
+                            - parties
+                            - periods
+                      required:
+                        - status
+                        - value
+                illustration:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    annualRatePercent:
+                      oneOf:
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            status:
+                              type: string
+                              enum:
+                                - KNOWN
+                            value:
+                              type: string
+                              pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                          required:
+                            - status
+                            - value
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            status:
+                              type: string
+                              enum:
+                                - UNKNOWN
+                          required:
+                            - status
+                  required:
+                    - annualRatePercent
+                responsibility:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        scope:
+                          type: string
+                          enum: &a4
+                            - ALLOCATED_ONLY
+                            - FULL
+                            - CAPPED
+                        confirmedDocument:
+                          type: string
+                          minLength: 1
+                          maxLength: 300
+                        limit:
+                          oneOf:
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                status:
+                                  type: string
+                                  enum:
+                                    - KNOWN
+                                value:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                              required:
+                                - status
+                                - value
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                status:
+                                  type: string
+                                  enum:
+                                    - UNKNOWN
+                              required:
+                                - status
+                      required:
+                        - status
+                        - scope
+                        - confirmedDocument
+                        - limit
+                startMonth:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                endMonth:
+                  anyOf:
+                    - type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                    - type: object
+                      nullable: true
+                      enum:
+                        - null
+                frequency:
+                  type: string
+                  enum: &a5
+                    - MONTHLY
+                    - ONCE
+              required:
+                - id
+                - label
+                - outstandingBalance
+                - balanceAsOf
+                - payment
+                - paymentShare
+                - balanceShare
+                - responsibility
+                - startMonth
+                - endMonth
+                - frequency
+            confirmUnknownGroup:
+              type: boolean
+          required:
+            - kind
+            - entry
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - SPLIT
+            sourceId:
+              type: string
+              minLength: 1
+              maxLength: 100
+              pattern: ^[a-zA-Z0-9_-]+$
+            entry:
+              type: object
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  pattern: ^[a-zA-Z0-9_-]+$
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                sharedLoanId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  pattern: ^[a-zA-Z0-9_-]+$
+                outstandingBalance:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                balanceAsOf:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                currency:
+                  type: string
+                  pattern: ^[A-Z]{3}$
+                  default: VND
+                payment:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                paymentShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                balanceShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                contract:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            contractVersion:
+                              type: integer
+                              enum:
+                                - 1
+                            source:
+                              type: string
+                              minLength: 1
+                              maxLength: 300
+                            confirmedOn:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            balanceAsOf:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            interestBasis:
+                              type: string
+                              enum:
+                                - REDUCING_BALANCE
+                            periodConvention:
+                              type: string
+                              enum:
+                                - DECLARED_FULL_MONTH_OR_EXPLICIT_DAYS
+                            maturityDate:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                            settleRemainingAtMaturity:
+                              type: boolean
+                            parties:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                properties:
+                                  reference:
+                                    type: string
+                                    minLength: 1
+                                    maxLength: 100
+                                    pattern: ^[a-zA-Z0-9_-]+$
+                                  role:
+                                    type: string
+                                    enum: *a1
+                                required:
+                                  - reference
+                                  - role
+                              minItems: 1
+                              maxItems: 20
+                            periods:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                properties:
+                                  dueDate:
+                                    type: string
+                                    pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                                  rate:
+                                    oneOf:
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - EFFECTIVE_ANNUAL
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - NOMINAL_ANNUAL_MONTHLY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - EFFECTIVE_MONTHLY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                        required:
+                                          - kind
+                                          - percent
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - SIMPLE_ANNUAL_DAILY
+                                          percent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                          days:
+                                            type: integer
+                                            minimum: 1
+                                            maximum: 366
+                                          yearDays:
+                                            anyOf:
+                                              - type: integer
+                                                enum:
+                                                  - 360
+                                              - type: integer
+                                                enum:
+                                                  - 365
+                                              - type: integer
+                                                enum:
+                                                  - 366
+                                        required:
+                                          - kind
+                                          - percent
+                                          - days
+                                          - yearDays
+                                  repayment:
+                                    oneOf:
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - PRINCIPAL_PLUS_INTEREST
+                                          amount:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                        required:
+                                          - kind
+                                          - amount
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - TOTAL_PAYMENT
+                                          amount:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                        required:
+                                          - kind
+                                          - amount
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          kind:
+                                            type: string
+                                            enum:
+                                              - INTEREST_ONLY
+                                        required:
+                                          - kind
+                                  minimumPayment:
+                                    type: string
+                                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                  fee:
+                                    type: string
+                                    pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                  prepayment:
+                                    oneOf:
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          status:
+                                            type: string
+                                            enum:
+                                              - UNKNOWN
+                                        required:
+                                          - status
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          status:
+                                            type: string
+                                            enum:
+                                              - PROHIBITED
+                                          reason:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 300
+                                        required:
+                                          - status
+                                          - reason
+                                      - type: object
+                                        additionalProperties: false
+                                        properties:
+                                          status:
+                                            type: string
+                                            enum:
+                                              - ALLOWED
+                                          mode:
+                                            type: string
+                                            enum: *a2
+                                          minimumPrincipal:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          maximumPrincipal:
+                                            anyOf:
+                                              - type: string
+                                                pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                              - type: object
+                                                nullable: true
+                                                enum:
+                                                  - null
+                                          fixedFee:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                                          feePercent:
+                                            type: string
+                                            pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                                          effect:
+                                            type: string
+                                            enum:
+                                              - REDUCE_TERM_KEEP_SCHEDULE
+                                          funding:
+                                            type: string
+                                            enum: *a3
+                                          evidence:
+                                            type: string
+                                            minLength: 1
+                                            maxLength: 300
+                                        required:
+                                          - status
+                                          - mode
+                                          - minimumPrincipal
+                                          - maximumPrincipal
+                                          - fixedFee
+                                          - feePercent
+                                          - effect
+                                          - funding
+                                          - evidence
+                                required:
+                                  - dueDate
+                                  - rate
+                                  - repayment
+                                  - minimumPayment
+                                  - fee
+                                  - prepayment
+                              minItems: 1
+                              maxItems: 600
+                          required:
+                            - contractVersion
+                            - source
+                            - confirmedOn
+                            - balanceAsOf
+                            - interestBasis
+                            - periodConvention
+                            - maturityDate
+                            - settleRemainingAtMaturity
+                            - parties
+                            - periods
+                      required:
+                        - status
+                        - value
+                illustration:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    annualRatePercent:
+                      oneOf:
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            status:
+                              type: string
+                              enum:
+                                - KNOWN
+                            value:
+                              type: string
+                              pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                          required:
+                            - status
+                            - value
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            status:
+                              type: string
+                              enum:
+                                - UNKNOWN
+                          required:
+                            - status
+                  required:
+                    - annualRatePercent
+                responsibility:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        scope:
+                          type: string
+                          enum: *a4
+                        confirmedDocument:
+                          type: string
+                          minLength: 1
+                          maxLength: 300
+                        limit:
+                          oneOf:
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                status:
+                                  type: string
+                                  enum:
+                                    - KNOWN
+                                value:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                              required:
+                                - status
+                                - value
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                status:
+                                  type: string
+                                  enum:
+                                    - UNKNOWN
+                              required:
+                                - status
+                      required:
+                        - status
+                        - scope
+                        - confirmedDocument
+                        - limit
+                startMonth:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                endMonth:
+                  anyOf:
+                    - type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                    - type: object
+                      nullable: true
+                      enum:
+                        - null
+                frequency:
+                  type: string
+                  enum: *a5
+              required:
+                - id
+                - label
+                - outstandingBalance
+                - balanceAsOf
+                - payment
+                - paymentShare
+                - balanceShare
+                - responsibility
+                - startMonth
+                - endMonth
+                - frequency
+          required:
+            - kind
+            - sourceId
+            - entry
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - DELETE
+            id:
+              type: string
+              minLength: 1
+              maxLength: 100
+              pattern: ^[a-zA-Z0-9_-]+$
+          required:
+            - kind
+            - id
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - CONFIRM_NONE
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 300
+          required:
+            - kind
+            - reason
+  required:
+    - expectedRevision
+    - command
+DebtReport:
+  type: object
+  additionalProperties: false
+  properties:
+    profileRevision:
+      type: integer
+    valuationDate:
+      type: string
+    currency:
+      type: string
+      enum:
+        - VND
+    debtState:
+      type: string
+      enum:
+        - KNOWN
+        - UNKNOWN
+        - NOT_APPLICABLE
+    totals:
+      type: object
+      additionalProperties: false
+      properties:
+        outstandingBalance:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        monthlyPayment:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        firstMonthInterest:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        monthlyIncome:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        monthlyExpense:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        availableMonthlySurplus:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        debtToIncomePercent:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+      required:
+        - outstandingBalance
+        - monthlyPayment
+        - firstMonthInterest
+        - monthlyIncome
+        - monthlyExpense
+        - availableMonthlySurplus
+        - debtToIncomePercent
+    loans:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id:
+            type: string
+          status:
+            type: string
+            enum:
+              - CONTRACT
+              - ILLUSTRATIVE
+              - DECLARED
+              - INCOMPLETE
+          outstandingBalance:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          monthlyPayment:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          firstMonthInterest:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          payoffDate:
+            anyOf:
+              - type: string
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          scheduleStatus:
+            type: string
+            enum:
+              - READY
+              - INCOMPLETE
+              - HORIZON_LIMIT
+              - NOT_DECLARED
+          rate:
+            anyOf:
+              - type: object
+                additionalProperties: false
+                properties:
+                  kind:
+                    type: string
+                  percent:
+                    type: string
+                required:
+                  - kind
+                  - percent
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          rows:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              properties:
+                dueDate:
+                  type: string
+                opening:
+                  type: string
+                principal:
+                  type: string
+                interest:
+                  type: string
+                fee:
+                  type: string
+                closing:
+                  type: string
+                userPayment:
+                  type: string
+                userPrincipal:
+                  type: string
+                userInterest:
+                  type: string
+                userFee:
+                  type: string
+              required:
+                - dueDate
+                - opening
+                - principal
+                - interest
+                - fee
+                - closing
+                - userPayment
+                - userPrincipal
+                - userInterest
+                - userFee
+          issues:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              properties:
+                loanId:
+                  anyOf:
+                    - type: string
+                    - type: object
+                      nullable: true
+                      enum:
+                        - null
+                code:
+                  type: string
+              required:
+                - loanId
+                - code
+        required:
+          - id
+          - status
+          - outstandingBalance
+          - monthlyPayment
+          - firstMonthInterest
+          - payoffDate
+          - scheduleStatus
+          - rate
+          - rows
+          - issues
+    issues:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          loanId:
+            anyOf:
+              - type: string
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          code:
+            type: string
+        required:
+          - loanId
+          - code
+  required:
+    - profileRevision
+    - valuationDate
+    - currency
+    - debtState
+    - totals
+    - loans
+    - issues
+DebtReportEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/DebtReport"
+    meta:
+      type: object
+      required:
+        - requestId
+      properties:
+        requestId:
+          type: string

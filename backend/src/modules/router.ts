@@ -1,3 +1,4 @@
+import { retirementGoalPatch } from "./profiles/retirement-goal";
 import { investmentRouter } from "./recommendation/router";
 import type { RecommendationService } from "./recommendation/service";
 import type { HoldingsRepository } from "./holdings/repository";
@@ -17,7 +18,7 @@ import { uploadMedia, cloudinary } from "../config/cloudinary";
 import { uploadLimiter } from "../middlewares/rateLimiter";
 import { UsersService, userListSchema, userStatusSchema } from "./users/service";
 import { ContentService, contentQuery, contentInput, contentUpdate } from "./content/service";
-import { CommunityService, listQuery, ticketInput, replyInput, ticketStatusInput, consultInput } from "./community/service";
+import { CommunityService, notificationQuery, listQuery, ticketInput, replyInput, ticketStatusInput, consultInput } from "./community/service";
 import type { CatalogService } from "./catalog/service";
 import { catalogRouter } from "./catalog/router";
 import { notificationSettingsInput } from "./catalog/schema";
@@ -47,12 +48,20 @@ import { AssumptionsService } from "./assumptions/service";
 import { assumptionsRouter } from "./assumptions/router";
 import { PortfoliosService } from "./portfolios/service";
 import { portfoliosRouter } from "./portfolios/router";
+import { allocationWorkspaceInput, allocationRiskPatch, allocationWorkspace, saveAllocationRisk } from "./portfolios/workspace";
 import type { SystemSettingsService } from "./settings/service";
 import { settingsRouter } from "./settings/router";
 import type { MarketDataService } from "./allocation-risk/market-service";
 import type { AllocationRiskService } from "./allocation-risk/service";
 import { marketDataRouter, allocationRiskRouter } from "./allocation-risk/router";
 import { patchAccountSchema, patchProfileSchema, draftSchema, completeSchema } from "./profiles/schema";
+import { cashflowPatchSchema } from "./profiles/cashflow-commands";
+import { assetPatchSchema } from "./profiles/asset-commands";
+import { debtPatchSchema } from "./profiles/debt-commands";
+import { pensionPatchSchema } from "./profiles/pension-commands";
+import { familyPatchSchema } from "./profiles/family";
+import { depositInput, depositPreview, bondInput, bondPreview } from "./catalog/tools";
+import { planningPatchSchema } from "./profiles/planning";
 import type { ExplanationsService } from "./explanations/service";
 import { explanationsRouter } from "./explanations/router";
 
@@ -84,6 +93,14 @@ export function createApiRouter(services: Services, config: AppConfig) {
   }
   if (services.knowledge) router.use("/admin/knowledge", ...authenticated, requireRole("ADMIN"), knowledgeRouter(services.knowledge));
   if (services.ai) router.use("/me/ai", ...authenticated, requireRole("USER"), aiRouter(services.ai));
+  if (services.portfolios && services.assumptions) {
+    router.post("/me/portfolio-policies/workspace/preview", ...authenticated, requireRole("USER"), validate(allocationWorkspaceInput), asyncHandler(async (req:AuthenticatedRequest,res) => {
+      res.set("Cache-Control","no-store");
+      sendData(res,await allocationWorkspace(profiles,services.portfolios!,services.assumptions!,req.user!.userId,req.body));
+    }));
+    router.patch("/me/financial-profile/loss-tolerance", ...authenticated, requireRole("USER"), validate(allocationRiskPatch), asyncHandler(async (req:AuthenticatedRequest,res) =>
+      sendData(res,await saveAllocationRisk(profiles,services.portfolios!,services.assumptions!,req.user!.userId,req.body))));
+  }
   if (services.portfolios) {
     router.use("/admin/portfolio-policies", ...authenticated, requireRole("ADMIN"), portfoliosRouter(services.portfolios, true));
     router.use("/me/portfolio-policies", ...authenticated, requireRole("USER"), portfoliosRouter(services.portfolios, false));
@@ -131,6 +148,7 @@ export function createApiRouter(services: Services, config: AppConfig) {
   const retiredConsultations: RequestHandler = (_req, _res, next) => next(new AppError(410, "FEATURE_RETIRED", "Tư vấn chuyên viên đã ngừng. Bạn có thể gửi yêu cầu hỗ trợ tại Support."));
   router.use("/admin/consultations", retiredConsultations);
   router.get("/content", validate(contentQuery, "query"), asyncHandler(async (req, res) => sendData(res, await services.content!.list(req.query as unknown as z.infer<typeof contentQuery>))));
+  router.get("/content-facets", asyncHandler(async (_req, res) => sendData(res, await services.content!.facets())));
   router.get("/content/:slug", asyncHandler(async (req, res) => sendData(res, await services.content!.publishedArticle(z.string().max(200).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).parse(req.params.slug)))));
   router.use("/admin/content", ...authenticated, requireRole("ADMIN"));
   router.get("/admin/content", validate(contentQuery, "query"), asyncHandler(async (req, res) => sendData(res, await services.content!.list(req.query as unknown as z.infer<typeof contentQuery>, true))));
@@ -203,9 +221,11 @@ export function createApiRouter(services: Services, config: AppConfig) {
     router.get("/me/notification-settings", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.catalog!.settings(req.user!.userId))));
     router.put("/me/notification-settings", validate(notificationSettingsInput), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.catalog!.saveSettings(req.user!.userId, req.body))));
   }
-  router.get("/me/notifications", asyncHandler(async (req: AuthenticatedRequest, res) => { const q = listParams(req.query); sendData(res, await services.community!.notifications(req.user!.userId, q.page, q.limit)); }));
+  router.get("/me/notifications", asyncHandler(async (req: AuthenticatedRequest, res) => { const q = notificationQuery.parse(req.query); sendData(res, await services.community!.notifications(req.user!.userId, q.page, q.limit, q)); }));
   router.post("/me/notifications/read-all", validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.readNotification(req.user!.userId))));
   router.post("/me/notifications/:id/read", validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.readNotification(req.user!.userId, uuidParam(req.params.id)))));
+  router.post("/me/product-tools/deposit/preview", requireRole("USER"), validate(depositInput), asyncHandler(async (req, res) => sendData(res, depositPreview(req.body))));
+  router.post("/me/product-tools/bond/preview", requireRole("USER"), validate(bondInput), asyncHandler(async (req, res) => sendData(res, bondPreview(req.body))));
   router.get("/me/saved-products", requireRole("USER"), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.savedProducts(req.user!.userId))));
   router.put("/me/saved-products/:id", requireRole("USER"), validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.saveProduct(req.user!.userId, uuidParam(req.params.id), true))));
   router.delete("/me/saved-products/:id", requireRole("USER"), validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.saveProduct(req.user!.userId, uuidParam(req.params.id), false))));
@@ -232,6 +252,10 @@ export function createApiRouter(services: Services, config: AppConfig) {
     if (!services.retirement) throw new AppError(503, "RETIREMENT_UNAVAILABLE", "Bộ tính hưu trí chưa sẵn sàng.");
     sendData(res, await services.retirement.preview(req.user!.userId, req.body, { adjustments: req.query.adjustments !== "skip" }));
   }));
+  router.post("/me/retirement/pension-impact", requireRole("USER"), validate(retirementPreviewSchema), asyncHandler(async (req: AuthenticatedRequest, res) => {
+    if (!services.retirement) throw new AppError(503, "RETIREMENT_UNAVAILABLE", "Bộ tính hưu trí chưa sẵn sàng.");
+    sendData(res, await services.retirement.pensionImpact(req.user!.userId, req.body));
+  }));
   router.post("/me/pension/preview", requireRole("USER"), validate(pensionPreviewSchema), asyncHandler(async (req: AuthenticatedRequest, res) => {
     if (!services.pensions) throw new AppError(503, "PENSIONS_UNAVAILABLE", "Xem trước lương hưu chưa sẵn sàng.");
     sendData(res, await services.pensions.preview(req.user!.userId, req.body));
@@ -242,6 +266,18 @@ export function createApiRouter(services: Services, config: AppConfig) {
   }));
   router.get("/me/financial-profile", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.getProfile(req.user!.userId))));
   router.patch("/me/financial-profile", validate(patchProfileSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.patchProfile(req.user!.userId, req.body.expectedRevision, req.body.changes))));
+  router.patch("/me/financial-profile/cashflow", validate(cashflowPatchSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.patchCashflow(req.user!.userId, req.body))));
+  router.get("/me/financial-profile/assets", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.getAssets(req.user!.userId))));
+  router.patch("/me/financial-profile/assets", validate(assetPatchSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.patchAssets(req.user!.userId, req.body))));
+  router.get("/me/financial-profile/debts", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.getDebts(req.user!.userId))));
+  router.patch("/me/financial-profile/debts", validate(debtPatchSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.patchDebts(req.user!.userId, req.body))));
+  router.get("/me/financial-profile/pension", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.getPension(req.user!.userId))));
+  router.patch("/me/financial-profile/pension", validate(pensionPatchSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.patchPension(req.user!.userId, req.body))));
+  router.patch("/me/financial-profile/retirement-goal", validate(retirementGoalPatch), asyncHandler(async (req:AuthenticatedRequest,res)=>sendData(res,await profiles.saveRetirementGoal(req.user!.userId,req.body))));
+  router.get("/me/financial-profile/family", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.getFamily(req.user!.userId))));
+  router.get("/me/financial-profile/planning", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.getPlanning(req.user!.userId))));
+  router.patch("/me/financial-profile/planning", validate(planningPatchSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.patchPlanning(req.user!.userId, req.body))));
+  router.patch("/me/financial-profile/family", validate(familyPatchSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.patchFamily(req.user!.userId, req.body))));
   router.use("/me/onboarding-draft", requireRole("USER"));
   router.get("/me/onboarding-draft", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.getDraft(req.user!.userId))));
   router.put("/me/onboarding-draft", validate(draftSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await profiles.saveDraft(req.user!.userId, req.body.expectedRevision, req.body.step, req.body.data))));

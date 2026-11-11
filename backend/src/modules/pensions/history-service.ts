@@ -6,6 +6,7 @@ import { audit } from "../../common/audit";
 import { idempotentCommand } from "../../common/idempotent-command";
 import { historyPreviewSchema, historySaveSchema, insuranceHistorySchema } from "./insurance-schema";
 import { previewInsuranceHistory } from "./history";
+import { changeHistoryPeriod, historyPeriodPatchSchema, historyPeriodsReport } from "./periods";
 
 function historyView(row: SocialInsuranceHistoryVersion) {
   const document = insuranceHistorySchema.parse(row.document);
@@ -34,8 +35,30 @@ export class InsuranceHistoryService {
   async save(userId: string, command: z.infer<typeof historySaveSchema>, key: string) {
     const input = historySaveSchema.parse(command);
     return idempotentCommand(this.db, userId, "pension.history.append", key, input, async tx => {
-      const owner = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
-      if (!owner.length) throw new AppError(404, "NOT_FOUND", "Không tìm thấy tài khoản.");
+      await this.lockOwner(userId, tx);
+      return this.append(userId, input, tx);
+    });
+  }
+  async periods(userId: string) { return historyPeriodsReport(await this.get(userId)); }
+  async patchPeriods(userId: string, command: z.infer<typeof historyPeriodPatchSchema>, key: string) {
+    const input = historyPeriodPatchSchema.parse(command);
+    return idempotentCommand(this.db, userId, "pension.history.period", key, input, async tx => {
+      await this.lockOwner(userId, tx);
+      const latest = await this.get(userId, undefined, tx);
+      if ((latest?.revision ?? 0) !== input.expectedHistoryRevision) throw new AppError(409, "HISTORY_REVISION_CONFLICT", "Lịch sử đã thay đổi. Hãy tải lại trước khi lưu.");
+      const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+      const document = changeHistoryPeriod(latest?.document ?? null, input.command, today);
+      const preview = { expectedHistoryRevision: input.expectedHistoryRevision, document };
+      const result = await this.preview(userId, preview, tx);
+      const record = await this.append(userId, { preview, expectedInputHash: result.inputHash, confirm: true }, tx);
+      return historyPeriodsReport(record);
+    });
+  }
+  private async lockOwner(userId: string, tx: Prisma.TransactionClient) {
+    const owner = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
+    if (!owner.length) throw new AppError(404, "NOT_FOUND", "Không tìm thấy tài khoản.");
+  }
+  private async append(userId: string, input: z.infer<typeof historySaveSchema>, tx: Prisma.TransactionClient) {
       const result = await this.preview(userId, input.preview, tx);
       if (result.inputHash !== input.expectedInputHash) throw new AppError(409, "PREVIEW_CHANGED", "Nội dung khác lần xem trước.");
       if (result.status === "INVALID") throw new AppError(422, "HISTORY_INVALID", "Cần sửa các tháng trùng hoặc nằm ngoài phạm vi.");
@@ -45,6 +68,5 @@ export class InsuranceHistoryService {
         document: result.normalized as Prisma.InputJsonObject, documentHash } });
       await audit(tx, userId, "INSURANCE_HISTORY_APPENDED", "INSURANCE_HISTORY", row.id, { revision: row.revision, documentHash });
       return historyView(row);
-    });
   }
 }

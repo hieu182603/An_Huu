@@ -14,6 +14,21 @@ async function fixture() {
   return { ...f, event };
 }
 describe("outbox and mail (offline)", () => {
+  it("routes password notices to security settings and keeps profile notices and admin routes intact", async () => {
+    const f = memoryDb(), send = vi.fn();
+    const handler = createEventHandler(f.db, config, send);
+    for (const role of ["USER", "ADMIN"] as const) {
+      const user = await f.db.user.create({ data: { email: `${role.toLowerCase()}@example.test`, fullName: "Audit fixture", passwordHash: "test", role, status: "ACTIVE" } });
+      for (const type of ["notification.password_changed", "notification.account_updated"]) {
+        const event = await f.db.outboxEvent.create({ data: { type, entityId: user.id, payload: {} } });
+        await handler(event); await handler(event);
+        const notices = f.rows("notification").filter(row => row.id === event.id);
+        expect(notices).toHaveLength(1);
+        expect(notices[0].path).toBe(role === "ADMIN" ? "/admin/settings" : type === "notification.password_changed" ? "/user/account?tab=settings" : "/user/account");
+      }
+    }
+    expect(send).not.toHaveBeenCalled();
+  });
   it("authenticates encrypted payloads and rejects tampering/wrong keys", () => {
     const payload = seal({ token: "secret" }, config);
     expect(unseal(payload, config)).toEqual({ token: "secret" });
