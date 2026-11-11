@@ -757,3 +757,13 @@
   font-size: 13px;
   color: #536779;
 }
+
+/* Keep the demo navigation reachable at narrow widths. */
+.user-drawer-group h3 { margin: 24px 12px 10px; font-size: 12px; color: #536b85; font-weight: 600; }
+@media (max-width: 360px) {
+  .user-dashboard-shell .topbar-ai-pill { width: 44px; padding-inline: 0 !important; justify-content: center; }
+  .user-dashboard-shell .topbar-ai-pill small { display: none; }
+  .user-dashboard-shell .user-topbar-actions { gap: 2px !important; }
+}
+
+@media (max-width: 360px) { .user-dashboard-shell .user-mobile-brand > a { display: none; } }

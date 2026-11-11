@@ -21,7 +21,7 @@ export interface UpdateNotificationSettingsInput {
 }
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
-  return authenticatedRequest<NotificationSettings>("/me/notification-settings");
+  return authenticatedRequest<NotificationSettings>("/me/notification-settings",undefined,"GET",undefined,{skipCache:true});
 }
 
 export async function updateNotificationSettings(input: UpdateNotificationSettingsInput): Promise<NotificationSettings> {

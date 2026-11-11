@@ -1,6 +1,12 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+// Dialogs can replace or nest each other. Restore the page only when the last
+// dialog closes, and let only the top dialog handle the same keyboard event.
+const dialogs: Array<{ id: symbol; portal: boolean; surface: HTMLElement | null }> = [];
+let originalOverflow = "";
+let originalInert = false;
+
 export default function ResponsiveDialog({
   open,
   title,
@@ -11,6 +17,7 @@ export default function ResponsiveDialog({
   hideHeader = false,
   usePortal = true,
   initialFocusSelector,
+  fallbackFocusSelector,
 }: {
   open: boolean;
   title: string;
@@ -21,6 +28,7 @@ export default function ResponsiveDialog({
   hideHeader?: boolean;
   usePortal?: boolean;
   initialFocusSelector?: string;
+  fallbackFocusSelector?: string;
 }) {
   const titleId = useId();
   const surface = useRef<HTMLDivElement>(null);
@@ -33,16 +41,21 @@ export default function ResponsiveDialog({
     // Lock the viewport, not body: body overflow creates a new scroll ancestor
     // and makes sticky navigation jump when the page is already scrolled.
     const scrollRoot = document.documentElement;
-    const previousOverflow = scrollRoot.style.overflow;
     const root = document.getElementById("root");
-    const previousInert = root?.inert ?? false;
+    if (!dialogs.length) {
+      originalOverflow = scrollRoot.style.overflow;
+      originalInert = root?.inert ?? false;
+    }
+    const id = Symbol("dialog");
+    dialogs.push({ id, portal: usePortal, surface: surface.current });
     scrollRoot.style.overflow = "hidden";
     if (usePortal && root) root.inert = true;
     const focusable = () => Array.from(surface.current?.querySelectorAll<HTMLElement>('a[href],button,input,select,textarea,summary,[tabindex="0"]') ?? []).filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && el.getClientRects().length && !el.closest('[inert]'));
     const initialFocus = initialFocusSelector ? surface.current?.querySelector<HTMLElement>(initialFocusSelector) : null;
     (initialFocus ?? focusable()[0] ?? surface.current)?.focus({ preventScroll: true });
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); close.current(); }
+      if (dialogs.at(-1)?.id !== id || event.defaultPrevented) return;
+      if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); close.current(); }
       if (event.key !== "Tab") return;
       const elements = focusable();
       const first = elements[0], last = elements[elements.length - 1];
@@ -54,11 +67,16 @@ export default function ResponsiveDialog({
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      scrollRoot.style.overflow = previousOverflow;
-      if (usePortal && root) root.inert = previousInert;
-      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+      const wasTop = dialogs.at(-1)?.id === id;
+      dialogs.splice(dialogs.findIndex(dialog => dialog.id === id), 1);
+      scrollRoot.style.overflow = dialogs.length ? "hidden" : originalOverflow;
+      if (root) root.inert = originalInert || dialogs.some(dialog => dialog.portal);
+      const top = dialogs.at(-1);
+      if (wasTop && previousFocus?.isConnected && previousFocus !== document.body && previousFocus.getClientRects().length && !previousFocus.closest("[inert]") && (!top || top.surface?.contains(previousFocus))) previousFocus.focus({ preventScroll: true });
+      else if (wasTop && top) top.surface?.focus({ preventScroll: true });
+      else if (!top && fallbackFocusSelector) Array.from(document.querySelectorAll<HTMLElement>(fallbackFocusSelector)).find(element => element.getClientRects().length && !element.closest("[inert]"))?.focus({ preventScroll: true });
     };
-  }, [open, usePortal, initialFocusSelector]);
+  }, [open, usePortal, initialFocusSelector, fallbackFocusSelector]);
 
   if (!open) return null;
 

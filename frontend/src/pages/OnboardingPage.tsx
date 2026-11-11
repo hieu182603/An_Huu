@@ -548,12 +548,12 @@ export default function OnboardingPage() {
         <p>{isEn
           ? "Your account already has a detailed financial profile. Update it directly to preserve individual assets, loans and dates. This initial survey cannot replace those details."
           : "Tài khoản đã có hồ sơ tài chính chi tiết. Hãy sửa trực tiếp tại đó để giữ từng tài sản, khoản vay và mốc thời gian. Khảo sát ban đầu này không thể thay thế các thông tin chi tiết đó."}</p>
-        <Link className="button button-primary" to="/user/account?tab=profile">{isEn ? "Open financial profile" : "Mở Hồ sơ tài chính"}</Link>
+        <Link className="button button-primary" to="/user/profile">{isEn ? "Open financial profile" : "Mở Hồ sơ tài chính"}</Link>
         {hasOnboardingDraft && <details>
           <summary>{isEn ? "Review the saved survey draft" : "Xem lại bản nháp khảo sát đã lưu"}</summary>
           <p>{isEn ? "This draft is retained but has not been applied. Compare these values when editing your financial profile." : "Bản nháp vẫn được giữ lại, chưa được áp dụng vào hồ sơ. Bạn có thể đối chiếu các số liệu này khi sửa hồ sơ tài chính."}</p>
           <dl>{draftValues.map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{value === "" ? "-" : value}</dd></div>)}</dl>
-          <Link to="/user/account?tab=profile" target="_blank" rel="noopener noreferrer">{isEn ? "Edit profile in a new tab to compare" : "Mở hồ sơ trong tab mới để đối chiếu"}</Link>
+          <Link to="/user/profile" target="_blank" rel="noopener noreferrer">{isEn ? "Edit profile in a new tab to compare" : "Mở hồ sơ trong tab mới để đối chiếu"}</Link>
         </details>}
       </Card>
     </main>;

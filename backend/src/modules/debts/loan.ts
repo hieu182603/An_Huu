@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import type { DebtEntry } from "../profiles/schema-v2";
 import type { ContractPeriod, ContractRate, LoanContract } from "./schema";
+import { illustrateDebt } from "./illustration";
 
 export const DebtDecimal = Prisma.Decimal.clone({ precision: 48 });
 const D = DebtDecimal;
@@ -79,6 +80,11 @@ export function declaredDebtPayment(debt: DebtEntry, valuationDate: string) {
   }
   const month = valuationDate.slice(0, 7);
   if (debt.startMonth > month || (debt.endMonth !== null && debt.endMonth < month)) return { value: new D(0), issues: [] };
+  if (debt.illustration?.annualRatePercent.status === "KNOWN") {
+    const schedule = illustrateDebt(debt, valuationDate);
+    if (schedule.status === "INCOMPLETE") return { value: null, issues: schedule.issues };
+    return { value: new D(schedule.rows.find(row => row.dueDate.slice(0, 7) === month)?.userPayment ?? "0"), issues: schedule.issues };
+  }
   if (debt.currency !== "VND") return { value: null, issues: [{ loanId: debt.id, code: "FX_RULE_REQUIRED" }] };
   if (debt.payment.status !== "KNOWN" || debt.paymentShare.status !== "KNOWN") return { value: null, issues: [{ loanId: debt.id, code: "UNKNOWN_VALUE" }] };
   return { value: new D(debt.payment.value).mul(debt.paymentShare.value), issues: [] };

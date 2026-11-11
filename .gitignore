@@ -66,6 +66,13 @@ artifacts/
 !/backend/scripts/generate-assumptions-openapi.cjs
 !/backend/scripts/generate-retirement-openapi.cjs
 !/backend/scripts/generate-profile-v2-openapi.cjs
+!/backend/scripts/generate-cashflow-openapi.cjs
+!/backend/scripts/generate-assets-openapi.cjs
+!/backend/scripts/generate-debts-workspace-openapi.cjs
+!/backend/scripts/generate-insurance-workspace-openapi.cjs
+!/backend/scripts/generate-family-openapi.cjs
+!/backend/scripts/generate-planning-openapi.cjs
+!/backend/scripts/cashflow-ui-test-server.cjs
 !/backend/scripts/build-allocation-drafts.cjs
 !/backend/scripts/generate-portfolios-openapi.cjs
 !/backend/scripts/generate-allocation-risk-openapi.cjs
@@ -115,3 +122,8 @@ site-artifacts/
 # Reproducible isolated remediation browser harness
 !/backend/scripts/remediation-e2e-server.cjs
 !/backend/scripts/remediation-migration-check.cjs
+
+!/backend/scripts/discovery-ui-test-server.cjs
+!/backend/scripts/generate-discovery-openapi.cjs
+
+!/backend/scripts/generate-allocation-workspace-openapi.cjs

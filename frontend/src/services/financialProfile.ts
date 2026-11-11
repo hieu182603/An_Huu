@@ -11,6 +11,12 @@ export type OptionalMonth =
   | { status: "UNKNOWN" }
   | { status: "NOT_APPLICABLE"; reason: string };
 
+export type FamilyValues = { maritalStatus: "SINGLE" | "MARRIED" | "DIVORCED" | "OTHER" | null; dependents: KnownOrUnknown<number> };
+export type CareResponsibility = KnownOrUnknown<"SELF" | "CHILDREN" | "PARENTS" | "BOTH" | "OTHER">;
+export type PlanningValues = { careResponsibility: CareResponsibility; liquidityNeeds: Required<NonNullable<PlanningConstraints["liquidityNeeds"]>>; goals: ProfileCollection<GoalEntry> };
+export type PlanningReport = PlanningValues & { profileRevision: number; valuationDate: string; currency: "VND" };
+export type FamilyReport = FamilyValues & { profileRevision: number; valuationDate: string; currency: "VND"; monthlySupport: string | null; supportState: "KNOWN" | "UNKNOWN" | "NOT_APPLICABLE"; supportEntries: Array<Pick<ExpenseEntry, "id" | "label" | "amount" | "currency" | "startMonth" | "endMonth" | "frequency"> & { active: boolean }>; issues: Array<{ path: string; code: string }> };
+
 export type ProfileCollection<T> =
   | { status: "KNOWN"; entries: T[] }
   | { status: "UNKNOWN" }
@@ -71,6 +77,7 @@ export type DebtEntry = {
   paymentShare: KnownOrUnknown<string>;
   balanceShare: KnownOrUnknown<string>;
   contract?: { status: "UNKNOWN" } | { status: "KNOWN"; value: any };
+  illustration?: { annualRatePercent: KnownOrUnknown<string> };
   responsibility:
     | { status: "UNKNOWN" }
     | {
@@ -90,7 +97,8 @@ export type PersonalProfileV2 = {
   pensionStartMonth: OptionalMonth;
   gender?: "MALE" | "FEMALE" | "OTHER" | "UNDISCLOSED";
   retirementCondition?: RetirementCondition;
-  maritalStatus?: "SINGLE" | "MARRIED" | "OTHER";
+  maritalStatus?: "SINGLE" | "MARRIED" | "DIVORCED" | "OTHER" | null;
+  careResponsibility?: CareResponsibility;
   dependents?: KnownOrUnknown<number>;
   city?: string;
 };
@@ -101,6 +109,7 @@ export type GoalEntry = {
   deferrable: KnownOrUnknown<boolean>;
 };
 export type PlanningConstraints = {
+  retirementGoal?: {endMonth:string;monthlyExpenseToday:string;lifestylePriority:"BALANCED"|"HEALTH"|"HOUSING"|"TRAVEL"|null};
   lossTolerance?: { amountVnd?: KnownOrUnknown<string>; percent?: KnownOrUnknown<string>; reaction?: KnownOrUnknown<"SELL" | "HOLD" | "BUY_MORE"> };
   incomeStability?: KnownOrUnknown<"STABLE" | "VARIABLE" | "UNCERTAIN">;
   employerConcentration?: KnownOrUnknown<"LOW" | "MEDIUM" | "HIGH">;
@@ -108,7 +117,7 @@ export type PlanningConstraints = {
   goals?: ProfileCollection<GoalEntry>;
 };
 export const planningConstraints = (profile: PlanningConstraints): PlanningConstraints => Object.fromEntries(
-  ["lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals"].filter(key => key in profile).map(key => [key, profile[key as keyof PlanningConstraints]])
+  ["lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals", "retirementGoal"].filter(key => key in profile).map(key => [key, profile[key as keyof PlanningConstraints]])
 );
 
 export type ProfileV2 = PlanningConstraints & {
@@ -122,6 +131,32 @@ export type ProfileV2 = PlanningConstraints & {
   assets: ProfileCollection<AssetEntry>;
   debts: ProfileCollection<DebtEntry>;
   pension?: PensionDeclaration;
+};
+
+export type CashflowCommand =
+  | ({ kind: "ADD" | "UPDATE" | "SPLIT"; sourceId?: string; confirmUnknownGroup?: boolean } &
+    ({ group: "income"; entry: IncomeEntry } | { group: "expenses"; entry: ExpenseEntry }))
+  | { kind: "DELETE"; group: "income" | "expenses"; id: string }
+  | { kind: "CONFIRM_NONE"; group: "income" | "expenses"; reason: string };
+
+export type AssetCommand =
+  | { kind: "ADD" | "UPDATE"; entry: AssetEntry; confirmUnknownGroup?: boolean }
+  | { kind: "SPLIT"; sourceId: string; entry: AssetEntry }
+  | { kind: "DELETE"; id: string }
+  | { kind: "CONFIRM_NONE"; reason: string };
+export type DebtCommand =
+  | { kind: "ADD" | "UPDATE"; entry: DebtEntry; confirmUnknownGroup?: boolean }
+  | { kind: "SPLIT"; sourceId: string; entry: DebtEntry }
+  | { kind: "DELETE"; id: string }
+  | { kind: "CONFIRM_NONE"; reason: string };
+export type AssetValuation = { declaredValue: string | null; ownedValue: string | null; retirementLiquidAssets: string | null; emergencyReserve: string | null; housingOwnedValue: string | null; otherOwnedValue: string | null };
+export type AssetReport = {
+  profileRevision: number; valuationDate: string; currency: "VND"; assetState: "KNOWN" | "UNKNOWN" | "NOT_APPLICABLE";
+  coverageBasis: "KNOWN" | "UNKNOWN" | "NO_EXPENSE";
+  totals: AssetValuation & { monthlyExpense: string | null; totalDebt: string | null; netWorth: string | null; reserveCoverageMonths: string | null; debtToAssetsPercent: string | null };
+  percentages: Record<"retirementLiquidAssets" | "emergencyReserve" | "housingOwnedValue" | "otherOwnedValue", string | null>;
+  entries: Array<AssetValuation & { id: string }>;
+  issues: Array<{ path: string; code: string }>;
 };
 
 export type FinancialData = {
@@ -294,7 +329,7 @@ export function profileFromV2(base: FinancialProfile, v2: ProfileV2): FinancialP
       ...base.personal,
       age,
       gender: v2.personal?.gender ? label(genders, v2.personal?.gender) : base.personal.gender,
-      maritalStatus: v2.personal?.maritalStatus ? label(marriages, v2.personal?.maritalStatus) : base.personal.maritalStatus,
+      maritalStatus: v2.personal?.maritalStatus === "DIVORCED" ? "Đã ly hôn" : v2.personal?.maritalStatus ? label(marriages, v2.personal.maritalStatus) : "",
       dependents: v2.personal?.dependents?.status === "KNOWN" ? v2.personal?.dependents.value : base.personal.dependents,
       city: v2.personal?.city || base.personal.city,
     },

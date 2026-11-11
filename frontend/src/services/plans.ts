@@ -110,7 +110,8 @@ export interface PlanReport {
   currentVersionId: string | null;
   baselineVersionId: string | null;
   status: "AVAILABLE" | "NO_APPLIED_VERSION";
-  valueKind: "FORECAST";
+  valueKind: "FORECAST" | "REFORECAST";
+  actualSourceChanged?: boolean;
   version: PlanVersion | null;
   profileChanged: boolean;
   hypothetical: boolean;
@@ -158,13 +159,15 @@ export interface SimulatePlanResponse {
   applied: false;
 }
 
+const freshPlanRead=<T>(path:string)=>authenticatedRequest<T>(path,undefined,"GET",undefined,{skipCache:true});
+
 export async function listRetirementPlans(page = 1, limit = 20): Promise<{
   page: number;
   limit: number;
   total: number;
   items: RetirementPlan[];
 }> {
-  return await authenticatedRequest<{
+  return await freshPlanRead<{
     page: number;
     limit: number;
     total: number;
@@ -173,7 +176,7 @@ export async function listRetirementPlans(page = 1, limit = 20): Promise<{
 }
 
 export async function getPlanDetail(planId: string): Promise<PlanDetail> {
-  return await authenticatedRequest<PlanDetail>(`/me/retirement/plans/${planId}`);
+  return await freshPlanRead<PlanDetail>(`/me/retirement/plans/${planId}`);
 }
 
 export async function listPlanVersions(planId: string, page = 1, limit = 20): Promise<{
@@ -182,7 +185,7 @@ export async function listPlanVersions(planId: string, page = 1, limit = 20): Pr
   total: number;
   items: PlanHistoryItem[];
 }> {
-  return await authenticatedRequest<{
+  return await freshPlanRead<{
     page: number;
     limit: number;
     total: number;
@@ -191,7 +194,7 @@ export async function listPlanVersions(planId: string, page = 1, limit = 20): Pr
 }
 
 export async function getPlanVersionDetail(planId: string, versionId: string): Promise<PlanVersion> {
-  return await authenticatedRequest<PlanVersion>(
+  return await freshPlanRead<PlanVersion>(
     `/me/retirement/plans/${planId}/versions/${versionId}`
   );
 }
@@ -280,7 +283,7 @@ export async function replayPlanVersion(planId: string, versionId: string): Prom
 
 export async function getPlanReport(planId: string, versionId?: string): Promise<PlanReport> {
   const query = versionId ? `?versionId=${versionId}` : "";
-  return await authenticatedRequest<PlanReport>(`/me/retirement/plans/${planId}/report${query}`);
+  return await freshPlanRead<PlanReport>(`/me/retirement/plans/${planId}/report${query}`);
 }
 
 export async function comparePlanVersions(

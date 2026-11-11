@@ -2,6 +2,7 @@ import { z } from "zod";
 import { paginationSchema } from "../../common/http";
 const https = z.string().url().max(2000).refine(v => v.startsWith("https://"), "URL phải dùng HTTPS.").nullable();
 export const catalogQuery = paginationSchema(["name", "updatedAt"]).extend({ search: z.string().trim().max(120).default(""), partnerId: z.string().uuid().optional() });
+export const productQuery = catalogQuery.extend({ sortBy: z.enum(["name", "updatedAt", "riskLevel"]).default("name"), category: z.string().trim().min(1).max(120).optional(), riskLevel: z.enum(["LOW", "MEDIUM", "HIGH"]).optional() });
 export const partnerInput = z.object({
   name: z.string().trim().min(2).max(200), type: z.enum(["OPEN_FUND", "BANK", "INSURANCE", "SECURITIES"]),
   logoUrl: https, website: https, contactEmail: z.string().email().max(254).nullable(), isHighlight: z.boolean(), isVisible: z.boolean(),

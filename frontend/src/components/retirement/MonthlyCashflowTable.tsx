@@ -1,3 +1,4 @@
+import {formatMoneyDecimal as financeMoney} from "../../utils/moneyDisplay";
 import { Fragment, useEffect, useId, useRef, useState, useMemo } from "react";
 import { Icon, Button, Pagination } from "../ui";
 import { useI18n } from "../../i18n";
@@ -15,14 +16,7 @@ interface MonthlyCashflowTableProps {
   versionId?: string;
 }
 
-const formatMoneyCell = (val: string | number) => {
-  const num = typeof val === "string" ? parseFloat(val) : val;
-  if (!Number.isFinite(num)) return "-";
-  if (num === 0) return "0";
-  const rounded = Math.round(num);
-  const isNeg = rounded < 0;
-  return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
-};
+const formatMoneyCell=(v:string|number)=>/^[-]?\d+(\.\d+)?$/.test(String(v))?financeMoney(String(v)).replace(" ₫",""):"—";
 
 export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplied = false, planId, versionId }: MonthlyCashflowTableProps) {
   const { language } = useI18n();

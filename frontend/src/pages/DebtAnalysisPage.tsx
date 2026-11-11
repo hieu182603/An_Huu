@@ -1,340 +1,102 @@
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { useNotification } from "../components/ui";
-import DebtLoanDialog from "../components/retirement/DebtLoanDialog";
+import { useAuth } from "../context/AuthContext";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
-import { type DebtEntry } from "../services/financialProfile";
 import { useI18n } from "../i18n";
-import "./debt-page.css";
-
-function formatFullMoney(val: number): string {
-  return `${new Intl.NumberFormat("vi-VN").format(Math.round(Number(val) || 0))} ₫`;
-}
-
-function getLoanInterestRate(loan: DebtEntry): number {
-  if (loan.contract?.status === "KNOWN" && loan.contract.value) {
-    const raw = (loan.contract.value as Record<string, unknown>).interestRateAnnual;
-    if (raw && typeof raw === "object" && "status" in raw && (raw as { status: string; value?: unknown }).status === "KNOWN") {
-      const parsed = parseFloat(String((raw as { status: string; value?: unknown }).value));
-      if (Number.isFinite(parsed) && parsed > 0) return parsed;
-    } else if (raw) {
-      const parsed = parseFloat(String(raw));
-      if (Number.isFinite(parsed) && parsed > 0) return parsed;
-    }
-  }
-  return 8.5;
-}
+import { authenticatedRequest } from "../services/api";
+import type { DebtEntry } from "../services/financialProfile";
+import { previewDebts, type DebtReport, type DebtPreviewResponse, type LoanReport } from "../services/debts";
+import DebtLoanDialog from "../components/retirement/DebtLoanDialog";
+import DebtAnalysisResults from "../components/retirement/DebtAnalysisResults";
+import ResponsiveDialog from "../components/ResponsiveDialog";
+import ProfileFormattedInput from "../components/ProfileFormattedInput";
+import { Icon, useNotification } from "../components/ui";
+import { financeMoney } from "../utils/financeHubSummary";
+import { Decimal } from "../utils/decimal";
+import { formatDateVN, formatMonthVN } from "../utils/date";
+import "../components/user-workspace-dialogs.css";
+import "./financial-cashflow.css";
+import "./financial-assets.css";
+import "./financial-debts.css";
 
 export default function DebtAnalysisPage() {
-  const { language } = useI18n();
-  const vi = language !== "en";
-  const { profile, v2Profile, profileSummary, updateProfileV2 } = useFinancialProfile();
+  const { user } = useAuth();
+  const { v2Profile: v2, profileRevision, hasProfile, loading, loadError, saveStatus, saveError, updateDebts, reloadProfile, upgradeToV2 } = useFinancialProfile();
+  const en = useI18n().language === "en", t = (vi: string, english: string) => en ? english : vi;
+  const money = (value?: string | null) => financeMoney(value ?? null, en);
   const { notify } = useNotification();
-
-  const [showAddLoanModal, setShowAddLoanModal] = useState(false);
-  const [editingLoan, setEditingLoan] = useState<DebtEntry | null>(null);
-
-  const debtEntries: DebtEntry[] = useMemo(() => {
-    if (v2Profile?.debts?.status === "KNOWN") {
-      return v2Profile.debts.entries;
-    }
-    return [];
-  }, [v2Profile]);
-
-  const totalDebtBalance = useMemo(() => {
-    return debtEntries.reduce((acc, d) => {
-      if (d.outstandingBalance.status === "KNOWN") {
-        const bal = parseFloat(d.outstandingBalance.value);
-        const share = d.balanceShare.status === "KNOWN" ? parseFloat(d.balanceShare.value) : 1;
-        return acc + bal * share;
-      }
-      return acc;
-    }, 0);
-  }, [debtEntries]);
-
-  const totalMonthlyPayment = useMemo(() => {
-    return debtEntries.reduce((acc, d) => {
-      if (d.payment.status === "KNOWN") {
-        const pay = parseFloat(d.payment.value);
-        const share = d.paymentShare.status === "KNOWN" ? parseFloat(d.paymentShare.value) : 1;
-        return acc + pay * share;
-      }
-      return acc;
-    }, 0);
-  }, [debtEntries]);
-
-  const firstMonthInterest = useMemo(() => {
-    return debtEntries.reduce((acc, loan) => {
-      if (loan.outstandingBalance.status === "KNOWN") {
-        const bal = parseFloat(loan.outstandingBalance.value);
-        const rate = getLoanInterestRate(loan);
-        return acc + Math.round((bal * (rate / 100)) / 12);
-      }
-      return acc;
-    }, 0);
-  }, [debtEntries]);
-
-  const monthlyIncome =
-    profileSummary?.monthlyIncome != null
-      ? Number(profileSummary.monthlyIncome)
-      : profile.income.primaryIncome + profile.income.secondaryIncome || 35000000;
-
-  const dtiPercent = monthlyIncome > 0 ? Math.round((totalMonthlyPayment / monthlyIncome) * 100) : 0;
-
-  const openLoan = (loan: DebtEntry | null = null) => {
-    setEditingLoan(loan);
-    setShowAddLoanModal(true);
+  const [state, setState] = useState<{ key: string; report?: DebtReport; error?: string } | null>(null);
+  const [attempt, setAttempt] = useState(0), [edit, setEdit] = useState<DebtEntry | "NEW" | null>(null), [remove, setRemove] = useState<DebtEntry | "NONE" | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false), [confirmAttempted, setConfirmAttempted] = useState(false);
+  const [schedule, setSchedule] = useState<string | null>(null), [schedulePage, setSchedulePage] = useState(0);
+  const [horizon, setHorizon] = useState("120"), [reserve, setReserve] = useState(""), [extra, setExtra] = useState(""), [payoff, setPayoff] = useState("");
+  const [preview, setPreview] = useState<{ key: string; result: DebtPreviewResponse } | null>(null), [previewError, setPreviewError] = useState(""), [previewBusy, setPreviewBusy] = useState(false);
+  const key = `${user?.id}:${profileRevision}:${attempt}`;
+  useEffect(() => {
+    if (!user?.id || !v2 || !hasProfile || loading || loadError) return;
+    let active = true;
+    authenticatedRequest<DebtReport>("/me/financial-profile/debts", undefined, "GET", undefined, { skipCache: true })
+      .then(report => { if (active) setState(report.profileRevision === profileRevision ? { key, report } : { key, error: t("Hồ sơ đã thay đổi. Tải lại để xem đúng phiên bản.", "Profile changed. Reload to view the current revision.") }); })
+      .catch(error => { if (active) setState({ key, error: error instanceof Error ? error.message : t("Chưa tải được khoản nợ.", "Could not load debts.") }); });
+    return () => { active = false; };
+  }, [key, user?.id, Boolean(v2), hasProfile, loading, loadError, profileRevision]);
+  const current = state?.key === key ? state : null, report = !loading && !loadError && hasProfile ? current?.report : undefined;
+  const debts = v2?.debts.status === "KNOWN" ? v2.debts.entries : [], totals = report?.totals;
+  const activeSchedule = report?.loans.find(item => item.id === schedule), scheduleLoan = debts.find(item => item.id === schedule);
+  const busy = confirmBusy || saveStatus === "saving";
+  const previewKey = `${user?.id}:${profileRevision}:${horizon}:${reserve}:${extra}:${payoff}`, latestPreviewKey = useRef(previewKey);
+  latestPreviewKey.current = previewKey;
+  const showSuccess = () => notify.success(t("Đã lưu", "Saved"), t("Đã cập nhật nợ và chi trả nợ liên kết. Xem lại kế hoạch trước khi áp dụng.", "Debts and linked payments updated. Review your plan before applying."));
+  const confirm = async () => {
+    if (!remove || busy) return;
+    setConfirmBusy(true); setConfirmAttempted(true);
+    try { if (await updateDebts(remove === "NONE" ? { kind: "CONFIRM_NONE", reason: t("Đã xác nhận không có nợ", "Confirmed no debts") } : { kind: "DELETE", id: remove.id })) { setRemove(null); showSuccess(); } } finally { setConfirmBusy(false); }
   };
-
-  return (
-    <div className="content">
-      <nav className="breadcrumb" aria-label="Đường dẫn trang" style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-        <Link
-          to="/user/profile"
-          className="btn-breadcrumb"
-          style={{
-            border: "1px solid #cddfee",
-            borderRadius: "8px",
-            padding: "6px 12px",
-            background: "#fff",
-            color: "#052659",
-            fontSize: "13px",
-            fontWeight: 500,
-            textDecoration: "none",
-          }}
-        >
-          ← {vi ? "Tài chính của bạn" : "Your finances"}
-        </Link>
-        <span className="sep" style={{ color: "#64748b" }}>/</span>
-        <span aria-current="page" style={{ fontSize: "13px", color: "#052659", fontWeight: 600 }}>
-          {vi ? "Khoản nợ & trả nợ" : "Debts & repayments"}
-        </span>
-      </nav>
-
-      <div className="page-head" style={{ marginBottom: "20px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#052659", margin: "0 0 6px" }}>
-          {vi ? "Khoản nợ & khả năng trả" : "Debts & repayment capacity"}
-        </h1>
-        <p style={{ color: "#536779", fontSize: "14px", margin: 0 }}>
-          {vi
-            ? "Theo dõi dư nợ, lãi suất và tiền trả hàng tháng của từng khoản."
-            : "Track outstanding balances, interest rates, and monthly payments for each loan."}
-        </p>
-      </div>
-
-      {/* Card 1: Khoản nợ */}
-      <section className="card" style={{ padding: "22px 24px", borderRadius: "16px", background: "#fff", border: "1px solid #d5e3f0", marginBottom: "18px" }}>
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
-          <div>
-            <h2 style={{ margin: "0 0 4px", fontSize: "17px", fontWeight: 700, color: "#052659" }}>
-              {vi ? "Khoản nợ" : "Loans"}
-            </h2>
-            <p style={{ margin: 0, fontSize: "12.5px", color: "#536779" }}>
-              {vi ? "Vay mua nhà, xe, tiêu dùng; có thể khai chi tiết lãi suất và kỳ hạn." : "Home, auto, or personal loans with interest rate and term details."}
-            </p>
-          </div>
-          <span
-            style={{
-              padding: "3px 9px",
-              borderRadius: "99px",
-              background: debtEntries.length > 0 ? "#e6f8f0" : "#edf2f8",
-              color: debtEntries.length > 0 ? "#1e7e55" : "#536779",
-              fontSize: "11px",
-              fontWeight: 600,
-            }}
-          >
-            {debtEntries.length > 0 ? `${debtEntries.length} mục` : vi ? "Không có" : "None"}
-          </span>
-        </header>
-
-        {debtEntries.length === 0 ? (
-          <div
-            style={{
-              padding: "20px",
-              borderRadius: "12px",
-              border: "1px dashed #cbdced",
-              background: "#f9fbff",
-              textAlign: "center",
-              marginBottom: "14px",
-            }}
-          >
-            <strong style={{ display: "block", fontSize: "14px", color: "#052659", marginBottom: "4px" }}>
-              {vi ? "Chưa có khoản nào" : "No loans declared"}
-            </strong>
-            <span style={{ fontSize: "12.5px", color: "#536779" }}>
-              {vi ? "Thêm từng khoản bạn biết; có thể bổ sung sau." : "Add any loans you have; you can update them anytime."}
-            </span>
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: "10px", marginBottom: "14px" }}>
-            {debtEntries.map(loan => {
-              const bal = loan.outstandingBalance.status === "KNOWN" ? parseFloat(loan.outstandingBalance.value) : 0;
-              const pay = loan.payment.status === "KNOWN" ? parseFloat(loan.payment.value) : 0;
-              return (
-                <div
-                  key={loan.id}
-                  style={{
-                    padding: "14px 16px",
-                    borderRadius: "12px",
-                    border: "1px solid #e1ebf5",
-                    background: "#f9fbff",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <strong style={{ display: "block", fontSize: "14px", color: "#052659" }}>{loan.label}</strong>
-                    <span style={{ fontSize: "12px", color: "#536779" }}>
-                      Trả tháng: {formatFullMoney(pay)} · Lãi {getLoanInterestRate(loan)}%/năm
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <strong style={{ fontSize: "14.5px", color: "#052659" }}>{formatFullMoney(bal)}</strong>
-                    <button
-                      type="button"
-                      onClick={() => openLoan(loan)}
-                      style={{
-                        padding: "4px 10px",
-                        borderRadius: "8px",
-                        border: "1px solid #cddfee",
-                        background: "#fff",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        color: "#052659",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Sửa
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            paddingTop: "10px",
-            borderTop: "1px solid #edf2f8",
-            marginBottom: "14px",
-            fontSize: "13px",
-          }}
-        >
-          <span style={{ color: "#536779" }}>{vi ? "Tổng khoản nợ" : "Total debt"}</span>
-          <strong style={{ color: "#052659" }}>{formatFullMoney(totalDebtBalance)}</strong>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => openLoan(null)}
-          style={{
-            padding: "9px 16px",
-            borderRadius: "10px",
-            border: 0,
-            background: "#052659",
-            color: "#fff",
-            fontSize: "13px",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          ＋ {vi ? "Thêm khoản nợ" : "Add loan"}
-        </button>
+  const runPreview = async () => {
+    if (previewBusy) return;
+    setPreview(null); setPreviewError("");
+    if (!/^[1-9]\d{0,2}$/.test(horizon) || Number(horizon) > 600) { setPreviewError(t("Chọn từ 1 đến 600 tháng.", "Choose 1–600 months.")); return; }
+    const requestKey = previewKey; setPreviewBusy(true);
+    try { const result = await previewDebts({ expectedProfileRevision: profileRevision, horizonMonths: Number(horizon), reserveMonthly: reserve || null, extraMonthlyBudget: extra || null, ...(payoff ? { payoffLoanId: payoff } : {}) }); if (latestPreviewKey.current === requestKey) setPreview({ key: requestKey, result }); }
+    catch (error) { if (latestPreviewKey.current === requestKey) setPreviewError(error instanceof Error ? error.message : t("Chưa so sánh được phương án.", "Could not compare strategies.")); }
+    finally { setPreviewBusy(false); }
+  };
+  const share = (value: DebtEntry["paymentShare"]) => value.status === "KNOWN" ? `${new Decimal(value.value).mul(100).toString()}%` : t("Chưa xác định", "Unknown");
+  const status = (loan?: LoanReport) => loan?.status === "CONTRACT" ? t("Theo hợp đồng", "Contract schedule") : loan?.status === "ILLUSTRATIVE" ? t("Lịch minh họa", "Illustrative schedule") : loan?.status === "INCOMPLETE" ? t("Cần bổ sung điều khoản", "Terms incomplete") : t("Thông tin tự khai", "Declared information");
+  const issueText = (code: string) => ({
+    VALUATION_DATE_MISMATCH: t("Ngày chốt dư nợ cần trùng ngày định giá hồ sơ.", "Balance date must match the profile valuation date."),
+    FX_RULE_REQUIRED: t("Chưa có quy tắc quy đổi tiền tệ.", "Currency conversion rules are missing."),
+    BALANCE_REQUIRED: t("Cần bổ sung dư nợ.", "Outstanding principal is required."), PAYMENT_REQUIRED: t("Cần bổ sung mức trả.", "Payment amount is required."),
+    PAYMENT_SHARE_REQUIRED: t("Cần bổ sung phần trả nợ của bạn.", "Your payment share is required."),
+    PAYMENT_NOT_REDUCING_PRINCIPAL: t("Mức trả không đủ giảm gốc theo lãi suất đã khai.", "The declared payment does not reduce principal."),
+    MONTHLY_ILLUSTRATION_REQUIRED: t("Lịch minh họa chỉ áp dụng cho khoản trả hàng tháng.", "Illustrations require monthly repayments."),
+    DEFERRED_INTEREST_TERMS_REQUIRED: t("Khoản bắt đầu trả trong tương lai cần bổ sung điều khoản lãi trong thời gian chưa trả; không tự coi thời gian này là miễn lãi.", "Future repayments require terms for interest before payments begin; this period is not assumed interest-free."),
+    ILLUSTRATION_HORIZON_OR_DECLARED_END_REACHED: t("Chưa trả hết trong thời gian đã khai hoặc giới hạn 600 tháng; chưa xác định tháng hết nợ.", "Balance remains at the declared end or 600-month limit; payoff month is unknown."),
+  } as Record<string, string>)[code] ?? t("Cần kiểm tra lịch và điều khoản hợp đồng trong phần sửa khoản nợ.", "Review the schedule and contract terms in Edit loan.");
+  return <div className="financial-debts-page">
+    <nav className="cashflow-breadcrumb" aria-label={t("Đường dẫn trang", "Breadcrumb")}><Link className="overview-button secondary" to="/user/profile">{t("← Tài chính của bạn", "← Your finances")}</Link><span aria-hidden="true">/</span><span aria-current="page">{t("Khoản nợ & khả năng trả", "Debts & repayment capacity")}</span></nav>
+    <header className="cashflow-heading"><h1>{t("Khoản nợ & khả năng trả", "Debts & repayment capacity")}</h1><p>{t("Theo dõi dư nợ, lãi suất và tiền trả hàng tháng của từng khoản.", "Track outstanding balances, interest and monthly payments to understand their impact on your budget.")}</p></header>
+    {!loading && !loadError && !hasProfile && <section className="cashflow-card"><p>{t("Hoàn thiện hồ sơ để quản lý khoản nợ.", "Complete your profile to manage debts.")}</p><Link to="/user/profile">{t("Về hồ sơ tài chính", "Open financial profile")}</Link></section>}
+    {hasProfile && !v2 && !loading && !loadError && <section className="cashflow-card"><p>{t("Chuyển hồ sơ sang cách kê khai chi tiết để quản lý khoản nợ.", "Upgrade to a detailed profile to manage debts.")}</p><button className="overview-button primary" disabled={busy} onClick={() => void upgradeToV2()}>{t("Chuyển hồ sơ", "Upgrade profile")}</button>{saveError && <p role="alert">{saveError}</p>}</section>}
+    {v2 && <>
+      {!current && !loading && !loadError && <p role="status">{t("Đang tính khoản nợ…", "Calculating debts…")}</p>}
+      {current?.error && <div className="cashflow-error" role="alert"><p>{current.error}</p><button className="overview-button secondary" onClick={() => { setAttempt(value => value + 1); void reloadProfile(); }}>{t("Thử lại", "Retry")}</button></div>}
+      <section className="cashflow-card debt-ledger" aria-labelledby="debt-ledger-title"><div className="cashflow-card-heading"><div><h2 id="debt-ledger-title">{t("Khoản nợ", "Your loans")}</h2><p>{t("Dư nợ và tiền trả bên dưới là phần được phân bổ cho bạn.", "Balances and payments below are your allocated shares.")}</p></div></div>
+        {debts.length === 0 ? <div className="cashflow-empty"><p>{v2.debts.status === "UNKNOWN" ? t("Bạn chưa xác nhận thông tin khoản nợ.", "Your debts have not been confirmed.") : v2.debts.status === "NOT_APPLICABLE" ? t("Đã xác nhận không có nợ.", "Confirmed no debts.") : t("Chưa có khoản nợ trong danh sách.", "No loans in the list.")}</p>{v2.debts.status !== "NOT_APPLICABLE" && <button className="overview-button secondary" disabled={busy} onClick={() => { setConfirmAttempted(false); setRemove("NONE"); }}>{t("Tôi không có nợ", "I have no debts")}</button>}</div> : <ul className="debt-loan-list">{debts.map(debt => { const item = report?.loans.find(row => row.id === debt.id); return <li key={debt.id} data-testid="debt-row"><div className="debt-loan-name"><span className="debt-loan-icon" aria-hidden="true"><Icon name="wallet" /></span><div><h3>{debt.label}</h3><span className="debt-status">{status(item)}</span><p>{t("Dư nợ", "Principal")}: {share(debt.balanceShare)} · {t("Tiền trả", "Payment")}: {share(debt.paymentShare)}</p></div></div><div className="debt-loan-amount"><small>{t("Dư nợ của bạn", "Your principal")}</small><strong>{money(item?.outstandingBalance)}</strong><small>{t("Trả tháng hiện tại", "Current month payment")}: {money(item?.monthlyPayment)}</small></div><div className="debt-loan-actions"><button className="cashflow-icon-button" aria-label={`${t("Sửa", "Edit")} ${debt.label}`} disabled={busy} onClick={() => setEdit(debt)}><Icon name="edit" /></button><button className="cashflow-icon-button" aria-label={`${t("Xóa", "Delete")} ${debt.label}`} disabled={busy} onClick={() => { setConfirmAttempted(false); setRemove(debt); }}><Icon name="trash" /></button></div></li>; })}</ul>}
+        <div className="debt-ledger-total"><span>{t("Tổng phần dư nợ của bạn", "Your total principal")}</span><strong data-testid="debt-total">{money(totals?.outstandingBalance)}</strong></div><div className="debt-add-row"><button className="overview-button secondary debt-add" disabled={busy} onClick={() => setEdit("NEW")}><Icon name="plus" />{t("Thêm khoản nợ", "Add loan")}</button></div>
       </section>
-
-      {/* Card 2: Ảnh hưởng tới kế hoạch */}
-      <section className="card" style={{ padding: "22px 24px", borderRadius: "16px", background: "#fff", border: "1px solid #d5e3f0", marginBottom: "18px" }}>
-        <h2 style={{ margin: "0 0 12px", fontSize: "17px", fontWeight: 700, color: "#052659" }}>
-          {vi ? "Ảnh hưởng tới kế hoạch" : "Impact on your plan"}
-        </h2>
-        <div style={{ display: "grid", gap: "8px", fontSize: "13.5px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #f0f5fa" }}>
-            <span style={{ color: "#536779" }}>Tổng dư nợ còn lại</span>
-            <strong style={{ color: "#052659" }}>{formatFullMoney(totalDebtBalance)}</strong>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #f0f5fa" }}>
-            <span style={{ color: "#536779" }}>Tổng trả nợ mỗi tháng</span>
-            <strong style={{ color: "#052659" }}>{formatFullMoney(totalMonthlyPayment)}</strong>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #f0f5fa" }}>
-            <span style={{ color: "#536779" }}>Ước tính lãi tháng đầu</span>
-            <strong style={{ color: "#052659" }}>{formatFullMoney(firstMonthInterest)}</strong>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "#536779" }}>Tỷ lệ trả nợ / thu nhập</span>
-            <strong style={{ color: "#052659" }}>
-              {dtiPercent}% ({dtiPercent <= 35 ? "An toàn" : "Cần lưu ý"})
-            </strong>
-          </div>
-        </div>
-        <p style={{ margin: "12px 0 0", fontSize: "12px", color: "#64748b" }}>
-          Khoản trả nợ hàng tháng tự động giảm số tiền có thể góp vào quỹ nghỉ hưu cho đến tháng đáo hạn của từng khoản vay.
-        </p>
-      </section>
-
-      {/* Card 3: Xem tiền gốc và tiền lãi */}
-      <section className="card" style={{ padding: "22px 24px", borderRadius: "16px", background: "#fff", border: "1px solid #d5e3f0", marginBottom: "22px" }}>
-        <h2 style={{ margin: "0 0 12px", fontSize: "17px", fontWeight: 700, color: "#052659" }}>
-          {vi ? "Xem tiền gốc và tiền lãi" : "Principal and interest breakdown"}
-        </h2>
-        {debtEntries.length === 0 ? (
-          <div style={{ padding: "16px 18px", borderRadius: "12px", border: "1px solid #e1ebf5", background: "#f9fbff" }}>
-            <strong style={{ display: "block", fontSize: "14px", color: "#052659", marginBottom: "4px" }}>
-              {vi ? "Chưa có khoản vay" : "No active loans"}
-            </strong>
-            <span style={{ fontSize: "13px", color: "#536779" }}>
-              {vi
-                ? "Khai khoản vay trong hồ sơ để xem tiền gốc, tiền lãi và tháng dự kiến trả xong."
-                : "Add a loan in your profile to inspect principal, interest, and projected payoff month."}
-            </span>
-          </div>
-        ) : (
-          <p style={{ margin: 0, fontSize: "13px", color: "#536779" }}>
-            Đang theo dõi {debtEntries.length} khoản vay trong dòng tiền kế hoạch.
-          </p>
-        )}
-      </section>
-
-      <Link
-        to="/user/profile"
-        style={{
-          display: "inline-block",
-          padding: "9px 16px",
-          borderRadius: "10px",
-          border: "1px solid #cddfee",
-          background: "#fff",
-          color: "#052659",
-          fontSize: "13px",
-          fontWeight: 600,
-          textDecoration: "none",
-        }}
-      >
-        ← {vi ? "Quay lại Tài chính của bạn" : "Back to Your finances"}
-      </Link>
-
-      {showAddLoanModal && v2Profile && (
-        <DebtLoanDialog
-          loan={editingLoan}
-          valuationDate={v2Profile.valuationDate}
-          onClose={() => setShowAddLoanModal(false)}
-          onSave={async loan => {
-            const entries = editingLoan
-              ? debtEntries.map(entry => (entry.id === loan.id ? loan : entry))
-              : [...debtEntries, loan];
-            const ok = await updateProfileV2({ debts: { status: "KNOWN", entries } });
-            if (ok) {
-              notify.success(vi ? "Đã lưu khoản vay" : "Loan saved", loan.label);
-              setShowAddLoanModal(false);
-            }
-            return ok;
-          }}
-        />
-      )}
-    </div>
-  );
+      <section className="cashflow-card debt-impact"><h2>{t("Ảnh hưởng tới kế hoạch", "Impact on your plan")}</h2><div className="debt-impact-grid">{[[t("Tổng dư nợ còn lại", "Outstanding principal"), money(totals?.outstandingBalance)], [t("Trả nợ tháng hiện tại", "Current month payments"), money(totals?.monthlyPayment)], [t("Lãi tháng hiện tại", "Current month interest"), money(totals?.firstMonthInterest)], [t("Tỷ lệ trả nợ / thu nhập", "Payments / income"), totals?.debtToIncomePercent == null ? t("Chưa xác định", "Undetermined") : `${en ? totals.debtToIncomePercent : totals.debtToIncomePercent.replace(".", ",")}%`]].map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div><dl className="assets-detail-rows"><div><dt>{t("Thu nhập tháng hiện tại", "Current monthly income")}</dt><dd>{money(totals?.monthlyIncome)}</dd></div><div><dt>{t("Chi sinh hoạt (chưa gồm trả nợ)", "Living expenses (excluding debt payments)")}</dt><dd>{money(totals?.monthlyExpense)}</dd></div><div><dt>{t("Còn lại trước phân bổ dự phòng / nghỉ hưu", "Remaining before reserve / retirement allocations")}</dt><dd>{money(totals?.availableMonthlySurplus)}</dd></div></dl><p>{t("Số chưa biết được giữ là chưa xác định. Tỷ lệ phân bổ dùng cho ngân sách, không thay thế trách nhiệm đã xác nhận với bên cho vay.", "Unknown values remain undetermined. Budget allocations do not replace your confirmed liability to the lender.")}</p><Link className="cashflow-text-button" to="/user/profile?section=cashflow">{t("Đối chiếu thu nhập & chi tiêu", "Review income & expenses")}</Link></section>
+      {debts.length > 0 && <section className="cashflow-card debt-schedules"><h2>{t("Xem tiền gốc và tiền lãi", "Review principal and interest")}</h2>{debts.map(debt => <div className="debt-schedule-link" key={debt.id}><div><strong>{debt.label}</strong><p>{t("Dư nợ của bạn", "Your principal")}: {money(report?.loans.find(item => item.id === debt.id)?.outstandingBalance)}</p></div><button className="overview-button secondary" disabled={!report} onClick={() => { setSchedulePage(0); setSchedule(debt.id); }}>{t("Xem lịch", "View schedule")}</button></div>)}</section>}
+      <aside className="debt-note"><Icon name="info" /><p>{t("Lịch minh họa dùng lãi danh nghĩa năm / 12 trên dư nợ giảm dần, tiền trả cố định và chưa gồm phí; ngày 01 chỉ đánh dấu tháng. Lịch theo hợp đồng dùng từng kỳ và điều khoản đã khai. Khi thiếu lãi suất hoặc lịch, hệ thống không tự đặt ngày hết nợ.", "Illustrations use nominal annual rate / 12, reducing principal, fixed payments and no fees; day 01 marks the month. Contract schedules use declared periods and terms. Missing rates or schedules do not produce an assumed payoff date.")}</p></aside>
+      <details className="cashflow-card debt-comparison"><summary>{t("So sánh phương án trả nợ", "Compare repayment strategies")}</summary><p>{t("Cần lịch hợp đồng và điều kiện trả trước để so sánh. Đây là bản xem trước; không thực hiện trả nợ hoặc áp dụng kế hoạch.", "Contract schedules and prepayment terms are required. This preview does not make payments or apply a plan.")}</p><div className="cashflow-form"><div className="cashflow-field-grid"><label>{t("Số tháng phân tích", "Analysis months")}<input type="number" min="1" max="600" value={horizon} onChange={event => setHorizon(event.target.value)} /></label><label>{t("Khoản muốn tất toán (tùy chọn)", "Loan to pay off (optional)")}<select value={payoff} onChange={event => setPayoff(event.target.value)}><option value="">{t("Chưa chọn", "Not selected")}</option>{debts.map(debt => <option key={debt.id} value={debt.id}>{debt.label}</option>)}</select></label></div><ProfileFormattedInput format="money" label={t("Giữ lại mỗi tháng (0 nếu không có)", "Monthly reserve (0 for none)")} value={reserve} onChange={setReserve} /><ProfileFormattedInput format="money" label={t("Ngân sách trả thêm mỗi tháng (0 nếu không có)", "Extra monthly budget (0 for none)")} value={extra} onChange={setExtra} /><button className="overview-button primary" disabled={previewBusy || !report || busy} onClick={() => void runPreview()}>{previewBusy ? t("Đang so sánh…", "Comparing…") : t("Xem so sánh", "Compare")}</button></div>{previewError && <p className="cashflow-error" role="alert">{previewError}</p>}{preview?.key === previewKey && <DebtAnalysisResults data={preview.result} loans={debts} horizonMonths={Number(horizon)} />}</details>
+      <Link className="overview-button secondary" to="/user/profile">{t("← Quay lại Tài chính của bạn", "← Back to your finances")}</Link>
+    </>}
+    {v2 && edit && <DebtLoanDialog key={edit === "NEW" ? "NEW" : edit.id} loan={edit === "NEW" ? null : edit} valuationDate={v2.valuationDate} onClose={() => setEdit(null)} onSaved={showSuccess} />}
+    <ResponsiveDialog open={Boolean(remove)} title={remove === "NONE" ? t("Xác nhận không có nợ", "Confirm no debts") : t("Xóa khoản nợ?", "Delete loan?")} className="user-workspace-dialog cashflow-confirm-dialog" fallbackFocusSelector=".debt-add" onClose={() => { if (!busy) setRemove(null); }}><p>{remove === "NONE" ? t("Xác nhận đã kê đầy đủ và không có khoản nợ nào. Tổng nợ sẽ bằng 0.", "Confirm your declaration is complete and you have no debts. Debt totals will be zero.") : `${t("Xóa", "Delete")} “${remove?.label ?? ""}”? ${t("Dòng chi trả nợ liên kết cũng được xóa và số tổng được tính lại.", "Linked debt-payment expenses will also be deleted and totals recalculated.")}`}</p>{confirmAttempted && saveError && <div role="alert" className="cashflow-error"><p>{saveError}</p><button onClick={() => { setRemove(null); void reloadProfile(); }}>{t("Tải lại hồ sơ", "Reload profile")}</button></div>}<footer><button className="overview-button secondary" disabled={busy} onClick={() => setRemove(null)}>{t("Hủy", "Cancel")}</button><button className="overview-button primary" disabled={busy} onClick={() => void confirm()}>{busy ? t("Đang lưu…", "Saving…") : remove === "NONE" ? t("Xác nhận", "Confirm") : t("Xóa khoản nợ", "Delete loan")}</button></footer></ResponsiveDialog>
+    <ResponsiveDialog open={Boolean(schedule)} title={`${t("Lịch trả nợ", "Repayment schedule")}${scheduleLoan ? ` · ${scheduleLoan.label}` : ""}`} className="user-workspace-dialog debt-schedule-dialog" onClose={() => setSchedule(null)}>{activeSchedule ? <>
+      <p><strong>{status(activeSchedule)}</strong> · {t("Ngày định giá", "Valuation date")}: {formatDateVN(report!.valuationDate)}</p><dl className="assets-detail-rows"><div><dt>{t("Lãi suất dùng trong lịch", "Schedule interest rate")}</dt><dd>{activeSchedule.rate ? `${activeSchedule.rate.percent}% · ${activeSchedule.rate.kind === "NOMINAL_ANNUAL_MONTHLY" ? t("danh nghĩa năm / 12", "nominal annual / 12") : activeSchedule.rate.kind === "EFFECTIVE_MONTHLY" ? t("hiệu dụng tháng", "effective monthly") : activeSchedule.rate.kind === "EFFECTIVE_ANNUAL" ? t("hiệu dụng năm", "effective annual") : t("lãi đơn theo ngày", "simple annual by days")}` : t("Chưa xác định", "Undetermined")}</dd></div><div><dt>{t("Tháng hết nợ", "Payoff month")}</dt><dd>{activeSchedule.payoffDate ? formatMonthVN(activeSchedule.payoffDate.slice(0, 7)) : t("Chưa xác định", "Undetermined")}</dd></div><div><dt>{t("Trách nhiệm đã xác nhận", "Confirmed liability")}</dt><dd>{scheduleLoan?.responsibility.status === "KNOWN" ? scheduleLoan.responsibility.scope === "FULL" ? t("Toàn bộ nghĩa vụ", "Full liability") : scheduleLoan.responsibility.scope === "CAPPED" ? `${t("Có giới hạn", "Capped")}: ${scheduleLoan.responsibility.limit.status === "KNOWN" ? (scheduleLoan.currency === "VND" ? money(scheduleLoan.responsibility.limit.value) : `${scheduleLoan.responsibility.limit.value} ${scheduleLoan.currency}`) : t("Chưa xác định mức", "Amount unknown")}` : t("Chỉ phần được phân bổ", "Allocated share only") : t("Chưa xác nhận", "Unconfirmed")}</dd></div></dl>
+      {activeSchedule.issues.length > 0 && <ul className="debt-issues">{activeSchedule.issues.map(item => <li key={item.code}>{issueText(item.code)}</li>)}</ul>}
+      {activeSchedule.rows.length ? <><p>{activeSchedule.status === "ILLUSTRATIVE" ? t("Ngày 01 là mốc minh họa của tháng, không phải ngày đến hạn hợp đồng. Chưa gồm phí.", "Day 01 marks an illustrative month, not the contractual due date. Fees are excluded.") : t("Lịch theo các kỳ hợp đồng đã khai.", "Schedule follows declared contract periods.")}</p><p>{t("Gốc và dư nợ là toàn khoản vay; tiền trả, lãi và phí là phần của bạn.", "Principal and balance refer to the whole loan; payments, interest and fees are your shares.")}</p><div className="debt-table-scroll" tabIndex={0} role="region" aria-label={t("Bảng lịch trả nợ", "Repayment table")}><table><thead><tr>{[t("Kỳ", "Period"), t("Gốc toàn khoản", "Whole principal"), t("Lãi của bạn", "Your interest"), t("Phí của bạn", "Your fees"), t("Bạn trả", "You pay"), t("Dư nợ toàn khoản", "Whole balance")].map(label => <th key={label}>{label}</th>)}</tr></thead><tbody>{activeSchedule.rows.slice(schedulePage * 24, (schedulePage + 1) * 24).map(row => <tr key={row.dueDate}><td>{activeSchedule.status === "ILLUSTRATIVE" ? formatMonthVN(row.dueDate.slice(0, 7)) : formatDateVN(row.dueDate)}</td>{[row.principal, row.userInterest, row.userFee, row.userPayment, row.closing].map((value, index) => <td key={index}>{money(value)}</td>)}</tr>)}</tbody></table></div>{activeSchedule.rows.length > 24 && <div className="debt-pagination"><button className="overview-button secondary" disabled={schedulePage === 0} onClick={() => setSchedulePage(value => value - 1)}>{t("Trước", "Previous")}</button><span>{schedulePage + 1} / {Math.ceil(activeSchedule.rows.length / 24)}</span><button className="overview-button secondary" disabled={(schedulePage + 1) * 24 >= activeSchedule.rows.length} onClick={() => setSchedulePage(value => value + 1)}>{t("Sau", "Next")}</button></div>}</> : <p>{t("Chưa đủ điều khoản để lập lịch. Sửa khoản nợ để bổ sung, không tự gán lãi suất.", "Terms are insufficient for a schedule. Edit the loan to add details; no interest rate is assumed.")}</p>}<footer><button className="overview-button secondary" onClick={() => setSchedule(null)}>{t("Đóng", "Close")}</button>{scheduleLoan && <button className="overview-button primary" onClick={() => { setSchedule(null); setEdit(scheduleLoan); }}>{t("Sửa khoản nợ", "Edit loan")}</button>}</footer>
+    </> : <p role="status">{t("Đang tải lịch…", "Loading schedule…")}</p>}</ResponsiveDialog>
+  </div>;
 }

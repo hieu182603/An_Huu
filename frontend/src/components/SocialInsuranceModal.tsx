@@ -37,6 +37,7 @@ interface SocialInsuranceModalProps {
   onClose: () => void;
   language?: "vi" | "en";
   initialBenefitDate?: string;
+  initialTab?: "history" | "estimate" | "records";
 }
 
 export function SocialInsuranceModal({
@@ -44,6 +45,7 @@ export function SocialInsuranceModal({
   onClose,
   language = "vi",
   initialBenefitDate,
+  initialTab = "estimate",
 }: SocialInsuranceModalProps) {
   const formId = useId();
   const isVi = language === "vi";
@@ -51,7 +53,7 @@ export function SocialInsuranceModal({
   const { user } = useAuth();
 
   // Active Tab: "history" (Lịch sử đóng BHXH) vs "estimate" (Ước tính lương hưu) vs "records" (Bản lưu)
-  const [activeTab, setActiveTab] = useState<"history" | "estimate" | "records">("estimate");
+  const [activeTab, setActiveTab] = useState<"history" | "estimate" | "records">(initialTab);
 
   // ==========================================
   // TAB 2: HISTORY STATE

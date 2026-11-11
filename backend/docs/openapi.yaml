@@ -2228,20 +2228,21 @@ paths:
       parameters:
         - name: page
           in: query
+          required: false
           schema:
             type: integer
             minimum: 1
             maximum: 100000
-            default: 1
         - name: limit
           in: query
+          required: false
           schema:
             type: integer
             minimum: 1
             maximum: 100
-            default: 20
         - name: sortBy
           in: query
+          required: false
           schema:
             type: string
             enum:
@@ -2250,6 +2251,7 @@ paths:
             default: createdAt
         - name: order
           in: query
+          required: false
           schema:
             type: string
             enum:
@@ -2258,9 +2260,26 @@ paths:
             default: desc
         - name: status
           in: query
+          required: false
           schema:
             type: string
-            maxLength: 30
+            enum:
+              - OPEN
+              - IN_PROGRESS
+              - RESOLVED
+              - CLOSED
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 80
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 120
       responses:
         "200":
           description: Success
@@ -2774,34 +2793,57 @@ paths:
       parameters:
         - name: page
           in: query
+          required: false
           schema:
             type: integer
             minimum: 1
             maximum: 100000
-            default: 1
         - name: limit
           in: query
+          required: false
           schema:
             type: integer
             minimum: 1
             maximum: 100
-            default: 20
         - name: sortBy
           in: query
+          required: false
           schema:
             type: string
             enum:
               - createdAt
-              - updatedAt
             default: createdAt
         - name: order
           in: query
+          required: false
           schema:
             type: string
             enum:
               - asc
               - desc
             default: desc
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 120
+        - name: unread
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - support
+              - security
       responses:
         "200":
           description: Success
@@ -5729,10 +5771,11 @@ paths:
       operationId: exportRetirementPlanVersionCsv
       security:
         - bearerAuth: []
-      description: USER only. UTF-8 BOM CSV from the pinned snapshot. Default technical
-        format retains exact decimals and source identifiers. Optional readable-vi
-        format has Vietnamese monthly headings and rounds money to whole VND for display only.
-        Not a JSON envelope. See PLAN_PRESENTATION.md.
+      description: USER only. UTF-8 BOM CSV from the pinned snapshot. Default
+        technical format retains exact decimals and source identifiers. Optional
+        readable-vi format has Vietnamese monthly headings and rounds money to
+        whole VND for display only. Not a JSON envelope. See
+        PLAN_PRESENTATION.md.
       parameters:
         - name: planId
           in: path
@@ -5748,7 +5791,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [technical, readable-vi]
+            enum: [ technical, readable-vi ]
             default: technical
       responses:
         "200":
@@ -7396,6 +7439,7 @@ paths:
             enum:
               - name
               - updatedAt
+              - riskLevel
             default: name
         - name: order
           in: query
@@ -7410,9 +7454,24 @@ paths:
           schema:
             type: string
             format: uuid
-      description: T11. See SECONDARY_MODULES.md. Visibility is explicit; no return
-        guarantee or financial-engine input. Settings persist preference only;
-        delivery capability remains false.
+        - name: category
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 120
+        - name: riskLevel
+          in: query
+          schema:
+            type: string
+            enum:
+              - LOW
+              - MEDIUM
+              - HIGH
+      description: Visible catalog with published fee, conditions and disclosure;
+        filters/search/pagination/counts use the same query. Search name,
+        category and provider; risk sorting supports LOW/MEDIUM/HIGH. No
+        fabricated rates, minimum amount or term metadata.
       responses:
         "200":
           description: Persisted result
@@ -9034,8 +9093,9 @@ paths:
       summary: listMarketDatasets
       security:
         - bearerAuth: []
-      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
-        publication does not change plans.
+      description: ADMIN only. Versioned market dataset workflow in
+        assumption_set_versions. Immutable after approval; publication does not
+        change plans.
       parameters:
         - in: query
           name: page
@@ -9111,8 +9171,9 @@ paths:
       summary: createMarketDataset
       security:
         - bearerAuth: []
-      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
-        publication does not change plans.
+      description: ADMIN only. Versioned market dataset workflow in
+        assumption_set_versions. Immutable after approval; publication does not
+        change plans.
       requestBody:
         required: true
         content:
@@ -9180,8 +9241,9 @@ paths:
       summary: getMarketDataset
       security:
         - bearerAuth: []
-      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
-        publication does not change plans.
+      description: ADMIN only. Versioned market dataset workflow in
+        assumption_set_versions. Immutable after approval; publication does not
+        change plans.
       parameters:
         - in: path
           name: id
@@ -9249,8 +9311,9 @@ paths:
       summary: editMarketDataset
       security:
         - bearerAuth: []
-      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
-        publication does not change plans.
+      description: ADMIN only. Versioned market dataset workflow in
+        assumption_set_versions. Immutable after approval; publication does not
+        change plans.
       parameters:
         - in: path
           name: id
@@ -9325,8 +9388,9 @@ paths:
       summary: validateMarketDataset
       security:
         - bearerAuth: []
-      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
-        publication does not change plans.
+      description: ADMIN only. Versioned market dataset workflow in
+        assumption_set_versions. Immutable after approval; publication does not
+        change plans.
       parameters:
         - in: path
           name: id
@@ -9401,8 +9465,9 @@ paths:
       summary: approveMarketDataset
       security:
         - bearerAuth: []
-      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
-        publication does not change plans.
+      description: ADMIN only. Versioned market dataset workflow in
+        assumption_set_versions. Immutable after approval; publication does not
+        change plans.
       parameters:
         - in: path
           name: id
@@ -9477,8 +9542,9 @@ paths:
       summary: publishMarketDataset
       security:
         - bearerAuth: []
-      description: ADMIN only. Versioned market dataset workflow in assumption_set_versions. Immutable after approval;
-        publication does not change plans.
+      description: ADMIN only. Versioned market dataset workflow in
+        assumption_set_versions. Immutable after approval; publication does not
+        change plans.
       parameters:
         - in: path
           name: id
@@ -9553,8 +9619,9 @@ paths:
       summary: allocationRisk_simulation
       security:
         - bearerAuth: []
-      description: USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 500 paths,
-        200000 candidate-path-months, 10 seconds; six requests/minute/IP, one run/user and two runs/process
+      description: USER only. Read-only computation; no market overrides, save/apply
+        or trade execution. Up to 500 paths, 200000 candidate-path-months, 10
+        seconds; six requests/minute/IP, one run/user and two runs/process
         concurrently.
       requestBody:
         required: true
@@ -9623,8 +9690,9 @@ paths:
       summary: allocationRisk_scenarios
       security:
         - bearerAuth: []
-      description: USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 500 paths,
-        200000 candidate-path-months, 10 seconds; six requests/minute/IP, one run/user and two runs/process
+      description: USER only. Read-only computation; no market overrides, save/apply
+        or trade execution. Up to 500 paths, 200000 candidate-path-months, 10
+        seconds; six requests/minute/IP, one run/user and two runs/process
         concurrently.
       requestBody:
         required: true
@@ -9693,8 +9761,9 @@ paths:
       summary: allocationRisk_selection
       security:
         - bearerAuth: []
-      description: USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 500 paths,
-        200000 candidate-path-months, 10 seconds; six requests/minute/IP, one run/user and two runs/process
+      description: USER only. Read-only computation; no market overrides, save/apply
+        or trade execution. Up to 500 paths, 200000 candidate-path-months, 10
+        seconds; six requests/minute/IP, one run/user and two runs/process
         concurrently.
       requestBody:
         required: true
@@ -9763,8 +9832,9 @@ paths:
       summary: allocationRisk_rebalance
       security:
         - bearerAuth: []
-      description: USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 500 paths,
-        200000 candidate-path-months, 10 seconds; six requests/minute/IP, one run/user and two runs/process
+      description: USER only. Read-only computation; no market overrides, save/apply
+        or trade execution. Up to 500 paths, 200000 candidate-path-months, 10
+        seconds; six requests/minute/IP, one run/user and two runs/process
         concurrently.
       requestBody:
         required: true
@@ -9972,6 +10042,1077 @@ paths:
         "503":
           description: Validation, authentication, ownership, integrity, rate or service
             error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/financial-profile/cashflow:
+    patch:
+      operationId: patchProfileCashflow
+      security:
+        - bearerAuth: []
+      description: USER only, profile v2. ADD/UPDATE/DELETE a cashflow item or SPLIT
+        an existing known amount without double counting. SPLIT requires
+        sourceId and identical currency, frequency and start/end months; amount
+        must not exceed the remaining source. Other operations reject sourceId.
+        ADD to UNKNOWN requires confirmUnknownGroup=true. Pension and debt
+        references are read-only here. CONFIRM_NONE requires an empty/unknown
+        group. Each successful command increments profile revision, emits
+        profile.changed and marks plans stale without changing applied versions.
+        Stale revisions reject with 409; retry by reloading, never automatically
+        repeat with a new revision.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./cashflow.openapi.yaml#/CashflowPatch
+      responses:
+        "200":
+          description: Updated profile and authoritative summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/financial-profile/assets:
+    get:
+      operationId: getProfileAssets
+      security:
+        - bearerAuth: []
+      description: USER/v2. Authoritative values in VND at the profile valuation date.
+        Unknown dependent values remain null; zero expenses have coverageBasis
+        NO_EXPENSE and no month ratio. Percentages are rounded to one decimal
+        place for display. The report does not change projection inputs or
+        applied snapshots.
+      responses:
+        "200":
+          description: Current owned assets and purpose breakdown
+          content:
+            application/json:
+              schema:
+                $ref: ./assets.openapi.yaml#/AssetReportEnvelope
+        "400": &a1
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401": &a2
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403": &a3
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404": &a4
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409": &a5
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429": &a6
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500": &a7
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: patchProfileAssets
+      security:
+        - bearerAuth: []
+      description: USER/v2. Revision-checked ADD/UPDATE/DELETE/SPLIT/CONFIRM_NONE.
+        Splits preserve ownership, currency, valuation, liquidity and
+        availability; the new purpose/type may be reclassified. Known cost basis
+        is allocated proportionally in cents while preserving its total.
+        Confirmed housing plans must be reviewed before splitting. ADD to
+        UNKNOWN requires confirmUnknownGroup=true. CONFIRM_NONE requires an
+        empty group. Writes mark plans stale without applying versions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./assets.openapi.yaml#/AssetPatch
+      responses:
+        "200":
+          description: Updated profile and authoritative summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404": *a4
+        "409": *a5
+        "429": *a6
+        "500": *a7
+  /api/v1/me/financial-profile/debts:
+    get:
+      operationId: getProfileDebts
+      security: &a1
+        - bearerAuth: []
+      description: USER/v2. Revision-bound authoritative debt totals and schedules.
+        Unknown values stay null. Illustrative schedules use explicitly declared
+        nominal annual rates / 12, reducing balance, fixed total payments and no
+        fees; day 01 marks a month. Confirmed contract terms remain
+        authoritative. Future interest-bearing repayments need deferred-interest
+        terms. No default rate or payoff date. No snapshot mutation.
+      responses:
+        "200":
+          description: Debt workspace report
+          content:
+            application/json:
+              schema:
+                $ref: ./profile-debts.openapi.yaml#/DebtReportEnvelope
+        "400": &a2
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401": &a3
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403": &a4
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404": &a5
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409": &a6
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429": &a7
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500": &a8
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: patchProfileDebts
+      security: *a1
+      description: USER/v2. Revision-checked ADD/UPDATE/DELETE/SPLIT/CONFIRM_NONE.
+        Linked DEBT_PAYMENT expenses are synchronized atomically; contract and
+        illustrative references keep unknown amounts to avoid false constant
+        payments. SPLIT requires known balance/payment and identical allocation,
+        currency, dates and schedule; contracted/shared source loans cannot
+        split. ADD to UNKNOWN needs explicit group confirmation. Writes mark
+        plans stale without applying versions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./profile-debts.openapi.yaml#/DebtPatch
+      responses:
+        "200":
+          description: Updated profile and summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400": *a2
+        "401": *a3
+        "403": *a4
+        "404": *a5
+        "409": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/me/retirement/pension-impact:
+    post:
+      operationId: comparePensionImpact
+      security: &a1
+        - bearerAuth: []
+      description: USER/v2 read-only. Captures the current owned profile at
+        expectedProfileRevision and the selected PUBLISHED policy/assumptions
+        once. Runs the canonical monthly engine with and without pension, using
+        identical dates, assets, budget and non-pension income. Only the linked
+        pension reference is excluded from both income selections. Returns the
+        signed difference between required retirement funds. Unknown pension or
+        incomplete projections keep all comparison amounts null. Does not mutate
+        profile, history, snapshots, actuals or apply a plan; this is a profile
+        preview, not an actual-transaction reforecast.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./retirement.openapi.yaml#/Input
+      responses:
+        "200":
+          description: Pension capital comparison
+          content:
+            application/json:
+              schema:
+                $ref: ./insurance-workspace.openapi.yaml#/PensionImpactEnvelope
+        "400": &a2
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401": &a3
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403": &a4
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404": &a5
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409": &a6
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422": &a7
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429": &a8
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500": &a9
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/pension/history/periods:
+    get:
+      operationId: getInsurancePeriods
+      security: *a1
+      description: USER. Canonical latest immutable history grouped by contiguous
+        equal monthly facts. Gaps stay UNKNOWN. Declared months are
+        self-reported, not verified legal entitlement. Absent history totals are
+        null. Evidenced, state-salary, credited and special periods require the
+        detailed history editor.
+      responses:
+        "200":
+          description: Participation periods and completeness
+          content:
+            application/json:
+              schema:
+                $ref: ./insurance-workspace.openapi.yaml#/InsurancePeriodsReportEnvelope
+        "400": *a2
+        "401": *a3
+        "403": *a4
+        "404": *a5
+        "409": *a6
+        "422": *a7
+        "429": *a8
+        "500": *a9
+    patch:
+      operationId: patchInsurancePeriod
+      security: *a1
+      description: USER. Revision-checked and idempotent ADD/UPDATE/DELETE of simple
+        self-declared paid periods. Rejects overlap with known facts, future
+        months and ranges beyond 1200 months. Bare UNKNOWN gaps may be
+        explicitly filled. Appends a canonical history version preserving
+        demographics and special data. Does not calculate/change pension
+        declarations or applied plans. Evidence is not fabricated.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./insurance-workspace.openapi.yaml#/InsurancePeriodPatch
+      responses:
+        "200":
+          description: Appended history periods; same-key replay returns the same result
+          content:
+            application/json:
+              schema:
+                $ref: ./insurance-workspace.openapi.yaml#/InsurancePeriodsReportEnvelope
+        "400": *a2
+        "401": *a3
+        "403": *a4
+        "404": *a5
+        "409": *a6
+        "422": *a7
+        "429": *a8
+        "500": *a9
+  /api/v1/me/financial-profile/pension:
+    get:
+      operationId: getPensionWorkspace
+      security: *a1
+      description: USER/v2. Revision-bound declaration, independent pension start,
+        derived age and current cashflow from the canonical pension engine. No
+        invented CPI, retirement age, entitlement or fund reduction.
+      responses:
+        "200":
+          description: Saved pension declaration report
+          content:
+            application/json:
+              schema:
+                $ref: ./insurance-workspace.openapi.yaml#/PensionWorkspaceReportEnvelope
+        "400": *a2
+        "401": *a3
+        "403": *a4
+        "404": *a5
+        "409": *a6
+        "422": *a7
+        "429": *a8
+        "500": *a9
+    patch:
+      operationId: patchPensionWorkspace
+      security: *a1
+      description: USER/v2. Atomic revision-checked pension/start-month update and
+        existing linked PENSION income synchronization. Unknown and no-pension
+        declarations remain distinct from known zero. Keeps explicit adjustments
+        and source. No automatic annual CPI increase. Marks retirement plans
+        stale without applying versions. History is unchanged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./insurance-workspace.openapi.yaml#/PensionWorkspacePatch
+      responses:
+        "200":
+          description: Updated profile and authoritative summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400": *a2
+        "401": *a3
+        "403": *a4
+        "404": *a5
+        "409": *a6
+        "422": *a7
+        "429": *a8
+        "500": *a9
+  /api/v1/me/financial-profile/family:
+    get:
+      operationId: getProfileFamily
+      security: &a1
+        - bearerAuth: []
+      description: USER/v2. Revision/date-bound marital/dependent declarations and
+        DEPENDENT expenses only, using canonical valuation-month cashflow.
+        Missing marital information is null; missing dependents are UNKNOWN, not
+        zero. No income, expenses, goals or entitlement are inferred from
+        marital status or headcount.
+      responses:
+        "200":
+          description: Family declarations and support expenses
+          content:
+            application/json:
+              schema:
+                $ref: ./family.openapi.yaml#/FamilyReportEnvelope
+        "400": &a2
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401": &a3
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403": &a4
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404": &a5
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409": &a6
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429": &a7
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500": &a8
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: patchProfileFamily
+      security: *a1
+      description: USER/v2. Expected revision plus explicit maritalStatus (SINGLE,
+        MARRIED, DIVORCED, OTHER or null to withhold) and dependents (KNOWN
+        integer 0..30 or UNKNOWN). Preserves every other personal/profile field
+        and all expense/goal data. Transaction/CAS/audit/profile.changed marks
+        plans stale without saving or applying a new plan. Legacy v1 requires
+        explicit upgrade.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./family.openapi.yaml#/FamilyPatch
+      responses:
+        "200":
+          description: Updated profile and authoritative summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400": *a2
+        "401": *a3
+        "403": *a4
+        "404": *a5
+        "409": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/me/financial-profile/planning:
+    get:
+      operationId: getProfilePlanning
+      security: &a1
+        - bearerAuth: []
+      description: USER/v2. Revision/date-bound care responsibilities, cumulative
+        1/3/5-year liquidity needs and complete goal collection. Missing data is
+        UNKNOWN, never zero. No three-horizon sum, expense inference or
+        automatic plan application.
+      responses:
+        "200":
+          description: Saved planning declarations
+          content:
+            application/json:
+              schema:
+                $ref: ./planning.openapi.yaml#/PlanningReportEnvelope
+        "400": &a2
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401": &a3
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403": &a4
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404": &a5
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409": &a6
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429": &a7
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500": &a8
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: patchProfilePlanning
+      security: *a1
+      description: USER/v2. Expected revision plus careResponsibility (KNOWN
+        SELF/CHILDREN/PARENTS/BOTH/OTHER or UNKNOWN), all liquidityNeeds
+        horizons (KNOWN decimal strings or UNKNOWN) and full goals collection
+        (KNOWN/UNKNOWN/NOT_APPLICABLE). Known cumulative needs must not
+        decrease; goal IDs unique, dates not before valuation month. Preserve
+        all goal metadata and other profile data. Transaction/CAS/audit/outbox
+        marks plans stale; no expense, fund withdrawal or version save/apply.
+        Legacy v1 needs explicit upgrade.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./planning.openapi.yaml#/PlanningPatch
+      responses:
+        "200":
+          description: Updated profile and authoritative summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400": *a2
+        "401": *a3
+        "403": *a4
+        "404": *a5
+        "409": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/products/facets:
+    get:
+      operationId: getProductFacets
+      security: []
+      description: "Public counts: visible product AND visible parent AND complete
+        fee/conditions/disclosure. No hidden categories or contact data."
+      responses:
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: ./discovery.openapi.yaml#/ProductFacetsEnvelope
+        "400": &a1
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401": &a2
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403": &a3
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404": &a4
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409": &a5
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422": &a6
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429": &a7
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500": &a8
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/content-facets:
+    get:
+      operationId: getContentFacets
+      security: []
+      description: Counts of PUBLISHED ARTICLE categories only, excluding
+        draft/FAQ/glossary.
+      responses:
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: ./discovery.openapi.yaml#/ContentFacetsEnvelope
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404": *a4
+        "409": *a5
+        "422": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/me/saved-products:
+    get:
+      operationId: getSavedProducts
+      security: &a9
+        - bearerAuth: []
+      description: USER-owned saved products, up to 200; current published visibility
+        and terms applied on every read. Product/parent hidden or incomplete =>
+        excluded.
+      responses:
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: ./discovery.openapi.yaml#/SavedProductsEnvelope
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404": *a4
+        "409": *a5
+        "422": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/me/saved-products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: saveProduct
+      security: *a9
+      description: USER-only idempotent save, owner row lock serializes the 200 limit.
+        Current published product required. No financial-plan mutation.
+      responses:
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: ./discovery.openapi.yaml#/SavedEnvelope
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404": *a4
+        "409": *a5
+        "422": *a6
+        "429": *a7
+        "500": *a8
+    delete:
+      operationId: unsaveProduct
+      security: *a9
+      description: USER-only idempotent removal, including hidden products. Owner
+        scope only.
+      responses:
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: ./discovery.openapi.yaml#/SavedEnvelope
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404": *a4
+        "409": *a5
+        "422": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/me/products/{id}/consult:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: requestProductConsultation
+      security: *a9
+      description: USER. Creates a Support ticket/message and audit atomically. Owner
+        lock prevents duplicate active requests. Published terms required.
+        Optional expectedProductRevision rejects changed terms; immutable
+        product snapshot in audit/message. No provider, purchase or transfer. UI
+        explicitly collects consent/contact channel.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./discovery.openapi.yaml#/ProductConsultInput
+      responses:
+        "201":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: ./discovery.openapi.yaml#/ConsultEnvelope
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404": *a4
+        "409": *a5
+        "422": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/me/support/{id}/cancel:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: withdrawSupportRequest
+      security: *a9
+      description: Close only an owned OPEN/IN_PROGRESS ticket; preserve messages,
+        reject resolved/closed/another owner.
+      responses:
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: ./discovery.openapi.yaml#/CancelledEnvelope
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404": *a4
+        "409": *a5
+        "422": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/me/product-tools/deposit/preview:
+    post:
+      operationId: previewProductDeposit
+      security: *a9
+      description: "USER read-only illustration. Explicit
+        principal/rate/start/term/payout, no product-string parsing or inferred
+        terms. Simple end or monthly-paid interest vs monthly compounding.
+        Month-end clamping. Optional early rate/month before maturity:
+        previously paid interest is deducted from settlement, not paid twice.
+        Payment cents HALF_UP; compounding rounds only at final result. Excludes
+        taxes/fees and does not write financial data."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./discovery.openapi.yaml#/DepositInput
+      responses:
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: ./discovery.openapi.yaml#/DepositEnvelope
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404": *a4
+        "409": *a5
+        "422": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/me/product-tools/bond/preview:
+    post:
+      operationId: previewProductBond
+      security: *a9
+      description: USER read-only illustration. Coupon on face value, cost on purchase
+        price. Coupon payments rounded to cents and totals reconcile to
+        schedule. Interval divides term; max600months. Optional sale keeps only
+        coupons due by sale. Bounded periodic IRR yields nominal annual YTM or
+        null, never substituted by coupon/price. No plan writes, guarantee or
+        trade.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./discovery.openapi.yaml#/BondInput
+      responses:
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: ./discovery.openapi.yaml#/BondEnvelope
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404": *a4
+        "409": *a5
+        "422": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/me/portfolio-policies/workspace/preview:
+    post:
+      operationId: previewAllocationWorkspace
+      security: &a1
+        - bearerAuth: []
+      description: USER/v2 read-only current profile revision + published
+        hash-verified policy/dependency. Canonical capital separation, loss
+        stress and first-month actual weights/Decimal amounts. Never infer
+        missing dates, amounts, answers or financial benchmarks. Optional
+        endMonth absent returns capital and explicit PLAN_END_MONTH_REQUIRED,
+        without portfolio result. Negative capital retained. liquidityNeedMonths
+        is portfolio eligibility horizon; reserve months remain based on
+        declared income stability. No cache/profile/plan/holdings write.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-workspace.openapi.yaml#/Input
+      responses:
+        "200":
+          description: Revision-bound illustrative result
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-workspace.openapi.yaml#/Envelope
+        "400": &a2
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401": &a3
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403": &a4
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404": &a5
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409": &a6
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422": &a7
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429": &a8
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500": &a9
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/financial-profile/loss-tolerance:
+    patch:
+      operationId: saveAllocationLossTolerance
+      security: *a1
+      description: USER/v2 profile CAS. Explicit reaction + PERCENT/AMOUNT limit;
+        counterpart computed from current canonical positive growth capital and
+        published assumptions. Both known values replaced together, zero is
+        explicit. Transaction/audit/outbox marks plans stale; no plan-version
+        apply or trade. Stale/missing/unknown/negative growth rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-workspace.openapi.yaml#/RiskPatch
+      responses:
+        "200":
+          description: Updated profile revision and summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400": *a2
+        "401": *a3
+        "403": *a4
+        "404": *a5
+        "409": *a6
+        "422": *a7
+        "429": *a8
+        "500": *a9
+  /api/v1/me/financial-profile/retirement-goal:
+    patch:
+      operationId: saveRetirementGoal
+      security:
+        - bearerAuth: []
+      description: USER/v2. Exact birth/retirement/end months and monthly expense
+        decimal string, optional lifestyle priority. expectedRevision CAS,
+        transaction/audit/outbox, preserve financial declarations and immutable
+        versions; mark plans stale. No valuation date or benchmark changes, no
+        automatic application. Retirement age 18–100 years; end month not before
+        retirement or valuation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./remaining-user.openapi.yaml#/RetirementGoalPatch
+      responses:
+        "200":
+          description: Saved profile and authoritative summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected without partial write
           content:
             application/json:
               schema:
@@ -11692,6 +12833,26 @@ components:
       $ref: ./actuals.openapi.yaml#/UpdatePreviewEnvelope
     PlanSourcePreviewEnvelope:
       $ref: ./plans.openapi.yaml#/SourcePreviewEnvelope
+    CashflowPatch:
+      $ref: ./cashflow.openapi.yaml#/CashflowPatch
+    AssetPatch:
+      $ref: ./assets.openapi.yaml#/AssetPatch
+    AssetReportEnvelope:
+      $ref: ./assets.openapi.yaml#/AssetReportEnvelope
+    DebtPatch:
+      $ref: ./profile-debts.openapi.yaml#/DebtPatch
+    DebtReportEnvelope:
+      $ref: ./profile-debts.openapi.yaml#/DebtReportEnvelope
+    InsurancePeriodsReportEnvelope:
+      $ref: ./insurance-workspace.openapi.yaml#/InsurancePeriodsReportEnvelope
+    PensionWorkspaceReportEnvelope:
+      $ref: ./insurance-workspace.openapi.yaml#/PensionWorkspaceReportEnvelope
+    PensionImpactEnvelope:
+      $ref: ./insurance-workspace.openapi.yaml#/PensionImpactEnvelope
+    FamilyReportEnvelope:
+      $ref: ./family.openapi.yaml#/FamilyReportEnvelope
+    PlanningReportEnvelope:
+      $ref: ./planning.openapi.yaml#/PlanningReportEnvelope
   securitySchemes:
     bearerAuth:
       type: http

@@ -1,3 +1,4 @@
+import { toggleExplainMode } from "./helpers";
 import { expect, test } from '@playwright/test';
 import { installRouteAuth, installFinancialProfileRoutes, defaultMockProfile } from './helpers';
 
@@ -33,8 +34,8 @@ async function openGoalPage(page: import('@playwright/test').Page) {
   await page.goto('/user/goal');
   await expect(page.locator('.retirement-page-header')).toBeVisible();
   const explainBtn = page.getByRole('button', { name: 'Trợ lý AI', exact: true });
-  await explainBtn.click();
-  await expect(explainBtn).toHaveAttribute('aria-pressed', 'true');
+  await toggleExplainMode(page);
+  await expect(page.locator('.explain-mode-banner')).toBeVisible();
 }
 
 test('clicking on labels and numbers in RetirementGoalPage opens definition and formula', async ({ page }) => {

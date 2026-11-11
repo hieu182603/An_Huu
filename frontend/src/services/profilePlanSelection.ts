@@ -4,6 +4,10 @@ import { reviseSelection } from "./planSelection";
 
 export function selectionForCurrentProfile(baseline: RetirementPreviewInput, draft: Partial<RetirementPreviewInput> | null, profile: ProfileV2, revision: number) {
   const next = reviseSelection(baseline, draft ?? {}, revision);
+  if(profile.retirementGoal&&baseline.expectedProfileRevision!==revision){
+    if(draft?.monthlyExpenseToday===undefined)next.monthlyExpenseToday=profile.retirementGoal.monthlyExpenseToday;
+    if(draft?.endMonth===undefined)next.endMonth=profile.retirementGoal.endMonth;
+  }
   const whatIf = { ...next.whatIf };
   const actualMonth = profile.personal.desiredRetirementMonth;
   // A profile update must not keep an old retirement date pinned by the goal screen.

@@ -49,7 +49,7 @@ describe("T01 explicit financial data", () => {
   });
   it("separates ownership, emergency savings and other goals from retirement money", () => {
     const data = fixtureProfile({ assets: { status: "KNOWN", entries: [fixtureAsset({ ownershipShare: known("0.5") })] } });
-    expect(profileV2Summary(data).values).toMatchObject({ totalAssets: "50000000", totalDebt: "50000000", netWorth: "0", retirementLiquidAssets: "30000000", monthlyDebtService: "5000000", availableMonthlySurplus: "-1000000" });
+    expect(profileV2Summary(data).values).toMatchObject({ totalAssets: "50000000", totalDebt: "50000000", netWorth: "0", retirementLiquidAssets: "30000000", emergencyReserve: "15000000", monthlyDebtService: "5000000", availableMonthlySurplus: "-1000000" });
   });
   it("keeps exact large fractional ownership without intermediate rounding", () => {
     const data = fixtureProfile({ assets: { status: "KNOWN", entries: [fixtureAsset({ value: known("9007199254740993.25"), ownershipShare: known("0.12345678"), retirementShare: known("1"), emergencyShare: known("0"), otherGoalsShare: known("0") })] }, debts: empty() });
@@ -172,10 +172,20 @@ describe("T01 profile persistence and HTTP boundaries (offline database)", () =>
     contract("CompleteResultEnvelope", result.body);
     result = await request(app).get("/api/v1/me/financial-profile").set(headers);
     expect(result.body.data.schemaVersion).toBe(2);
+    expect(result.body.data.summary.values.emergencyReserve).toBe("30000000");
     contract("ProfileEnvelope", result.body);
     result = await request(app).patch("/api/v1/me/financial-profile").set(headers).send({ expectedRevision: 1, changes: { schemaVersion: 2, income: unknown } });
     expect(result.status).toBe(200);
     contract("ProfilePatchResultEnvelope", result.body);
+    expect(result.body.data.summary.values.emergencyReserve).toBe("30000000");
+    result = await request(app).patch("/api/v1/me/financial-profile").set(headers).send({ expectedRevision: 2, changes: { schemaVersion: 2,
+      assets: { status: "KNOWN", entries: [fixtureAsset({ liquidity: known("LOCKED") })] } } });
+    expect(result.status).toBe(200);
+    contract("ProfilePatchResultEnvelope", result.body);
+    expect(result.body.data.summary.values.emergencyReserve).toBe("0");
+    result = await request(app).get("/api/v1/me/financial-profile").set(headers);
+    contract("ProfileEnvelope", result.body);
+    expect(result.body.data.summary.values.emergencyReserve).toBe("0");
     expect(f.rows("financialProfile")[0].userId).toBe("test-user");
     expect((await request(app).patch("/api/v1/me/financial-profile").set(headers).send({ expectedRevision: 1, changes: { schemaVersion: 2, userId: "other" } })).status).toBe(400);
     expect((await request(app).get("/api/v1/me/financial-profile").set("Authorization", "Bearer " + token("ADMIN"))).status).toBe(403);

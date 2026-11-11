@@ -4,9 +4,10 @@ import { paginationSchema } from "../../common/http";
 import { transaction } from "../../common/transaction";
 import { audit } from "../../common/audit";
 import { AppError } from "../../common/errors";
+import { publicProductWhere, productSelect } from "../catalog/service";
 import { SocketService } from "../../services/socketService";
 export const PRODUCT_CONSULT = "Tư vấn sản phẩm";
-export const listQuery = paginationSchema(["createdAt", "updatedAt"]).extend({ status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]).optional(), category: z.string().trim().max(80).optional() });
+export const listQuery = paginationSchema(["createdAt", "updatedAt"]).extend({ status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]).optional(), category: z.string().trim().max(80).optional(), search: z.string().trim().max(120).optional() });
 export const CONSULT_CHANNELS = { PHONE: "Điện thoại tư vấn", EMAIL: "Email tài liệu", BRANCH: "Chi nhánh" } as const;
 // message stays optional so a request can be sent with only a channel; consent, when sent, must be an explicit true.
 export const consultInput = z.object({
@@ -14,7 +15,9 @@ export const consultInput = z.object({
   phone: z.string().trim().regex(/^[0-9+().\s-]{8,20}$/).optional(),
   channel: z.enum(["PHONE", "EMAIL", "BRANCH"]).default("PHONE"),
   consent: z.literal(true).optional(),
+  expectedProductRevision: z.number().int().min(0).optional(),
 }).strict();
+export const notificationQuery = paginationSchema(["createdAt"]).extend({ search: z.string().trim().max(120).optional(), unread: z.enum(["true", "false"]).optional(), kind: z.enum(["support", "security"]).optional() });
 const ACTIVE_TICKET = ["OPEN", "IN_PROGRESS"];
 export const ticketInput = z.object({ subject: z.string().trim().min(3).max(200), category: z.enum(["Tài khoản", "Sử dụng website", "Nội dung", "Khác"]), message: z.string().trim().min(3).max(5000) }).strict();
 export const replyInput = z.object({ message: z.string().trim().min(1).max(5000) }).strict();
@@ -30,7 +33,7 @@ const notify = async (tx: Prisma.TransactionClient, userId: string, title: strin
 export class CommunityService {
   constructor(private db: PrismaClient) {}
   async tickets(userId: string | null, query: z.infer<typeof listQuery>) {
-    const where = { ...(userId ? { userId } : {}), ...(query.status ? { status: query.status } : {}), ...(query.category ? { category: query.category } : {}) };
+    const where = { ...(userId ? { userId } : {}), ...(query.status ? { status: query.status } : {}), ...(query.category ? { category: query.category } : {}), ...(query.search ? { OR: ["subject", "category"].map(field => ({ [field]: { contains: query.search, mode: "insensitive" as const } })) } : {}) };
     const [items, total] = await Promise.all([this.db.supportTicket.findMany({ where, select: ticketSelect, orderBy: [{ [query.sortBy]: query.order }, { id: "asc" }], skip: (query.page - 1) * query.limit, take: query.limit }), this.db.supportTicket.count({ where })]);
     return { items, total, page: query.page, limit: query.limit };
   }
@@ -51,19 +54,22 @@ export class CommunityService {
   }
   /** Product consultations reuse the ticket thread, status and notification flow. */
   async consultProduct(userId: string, productId: string, input: z.input<typeof consultInput>) {
-    const { message, phone, channel, consent } = consultInput.parse(input);
-    const product = await this.db.partnerProduct.findFirst({ where: { id: productId, isVisible: true, partner: { isVisible: true } },
-      select: { name: true, category: true, expectedReturn: true, riskLevel: true, annualFee: true, revision: true, partner: { select: { name: true } } } });
+    const { message, phone, channel, consent, expectedProductRevision } = consultInput.parse(input);
+    return transaction(this.db, async tx => {
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
+    const product = await tx.partnerProduct.findFirst({ where: { id: productId, ...publicProductWhere },
+      select: { name: true, category: true, expectedReturn: true, riskLevel: true, annualFee: true, conditions:true, disclosure:true, revision: true, partner: { select: { name: true } } } });
     if (!product) throw new AppError(404, "NOT_FOUND", "Sản phẩm không còn được phân phối.");
+    if (expectedProductRevision !== undefined && product.revision !== expectedProductRevision) throw conflict();
     // The terms the user saw are frozen into the request; later catalog edits do not rewrite it.
     const snapshot = { name: product.name, partner: product.partner.name, category: product.category, expectedReturn: product.expectedReturn,
-      riskLevel: product.riskLevel, annualFee: product.annualFee ?? null, revision: product.revision };
+      riskLevel: product.riskLevel, annualFee: product.annualFee ?? null, conditions:product.conditions, disclosure:product.disclosure, revision: product.revision };
     const subject = `Tư vấn: ${product.name} (${product.partner.name})`.slice(0, 200);
     const body = [`Sản phẩm: ${product.name}`, `Đối tác: ${product.partner.name}`, `Hình thức liên hệ: ${CONSULT_CHANNELS[channel]}`,
       ...(phone ? [`Số điện thoại liên hệ: ${phone}`] : []),
       `Thông tin sản phẩm lúc gửi: ${product.category} · lợi suất tham khảo ${product.expectedReturn} · rủi ro ${product.riskLevel}${product.annualFee ? ` · phí ${product.annualFee}` : ""}`,
+      `Điều kiện: ${product.conditions}`, `Thông tin công bố: ${product.disclosure}`,
     ].join("\n") + (message ? `\n\n${message}` : "");
-    return transaction(this.db, async tx => {
       if (await tx.supportTicket.findFirst({ where: { userId, productId, status: { in: ACTIVE_TICKET } }, select: { id: true } }))
         throw new AppError(409, "CONSULT_ALREADY_OPEN", "Bạn đã có yêu cầu tư vấn đang xử lý cho sản phẩm này.");
       const ticket = await tx.supportTicket.create({ data: { userId, subject, category: PRODUCT_CONSULT, productId }, select: ticketSelect });
@@ -85,18 +91,20 @@ export class CommunityService {
     });
   }
   async savedProducts(userId: string) {
-    const rows = await this.db.savedProduct.findMany({ where: { userId, product: { isVisible: true, partner: { isVisible: true } } }, orderBy: [{ createdAt: "desc" }, { productId: "asc" }], take: 200,
-      select: { createdAt: true, product: { select: { id: true, name: true, category: true, expectedReturn: true, riskLevel: true, annualFee: true, imageUrl: true, partner: { select: { id: true, name: true } } } } } });
+    const rows = await this.db.savedProduct.findMany({ where: { userId, product: publicProductWhere }, orderBy: [{ createdAt: "desc" }, { productId: "asc" }], take: 200, select: { createdAt: true, product: { select: productSelect } } });
     return rows.map(r => ({ ...r.product, savedAt: r.createdAt }));
   }
   async saveProduct(userId: string, productId: string, saved: boolean) {
-    if (!saved) { await this.db.savedProduct.deleteMany({ where: { userId, productId } }); return { saved: false }; }
-    if (!(await this.db.partnerProduct.findFirst({ where: { id: productId, isVisible: true, partner: { isVisible: true } }, select: { id: true } })))
-      throw new AppError(404, "NOT_FOUND", "Sản phẩm không còn được phân phối.");
-    if (await this.db.savedProduct.findUnique({ where: { userId_productId: { userId, productId } }, select: { userId: true } })) return { saved: true };
-    if ((await this.db.savedProduct.count({ where: { userId } })) >= 200) throw new AppError(409, "SAVED_LIMIT", "Bạn đã lưu tối đa 200 sản phẩm.");
-    await this.db.savedProduct.upsert({ where: { userId_productId: { userId, productId } }, create: { userId, productId }, update: {} });
-    return { saved: true };
+    return transaction(this.db, async tx => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
+      if (!saved) { await tx.savedProduct.deleteMany({ where: { userId, productId } }); return { saved: false }; }
+      if (!(await tx.partnerProduct.findFirst({ where: { id: productId, ...publicProductWhere }, select: { id: true } })))
+        throw new AppError(404, "NOT_FOUND", "Sản phẩm không còn được phân phối.");
+      if (await tx.savedProduct.findUnique({ where: { userId_productId: { userId, productId } }, select: { userId: true } })) return { saved: true };
+      if ((await tx.savedProduct.count({ where: { userId } })) >= 200) throw new AppError(409, "SAVED_LIMIT", "Bạn đã lưu tối đa 200 sản phẩm.");
+      await tx.savedProduct.upsert({ where: { userId_productId: { userId, productId } }, create: { userId, productId }, update: {} });
+      return { saved: true };
+    });
   }
   async reply(actor: string, admin: boolean, id: string, message: string) {
     return transaction(this.db, async tx => {
@@ -120,8 +128,9 @@ export class CommunityService {
       return { updated: true };
     });
   }
-  async notifications(userId: string, page: number, limit: number) {
-    const [items, total, unread] = await Promise.all([this.db.notification.findMany({ where: { userId }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], skip: (page - 1) * limit, take: limit, select: { id: true, title: true, message: true, path: true, readAt: true, createdAt: true } }), this.db.notification.count({ where: { userId } }), this.db.notification.count({ where: { userId, readAt: null } })]);
+  async notifications(userId: string, page: number, limit: number, filters: Pick<z.infer<typeof notificationQuery>, "search" | "unread" | "kind"> = {}) {
+    const where = { userId, ...(filters.unread === "true" ? { readAt: null } : {}), ...(filters.kind ? { path: { startsWith: filters.kind === "support" ? "/user/support" : "/user/account" } } : {}), ...(filters.search ? { OR: ["title", "message"].map(field => ({ [field]: { contains: filters.search, mode: "insensitive" as const } })) } : {}) };
+    const [items, total, unread] = await Promise.all([this.db.notification.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "asc" }], skip: (page - 1) * limit, take: limit, select: { id: true, title: true, message: true, path: true, readAt: true, createdAt: true } }), this.db.notification.count({ where }), this.db.notification.count({ where: { userId, readAt: null } })]);
     return { items, total, unread, page, limit };
   }
   async readNotification(userId: string, id?: string) {

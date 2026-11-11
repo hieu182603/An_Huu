@@ -220,6 +220,7 @@ export const WARNING_MESSAGES: Record<string, string> = {
   ILLIQUID_ASSETS_EXCLUDED: "Tài sản chưa thể đổi thành tiền chưa được tính vào số tiền ban đầu của quỹ hưu trí.",
   HYPOTHETICAL_VALUES_PROFILE_UNCHANGED: "Kế hoạch đang sử dụng các giá trị giả định cá nhân (tháng nghỉ hưu hoặc giá trị tài sản mô phỏng), hồ sơ tài chính gốc không bị thay đổi.",
   LOAN_CONTRACT_ESTIMATED: "Khoản vay đang sử dụng mức trả định kỳ tự khai báo để ước tính dòng tiền.",
+  LOAN_SCHEDULE_ILLUSTRATIVE: "Lịch trả nợ minh họa dùng lãi suất tự khai cố định, dư nợ giảm dần và chưa gồm phí.",
   HOUSING_NOT_RETIREMENT_CASH: "Bất động sản nhà ở phục vụ sinh hoạt không tính gộp vào vốn tiền mặt hưu trí.",
 };
 
@@ -285,6 +286,7 @@ export const EN_WARNING_MESSAGES: Record<string, string> = {
   ILLIQUID_ASSETS_EXCLUDED: "Illiquid assets have been excluded from initial retirement capital.",
   HYPOTHETICAL_VALUES_PROFILE_UNCHANGED: "Plan is using hypothetical simulation parameters; master financial profile remains unchanged.",
   LOAN_CONTRACT_ESTIMATED: "Loan uses self-reported periodic payment to estimate debt cash flow.",
+  LOAN_SCHEDULE_ILLUSTRATIVE: "Illustrative debt schedule uses a fixed declared rate, reducing principal and no fees.",
   HOUSING_NOT_RETIREMENT_CASH: "Primary residential housing is not included in initial liquid retirement capital.",
 };
 

@@ -1,3 +1,4 @@
+import { retirementGoalPatch, goalChanges } from "./retirement-goal";
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -9,6 +10,14 @@ import { publicUser } from "../auth/service";
 import { profileSchema, partialProfileSchema, patchAccountSchema, patchProfileSchema, draftSchema, type FinancialData, type ProfileChanges, type ProfileInputChanges } from "./schema";
 import { isV2, profileV2Schema, partialProfileV2Schema, type ProfileV2, type ProfileV2Changes } from "./schema-v2";
 import { profileV2Summary } from "./summary-v2";
+import { cashflowChanges, cashflowPatchSchema } from "./cashflow-commands";
+import { assetChanges, assetPatchSchema } from "./asset-commands";
+import { profileAssetSummary } from "./asset-summary";
+import { debtChanges, debtPatchSchema } from "./debt-commands";
+import { profileDebtSummary } from "./debt-summary";
+import { pensionChanges, pensionPatchSchema, profilePensionReport } from "./pension-commands";
+import { familyChanges, familyPatchSchema, profileFamilyReport } from "./family";
+import { planningChanges, planningPatchSchema, profilePlanningReport } from "./planning";
 
 const conflict = () => new AppError(409, "REVISION_CONFLICT", "Dữ liệu đã thay đổi. Vui lòng tải lại trước khi lưu.");
 function merge(base: ProfileChanges, changes: ProfileChanges) {
@@ -94,6 +103,104 @@ export class ProfileService {
       await audit(tx, userId, "ACCOUNT_AVATAR_UPDATED", "USER", userId);
       return publicUser(await tx.user.findUniqueOrThrow({ where: { id: userId } }));
     });
+  }
+  async saveRetirementGoal(userId:string,raw:unknown){
+    const input=retirementGoalPatch.parse(raw), row=await this.getProfile(userId);
+    if(!row)throw new AppError(404,"NOT_FOUND","Chưa có hồ sơ tài chính.");
+    if(row.revision!==input.expectedRevision)throw conflict();
+    if(row.schemaVersion!==2)throw new AppError(409,"PROFILE_V2_REQUIRED","Hãy rà soát hồ sơ chi tiết trước khi lưu mục tiêu.");
+    const data=row.data as ProfileV2;
+    if(input.birthMonth>data.valuationDate.slice(0,7)||input.goal.endMonth<data.valuationDate.slice(0,7))throw new AppError(422,"INVALID_GOAL_DATES","Tháng sinh hoặc tháng kết thúc không phù hợp với kỳ định giá.");
+    return this.patchProfile(userId,input.expectedRevision,{schemaVersion:2,...goalChanges(data,input)});
+  }
+  async getFamily(userId: string) {
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi cập nhật gia đình.");
+    return profileFamilyReport(data, row.revision);
+  }
+  async getPlanning(userId: string) {
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi cập nhật mục tiêu khác.");
+    return profilePlanningReport(data, row.revision);
+  }
+  async patchPlanning(userId: string, input: unknown) {
+    const command = planningPatchSchema.parse(input);
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    if (row.revision !== command.expectedRevision) throw conflict();
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi cập nhật mục tiêu khác.");
+    return this.patchProfile(userId, command.expectedRevision, { schemaVersion: 2, ...planningChanges(data, command) });
+  }
+  async patchFamily(userId: string, input: unknown) {
+    const command = familyPatchSchema.parse(input);
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    if (row.revision !== command.expectedRevision) throw conflict();
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi cập nhật gia đình.");
+    return this.patchProfile(userId, command.expectedRevision, { schemaVersion: 2, ...familyChanges(data, command) });
+  }
+  async getPension(userId: string) {
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi khai lương hưu.");
+    return profilePensionReport(data, row.revision);
+  }
+  async patchPension(userId: string, input: unknown) {
+    const command = pensionPatchSchema.parse(input);
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    if (row.revision !== command.expectedRevision) throw conflict();
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi khai lương hưu.");
+    return this.patchProfile(userId, command.expectedRevision, { schemaVersion: 2, ...pensionChanges(data, command) });
+  }
+  async getDebts(userId: string) {
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi quản lý từng khoản nợ.");
+    return profileDebtSummary(data, row.revision);
+  }
+  async patchDebts(userId: string, input: unknown) {
+    const command = debtPatchSchema.parse(input);
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    if (row.revision !== command.expectedRevision) throw conflict();
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi quản lý từng khoản nợ.");
+    return this.patchProfile(userId, command.expectedRevision, { schemaVersion: 2, ...debtChanges(data, command.command) });
+  }
+  async getAssets(userId: string) {
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi quản lý từng tài sản.");
+    return profileAssetSummary(data, row.revision);
+  }
+  async patchAssets(userId: string, input: unknown) {
+    const command = assetPatchSchema.parse(input);
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    if (row.revision !== command.expectedRevision) throw conflict();
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi quản lý từng tài sản.");
+    return this.patchProfile(userId, command.expectedRevision, { schemaVersion: 2, ...assetChanges(data, command.command) });
+  }
+  async patchCashflow(userId: string, input: unknown) {
+    const command = cashflowPatchSchema.parse(input);
+    const row = await this.db.financialProfile.findUnique({ where: { userId } });
+    if (!row) throw new AppError(404, "NOT_FOUND", "Chưa có hồ sơ tài chính.");
+    if (row.revision !== command.expectedRevision) throw conflict();
+    const data = storedProfile(row.profileData, row.schemaVersion);
+    if (!isV2(data)) throw new AppError(409, "PROFILE_V2_REQUIRED", "Hãy nâng cấp hồ sơ chi tiết trước khi kê từng khoản.");
+    return this.patchProfile(userId, command.expectedRevision, { schemaVersion: 2, ...cashflowChanges(data, command.command) });
   }
   async patchProfile(userId: string, expectedRevision: number, changes: ProfileInputChanges) {
     const checked = patchProfileSchema.parse({ expectedRevision, changes }).changes;

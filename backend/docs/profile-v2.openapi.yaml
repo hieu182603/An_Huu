@@ -115,11 +115,17 @@ Personal:
         - OTHER
         - UNDISCLOSED
     maritalStatus:
-      type: string
-      enum:
-        - SINGLE
-        - MARRIED
-        - OTHER
+      anyOf:
+        - type: string
+          enum:
+            - SINGLE
+            - MARRIED
+            - DIVORCED
+            - OTHER
+        - type: object
+          nullable: true
+          enum:
+            - null
     dependents:
       oneOf:
         - type: object
@@ -196,6 +202,35 @@ Personal:
           required:
             - kind
             - description
+    careResponsibility:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            value:
+              type: string
+              enum:
+                - SELF
+                - CHILDREN
+                - PARENTS
+                - BOTH
+                - OTHER
+          required:
+            - status
+            - value
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
   required:
     - birthMonth
     - desiredRetirementMonth
@@ -460,6 +495,36 @@ DebtEntry:
     frequency: *a9
     contract:
       $ref: ./debt.openapi.yaml#/Declaration
+    illustration:
+      type: object
+      additionalProperties: false
+      properties:
+        annualRatePercent:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - KNOWN
+                value:
+                  type: string
+                  pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+              required:
+                - status
+                - value
+            - type: object
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UNKNOWN
+              required:
+                - status
+      required:
+        - annualRatePercent
   required:
     - id
     - label
@@ -1068,6 +1133,32 @@ FinancialDataV2:
           required:
             - status
             - reason
+    retirementGoal:
+      type: object
+      additionalProperties: false
+      properties:
+        endMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        monthlyExpenseToday:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        lifestylePriority:
+          anyOf:
+            - type: string
+              enum:
+                - BALANCED
+                - HEALTH
+                - HOUSING
+                - TRAVEL
+            - type: object
+              nullable: true
+              enum:
+                - null
+      required:
+        - endMonth
+        - monthlyExpenseToday
+        - lifestylePriority
   required:
     - schemaVersion
     - valuationDate
@@ -1685,6 +1776,32 @@ ProfileChangesV2:
           required:
             - status
             - reason
+    retirementGoal:
+      type: object
+      additionalProperties: false
+      properties:
+        endMonth:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+        monthlyExpenseToday:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        lifestylePriority:
+          anyOf:
+            - type: string
+              enum:
+                - BALANCED
+                - HEALTH
+                - HOUSING
+                - TRAVEL
+            - type: object
+              nullable: true
+              enum:
+                - null
+      required:
+        - endMonth
+        - monthlyExpenseToday
+        - lifestylePriority
   required:
     - schemaVersion
 SummaryV2:
@@ -1733,6 +1850,14 @@ SummaryV2:
           type: string
           nullable: true
           pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        emergencyReserve:
+          type: string
+          nullable: true
+          readOnly: true
+          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+          description: Owned liquid assets allocated to emergency savings and available in
+            the valuation month. Excludes housing, locked and future assets.
+            Null means dependent inputs are unknown; explicit absence is zero.
         availableMonthlySurplus:
           type: string
           nullable: true
@@ -1745,6 +1870,7 @@ SummaryV2:
         - totalDebt
         - netWorth
         - retirementLiquidAssets
+        - emergencyReserve
         - availableMonthlySurplus
     issues:
       type: array

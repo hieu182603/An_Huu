@@ -1,84 +1,66 @@
-import { useRef, useState } from "react";
-import { Alert, Button, Input, Modal } from "../ui";
-import ProfileFormattedInput from "../ProfileFormattedInput";
+import { useState, type FormEvent } from "react";
+import { useFinancialProfile } from "../../context/FinancialProfileContext";
 import { useI18n } from "../../i18n";
-import type { DebtEntry, KnownOrUnknown } from "../../services/financialProfile";
+import type { DebtEntry, DebtCommand } from "../../services/financialProfile";
+import type { LoanContract } from "../../services/debts";
+import { Decimal } from "../../utils/decimal";
+import { financeMoney } from "../../utils/financeHubSummary";
+import ProfileFormattedInput from "../ProfileFormattedInput";
+import ResponsiveDialog from "../ResponsiveDialog";
+import DebtContractFields from "./DebtContractFields";
 
-type Props = { loan: DebtEntry | null; valuationDate: string; onClose: () => void; onSave: (loan: DebtEntry) => Promise<boolean> };
-const valueOf = (value?: KnownOrUnknown<string>) => value?.status === "KNOWN" ? value.value : "";
-const money = /^(0|[1-9]\d{0,15})(\.\d{1,2})?$/;
-const month = /^\d{4}-(0[1-9]|1[0-2])$/;
-
-export default function DebtLoanDialog({ loan, valuationDate, onClose, onSave }: Props) {
-  const { language } = useI18n();
-  const vi = language !== "en";
-  const [label, setLabel] = useState(loan?.label ?? "");
-  const [balance, setBalance] = useState(valueOf(loan?.outstandingBalance));
-  const [payment, setPayment] = useState(valueOf(loan?.payment));
-  const [share, setShare] = useState("100");
-  const [balanceDate, setBalanceDate] = useState(loan ? valueOf(loan.balanceAsOf) : valuationDate);
-  const [startMonth, setStartMonth] = useState(loan?.startMonth ?? valuationDate.slice(0, 7));
-  const [endMonth, setEndMonth] = useState(loan?.endMonth ?? "");
-  const [busy, setBusy] = useState(false);
-  const saving = useRef(false);
-  const [error, setError] = useState("");
-  const hasContract = loan?.contract?.status === "KNOWN";
-
-  async function save() {
-    if (saving.current) return;
-    setError("");
-    if (!label.trim() || label.trim().length > 120) return setError(vi ? "Nhập tên khoản vay, tối đa 120 ký tự." : "Enter a loan name up to 120 characters.");
-    if ((!money.test(balance) && !(loan && balance === "")) || (!loan && Number(balance) <= 0) || (!money.test(payment) && !(loan && payment === ""))) {
-      return setError(vi ? "Nhập dư nợ và tiền trả mỗi tháng hợp lệ (tối đa 16 chữ số, 2 số lẻ). Dư nợ mới phải lớn hơn 0." : "Enter valid balances and monthly payments (up to 16 digits and 2 decimal places). A new balance must be positive.");
-    }
-    if (!loan && (!/^\d+(\.\d{1,2})?$/.test(share) || Number(share) <= 0 || Number(share) > 100)) return setError(vi ? "Tỷ lệ nghĩa vụ phải lớn hơn 0 và không quá 100%." : "The share must be greater than 0 and at most 100%.");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(balanceDate) || !Number.isFinite(Date.parse(balanceDate)) || new Date(balanceDate).toISOString().slice(0, 10) !== balanceDate || !month.test(startMonth) || (endMonth && (!month.test(endMonth) || endMonth < startMonth))) {
-      return setError(vi ? "Kiểm tra ngày xác nhận dư nợ và tháng trả nợ. Tháng kết thúc phải từ tháng bắt đầu trở đi." : "Check the balance date and repayment months. The end month cannot precede the start month.");
-    }
-    if (loan?.frequency === "ONCE" && endMonth !== startMonth) return setError(vi ? "Khoản trả một lần cần cùng tháng bắt đầu và kết thúc." : "A one-off payment must start and end in the same month.");
-    const known = (value: string): KnownOrUnknown<string> => value ? { status: "KNOWN", value } : { status: "UNKNOWN" };
-    const next: DebtEntry = {
-      ...(loan ?? {
-        id: `dbt_${crypto.randomUUID()}`, currency: "VND", frequency: "MONTHLY" as const,
-        paymentShare: known((Number(share) / 100).toFixed(4)),
-        balanceShare: known((Number(share) / 100).toFixed(4)),
-        contract: { status: "UNKNOWN" as const }, responsibility: { status: "UNKNOWN" as const },
-      }),
-      label: label.trim(), outstandingBalance: known(balance), payment: known(payment),
-      balanceAsOf: known(balanceDate), startMonth, endMonth: endMonth || null,
-    };
-    saving.current = true; setBusy(true);
-    try {
-      if (!await onSave(next)) setError(vi ? "Chưa lưu được khoản vay. Thông tin bạn nhập vẫn được giữ; hãy kiểm tra thông báo và thử lại." : "Could not save. Your input has been kept; check the notification and retry.");
-    } catch (err) { setError(err instanceof Error ? err.message : (vi ? "Chưa lưu được khoản vay." : "Could not save the loan.")); }
-    finally { saving.current = false; setBusy(false); }
-  }
-
-  return <Modal open title={loan ? (vi ? "Sửa khoản vay" : "Edit loan") : (vi ? "Khai báo khoản vay mới" : "Declare new loan")} onClose={() => { if (!saving.current) onClose(); }} className="debt-loan-dialog">
-    <form onSubmit={event => { event.preventDefault(); void save(); }}>
-      <fieldset disabled={busy} className="debt-loan-fields">
-        <Input label={vi ? "Tên khoản vay" : "Loan name"} value={label} onChange={setLabel} placeholder={vi ? "Ví dụ: Vay mua nhà" : "e.g. Home loan"} />
-        <div className="debt-loan-form-grid">
-          <ProfileFormattedInput format="money" label={vi ? "Dư nợ gốc hiện tại (VND)" : "Outstanding principal (VND)"} value={balance} onChange={setBalance} />
-          <ProfileFormattedInput format="money" label={vi ? "Số tiền trả mỗi tháng (VND)" : "Monthly payment (VND)"} value={payment} onChange={setPayment} />
-        </div>
-        {!loan && <Input type="number" label={vi ? "Phần nợ bạn chịu trách nhiệm (%)" : "Your share of the debt (%)"} value={share} onChange={setShare} min={0.01} max={100} step={0.01} />}
-        <h3>{vi ? "Thời gian của khoản vay" : "Loan dates"}</h3>
-        <ProfileFormattedInput format="date" label={vi ? "Ngày xác nhận dư nợ" : "Balance confirmation date"} value={balanceDate} onChange={setBalanceDate} disabled={hasContract} helper={vi ? "Ngày số dư nợ ở trên có hiệu lực, theo sao kê hoặc hợp đồng (dd/mm/yyyy)." : "The date the balance above is valid, from your statement or contract (dd/mm/yyyy)."} />
-        <div className="debt-loan-form-grid">
-          <ProfileFormattedInput format="month" label={vi ? "Tháng bắt đầu trả nợ" : "First repayment month"} value={startMonth} onChange={setStartMonth} />
-          <ProfileFormattedInput format="month" label={vi ? "Tháng kết thúc trả nợ (nếu biết)" : "Last repayment month (if known)"} value={endMonth} onChange={setEndMonth} disabled={hasContract} />
-        </div>
-        <p className="debt-loan-date-help">{hasContract
-          ? (vi ? "Ngày dư nợ và tháng kết thúc lấy từ lịch hợp đồng đã lưu. Hai mốc này cần được cập nhật cùng lịch hợp đồng để tránh lệch số liệu." : "The balance date and end month come from the saved contract schedule and must be revised together with that schedule.")
-          : (vi ? "Bạn có thể để trống tháng kết thúc nếu chưa biết. Đây là thông tin khai báo, chưa phải ngày hết nợ do hệ thống tính. Để so sánh trả trước, cần thêm lịch gốc, lãi, phí và điều kiện trả trước từ hợp đồng; form này chưa nhập lịch chi tiết đó." : "Leave the end month empty if unknown. This is a declared date, not a calculated payoff date. Early repayment comparison also needs contractual principal, interest, fees and prepayment terms; this form does not enter that detailed schedule.")}</p>
-        {balanceDate && balanceDate !== valuationDate && <p className="debt-loan-date-help">{vi ? "Ngày dư nợ khác ngày cập nhật hồ sơ. Hãy dùng số dư đúng ngày cập nhật hồ sơ để hệ thống có thể phân tích; không đổi ngày nếu số dư chưa được xác nhận." : "The balance date differs from the profile valuation date. Analysis needs a confirmed balance as of that date."}</p>}
-      </fieldset>
-      {error && <Alert tone="danger" title={vi ? "Kiểm tra thông tin khoản vay" : "Check loan information"}>{error}</Alert>}
-      <div className="debt-loan-dialog-actions">
-        <Button disabled={busy} onClick={onClose}>{vi ? "Hủy bỏ" : "Cancel"}</Button>
-        <Button type="submit" variant="primary" loading={busy}>{vi ? "Lưu khoản vay" : "Save loan"}</Button>
-      </div>
-    </form>
-  </Modal>;
+const known = (value: string) => ({ status: "KNOWN" as const, value });
+const basis = (loan: DebtEntry) => ({ currency: loan.currency, balanceAsOf: loan.balanceAsOf, balanceShare: loan.balanceShare, paymentShare: loan.paymentShare, startMonth: loan.startMonth, endMonth: loan.endMonth, frequency: loan.frequency });
+const amountPattern = /^(0|[1-9]\d{0,15})(\.\d{1,2})?$/;
+export default function DebtLoanDialog({ loan, valuationDate, onClose, onSaved }: { loan: DebtEntry | null; valuationDate: string; onClose: () => void; onSaved: () => void }) {
+  const { v2Profile, updateDebts, saveError, reloadProfile } = useFinancialProfile();
+  const en = useI18n().language === "en", t = (vi: string, english: string) => en ? english : vi;
+  const sources = v2Profile?.debts.status === "KNOWN" ? v2Profile.debts.entries.filter(item => item.contract?.status !== "KNOWN" && !item.sharedLoanId && item.outstandingBalance.status === "KNOWN" && item.payment.status === "KNOWN") : [];
+  const [sourceId, setSourceId] = useState(loan ? "" : sources[0]?.id ?? "");
+  const source = !loan ? sources.find(item => item.id === sourceId) : undefined, split = Boolean(source);
+  const [form, setForm] = useState<DebtEntry>(() => loan ?? ({ id: crypto.randomUUID(), label: "", currency: "VND", outstandingBalance: known(""), payment: known(""), balanceAsOf: known(valuationDate), balanceShare: known("1"), paymentShare: known("1"), contract: { status: "UNKNOWN" }, responsibility: { status: "UNKNOWN" }, startMonth: valuationDate.slice(0, 7), endMonth: null, frequency: "MONTHLY", ...(sources[0] ? basis(sources[0]) : {}) }));
+  const [balanceShare, setBalanceShare] = useState(form.balanceShare.status === "KNOWN" ? new Decimal(form.balanceShare.value).mul(100).toString() : "");
+  const [paymentShare, setPaymentShare] = useState(form.paymentShare.status === "KNOWN" ? new Decimal(form.paymentShare.value).mul(100).toString() : "");
+  const [balanceUnknown, setBalanceUnknown] = useState(form.balanceShare.status === "UNKNOWN"), [paymentUnknown, setPaymentUnknown] = useState(form.paymentShare.status === "UNKNOWN");
+  const [rate, setRate] = useState(form.illustration?.annualRatePercent.status === "KNOWN" ? form.illustration.annualRatePercent.value : "");
+  const [contractMode, setContractMode] = useState(form.contract?.status === "KNOWN");
+  const [contract, setContract] = useState<LoanContract | undefined>(form.contract?.status === "KNOWN" ? form.contract.value as LoanContract : undefined);
+  const [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [attempted, setAttempted] = useState(false), [error, setError] = useState("");
+  const field = <K extends keyof DebtEntry>(key: K, value: DebtEntry[K]) => setForm(current => ({ ...current, [key]: value }));
+  const selectSource = (id: string) => { setSourceId(id); const selected = sources.find(item => item.id === id); if (selected) { setForm(current => ({ ...current, ...basis(selected) })); setBalanceShare(selected.balanceShare.status === "KNOWN" ? new Decimal(selected.balanceShare.value).mul(100).toString() : ""); setPaymentShare(selected.paymentShare.status === "KNOWN" ? new Decimal(selected.paymentShare.value).mul(100).toString() : ""); setBalanceUnknown(selected.balanceShare.status === "UNKNOWN"); setPaymentUnknown(selected.paymentShare.status === "UNKNOWN"); setContractMode(false); } };
+  const declaredMoney = (value: string) => form.currency === "VND" ? financeMoney(value, en) : `${value} ${form.currency}`;
+  const submit = async (event: FormEvent) => {
+    event.preventDefault(); if (busy) return; setError(""); setAttempted(false);
+    if (!form.label.trim()) { setError(t("Nhập tên khoản vay.", "Enter a loan name.")); return; }
+    if ([form.outstandingBalance, form.payment].some(value => value.status === "KNOWN" && !amountPattern.test(value.value))) { setError(t("Nhập dư nợ và tiền trả không âm, tối đa 16 chữ số và 2 số thập phân.", "Enter non-negative balances and payments, up to 16 digits and 2 decimal places.")); return; }
+    const shares = [[balanceShare, balanceUnknown], [paymentShare, paymentUnknown]] as const;
+    if (shares.some(([value, unknown]) => !unknown && (!/^\d+(\.\d{1,6})?$/.test(value.replace(",", ".")) || new Decimal(value.replace(",", ".")).gt(100)))) { setError(t("Tỷ lệ phân bổ phải từ 0 đến 100%.", "Allocated shares must be between 0 and 100%.")); return; }
+    if (rate && (!/^\d+(\.\d{1,10})?$/.test(rate) || new Decimal(rate).gt(100))) { setError(t("Lãi suất năm phải từ 0 đến 100%; để trống nếu chưa biết.", "Annual rate must be 0–100%; leave blank if unknown.")); return; }
+    if (form.balanceAsOf.status === "KNOWN" && !/^\d{4}-\d{2}-\d{2}$/.test(form.balanceAsOf.value) || !form.startMonth || form.endMonth && form.endMonth < form.startMonth) { setError(t("Kiểm tra ngày dư nợ và thứ tự tháng bắt đầu/kết thúc.", "Check the balance date and repayment months.")); return; }
+    if (v2Profile?.debts.status === "UNKNOWN" && !confirmed) { setError(t("Xác nhận đã kê đầy đủ nhóm nợ trước khi lưu.", "Confirm the debt list is complete before saving.")); return; }
+    if (!contractMode && form.frequency === "ONCE" && rate) { setError(t("Khoản trả một lần không dùng lịch lãi suất theo tháng. Để trống lãi suất minh họa hoặc đổi sang trả hàng tháng.", "One-time repayments do not use a monthly interest illustration. Clear the illustrative rate or choose monthly repayments.")); return; }
+    if (contractMode && !contract) { setError(t("Tạo hoặc điền lịch hợp đồng trước khi lưu.", "Enter or generate the contract schedule before saving.")); return; }
+    if (contractMode && form.balanceAsOf.status !== "KNOWN") { setError(t("Lịch hợp đồng cần ngày chốt dư nợ đã xác định.", "A contract schedule requires a known balance date.")); return; }
+    let next: DebtEntry = { ...form, label: form.label.trim(), balanceShare: balanceUnknown ? { status: "UNKNOWN" } : known(new Decimal(balanceShare.replace(",", ".")).mul("0.01").toString()), paymentShare: paymentUnknown ? { status: "UNKNOWN" } : known(new Decimal(paymentShare.replace(",", ".")).mul("0.01").toString()), contract: contractMode && contract ? { status: "KNOWN", value: { ...contract, balanceAsOf: form.balanceAsOf.status === "KNOWN" ? form.balanceAsOf.value : "" } } : { status: "UNKNOWN" }, illustration: { annualRatePercent: rate ? known(rate) : { status: "UNKNOWN" } } };
+    if (contractMode && contract) { next.endMonth = contract.maturityDate.slice(0, 7); next.frequency = "MONTHLY"; }
+    if (next.frequency === "ONCE") next.endMonth = next.startMonth;
+    if (source) next = { ...next, ...basis(source) };
+    const command: DebtCommand = loan ? { kind: "UPDATE", entry: next } : source ? { kind: "SPLIT", sourceId: source.id, entry: next } : { kind: "ADD", entry: next, ...(confirmed ? { confirmUnknownGroup: true } : {}) };
+    setBusy(true); setAttempted(true);
+    try { if (await updateDebts(command)) { onSaved(); onClose(); } } finally { setBusy(false); }
+  };
+  const monetaryField = (key: "outstandingBalance" | "payment", label: string) => <div><label className="cashflow-checkbox"><input type="checkbox" disabled={split} checked={form[key].status === "UNKNOWN"} onChange={event => field(key, event.target.checked ? { status: "UNKNOWN" } : known(""))} aria-label={`${t("Chưa xác định", "Unknown")}: ${label}`} />{t("Chưa xác định", "Unknown")}</label>{form[key].status === "KNOWN" && <div data-large-amount={new Decimal(form[key].value || "0").gt(Number.MAX_SAFE_INTEGER) || undefined}><ProfileFormattedInput currency={form.currency} format="money" label={label} value={form[key].value} onChange={value => field(key, known(value))} /></div>}</div>;
+  return <ResponsiveDialog open title={loan ? t("Sửa khoản nợ", "Edit loan") : t("Thêm khoản nợ", "Add loan")} className="user-workspace-dialog cashflow-entry-dialog debt-entry-dialog" initialFocusSelector='input[name="debt-label"]' fallbackFocusSelector=".debt-add" onClose={() => { if (!busy) onClose(); }}><form className="cashflow-form debt-form" onSubmit={submit}><fieldset disabled={busy}>
+    <label>{t("Tên khoản vay", "Loan name")}<input name="debt-label" maxLength={120} required value={form.label} onChange={event => field("label", event.target.value)} /></label><div className="cashflow-suggestions">{[t("Vay mua nhà", "Home loan"), t("Vay tiêu dùng", "Personal loan"), t("Thẻ tín dụng", "Credit card")].map(label => <button type="button" key={label} onClick={() => field("label", label)}>{label}</button>)}</div>
+    {!loan && sources.length > 0 && <label>{t("Khoản này đã nằm trong số tổng ban đầu chưa?", "Is this included in an existing total?")}<select aria-label={t("Khoản này đã nằm trong số tổng ban đầu chưa?", "Is this included in an existing total?")} value={sourceId} onChange={event => selectSource(event.target.value)}>{sources.map(item => <option key={item.id} value={item.id}>{t("Tách từ", "Split from")} {item.label}</option>)}<option value="">{t("Cộng thêm khoản nợ mới", "Add a new loan")}</option></select><small>{t("Tách trừ cả dư nợ và tiền trả khỏi khoản gốc; không dùng cho khoản vay chung hoặc có hợp đồng.", "Splitting subtracts both principal and payments from the original; shared or contracted loans are not split here.")}</small></label>}
+    {form.currency !== "VND" && <p>{t("Số tiền đang nhập theo", "Amounts are entered in")} {form.currency}. {t("Chưa có quy tắc quy đổi nên tổng VND và lịch quy đổi chưa xác định.", "VND totals and converted schedules remain unknown without conversion rules.")}</p>}
+    {monetaryField("outstandingBalance", t("Dư nợ hiện tại", "Outstanding principal"))}{monetaryField("payment", t("Trả nợ mỗi tháng", "Monthly payment"))}
+    {!contractMode && <label>{t("Lãi suất/năm (%) (nếu biết)", "Annual interest rate (%) (if known)")}<input inputMode="decimal" value={rate} onChange={event => setRate(event.target.value.replace(",", "."))} placeholder={t("Chưa xác định", "Unknown")} /><small>{t("Chưa biết lãi suất vẫn lưu được tiền trả tự khai; cần bổ sung lịch trước khi tính dự phóng mới. Nhập 0 nếu không có lãi. Có lãi suất thì lịch minh họa dùng lãi danh nghĩa năm / 12, dư nợ giảm dần, mức trả cố định và chưa gồm phí.", "You can save a declared payment without a rate; add a schedule before calculating a new projection. Enter 0 for an interest-free loan. Illustrations use nominal annual rate / 12, reducing principal, fixed total payments and no fees.")}</small></label>}
+    <details open={Boolean(loan)}><summary>{t("Thời gian và phần trách nhiệm của bạn", "Dates and your allocated share")}</summary><label>{t("Ngày chốt dư nợ", "Balance date")}<input type="date" disabled={split || form.balanceAsOf.status === "UNKNOWN"} value={form.balanceAsOf.status === "KNOWN" ? form.balanceAsOf.value : ""} onChange={event => field("balanceAsOf", known(event.target.value))} /></label><label className="cashflow-checkbox"><input type="checkbox" disabled={split || contractMode} checked={form.balanceAsOf.status === "UNKNOWN"} onChange={event => field("balanceAsOf", event.target.checked ? { status: "UNKNOWN" } : known(valuationDate))} />{t("Chưa xác định ngày dư nợ", "Balance date is unknown")}</label><div className="cashflow-field-grid"><label>{t("Tiền tệ", "Currency")}<input disabled={split} value={form.currency} required pattern="[A-Z]{3}" maxLength={3} minLength={3} onChange={event => field("currency", event.target.value.toUpperCase())} /></label><label>{t("Tần suất", "Frequency")}<select aria-label={t("Tần suất", "Frequency")} disabled={split || contractMode} value={form.frequency} onChange={event => field("frequency", event.target.value as "MONTHLY" | "ONCE")}><option value="MONTHLY">{t("Hàng tháng", "Monthly")}</option><option value="ONCE">{t("Một lần", "Once")}</option></select></label><label>{t("Tháng bắt đầu trả", "First repayment month")}<input type="month" disabled={split} required value={form.startMonth} onChange={event => field("startMonth", event.target.value)} /></label><label>{t("Tháng kết thúc (nếu biết)", "Last repayment month (if known)")}<input type="month" disabled={split || contractMode || form.frequency === "ONCE"} min={form.startMonth} value={contractMode && contract ? contract.maturityDate.slice(0, 7) : form.endMonth ?? ""} onChange={event => field("endMonth", event.target.value || null)} /></label></div>
+    <div className="cashflow-field-grid"><div><label>{t("Phần dư nợ của bạn (%)", "Your principal share (%)")}<input disabled={split || balanceUnknown} inputMode="decimal" value={balanceShare} onChange={event => setBalanceShare(event.target.value)} /></label><label className="cashflow-checkbox"><input disabled={split} type="checkbox" checked={balanceUnknown} onChange={event => setBalanceUnknown(event.target.checked)} aria-label={t("Chưa xác định phần dư nợ", "Principal share unknown")} />{t("Chưa xác định", "Unknown")}</label></div><div><label>{t("Phần trả nợ của bạn (%)", "Your payment share (%)")}<input disabled={split || paymentUnknown} inputMode="decimal" value={paymentShare} onChange={event => setPaymentShare(event.target.value)} /></label><label className="cashflow-checkbox"><input disabled={split} type="checkbox" checked={paymentUnknown} onChange={event => setPaymentUnknown(event.target.checked)} aria-label={t("Chưa xác định phần trả nợ", "Payment share unknown")} />{t("Chưa xác định", "Unknown")}</label></div></div>
+    <label>{t("Mã khoản vay chung (nếu có)", "Shared loan reference (optional)")}<input value={form.sharedLoanId ?? ""} maxLength={100} onChange={event => field("sharedLoanId", event.target.value || undefined)} /></label><label>{t("Trách nhiệm đã xác nhận", "Confirmed liability")}<select aria-label={t("Trách nhiệm đã xác nhận", "Confirmed liability")} value={form.responsibility.status === "KNOWN" ? form.responsibility.scope : "UNKNOWN"} onChange={event => field("responsibility", event.target.value === "UNKNOWN" ? { status: "UNKNOWN" } : { status: "KNOWN", scope: event.target.value as "ALLOCATED_ONLY" | "FULL" | "CAPPED", confirmedDocument: form.responsibility.status === "KNOWN" ? form.responsibility.confirmedDocument : "", limit: form.responsibility.status === "KNOWN" ? form.responsibility.limit : { status: "UNKNOWN" } })}><option value="UNKNOWN">{t("Chưa xác nhận", "Unconfirmed")}</option><option value="ALLOCATED_ONLY">{t("Chỉ phần được phân bổ", "Allocated share only")}</option><option value="FULL">{t("Toàn bộ nghĩa vụ", "Full liability")}</option><option value="CAPPED">{t("Có giới hạn nghĩa vụ", "Capped liability")}</option></select></label>{form.responsibility.status === "KNOWN" && <><label>{t("Căn cứ xác nhận trách nhiệm", "Liability evidence")}<input maxLength={300} required value={form.responsibility.confirmedDocument} onChange={event => { if (form.responsibility.status === "KNOWN") field("responsibility", { ...form.responsibility, confirmedDocument: event.target.value }); }} /></label>{form.responsibility.scope === "CAPPED" && <ProfileFormattedInput currency={form.currency} format="money" label={t("Giới hạn nghĩa vụ", "Liability limit")} value={form.responsibility.limit.status === "KNOWN" ? form.responsibility.limit.value : ""} onChange={value => { if (form.responsibility.status === "KNOWN") field("responsibility", { ...form.responsibility, limit: value ? known(value) : { status: "UNKNOWN" } }); }} />}<p>{t("Trách nhiệm có thể khác tỷ lệ chi trả thường kỳ. Việc khai ở đây không tự thay tỷ lệ tiền trả đã nhập.", "Liability may differ from regular payment allocation. Declaring it does not change your payment share automatically.")}</p></>}</details>
+    {!split && <details open={contractMode}><summary>{t("Lịch gốc, lãi, phí theo hợp đồng", "Contract principal, interest and fees")}</summary><label className="cashflow-checkbox"><input type="checkbox" checked={contractMode} onChange={event => setContractMode(event.target.checked)} />{t("Tôi có điều khoản để khai lịch hợp đồng", "I have the terms needed for a contract schedule")}</label>{loan?.contract?.status === "KNOWN" && !contractMode && <p>{t("Bạn đang thay lịch hợp đồng bằng thông tin tự khai. Số tổng và dự phóng sẽ cần rà soát lại sau lưu.", "You are replacing the contract schedule with a declaration. Review the totals and projection after saving.")}</p>}{contractMode && <DebtContractFields value={contract} currency={form.currency} balanceDate={form.balanceAsOf.status === "KNOWN" ? form.balanceAsOf.value : valuationDate} onChange={setContract} />}</details>}
+    {v2Profile?.debts.status === "UNKNOWN" && <label className="cashflow-checkbox"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />{t("Tôi xác nhận danh sách sau khi lưu đã kê đầy đủ nhóm nợ.", "I confirm the saved list covers all debts.")}</label>}
+    {split && <p>{t("Giữ ngày dư nợ, lịch và tỷ lệ của khoản gốc. Dư nợ và tiền trả còn lại được tính lại khi lưu.", "The original balance date, schedule and shares are retained. Remaining principal and payments update when saved.")}</p>}
+    </fieldset><div className="debt-entry-preview" role="status"><strong>{t("Phần phân bổ theo thông tin đang nhập", "Allocation from current inputs")}</strong><p>{t("Dư nợ của bạn", "Your principal")}: {form.outstandingBalance.status === "KNOWN" && amountPattern.test(form.outstandingBalance.value) && !balanceUnknown && /^\d+(\.\d{1,6})?$/.test(balanceShare.replace(",", ".")) ? declaredMoney(new Decimal(form.outstandingBalance.value).mul(balanceShare.replace(",", ".")).mul("0.01").toString()) : t("Chưa xác định", "Undetermined")}</p><p>{t("Tiền trả của bạn", "Your payment")}: {contractMode ? t("Tính theo từng kỳ hợp đồng sau khi lưu", "Calculated from contract periods after saving") : form.payment.status === "KNOWN" && amountPattern.test(form.payment.value) && !paymentUnknown && /^\d+(\.\d{1,6})?$/.test(paymentShare.replace(",", ".")) ? declaredMoney(new Decimal(form.payment.value).mul(paymentShare.replace(",", ".")).mul("0.01").toString()) : t("Chưa xác định", "Undetermined")}</p></div>{(error || attempted && saveError) && <div className="cashflow-error" role="alert"><p>{error || saveError}</p>{attempted && saveError && <button type="button" className="overview-button secondary" onClick={() => { onClose(); reloadProfile(); }}>{t("Tải lại hồ sơ", "Reload profile")}</button>}</div>}<footer><button type="button" className="cashflow-text-button" disabled={busy} onClick={onClose}>{t("Hủy", "Cancel")}</button><button type="submit" className="overview-button primary" disabled={busy}>{busy ? t("Đang lưu…", "Saving…") : t("Lưu khoản vay", "Save loan")}</button></footer></form></ResponsiveDialog>;
 }

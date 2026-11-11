@@ -3,11 +3,12 @@ import { z } from "zod";
 import { AppError } from "../../common/errors";
 import { audit } from "../../common/audit";
 import { transaction } from "../../common/transaction";
-import { catalogQuery, partnerInput, productInput, notificationSettingsInput } from "./schema";
+import { catalogQuery, productQuery, partnerInput, productInput, notificationSettingsInput } from "./schema";
 const missing = () => new AppError(404, "NOT_FOUND", "Không tìm thấy đối tác hoặc sản phẩm.");
 const conflict = () => new AppError(409, "REVISION_CONFLICT", "Dữ liệu đã thay đổi. Hãy tải lại trước khi lưu.");
 const partnerSelect = { id: true, name: true, type: true, logoUrl: true, website: true, isHighlight: true, isVisible: true, revision: true, updatedAt: true } as const;
-const productSelect = { id: true, partnerId: true, name: true, category: true, expectedReturn: true, riskLevel: true, description: true, annualFee: true, conditions: true, disclosure: true, imageUrl: true, isVisible: true, revision: true, updatedAt: true, partner: { select: partnerSelect } } as const;
+export const productSelect = { id: true, partnerId: true, name: true, category: true, expectedReturn: true, riskLevel: true, description: true, annualFee: true, conditions: true, disclosure: true, imageUrl: true, isVisible: true, revision: true, updatedAt: true, partner: { select: partnerSelect } } as const;
+export const publicProductWhere: Prisma.PartnerProductWhereInput = { isVisible: true, partner: { isVisible: true }, annualFee: { not: null, notIn: [""] }, conditions: { not: null, notIn: [""] }, disclosure: { not: null, notIn: [""] } };
 export class CatalogService {
   constructor(private db: PrismaClient) {}
   async partners(query: z.infer<typeof catalogQuery>, admin = false, id?: string) {
@@ -17,12 +18,15 @@ export class CatalogService {
     if (id && !items.length) throw missing();
     return { items, total, page: query.page, limit: query.limit };
   }
-  async products(query: z.infer<typeof catalogQuery>, admin = false, id?: string) {
-    const where: Prisma.PartnerProductWhereInput = { ...(!admin ? { isVisible: true, partner: { isVisible: true }, annualFee: { not: null }, conditions: { not: null }, disclosure: { not: null } } : {}),
-      ...(id ? { id } : {}), ...(query.partnerId ? { partnerId: query.partnerId } : {}), ...(query.search ? { name: { contains: query.search, mode: "insensitive" } } : {}) };
+  async products(query: z.infer<typeof productQuery>, admin = false, id?: string) {
+    const where: Prisma.PartnerProductWhereInput = { ...(!admin ? publicProductWhere : {}),
+      ...(id ? { id } : {}), ...(query.partnerId ? { partnerId: query.partnerId } : {}), ...(query.category ? { category: query.category } : {}), ...(query.riskLevel ? { riskLevel: query.riskLevel } : {}), ...(query.search ? { OR: [{ name: { contains: query.search, mode: "insensitive" } }, { category: { contains: query.search, mode: "insensitive" } }, { partner: { name: { contains: query.search, mode: "insensitive" } } }] } : {}) };
     const [items, total] = await Promise.all([this.db.partnerProduct.findMany({ where, select: productSelect, orderBy: [{ [query.sortBy]: query.order }, { id: "asc" }], skip: (query.page - 1) * query.limit, take: query.limit }), this.db.partnerProduct.count({ where })]);
     if (id && !items.length) throw missing();
     return { items, total, page: query.page, limit: query.limit };
+  }
+  async facets() {
+    return this.db.partnerProduct.groupBy({ by: ["category", "riskLevel"], where: publicProductWhere, _count: { _all: true }, orderBy: [{ category: "asc" }, { riskLevel: "asc" }] });
   }
   async writePartner(actor: string, raw: z.infer<typeof partnerInput>, id?: string, revision?: number) {
     const data = partnerInput.parse(raw);

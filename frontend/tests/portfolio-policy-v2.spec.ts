@@ -45,13 +45,17 @@ async function setup(page: Page, options: { version?: "v1" | "v2"; retirement?: 
   await page.route("**/api/v1/me/assumptions/assumption-test", route => route.fulfill({ json: { data: { data: { assetClasses: [{ code: "CASH", label: "Tiền gửi & thanh khoản" }] } } } }));
   const policy = { id: "policy-test", version: 4, data: { ...data, assumptionVersionId: "assumption-test" } };
   await page.route("**/api/v1/me/portfolio-policies**", route => route.fulfill({ json: { data: new URL(route.request().url()).pathname.endsWith("/policy-test") ? policy : { status: "AVAILABLE", items: [policy] } } }));
-  await page.route("**/api/v1/me/portfolio-policies/preview", route => {
+  await page.route("**/api/v1/me/portfolio-policies/workspace/preview", route => {
     const input = route.request().postDataJSON(); calls.push(input);
+    const startMonth="2026-10", endMonth=input.endMonth??"2060-01", months=(Number(endMonth.slice(0,4))-2026)*12+Number(endMonth.slice(5,7))-10+1;
+    const allocations=("schedule" in template?template.schedule[0].allocations:template.glidePath.points[0].allocations).map(a=>({...a,amountVnd:null}));
     return route.fulfill({ json: { data: {
-      status: options.missingIssue ? "INCOMPLETE" : "READY",
-      assessment: { totalScore: 30, riskBandId: data.riskBands[0].id, selectedTemplateId: template.id, eligibleTemplateIds: [template.id] }, scenarios: options.missingIssue ? [] : scenarios(input.startMonth, input.horizonMonths),
+      profileRevision:1,valuationDate:"2026-10-15",policyVersionId:policy.id,assumptionVersionId:"assumption-test",informationalOnly:true,
+      capital:{status:"INCOMPLETE",growthCapital:null,goals:[],issues:[],warnings:[]},loss:{status:"REVIEW_REQUIRED",message:"",lossAmount:null,allowedLossAmount:null},allocations,assetLabels:{CASH:"Tiền gửi & thanh khoản"},issues:[],
+      portfolio:{status: options.missingIssue ? "INCOMPLETE" : "READY",
+      assessment: { totalScore: 30, riskBandId: data.riskBands[0].id, selectedTemplateId: template.id, eligibleTemplateIds: [template.id] }, scenarios: options.missingIssue ? [] : scenarios(startMonth, months),
       issues: options.missingIssue ? [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }] : [],
-    } } });
+    } } } });
   });
   await page.addInitScript(({ answers, templateId, whatIf, en }) => {
     localStorage.setItem("anhuu_language", en ? "en" : "vi");
@@ -105,12 +109,10 @@ test("missing retirement month produces Vietnamese guidance without marking year
   expect(errors).toEqual([]);
 });
 
-test("published v1 keeps the existing allocation cards and has no glide table", async ({ page }) => {
+test("published v1 renders its allocation breakdown and has no glide table", async ({ page }) => {
   const { errors, template } = await setup(page, { version: "v1" });
-  await expect(page.getByRole("heading", { name: `Tỷ lệ tiền dành cho từng nhóm tài sản (${template.label})`, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: template.label, exact: true })).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);
-  if ("schedule" in template) for (const allocation of template.schedule[0].allocations) {
-    await expect(page.getByText(`Nhóm tài sản: ${allocation.assetClass}`, { exact: true })).toBeVisible();
-  }
+  if ("schedule" in template) await expect(page.locator(".allocation-breakdown dt")).toHaveCount(template.schedule[0].allocations.length);
   expect(errors).toEqual([]);
 });

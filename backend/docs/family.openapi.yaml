@@ -1,0 +1,205 @@
+FamilyPatch:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    maritalStatus:
+      anyOf:
+        - type: string
+          enum: &a1
+            - SINGLE
+            - MARRIED
+            - DIVORCED
+            - OTHER
+        - type: object
+          nullable: true
+          enum:
+            - null
+    dependents:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            value:
+              type: integer
+              minimum: 0
+              maximum: 30
+          required:
+            - status
+            - value
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
+  required:
+    - expectedRevision
+    - maritalStatus
+    - dependents
+FamilyReport:
+  type: object
+  additionalProperties: false
+  properties:
+    profileRevision:
+      type: integer
+    valuationDate:
+      type: string
+    maritalStatus:
+      anyOf:
+        - type: string
+          enum: *a1
+        - type: object
+          nullable: true
+          enum:
+            - null
+    dependents:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - KNOWN
+            value:
+              type: integer
+              minimum: 0
+              maximum: 30
+          required:
+            - status
+            - value
+        - type: object
+          additionalProperties: false
+          properties:
+            status:
+              type: string
+              enum:
+                - UNKNOWN
+          required:
+            - status
+    currency:
+      type: string
+      enum:
+        - VND
+    monthlySupport:
+      anyOf:
+        - type: string
+        - type: object
+          nullable: true
+          enum:
+            - null
+    supportState:
+      type: string
+      enum:
+        - KNOWN
+        - UNKNOWN
+        - NOT_APPLICABLE
+    supportEntries:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id:
+            type: string
+          label:
+            type: string
+          amount:
+            anyOf:
+              - type: object
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - KNOWN
+                  value:
+                    type: string
+                required:
+                  - status
+                  - value
+              - type: object
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - UNKNOWN
+                required:
+                  - status
+          currency:
+            type: string
+          startMonth:
+            type: string
+          endMonth:
+            anyOf:
+              - type: string
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          frequency:
+            type: string
+            enum:
+              - MONTHLY
+              - ONCE
+          active:
+            type: boolean
+        required:
+          - id
+          - label
+          - amount
+          - currency
+          - startMonth
+          - endMonth
+          - frequency
+          - active
+    issues:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          path:
+            type: string
+          code:
+            type: string
+        required:
+          - path
+          - code
+  required:
+    - profileRevision
+    - valuationDate
+    - maritalStatus
+    - dependents
+    - currency
+    - monthlySupport
+    - supportState
+    - supportEntries
+    - issues
+FamilyReportEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/FamilyReport"
+    meta:
+      type: object
+      required:
+        - requestId
+      properties:
+        requestId:
+          type: string

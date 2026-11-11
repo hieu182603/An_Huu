@@ -3,6 +3,9 @@ import { Link } from "react-router";
 import { Card, Icon, type IconName } from "./ui";
 import { useAuth } from "../context/AuthContext";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
+import { useRetirementPlan } from "../context/RetirementPlanContext";
+import { userProfileProgress } from "../utils/userProfileProgress";
+import { hasMissingProfileValue } from "../utils/profileCompletion";
 import { useI18n } from "../i18n";
 import "./accuracy-checklist.css";
 
@@ -19,43 +22,30 @@ interface ChecklistItemConfig {
 
 export function AccuracyChecklist({ id }: { id?: string } = {}) {
   const { user } = useAuth();
-  const { v2Profile } = useFinancialProfile();
+  const { profile, v2Profile, hasProfile } = useFinancialProfile();
+  const { planVersions, loadingPlans, plansError } = useRetirementPlan();
   const { language } = useI18n();
   const isEn = language === "en";
 
   const storageKey = user?.id ? `anhuu_checklist_hidden_${user.id}` : "anhuu_checklist_hidden";
   const [hidden, setHidden] = useState(() => {
-    if (typeof window === "undefined" || !window.localStorage) return false;
-    return localStorage.getItem(storageKey) === "true";
+    try { return localStorage.getItem(storageKey) === "true"; } catch { return false; }
   });
   const [showReview, setShowReview] = useState(false);
 
   const toggleHidden = () => {
     setHidden((prev) => {
       const next = !prev;
-      if (typeof window !== "undefined" && window.localStorage) {
-        localStorage.setItem(storageKey, String(next));
-      }
+      try { localStorage.setItem(storageKey, String(next)); } catch { /* Preference stays usable in memory. */ }
       return next;
     });
   };
 
-  // 7 checklist items according to T5 + redesign:
-  // 1. Mong muốn và thời gian (always done)
-  // 2. Bản kế hoạch đầu tiên (always done)
-  // 3. Lương hưu BHXH
-  // 4. Tài sản khác và phân bổ
-  // 5. Chi tiết khoản vay
-  // 6. Ràng buộc và mục tiêu khác
-  // 7. Thông tin gia đình: Done when dependents.status === "KNOWN" (including 0) OR city is non-empty.
-  const item1Done = true;
-  const item2Done = true;
-  const item3Done = Boolean(v2Profile?.pension && v2Profile.pension.status !== "UNKNOWN");
-  const item4Done = Boolean(
-    v2Profile?.assets &&
-      v2Profile.assets.status === "KNOWN" &&
-      v2Profile.assets.entries?.some((e) => e.id !== "ast_quick")
-  );
+  const declared = (value: unknown) => value != null && !hasMissingProfileValue(value);
+  const item1Done = userProfileProgress(profile, v2Profile, hasProfile, false)[0].done;
+  const item2Done = !loadingPlans && !plansError && planVersions.length > 0;
+  const item3Done = declared(v2Profile?.pension);
+  const item4Done = declared(v2Profile?.assets);
   const noDebt = Boolean(
     v2Profile?.debts &&
       (v2Profile.debts.status === "NOT_APPLICABLE" ||
@@ -72,16 +62,12 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
     noDebt ||
       (v2Profile?.debts &&
         v2Profile.debts.status === "KNOWN" &&
-        v2Profile.debts.entries?.some(
-          (e) =>
-            (e.contract && e.contract.status === "KNOWN") ||
-            (e.responsibility && e.responsibility.status === "KNOWN")
-        ))
+        v2Profile.debts.entries?.every(e => e.contract?.status === "KNOWN"))
   );
   const item6Done = Boolean(
     (v2Profile?.lossTolerance?.amountVnd && v2Profile.lossTolerance.amountVnd.status === "KNOWN") ||
       (v2Profile?.lossTolerance?.percent && v2Profile.lossTolerance.percent.status === "KNOWN") ||
-      (v2Profile?.goals?.status === "KNOWN" && (v2Profile.goals.entries?.length ?? 0) > 0) ||
+      declared(v2Profile?.goals) ||
       (v2Profile?.liquidityNeeds &&
         (v2Profile.liquidityNeeds.y1?.status === "KNOWN" ||
           v2Profile.liquidityNeeds.y3?.status === "KNOWN" ||
@@ -98,12 +84,16 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
       id: 1,
       titleVi: "Mong muốn và thời gian",
       titleEn: "Desire and timeline",
+      icon: "target",
+      link: "/user/goal",
       done: item1Done,
     },
     {
       id: 2,
       titleVi: "Bản kế hoạch đầu tiên",
       titleEn: "First retirement plan",
+      icon: "compass",
+      link: "/user/plan?tab=result",
       done: item2Done,
     },
     {
@@ -113,7 +103,7 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
       benefitVi: "Kế hoạch đang chưa tính lương hưu. Thêm vào thường làm số tiền cần góp giảm đáng kể.",
       benefitEn: "The plan does not include pension yet. Adding it usually reduces required contributions significantly.",
       icon: "shield",
-      link: "/user/account?tab=profile",
+      link: "/user/profile?section=insurance",
       done: item3Done,
     },
     {
@@ -123,7 +113,7 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
       benefitVi: "Thêm vàng, cổ phiếu, bất động sản và cho biết phần nào dành cho hưu trí.",
       benefitEn: "Add gold, stocks, real estate and allocate portions for retirement.",
       icon: "wallet",
-      link: "/user/account?tab=profile",
+      link: "/user/profile?section=assets",
       done: item4Done,
     },
     {
@@ -147,7 +137,7 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
       benefitVi: "Mức lỗ chịu được và các khoản cần tiền trước khi nghỉ hưu.",
       benefitEn: "Loss tolerance and liquidity needs before retirement.",
       icon: "target",
-      link: "/user/account?tab=profile",
+      link: "/user/profile?section=constraints",
       done: item6Done,
     },
     {
@@ -157,7 +147,7 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
       benefitVi: "Người phụ thuộc và nơi sống, không bắt buộc.",
       benefitEn: "Dependents and city of residence, optional.",
       icon: "users",
-      link: "/user/account?tab=profile",
+      link: "/user/profile?section=family",
       done: item7Done,
     },
   ];
@@ -165,11 +155,10 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
   const completedCount = items.filter((i) => i.done).length;
   const remainingCount = 7 - completedCount;
 
-  // Pending items in order 3 -> 4 -> 5 -> 6 -> 7
-  const pendingItems = items.filter((i) => !i.done && i.id >= 3);
+  const pendingItems = items.filter((i) => !i.done);
   const recommendedItem = pendingItems[0] ?? null;
 
-  // Completed items: 1 and 2 always, plus any 3-7 that are done
+  // Completion follows declarations and the applied version, not sample defaults.
   const completedItems = items.filter((i) => i.done);
 
   // When all 7 items are done, collapse into a single success row with a "Xem lại" button
@@ -181,7 +170,7 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
             <div className="checklist-all-done-info">
               <span className="checklist-all-done-icon" aria-hidden="true">✓</span>
               <span className="checklist-all-done-text">
-                {isEn ? "The plan uses all essential information" : "Kế hoạch đã dùng đủ thông tin quan trọng"}
+                {isEn ? "The information groups have been declared" : "Đã khai báo các nhóm thông tin"}
               </span>
             </div>
             <button
@@ -208,7 +197,7 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
                 {isEn ? "Make your plan more accurate" : "Làm kế hoạch chính xác hơn"}
               </h3>
               <span className="checklist-progress-badge">
-                {isEn ? `Plan accuracy: ${completedCount}/7 items` : `Độ chính xác kế hoạch: ${completedCount}/7 mục`}
+                {isEn ? `Information completion: ${completedCount}/7 items` : `Hoàn thiện thông tin: ${completedCount}/7 mục`}
               </span>
             </div>
 
@@ -218,7 +207,7 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
               aria-valuenow={completedCount}
               aria-valuemin={0}
               aria-valuemax={7}
-              aria-label={isEn ? `Plan accuracy: ${completedCount}/7 items` : `Độ chính xác kế hoạch: ${completedCount}/7 mục`}
+              aria-label={isEn ? `Information completion: ${completedCount}/7 items` : `Hoàn thiện thông tin: ${completedCount}/7 mục`}
             >
               <div className="checklist-progress-track">
                 <div className={`checklist-progress-fill is-progress-${completedCount}`} />
@@ -228,7 +217,7 @@ export function AccuracyChecklist({ id }: { id?: string } = {}) {
 
             <p className="checklist-status-hint">
               {completedCount === 7
-                ? (isEn ? "The plan uses all essential information" : "Kế hoạch đã dùng đủ thông tin quan trọng")
+                ? (isEn ? "The information groups have been declared" : "Đã khai báo các nhóm thông tin")
                 : (isEn
                     ? `${remainingCount} remaining. Recommended next: ${recommendedItem ? (isEn ? recommendedItem.titleEn : recommendedItem.titleVi) : ""}`
                     : `Còn ${remainingCount} mục. Nên làm tiếp: ${recommendedItem ? recommendedItem.titleVi : ""}`)}

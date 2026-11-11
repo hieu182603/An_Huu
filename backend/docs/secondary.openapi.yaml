@@ -475,6 +475,10 @@ Product:
     updatedAt: *a10
     partner:
       $ref: "#/Partner"
+    imageUrl:
+      type: string
+      nullable: true
+      maxLength: 2000
 Settings:
   type: object
   additionalProperties: false

@@ -1,0 +1,958 @@
+AssetPatch:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    command:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - ADD
+                - UPDATE
+            entry:
+              type: object
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  pattern: ^[a-zA-Z0-9_-]+$
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                type:
+                  type: string
+                  enum: &a1
+                    - CASH
+                    - DEPOSIT
+                    - STOCK_FUND
+                    - PRIMARY_HOME
+                    - REAL_ESTATE
+                    - OTHER
+                    - GOLD
+                    - BOND
+                value:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                currency:
+                  type: string
+                  pattern: ^[A-Z]{3}$
+                  default: VND
+                valuedOn:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                ownershipShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                retirementShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                emergencyShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                otherGoalsShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                liquidity:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          enum: &a2
+                            - LIQUID
+                            - ILLIQUID
+                            - LOCKED
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                availableFromMonth:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                housingPlan:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNCONFIRMED
+                      required:
+                        - status
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - CONFIRMED
+                        kind:
+                          type: string
+                          enum: &a3
+                            - SALE
+                            - RENT
+                        startMonth:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                        netAmount:
+                          oneOf:
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                status:
+                                  type: string
+                                  enum:
+                                    - KNOWN
+                                value:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                              required:
+                                - status
+                                - value
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                status:
+                                  type: string
+                                  enum:
+                                    - UNKNOWN
+                              required:
+                                - status
+                      required:
+                        - status
+                        - kind
+                        - startMonth
+                        - netAmount
+                costBasis:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+              required:
+                - id
+                - label
+                - type
+                - value
+                - valuedOn
+                - ownershipShare
+                - retirementShare
+                - emergencyShare
+                - otherGoalsShare
+                - liquidity
+                - availableFromMonth
+            confirmUnknownGroup:
+              type: boolean
+          required:
+            - kind
+            - entry
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - SPLIT
+            sourceId:
+              type: string
+              minLength: 1
+              maxLength: 100
+              pattern: ^[a-zA-Z0-9_-]+$
+            entry:
+              type: object
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  pattern: ^[a-zA-Z0-9_-]+$
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                type:
+                  type: string
+                  enum: *a1
+                value:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                currency:
+                  type: string
+                  pattern: ^[A-Z]{3}$
+                  default: VND
+                valuedOn:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                ownershipShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                retirementShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                emergencyShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                otherGoalsShare:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0(\.\d{1,8})?|1(\.0{1,8})?)$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                liquidity:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          enum: *a2
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                availableFromMonth:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+                housingPlan:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNCONFIRMED
+                      required:
+                        - status
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - CONFIRMED
+                        kind:
+                          type: string
+                          enum: *a3
+                        startMonth:
+                          type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                        netAmount:
+                          oneOf:
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                status:
+                                  type: string
+                                  enum:
+                                    - KNOWN
+                                value:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                              required:
+                                - status
+                                - value
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                status:
+                                  type: string
+                                  enum:
+                                    - UNKNOWN
+                              required:
+                                - status
+                      required:
+                        - status
+                        - kind
+                        - startMonth
+                        - netAmount
+                costBasis:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - KNOWN
+                        value:
+                          type: string
+                          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                      required:
+                        - status
+                        - value
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        status:
+                          type: string
+                          enum:
+                            - UNKNOWN
+                      required:
+                        - status
+              required:
+                - id
+                - label
+                - type
+                - value
+                - valuedOn
+                - ownershipShare
+                - retirementShare
+                - emergencyShare
+                - otherGoalsShare
+                - liquidity
+                - availableFromMonth
+          required:
+            - kind
+            - sourceId
+            - entry
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - DELETE
+            id:
+              type: string
+              minLength: 1
+              maxLength: 100
+              pattern: ^[a-zA-Z0-9_-]+$
+          required:
+            - kind
+            - id
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - CONFIRM_NONE
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 300
+          required:
+            - kind
+            - reason
+  required:
+    - expectedRevision
+    - command
+AssetReport:
+  type: object
+  additionalProperties: false
+  properties:
+    profileRevision:
+      type: integer
+      minimum: 1
+    valuationDate:
+      type: string
+    currency:
+      type: string
+      enum:
+        - VND
+    assetState:
+      type: string
+      enum:
+        - KNOWN
+        - UNKNOWN
+        - NOT_APPLICABLE
+    coverageBasis:
+      type: string
+      enum:
+        - KNOWN
+        - UNKNOWN
+        - NO_EXPENSE
+    totals:
+      type: object
+      additionalProperties: false
+      properties:
+        declaredValue:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        ownedValue:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        retirementLiquidAssets:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        emergencyReserve:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        housingOwnedValue:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        otherOwnedValue:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        monthlyExpense:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        totalDebt:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        netWorth:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        reserveCoverageMonths:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        debtToAssetsPercent:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+      required:
+        - declaredValue
+        - ownedValue
+        - retirementLiquidAssets
+        - emergencyReserve
+        - housingOwnedValue
+        - otherOwnedValue
+        - monthlyExpense
+        - totalDebt
+        - netWorth
+        - reserveCoverageMonths
+        - debtToAssetsPercent
+    percentages:
+      type: object
+      additionalProperties: false
+      properties:
+        retirementLiquidAssets:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        emergencyReserve:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        housingOwnedValue:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        otherOwnedValue:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+      required:
+        - retirementLiquidAssets
+        - emergencyReserve
+        - housingOwnedValue
+        - otherOwnedValue
+    entries:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id:
+            type: string
+          declaredValue:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          ownedValue:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          retirementLiquidAssets:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          emergencyReserve:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          housingOwnedValue:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          otherOwnedValue:
+            anyOf:
+              - type: string
+                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              - type: object
+                nullable: true
+                enum:
+                  - null
+        required:
+          - id
+          - declaredValue
+          - ownedValue
+          - retirementLiquidAssets
+          - emergencyReserve
+          - housingOwnedValue
+          - otherOwnedValue
+    issues:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          path:
+            type: string
+          code:
+            type: string
+        required:
+          - path
+          - code
+  required:
+    - profileRevision
+    - valuationDate
+    - currency
+    - assetState
+    - coverageBasis
+    - totals
+    - percentages
+    - entries
+    - issues
+AssetReportEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/AssetReport"
+    meta:
+      type: object
+      required:
+        - requestId
+      properties:
+        requestId:
+          type: string

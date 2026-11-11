@@ -17,10 +17,12 @@ describe("product consultation", () => {
     expect(text).toContain("không phải khuyến nghị đầu tư");
   });
 
-  const productRow = { name: "Quỹ A", category: "Quỹ trái phiếu", expectedReturn: "6-7%/năm", riskLevel: "LOW", annualFee: "0,8%", revision: 2, partner: { name: "VCBF" } };
+  const productRow = { name: "Quỹ A", category: "Quỹ trái phiếu", expectedReturn: "6-7%/năm", riskLevel: "LOW", annualFee: "0,8%", conditions:"Fixture terms", disclosure:"Fixture disclosure", revision: 2, partner: { name: "VCBF" } };
   function fakeDb(state: { product: any; open?: any; status?: string }) {
     const created: any[] = [], audits: any[] = [], updates: any[] = [];
     const tx: any = {
+      $queryRaw: async () => [],
+      partnerProduct: { findFirst: async () => state.product },
       supportTicket: {
         findFirst: async ({ where }: any) => where.status?.in ? state.open ?? null : state.status ? { status: state.status } : null,
         create: async ({ data }: any) => { created.push(data); return { id: "t1", ...data }; },
@@ -29,7 +31,7 @@ describe("product consultation", () => {
       supportMessage: { create: async ({ data }: any) => { created.push(data); return data; } },
       auditLog: { create: async ({ data }: any) => { audits.push(data); return {}; } },
     };
-    const db: any = { partnerProduct: { findFirst: async () => state.product }, $transaction: (fn: any) => fn(tx) };
+    const db: any = { ...tx, $transaction: (fn: any) => fn(tx) };
     return { db, created, audits, updates };
   }
 
@@ -39,7 +41,7 @@ describe("product consultation", () => {
     expect(ticket).toMatchObject({ subject: "Tư vấn: Quỹ A (VCBF)", category: "Tư vấn sản phẩm", productId: "p1" });
     expect(created[1].body).toBe([
       "Sản phẩm: Quỹ A", "Đối tác: VCBF", "Hình thức liên hệ: Email tài liệu", "Số điện thoại liên hệ: 0901234567",
-      "Thông tin sản phẩm lúc gửi: Quỹ trái phiếu · lợi suất tham khảo 6-7%/năm · rủi ro LOW · phí 0,8%", "", "Tôi muốn tìm hiểu",
+      "Thông tin sản phẩm lúc gửi: Quỹ trái phiếu · lợi suất tham khảo 6-7%/năm · rủi ro LOW · phí 0,8%", "Điều kiện: Fixture terms", "Thông tin công bố: Fixture disclosure", "", "Tôi muốn tìm hiểu",
     ].join("\n"));
     expect(JSON.stringify(audits[0])).toContain('"channel":"EMAIL"');
     expect(JSON.stringify(audits[0])).toContain('"revision":2');
@@ -51,7 +53,7 @@ describe("product consultation", () => {
     expect(created[1].body).toContain("Hình thức liên hệ: Điện thoại tư vấn");
     const second = fakeDb({ product: productRow });
     await new CommunityService(second.db).consultProduct("u1", "p1", {});
-    expect(second.created[1].body.endsWith("phí 0,8%")).toBe(true);
+    expect(second.created[1].body.endsWith("Thông tin công bố: Fixture disclosure")).toBe(true);
   });
 
   it("rejects hidden products, duplicate active requests and a false consent", async () => {
@@ -81,6 +83,8 @@ describe("product consultation", () => {
         deleteMany: async ({ where }: any) => { rows.delete(where.productId); return { count: 1 }; },
       },
     };
+    db.$queryRaw = async () => [];
+    db.$transaction = (fn: any) => fn(db);
     const service = new CommunityService(db);
     await expect(service.saveProduct("u1", "p1", true)).resolves.toEqual({ saved: true });
     await expect(service.saveProduct("u1", "p1", true)).resolves.toEqual({ saved: true });

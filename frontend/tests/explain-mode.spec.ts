@@ -1,3 +1,4 @@
+import { toggleExplainMode } from "./helpers";
 import { expect, test } from '@playwright/test';
 import { installRouteAuth, installFinancialProfileRoutes, defaultMockProfile } from './helpers';
 
@@ -18,19 +19,19 @@ async function openDashboard(page: import('@playwright/test').Page, viewport = 1
 test('explain mode toggles from the header, supports Escape and leaves targets inert while off', async ({ page }) => {
   const button = await openDashboard(page);
   await expect(page.getByText('Chạm vào cụm từ hoặc con số để xem giải thích')).toHaveCount(0);
-  await button.click();
-  await expect(button).toHaveAttribute('aria-pressed', 'true');
+  await toggleExplainMode(page);
+  await expect(page.locator('.explain-mode-banner')).toBeVisible();
   await expect(page.getByText(/Chạm vào cụm từ hoặc con số để xem giải thích/)).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(button).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.explain-mode-banner')).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('glossary phrase opens a keyboard-accessible dialog and returns focus on Escape at mobile width', async ({ page }) => {
   const button = await openDashboard(page, 375);
-  await button.click();
+  await toggleExplainMode(page);
   await page.goto('/user/risk-portfolio');
-  await page.getByRole('button', { name: 'Trợ lý AI', exact: true }).click();
+  await toggleExplainMode(page);
   const target = page.getByRole('button', { name: 'lộ trình giảm dần rủi ro' });
   await expect(target).toBeVisible();
   await target.focus(); await page.keyboard.press('Enter');
@@ -61,7 +62,7 @@ test('selected unknown phrase checks AI consent automatically and sends no quest
   let explainRequests = 0;
   await page.route('**/api/v1/me/ai/privacy', route => route.fulfill({ json: { data: { ...consentedPrivacy, processing: false, acceptedPolicyVersion: null } } }));
   await page.route('**/api/v1/me/ai/explain', route => { explainRequests++; return route.fulfill({ json: { data: {} } }); });
-  await button.click();
+  await toggleExplainMode(page);
   await page.getByRole('heading', { name: 'Tổng quan' }).evaluate(element => {
     const range = document.createRange(); range.selectNodeContents(element);
     const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
@@ -78,7 +79,7 @@ test('selected unknown phrase is explained by AI without an extra click, once pe
   const questions: string[] = [];
   await page.route('**/api/v1/me/ai/privacy', route => route.fulfill({ json: { data: consentedPrivacy } }));
   await page.route('**/api/v1/me/ai/explain', route => { questions.push(route.request().postDataJSON().question); return route.fulfill({ json: { data: { status: 'AI_ASSISTED', answer: 'Đây là phần tiền bạn để riêng cho chi tiêu bất ngờ.', facts: [], citations: [], provenance: null, knowledgeStatus: 'AVAILABLE', nextAction: '', applied: false, savedHistory: false, conversationId: null } } }); });
-  await button.click();
+  await toggleExplainMode(page);
   await selectText(page, 'quỹ dự phòng khẩn cấp');
   const popup = page.getByRole('dialog');
   await expect(popup.getByRole('heading')).toHaveText('“quỹ dự phòng khẩn cấp”');
@@ -93,7 +94,7 @@ test('selected glossary phrase shows the curated definition immediately without 
   const button = await openDashboard(page);
   let aiCalls = 0;
   await page.route('**/api/v1/me/ai/**', route => { aiCalls++; return route.fulfill({ json: { data: consentedPrivacy } }); });
-  await button.click();
+  await toggleExplainMode(page);
   await selectText(page, 'ĐỘ PHỦ QUỸ (Fund coverage)');
   const popup = page.getByRole('dialog');
   await expect(popup.getByRole('heading')).toHaveText('Độ phủ quỹ');
@@ -109,7 +110,7 @@ test('a long selected passage waits for an explicit AI request', async ({ page }
   let explainRequests = 0;
   await page.route('**/api/v1/me/ai/privacy', route => route.fulfill({ json: { data: consentedPrivacy } }));
   await page.route('**/api/v1/me/ai/explain', route => { explainRequests++; return route.fulfill({ json: { data: { status: 'AI_ASSISTED', answer: 'Tóm tắt đoạn văn.', facts: [], citations: [], provenance: null, knowledgeStatus: 'AVAILABLE', nextAction: '', applied: false, savedHistory: false, conversationId: null } } }); });
-  await button.click();
+  await toggleExplainMode(page);
   await selectText(page, 'Kế hoạch nghỉ hưu cần được xem lại định kỳ. '.repeat(10));
   const popup = page.getByRole('dialog');
   const ask = popup.getByRole('button', { name: 'Nhờ AI giải thích đoạn này' });
@@ -127,7 +128,7 @@ for (const width of [375, 1280, 1440, 1920]) test(`long AI explanation remains r
   const paragraphs = Array.from({ length: 12 }, (_, i) => `Ý ${i + 1}: quỹ dự phòng là khoản tiền bạn để riêng cho những chi phí bất ngờ. Khoản này giúp bạn chủ động hơn khi thu nhập hoặc chi tiêu thay đổi lần ${i + 1}.`);
   await page.route('**/api/v1/me/ai/privacy', route => route.fulfill({ json: { data: consentedPrivacy } }));
   await page.route('**/api/v1/me/ai/explain', route => route.fulfill({ json: { data: { status: 'AI_ASSISTED', answer: paragraphs.join('\n\n'), facts: [], citations: [{ title: 'Tài liệu tham khảo kiểm thử', url: null }], provenance: null, knowledgeStatus: 'AVAILABLE', nextAction: '', applied: false, savedHistory: false, conversationId: null } } }));
-  await button.click();
+  await toggleExplainMode(page);
   await selectText(page, 'quỹ dự phòng khẩn cấp');
   const popup = page.getByRole('dialog');
   // Long answers open with a bold one-sentence summary; extra points sit behind "Xem thêm".
@@ -169,7 +170,7 @@ for (const width of [375, 1440]) test(`metric details preserve popup scrolling a
     return r.fulfill({ json: { data: r.request().postDataJSON().detail === 'MONTHLY' ? { ...metric, steps: Array.from({ length: 100 }, (_, i) => ({ ...metric.steps[i % 12], source: `rows[${i}].expense` })) } : metric } });
   });
   await page.goto('/user/plan');
-  await page.getByRole('button', { name: 'Trợ lý AI', exact: true }).click();
+  await toggleExplainMode(page);
   const target = page.locator('.explain-target').filter({ hasText: '1.000.000.000' }).first();
   await target.focus(); await page.keyboard.press('Enter');
   const popup = page.locator('.explain-popup');
@@ -214,7 +215,7 @@ test('bundled fixed labels work repeatedly without AI even if the glossary is un
   let aiCalls = 0;
   await page.route('**/api/v1/me/explanations/glossary', r => r.fulfill({ status: 503, json: { error: { code: 'UNAVAILABLE', message: 'Unavailable' } } }));
   await page.route('**/api/v1/me/ai/**', r => { aiCalls++; return r.abort(); });
-  await button.click();
+  await toggleExplainMode(page);
   const target = page.getByRole('button', { name: 'Tiền còn lại mỗi tháng', exact: true });
   for (let i = 0; i < 3; i++) {
     await target.click();
@@ -241,7 +242,7 @@ test('glossary aliases use prepared definitions and toggling mode reuses the glo
   await page.route('**/api/v1/me/explanations/glossary', r => { glossaryCalls++; return r.fulfill({ json: { data: explanationGlossary } }); });
   await page.route('**/api/v1/me/ai/**', r => { aiCalls++; return r.abort(); });
   for (let i = 0; i < 3; i++) {
-    await button.click();
+    await toggleExplainMode(page);
     await selectText(page, 'quỹ dự phòng khẩn cấp');
     await expect(page.getByRole('dialog')).toContainText('Phần vốn để ứng phó khi thu nhập gián đoạn');
     await page.keyboard.press('Escape');
@@ -260,12 +261,12 @@ test('missing fixed keys never call AI and failed glossary can be retried', asyn
     : r.fulfill({ json: { data: { version: 'empty', terms: [] } } }));
   await page.route('**/api/v1/me/ai/**', r => { aiCalls++; return r.abort(); });
   const button = page.getByRole('button', { name: 'Trợ lý AI', exact: true });
-  await button.click();
+  await toggleExplainMode(page);
   await page.getByRole('button', { name: 'lộ trình giảm dần rủi ro' }).click();
   await expect(page.getByRole('dialog')).toContainText('Nhãn này chưa có nội dung giải thích viết sẵn.');
   expect(aiCalls).toBe(0);
   failed = true;
-  await page.reload(); await button.click();
+  await page.reload(); await toggleExplainMode(page);
   await page.getByRole('button', { name: 'lộ trình giảm dần rủi ro' }).click();
   await expect(page.getByRole('dialog')).toContainText('Chưa tải được bảng thuật ngữ');
   const explanationGlossary = { version: 'fixture-v2', terms: [
@@ -292,7 +293,7 @@ test('metric cache retries failures, discards a popup when input changes and fet
     } } });
   });
   await page.goto('/user/plan');
-  await page.getByRole('button', { name: 'Trợ lý AI', exact: true }).click();
+  await toggleExplainMode(page);
   const target = page.locator('.result-total .explain-target');
   await target.click();
   await expect(page.getByRole('dialog')).toContainText('Bạn thao tác hơi nhanh');

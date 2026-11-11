@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { Button, Modal, useNotification } from "../components/ui";
+import { Button, useNotification } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n";
-import { AccountProfilePanel, AccountSecurityPanel } from "../components/AccountApiPanels";
+import { AccountSecurityPanel } from "../components/AccountApiPanels";
 import { getNotificationSettings, updateNotificationSettings } from "../services/notifications";
 import "./account-settings.css";
+import "./remaining-user-sync.css";
+import ResponsiveDialog from "../components/ResponsiveDialog";
+import {authenticatedRequest, updateSessionUser, type ApiUser} from "../services/api";
+import type {NotificationSettings} from "../services/notifications";
 
 export default function AccountPage() {
   const { language } = useI18n();
@@ -14,10 +18,17 @@ export default function AccountPage() {
   const navigate = useNavigate();
   const { notify } = useNotification();
 
-  const isSettingsTab = /[?&]tab=(settings|reports)\b/.test(location.search);
+  const isSettingsTab = ["settings", "reports", "security"].includes(new URLSearchParams(location.search).get("tab") ?? "");
 
-  const [displayName, setDisplayName] = useState(user?.name || "Minh An");
+  const [displayName, setDisplayName] = useState(user?.name || "");
   const [city, setCity] = useState("");
+  const [account,setAccount]=useState<ApiUser|null>(null);
+  const [accountError,setAccountError]=useState("");
+  const [prefs,setPrefs]=useState<NotificationSettings|null>(null);
+  const [prefsError,setPrefsError]=useState("");
+  const [accountAttempt,setAccountAttempt]=useState(0);
+  const [prefsAttempt,setPrefsAttempt]=useState(0);
+  const [emailDigest,setEmailDigest]=useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [reminder, setReminder] = useState(true);
@@ -26,75 +37,78 @@ export default function AccountPage() {
 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+
+
 
   useEffect(() => {
-    if (user?.name) setDisplayName(user.name);
-  }, [user?.name]);
+    let active=true;setAccountError("");setAccount(null);
+    authenticatedRequest<ApiUser>("/me",undefined,"GET",undefined,{skipCache:true}).then(row=>{if(active){setAccount(row);setDisplayName(row.fullName);setCity(row.city??"");}}).catch(e=>{if(active)setAccountError(e.message);});
+    return()=>{active=false;};
+  }, [accountAttempt, user?.id]);
 
   useEffect(() => {
-    let active = true;
-    getNotificationSettings()
-      .then(settings => {
-        if (active && settings) {
-          setReminder(settings.goalAlerts);
-          setNews(settings.partnerUpdates);
-        }
-      })
-      .catch(() => {});
-    return () => { active = false; };
-  }, []);
+    let active=true;setPrefsError("");setPrefs(null);
+    getNotificationSettings().then(row=>{if(active){setPrefs(row);setReminder(row.goalAlerts);setNews(row.partnerUpdates);setEmailDigest(row.emailDigest);}}).catch(e=>{if(active)setPrefsError(e.message);});
+    return()=>{active=false;};
+  }, [prefsAttempt, user?.id]);
 
   const handleSavePersonalProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavingProfile(true);
+    if(!account||savingProfile)return;
+    setAccountError("");setSavingProfile(true);
     try {
+      const row=await authenticatedRequest<ApiUser>("/me",{expectedRevision:account.revision,changes:{fullName:displayName.trim(),city:city.trim()||null}},"PATCH");
+      setAccount(row);setDisplayName(row.fullName);setCity(row.city??"");updateSessionUser(row);
       notify.success(
         language === "en" ? "Profile updated" : "Đã cập nhật hồ sơ",
         language === "en" ? "Your basic profile information has been saved." : "Thông tin hồ sơ cơ bản đã được lưu."
       );
-    } finally {
+    } catch(e) {setAccountError(e instanceof Error?e.message:"Không thể lưu hồ sơ.");} finally {
       setSavingProfile(false);
     }
   };
 
   const handleSavePreferences = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    setSavingPrefs(true);
+    if(!prefs||savingPrefs)return;
+    setPrefsError("");setSavingPrefs(true);
     try {
-      await updateNotificationSettings({
-        expectedRevision: 1,
-        emailDigest: reminder,
+      const saved=await updateNotificationSettings({
+        expectedRevision: prefs.revision,
+        emailDigest,
         goalAlerts: reminder,
         partnerUpdates: news,
       });
+      setPrefs(saved);
       notify.success(
         language === "en" ? "Preferences saved" : "Đã lưu tùy chọn",
         language === "en" ? "Notification settings updated." : "Đã cập nhật tùy chọn thông báo thành công."
       );
-    } catch {
-      notify.success(
-        language === "en" ? "Preferences saved" : "Đã lưu tùy chọn",
-        language === "en" ? "Notification settings updated." : "Đã lưu tùy chọn thông báo."
-      );
+    } catch(e) {setPrefsError(e instanceof Error?e.message:"Không thể lưu tùy chọn.");
     } finally {
       setSavingPrefs(false);
     }
   };
 
   const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);setLogoutError("");
     try {
       await logout();
       navigate("/");
-    } catch {
-      navigate("/");
-    }
+    } catch(e) {
+      setLogoutError(e instanceof Error?e.message:language==="en"?"Could not log out":"Chưa đăng xuất được");
+    } finally {setLoggingOut(false);}
   };
 
-  const userEmail = user?.email || "minhan@example.com";
+  const userEmail = user?.email || "—";
 
   if (!isSettingsTab) {
     return (
-      <div className="account-page-wrapper">
+      <div className="account-page-wrapper account-personal-page">
         <div className="account-page-head">
           <h1>{language === "en" ? "Personal info" : "Thông tin cá nhân"}</h1>
           <p>{language === "en" ? "Update your basic profile information." : "Cập nhật thông tin hồ sơ cơ bản của bạn."}</p>
@@ -104,30 +118,32 @@ export default function AccountPage() {
           <header className="card-header">
             <h2>{language === "en" ? "Basic profile" : "Hồ sơ cơ bản"}</h2>
           </header>
-          <form onSubmit={handleSavePersonalProfile}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "18px", marginBottom: "18px" }}>
+          {accountError&&<div role="alert">{accountError}<button type="button" onClick={()=>setAccountAttempt(n=>n+1)}>{language==="en"?"Reload profile":"Tải lại hồ sơ"}</button></div>}
+          {!account&&!accountError&&<p role="status">{language==="en"?"Loading profile…":"Đang tải hồ sơ…"}</p>}
+          <form onSubmit={handleSavePersonalProfile}><fieldset disabled={!account||savingProfile} style={{border:0,padding:0,margin:0,minWidth:0}}>
+            <div className="account-personal-fields" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "18px", marginBottom: "18px" }}>
               <div className="field">
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#052659", marginBottom: "6px" }}>
+                <label htmlFor="account-display-name" style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#052659", marginBottom: "6px" }}>
                   {language === "en" ? "Display name" : "Tên hiển thị"}
                 </label>
                 <input
                   type="text"
                   className="input"
-                  value={displayName}
+                  id="account-display-name" required maxLength={120} value={displayName}
                   onChange={e => setDisplayName(e.target.value)}
                   style={{ width: "100%", height: "42px", padding: "0 14px", border: "1px solid #cddfee", borderRadius: "10px", fontSize: "14px", color: "#052659" }}
                 />
               </div>
 
               <div className="field">
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#052659", marginBottom: "6px" }}>
+                <label htmlFor="account-city" style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#052659", marginBottom: "6px" }}>
                   {language === "en" ? "Province / city (optional)" : "Tỉnh / thành phố (không bắt buộc điền)"}
                 </label>
                 <input
                   type="text"
                   className="input"
                   placeholder={language === "en" ? "e.g., Ho Chi Minh City" : "Ví dụ: TP. Hồ Chí Minh"}
-                  value={city}
+                  id="account-city" maxLength={120} value={city}
                   onChange={e => setCity(e.target.value)}
                   style={{ width: "100%", height: "42px", padding: "0 14px", border: "1px solid #cddfee", borderRadius: "10px", fontSize: "14px", color: "#052659" }}
                 />
@@ -162,7 +178,7 @@ export default function AccountPage() {
               </Link>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "8px" }}>
+            <div className="account-personal-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "8px" }}>
               <button
                 type="button"
                 className="account-btn account-btn-ghost"
@@ -175,7 +191,7 @@ export default function AccountPage() {
                 {savingProfile ? (language === "en" ? "Saving…" : "Đang lưu…") : (language === "en" ? "Update profile" : "Cập nhật hồ sơ")}
               </button>
             </div>
-          </form>
+          </fieldset></form>
         </section>
       </div>
     );
@@ -195,7 +211,7 @@ export default function AccountPage() {
             <h2>{language === "en" ? "Sign-in information" : "Thông tin đăng nhập"}</h2>
           </header>
           <p style={{ fontSize: "16px", fontWeight: 600, color: "var(--navy, #052659)", margin: "0 0 6px" }}>{userEmail}</p>
-          <p style={{ fontSize: "13px", color: "var(--muted, #64748B)", margin: "0 0 20px" }}>{language === "en" ? "An Huu Member Account · Verified" : "Tài khoản hội viên An Hưu · Đã xác thực"}</p>
+          <p style={{ fontSize: "13px", color: "var(--muted, #64748B)", margin: "0 0 20px" }}>{language === "en" ? "An Huu Member Account" : "Tài khoản hội viên An Hưu"}</p>
           <div style={{ display: "flex", gap: "10px" }}>
             <button type="button" className="account-btn account-btn-secondary" onClick={() => setEmailModalOpen(true)}>
               {language === "en" ? "Change email" : "Đổi email"}
@@ -211,7 +227,10 @@ export default function AccountPage() {
           <header className="card-header">
             <h2>{language === "en" ? "Notification options" : "Tùy chọn thông báo"}</h2>
           </header>
-          <form onSubmit={handleSavePreferences}>
+          {prefsError&&<div role="alert">{prefsError}<button type="button" onClick={()=>setPrefsAttempt(n=>n+1)}>{language==="en"?"Reload options":"Tải lại tùy chọn"}</button></div>}
+          {!prefs&&!prefsError&&<p role="status">{language==="en"?"Loading options…":"Đang tải tùy chọn…"}</p>}
+          <form onSubmit={handleSavePreferences}><fieldset disabled={!prefs||savingPrefs} style={{border:0,padding:0,margin:0,minWidth:0}}>
+            <label className="check"><input type="checkbox" checked={emailDigest} onChange={e=>setEmailDigest(e.target.checked)}/>{language==="en"?"Email digest preference":"Tùy chọn email tổng hợp"}</label>
             <label className="check" style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "14px", color: "var(--text, #10385b)" }}>
               <input
                 type="checkbox"
@@ -235,14 +254,14 @@ export default function AccountPage() {
             </label>
 
             <p style={{ fontSize: "12px", color: "var(--muted, #64748b)", margin: "16px 0 20px" }}>
-              {language === "en" ? "Notification preferences are synchronized with your account." : "Tùy chọn thông báo được đồng bộ với tài khoản của bạn."}
+              {language === "en" ? "Preferences are saved to your account. Unavailable channels do not send notifications." : "Lưu lựa chọn theo tài khoản. Kênh nào chưa khả dụng sẽ chưa gửi thông báo."}
             </p>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <button
                 type="button"
                 className="account-btn account-btn-ghost"
-                onClick={() => { setReminder(true); setNews(false); }}
+                onClick={() => { if(prefs){setReminder(prefs.goalAlerts);setNews(prefs.partnerUpdates);setEmailDigest(prefs.emailDigest);} }}
                 style={{ background: "transparent", border: 0, color: "var(--navy, #052659)", cursor: "pointer", fontSize: "14px" }}
               >
                 {language === "en" ? "Cancel" : "Hủy"}
@@ -251,7 +270,7 @@ export default function AccountPage() {
                 {savingPrefs ? (language === "en" ? "Saving…" : "Đang lưu…") : (language === "en" ? "Save options" : "Lưu tùy chọn")}
               </button>
             </div>
-          </form>
+          </fieldset></form>
         </section>
 
         {/* Card 3: Quản lý phiên */}
@@ -266,27 +285,33 @@ export default function AccountPage() {
             {language === "en" ? "Log out from this device to protect your account." : "Đăng xuất khỏi thiết bị này để bảo mật tài khoản."}
           </p>
           <div style={{ display: "flex", gap: "12px" }}>
-            <button type="button" className="account-btn account-btn-secondary" onClick={handleLogout}>
+            <button type="button" className="account-btn account-btn-secondary" onClick={()=>{setLogoutError("");setLogoutOpen(true);}}>
               {language === "en" ? "Log out" : "Đăng xuất"}
             </button>
           </div>
         </section>
       </div>
 
+      <ResponsiveDialog className="user-workspace-dialog" open={logoutOpen} title={language === "en" ? "Sign out of An Huu?" : "Đăng xuất khỏi An Hưu?"} initialFocusSelector=".logout-cancel" onClose={()=>{if(!loggingOut)setLogoutOpen(false);}}>
+        <p>{language === "en" ? "Your saved information and plans stay in your account. You can sign in again to continue." : "Thông tin và kế hoạch đã lưu vẫn ở trong tài khoản. Bạn có thể đăng nhập lại để tiếp tục."}</p>
+        {logoutError&&<p role="alert">{logoutError}</p>}
+        <div className="saved-actions"><Button className="logout-cancel" variant="secondary" disabled={loggingOut} onClick={()=>setLogoutOpen(false)}>{language==="en"?"Stay signed in":"Ở lại"}</Button><Button disabled={loggingOut} onClick={()=>void handleLogout()}>{loggingOut?(language==="en"?"Signing out…":"Đang đăng xuất…"):(language==="en"?"Sign out":"Đăng xuất")}</Button></div>
+      </ResponsiveDialog>
+
       {/* Modals for Change Email and Change Password */}
-      <Modal open={emailModalOpen} title={language === "en" ? "Change Email" : "Đổi email"} onClose={() => setEmailModalOpen(false)}>
-        <AccountProfilePanel />
+      <ResponsiveDialog className="user-workspace-dialog" open={emailModalOpen} title={language === "en" ? "Change Email" : "Đổi email"} onClose={() => setEmailModalOpen(false)}>
+        <p>{language==="en"?"Sign-in email changes require ownership verification with support. No email address has been changed.":"Đổi email đăng nhập cần xác minh chủ tài khoản qua Hỗ trợ. Email của bạn chưa được thay đổi."}</p><p>{userEmail}</p><Link className="account-btn account-btn-primary" to={"/user/support?category="+encodeURIComponent("Tài khoản")+"&subject="+encodeURIComponent("Yêu cầu thay đổi email đăng nhập")}>{language==="en"?"Create support request":"Tạo yêu cầu hỗ trợ"}</Link>
         <div style={{ marginTop: "16px", textAlign: "right" }}>
           <Button variant="secondary" onClick={() => setEmailModalOpen(false)}>{language === "en" ? "Close" : "Đóng"}</Button>
         </div>
-      </Modal>
+      </ResponsiveDialog>
 
-      <Modal open={passwordModalOpen} title={language === "en" ? "Change Password" : "Đổi mật khẩu"} onClose={() => setPasswordModalOpen(false)}>
+      <ResponsiveDialog className="user-workspace-dialog" open={passwordModalOpen} title={language === "en" ? "Change Password" : "Đổi mật khẩu"} onClose={() => setPasswordModalOpen(false)}>
         <AccountSecurityPanel />
         <div style={{ marginTop: "16px", textAlign: "right" }}>
           <Button variant="secondary" onClick={() => setPasswordModalOpen(false)}>{language === "en" ? "Close" : "Đóng"}</Button>
         </div>
-      </Modal>
+      </ResponsiveDialog>
     </div>
   );
 }

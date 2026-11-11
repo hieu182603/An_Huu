@@ -7,6 +7,7 @@ import type { LegalRulesService } from "./legal-service";
 import { historyPreviewSchema, historySaveSchema, legalRuleDraftSchema, legalRulePatchSchema, legalRuleTransitionSchema, pensionEstimateInputSchema, pensionEstimateSaveSchema } from "./insurance-schema";
 import type { PensionEstimateService } from "./estimate-service";
 import { dateSchema } from "../../common/calendar";
+import { historyPeriodPatchSchema } from "./periods";
 const id = (v: unknown) => z.string().uuid().parse(v);
 export function pensionEstimatesRouter(service: PensionEstimateService) {
   const router = Router();
@@ -19,6 +20,8 @@ export function pensionEstimatesRouter(service: PensionEstimateService) {
 }
 export function insuranceHistoryRouter(service: InsuranceHistoryService) {
   const router = Router();
+  router.get("/periods", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.periods(req.user!.userId))));
+  router.patch("/periods", validate(historyPeriodPatchSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.patchPeriods(req.user!.userId, req.body, id(req.get("Idempotency-Key"))))));
   router.get("/", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.get(req.user!.userId))));
   router.get("/:id", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.get(req.user!.userId, id(req.params.id)))));
   router.post("/import-preview", validate(historyPreviewSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.preview(req.user!.userId, req.body))));

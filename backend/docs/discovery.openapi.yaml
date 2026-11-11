@@ -1,0 +1,643 @@
+ProductFacet:
+  type: object
+  additionalProperties: false
+  properties:
+    category: &a1
+      type: string
+    riskLevel:
+      type: string
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+    _count:
+      type: object
+      additionalProperties: false
+      properties:
+        _all: &a2
+          type: integer
+      required:
+        - _all
+  required:
+    - category
+    - riskLevel
+    - _count
+ContentFacet:
+  type: object
+  additionalProperties: false
+  properties:
+    category: *a1
+    _count:
+      type: object
+      additionalProperties: false
+      properties:
+        _all: *a2
+      required:
+        - _all
+  required:
+    - category
+    - _count
+SavedProduct:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - partnerId
+    - name
+    - category
+    - expectedReturn
+    - riskLevel
+    - description
+    - annualFee
+    - conditions
+    - disclosure
+    - isVisible
+    - revision
+    - updatedAt
+    - partner
+    - savedAt
+  properties:
+    id: &a3
+      type: string
+      format: uuid
+    partnerId: *a3
+    name: &a4
+      type: string
+    category: *a4
+    expectedReturn: *a4
+    riskLevel:
+      type: string
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+    description:
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    annualFee:
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    conditions:
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    disclosure:
+      anyOf:
+        - *a4
+        - type: object
+          nullable: true
+          enum:
+            - null
+    isVisible:
+      type: boolean
+    revision:
+      type: integer
+    updatedAt:
+      type: string
+      format: date-time
+    partner:
+      $ref: ./secondary.openapi.yaml#/Partner
+    imageUrl:
+      type: string
+      nullable: true
+      maxLength: 2000
+    savedAt:
+      type: string
+      format: date-time
+ProductConsultInput:
+  type: object
+  additionalProperties: false
+  properties:
+    message:
+      type: string
+      maxLength: 2000
+      default: ""
+    phone:
+      type: string
+      pattern: ^[0-9+().\s-]{8,20}$
+    channel:
+      type: string
+      enum:
+        - PHONE
+        - EMAIL
+        - BRANCH
+      default: PHONE
+    consent:
+      type: boolean
+      enum:
+        - true
+    expectedProductRevision:
+      type: integer
+      minimum: 0
+DepositInput:
+  type: object
+  additionalProperties: false
+  properties:
+    principal:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+    annualRate:
+      type: string
+      pattern: ^(0|[1-9]\d?)(\.\d{1,8})?$
+    termMonths:
+      type: integer
+      minimum: 1
+      maximum: 120
+    startDate:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+    payout:
+      type: string
+      enum: &a5
+        - END
+        - MONTHLY
+        - COMPOUND
+    early:
+      type: object
+      additionalProperties: false
+      properties:
+        month:
+          type: integer
+          minimum: 1
+        annualRate:
+          type: string
+          pattern: ^(0|[1-9]\d?)(\.\d{1,8})?$
+      required:
+        - month
+        - annualRate
+  required:
+    - principal
+    - annualRate
+    - termMonths
+    - startDate
+    - payout
+BondInput:
+  type: object
+  additionalProperties: false
+  properties:
+    faceValue:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+    purchasePrice:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+    quantity:
+      type: integer
+      minimum: 1
+      maximum: 1000000000
+    annualCoupon:
+      type: string
+      pattern: ^(0|[1-9]\d?)(\.\d{1,8})?$
+    termMonths:
+      type: integer
+      minimum: 1
+      maximum: 600
+    couponEveryMonths:
+      anyOf:
+        - type: integer
+          enum:
+            - 1
+        - type: integer
+          enum:
+            - 3
+        - type: integer
+          enum:
+            - 6
+        - type: integer
+          enum:
+            - 12
+    startDate:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+    sale:
+      type: object
+      additionalProperties: false
+      properties:
+        month:
+          type: integer
+          minimum: 1
+        price:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+      required:
+        - month
+        - price
+  required:
+    - faceValue
+    - purchasePrice
+    - quantity
+    - annualCoupon
+    - termMonths
+    - couponEveryMonths
+    - startDate
+DepositResult:
+  type: object
+  additionalProperties: false
+  properties:
+    informationalOnly: &a8
+      type: boolean
+      enum:
+        - true
+    currency: &a9
+      type: string
+      enum:
+        - VND
+    assumptions:
+      type: object
+      additionalProperties: false
+      properties:
+        principal:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        annualRate:
+          type: string
+          pattern: ^(0|[1-9]\d?)(\.\d{1,8})?$
+        termMonths:
+          type: integer
+          minimum: 1
+          maximum: 120
+        startDate:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        payout:
+          type: string
+          enum: *a5
+        early:
+          type: object
+          additionalProperties: false
+          properties:
+            month:
+              type: integer
+              minimum: 1
+            annualRate:
+              type: string
+              pattern: ^(0|[1-9]\d?)(\.\d{1,8})?$
+          required:
+            - month
+            - annualRate
+      required:
+        - principal
+        - annualRate
+        - termMonths
+        - startDate
+        - payout
+    maturityDate: &a7
+      type: string
+      format: date
+    interest: &a6
+      type: string
+      pattern: ^-?[0-9]+(\.[0-9]+)?$
+    monthlyPayout: *a6
+    maturityPayment: *a6
+    totalReceived: *a6
+    early:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            date: *a7
+            interest: *a6
+            alreadyPaid: *a6
+            settlementPayment: *a6
+            totalReceived: *a6
+          required:
+            - date
+            - interest
+            - alreadyPaid
+            - settlementPayment
+            - totalReceived
+        - type: object
+          nullable: true
+          enum:
+            - null
+  required:
+    - informationalOnly
+    - currency
+    - assumptions
+    - maturityDate
+    - interest
+    - monthlyPayout
+    - maturityPayment
+    - totalReceived
+    - early
+BondResult:
+  type: object
+  additionalProperties: false
+  properties:
+    informationalOnly: *a8
+    currency: *a9
+    assumptions:
+      type: object
+      additionalProperties: false
+      properties:
+        faceValue:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        purchasePrice:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 1000000000
+        annualCoupon:
+          type: string
+          pattern: ^(0|[1-9]\d?)(\.\d{1,8})?$
+        termMonths:
+          type: integer
+          minimum: 1
+          maximum: 600
+        couponEveryMonths:
+          anyOf:
+            - type: integer
+              enum:
+                - 1
+            - type: integer
+              enum:
+                - 3
+            - type: integer
+              enum:
+                - 6
+            - type: integer
+              enum:
+                - 12
+        startDate:
+          type: string
+          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+        sale:
+          type: object
+          additionalProperties: false
+          properties:
+            month:
+              type: integer
+              minimum: 1
+            price:
+              type: string
+              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+          required:
+            - month
+            - price
+      required:
+        - faceValue
+        - purchasePrice
+        - quantity
+        - annualCoupon
+        - termMonths
+        - couponEveryMonths
+        - startDate
+    cost: *a6
+    faceValueTotal: *a6
+    totalCoupons: *a6
+    totalReceived: *a6
+    gain: *a6
+    currentYieldPercent: *a6
+    nominalYtmPercent:
+      anyOf:
+        - *a6
+        - type: object
+          nullable: true
+          enum:
+            - null
+    schedule:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          month: *a2
+          date: *a7
+          coupon: *a6
+          principal: *a6
+          total: *a6
+        required:
+          - month
+          - date
+          - coupon
+          - principal
+          - total
+    sale:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            date: *a7
+            collectedCoupons: *a6
+            proceeds: *a6
+            gain: *a6
+          required:
+            - date
+            - collectedCoupons
+            - proceeds
+            - gain
+        - type: object
+          nullable: true
+          enum:
+            - null
+  required:
+    - informationalOnly
+    - currency
+    - assumptions
+    - cost
+    - faceValueTotal
+    - totalCoupons
+    - totalReceived
+    - gain
+    - currentYieldPercent
+    - nominalYtmPercent
+    - schedule
+    - sale
+SavedResult:
+  type: object
+  additionalProperties: false
+  properties:
+    saved:
+      type: boolean
+  required:
+    - saved
+CancelledResult:
+  type: object
+  additionalProperties: false
+  properties:
+    cancelled:
+      type: boolean
+  required:
+    - cancelled
+ConsultTicket:
+  type: object
+  additionalProperties: false
+  properties:
+    id:
+      type: string
+      format: uuid
+    userId:
+      type: string
+    subject: *a1
+    category: *a1
+    status:
+      type: string
+      enum:
+        - OPEN
+        - IN_PROGRESS
+        - RESOLVED
+        - CLOSED
+    revision: *a2
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+  required:
+    - id
+    - userId
+    - subject
+    - category
+    - status
+    - revision
+    - createdAt
+    - updatedAt
+ProductFacetsEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "#/ProductFacet"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a1
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+ContentFacetsEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "#/ContentFacet"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a1
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+SavedProductsEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "#/SavedProduct"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a1
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+DepositEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/DepositResult"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a1
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+BondEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/BondResult"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a1
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+SavedEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/SavedResult"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a1
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+CancelledEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/CancelledResult"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a1
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+ConsultEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/ConsultTicket"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a1
+      required:
+        - requestId
+  required:
+    - data
+    - meta

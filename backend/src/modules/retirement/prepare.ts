@@ -2,6 +2,7 @@ import { addMonths } from "../../common/calendar";
 import { AppError } from "../../common/errors";
 import { profileV2Schema, type ProfileV2 } from "../profiles/schema-v2";
 import { profileV2Summary } from "../profiles/summary-v2";
+import { illustrateDebt } from "../debts/illustration";
 import { profileMonthlyCashflow } from "../profiles/cashflow";
 import { buildContractSchedule } from "../debts/loan";
 import { pensionAtMonth } from "../pensions/engine";
@@ -66,7 +67,8 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     percent: new D(r.percent).plus(scenario.changes.find(c => c.year === r.year)!.inflationDeltaPoints).toFixed() })) };
   const summary = profileV2Summary(data), initialCapital = summary.values.retirementLiquidAssets;
   if (initialCapital === null) issue("assets", "RETIREMENT_CAPITAL_INCOMPLETE");
-  warnings.push(...summary.issues.filter(i => !i.path.startsWith("income") && !i.path.startsWith("expenses") && i.path !== "pension"));
+  // Reserve completeness is reported by the profile summary, independently of retirement capital.
+  warnings.push(...summary.issues.filter(i => !i.path.startsWith("income") && !i.path.startsWith("expenses") && !i.path.startsWith("emergencyReserve.") && i.path !== "pension"));
   const debtRows = new Map<string, InstanceType<typeof D>>();
   if (data.debts.status === "UNKNOWN") issue("debts", "DEBT_SCHEDULE_REQUIRED");
   const debts = data.debts.status === "KNOWN" ? data.debts.entries : [];
@@ -89,6 +91,21 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
         const payment = stress ? new D(row.principal).plus(row.interest).plus(row.fee).mul(stress.totalPaymentShare) : new D(row.userPayment);
         debtRows.set(month, (debtRows.get(month) ?? new D(0)).plus(payment));
       }
+    } else if (debt.illustration?.annualRatePercent.status === "KNOWN") {
+      const schedule = illustrateDebt(debt, data.valuationDate);
+      warnings.push({ path: `debts.${debt.id}`, code: "LOAN_SCHEDULE_ILLUSTRATIVE" });
+      if (schedule.status !== "READY") { issues.push(...schedule.issues.map(issue => ({ path: `debts.${debt.id}`, code: issue.code }))); continue; }
+      for (const row of schedule.rows) {
+        const month = row.dueDate.slice(0, 7);
+        if (month > input.endMonth) { warnings.push({ path: `debts.${debt.id}`, code: "DEBT_PAYMENTS_AFTER_PLAN_END" }); break; }
+        const stress = input.debtStress.find(item => item.loanId === debt.id && item.startMonth <= month && month <= item.endMonth);
+        const payment = stress ? new D(row.principal).plus(row.interest).mul(stress.totalPaymentShare) : new D(row.userPayment);
+        debtRows.set(month, (debtRows.get(month) ?? new D(0)).plus(payment));
+      }
+    } else if (debt.illustration) {
+      // A new declaration explicitly says the rate is unknown. Keep current
+      // declared cashflow, but do not invent a zero-interest payoff schedule.
+      issue(`debts.${debt.id}`, "DEBT_SCHEDULE_REQUIRED");
     } else if (debt.payment.status === "KNOWN" && debt.paymentShare.status === "KNOWN") {
       warnings.push({ path: `debts.${debt.id}`, code: "LOAN_CONTRACT_ESTIMATED" });
       const monthlyPayment = new D(debt.payment.value).mul(debt.paymentShare.value);

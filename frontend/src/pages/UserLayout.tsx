@@ -1,10 +1,10 @@
 import "./user-readability.css";
 import "./user-demo-theme.css";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import logoMark from "../assets/logo-mark.webp";
 import logoFull from "../assets/logo.webp";
-import { Avatar, Badge, BrandLogo, Drawer, Icon, IconButton, Tooltip, useNotification, type IconName } from "../components/ui";
+import { Avatar, BrandLogo, Drawer, Icon, Tooltip, type IconName } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { UserAccountModal, type AccountModalTab } from "../components/UserAccountModal";
@@ -16,6 +16,12 @@ import { NotificationDropdown } from "../components/NotificationDropdown";
 import { useI18n } from "../i18n";
 import FinancialProfileGate from "../components/FinancialProfileGate";
 import { ExplainModeProvider } from "../components/explanations/ExplainMode";
+import UserFeatureSearch from "../components/UserFeatureSearch";
+import UserLanguageMenu from "../components/UserLanguageMenu";
+import UserProfileProgressDialog from "../components/UserProfileProgressDialog";
+import ResponsiveDialog from "../components/ResponsiveDialog";
+import { userProfileProgress } from "../utils/userProfileProgress";
+import { useRetirementPlan } from "../context/RetirementPlanContext";
 
 export type UserNavItem = {
   path: string;
@@ -26,19 +32,24 @@ export type UserNavItem = {
 
 export default function UserLayout() {
   const { t, language } = useI18n();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => window.matchMedia("(min-width: 768px) and (max-width: 1024px)").matches);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [accountModalTab, setAccountModalTab] = useState<AccountModalTab>("profile");
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { completenessPercentage } = useFinancialProfile();
-  const { notify } = useNotification();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchFeedback, setSearchFeedback] = useState("");
+  const { profile, v2Profile, hasProfile } = useFinancialProfile();
+  const { currentVersion } = useRetirementPlan();
+  const progressItems = userProfileProgress(profile, v2Profile, hasProfile, Boolean(currentVersion?.preview.status === "READY" && currentVersion.preview.selection?.answers?.length));
+  const completedGroups = progressItems.filter(item => item.done).length;
+  const completenessPercentage = completedGroups * 20;
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [explainMode, setExplainMode] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const userNavItems: UserNavItem[] = [
     { path: "/user/dashboard", label: t("nav.dashboard"), icon: "home" },
@@ -64,11 +75,28 @@ export default function UserLayout() {
     { path: "/user/notifications", label: language === "en" ? "Notifications" : "Thông báo", icon: "bell" as IconName },
     { path: "/user/debts", label: language === "en" ? "Your finances" : "Tài chính của bạn", icon: "wallet" as IconName },
   ].find(item => location.pathname.startsWith(item.path))?.label;
-  const settingsTab = location.pathname === "/user/account" && /[?&]tab=(settings|reports)\b/.test(location.search);
+  const settingsTab = location.pathname === "/user/account" && ["settings", "reports", "security"].includes(new URLSearchParams(location.search).get("tab") ?? "");
   const profileTab = location.pathname === "/user/account" && !settingsTab;
   const simulationWhatIf = location.pathname.startsWith("/user/simulation") && /[?&]tab=what-if\b/.test(location.search);
   const simulationActuals = location.pathname.startsWith("/user/simulation") && !simulationWhatIf;
-  const locationLabel = settingsTab
+  const cashflowTab = location.pathname === "/user/profile" && new URLSearchParams(location.search).get("section") === "cashflow";
+  const constraintsTab = location.pathname === "/user/profile" && new URLSearchParams(location.search).get("section") === "constraints";
+  const activeNavPath = constraintsTab ? "/user/goal" : location.pathname === "/user/debts" ? "/user/profile" : location.pathname;
+  const isNavActive = (path: string) => activeNavPath === path;
+  const assetsTab = location.pathname === "/user/profile" && new URLSearchParams(location.search).get("section") === "assets";
+  const locationLabel = location.pathname === "/user/debts"
+    ? (language === "en" ? "Debts & repayment capacity" : "Khoản nợ & khả năng trả")
+    : location.pathname === "/user/profile" && new URLSearchParams(location.search).get("section") === "insurance"
+    ? (language === "en" ? "Social insurance pension" : "Lương hưu BHXH")
+    : location.pathname === "/user/profile" && new URLSearchParams(location.search).get("section") === "family"
+    ? (language === "en" ? "Family & dependents" : "Gia đình & người phụ thuộc")
+    : location.pathname === "/user/profile" && new URLSearchParams(location.search).get("section") === "constraints"
+    ? (language === "en" ? "Other goals" : "Mục tiêu khác")
+    : assetsTab
+    ? (language === "en" ? "Assets & emergency reserve" : "Tài sản & quỹ dự phòng")
+    : cashflowTab
+    ? (language === "en" ? "Income & expenses" : "Thu nhập & chi tiêu")
+    : settingsTab
     ? (language === "en" ? "Account settings" : "Cài đặt tài khoản")
     : profileTab
     ? (language === "en" ? "Personal info" : "Thông tin cá nhân")
@@ -78,11 +106,23 @@ export default function UserLayout() {
     ? (language === "en" ? "Track & Check-in" : "Cập nhật tình hình")
     : currentNavLabel;
 
-  const drawerNavItems: UserNavItem[] = [
-    ...userNavItems,
-    { path: "/user/support", label: language === "en" ? "Support" : "Hỗ trợ", icon: "life-buoy" },
-    { path: "/user/notifications", label: language === "en" ? "Notifications" : "Thông báo", icon: "bell" },
+  const drawerGroups = [
+    { ...navGroups[0], items: [...navGroups[0].items,
+      { path: "/user/simulation", label: language === "en" ? "Track your progress" : "Cập nhật tình hình", icon: "chart" as IconName },
+      { path: "/user/simulation?tab=what-if", label: language === "en" ? "Future changes" : "Điều chỉnh tương lai", icon: "chart" as IconName },
+    ] },
+    navGroups[1], navGroups[2],
+    { label: language === "en" ? "Help & account" : "Trợ giúp & tài khoản", items: [
+      { path: "/user/support", label: language === "en" ? "Support" : "Hỗ trợ", icon: "life-buoy" as IconName },
+      { path: "/user/notifications", label: language === "en" ? "Notifications" : "Thông báo", icon: "bell" as IconName },
+      { path: "/user/account", label: language === "en" ? "Personal information" : "Thông tin cá nhân", icon: "users" as IconName },
+      { path: "/user/account?tab=settings", label: language === "en" ? "Account settings" : "Cài đặt tài khoản", icon: "settings" as IconName },
+    ] },
   ];
+  const isDrawerActive = (path: string) => path.startsWith("/user/account")
+    ? path.includes("?") ? settingsTab : profileTab
+    : path.startsWith("/user/simulation") ? path.includes("?") ? simulationWhatIf : simulationActuals
+    : isNavActive(path);
 
   // Unread count and polling live in the shared notification store used by
   // NotificationDropdown (services/socket.ts); no second poll here.
@@ -94,12 +134,21 @@ export default function UserLayout() {
 
   useEffect(() => { setMobileMenuOpen(false); setExplainMode(false); }, [location.pathname]);
 
-  // Global shortcut: Ctrl+K or Cmd+K to focus search
+  useEffect(() => {
+    const tablet = window.matchMedia("(min-width: 768px) and (max-width: 1024px)");
+    const update = () => setCollapsed(tablet.matches);
+    tablet.addEventListener("change", update);
+    return () => tablet.removeEventListener("change", update);
+  }, []);
+
+  // The same feature search is available on desktop, mobile and keyboard.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        if (document.querySelector('[role="dialog"]:not(.user-feature-search)')) return;
         e.preventDefault();
-        searchInputRef.current?.focus();
+        setMobileMenuOpen(false);
+        setSearchOpen(value => !value);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -107,29 +156,19 @@ export default function UserLayout() {
   }, []);
 
   const handleLogout = async () => {
-    try { await logout(); navigate("/login"); }
+    if (loggingOut) return;
+    setLoggingOut(true); setLogoutError("");
+    try { await logout(); setLogoutOpen(false); navigate("/login"); }
     catch {
-      notify.error(
-        language === "en" ? "Logout Failed" : "Chưa thể đăng xuất",
-        language === "en" ? "Could not connect to server. Please try again." : "Không thể kết nối máy chủ. Vui lòng thử lại."
-      );
+      setLogoutError(language === "en" ? "Could not connect to server. Please retry." : "Không thể kết nối máy chủ. Vui lòng thử lại.");
     }
+    finally { setLoggingOut(false); }
   };
 
-  const submitSearch = (event: React.FormEvent) => {
-    event.preventDefault();
-    const query = searchQuery.trim().toLowerCase();
-    const match = userNavItems.find((item) => item.label.toLowerCase().includes(query));
-    if (!query || !match) {
-      setSearchFeedback(
-        query
-          ? (t("common.no_data") || (language === "en" ? "No matching feature found." : "Không tìm thấy tính năng phù hợp."))
-          : (language === "en" ? "Please enter search text." : "Hãy nhập nội dung cần tìm.")
-      );
-      return;
-    }
-    setSearchFeedback("");
-    navigate(match.path);
+  const closeLogout = () => {
+    if (loggingOut) return;
+    setLogoutOpen(false);
+    requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".user-topbar .avatar-button")?.focus());
   };
 
   return (
@@ -168,13 +207,14 @@ export default function UserLayout() {
             <div className="sidebar-group" key={group.label}>
               {!collapsed && <div className="sidebar-label">{group.label}</div>}
               {group.items.map((item) => {
-                const isActive = location.pathname === item.path;
+                const isActive = isNavActive(item.path);
                 return (
                   <NavLink
                     key={item.path}
                     to={item.path}
                     {...routeIntent(item.path)}
                     className={isActive ? "is-active" : ""}
+                    aria-current={isActive ? "page" : false}
                     title={item.label}
                     aria-label={item.label}
                   >
@@ -194,25 +234,25 @@ export default function UserLayout() {
 
         {!collapsed && (
           <div className="sidebar-bottom">
-            <Link to="/user/account" className="profile-progress" aria-label={language === "en" ? "Profile completeness progress" : "Tiến độ hoàn thiện hồ sơ"}>
+            <button type="button" className="profile-progress" aria-label={language === "en" ? "Profile completeness progress" : "Tiến độ hoàn thiện hồ sơ"} aria-haspopup="dialog" onClick={() => setProgressOpen(true)}>
               <span className="profile-progress-title">
                 <Icon name="users" />
                 <strong>{language === "en" ? "Profile completion" : "Hoàn thiện hồ sơ"}</strong>
-                <b>{Math.min(5, Math.max(1, Math.round((completenessPercentage / 100) * 5)))}/5</b>
+                <b>{completedGroups}/5</b>
               </span>
               <span className="profile-progress-track" aria-hidden="true">
                 <i style={{ width: `${completenessPercentage}%` }} />
               </span>
-              <small>{completenessPercentage >= 100 ? (language === "en" ? "5 initial information groups ready" : "Đã có 5 nhóm thông tin ban đầu") : (language === "en" ? "Review and complete remaining items" : "Lương hưu, mục tiêu khác...")}</small>
-            </Link>
+              <small>{completedGroups === 5 ? (language === "en" ? "5 initial information groups ready" : "Đã có 5 nhóm thông tin ban đầu") : progressItems.filter(item => !item.done).map(item => item.title[language === "en" ? 1 : 0]).join(", ")}</small>
+            </button>
           </div>
         )}
 
         {collapsed && (
-          <Link to="/user/account" className="sidebar-profile-compact" aria-label={language === "en" ? "Profile completion" : "Hoàn thiện hồ sơ"} title={language === "en" ? "Financial profile" : "Hồ sơ tài chính"}>
+          <button type="button" className="sidebar-profile-compact" aria-label={language === "en" ? "Profile completion" : "Hoàn thiện hồ sơ"} title={language === "en" ? "Financial profile" : "Hồ sơ tài chính"} aria-haspopup="dialog" onClick={() => setProgressOpen(true)}>
             <Icon name="users" />
             <span>{completenessPercentage}%</span>
-          </Link>
+          </button>
         )}
       </aside>
 
@@ -235,42 +275,28 @@ export default function UserLayout() {
             </Link>
           </div>
 
-          <form className="topbar-search-form" role="search" onSubmit={submitSearch}>
-            <div className="topbar-search-box">
+          <button type="button" className="topbar-search-form topbar-search-box topbar-search-trigger" onClick={() => setSearchOpen(true)} aria-label={language === "en" ? "Find a feature" : "Tìm chức năng"} aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K">
               <Icon name="search" size="small" className="topbar-search-icon" />
-              <input
-                ref={searchInputRef}
-                type="search"
-                className="topbar-search-input"
-                placeholder={t("topbar.search_placeholder")}
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setSearchFeedback(""); }}
-                aria-label={t("common.search")}
-              />
+              <span className="topbar-search-label">{t("topbar.search_placeholder")}</span>
               <span className="topbar-search-shortcut">
                 <kbd>Ctrl</kbd>
                 <kbd>K</kbd>
               </span>
-            </div>
-            <button className="sr-only" type="submit">{t("common.search")}</button>
-            {searchFeedback && <span className="topbar-search-feedback" role="status">{searchFeedback}</span>}
-          </form>
+          </button>
 
           <div className="user-topbar-actions">
             <button
               type="button"
-              className={`topbar-ai-pill ${explainMode ? "is-active" : ""}`}
-              onClick={() => setExplainMode(value => !value)}
-              aria-pressed={explainMode}
+              className="topbar-ai-pill"
+              onClick={() => navigate("/user/assistant")}
               aria-label={t("topbar.ai_assistant")}
-              title={explainMode ? (language === "en" ? "Turn off explain mode" : "Tắt chế độ giải thích") : (language === "en" ? "Turn on explain mode" : "Bật chế độ giải thích")}
+              title={language === "en" ? "Open AI assistant" : "Mở trợ lý AI"}
             >
-              <Icon name="sparkles" className="topbar-ai-icon-desktop" />
-              <Icon name="info" className="topbar-ai-icon-mobile" />
+              <Icon name="sparkles" />
               <span>{language === "en" ? "Assistant" : "Trợ lý"}</span>
               <small>AI</small>
             </button>
-            <LanguageSwitcher />
+            <UserLanguageMenu />
             <Tooltip content={t("topbar.support")}>
               <button
                 type="button"
@@ -290,10 +316,12 @@ export default function UserLayout() {
               name={user?.name || "An Huu User"}
               detail={user?.role === "admin" ? (language === "en" ? "Administrator" : "Quản trị viên") : (language === "en" ? "An Huu Account" : "Tài khoản An Hưu")}
               avatarUrl={user?.avatarUrl}
-              onLogout={handleLogout}
+              onLogout={() => { setLogoutError(""); setLogoutOpen(true); }}
               menuItems={[
-                { label: t("topbar.profile"), icon: "users", onClick: () => openAccountModal("profile") },
-                { label: t("topbar.settings"), icon: "settings", onClick: () => openAccountModal("settings") },
+                { label: t("topbar.profile"), icon: "users", onClick: () => navigate("/user/account") },
+                { label: t("topbar.settings"), icon: "settings", onClick: () => navigate("/user/account?tab=settings") },
+                { label: language === "en" ? "Advanced account details" : "Thông tin tài khoản nâng cao", icon: "users", onClick: () => openAccountModal("profile") },
+                { label: language === "en" ? "Explain figures" : "Giải thích số liệu", icon: "info", onClick: () => setExplainMode(value => !value) },
                 { label: t("topbar.export_plan"), icon: "download", onClick: () => openAccountModal("export") },
               ]}
             />
@@ -327,7 +355,7 @@ export default function UserLayout() {
           <Icon name="home" />
           <span>{language === "en" ? "Overview" : "Tổng quan"}</span>
         </NavLink>
-        <NavLink to="/user/goal" {...routeIntent("/user/goal")} className={location.pathname === "/user/goal" ? "is-active" : ""} aria-current={location.pathname === "/user/goal" ? "page" : undefined}>
+        <NavLink to="/user/goal" {...routeIntent("/user/goal")} className={isNavActive("/user/goal") ? "is-active" : ""} aria-current={isNavActive("/user/goal") ? "page" : false}>
           <Icon name="target" />
           <span>{language === "en" ? "Goals" : "Mục tiêu"}</span>
         </NavLink>
@@ -342,39 +370,38 @@ export default function UserLayout() {
         <button
           type="button"
           className={`user-mobile-nav-btn ${accountModalOpen ? "is-active" : ""}`}
-          onClick={() => openAccountModal("profile")}
+          onClick={() => navigate("/user/account")}
           aria-label={language === "en" ? "Profile" : "Hồ sơ"}
         >
           <Icon name="users" />
           <span>{language === "en" ? "Profile" : "Hồ sơ"}</span>
         </button>
       </nav>
-      <Drawer open={mobileMenuOpen} title={language === "en" ? "Menu" : "Menu"} onClose={() => setMobileMenuOpen(false)}>
+      <Drawer open={mobileMenuOpen} title={language === "en" ? "All features" : "Tất cả chức năng"} onClose={() => setMobileMenuOpen(false)}>
         {mobileMenuOpen && (
           <div style={{ padding: "12px 16px" }}>
-            <form className="drawer-search-form" role="search" onSubmit={(e) => { submitSearch(e); setMobileMenuOpen(false); }}>
-              <div className="topbar-search-box" style={{ width: "100%" }}>
+            <button type="button" className="drawer-feature-search" onClick={() => { setMobileMenuOpen(false); setSearchOpen(true); }} aria-haspopup="dialog">
                 <Icon name="search" size="small" className="topbar-search-icon" />
-                <input
-                  type="search"
-                  className="topbar-search-input"
-                  placeholder={t("topbar.search_placeholder")}
-                  value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setSearchFeedback(""); }}
-                  aria-label={t("common.search")}
-                  style={{ fontSize: "16px", minHeight: "44px" }}
-                />
-              </div>
-            </form>
+                <span>{language === "en" ? "Find a feature" : "Tìm chức năng"}</span>
+            </button>
           </div>
         )}
         <div style={{ padding: "12px 16px" }}>
           <LanguageSwitcher variant="select" />
         </div>
         <nav className="mobile-navigation" aria-label={language === "en" ? "All user features" : "Tất cả chức năng User"}>
-          {drawerNavItems.map(item => <NavLink key={item.path} to={item.path} {...routeIntent(item.path)} onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => isActive ? "is-active" : ""}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}
+          {drawerGroups.map(group => <section className="user-drawer-group" key={group.label}><h3>{group.label}</h3>{group.items.map(item => <NavLink key={item.path} to={item.path} {...routeIntent(item.path)} onClick={() => setMobileMenuOpen(false)} className={isDrawerActive(item.path) ? "is-active" : ""} aria-current={isDrawerActive(item.path) ? "page" : false}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}</section>)}
         </nav>
+        <button type="button" className="drawer-profile-progress" onClick={() => { setMobileMenuOpen(false); setProgressOpen(true); }}>{language === "en" ? "Profile completion" : "Hoàn thiện hồ sơ"} · {completedGroups}/5</button>
       </Drawer>
+
+      {searchOpen && <UserFeatureSearch onClose={() => setSearchOpen(false)} />}
+      {progressOpen && <UserProfileProgressDialog items={progressItems} onClose={() => setProgressOpen(false)} />}
+      {logoutOpen && <ResponsiveDialog open title={language === "en" ? "Sign out of An Huu?" : "Đăng xuất khỏi An Hưu?"} onClose={closeLogout} className="user-workspace-dialog dashboard-detail-dialog" initialFocusSelector=".logout-cancel">
+        <p>{language === "en" ? "Your saved information and plans stay in your account. You can sign in again to continue." : "Thông tin và kế hoạch đã lưu vẫn ở trong tài khoản. Bạn có thể đăng nhập lại để tiếp tục."}</p>
+        {logoutError && <p role="alert">{logoutError}</p>}
+        <div className="dashboard-dialog-actions"><button type="button" className="overview-button secondary logout-cancel" disabled={loggingOut} onClick={closeLogout}>{language === "en" ? "Stay signed in" : "Ở lại"}</button><button type="button" className="overview-button" disabled={loggingOut} onClick={() => void handleLogout()}>{loggingOut ? (language === "en" ? "Signing out…" : "Đang đăng xuất…") : (language === "en" ? "Sign out" : "Đăng xuất")}</button></div>
+      </ResponsiveDialog>}
 
       {/* Wide Horizontal User Account & Settings Modal */}
       <UserAccountModal

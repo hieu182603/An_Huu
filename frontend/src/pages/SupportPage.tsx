@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import { Alert, Badge, Button, Card, Icon, Input, Pagination, Select } from "../components/ui";
+import "./remaining-user-sync.css";
 import ResponsiveDialog from "../components/ResponsiveDialog";
 import { authenticatedRequest } from "../services/api";
 import { useI18n } from "../i18n";
@@ -52,9 +53,11 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
   const [busy, setBusy] = useState(false);
 
   // Form states
+  const [confirmCancel,setConfirmCancel]=useState(false);
+  const [discardReply,setDiscardReply]=useState(false);
   const [create, setCreate] = useState(false);
-  const [subject, setSubject] = useState("");
-  const [category, setCategory] = useState("Kế hoạch");
+  const [subject, setSubject] = useState(admin?"":(params.get("subject")??"").slice(0,200));
+  const [category, setCategory] = useState(admin ? "Kế hoạch" : (["Tài khoản","Sử dụng website","Nội dung","Khác"].includes(params.get("category")??"")?params.get("category")!:"Sử dụng website"));
   const [message, setMessage] = useState("");
   const [reply, setReply] = useState("");
   const [status, setStatus] = useState("OPEN");
@@ -83,12 +86,12 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
     { key: "CLOSED", label: statesMap.CLOSED },
   ], [isEn, statesMap]);
 
-  const formCategoryOptions = useMemo(() => [
+  const formCategoryOptions = useMemo(() => admin ? [
     { key: "Tài khoản", label: isEn ? "Account" : "Tài khoản" },
     { key: "Kế hoạch", label: isEn ? "Plan" : "Kế hoạch" },
     { key: "Tư vấn sản phẩm", label: isEn ? "Product consultation" : "Tư vấn sản phẩm" },
     { key: "Khác", label: isEn ? "Other" : "Khác" },
-  ], [isEn]);
+  ] : categoryOptions.filter(row=>row.key!=="ALL"&&row.key!=="Tư vấn sản phẩm"), [isEn,admin,categoryOptions]);
 
   // Load ticket list
   useEffect(() => {
@@ -100,10 +103,11 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
       query.set("status", statusFilterKey);
     }
     if (categoryFilterKey !== "ALL") query.set("category", categoryFilterKey);
+    if(!admin&&searchTerm.trim())query.set("search",searchTerm.trim());
 
-    authenticatedRequest<{ items: Ticket[]; total: number; limit: number }>(base + "?" + query)
+    authenticatedRequest<{ items: Ticket[]; total: number; limit: number }>(base + "?" + query,undefined,"GET",undefined,{skipCache:true})
       .then((v) => {
-        if (active) setData(v);
+        if (active) { setData(v); if(!admin && page>Math.max(1,Math.ceil(v.total/v.limit)))setPage(Math.max(1,Math.ceil(v.total/v.limit))); }
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -112,16 +116,15 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
     return () => {
       active = false;
     };
-  }, [base, page, statusFilterKey, categoryFilterKey, reload]);
+  }, [base, page, statusFilterKey, categoryFilterKey, reload, admin ? "" : searchTerm]);
 
   // Load ticket detail
   useEffect(() => {
     let active = true;
     setDetail(null);
     setDetailError("");
-    setReply("");
     if (selected) {
-      authenticatedRequest<Detail>(base + "/" + encodeURIComponent(selected))
+      authenticatedRequest<Detail>(base + "/" + encodeURIComponent(selected),undefined,"GET",undefined,{skipCache:true})
         .then((v) => {
           if (active) {
             setDetail(v);
@@ -136,6 +139,8 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
       active = false;
     };
   }, [base, selected, reload]);
+
+  useEffect(()=>{setReply("");setConfirmCancel(false);setDiscardReply(false);},[selected]);
 
   // Create ticket
   const send = async (e: FormEvent) => {
@@ -196,6 +201,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
   // Client-side search and category filtering
   const visibleItems = useMemo(() => {
     if (!data?.items) return [];
+    if(!admin)return data.items;
     return data.items.filter((item) => {
       const matchesCategory =
         categoryFilterKey === "ALL" || item.category === categoryFilterKey;
@@ -206,7 +212,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
         item.category.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [data?.items, categoryFilterKey, searchTerm]);
+  }, [data?.items, categoryFilterKey, searchTerm, admin]);
 
   // KPI calculations
   const kpiStats = useMemo(() => {
@@ -342,6 +348,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
                 {isEn ? "Create Support Request" : "Tạo yêu cầu"}
               </h2>
             </header>
+            {detailError&&!selected&&<p role="alert">{detailError}</p>}
             <form onSubmit={send}>
               <fieldset className="account-api-fields" disabled={busy} style={{ display: "grid", gap: "16px", border: "none", padding: 0, margin: 0 }}>
                 <Input
@@ -406,7 +413,9 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
               {isEn ? "Logged Requests" : "Yêu cầu đã ghi"}
             </h2>
 
-            {visibleItems.length === 0 ? (
+            <div className="remaining-form"><label>{isEn?"Search support requests":"Tìm yêu cầu hỗ trợ"}<input value={searchTerm} maxLength={120} onChange={e=>{setSearchTerm(e.target.value);setPage(1);}}/></label></div>
+            {error?<Alert tone="danger" title={error}><Button onClick={()=>setReload(n=>n+1)}>{isEn?"Retry":"Thử lại"}</Button></Alert>:!data?<p role="status">{isEn?"Loading requests…":"Đang tải yêu cầu…"}</p>:null}
+            {!data||error ? null : visibleItems.length === 0 ? (
               <p style={{ margin: 0, color: "var(--text, #10385b)", fontSize: "14px" }}>
                 {isEn ? "No requests recorded." : "Chưa có yêu cầu nào."}
               </p>
@@ -453,6 +462,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
                 ))}
               </div>
             )}
+            {data&&<Pagination page={page} pageSize={data.limit} totalItems={data.total} totalPages={Math.max(1,Math.ceil(data.total/data.limit))} onPageChange={setPage}/>}
           </Card>
         </div>
       ) : (
@@ -691,9 +701,10 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
 
       {/* Dialog Chi tiết & Phản hồi ticket */}
       <ResponsiveDialog
-        open={!!selected && !create}
+        open={!!selected && !create && !confirmCancel && !discardReply}
         title={detail?.subject || (isEn ? "Support Request Details" : "Chi tiết yêu cầu hỗ trợ")}
         onClose={() => {
+          if (!admin) { if(!busy) { if(reply) setDiscardReply(true); else setParams({}); } return; }
           if (!busy && (!reply || window.confirm(isEn ? "Discard unsent reply?" : "Bỏ phản hồi chưa gửi?"))) {
             setParams({});
           }
@@ -726,6 +737,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
               </small>
             </div>
 
+            {!admin&&["OPEN","IN_PROGRESS"].includes(detail.status)&&<Button variant="secondary" disabled={busy} onClick={()=>setConfirmCancel(true)}>{isEn?"Withdraw request":"Rút yêu cầu"}</Button>}
             {/* Admin status update controls */}
             {admin && (
               <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-3)", padding: "var(--space-3)", background: "var(--color-bg)", borderRadius: "var(--radius-sm)" }}>
@@ -799,7 +811,7 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
                     rows={3}
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
-                    placeholder={isEn ? "Enter reply for member..." : "Nhập nội dung phản hồi cho hội viên..."}
+                    placeholder={admin ? (isEn ? "Enter reply for member..." : "Nhập nội dung phản hồi cho hội viên...") : (isEn ? "Enter your reply to support..." : "Nhập nội dung gửi bộ phận hỗ trợ...")}
                     maxLength={5000}
                     required
                     disabled={busy}
@@ -833,6 +845,11 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
           </p>
         )}
       </ResponsiveDialog>
+      <ResponsiveDialog className="user-workspace-dialog" open={!admin&&discardReply} title={isEn?"Discard unsent reply?":"Bỏ phản hồi chưa gửi?"} initialFocusSelector=".keep-reply" onClose={()=>setDiscardReply(false)}>
+        <p>{isEn?"Your reply has not been sent. Keep editing or discard it before closing the conversation.":"Phản hồi chưa được gửi. Bạn có thể tiếp tục soạn hoặc bỏ nội dung trước khi đóng hội thoại."}</p>
+        <div className="saved-actions"><Button className="keep-reply" variant="secondary" onClick={()=>setDiscardReply(false)}>{isEn?"Keep editing":"Tiếp tục soạn"}</Button><Button onClick={()=>{setReply("");setDiscardReply(false);setParams({});}}>{isEn?"Discard reply":"Bỏ phản hồi"}</Button></div>
+      </ResponsiveDialog>
+      <ResponsiveDialog className="user-workspace-dialog support-withdraw-dialog" open={!admin&&confirmCancel} title={isEn?"Withdraw support request?":"Rút yêu cầu hỗ trợ?"} onClose={()=>{if(!busy)setConfirmCancel(false);}}><p>{isEn?"The conversation remains available; no more replies can be sent to this request.":"Hội thoại vẫn được giữ; yêu cầu đã rút sẽ không nhận thêm phản hồi."}</p>{detailError&&<p role="alert">{detailError}</p>}<Button disabled={busy||!detail} onClick={async()=>{if(!detail||busy)return;setBusy(true);setDetailError("");try{await authenticatedRequest(`/me/support/${detail.id}/cancel`,{});setConfirmCancel(false);setReload(n=>n+1);}catch(e){setDetailError(e instanceof Error?e.message:"Không thể rút yêu cầu.");}finally{setBusy(false);}}}>{isEn?"Confirm withdrawal":"Xác nhận rút yêu cầu"}</Button></ResponsiveDialog>
     </div>
   );
 }

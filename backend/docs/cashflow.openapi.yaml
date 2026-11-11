@@ -1,0 +1,256 @@
+CashflowPatch:
+  type: object
+  additionalProperties: false
+  properties:
+    expectedRevision:
+      type: integer
+      minimum: 1
+    command:
+      anyOf:
+        - oneOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                kind:
+                  type: string
+                  enum: &a1
+                    - ADD
+                    - UPDATE
+                    - SPLIT
+                sourceId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  pattern: ^[a-zA-Z0-9_-]+$
+                confirmUnknownGroup:
+                  type: boolean
+                group:
+                  type: string
+                  enum:
+                    - income
+                entry:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                      pattern: ^[a-zA-Z0-9_-]+$
+                    label:
+                      type: string
+                      minLength: 1
+                      maxLength: 120
+                    kind:
+                      type: string
+                      enum:
+                        - FIXED
+                        - BONUS
+                        - IRREGULAR
+                    basis:
+                      type: string
+                      enum:
+                        - DISPOSABLE
+                    source:
+                      type: string
+                      enum:
+                        - EMPLOYMENT
+                        - OTHER
+                        - PENSION
+                    amount:
+                      oneOf:
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            status:
+                              type: string
+                              enum:
+                                - KNOWN
+                            value:
+                              type: string
+                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                          required:
+                            - status
+                            - value
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            status:
+                              type: string
+                              enum:
+                                - UNKNOWN
+                          required:
+                            - status
+                    currency:
+                      type: string
+                      pattern: ^[A-Z]{3}$
+                      default: VND
+                    startMonth:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                    endMonth:
+                      anyOf:
+                        - type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                        - type: object
+                          nullable: true
+                          enum:
+                            - null
+                    frequency:
+                      type: string
+                      enum: &a2
+                        - MONTHLY
+                        - ONCE
+                  required:
+                    - id
+                    - label
+                    - kind
+                    - basis
+                    - amount
+                    - startMonth
+                    - endMonth
+                    - frequency
+              required:
+                - kind
+                - group
+                - entry
+            - type: object
+              additionalProperties: false
+              properties:
+                kind:
+                  type: string
+                  enum: *a1
+                sourceId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  pattern: ^[a-zA-Z0-9_-]+$
+                confirmUnknownGroup:
+                  type: boolean
+                group:
+                  type: string
+                  enum:
+                    - expenses
+                entry:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                      pattern: ^[a-zA-Z0-9_-]+$
+                    label:
+                      type: string
+                      minLength: 1
+                      maxLength: 120
+                    category:
+                      type: string
+                      enum:
+                        - ESSENTIAL
+                        - OPTIONAL
+                        - HEALTH
+                        - INSURANCE
+                        - DEPENDENT
+                        - DEBT_PAYMENT
+                    amount:
+                      oneOf:
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            status:
+                              type: string
+                              enum:
+                                - KNOWN
+                            value:
+                              type: string
+                              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+                          required:
+                            - status
+                            - value
+                        - type: object
+                          additionalProperties: false
+                          properties:
+                            status:
+                              type: string
+                              enum:
+                                - UNKNOWN
+                          required:
+                            - status
+                    currency:
+                      type: string
+                      pattern: ^[A-Z]{3}$
+                      default: VND
+                    loanId:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                      pattern: ^[a-zA-Z0-9_-]+$
+                    startMonth:
+                      type: string
+                      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                    endMonth:
+                      anyOf:
+                        - type: string
+                          pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                        - type: object
+                          nullable: true
+                          enum:
+                            - null
+                    frequency:
+                      type: string
+                      enum: *a2
+                  required:
+                    - id
+                    - label
+                    - category
+                    - amount
+                    - startMonth
+                    - endMonth
+                    - frequency
+              required:
+                - kind
+                - group
+                - entry
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - DELETE
+            group:
+              type: string
+              enum: &a3
+                - income
+                - expenses
+            id:
+              type: string
+              minLength: 1
+              maxLength: 100
+              pattern: ^[a-zA-Z0-9_-]+$
+          required:
+            - kind
+            - group
+            - id
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - CONFIRM_NONE
+            group:
+              type: string
+              enum: *a3
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 300
+          required:
+            - kind
+            - group
+            - reason
+  required:
+    - expectedRevision
+    - command
