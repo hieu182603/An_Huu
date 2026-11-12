@@ -22,13 +22,13 @@ import AdminActionButton from "./AdminActionButton";
 import { useI18n } from "../../i18n";
 import { createAdminProduct, listAdminPartners, listAdminProducts, updateAdminProduct, uploadAdminImage, type PartnerItem, type ProductInput, type ProductItem } from "../../services/catalog";
 
-const emptyProduct: ProductInput = { partnerId: "", name: "", category: "", expectedReturn: "", riskLevel: "MEDIUM", description: null, annualFee: null, conditions: null, disclosure: null, imageUrl: null, isVisible: false };
+const emptyProduct: ProductInput = { partnerId: "", name: "", category: "", expectedReturn: "", referenceYieldPercent: null, minimumAmount: null, riskLevel: "MEDIUM", description: null, annualFee: null, conditions: null, disclosure: null, imageUrl: null, isVisible: false };
 const RISK_OPTIONS = [{ value: "LOW", label: "Rủi ro thấp" }, { value: "MEDIUM", label: "Rủi ro trung bình" }, { value: "HIGH", label: "Rủi ro cao" }];
 
 /** Create / edit a product package: content, image and visibility. */
 function ProductEditor({ product, onClose, onSaved }: { product: ProductItem | null; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState<ProductInput>(() => product ? {
-    partnerId: product.partnerId, name: product.name, category: product.category, expectedReturn: product.expectedReturn, riskLevel: product.riskLevel,
+    partnerId: product.partnerId, name: product.name, category: product.category, expectedReturn: product.expectedReturn, referenceYieldPercent: product.referenceYieldPercent ?? null, minimumAmount: product.minimumAmount ?? null, riskLevel: product.riskLevel,
     description: product.description, annualFee: product.annualFee, conditions: product.conditions, disclosure: product.disclosure, imageUrl: product.imageUrl ?? null, isVisible: product.isVisible,
   } : emptyProduct);
   const [partners, setPartners] = useState<PartnerItem[]>([]);
@@ -75,6 +75,8 @@ function ProductEditor({ product, onClose, onSaved }: { product: ProductItem | n
         </div>
         <Textarea label="Mô tả gói" rows={4} value={form.description ?? ""} onChange={(v) => set({ description: text(v) })} />
         <Input label="Lợi suất kỳ vọng (không cam kết)" value={form.expectedReturn} onChange={(expectedReturn) => set({ expectedReturn })} />
+        <Input label="Lợi suất tham khảo dạng số (%/năm, để sắp xếp; để trống nếu không có)" value={form.referenceYieldPercent ?? ""} onChange={(v) => set({ referenceYieldPercent: text(v.replace(",", ".")) })} />
+        <Input label="Mức tham gia tối thiểu (₫, để trống nếu không có)" value={form.minimumAmount ?? ""} onChange={(v) => set({ minimumAmount: text(v.replace(/[.\s]/g, "")) })} />
         <Input label="Phí hằng năm" value={form.annualFee ?? ""} onChange={(v) => set({ annualFee: text(v) })} />
         <Textarea label="Điều kiện tham gia" rows={3} value={form.conditions ?? ""} onChange={(v) => set({ conditions: text(v) })} />
         <Textarea label="Công bố rủi ro & hoa hồng" rows={3} value={form.disclosure ?? ""} onChange={(v) => set({ disclosure: text(v) })} />
@@ -120,7 +122,7 @@ export function AdminPartnersPage() {
   const { language } = useI18n();
   const isEn = language === "en";
 
-  const PAGE_SIZE = 10;
+  const [pageSize, setPageSize] = useState(10);
   const [activeTabKey, setActiveTabKey] = useState<"products" | "partners">("products");
   const tabProductsLabel = isEn ? "Financial Products" : "Sản phẩm tài chính";
   const tabPartnersLabel = isEn ? "Partner Organizations" : "Tổ chức đối tác";
@@ -193,7 +195,7 @@ export function AdminPartnersPage() {
     const timer = setTimeout(async () => {
       try {
         if (activeTabKey === "products") {
-          const productsRes = await listAdminProducts(productsPage, PAGE_SIZE, search.trim());
+          const productsRes = await listAdminProducts(productsPage, pageSize, search.trim());
           if (!active) return;
           if (typeof productsRes.total === "number") setProductsTotal(productsRes.total);
           if (productsRes.items) {
@@ -215,7 +217,7 @@ export function AdminPartnersPage() {
             })));
           }
         } else {
-          const partnersRes = await listAdminPartners(partnersPage, PAGE_SIZE, search.trim());
+          const partnersRes = await listAdminPartners(partnersPage, pageSize, search.trim());
           if (!active) return;
           if (typeof partnersRes.total === "number") setPartnersTotal(partnersRes.total);
           if (partnersRes.items) {
@@ -242,7 +244,7 @@ export function AdminPartnersPage() {
       active = false;
       clearTimeout(timer);
     };
-  }, [activeTabKey, productsPage, partnersPage, search, reload, isEn]);
+  }, [activeTabKey, productsPage, partnersPage, pageSize, search, reload, isEn]);
 
   const handleToggleProductVisibility = async (id: string) => {
     const raw = rawProductsRef.current.get(id);
@@ -598,13 +600,19 @@ export function AdminPartnersPage() {
 
         <Pagination
           page={activeTabKey === "products" ? productsPage : partnersPage}
-          totalPages={Math.max(1, Math.ceil((activeTabKey === "products" ? productsTotal : partnersTotal) / PAGE_SIZE))}
+          totalPages={Math.max(1, Math.ceil((activeTabKey === "products" ? productsTotal : partnersTotal) / pageSize))}
           totalItems={activeTabKey === "products" ? productsTotal : partnersTotal}
-          pageSize={PAGE_SIZE}
-          showRowsPerPage={false}
+          pageSize={pageSize}
+          pageSizeOptions={[5, 10, 20, 50]}
+          showRowsPerPage={true}
           onPageChange={(p) => {
             if (activeTabKey === "products") setProductsPage(p);
             else setPartnersPage(p);
+          }}
+          onPageSizeChange={(s) => {
+            setPageSize(s);
+            if (activeTabKey === "products") setProductsPage(1);
+            else setPartnersPage(1);
           }}
         />
       </Card>
