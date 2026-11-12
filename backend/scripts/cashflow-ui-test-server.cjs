@@ -1,6 +1,10 @@
 // Synthetic browser harness, bound to loopback. No application database or provider.
 require('ts-node/register');
 const express = require('express');
+const apiPort = Number(process.env.USER_UI_API_PORT ?? 55442);
+if (!Number.isInteger(apiPort) || apiPort < 1024 || apiPort > 65535) throw new Error('Invalid UI fixture port');
+const previewOrigin = process.env.USER_UI_PREVIEW_ORIGIN ?? 'http://127.0.0.1:55441';
+
 const { randomUUID } = require('node:crypto');
 const { createApp } = require('../src/app');
 const { ProfileService } = require('../src/modules/profiles/service');
@@ -48,13 +52,13 @@ harness.post('/__fixture/reset', async (req, res, next) => {
       const result = await insuranceHistory.preview(user.id, preview);
       await insuranceHistory.save(user.id, { preview, expectedInputHash: result.inputHash, confirm: true }, randomUUID());
     }
-    const browserConfig = { ...config, CLIENT_URL: 'http://127.0.0.1:55441', origins: ['http://127.0.0.1:55441'] };
+    const browserConfig = { ...config, CLIENT_URL: previewOrigin, origins: [previewOrigin] };
     application = createApp({ config: browserConfig, services: { profiles, auth, debts: new DebtService(f.db), insuranceHistory, pensions: new PensionsService(f.db), pensionEstimates: new PensionEstimateService(f.db), assumptions: new AssumptionsService(f.db), ...extraServices } });
     res.json({ accessToken: token('USER', 3600), profile: await profiles.getProfile('test-user'), plan });
   } catch (error) { next(error); }
 });
 harness.use((req, res, next) => application ? application(req, res, next) : res.status(503).json({ error: 'Fixture not initialized' }));
 harness.use((_error, _req, res, _next) => res.status(400).json({ error: 'Invalid synthetic fixture' }));
-const server = harness.listen(55442, '127.0.0.1', () => process.stdout.write('Cashflow memory API ready on loopback:55442\n'));
+const server = harness.listen(apiPort, '127.0.0.1', () => process.stdout.write(`Cashflow memory API ready on loopback:${apiPort}\n`));
 const stop = () => server.close(() => process.exit(0));
 process.on('SIGTERM', stop); process.on('SIGINT', stop);

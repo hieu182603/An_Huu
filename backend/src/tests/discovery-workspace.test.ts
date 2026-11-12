@@ -3,9 +3,10 @@ import request from "supertest";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import Ajv from "ajv";
 import { createApp } from "../app";
-import { productQuery, catalogQuery } from "../modules/catalog/schema";
+import { productQuery, catalogQuery, productInput } from "../modules/catalog/schema";
+const validProduct=(partnerId:string)=>({partnerId,name:"Sản phẩm",category:"Tiết kiệm",expectedReturn:"6%/năm",riskLevel:"LOW",description:null,annualFee:"0",conditions:"Điều kiện",disclosure:"Công bố",isVisible:true});
 import { contentQuery } from "../modules/content/service";
-import { bondInput, bondPreview, depositInput, depositPreview, monthDate } from "../modules/catalog/tools";
+import { bondInput, bondPreview, depositInput, depositPreview, monthDate, protectionInput, protectionPreview } from "../modules/catalog/tools";
 import { discoveryFixture } from "./discovery-fixtures";
 import { config, token } from "./helpers";
 import { Prisma } from "@prisma/client";
@@ -24,6 +25,19 @@ describe("published catalog and account bookmarks",()=>{
     expect(JSON.stringify(first)).not.toContain("private@example.test");expect(JSON.stringify(await f.catalog.facets())).not.toContain("Secret category");
     await expect(f.catalog.products(productQuery.parse({}),false,f.hiddenProduct.id)).rejects.toMatchObject({status:404});
     expect(catalogQuery.safeParse({sortBy:"riskLevel"}).success).toBe(false);
+  });
+  it("sorts by declared reference yield and minimum amount with undeclared products last",async()=>{
+    const f=await setup(),[a,b,c]=f.products;
+    await f.db.partnerProduct.update({where:{id:a.id},data:{referenceYieldPercent:6.5,minimumAmount:10000000}});
+    await f.db.partnerProduct.update({where:{id:b.id},data:{referenceYieldPercent:10,minimumAmount:500000}});
+    await f.db.partnerProduct.update({where:{id:c.id},data:{referenceYieldPercent:-1.25}});
+    const yieldDesc=await f.catalog.products(productQuery.parse({sortBy:"referenceYieldPercent",order:"desc",limit:50}));
+    expect(yieldDesc.items.slice(0,3).map(row=>row.id)).toEqual([b.id,a.id,c.id]);
+    const minAsc=await f.catalog.products(productQuery.parse({sortBy:"minimumAmount",order:"asc",limit:50}));
+    expect(minAsc.items.slice(0,2).map(row=>row.id)).toEqual([b.id,a.id]);expect(minAsc.items.at(-1)!.minimumAmount??null).toBeNull();
+    for(const value of ["101","1.23456","abc"])expect(productInput.safeParse({...validProduct(a.partnerId),referenceYieldPercent:value}).success).toBe(false);
+    for(const value of ["-1","1.234"])expect(productInput.safeParse({...validProduct(a.partnerId),minimumAmount:value}).success).toBe(false);
+    expect(productInput.safeParse({...validProduct(a.partnerId),referenceYieldPercent:"-5.5",minimumAmount:null}).success).toBe(true);
   });
   it("persists saved products, makes repeated saves idempotent and isolates accounts",async()=>{
     const f=await setup(),id=f.products[0].id;
@@ -71,6 +85,22 @@ describe("published article library",()=>{
   });
 });
 describe("read-only monetary illustrations",()=>{
+  it("reports annual equivalent rate, forgone interest and early-sale returns",()=>{
+    expect(depositPreview(deposit).effectiveAnnualRatePercent).toBe("6.00000000");
+    expect(depositPreview({...deposit,payout:"COMPOUND"}).effectiveAnnualRatePercent).toBe("6.16778119");
+    // Held 6 of 12 months would earn 3,000,000; early exit at 0.1% pays 50,000.
+    expect(depositPreview({...deposit,early:{month:6,annualRate:"0.1"}}).early).toMatchObject({interest:"50000.00",forgoneInterest:"2950000.00"});
+    expect(depositPreview({...deposit,early:{month:6,annualRate:"20"}}).early!.forgoneInterest).toBe("0.00");
+    const sale=bondPreview({...bond,sale:{month:6,price:"98000"}}).sale!;
+    expect(new Prisma.Decimal(sale.gain).div(950000).mul(100).toFixed(8)).toBe(sale.holdingPeriodReturnPercent);
+    expect(Number(sale.annualizedReturnPercent)).toBeCloseTo(Number(sale.holdingPeriodReturnPercent)*2,6);
+  });
+  it("computes the D.I.M.E. protection need and gap without negative values",()=>{
+    const base={outstandingDebt:"500000000",monthlyIncomeToReplace:"20000000",replacementYears:5,educationNeed:"300000000",liquidAssets:"200000000",existingCoverage:"1000000000"};
+    expect(protectionPreview(base)).toMatchObject({components:{incomeReplacement:"1200000000.00",other:"0.00"},grossNeed:"2000000000.00",protectionNeed:"1800000000.00",protectionGap:"800000000.00",surplusCoverage:"0.00"});
+    expect(protectionPreview({...base,liquidAssets:"9000000000"})).toMatchObject({liquidAssetsOffset:"2000000000.00",protectionNeed:"0.00",protectionGap:"0.00",surplusCoverage:"1000000000.00"});
+    for(const change of [{outstandingDebt:"-1"},{replacementYears:0},{replacementYears:41},{educationNeed:"1.234"},{userId:"x"}])expect(protectionInput.safeParse({...base,...change}).success).toBe(false);
+  });
   it("clamps month-end and leap dates independently of the host timezone",()=>{expect(monthDate("2024-01-31",1)).toBe("2024-02-29");expect(monthDate("2026-01-31",1)).toBe("2026-02-28");expect(monthDate("2026-12-31",2)).toBe("2027-02-28");});
   it("distinguishes end-term payment, monthly cash already paid and monthly compounding",()=>{
     expect(depositPreview(deposit)).toMatchObject({interest:"6000000.00",totalReceived:"106000000.00",maturityPayment:"106000000.00"});
@@ -123,6 +153,7 @@ it("validates discovery HTTP responses against the published OpenAPI contracts",
     ["get", "/me/saved-products", "/me/saved-products", undefined, 200],
     ["post", "/me/product-tools/deposit/preview", "/me/product-tools/deposit/preview", {...deposit, payout:"MONTHLY", early:{month:6,annualRate:"0.1"}}, 200],
     ["post", "/me/product-tools/bond/preview", "/me/product-tools/bond/preview", {...bond, sale:{month:7,price:"80000"}}, 200],
+    ["post", "/me/product-tools/protection/preview", "/me/product-tools/protection/preview", {outstandingDebt:"1",monthlyIncomeToReplace:"2",replacementYears:3,educationNeed:"0",liquidAssets:"0",existingCoverage:"0"}, 200],
     ["post", `/me/products/${id}/consult`, "/me/products/{id}/consult", {channel:"EMAIL",consent:true,expectedProductRevision:f.products[0].revision}, 201],
   ] as const;
   for (const [method, url, contract, body, status] of calls) {

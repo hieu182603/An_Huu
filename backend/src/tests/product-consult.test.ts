@@ -9,8 +9,8 @@ describe("product consultation", () => {
     expect(suitableRisks(20)).toEqual(["LOW", "MEDIUM", "HIGH"]);
     expect(questionTopics("Tôi nên mua gói bảo hiểm hưu trí nào?").products).toBe(true);
     const text = productFactText([
-      { name: "Quỹ trái phiếu A", partner: "VCBF", riskLevel: "LOW", annualFee: "0,8%" },
-      { name: "Quỹ cổ phiếu B", partner: "VCBF", riskLevel: "HIGH", annualFee: null },
+      { name: "Quỹ trái phiếu A", partner: "VCBF", category: "Quỹ mở trái phiếu", riskLevel: "LOW", annualFee: "0,8%" },
+      { name: "Quỹ cổ phiếu B", partner: "VCBF", category: "Quỹ mở cổ phiếu", riskLevel: "HIGH", annualFee: null },
     ], 3);
     expect(text).toContain("Quỹ trái phiếu A");
     expect(text).not.toContain("Quỹ cổ phiếu B");
