@@ -5,16 +5,17 @@ import { toggleExplainMode } from "./helpers";
 
 test.afterEach(async ({ page }) => { await page.waitForLoadState("networkidle"); });
 
-test("header account actions open the same personal and settings screens as the demo", async ({ page, request }) => {
+test("header account actions open personal profile and settings modals", async ({ page, request }) => {
   await setupRemaining(page, request, "/user/dashboard");
   await page.getByRole("button", { name: /^Tài khoản:/ }).click();
   await page.getByRole("menuitem", { name: "Hồ sơ", exact: true }).click();
-  await expect(page).toHaveURL(/\/user\/account$/);
-  await expect(page.getByRole("heading", { name: "Thông tin cá nhân", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hồ sơ cá nhân", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Đóng cửa sổ", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: /^Tài khoản:/ }).click();
   await page.getByRole("menuitem", { name: "Cài đặt", exact: true }).click();
-  await expect(page).toHaveURL(/\/user\/account\?tab=settings$/);
+  await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("button", { name: "Đổi mật khẩu", exact: true })).toBeVisible();
 });
 

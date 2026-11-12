@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Card, Icon, useNotification } from "../components/ui";
+import { useNotification } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
@@ -8,58 +8,46 @@ import { useI18n } from "../i18n";
 import { useDiscoveryQuery } from "../hooks/useDiscoveryQuery";
 import { fetchUserPortfolioPolicies, fetchUserPortfolioPolicyDetail } from "../services/portfolios";
 import { previewAllocation, saveAllocationTolerance } from "../services/allocationWorkspace";
-import { readRiskDraft, writeRiskDraft } from "../services/riskDraft";
+import { readRiskDraft } from "../services/riskDraft";
+import { selectionForCurrentProfile } from "../services/profilePlanSelection";
 import { financeMoney } from "../utils/financeHubSummary";
 import { Decimal } from "../utils/decimal";
 import { DiscoveryError } from "../components/DiscoveryParts";
 import AllocationWorkspace from "./AllocationWorkspace";
 import "./risk-portfolio.css";
 import "./allocation-workspace.css";
-const getDimensionLabel = (dimension: string, language: "vi" | "en") => {
-  const viMap: Record<string, string> = {
-    OBJECTIVE: "Mục tiêu đầu tư",
-    HORIZON: "Bạn dự định giữ khoản đầu tư bao lâu?",
-    LIQUIDITY: "Nhu cầu giữ tiền sẵn để sử dụng",
-    LOSS_TOLERANCE: "Khả năng chịu lỗ",
-    EXPERIENCE: "Kinh nghiệm đầu tư",
-    FINANCIAL_CAPACITY: "Khả năng dành tiền và chịu lỗ của bạn",
-  };
-  const enMap: Record<string, string> = {
-    OBJECTIVE: "Investment Objective",
-    HORIZON: "Holding Horizon",
-    LIQUIDITY: "Liquidity Needs",
-    LOSS_TOLERANCE: "Risk Tolerance",
-    EXPERIENCE: "Investment Experience",
-    FINANCIAL_CAPACITY: "Financial Capacity",
-  };
-  return (language === "en" ? enMap[dimension] : viMap[dimension]) || dimension;
-};
-
 export default function RiskPortfolioPage() {
   const {user}=useAuth(), {language}=useI18n(), {v2Profile,profileRevision,reloadProfile,loading:loadingProfile,loadError}=useFinancialProfile();
   const {currentVersion,draftSelection,loadingPlans}=useRetirementPlan(), {notify}=useNotification();
   const [searchParams,setSearchParams]=useSearchParams(), isRiskSubView=searchParams.get("section")==="risk";
-  const selection={...currentVersion?.preview?.selection,...draftSelection};
+  const baseline=currentVersion?.preview.selection;
+  const selection=baseline&&v2Profile?selectionForCurrentProfile(baseline,draftSelection,v2Profile,profileRevision):{
+    ...baseline,...draftSelection,
+    endMonth:draftSelection?.endMonth??v2Profile?.retirementGoal?.endMonth??baseline?.endMonth,
+    monthlyExpenseToday:draftSelection?.monthlyExpenseToday??v2Profile?.retirementGoal?.monthlyExpenseToday??baseline?.monthlyExpenseToday??v2Profile?.retirementSurvey?.monthlyExpenseToday,
+  };
+  const [policyAttempt,setPolicyAttempt]=useState(0);
   const [attempt,setAttempt]=useState(0), [answers,setAnswers]=useState<Record<string,string>>({}), [selectedTemplateId,setSelectedTemplateId]=useState(selection.templateId??"");
   const [liquidityNeedMonths,setLiquidityNeedMonths]=useState(selection.liquidityNeedMonths??0), [endMonth,setEndMonth]=useState(selection.endMonth??"");
   const [reactionChoice,setReactionChoice]=useState<"sell"|"hold"|"buy">("hold"), [lossMode,setLossMode]=useState<"percent"|"amount">("percent"), [lossPercent,setLossPercent]=useState(""), [lossAmount,setLossAmount]=useState("");
   const [savingRisk,setSavingRisk]=useState(false), [riskError,setRiskError]=useState("");
-  const policies=useDiscoveryQuery(`${user?.id}:${loadingPlans}:${selection.policyVersionId}:${attempt}`,async()=>{
+  const policies=useDiscoveryQuery(`${user?.id}:${loadingPlans}:${selection.policyVersionId}:${v2Profile?.retirementSurvey?.policyVersionId}:${policyAttempt}`,async()=>{
     if(loadingPlans) return null;
     const list=await fetchUserPortfolioPolicies(1,50);
     if(!list.items.length) return null;
-    return fetchUserPortfolioPolicyDetail(selection.policyVersionId??list.items[0].id);
+    return fetchUserPortfolioPolicyDetail(selection.policyVersionId??v2Profile?.retirementSurvey?.policyVersionId??list.items[0].id);
   });
-  useEffect(()=>{if(!loadingPlans){setEndMonth(selection.endMonth??"");setLiquidityNeedMonths(selection.liquidityNeedMonths??0);}},[loadingPlans,currentVersion?.id,user?.id]);
+  useEffect(()=>{if(!loadingPlans&&!loadingProfile){setEndMonth(selection.endMonth??"");setLiquidityNeedMonths(selection.liquidityNeedMonths??0);}},[loadingPlans,loadingProfile,currentVersion?.id,user?.id,selection.endMonth,selection.liquidityNeedMonths]);
   const policyDetail=policies.data??null, questions=policyDetail?.data.questions??[];
   useEffect(()=>{
     if(!policyDetail||!user)return;
-    const stored=readRiskDraft(user.id,policyDetail.id,questions), source=selection.policyVersionId===policyDetail.id?selection.answers:undefined;
+    const stored=readRiskDraft(user.id,policyDetail.id,questions), source=selection.policyVersionId===policyDetail.id?selection.answers:v2Profile?.retirementSurvey?.policyVersionId===policyDetail.id?v2Profile.retirementSurvey.answers:undefined;
     setAnswers(source?Object.fromEntries(source.filter(a=>questions.some(q=>q.id===a.questionId&&q.choices.some(c=>c.id===a.choiceId))).map(a=>[a.questionId,a.choiceId])):stored);
     setSelectedTemplateId(selection.policyVersionId===policyDetail.id?selection.templateId??"":"");
-  },[policyDetail?.id,user?.id]);
+  },[policyDetail?.id,user?.id,selection.policyVersionId,JSON.stringify(selection.answers),JSON.stringify(v2Profile?.retirementSurvey)]);
   useEffect(()=>{
     const loss=v2Profile?.lossTolerance;
+    setLossMode(loss?.percent?.status==="KNOWN"?"percent":loss?.amountVnd?.status==="KNOWN"?"amount":"percent");
     setLossPercent(loss?.percent?.status==="KNOWN"?loss.percent.value:"");setLossAmount(loss?.amountVnd?.status==="KNOWN"?loss.amountVnd.value:"");
     setReactionChoice(loss?.reaction?.status==="KNOWN"?({SELL:"sell",HOLD:"hold",BUY_MORE:"buy"} as const)[loss.reaction.value]:"hold");
   },[profileRevision,isRiskSubView]);
@@ -69,12 +57,19 @@ export default function RiskPortfolioPage() {
     !policyDetail||!profileRevision||loadingProfile?Promise.resolve(null):previewAllocation({expectedProfileRevision:profileRevision,policyVersionId:policyDetail.id,
       answers:questions.filter(q=>answers[q.id]).map(q=>({questionId:q.id,choiceId:answers[q.id]})),liquidityNeedMonths,...(selectedTemplateId?{templateId:selectedTemplateId}:{}),...(endMonth?{endMonth}:{}),...(retirementMonth?{retirementMonth}:{})},signal));
   const growthCapital=workspace.data?.capital.growthCapital??null;
-  const handleSelectChoice=(questionId:string,choiceId:string)=>{ const next={...answers,[questionId]:choiceId};setAnswers(next);setSelectedTemplateId("");if(user&&policyDetail&&!writeRiskDraft(user.id,policyDetail.id,next))setRiskError("Chưa giữ được câu trả lời trên thiết bị. Hãy kiểm tra quyền lưu trữ của trình duyệt."); };
   const saveRisk=async()=>{
     if(savingRisk||!policyDetail)return;setSavingRisk(true);setRiskError("");
     try{await saveAllocationTolerance({expectedRevision:profileRevision,policyVersionId:policyDetail.id,reaction:({sell:"SELL",hold:"HOLD",buy:"BUY_MORE"} as const)[reactionChoice],limit:{kind:lossMode==="percent"?"PERCENT":"AMOUNT",value:lossMode==="percent"?lossPercent:lossAmount}});
       reloadProfile();setAttempt(n=>n+1);setSearchParams({});notify.success(language==="en"?"Loss tolerance saved":"Đã lưu giới hạn chịu lỗ",language==="en"?"Allocation will use your updated profile.":"Phân bổ được tính lại theo hồ sơ vừa cập nhật.");
     }catch(e){setRiskError(e instanceof Error?e.message:"Chưa lưu được giới hạn.");}finally{setSavingRisk(false);}
+  };
+  const confirmSavedLoss=()=>{
+    if(v2Profile?.lossTolerance?.reaction?.status!=="KNOWN"){
+      setRiskError(language==="en"?"Review and confirm your reaction to a market decline before converting the limit.":"Bạn cần xác nhận phản ứng khi thị trường giảm trước khi quy đổi giới hạn.");
+      setSearchParams({section:"risk"});
+      return;
+    }
+    void saveRisk();
   };
   if (isRiskSubView) {
     const equivLoss = lossMode === "amount" ? (/^(0|[1-9]\d{0,15})(\.\d{1,2})?$/.test(lossAmount) ? lossAmount : null) : growthCapital !== null && /^(0|[1-9]\d?|100)(\.\d{1,8})?$/.test(lossPercent) && !new Decimal(lossPercent).gt("100") ? new Decimal(growthCapital).mul(new Decimal(lossPercent).mul("0.01").toString()).toString() : null;
@@ -235,68 +230,6 @@ export default function RiskPortfolioPage() {
 
   return <div className="phase-page risk-portfolio-page allocation-workspace">
     {riskError&&<p role="alert">{riskError}</p>}
-    {loadingProfile||policies.loading||loadingPlans?<p role="status">{language==="en"?"Loading allocation…":"Đang tải phân bổ…"}</p>:loadError?<DiscoveryError message={loadError} retry={reloadProfile}/>:!v2Profile?<p>{language==="en"?"Review your detailed financial profile.":"Hãy rà soát hồ sơ tài chính chi tiết."} <Link to="/user/profile">{language==="en"?"Open Finances":"Mở Tài chính"}</Link></p>:policies.error?<DiscoveryError message={policies.error} retry={()=>setAttempt(n=>n+1)}/>:!policyDetail?<><h1>{language==="en"?"Asset allocation":"Phân bổ tài sản"}</h1><p>{language==="en"?"No published portfolio policy is available.":"Chưa có chính sách danh mục đã công bố."} <Link to="/user/profile?section=assets">{language==="en"?"Review assets":"Kiểm tra tài sản"}</Link></p><button onClick={()=>setAttempt(n=>n+1)}>{language==="en"?"Retry":"Thử lại"}</button></>:<AllocationWorkspace policy={policyDetail} data={workspace.data??null} loading={workspace.loading} error={workspace.error} retry={()=>setAttempt(n=>n+1)} selected={selectedTemplateId} select={setSelectedTemplateId} months={liquidityNeedMonths} setMonths={setLiquidityNeedMonths} endMonth={endMonth} setEndMonth={setEndMonth} retirementMonth={retirementMonth} answers={answers} complete={allAnswered} openRisk={()=>setSearchParams({section:"risk"})}>
-          <section id="risk-survey" className="risk-survey-section">
-            <h2 className="risk-survey-section__title">{language === "en" ? "Risk tolerance" : "Khả năng chịu rủi ro"}</h2>
-            <p className="risk-survey-section__lead">{language === "en" ? `Update how you feel and your limits before trying a portfolio (${questions.length} questions).` : `Cập nhật cảm nhận và giới hạn trước khi thử danh mục (${questions.length} câu hỏi).`}</p>
-
-            {questions.length > 0 && (
-              <div className="risk-survey-sticky-bar">
-                <span>{language === "en" ? `Answered ${Object.keys(answers).length}/${questions.length} questions` : `Đã trả lời ${Object.keys(answers).length}/${questions.length} câu`}</span>
-                {questions.find(q => !answers[q.id]) && (
-                  <a href={`#question-${questions.find(q => !answers[q.id])!.id}`} className="risk-survey-next-btn">
-                    {language === "en" ? "Next question" : "Câu tiếp theo"}
-                  </a>
-                )}
-              </div>
-            )}
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-              {questions.map((question, qIdx) => {
-                const selectedChoiceId = answers[question.id];
-                return (
-                  <div key={question.id} id={`question-${question.id}`} style={{ scrollMarginTop: "120px" }}>
-                  <Card className="risk-question-card">
-                    <div className="risk-question-card__meta">
-                      <span>
-                        {language === "en" ? `QUESTION ${qIdx + 1} · ${getDimensionLabel(question.dimension, language)}` : `CÂU HỎI ${qIdx + 1} · ${getDimensionLabel(question.dimension, language)}`}
-                      </span>
-                    </div>
-
-                    <h3 className="risk-question-card__prompt">
-                      {question.prompt}
-                    </h3>
-
-                    <div role="radiogroup" aria-label={question.prompt} className="risk-choices">
-                      {question.choices.map((choice) => {
-                        const isSelected = selectedChoiceId === choice.id;
-                        return (
-                          <button
-                            key={choice.id}
-                            type="button"
-                            role="radio"
-                            aria-checked={isSelected}
-                            className={`risk-choice${isSelected ? " is-selected" : ""}`}
-                            onClick={() => handleSelectChoice(question.id, choice.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                handleSelectChoice(question.id, choice.id);
-                              }
-                            }}
-                          >
-                            <span className="risk-choice__dot" aria-hidden="true" />
-                            <span className="risk-choice__label">{choice.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </Card>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-    </AllocationWorkspace>}
+    {loadingProfile||policies.loading||loadingPlans?<p role="status">{language==="en"?"Loading allocation…":"Đang tải phân bổ…"}</p>:loadError?<DiscoveryError message={loadError} retry={reloadProfile}/>:!v2Profile?<p>{language==="en"?"Review your detailed financial profile.":"Hãy rà soát hồ sơ tài chính chi tiết."} <Link to="/user/profile">{language==="en"?"Open Finances":"Mở Tài chính"}</Link></p>:policies.error?<DiscoveryError message={policies.error} retry={()=>setPolicyAttempt(n=>n+1)}/>:!policyDetail?<><h1>{language==="en"?"Asset allocation":"Phân bổ tài sản"}</h1><p>{language==="en"?"No published portfolio policy is available.":"Chưa có chính sách danh mục đã công bố."} <Link to="/user/profile?section=assets">{language==="en"?"Review assets":"Kiểm tra tài sản"}</Link></p><button onClick={()=>setPolicyAttempt(n=>n+1)}>{language==="en"?"Retry":"Thử lại"}</button></>:<AllocationWorkspace profileRevision={profileRevision} retirementExpense={selection.monthlyExpenseToday??null} confirmLoss={confirmSavedLoss} savingRisk={savingRisk} lossAmount={v2Profile.lossTolerance?.amountVnd?.status==="KNOWN"?v2Profile.lossTolerance.amountVnd.value:null} lossPercent={v2Profile.lossTolerance?.percent?.status==="KNOWN"?v2Profile.lossTolerance.percent.value:null} policy={policyDetail} data={workspace.data??null} loading={workspace.loading} error={workspace.error} retry={()=>setAttempt(n=>n+1)} selected={selectedTemplateId} select={setSelectedTemplateId} months={liquidityNeedMonths} setMonths={setLiquidityNeedMonths} endMonth={endMonth} setEndMonth={setEndMonth} retirementMonth={retirementMonth} answers={answers} complete={allAnswered} openRisk={()=>setSearchParams({section:"risk"})}/>}
   </div>;
 }

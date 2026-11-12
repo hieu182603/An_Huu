@@ -1,6 +1,6 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { installRouteAuth, installFinancialProfileRoutes } from "./helpers";
-const api = "http://127.0.0.1:55442", known = (value: string) => ({ status: "KNOWN", value });
+const api = process.env.USER_CASHFLOW_API ?? "http://127.0.0.1:55442", known = (value: string) => ({ status: "KNOWN", value });
 const unknown = { status: "UNKNOWN" }, empty = { status: "KNOWN", entries: [] };
 const loan = (changes = {}) => ({ id: "loan-a", label: "Vay mua nhà", currency: "VND", outstandingBalance: known("100000000"), payment: known("10000000"), balanceAsOf: known("2026-10-04"), balanceShare: known("0.5"), paymentShare: known("0.5"), responsibility: unknown, frequency: "MONTHLY", startMonth: "2026-10", endMonth: null, ...changes });
 const group = (entry = loan()) => ({ status: "KNOWN", entries: [entry] });
@@ -133,7 +133,7 @@ test("contract editor preserves per-period rates, fees and early-repayment restr
 });
 test("English labels, exact large amounts and keyboard focus work in the editor", async ({ page, request }) => {
   await setup(page, request, { debts: group(loan({ outstandingBalance: known("9007199254740993.25"), balanceShare: known("1") })) });
-  await expect(page.getByTestId("debt-total")).toHaveText("9.007.199.254.740.993 ₫");
+  await expect(page.getByTestId("debt-total")).toHaveText("9.007.199.254.740.993,25 ₫");
   await page.getByRole("button", { name: "Chọn ngôn ngữ", exact: true }).click(); await page.getByRole("menuitemradio", { name: "English", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Debts & repayment capacity");
   const trigger = page.getByRole("button", { name: "Edit Vay mua nhà", exact: true }); await trigger.click(); await expect(dialog(page)).toHaveAccessibleName("Edit loan"); await expect(dialog(page).getByLabel("Loan name", { exact: true })).toBeFocused();

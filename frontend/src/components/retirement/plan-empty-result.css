@@ -1,0 +1,138 @@
+.plan-empty-result { margin-top: 20px; }
+.plan-empty-hero { display: grid; grid-template-columns: minmax(0,1fr) 240px; gap: 36px; padding: 34px 36px; border-radius: 22px; background: #102e56; color: #fff; }
+.plan-empty-hero > div > span { display: inline-block; padding: 6px 10px; border-radius: 8px; background: #ffffff15; font-size: 11px; font-weight: 600; }
+.plan-empty-hero h2 { margin: 20px 0 12px; color: #fff; font-size: 26px; line-height: 1.45; }
+.plan-empty-hero p { color: #d4e1f3; font-size: 14px; line-height: 1.8; margin: 0 0 22px; max-width: 65ch; }
+.plan-empty-hero .overview-button { background: #fff; color: #102e56; }
+.plan-empty-hero aside { align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: 14px; padding-left: 28px; border-left: 1px solid #ffffff30; }
+.plan-empty-hero aside .icon { width: 30px; height: 30px; color: #a9c8ee; }
+.plan-empty-hero aside strong { font-size: 17px; line-height: 1.6; }
+.plan-empty-hero aside p { font-size: 12px; margin: 0; }
+.plan-empty-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; margin: 20px 0; }
+.plan-empty-metrics article { min-width: 0; padding: 20px; border: 1px solid #d9e3ef; border-top: 3px solid #795290; border-radius: 14px; background: #fbf6fd; }
+.plan-empty-metrics article:nth-child(2) { background: #f2f7ff; border-top-color: #2563eb; }
+.plan-empty-metrics article:nth-child(3) { background: #fdf2f3; border-top-color: #bd4253; }
+.plan-empty-metrics article:nth-child(4) { background: #fffaf3; border-top-color: #d79b59; }
+.plan-empty-metrics span,.plan-empty-metrics small { display: block; color: #536b85; font-size: 12px; line-height: 1.7; }
+.plan-empty-metrics strong { display: block; margin: 16px 0 8px; color: #132e4c; font-size: 20px; line-height: 1.5; overflow-wrap: anywhere; }
+.plan-empty-chart { border: 1px solid #d9e3ef; border-radius: 18px; background: #fff; padding: 24px; }
+.plan-empty-chart header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.plan-empty-chart header h2 { font-size: 18px; margin: 0; }
+.plan-empty-chart header > span { color: #536b85; font-size: 12px; }
+.plan-empty-chart > div { text-align: center; max-width: 540px; margin: 32px auto; }
+.plan-empty-chart > div > .icon { color: #7998bc; width: 38px; height: 38px; }
+.plan-empty-chart h3 { font-size: 17px; }
+.plan-empty-chart p { color: #536b85; font-size: 13px; line-height: 1.8; }
+.retirement-plan-page .plan-setup-notice {
+  background: #ffffff;
+  border: 1px solid #dce6f0;
+  border-radius: 18px;
+  padding: 26px 30px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 16px rgba(5, 38, 89, 0.04);
+}
+.retirement-plan-page .plan-setup-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: #fffbeb;
+  border: 1px solid #fef08a;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+}
+.retirement-plan-page .plan-setup-notice h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #052659;
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+.retirement-plan-page .plan-setup-desc {
+  font-size: 14px;
+  color: #536b85;
+  margin: 0 0 18px;
+  line-height: 1.6;
+}
+.retirement-plan-page .plan-setup-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+  margin: 0 0 20px;
+  list-style: none;
+}
+.retirement-plan-page .plan-setup-step-item {
+  margin: 0;
+}
+.retirement-plan-page .plan-setup-step-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #1e40af;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+.retirement-plan-page .plan-setup-step-link:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  transform: translateX(3px);
+}
+.retirement-plan-page .step-bullet-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: bold;
+}
+.retirement-plan-page .plan-setup-notice .plan-state-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.retirement-plan-page .plan-setup-notice .overview-button.primary {
+  background: #2560b4;
+  color: #fff;
+  border: none;
+  padding: 11px 22px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(37, 96, 180, 0.25);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.retirement-plan-page .plan-setup-notice .overview-button.primary:hover {
+  background: #174b91;
+}
+@media(max-width:1000px) { .plan-empty-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:650px) {
+  .plan-empty-hero { grid-template-columns: minmax(0,1fr); gap: 24px; padding: 24px; }
+  .plan-empty-hero h2 { font-size: 23px; }
+  .plan-empty-hero aside { border-left: 0; border-top: 1px solid #ffffff30; padding: 20px 0 0; }
+  .plan-empty-metrics { grid-template-columns: minmax(0,1fr); }
+  .plan-empty-chart header { flex-wrap: wrap; }
+  .retirement-plan-page .plan-setup-notice { padding: 20px 16px; }
+  .retirement-plan-page .plan-setup-step-link { width: 100%; box-sizing: border-box; }
+}

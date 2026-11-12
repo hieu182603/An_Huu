@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 const AdminLayout = lazy(() => import("./AdminApp"));
 const GeneralSettings = lazy(() => import("./pages/admin/settings/GeneralSettingsPage"));
@@ -64,6 +64,7 @@ function RequireRole({ role, children }: { role: UserRole; children: ReactNode }
 function RouteEffects() {
   const { pathname, search, hash } = useLocation();
   const navigate = useNavigate();
+  const priorPathname = useRef(pathname);
 
   useEffect(() => {
     initGoogleAnalytics();
@@ -82,9 +83,11 @@ function RouteEffects() {
   useEffect(() => {
     // Private layouts focus/scroll only once the new route has finished loading.
     if (pathname.startsWith("/user/") || pathname.startsWith("/admin/")) return;
+    const isNewPage = priorPathname.current !== pathname;
+    priorPathname.current = pathname;
     const anchor = (pathname === '/mo-phong' && ['#ke-hoach', '#kich-ban', '#phan-bo', '#co-so-tinh-toan'].includes(hash)) || (pathname === '/' && ['#gia-tri', '#quy-trinh', '#tro-ly-ai', '#kien-thuc', '#gioi-thieu'].includes(hash)) || (pathname === '/chinh-sach' && ['#bao-mat', '#dieu-khoan', '#gia-dinh', '#mien-tru'].includes(hash)) || (pathname === '/gioi-thieu' && ['#nguyen-tac'].includes(hash)) ? document.getElementById(hash.slice(1)) : null;
     if (anchor) anchor.scrollIntoView({ block: 'start', behavior: 'instant' });
-    else if (!pathname.startsWith('/kien-thuc') || !hash) window.scrollTo({ top: 0, behavior: "instant" });
+    else if (!pathname.startsWith('/kien-thuc') || !hash || isNewPage) window.scrollTo({ top: 0, behavior: "instant" });
     const heading = anchor?.querySelector<HTMLElement>('h2') ?? document.querySelector<HTMLElement>("h1");
     heading?.setAttribute("tabindex", "-1");
     heading?.focus({ preventScroll: true });

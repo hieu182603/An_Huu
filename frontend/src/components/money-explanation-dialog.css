@@ -1,0 +1,41 @@
+.money-explanation-dialog { width: min(100%, 860px); }
+.money-explanation-layout { display: grid; grid-template-columns: minmax(0, .88fr) minmax(0, 1.32fr); gap: 18px; }
+.money-explanation-summary { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.money-explanation-kpi { padding: 16px; border: 1px solid #cce5df; border-left: 4px solid #13785c; border-radius: 10px; background: #f1f7f6; }
+.money-explanation-kpi.is-short { background: #fdf2f2; border-color: #f1c6c9; border-left-color: #a7353d; }
+.money-explanation-kpi > span { display: block; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #4b6377; }
+.money-explanation-kpi > strong { display: block; margin: 8px 0 4px; font-size: 27px; line-height: 1.35; letter-spacing: -.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.money-explanation-kpi > small { font-size: 12px; line-height: 1.6; color: #4b6377; }
+.money-explanation-meaning { flex: 1; padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }
+.money-explanation-dialog h3 { margin: 0 0 12px; font-size: 15px; font-weight: 650; line-height: 1.5; }
+.money-explanation-dialog .money-explanation-meaning p { margin: 0; color: #334155; font-size: 15px; line-height: 1.6; }
+.money-explanation-meaning ul { list-style: none; margin: 16px 0 0; padding: 12px 0 0; border-top: 1px dashed #cbd5e1; }
+.money-explanation-meaning li { margin-top: 6px; font-size: 12px; line-height: 1.6; color: #475569; }
+.money-explanation-calculation { min-width: 0; padding: 16px; border: 1px solid #d8e2ee; border-radius: 10px; }
+.money-explanation-calculation > h3 { color: #1e4e8c; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; }
+.money-explanation-calculation ol { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.money-explanation-calculation li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; background: #f8fafc; border: 1px solid #e6edf5; border-radius: 8px; }
+.money-explanation-calculation li > div { min-width: 0; }
+.money-explanation-calculation li strong { font-size: 13px; line-height: 1.6; font-weight: 650; }
+.money-explanation-calculation li span { display: block; margin-top: 3px; color: #52667a; font-size: 12px; line-height: 1.6; }
+.money-explanation-amount { flex-shrink: 0; max-width: 58%; overflow-wrap: anywhere; text-align: right; font-variant-numeric: tabular-nums; }
+.money-explanation-result { display: grid; gap: 8px; margin-top: 14px; padding: 12px; background: #eef6ff; border: 1px solid #bfd7f6; border-radius: 8px; overflow-wrap: anywhere; }
+.money-explanation-result span { color: #1e40af; font-size: 12px; font-weight: 600; }
+.money-explanation-result strong { font-size: 14px; line-height: 1.7; font-variant-numeric: tabular-nums; }
+.money-explanation-dialog .money-explanation-note { margin: 14px 0 0; padding: 10px; background: #f8fafc; border-radius: 8px; font-size: 12px; color: #475569; }
+.money-explanation-formula { margin-top: 14px; padding: 12px; border: 1px solid #d8e2ee; border-radius: 8px; background: #f8fafc; overflow-wrap: anywhere; }
+.money-explanation-formula > strong { display: block; font-size: 13px; line-height: 1.7; }
+.money-explanation-formula > p { margin: 10px 0 0; font-size: 12px; }
+.money-explanation-calculation .money-explanation-formula > h3 { margin-bottom: 8px; color: #1e4e8c; }
+.money-explanation-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.money-info-trigger { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 44px; height: 44px; padding: 12px; border: 0; border-radius: 10px; background: transparent; color: #4f6b85; cursor: pointer; vertical-align: middle; }
+.money-info-trigger:hover { background: #e8f0fa; }
+.money-info-trigger:focus-visible { outline: 2px solid #2560b4; outline-offset: 2px; }
+.money-info-trigger .icon { width: 17px; height: 17px; }
+@media (max-width: 760px) {
+  .money-explanation-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .money-explanation-calculation li { flex-direction: column; align-items: stretch; gap: 6px; }
+  .money-explanation-amount { align-self: flex-end; max-width: 100%; overflow-wrap: anywhere; }
+  .money-explanation-kpi > strong { font-size: 25px; }
+  .money-explanation-actions > * { flex: 1 1 auto; }
+}

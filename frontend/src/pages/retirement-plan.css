@@ -623,3 +623,21 @@
   }
 }
 
+
+/* Main retirement screen follows the demo's result-first flow. */
+.retirement-plan-page > .page-head { margin-bottom: 28px !important; }
+.plan-comparison-note { margin-top: 20px; padding: 20px; border: 1px solid #d4e4f8; border-radius: 12px; background: #f2f7fe; color: #132e4c; font-size: 14px; line-height: 1.7; }
+.plan-comparison-note > strong { font-size: 16px; }
+.plan-comparison-note p { margin: 12px 0; }
+.chart-comparison-legend { color: #117965; font-size: 12px; margin: 10px 0 18px; }
+.chart-comparison-legend > span { font-size: 24px; vertical-align: middle; }
+.retirement-plan-page .plan-summary-hero { margin-top: 20px; }
+.retirement-plan-page .plan-metrics .metric-tile:nth-child(3) { background: #fdf2f3 !important; border-top-color: #bd4253 !important; }
+.retirement-plan-page .plan-metrics .metric-tile:nth-child(4) { background: #fffaf3 !important; border-top-color: #d79b59 !important; }
+.retirement-plan-page .plan-tools-grid { margin: 20px 0; }
+
+.retirement-plan-page .plan-health-kpis .health-kpi { position: relative; min-width: 0; }
+.retirement-plan-page .plan-health-kpis .health-kpi > span { display: block; min-height: 36px; line-height: 1.6; }
+.retirement-plan-page .plan-health-kpis .health-kpi:has(.money-info-trigger) > span { padding-right: 28px; }
+.retirement-plan-page .plan-health-kpis .money-info-trigger { position: absolute; top: 4px; right: 4px; }
+.retirement-plan-page .plan-health-kpis .health-kpi > strong { overflow-wrap: anywhere; }

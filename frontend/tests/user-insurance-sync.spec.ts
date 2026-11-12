@@ -1,6 +1,6 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { installRouteAuth, installFinancialProfileRoutes } from "./helpers";
-const api = "http://127.0.0.1:55442", known = (value: string) => ({ status: "KNOWN", value }), unknown = { status: "UNKNOWN" };
+const api = process.env.USER_CASHFLOW_API ?? "http://127.0.0.1:55442", known = (value: string) => ({ status: "KNOWN", value }), unknown = { status: "UNKNOWN" };
 const pension = { status: "KNOWN", monthlyAmount: "5000000", currency: "VND", priceBasis: "NOMINAL_AT_START", basisMonth: "2050-05", source: "Mức tự khai đã lưu", estimatedOn: "2026-10-04", adjustment: { kind: "NONE" } };
 const historyDocument = () => ({ schemaVersion: 1, birth: { precision: "UNKNOWN", declaredValue: null }, legalSex: "UNKNOWN", coverageFrom: "2026-01", coverageThrough: "2026-03", confirmedThroughMonth: "2026-03", months: ["2026-01", "2026-02", "2026-03"].map(month => ({ month, scheme: "COMPULSORY", salaryRegime: "EMPLOYER", status: "PAID", contributionBase: "10000000", evidence: [] as Array<{ reference: string; contentHash: string; confirmedOn: string }> })), specialPeriods: [] });
 async function setup(page: Page, request: APIRequestContext, changes: object = {}, history?: object, withPlan = false) {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
-import { Alert, Badge, Button, Card, Icon, Input, Pagination, Select } from "../components/ui";
+import { Alert, Badge, Button, Card, Icon, Input, Pagination, SearchField, Select } from "../components/ui";
 import "./remaining-user-sync.css";
 import ResponsiveDialog from "../components/ResponsiveDialog";
 import { authenticatedRequest } from "../services/api";
@@ -467,31 +467,23 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
         </div>
       ) : (
         /* ADMIN VIEW: Full Table & Search */
-        <Card className="admin-table-card">
-          {/* Table Toolbar */}
-          <div className="admin-table-toolbar">
-            <div className="admin-search-input" style={{ flex: "1", maxWidth: "360px" }}>
-              <Icon name="search" />
-              <input
-                type="text"
+        <>
+          {/* Search & Filter Card */}
+          <Card className="admin-filter-card">
+            <div className="admin-user-search">
+              <SearchField
+                label={isEn ? "Search support requests" : "Tìm yêu cầu hỗ trợ"}
                 placeholder={isEn ? "Search by title, ticket code..." : "Tìm theo tiêu đề, mã ticket..."}
-                aria-label={isEn ? "Search support requests" : "Tìm yêu cầu hỗ trợ"}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(val) => {
+                  setSearchTerm(val);
+                  setPage(1);
+                }}
+                hideLabel
               />
-              {searchTerm && (
-                <button
-                  type="button"
-                  className="admin-search-clear"
-                  onClick={() => setSearchTerm("")}
-                  aria-label={isEn ? "Clear search" : "Xóa tìm kiếm"}
-                >
-                  <Icon name="x" size="small" />
-                </button>
-              )}
             </div>
 
-            <div className="support-filters-row" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+            <div className="admin-filters">
               <Select
                 label={isEn ? "Request category" : "Nhóm yêu cầu"}
                 hideLabel
@@ -526,8 +518,10 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
                 {isEn ? "Reset" : "Đặt lại"}
               </Button>
             </div>
-          </div>
+          </Card>
 
+        {/* Table Card */}
+        <Card className="admin-table-card">
           {/* Table Content */}
           {!data && !error ? (
             <div style={{ padding: "var(--space-8)", textAlign: "center", color: "var(--color-text-muted)" }}>
@@ -641,7 +635,8 @@ export default function SupportPage({ admin = false }: { admin?: boolean }) {
             />
           )}
         </Card>
-      )}
+      </>
+    )}
 
       {/* Dialog Tạo yêu cầu mới */}
       <ResponsiveDialog

@@ -1,14 +1,14 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { installRouteAuth, installFinancialProfileRoutes } from "./helpers";
 
-const api = "http://127.0.0.1:55442";
+const api = process.env.USER_CASHFLOW_API ?? "http://127.0.0.1:55442";
 const known = (value: string) => ({ status: "KNOWN", value });
 async function setup(page: Page, request: APIRequestContext, changes: object = {}, withPlan = false) {
   const reset = await request.post(`${api}/__fixture/reset`, { data: { changes, withPlan } });
   expect(reset.ok()).toBeTruthy();
   const fixture = await reset.json();
   await page.route("**/api/v1/**", route => route.fulfill({ status: 503, json: { error: { code: "UNMOCKED_TEST_API", message: "No fixture" } } }));
-  await installRouteAuth(page);
+  await installRouteAuth(page, "USR-001", fixture.accessToken);
   await installFinancialProfileRoutes(page, { profile: fixture.profile });
   await page.route("**/api/v1/me/retirement/plans**", route => route.fulfill({ json: { data: { items: [], total: 0, page: 1, limit: 50 } } }));
   await page.route("**/socket.io/**", route => route.abort()); await page.routeWebSocket(/socket\.io/, ws => ws.close());
@@ -170,7 +170,7 @@ test("one-time, future and large amounts use server totals and retain schedules"
   await dialog(page).getByLabel("Số tiền mỗi tháng", { exact: true }).fill("9.007.199.254.740.993,25");
   await dialog(page).getByRole("button", { name: "Lưu thay đổi", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
-  await expect(page.locator(".cashflow-budget-income strong")).toHaveText("9.007.199.254.740.993 ₫");
+  await expect(page.locator(".cashflow-budget-income strong")).toHaveText("9.007.199.254.740.993,25 ₫");
 });
 
 test("real saved plan: budget uses projected reserve, caps deposits, and never applies profile or reserve edits automatically", async ({ page, request }) => {

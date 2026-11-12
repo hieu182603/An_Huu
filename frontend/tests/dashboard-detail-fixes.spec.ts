@@ -39,7 +39,7 @@ async function dashboard(page: Page, options: { profile?: any; reportError?: boo
   await page.goto('/user/dashboard');
   await expect(page.locator('.user-hero-title')).toBeVisible();
   await expect(page.locator('.anhuu-loading')).toHaveCount(0);
-  const account = async (name = 'Cài đặt') => { await page.getByRole('button', { name: 'Tài khoản: Nguyễn Minh An', exact: true }).click(); await page.getByRole('menuitem', { name: name === 'Cài đặt' ? 'Thông tin tài khoản nâng cao' : name, exact: true }).click(); await expect(page.getByRole('dialog')).toBeVisible(); if (name === 'Cài đặt') await page.getByRole('dialog').getByRole('button', { name: 'Cài đặt', exact: true }).click(); };
+  const account = async (name = 'Cài đặt') => { await page.getByRole('button', { name: 'Tài khoản: Nguyễn Minh An', exact: true }).click(); await page.getByRole('menuitem', { name, exact: true }).click(); await expect(page.getByRole('dialog')).toBeVisible(); if (name === 'Cài đặt') await page.getByRole('dialog').getByRole('button', { name: 'Cài đặt', exact: true }).click(); };
   return { account, calls, setReportError: (v: boolean) => { reportError = v; }, setSettingsError: (v: boolean) => { settingsError = v; }, setWriteError: (v: boolean) => { settingsWriteError = v; }, setReadError: (v: boolean) => { readError = v; }, setNotificationsError: (v: boolean) => { notificationsError = v; } };
 }
 

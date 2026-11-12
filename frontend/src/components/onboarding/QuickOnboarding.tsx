@@ -241,12 +241,12 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
   const [pensionStart, setPensionStart] = useState("");
 
   // Step 4: Safety & Risk survey
-  const [comfortReaction, setComfortReaction] = useState<"sell" | "hold" | "calm">("hold");
-  const [stability, setStability] = useState("stable");
+  const [comfortReaction, setComfortReaction] = useState<"sell" | "hold" | "calm">(() => { const saved=onboardingDraft?.quickProfile?.lossTolerance?.reaction; return saved?.status==="KNOWN"?({SELL:"sell",HOLD:"hold",BUY_MORE:"calm"} as const)[saved.value]:"hold"; });
+  const [stability, setStability] = useState(() => {const saved=onboardingDraft?.quickProfile?.incomeStability;return saved?.status==="KNOWN"?saved.value.toLowerCase():saved?"unknown":"stable";});
   const [priority, setPriority] = useState("balanced");
-  const [lossStatus, setLossStatus] = useState<"unknown" | "known" | "percent">("unknown");
-  const [lossAmount, setLossAmount] = useState(50000000);
-  const [lossPercent, setLossPercent] = useState(15);
+  const [lossStatus, setLossStatus] = useState<"unknown" | "known" | "percent">(() => {const saved=onboardingDraft?.quickProfile?.lossTolerance;return saved?.percent?.status==="KNOWN"?"percent":saved?.amountVnd?.status==="KNOWN"?"known":"unknown";});
+  const [lossAmount, setLossAmount] = useState(() => {const saved=onboardingDraft?.quickProfile?.lossTolerance?.amountVnd;return saved?.status==="KNOWN"?Number(saved.value):50000000;});
+  const [lossPercent, setLossPercent] = useState(() => {const saved=onboardingDraft?.quickProfile?.lossTolerance?.percent;return saved?.status==="KNOWN"?Number(saved.value):15;});
 
   // Step 4: Risk survey
   const [policyDetail, setPolicyDetail] = useState<PortfolioPolicyDetail | null>(null);
@@ -538,6 +538,11 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
         debtMonthlyPayment: hasDebt ? debtMonthlyPayment : undefined,
         valuationDate: planningMonth + "-01",
         ...family,
+        risk: {
+          reaction: ({sell:"SELL",hold:"HOLD",calm:"BUY_MORE"} as const)[comfortReaction],
+          incomeStability: ({stable:"STABLE",variable:"VARIABLE",uncertain:"UNCERTAIN"} as const)[stability as "stable"|"variable"|"uncertain"]??"UNKNOWN",
+          limit: lossStatus==="known"?{kind:"AMOUNT",value:String(lossAmount)}:lossStatus==="percent"?{kind:"PERCENT",value:String(lossPercent)}:{kind:"UNKNOWN"},
+        },
       });
 
       const defaultAnswers: Record<string, string> = { ...answers };
@@ -558,6 +563,12 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
         questionId,
         choiceId,
       }));
+
+      // Keep exactly the survey selection already used for this first plan on
+      // the server profile; a new tab must not lose it with session storage.
+      if (policyDetail && answerItems.length) finalQuickProfile.retirementSurvey = {
+        policyVersionId: policyDetail.id, monthlyExpenseToday: String(monthlyExpense), answers: answerItems,
+      };
 
       // Update retirement plan draft answers and set contribution to 0 so required contribution is displayed
       updateDraft({
@@ -1383,8 +1394,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
             )}
             {lossStatus === "percent" && (
               <div className="field" style={{ marginTop: "12px" }}>
-                <label>{isEn ? "Maximum loss rate on long-term capital (%)" : "Tỷ lệ lỗ tối đa trên vốn đầu tư dài hạn (%)"}</label>
-                <input type="number" min={0} max={100} step="0.5" value={lossPercent} onChange={e => setLossPercent(Number(e.target.value))} />
+                <label htmlFor="qo-loss-percent">{isEn ? "Maximum loss rate on long-term capital (%)" : "Tỷ lệ lỗ tối đa trên vốn đầu tư dài hạn (%)"}</label>
+                <input id="qo-loss-percent" type="number" min={0} max={100} step="0.5" value={lossPercent} onChange={e => setLossPercent(Number(e.target.value))} />
               </div>
             )}
             <p className="help" style={{ marginTop: "12px", color: "#475569", fontSize: "12px", lineHeight: "1.45" }}>

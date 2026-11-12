@@ -10,7 +10,11 @@ export default function PageTransition({ children }: { children: ReactNode }) {
     window.scrollTo({ top: 0, behavior: "instant" });
     const heading = container.current?.querySelector<HTMLElement>("h1");
     heading?.setAttribute("tabindex", "-1");
-    heading?.focus({ preventScroll: true });
+    // A lazy page may finish mounting after the user has opened a header menu
+    // or started typing. Preserve that interaction instead of stealing focus.
+    const focused = document.activeElement;
+    const interacting = focused instanceof HTMLElement && focused.closest('button,input,textarea,select,[contenteditable="true"],[role="menu"],[role="dialog"]');
+    if (!interacting) heading?.focus({ preventScroll: true });
   }, []);
   return <motion.div ref={container} className="anhuu-page-transition"
     initial={reducedMotion ? false : { opacity: .65, y: 5 }}

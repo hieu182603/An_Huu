@@ -1,0 +1,27 @@
+.plan-options-dialog { width: min(100%, 860px); }
+.plan-option-status { display: inline-block; padding: 6px 10px; border-radius: 8px; background: #eaf5f0; color: #23664f; font-size: 12px; font-weight: 600; }
+.plan-options-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin: 20px 0; }
+.plan-options-grid > a, .plan-options-grid > button { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 18px; border: 1px solid #d9e4ef; border-radius: 12px; background: #fff; color: #132e4c; text-decoration: none; text-align: left; cursor: pointer; }
+.plan-options-grid > a:hover, .plan-options-grid > button:hover { border-color: #8aafd8; background: #f6f9fe; }
+.plan-option-icon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: 10px; background: #edf4fe; color: #285da5; }
+.plan-option-icon .icon { width: 20px; }
+.plan-options-grid > a > span:nth-child(2), .plan-options-grid > button > span:nth-child(2) { flex: 1; min-width: 0; }
+.plan-options-grid strong { display: block; font-size: 14px; line-height: 1.6; }
+.plan-options-grid small { display: block; margin-top: 6px; color: #536b85; font-size: 12px; line-height: 1.6; }
+.plan-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.plan-contribution-dialog { width: min(100%, 920px); }
+.plan-contribution-layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 24px; }
+.plan-contribution-layout > section { min-width: 0; }
+.plan-contribution-layout h3 { margin: 0 0 18px; font-size: 18px; }
+.plan-contribution-reference { border: 1px solid #d8e3ef; border-radius: 12px; background: #f7faff; padding: 18px; margin-bottom: 14px; }
+.plan-contribution-reference > span { font-size: 12px; color: #536b85; }
+.plan-contribution-reference > strong { display: block; margin-top: 10px; font-size: 20px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.plan-contribution-reference p, .plan-contribution-note { font-size: 13px; line-height: 1.75; }
+.plan-contribution-reference .overview-button { width: 100%; }
+.plan-contribution-note { padding: 16px; border-radius: 10px; background: #f1f6fd; }
+.plan-contribution-dialog [role=alert] { color: #922f32; }
+@media(max-width:650px) {
+  .plan-options-grid, .plan-contribution-layout { grid-template-columns: minmax(0,1fr); }
+  .plan-options-grid > a, .plan-options-grid > button { padding: 14px; }
+  .plan-dialog-actions > * { flex: 1 1 auto; }
+}

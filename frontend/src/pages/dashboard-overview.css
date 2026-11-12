@@ -36,7 +36,7 @@
 .dashboard-overview .metric-info-btn .icon { width: 18px; height: 18px; }
 .dashboard-overview .dashboard-metric > strong { display: block; margin: 6px 0 12px; color: #081e35; font-size: clamp(20px, 1.8vw, 26px); font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; letter-spacing: -.4px; }
 .dashboard-metric > strong small { font-size: .8em; }
-.dashboard-metric-full { font-size: 11px; color: #536b85; }
+.dashboard-metric-full { font-size: 11px; color: #536b85; overflow-wrap: anywhere; }
 .dashboard-result-note { display: flex; align-items: center; gap: 8px; margin: 12px 0 24px; color: #536b85; font-size: 12px; line-height: 1.7; }
 .dashboard-result-note > .icon { width: 14px; flex-shrink: 0; }
 .dashboard-result-note button { display: inline; padding: 10px 0; border: 0; background: transparent; color: #1755a6; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

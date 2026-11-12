@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
 import type { RetirementRow, RetirementSummary } from "../../services/retirement";
 import { formatMonthVN } from "../../utils/date";
+import { formatMoneyDecimal } from "../../utils/moneyDisplay";
 
 interface MonthlyRetirementChartProps {
   rows: RetirementRow[];
@@ -9,6 +10,8 @@ interface MonthlyRetirementChartProps {
   birthYear?: number;
   birthMonth?: string;
   responsive?: boolean;
+  comparisonRows?: RetirementRow[];
+  comparisonLabel?: string;
 }
 
 export type ChartFilterMode = "annual" | "all-months" | "first-5y" | "retirement-phase";
@@ -45,8 +48,8 @@ function formatAxisCompact(val: number): string {
   return `${new Intl.NumberFormat("vi-VN").format(Math.round(n))} ₫`;
 }
 
-function formatFullVnd(val: number): string {
-  return `${new Intl.NumberFormat("vi-VN").format(Math.round(Number(val) || 0))} ₫`;
+function formatFullVnd(val: string | number | null | undefined, en: boolean): string {
+  return formatMoneyDecimal(val == null ? null : String(val), en);
 }
 
 function normalizeYearMonth(month: string): string {
@@ -78,7 +81,7 @@ function rowOpening(r: RetirementRow | undefined): number {
   return Number(r.openingBalance ?? (r as any).openingFund ?? rowClosing(r));
 }
 
-export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, responsive = false }: MonthlyRetirementChartProps) {
+export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, responsive = false, comparisonRows, comparisonLabel }: MonthlyRetirementChartProps) {
   const { language } = useI18n();
   const isEn = language === "en";
   const frame = useRef<HTMLDivElement>(null);
@@ -137,7 +140,7 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
 
   const maxBalance = (() => {
     let m = requiredAtRetirement;
-    for (const r of rows) {
+    for (const r of [...rows,...(comparisonRows??[])]) {
       const b = Math.max(0, rowClosing(r));
       if (b > m) m = b;
     }
@@ -147,7 +150,8 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
   // SVG layout matching plan-chart.js
   const W = responsive ? Math.max(240, Math.min(840, frameWidth)) : 840;
   const H = 310;
-  const pad = { l: W < 500 ? 60 : 82, r: W < 500 ? 16 : 22, t: 24, b: 44 };
+  const axisLabelSpace = Math.max(...[0, 0.25, 0.5, 0.75, 1].map(p => formatAxisCompact(maxBalance * p).length)) * 7 + 14;
+  const pad = { l: Math.max(W < 500 ? 60 : 82, axisLabelSpace), r: W < 500 ? 16 : 22, t: 24, b: 44 };
   const plotW = W - pad.l - pad.r;
   const plotH = H - pad.t - pad.b;
 
@@ -158,6 +162,11 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
   };
 
   const splitIdx = Math.max(0, Math.min(rows.length - 1, retIdx > 0 ? retIdx - 1 : retIdx));
+  const comparisonByMonth = new Map(comparisonRows?.map(row=>[row.month,row])??[]);
+  const comparisonPoints = rows.flatMap((row,index)=>{
+    const reference=comparisonByMonth.get(row.month);
+    return reference?[`${xOf(index).toFixed(1)},${yOf(rowClosing(reference)).toFixed(1)}`]:[];
+  }).join(" ");
 
   const accPoints = rows
     .slice(0, splitIdx + 1)
@@ -180,14 +189,17 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
   const retX = xOf(splitIdx);
   const selX = xOf(safeIdx);
   const selBalance = Math.max(0, rowClosing(currentRow));
+  const selectedBalance = currentRow.fundedClosingBalance ?? currentRow.closingBalance ?? (currentRow as any).closingFund ?? null;
   const selY = yOf(selBalance);
   const targetY = yOf(requiredAtRetirement);
+  const targetLabel = `${isEn ? "Need" : "Cần"} ${formatAxisCompact(requiredAtRetirement)}`;
+  const targetLabelX = Math.max(4, Math.min(W - pad.r - targetLabel.length * 7, retX + 8));
 
   const firstShortfallRow = rows.find(r => Number(r.unfundedWithdrawal || 0) > 0);
 
-  const selectedContribution = Number(currentRow.contribution || 0);
+  const selectedContribution = currentRow.contribution;
   // The API's withdrawal already includes any advisory fee paid from the fund.
-  const selectedOutflow = Number(currentRow.withdrawal || 0);
+  const selectedOutflow = currentRow.withdrawal;
 
   return (
     <div className="plan-chart-interactive">
@@ -205,7 +217,7 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
             return (
               <g key={p}>
                 <line x1={pad.l} x2={W - pad.r} y1={y} y2={y} stroke="#e3ebf3" strokeWidth="1" />
-                <text x={pad.l - 10} y={y + 4} textAnchor="end" fill="#5e7285" fontSize="11">
+                <text className="chart-axis-label" x={pad.l - 10} y={y + 4} textAnchor="end" fill="#5e7285" fontSize="11">
                   {formatAxisCompact(v)}
                 </text>
               </g>
@@ -235,6 +247,7 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
             />
           )}
 
+          {comparisonPoints&&<polyline data-testid="plan-comparison-line" fill="none" stroke="#138b79" strokeWidth="2.6" strokeDasharray="5 4" points={comparisonPoints} />}
           <line
             x1={retX}
             x2={retX}
@@ -249,13 +262,14 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
             <g>
               <circle cx={retX} cy={targetY} r="4.5" fill="#7d5ba6" />
               <text
-                x={Math.min(W - pad.r - 4, retX + 8)}
-                y={Math.max(pad.t + 12, targetY - 6)}
+                className="chart-target-label"
+                x={targetLabelX}
+                y={Math.max(pad.t + 16, targetY - 6)}
                 fill="#5e3d82"
                 fontSize="11"
                 fontWeight="700"
               >
-                {isEn ? `Need ${formatAxisCompact(requiredAtRetirement)}` : `Cần ${formatAxisCompact(requiredAtRetirement)}`}
+                {targetLabel}
               </text>
             </g>
           )}
@@ -274,7 +288,7 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
           <text x={pad.l} y={H - 14} fill="#5e7285" fontSize="11">
             {startAge === null ? formatMonthVN(firstRow.month) : `${startAge} ${isEn ? "yrs" : "tuổi"}`}
           </text>
-          {W >= 500 && <text x={retX} y={H - 14} textAnchor="middle" fill="#173a6a" fontSize="11" fontWeight="700">
+          {W >= 500 && retX-pad.l>=110 && W-pad.r-retX>=110 && <text x={retX} y={H - 14} textAnchor="middle" fill="#173a6a" fontSize="11" fontWeight="700">
             {retAge === null ? (isEn ? "Retirement" : "Nghỉ hưu") : isEn ? `Retire · ${retAge} yrs` : `Nghỉ hưu · ${retAge} tuổi`}
           </text>}
           <text x={W - pad.r} y={H - 14} textAnchor="end" fill="#5e7285" fontSize="11">
@@ -298,9 +312,12 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
         </span>
       </div>
 
+      {comparisonPoints&&<p className="chart-comparison-legend"><span aria-hidden="true">┄</span> {comparisonLabel??(isEn?"Reference contribution option":"Phương án theo mức góp tham chiếu")}</p>}
       <div
         className="chart-inspector"
         style={{
+          minWidth: 0,
+          overflowWrap: "anywhere",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -319,8 +336,8 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
               ? `End of ${formatMonthVN(currentRow.month)}${selectedAge === null ? "" : ` · age ${selectedAge}`}`
               : `Cuối tháng ${formatMonthVN(currentRow.month)}${selectedAge === null ? "" : ` · ${selectedAge} tuổi`}`}
           </span>
-          <strong style={{ fontSize: "22px", fontWeight: 700, color: "#052659" }}>
-            {formatFullVnd(selBalance)}
+          <strong style={{ fontSize: "22px", fontWeight: 700, color: "#052659", overflowWrap: "anywhere" }}>
+            {formatFullVnd(selectedBalance, isEn)}
           </strong>
         </div>
         <dl style={{ display: "flex", gap: "24px", margin: 0, flexWrap: "wrap" }}>
@@ -329,7 +346,7 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
               {isEn ? "Contribution in month" : "Góp trong tháng"}
             </dt>
             <dd style={{ margin: 0, fontSize: "13.5px", fontWeight: 700, color: "#052659" }}>
-              {formatFullVnd(selectedContribution)}
+              {formatFullVnd(selectedContribution, isEn)}
             </dd>
           </div>
           <div>
@@ -337,7 +354,7 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
               {isEn ? "Withdrawal from fund, incl. fees" : "Chi từ quỹ, gồm phí nếu có"}
             </dt>
             <dd style={{ margin: 0, fontSize: "13.5px", fontWeight: 700, color: "#052659" }}>
-              {formatFullVnd(selectedOutflow)}
+              {formatFullVnd(selectedOutflow, isEn)}
             </dd>
           </div>
         </dl>
@@ -358,7 +375,7 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
         value={safeIdx}
         onChange={e => setSelectedIdx(Number(e.target.value))}
         aria-label={isEn ? "Select month on chart" : "Chọn tháng trên biểu đồ"}
-        aria-valuetext={`${formatMonthVN(currentRow.month)} · ${formatFullVnd(selBalance)}`}
+        aria-valuetext={`${formatMonthVN(currentRow.month)} · ${formatFullVnd(selectedBalance, isEn)}`}
         style={{ width: "100%", accentColor: "#225eaa", cursor: "pointer", marginBottom: "12px" }}
       />
 

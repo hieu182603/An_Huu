@@ -99,7 +99,8 @@ export default function ProfileFormattedInput({ format, currency = "VND", label,
     });
   };
 
-  return <div className={`form-field profile-formatted-field ${message ? "has-error" : ""}`}>
+  return <div className={`form-field profile-formatted-field ${message ? "has-error" : ""}`}
+    onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))setIsFocused(false);}}>
     <label className="field-label" htmlFor={id}>{label}</label>
     <span className="input-wrap">
       <input ref={inputRef} id={id} type="text" inputMode={format === "money" ? "decimal" : "numeric"}
@@ -118,7 +119,6 @@ export default function ProfileFormattedInput({ format, currency = "VND", label,
         onChange={event => { if (composing.current) setDraft(event.target.value); else handleInput(event.target); }}
         onBlur={(event) => {
           focused.current = false;
-          setIsFocused(false);
           const parsed = parse(draft);
           if (parsed !== null) setDraft(display(parsed.endsWith(".") ? parsed.slice(0, -1) : parsed));
           onBlur?.(event);
@@ -155,11 +155,14 @@ export default function ProfileFormattedInput({ format, currency = "VND", label,
               type="button"
               onMouseDown={(e) => {
                 e.preventDefault();
+              }}
+              onClick={() => {
                 const str = String(amt);
                 setDraft(moneyText(str, vi));
                 setInvalid(false);
                 inputRef.current?.setCustomValidity("");
                 onChange?.(str);
+                inputRef.current?.focus({preventScroll:true});
               }}
               aria-label={`${vi ? "Chọn" : "Choose"} ${amt} ${currency}`}
             >

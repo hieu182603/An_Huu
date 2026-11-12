@@ -12,12 +12,14 @@ import DashboardSaveDialog from "../components/DashboardSaveDialog";
 import { formatMonthVN } from "../utils/date";
 import { userProfileProgress } from "../utils/userProfileProgress";
 import type { RetirementPreviewResult } from "../services/retirement";
+import { financeAmount } from "../utils/financeHubSummary";
+import { Decimal } from "../utils/decimal";
 import "./dashboard-overview.css";
 
 export default function UserDashboard() {
   const { user } = useAuth();
   const { profile, v2Profile, profileSummary, hasProfile, loadError, profileRevision } = useFinancialProfile();
-  const { synchronization: sync, currentVersion, previewData, previewStatus, previewError, loadingPlans, plansError, refreshPlans } = useRetirementPlan();
+  const { synchronization: sync, currentVersion, previewData, previewStatus, previewError, loadingPlans, plansError, refreshPlans, draftSelection } = useRetirementPlan();
   const { language } = useI18n();
   const en = language === "en", lang = en ? 1 : 0;
   const [detail, setDetail] = useState<DashboardDetail | null>(null);
@@ -29,11 +31,11 @@ export default function UserDashboard() {
   const preview = hasProfile && !loadError && !loadingPlans && !plansError && source?.status === "READY" ? source : null;
   const calculation = preview?.calculation, summary = calculation?.summary;
   const rows = calculation?.rows ?? [];
-  const projected = overviewNumber(summary?.atRetirement?.projectedFund), required = overviewNumber(summary?.atRetirement?.requiredFund);
-  const cashflow = !hasProfile || loadError ? null : overviewNumber(profileSummary?.availableMonthlySurplus);
-  const capacity = calculation ? overviewNumber(rows[0]?.contributionCapacity) : cashflow;
-  const capacityValue = capacity === null ? null : Math.max(0, capacity);
-  const contribution = overviewNumber(summary?.plannedMonthlyContribution ?? preview?.selection.monthlyContribution);
+  const projected = financeAmount(summary?.atRetirement?.projectedFund), required = financeAmount(summary?.atRetirement?.requiredFund);
+  const cashflow = !hasProfile || loadError ? null : financeAmount(profileSummary?.availableMonthlySurplus);
+  const capacity = calculation ? financeAmount(rows[0]?.contributionCapacity) : currentVersion || draftSelection || loadingPlans || plansError ? null : cashflow;
+  const capacityValue = capacity === null ? null : Decimal.max(0, capacity).toString();
+  const contribution = financeAmount(summary?.plannedMonthlyContribution ?? preview?.selection.monthlyContribution);
   const busy = loadingPlans || Boolean(currentVersion && sync.status === "loading") || (!currentVersion && previewStatus === "loading");
   const changed = Boolean(currentVersion && sync.changed);
   const name = user?.name?.trim().split(/\s+/).pop();
@@ -47,7 +49,7 @@ export default function UserDashboard() {
   const next = !hasProfile ? { path: "/onboarding", title: ["Hoàn tất bản kế hoạch đầu tiên", "Finish your first plan"] }
     : needsPlan ? { path: "/user/plan", title: ["Xem và dùng một phương án làm kế hoạch chính", "Review and use an option as your main plan"] }
     : { path: "/user/simulation", title: ["Cập nhật tình hình theo kế hoạch chính", "Check in on your main plan"] };
-  const metrics: Array<{ key: DashboardDetail; title: string; value: number | null }> = [
+  const metrics: Array<{ key: DashboardDetail; title: string; value: string | null }> = [
     { key: "projected", title: en ? "Projected fund at retirement" : "Quỹ dự kiến khi nghỉ hưu", value: projected },
     { key: "required", title: en ? "Required fund for your goal" : "Quỹ cần cho mục tiêu", value: required },
     { key: "capacity", title: en ? "First-month contribution capacity" : "Có thể góp tháng đầu", value: capacityValue },

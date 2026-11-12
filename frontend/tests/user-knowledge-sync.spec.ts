@@ -1,5 +1,6 @@
 import {expect,test,type Page}from"@playwright/test";
 import{setupDiscovery}from"./discovery-helpers";
+test.afterEach(async ({ page }) => { await page.waitForLoadState("networkidle"); });
 const cards=(page:Page)=>page.locator(".discovery-knowledge-grid>.product-card");
 test("published categories, accent-insensitive search and pagination use real backend totals",async({page,request})=>{
   const state=await setupDiscovery(page,request,"/user/knowledge");await expect(cards(page)).toHaveCount(12);await expect(page.getByRole("navigation",{name:"Phân trang"})).toContainText("16 kết quả");await expect(page.locator(".discovery-topic-buttons")).not.toContainText("Chuyên mục chưa công bố");

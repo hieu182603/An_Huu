@@ -14,13 +14,15 @@ function fixture() {
       debts: { status: "NOT_APPLICABLE", reason: "Không có nợ" },
       pension: { status: "KNOWN", monthlyAmount: "6500000", currency: "VND", priceBasis: "TODAY", basisMonth: "2028-03", source: "Mức tự khai", estimatedOn: "2028-03-15", adjustment: { kind: "NONE" } },
     },
-    summary: { values: { monthlyIncome: "35000000", monthlyExpense: "20000000", monthlyDebtService: "0", availableMonthlySurplus: "15000000", totalDebt: "0", totalAssets: "500000000", retirementLiquidAssets: "400000000", emergencyReserve: "100000000" } },
+    summary: { values: { monthlyIncome: "35000000", monthlyExpense: "20000000", monthlyDebtService: "0", availableMonthlySurplus: "15000000", totalDebt: "0", totalAssets: "500000000", netWorth: "500000000", retirementLiquidAssets: "400000000", emergencyReserve: "100000000" } },
   };
 }
 
 async function setup(page: Page, options: { profile?: any; error?: boolean; delay?: number } = {}) {
   await page.route("**/api/v1/**", route => route.fulfill({ status: 503, json: { error: { code: "UNMOCKED_TEST_API", message: "Missing finance fixture" } } }));
-  await installRouteAuth(page);
+  // An unparseable token expires at the refresh margin and remounts menus.
+  const claims = Buffer.from(JSON.stringify({ sub: "USR-001", exp: Math.floor(Date.now() / 1000) + 3600 })).toString("base64url");
+  await installRouteAuth(page, "USR-001", `eyJhbGciOiJub25lIn0.${claims}.ui-fixture`);
   await page.route("**/socket.io/**", route => route.abort()); await page.routeWebSocket(/socket\.io/, ws => ws.close());
   let profile = options.profile !== undefined ? options.profile : fixture(), failed = !!options.error;
   await installFinancialProfileRoutes(page, { profile });
@@ -37,6 +39,30 @@ async function setup(page: Page, options: { profile?: any; error?: boolean; dela
 }
 const metric = (page: Page, key: string) => page.locator(`.finance-summary-metric.is-${key} > strong`);
 const topic = (page: Page, key: string) => page.locator(`article[aria-labelledby="finance-topic-${key}"]`);
+
+for (const missing of ["maritalStatus", "dependents"] as const) test(`family badge needs both declarations: missing ${missing}`, async ({ page }) => {
+  const profile: any = fixture();
+  if (missing === "maritalStatus") profile.data.personal.maritalStatus = null;
+  else profile.data.personal.dependents = { status: "UNKNOWN" };
+  await setup(page, { profile });
+  await expect(topic(page, "family").locator(".finance-summary-badge")).toHaveText("Cần bổ sung");
+  await expect(topic(page, "family")).toContainText("Chưa cung cấp");
+});
+
+test("finance totals, topic rows and money explanations show the same cents", async ({ page }, info) => {
+  const profile = fixture();
+  profile.summary.values.monthlyIncome = "9007199254740993.25";
+  profile.summary.values.availableMonthlySurplus = "9007199234740993.25";
+  await setup(page, { profile });
+  await expect(metric(page, "income")).toHaveText("9.007.199.254.740.993,25 ₫");
+  await expect(topic(page, "cashflow")).toContainText("9.007.199.254.740.993,25 ₫/tháng");
+  await page.getByRole("button", { name: "Giải thích Thu nhập + lương hưu", exact: true }).click();
+  await expect(page.getByRole("dialog").locator(".money-explanation-kpi > strong")).toHaveText("9.007.199.254.740.993,25 ₫");
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 320, height: 740 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: info.outputPath("finance-exact-money.png"), fullPage: true });
+});
 
 test("hub matches the demo hierarchy and uses profile month, current income and ownership shares", async ({ page }) => {
   const state = await setup(page);
@@ -61,7 +87,7 @@ test("explicit zero declarations remain zero, including no pension and no depend
   profile.data.personal.pensionStartMonth = { status: "NOT_APPLICABLE", reason: "Không có lương hưu" };
   await setup(page, { profile });
   await expect(page.locator(".finance-summary-metric > strong")).toHaveText(["0 ₫", "0 ₫", "0 ₫", "0 ₫"]);
-  await expect(topic(page, "assets").locator("dd")).toHaveText(["0 ₫", "0 ₫"]);
+  await expect(topic(page, "assets").locator("dd")).toHaveText(["0 ₫", "0 ₫", "0 ₫"]);
   await expect(topic(page, "pension")).toContainText("Không có lương hưu");
   await expect(topic(page, "pension")).toContainText("Không áp dụng");
   await expect(topic(page, "family")).toContainText("0 người");
@@ -89,8 +115,8 @@ test("negative surplus stays negative and is explained as a budget shortfall", a
   await expect(metric(page, "surplus")).toHaveText("-5.000.000 ₫");
   await expect(page.locator(".finance-summary-metric.is-negative")).toContainText("Ngân sách đang thiếu");
   await page.getByRole("button", { name: "Giải thích Ngân sách đang thiếu", exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText("Số âm là phần còn thiếu");
-  await expect(page.getByRole("dialog").locator("dd").last()).toHaveText("-5.000.000 ₫/tháng");
+  await expect(page.getByRole("dialog")).toContainText("Số âm được giữ nguyên");
+  await expect(page.getByRole("dialog").locator(".money-explanation-kpi > strong")).toHaveText("-5.000.000 ₫");
 });
 
 test("a partial summary preserves known values and never fills in a missing reserve", async ({ page }) => {
@@ -100,7 +126,7 @@ test("a partial summary preserves known values and never fills in a missing rese
   await setup(page, { profile });
   await expect(metric(page, "income")).toHaveText("Chưa xác định");
   await expect(metric(page, "expenses")).toHaveText("20.000.000 ₫");
-  await expect(topic(page, "assets").locator("dd")).toHaveText(["400.000.000 ₫", "Chưa xác định"]);
+  await expect(topic(page, "assets").locator("dd")).toHaveText(["400.000.000 ₫", "Chưa xác định", "500.000.000 ₫"]);
   await expect(topic(page, "cashflow").locator(".finance-summary-badge")).toHaveText("Cần bổ sung");
   await expect(topic(page, "assets").locator(".finance-summary-badge")).toHaveText("Cần bổ sung");
 });
@@ -109,7 +135,7 @@ test("missing server summary and invalid money do not turn into valid zero amoun
   const profile: any = fixture(); delete profile.summary;
   await setup(page, { profile });
   await expect(page.locator(".finance-summary-metric > strong")).toHaveText(["Chưa xác định", "Chưa xác định", "Chưa xác định", "Chưa xác định"]);
-  await expect(topic(page, "assets").locator("dd").last()).toHaveText("Chưa xác định");
+  await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("Chưa xác định");
   profile.summary = { values: { monthlyIncome: "NaN", monthlyExpense: "", monthlyDebtService: "Infinity", availableMonthlySurplus: null } };
   await page.reload(); await expect(metric(page, "income")).toHaveText("Chưa xác định");
   await expect(metric(page, "debtPayment")).toHaveText("Chưa xác định");
@@ -117,36 +143,36 @@ test("missing server summary and invalid money do not turn into valid zero amoun
 
 test("reserve uses the API total and never reconstructs an absent or invalid value from asset shares", async ({ page }) => {
   const profile: any = fixture(); profile.summary.values.emergencyReserve = "42000000";
-  await setup(page, { profile }); await expect(topic(page, "assets").locator("dd").last()).toHaveText("42.000.000 ₫");
+  await setup(page, { profile }); await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("42.000.000 ₫");
   for (const value of [null, undefined, "NaN", ""]) {
     if (value === undefined) delete profile.summary.values.emergencyReserve;
     else profile.summary.values.emergencyReserve = value;
-    await page.reload(); await expect(topic(page, "assets").locator("dd").last()).toHaveText("Chưa xác định");
+    await page.reload(); await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("Chưa xác định");
   }
 });
 
 test("locked and future assets keep the zero reserve returned by the API", async ({ page }) => {
   const profile = fixture(); profile.summary.values.emergencyReserve = "0";
   profile.data.assets.entries[0].liquidity = known("LOCKED");
-  await setup(page, { profile }); await expect(topic(page, "assets").locator("dd").last()).toHaveText("0 ₫");
+  await setup(page, { profile }); await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("0 ₫");
   profile.data.assets.entries[0].liquidity = known("LIQUID");
   profile.data.assets.entries[0].availableFromMonth = known("2030-01");
-  await page.reload(); await expect(topic(page, "assets").locator("dd").last()).toHaveText("0 ₫");
+  await page.reload(); await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("0 ₫");
 });
 
 test("large decimal API amounts keep their VND precision through display", async ({ page }) => {
   const profile = fixture(); profile.summary.values.monthlyIncome = "9007199254740993.50";
   profile.summary.values.emergencyReserve = "1801439850948198.65";
   await setup(page, { profile });
-  await expect(metric(page, "income")).toHaveText("9.007.199.254.740.994 ₫");
-  await expect(topic(page, "assets").locator("dd").last()).toHaveText("1.801.439.850.948.199 ₫");
+  await expect(metric(page, "income")).toHaveText("9.007.199.254.740.993,5 ₫");
+  await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("1.801.439.850.948.198,65 ₫");
 });
 
 test("legacy profile totals use actual declared values without inventing an emergency reserve", async ({ page }) => {
   const profile = defaultMockProfile(); await setup(page, { profile });
   await expect(metric(page, "income")).toHaveText("30.000.000 ₫");
   await expect(metric(page, "surplus")).toHaveText("10.000.000 ₫");
-  await expect(topic(page, "assets").locator("dd").last()).toHaveText("Chưa xác định");
+  await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("Chưa xác định");
   await expect(topic(page, "pension").locator("dd").last()).toHaveText("Chưa xác nhận");
 });
 
@@ -194,10 +220,10 @@ test("all metric popups support keyboard, focus restoration and accurate formula
   const state = await setup(page);
   for (const label of ["Thu nhập + lương hưu", "Chi tiêu sinh hoạt", "Trả nợ trong tháng", "Phần dư thu chi"]) {
     const trigger = page.getByRole("button", { name: `Giải thích ${label}`, exact: true });
-    await trigger.click(); const dialog = page.getByRole("dialog", { name: label, exact: true });
+    await trigger.click(); const dialog = page.getByRole("dialog", { name: `Giải thích: ${label}`, exact: true });
     await expect(dialog).toBeVisible(); await expect(dialog).toContainText("03/2028");
     for (let i = 0; i < 6; i++) { await page.keyboard.press(i < 3 ? "Tab" : "Shift+Tab"); expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true); }
-    if (label === "Phần dư thu chi") await expect(dialog.locator("dd")).toHaveText(["03/2028", "35.000.000 ₫/tháng", "20.000.000 ₫/tháng", "0 ₫/tháng", "15.000.000 ₫/tháng"]);
+    if (label === "Phần dư thu chi") await expect(dialog.locator(".money-explanation-result")).toContainText("35.000.000 ₫ − 20.000.000 ₫ − 0 ₫ ≈ 15.000.000 ₫");
     await page.keyboard.press("Escape"); await expect(dialog).toHaveCount(0); await expect(trigger).toBeFocused();
     await expect(page.locator("#root")).not.toHaveAttribute("inert", "");
   }
@@ -211,7 +237,7 @@ test("language switching covers all hub labels, amounts and popup content", asyn
   await expect(metric(page, "income")).toHaveText("35,000,000 ₫");
   await expect(topic(page, "family")).toContainText("0 people");
   await page.getByRole("button", { name: "Explain Monthly surplus", exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText("Surplus = Income and pension");
+  await expect(page.getByRole("dialog").locator(".money-explanation-result")).toContainText("35,000,000 ₫ − 20,000,000 ₫ − 0 ₫ ≈ 15,000,000 ₫");
 });
 
 for (const viewport of [{ width: 1440, height: 1000 }, { width: 1024, height: 768 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 320, height: 568 }, { width: 844, height: 390 }]) {
