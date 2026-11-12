@@ -5,7 +5,7 @@ export async function toggleExplainMode(page: Page) {
   await page.getByRole("menuitem", { name: "Giải thích số liệu", exact: true }).click();
 }
 
-export async function installRouteAuth(page: Page, userId = "USR-001") {
+export async function installRouteAuth(page: Page, userId = "USR-001", accessToken = "ui-test-token") {
   let currentUser = { id: userId, fullName: "Nguyễn Minh An", email: "user@demo.com", role: "USER", status: "ACTIVE", phone: null as string | null, city: null as string | null, avatarUrl: null as string | null, revision: 0, emailVerifiedAt: "2026-10-03T00:00:00.000Z" };
 
   // Block external analytics script fetches from hanging tests
@@ -28,7 +28,7 @@ export async function installRouteAuth(page: Page, userId = "USR-001") {
       avatarUrl: currentUser.avatarUrl,
       revision: currentUser.revision
     };
-    await route.fulfill({ json: { data: { accessToken: "ui-test-token", user } } });
+    await route.fulfill({ json: { data: { accessToken, user } } });
   });
 
   await page.route("**/api/v1/me", async route => {
@@ -707,8 +707,8 @@ export async function installRouteAuth(page: Page, userId = "USR-001") {
     revision: 1,
     processing: true,
     saveHistory: true,
-    policyVersion: "ai-explanation-2026-10-v1",
-    acceptedPolicyVersion: "ai-explanation-2026-10-v1",
+    policyVersion: "ai-explanation-gemini-2026-11-v3",
+    acceptedPolicyVersion: "ai-explanation-gemini-2026-11-v3",
     retentionDays: 30,
     purpose: "Hỗ trợ giải thích và dự báo kế hoạch hưu trí",
     providerData: ["Kế hoạch hưu trí", "Giả định kinh tế"],
@@ -779,6 +779,7 @@ export async function installRouteAuth(page: Page, userId = "USR-001") {
         data: {
           status: "AI_ASSISTED",
           answer: `Để đạt mục tiêu kế hoạch hưu trí với câu hỏi "${body?.question || ""}", bạn cần duy trì tích lũy định kỳ và tối ưu hóa phân bổ tài sản.`,
+          answerSource: "AI_COMPOSED",
           facts: [
             { key: "monthlySavings", text: "Khoản tiết kiệm khuyến nghị: 5.000.000 ₫/tháng" },
             { key: "targetAge", text: "Độ tuổi nghỉ hưu mục tiêu: 60 tuổi" }

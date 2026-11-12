@@ -224,9 +224,62 @@ for (const options of [{processing:false},{reconsent:true}]) {
     await setupAssistant(page,options);
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByRole('dialog')).toContainText('Google Gemini qua dịch vụ Google bên ngoài hệ thống');
+    // Only a changed policy (not a first-time choice) says the processing content changed.
+    const changed = page.getByRole('dialog').getByText('Nội dung xử lý của trợ lý đã thay đổi');
+    if (options.reconsent) await expect(changed).toBeVisible(); else await expect(changed).toHaveCount(0);
     expect(sent).toBe(0);
   });
 }
+
+test('assistant labels approved-excerpt answers and keeps long citations scrollable', async ({ page }) => {
+  await setupAssistant(page, { noProvider: true });
+  const excerpt = `Điều 169. Tuổi nghỉ hưu\n${'1. Người lao động bảo đảm điều kiện về thời gian đóng bảo hiểm xã hội theo quy định. '.repeat(25)}`;
+  await page.route('**/api/v1/me/ai/explain', route => route.fulfill({ json: { data: {
+    status: 'PROVIDER_NOT_CONFIGURED', answerSource: 'APPROVED_EXCERPT',
+    answer: 'Theo tài liệu đã duyệt, tuổi nghỉ hưu được điều chỉnh theo lộ trình.\n\n- Lao động nam: tăng dần mỗi năm\n- Lao động nữ: tăng dần mỗi năm',
+    facts: [{ key: 'limits', text: 'KHỐI FACTS KHÔNG ĐƯỢC HIỆN' }],
+    citations: [{ id: '00000000-0000-4000-8000-000000000009:120', sourceId: '00000000-0000-4000-8000-000000000009', title: 'Bộ luật Lao động 2019', version: 'r1', url: null, contentHash: 'h', effectiveDate: '2021-01-01', excerpt }],
+    provenance: null, knowledgeStatus: 'AVAILABLE', nextAction: '', applied: false, savedHistory: true,
+    conversationId: '00000000-0000-4000-8000-000000000003', revision: 1, provider: null,
+  } } }));
+  await page.getByRole('button', { name: 'Tuổi nghỉ hưu của tôi?' }).click();
+  await expect(page.getByRole('textbox', { name: 'Câu hỏi dành cho trợ lý AI' })).toHaveValue('Tuổi nghỉ hưu của tôi là bao nhiêu?');
+  await page.locator('.ai-chat-send').click();
+  const answer = page.locator('.ai-chat-message.assistant').last();
+  await expect(answer.locator('.ai-chat-response-note')).toHaveText('Trích từ tài liệu đã duyệt; trợ lý chưa diễn giải thêm.');
+  await expect(answer).not.toContainText('Giải thích từ số liệu hệ thống');
+  await expect(answer).not.toContainText('KHỐI FACTS KHÔNG ĐƯỢC HIỆN');
+  // Bullet lines stay on their own lines (pre-wrap), not merged into one paragraph line.
+  const bullets = await answer.locator('.ai-chat-message-body p').nth(1).evaluate(el => (el as HTMLElement).innerText.split('\n').length);
+  expect(bullets).toBe(2);
+  await answer.locator('.ai-chat-sources summary').click();
+  const quote = answer.locator('.ai-citation-excerpt');
+  await expect(quote).toBeVisible();
+  const box = await quote.evaluate(el => ({ client: el.clientHeight, scroll: el.scrollHeight, ws: getComputedStyle(el).whiteSpace, tab: el.tabIndex }));
+  expect(box.client).toBeLessThanOrEqual(220);
+  expect(box.scroll).toBeGreaterThan(box.client);
+  expect(box.ws).toBe('pre-wrap');
+  expect(box.tab).toBe(0);
+  await page.screenshot({ path: test.info().outputPath('approved-excerpt.png') });
+});
+
+test('assistant treats saved answers without answerSource as server facts', async ({ page }) => {
+  await setupAssistant(page, { noProvider: true });
+  const id = '00000000-0000-4000-8000-000000000007';
+  await page.route('**/api/v1/me/ai/conversations**', route => {
+    if (new URL(route.request().url()).pathname.endsWith(id)) return route.fulfill({ json: { data: { id, title: 'Hội thoại cũ', revision: 2, expiresAt: '2026-12-01T00:00:00Z', messages: [
+      { id: '00000000-0000-4000-8000-000000000011', role: 'user', content: 'Câu hỏi cũ', createdAt: '2026-11-01T01:00:00Z' },
+      { id: '00000000-0000-4000-8000-000000000012', role: 'assistant', content: 'Trả lời cũ từ số liệu', createdAt: '2026-11-01T01:00:01Z', context: { response: { status: 'PROVIDER_NOT_CONFIGURED' } } },
+    ] } } });
+    return route.fulfill({ json: { data: { items: [{ id, title: 'Hội thoại cũ', revision: 2, createdAt: '2026-11-01T01:00:00Z', expiresAt: '2026-12-01T00:00:00Z' }], total: 1, limit: 20, page: 1 } } });
+  });
+  await page.reload();
+  await page.locator('.ai-history-toggle').click();
+  await page.getByRole('button', { name: /Hội thoại cũ/ }).click();
+  const answer = page.locator('.ai-chat-message.assistant').last();
+  await expect(answer).toContainText('Trả lời cũ từ số liệu');
+  await expect(answer.locator('.ai-chat-response-note')).toHaveText('Giải thích từ số liệu hệ thống.');
+});
 
 for (const height of [844,400]) {
  for (const noPlan of [false,true]) {

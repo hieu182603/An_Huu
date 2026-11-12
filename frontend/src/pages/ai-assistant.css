@@ -138,6 +138,9 @@
 .ai-chat-sources > div { margin: 0 16px; padding: 14px 0; border-top: 1px solid var(--chat-line); line-height: 1.7; }
 .ai-chat-sources small { display: block; color: var(--chat-muted); font-size: 13px; }
 .ai-chat-sources blockquote { margin: 8px 0; }
+/* Excerpts can be a whole legal article (up to 2,400 characters): keep line breaks, cap the height and scroll inside. */
+.ai-chat-sources .ai-citation-excerpt { max-height: 220px; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px 12px; border: 1px solid var(--chat-line); background: #f7f9fc; border-radius: 8px; }
+.ai-chat-sources .ai-citation-excerpt:focus-visible { outline: 2px solid var(--color-secondary-500); outline-offset: 2px; }
 .ai-chat-sources a { color: var(--color-secondary-500); text-underline-offset: 4px; }
 .ai-chat-pending { display: flex; align-items: center; gap: 12px; color: var(--chat-muted); font-size: 15px; padding: 12px 0; }
 .ai-chat-loading { width: 16px; height: 16px; border: 2px solid var(--color-accent-soft); border-top-color: var(--color-secondary-500); border-radius: 50%; animation: ai-chat-spin 1s linear infinite; }

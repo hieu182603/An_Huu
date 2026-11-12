@@ -611,10 +611,11 @@ test.describe("Screen 14: Trợ lý AI người dùng (/user/assistant)", () => 
     const promptChips = welcome.locator(".prompt-pill.suggestion-chip.quick-question-btn");
     await expect(promptChips).toHaveCount(4);
 
-    await expect(promptChips.nth(0)).toContainText(/Tiền nghỉ hưu của tôi có đủ không|Will my retirement fund be enough/i);
-    await expect(promptChips.nth(1)).toContainText(/Tôi cần góp thêm bao nhiêu|How much more should I contribute/i);
-    await expect(promptChips.nth(2)).toContainText(/Khi nào tôi có thể thiếu tiền|When might I run short/i);
-    await expect(promptChips.nth(3)).toContainText(/Nghỉ hưu muộn hơn thì sao|What if I retire later/i);
+    // One chip per topic the assistant answers well: plan result, pension/BHXH, product groups.
+    await expect(promptChips.nth(0)).toContainText(/Tôi có đủ tiền không|Will my retirement fund be enough/i);
+    await expect(promptChips.nth(1)).toContainText(/Cần góp thêm bao nhiêu|How much more should I contribute/i);
+    await expect(promptChips.nth(2)).toContainText(/Tuổi nghỉ hưu của tôi|What is my retirement age/i);
+    await expect(promptChips.nth(3)).toContainText(/Nên chọn nhóm sản phẩm nào|Which product group suits me/i);
   });
 
   test("14.3 Composer provides textarea, shortcut hint, and send button", async ({ page }) => {
