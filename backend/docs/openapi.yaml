@@ -5270,13 +5270,15 @@ paths:
         - name: planId
           in: path
           required: true
-          schema: &a1
+          schema:
             type: string
             format: uuid
         - name: Idempotency-Key
           in: header
           required: true
-          schema: *a1
+          schema:
+            type: string
+            format: uuid
       description: USER only. See PLANS.md. Saving never applies. Apply requires
         current plan/profile revisions and explicit confirmation. Immutable
         snapshot reads/replay do not use newer configuration.
@@ -5344,13 +5346,15 @@ paths:
         - name: planId
           in: path
           required: true
-          schema: &a1
+          schema:
             type: string
             format: uuid
         - name: Idempotency-Key
           in: header
           required: true
-          schema: *a1
+          schema:
+            type: string
+            format: uuid
       description: USER only. See PLANS.md. Saving never applies. Apply requires
         current plan/profile revisions and explicit confirmation. Immutable
         snapshot reads/replay do not use newer configuration.
@@ -5418,13 +5422,15 @@ paths:
         - name: planId
           in: path
           required: true
-          schema: &a1
+          schema:
             type: string
             format: uuid
         - name: versionId
           in: path
           required: true
-          schema: *a1
+          schema:
+            type: string
+            format: uuid
       description: USER only. See PLANS.md. Saving never applies. Apply requires
         current plan/profile revisions and explicit confirmation. Immutable
         snapshot reads/replay do not use newer configuration.
@@ -5486,13 +5492,15 @@ paths:
         - name: planId
           in: path
           required: true
-          schema: &a1
+          schema:
             type: string
             format: uuid
         - name: versionId
           in: path
           required: true
-          schema: *a1
+          schema:
+            type: string
+            format: uuid
       description: USER only. See PLANS.md. Saving never applies. Apply requires
         current plan/profile revisions and explicit confirmation. Immutable
         snapshot reads/replay do not use newer configuration.
@@ -5561,13 +5569,15 @@ paths:
         - name: planId
           in: path
           required: true
-          schema: &a1
+          schema:
             type: string
             format: uuid
         - name: versionId
           in: query
           required: false
-          schema: *a1
+          schema:
+            type: string
+            format: uuid
           description: Pin a saved version; omitted resolves current in one read
             transaction. Never selects latest saved implicitly.
       description: USER only. See PLANS.md. Saving never applies. Apply requires
@@ -5701,13 +5711,15 @@ paths:
         - name: planId
           in: path
           required: true
-          schema: &a1
+          schema:
             type: string
             format: uuid
         - name: versionId
           in: path
           required: true
-          schema: *a1
+          schema:
+            type: string
+            format: uuid
       description: USER only. See PLANS.md. Saving never applies. Apply requires
         current plan/profile revisions and explicit confirmation. Immutable
         snapshot reads/replay do not use newer configuration.
@@ -5780,31 +5792,37 @@ paths:
         - name: planId
           in: path
           required: true
-          schema: &a1
+          schema:
             type: string
             format: uuid
         - name: versionId
           in: path
           required: true
-          schema: *a1
+          schema:
+            type: string
+            format: uuid
         - name: format
           in: query
           schema:
             type: string
-            enum: [ technical, readable-vi ]
+            enum:
+              - technical
+              - readable-vi
             default: technical
       responses:
         "200":
           description: Monthly forecast CSV
           headers:
             Content-Disposition:
-              schema: &a2
+              schema:
                 type: string
             Cache-Control:
-              schema: *a2
+              schema:
+                type: string
           content:
             text/csv:
-              schema: *a2
+              schema:
+                type: string
         "400":
           description: Request rejected
           content:
@@ -5850,12 +5868,13 @@ paths:
         - name: from
           in: query
           required: true
-          schema: &a3
+          schema:
             type: string
         - name: to
           in: query
           required: true
-          schema: *a3
+          schema:
+            type: string
       description: USER only. One consolidated retirement fund per user, VND.
         Full-month replacement with revision/history. See MONTHLY_ACTUALS.md.
       responses:
@@ -7440,6 +7459,8 @@ paths:
               - name
               - updatedAt
               - riskLevel
+              - referenceYieldPercent
+              - minimumAmount
             default: name
         - name: order
           in: query
@@ -7470,8 +7491,10 @@ paths:
               - HIGH
       description: Visible catalog with published fee, conditions and disclosure;
         filters/search/pagination/counts use the same query. Search name,
-        category and provider; risk sorting supports LOW/MEDIUM/HIGH. No
-        fabricated rates, minimum amount or term metadata.
+        category and provider; risk sorting supports LOW/MEDIUM/HIGH.
+        referenceYieldPercent/minimumAmount sort only declared numeric terms;
+        undeclared (null) products always sort last. No fabricated rates,
+        minimum amount or term metadata.
       responses:
         "200":
           description: Persisted result
@@ -8293,116 +8316,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-  /api/v1/me/consultations:
-    get:
-      operationId: retiredgetmeconsultations
-      deprecated: true
-      security:
-        - bearerAuth: []
-      description: Retired. No reads or writes; historical rows preserved. Use Support.
-      responses:
-        "401":
-          description: Authentication/role rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "403":
-          description: Authentication/role rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "410":
-          description: FEATURE_RETIRED
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-    post:
-      operationId: retiredpostmeconsultations
-      deprecated: true
-      security:
-        - bearerAuth: []
-      description: Retired. No reads or writes; historical rows preserved. Use Support.
-      responses:
-        "401":
-          description: Authentication/role rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "403":
-          description: Authentication/role rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "410":
-          description: FEATURE_RETIRED
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-  /api/v1/admin/consultations:
-    get:
-      operationId: retiredgetadminconsultations
-      deprecated: true
-      security:
-        - bearerAuth: []
-      description: Retired. No reads or writes; historical rows preserved. Use Support.
-      responses:
-        "401":
-          description: Authentication/role rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "403":
-          description: Authentication/role rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "410":
-          description: FEATURE_RETIRED
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-  /api/v1/admin/consultations/{id}:
-    patch:
-      operationId: retiredpatchadminconsultationsid
-      deprecated: true
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      description: Retired. No reads or writes; historical rows preserved. Use Support.
-      responses:
-        "401":
-          description: Authentication/role rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "403":
-          description: Authentication/role rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "410":
-          description: FEATURE_RETIRED
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/retirement/actuals/reforecast/preview:
     post:
       operationId: actualUpdatePreview
@@ -8475,13 +8388,15 @@ paths:
         - name: planId
           in: path
           required: true
-          schema: &a1
+          schema:
             type: string
             format: uuid
         - name: Idempotency-Key
           in: header
           required: true
-          schema: *a1
+          schema:
+            type: string
+            format: uuid
       description: USER only. See PLANS.md. Saving never applies. Apply requires
         current plan/profile revisions and explicit confirmation. Immutable
         snapshot reads/replay do not use newer configuration.
@@ -8741,13 +8656,15 @@ paths:
         - name: id
           in: path
           required: true
-          schema: &a4
+          schema:
             type: string
             format: uuid
         - name: Idempotency-Key
           in: header
           required: true
-          schema: *a4
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -8779,13 +8696,15 @@ paths:
         - name: id
           in: path
           required: true
-          schema: &a4
+          schema:
             type: string
             format: uuid
         - name: Idempotency-Key
           in: header
           required: true
-          schema: *a4
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -9022,13 +8941,15 @@ paths:
         - name: planId
           in: path
           required: true
-          schema: &a1
+          schema:
             type: string
             format: uuid
         - name: Idempotency-Key
           in: header
           required: true
-          schema: *a1
+          schema:
+            type: string
+            format: uuid
       description: USER only. See PLANS.md. Saving never applies. Apply requires
         current plan/profile revisions and explicit confirmation. Immutable
         snapshot reads/replay do not use newer configuration.
@@ -9919,56 +9840,56 @@ paths:
             application/json:
               schema:
                 $ref: ./explanations.openapi.yaml#/MetricExplanationEnvelope
-        "400": &a1
+        "400":
           description: Validation, authentication, ownership, integrity, rate or service
             error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "401": &a2
+        "401":
           description: Validation, authentication, ownership, integrity, rate or service
             error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "403": &a3
+        "403":
           description: Validation, authentication, ownership, integrity, rate or service
             error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "404": &a4
+        "404":
           description: Validation, authentication, ownership, integrity, rate or service
             error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "409": &a5
+        "409":
           description: Validation, authentication, ownership, integrity, rate or service
             error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "422": &a6
+        "422":
           description: METRIC_NOT_AVAILABLE (missing/null/unsupported), or preview
             validation error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "429": &a7
+        "429":
           description: Validation, authentication, ownership, integrity, rate or service
             error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "503": &a8
+        "503":
           description: Validation, authentication, ownership, integrity, rate or service
             error
           content:
@@ -10133,43 +10054,43 @@ paths:
             application/json:
               schema:
                 $ref: ./assets.openapi.yaml#/AssetReportEnvelope
-        "400": &a1
+        "400":
           description: Request rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "401": &a2
+        "401":
           description: Request rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "403": &a3
+        "403":
           description: Request rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "404": &a4
+        "404":
           description: Request rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "409": &a5
+        "409":
           description: Request rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "429": &a6
+        "429":
           description: Request rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "500": &a7
+        "500":
           description: Request rejected; no partial mutation
           content:
             application/json:
@@ -10199,17 +10120,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfilePatchResultEnvelope"
-        "400": *a1
-        "401": *a2
-        "403": *a3
-        "404": *a4
-        "409": *a5
-        "429": *a6
-        "500": *a7
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/financial-profile/debts:
     get:
       operationId: getProfileDebts
-      security: &a1
+      security:
         - bearerAuth: []
       description: USER/v2. Revision-bound authoritative debt totals and schedules.
         Unknown values stay null. Illustrative schedules use explicitly declared
@@ -10224,43 +10180,43 @@ paths:
             application/json:
               schema:
                 $ref: ./profile-debts.openapi.yaml#/DebtReportEnvelope
-        "400": &a2
+        "400":
           description: Rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "401": &a3
+        "401":
           description: Rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "403": &a4
+        "403":
           description: Rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "404": &a5
+        "404":
           description: Rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "409": &a6
+        "409":
           description: Rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "429": &a7
+        "429":
           description: Rejected; no partial mutation
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "500": &a8
+        "500":
           description: Rejected; no partial mutation
           content:
             application/json:
@@ -10268,7 +10224,8 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
     patch:
       operationId: patchProfileDebts
-      security: *a1
+      security:
+        - bearerAuth: []
       description: USER/v2. Revision-checked ADD/UPDATE/DELETE/SPLIT/CONFIRM_NONE.
         Linked DEBT_PAYMENT expenses are synchronized atomically; contract and
         illustrative references keep unknown amounts to avoid false constant
@@ -10289,17 +10246,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfilePatchResultEnvelope"
-        "400": *a2
-        "401": *a3
-        "403": *a4
-        "404": *a5
-        "409": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/retirement/pension-impact:
     post:
       operationId: comparePensionImpact
-      security: &a1
+      security:
         - bearerAuth: []
       description: USER/v2 read-only. Captures the current owned profile at
         expectedProfileRevision and the selected PUBLISHED policy/assumptions
@@ -10323,49 +10315,49 @@ paths:
             application/json:
               schema:
                 $ref: ./insurance-workspace.openapi.yaml#/PensionImpactEnvelope
-        "400": &a2
+        "400":
           description: Rejected without partial writes
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "401": &a3
+        "401":
           description: Rejected without partial writes
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "403": &a4
+        "403":
           description: Rejected without partial writes
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "404": &a5
+        "404":
           description: Rejected without partial writes
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "409": &a6
+        "409":
           description: Rejected without partial writes
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "422": &a7
+        "422":
           description: Rejected without partial writes
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "429": &a8
+        "429":
           description: Rejected without partial writes
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "500": &a9
+        "500":
           description: Rejected without partial writes
           content:
             application/json:
@@ -10374,7 +10366,8 @@ paths:
   /api/v1/me/pension/history/periods:
     get:
       operationId: getInsurancePeriods
-      security: *a1
+      security:
+        - bearerAuth: []
       description: USER. Canonical latest immutable history grouped by contiguous
         equal monthly facts. Gaps stay UNKNOWN. Declared months are
         self-reported, not verified legal entitlement. Absent history totals are
@@ -10387,17 +10380,58 @@ paths:
             application/json:
               schema:
                 $ref: ./insurance-workspace.openapi.yaml#/InsurancePeriodsReportEnvelope
-        "400": *a2
-        "401": *a3
-        "403": *a4
-        "404": *a5
-        "409": *a6
-        "422": *a7
-        "429": *a8
-        "500": *a9
+        "400":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
     patch:
       operationId: patchInsurancePeriod
-      security: *a1
+      security:
+        - bearerAuth: []
       description: USER. Revision-checked and idempotent ADD/UPDATE/DELETE of simple
         self-declared paid periods. Rejects overlap with known facts, future
         months and ranges beyond 1200 months. Bare UNKNOWN gaps may be
@@ -10424,18 +10458,59 @@ paths:
             application/json:
               schema:
                 $ref: ./insurance-workspace.openapi.yaml#/InsurancePeriodsReportEnvelope
-        "400": *a2
-        "401": *a3
-        "403": *a4
-        "404": *a5
-        "409": *a6
-        "422": *a7
-        "429": *a8
-        "500": *a9
+        "400":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/financial-profile/pension:
     get:
       operationId: getPensionWorkspace
-      security: *a1
+      security:
+        - bearerAuth: []
       description: USER/v2. Revision-bound declaration, independent pension start,
         derived age and current cashflow from the canonical pension engine. No
         invented CPI, retirement age, entitlement or fund reduction.
@@ -10446,17 +10521,58 @@ paths:
             application/json:
               schema:
                 $ref: ./insurance-workspace.openapi.yaml#/PensionWorkspaceReportEnvelope
-        "400": *a2
-        "401": *a3
-        "403": *a4
-        "404": *a5
-        "409": *a6
-        "422": *a7
-        "429": *a8
-        "500": *a9
+        "400":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
     patch:
       operationId: patchPensionWorkspace
-      security: *a1
+      security:
+        - bearerAuth: []
       description: USER/v2. Atomic revision-checked pension/start-month update and
         existing linked PENSION income synchronization. Unknown and no-pension
         declarations remain distinct from known zero. Keeps explicit adjustments
@@ -10475,18 +10591,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfilePatchResultEnvelope"
-        "400": *a2
-        "401": *a3
-        "403": *a4
-        "404": *a5
-        "409": *a6
-        "422": *a7
-        "429": *a8
-        "500": *a9
+        "400":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected without partial writes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/financial-profile/family:
     get:
       operationId: getProfileFamily
-      security: &a1
+      security:
         - bearerAuth: []
       description: USER/v2. Revision/date-bound marital/dependent declarations and
         DEPENDENT expenses only, using canonical valuation-month cashflow.
@@ -10500,43 +10656,43 @@ paths:
             application/json:
               schema:
                 $ref: ./family.openapi.yaml#/FamilyReportEnvelope
-        "400": &a2
+        "400":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "401": &a3
+        "401":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "403": &a4
+        "403":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "404": &a5
+        "404":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "409": &a6
+        "409":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "429": &a7
+        "429":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "500": &a8
+        "500":
           description: Rejected; no partial write
           content:
             application/json:
@@ -10544,7 +10700,8 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
     patch:
       operationId: patchProfileFamily
-      security: *a1
+      security:
+        - bearerAuth: []
       description: USER/v2. Expected revision plus explicit maritalStatus (SINGLE,
         MARRIED, DIVORCED, OTHER or null to withhold) and dependents (KNOWN
         integer 0..30 or UNKNOWN). Preserves every other personal/profile field
@@ -10564,17 +10721,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfilePatchResultEnvelope"
-        "400": *a2
-        "401": *a3
-        "403": *a4
-        "404": *a5
-        "409": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/financial-profile/planning:
     get:
       operationId: getProfilePlanning
-      security: &a1
+      security:
         - bearerAuth: []
       description: USER/v2. Revision/date-bound care responsibilities, cumulative
         1/3/5-year liquidity needs and complete goal collection. Missing data is
@@ -10587,43 +10779,43 @@ paths:
             application/json:
               schema:
                 $ref: ./planning.openapi.yaml#/PlanningReportEnvelope
-        "400": &a2
+        "400":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "401": &a3
+        "401":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "403": &a4
+        "403":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "404": &a5
+        "404":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "409": &a6
+        "409":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "429": &a7
+        "429":
           description: Rejected; no partial write
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "500": &a8
+        "500":
           description: Rejected; no partial write
           content:
             application/json:
@@ -10631,7 +10823,8 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
     patch:
       operationId: patchProfilePlanning
-      security: *a1
+      security:
+        - bearerAuth: []
       description: USER/v2. Expected revision plus careResponsibility (KNOWN
         SELF/CHILDREN/PARENTS/BOTH/OTHER or UNKNOWN), all liquidityNeeds
         horizons (KNOWN decimal strings or UNKNOWN) and full goals collection
@@ -10653,13 +10846,375 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfilePatchResultEnvelope"
-        "400": *a2
-        "401": *a3
-        "403": *a4
-        "404": *a5
-        "409": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/portfolio-policies/workspace/preview:
+    post:
+      operationId: previewAllocationWorkspace
+      security:
+        - bearerAuth: []
+      description: USER/v2 read-only current profile revision + published
+        hash-verified policy/dependency. Canonical capital separation, loss
+        stress and first-month actual weights/Decimal amounts. Never infer
+        missing dates, amounts, answers or financial benchmarks. Optional
+        endMonth absent returns capital and explicit PLAN_END_MONTH_REQUIRED,
+        without portfolio result. Negative capital retained. liquidityNeedMonths
+        is portfolio eligibility horizon; reserve months remain based on
+        declared income stability. No cache/profile/plan/holdings write.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-workspace.openapi.yaml#/Input
+      responses:
+        "200":
+          description: Revision-bound illustrative result
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-workspace.openapi.yaml#/Envelope
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/financial-profile/loss-tolerance:
+    patch:
+      operationId: saveAllocationLossTolerance
+      security:
+        - bearerAuth: []
+      description: USER/v2 profile CAS. Explicit reaction + PERCENT/AMOUNT limit;
+        counterpart computed from current canonical positive growth capital and
+        published assumptions. Both known values replaced together, zero is
+        explicit. Transaction/audit/outbox marks plans stale; no plan-version
+        apply or trade. Stale/missing/unknown/negative growth rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-workspace.openapi.yaml#/RiskPatch
+      responses:
+        "200":
+          description: Updated profile revision and summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/financial-profile/retirement-goal:
+    patch:
+      operationId: saveRetirementGoal
+      security:
+        - bearerAuth: []
+      description: USER/v2. Exact birth/retirement/end months and monthly expense
+        decimal string, optional lifestyle priority. expectedRevision CAS,
+        transaction/audit/outbox, preserve financial declarations and immutable
+        versions; mark plans stale. No valuation date or benchmark changes, no
+        automatic application. Retirement age 18–100 years; end month not before
+        retirement or valuation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./remaining-user.openapi.yaml#/RetirementGoalPatch
+      responses:
+        "200":
+          description: Saved profile and authoritative summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected without partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/consultations:
+    get:
+      operationId: retiredgetmeconsultations
+      deprecated: true
+      security:
+        - bearerAuth: []
+      description: Retired. No reads or writes; historical rows preserved. Use Support.
+      responses:
+        "401":
+          description: Authentication/role rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Authentication/role rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "410":
+          description: FEATURE_RETIRED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: retiredpostmeconsultations
+      deprecated: true
+      security:
+        - bearerAuth: []
+      description: Retired. No reads or writes; historical rows preserved. Use Support.
+      responses:
+        "401":
+          description: Authentication/role rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Authentication/role rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "410":
+          description: FEATURE_RETIRED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/consultations:
+    get:
+      operationId: retiredgetadminconsultations
+      deprecated: true
+      security:
+        - bearerAuth: []
+      description: Retired. No reads or writes; historical rows preserved. Use Support.
+      responses:
+        "401":
+          description: Authentication/role rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Authentication/role rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "410":
+          description: FEATURE_RETIRED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/consultations/{id}:
+    patch:
+      operationId: retiredpatchadminconsultationsid
+      deprecated: true
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      description: Retired. No reads or writes; historical rows preserved. Use Support.
+      responses:
+        "401":
+          description: Authentication/role rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Authentication/role rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "410":
+          description: FEATURE_RETIRED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/products/facets:
     get:
       operationId: getProductFacets
@@ -10888,7 +11443,10 @@ paths:
         Month-end clamping. Optional early rate/month before maturity:
         previously paid interest is deducted from settlement, not paid twice.
         Payment cents HALF_UP; compounding rounds only at final result. Excludes
-        taxes/fees and does not write financial data."
+        taxes/fees and does not write financial data. effectiveAnnualRatePercent
+        is the compounded annual equivalent (nominal for non-compounding);
+        early.forgoneInterest is pro-rated held interest minus early interest,
+        floored at 0."
       requestBody:
         required: true
         content:
@@ -10919,7 +11477,8 @@ paths:
         schedule. Interval divides term; max600months. Optional sale keeps only
         coupons due by sale. Bounded periodic IRR yields nominal annual YTM or
         null, never substituted by coupon/price. No plan writes, guarantee or
-        trade.
+        trade. Sale returns holding-period return on purchase cost and its
+        simple annualized equivalent.
       requestBody:
         required: true
         content:
@@ -10941,178 +11500,349 @@ paths:
         "422": *a6
         "429": *a7
         "500": *a8
-  /api/v1/me/portfolio-policies/workspace/preview:
+  /api/v1/me/product-tools/protection/preview:
     post:
-      operationId: previewAllocationWorkspace
-      security: &a1
-        - bearerAuth: []
-      description: USER/v2 read-only current profile revision + published
-        hash-verified policy/dependency. Canonical capital separation, loss
-        stress and first-month actual weights/Decimal amounts. Never infer
-        missing dates, amounts, answers or financial benchmarks. Optional
-        endMonth absent returns capital and explicit PLAN_END_MONTH_REQUIRED,
-        without portfolio result. Negative capital retained. liquidityNeedMonths
-        is portfolio eligibility horizon; reserve months remain based on
-        declared income stability. No cache/profile/plan/holdings write.
+      operationId: previewProtectionGap
+      security: *a9
+      description: "USER read-only D.I.M.E. illustration: debt + monthly income x 12 x
+        years + education + other needs, less liquid assets, less existing
+        cover. Values never negative. Does not read or write profile, plan or
+        products."
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: ./allocation-workspace.openapi.yaml#/Input
+              $ref: ./discovery.openapi.yaml#/ProtectionInput
       responses:
         "200":
-          description: Revision-bound illustrative result
+          description: Successful result
           content:
             application/json:
               schema:
-                $ref: ./allocation-workspace.openapi.yaml#/Envelope
-        "400": &a2
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "401": &a3
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "403": &a4
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "404": &a5
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "409": &a6
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "422": &a7
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "429": &a8
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "500": &a9
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-  /api/v1/me/financial-profile/loss-tolerance:
-    patch:
-      operationId: saveAllocationLossTolerance
-      security: *a1
-      description: USER/v2 profile CAS. Explicit reaction + PERCENT/AMOUNT limit;
-        counterpart computed from current canonical positive growth capital and
-        published assumptions. Both known values replaced together, zero is
-        explicit. Transaction/audit/outbox marks plans stale; no plan-version
-        apply or trade. Stale/missing/unknown/negative growth rejected.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./allocation-workspace.openapi.yaml#/RiskPatch
-      responses:
-        "200":
-          description: Updated profile revision and summary
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
-        "400": *a2
-        "401": *a3
-        "403": *a4
-        "404": *a5
-        "409": *a6
-        "422": *a7
-        "429": *a8
-        "500": *a9
-  /api/v1/me/financial-profile/retirement-goal:
-    patch:
-      operationId: saveRetirementGoal
+                $ref: ./discovery.openapi.yaml#/ProtectionEnvelope
+        "400": *a1
+        "401": *a2
+        "403": *a3
+        "404": *a4
+        "409": *a5
+        "422": *a6
+        "429": *a7
+        "500": *a8
+  /api/v1/admin/investment-roles:
+    get:
+      operationId: listInvestmentRoles
+      summary: List ADMIN accounts with their investment roles
+      tags:
+        - Admin investment roles
       security:
         - bearerAuth: []
-      description: USER/v2. Exact birth/retirement/end months and monthly expense
-        decimal string, optional lifestyle priority. expectedRevision CAS,
-        transaction/audit/outbox, preserve financial declarations and immutable
-        versions; mark plans stale. No valuation date or benchmark changes, no
-        automatic application. Retirement age 18–100 years; end month not before
-        retirement or valuation.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./remaining-user.openapi.yaml#/RetirementGoalPatch
+      x-required-role: ADMIN
+      x-required-investment-role: SYSTEM_ADMIN
+      description: "Caller: ADMIN login role AND an ACTIVE investment role
+        SYSTEM_ADMIN (checked inside the transaction). Others get 403 FORBIDDEN.
+        Bootstrap the first SYSTEM_ADMIN with `npm run admin:grant-system-admin`
+        (BOOTSTRAP_ADMIN_EMAIL; refuses when an ACTIVE SYSTEM_ADMIN already
+        exists). Returns at most 200 ADMIN accounts (USER accounts never hold
+        investment roles). Cache-Control: no-store."
       responses:
         "200":
-          description: Saved profile and authoritative summary
+          description: ADMIN accounts and roles
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
-        "400":
-          description: Rejected without partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
+                $ref: ./admin-gaps.openapi.yaml#/InvestmentRoleListEnvelope
         "401":
-          description: Rejected without partial write
+          description: UNAUTHENTICATED
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "403":
-          description: Rejected without partial write
+          description: "FORBIDDEN: not ADMIN or no SYSTEM_ADMIN investment role"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/investment-roles/{userId}:
+    get:
+      operationId: getInvestmentRoles
+      summary: Investment roles of one ADMIN account
+      tags:
+        - Admin investment roles
+      security:
+        - bearerAuth: []
+      x-required-role: ADMIN
+      x-required-investment-role: SYSTEM_ADMIN
+      description: "Caller: ADMIN login role AND an ACTIVE investment role
+        SYSTEM_ADMIN (checked inside the transaction). Others get 403 FORBIDDEN.
+        Bootstrap the first SYSTEM_ADMIN with `npm run admin:grant-system-admin`
+        (BOOTSTRAP_ADMIN_EMAIL; refuses when an ACTIVE SYSTEM_ADMIN already
+        exists)."
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Account and roles
+          content:
+            application/json:
+              schema:
+                $ref: ./admin-gaps.openapi.yaml#/InvestmentRoleAccountEnvelope
+        "400":
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: UNAUTHENTICATED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "FORBIDDEN: not ADMIN or no SYSTEM_ADMIN investment role"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "404":
-          description: Rejected without partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "409":
-          description: Rejected without partial write
+          description: NOT_FOUND account
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "422":
-          description: Rejected without partial write
+          description: "INVESTMENT_ROLE_ADMIN_ONLY: target is a USER account"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "429":
-          description: Rejected without partial write
+  /api/v1/admin/investment-roles/{userId}/grant:
+    post:
+      operationId: grantInvestmentRole
+      summary: Grant an investment role (idempotent)
+      tags:
+        - Admin investment roles
+      security:
+        - bearerAuth: []
+      x-required-role: ADMIN
+      x-required-investment-role: SYSTEM_ADMIN
+      description: "Caller: ADMIN login role AND an ACTIVE investment role
+        SYSTEM_ADMIN (checked inside the transaction). Others get 403 FORBIDDEN.
+        Bootstrap the first SYSTEM_ADMIN with `npm run admin:grant-system-admin`
+        (BOOTSTRAP_ADMIN_EMAIL; refuses when an ACTIVE SYSTEM_ADMIN already
+        exists). Granting a role the account already holds returns 200 with
+        changed=false and writes no audit row. Otherwise inserts the grant
+        (grantedBy = caller) and audit INVESTMENT_ROLE_GRANTED {role, reason} in
+        one serializable transaction."
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./admin-gaps.openapi.yaml#/InvestmentRoleChange
+      responses:
+        "200":
+          description: Roles after the change
+          content:
+            application/json:
+              schema:
+                $ref: ./admin-gaps.openapi.yaml#/InvestmentRoleChangeResultEnvelope
+        "400":
+          description: VALIDATION_ERROR (strict body)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "500":
-          description: Rejected without partial write
+        "401":
+          description: UNAUTHENTICATED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "FORBIDDEN: not ADMIN or no SYSTEM_ADMIN investment role"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: NOT_FOUND account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "CONCURRENT_UPDATE: retry"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: "INVESTMENT_ROLE_ADMIN_ONLY: target is a USER account"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/investment-roles/{userId}/revoke:
+    post:
+      operationId: revokeInvestmentRole
+      summary: Revoke an investment role
+      tags:
+        - Admin investment roles
+      security:
+        - bearerAuth: []
+      x-required-role: ADMIN
+      x-required-investment-role: SYSTEM_ADMIN
+      description: "Caller: ADMIN login role AND an ACTIVE investment role
+        SYSTEM_ADMIN (checked inside the transaction). Others get 403 FORBIDDEN.
+        Bootstrap the first SYSTEM_ADMIN with `npm run admin:grant-system-admin`
+        (BOOTSTRAP_ADMIN_EMAIL; refuses when an ACTIVE SYSTEM_ADMIN already
+        exists). Deletes the grant and writes audit INVESTMENT_ROLE_REVOKED
+        {role, reason} in one serializable transaction. Revoking SYSTEM_ADMIN is
+        refused when no other ACTIVE ADMIN would keep SYSTEM_ADMIN (409
+        LAST_ROLE_MANAGER), which covers revoking your own last grant."
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./admin-gaps.openapi.yaml#/InvestmentRoleChange
+      responses:
+        "200":
+          description: Roles after the change
+          content:
+            application/json:
+              schema:
+                $ref: ./admin-gaps.openapi.yaml#/InvestmentRoleChangeResultEnvelope
+        "400":
+          description: VALIDATION_ERROR (strict body)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: UNAUTHENTICATED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "FORBIDDEN: not ADMIN or no SYSTEM_ADMIN investment role"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: NOT_FOUND account or ROLE_NOT_GRANTED (role not held)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: LAST_ROLE_MANAGER or CONCURRENT_UPDATE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: "INVESTMENT_ROLE_ADMIN_ONLY: target is a USER account"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/notifications/broadcast:
+    post:
+      operationId: broadcastNotification
+      summary: Persist and push a system-wide notification
+      tags:
+        - Admin notifications
+      security:
+        - bearerAuth: []
+      x-required-role: ADMIN
+      description: Any ADMIN. Requires header Idempotency-Key (UUID). Stores one
+        notification (path /user/notifications) for every ACTIVE USER created up
+        to the first request, in batches of 1000 rows per short transaction;
+        progress is kept in idempotency_records so a retry with the same key
+        resumes without duplicates, and a finished broadcast is replayed
+        (replayed=true, no new rows, no socket push). Audit
+        ADMIN_NOTIFICATION_BROADCAST at start and
+        ADMIN_NOTIFICATION_BROADCAST_COMPLETED {recipients} at the end. After
+        completion emits socket event notification:broadcast
+        {broadcastId,title,message,recipients,persisted:true,timestamp} to
+        connected clients.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./admin-gaps.openapi.yaml#/BroadcastInput
+      responses:
+        "200":
+          description: Recipients count
+          content:
+            application/json:
+              schema:
+                $ref: ./admin-gaps.openapi.yaml#/BroadcastResultEnvelope
+        "400":
+          description: VALIDATION_ERROR or IDEMPOTENCY_KEY_REQUIRED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: UNAUTHENTICATED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "FORBIDDEN: not ADMIN"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: IDEMPOTENCY_CONFLICT (same key, different body) or CONCURRENT_UPDATE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Request rejected
           content:
             application/json:
               schema:

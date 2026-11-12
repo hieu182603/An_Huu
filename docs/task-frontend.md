@@ -1382,6 +1382,8 @@ Thực hiện tuần tự các suite kiểm thử, không chạy song song (trá
 
 ### 5. Điểm đề xuất chủ sản phẩm quyết định
 
+> **Chủ sản phẩm đã quyết định ngày 12/11/2026:** C5.2: ẩn điểm thô trên mobile, chỉ hiện tên nhóm khẩu vị và mô tả ngắn (desktop giữ nguyên). C4: duyệt thiết kế 2 trạng thái trang `/user/debts`. Cùng ngày còn chốt thêm: (a) gắn lại các mục giải thích thuật ngữ của chế độ "Giải thích số liệu" ở Tổng quan, Mục tiêu và Phân bổ tài sản, những mục đã mất sau đợt thiết kế lại `db20389`/`a0a85ac`; (b) hai thẻ trong `retirement-plan.css` (dòng 73, 270) đổi viền màu đậm một bên sang viền mảnh bao quanh.
+
 1. **C5.2 — Hiển thị điểm khảo sát khẩu vị rủi ro trên điện thoại**:
    - *Hiện trạng:* Sau khi làm khảo sát rủi ro, hệ thống có thể hiển thị điểm số (ví dụ: 18/25 điểm). Trên màn hình nhỏ, con số điểm số nội bộ này dễ gây hoang mang vì người dùng phổ thông không hiểu 18 điểm là cao hay thấp, an toàn hay mạo hiểm.
    - *Đề xuất:* Trên mobile, ẩn con số điểm thô (raw score), chỉ giữ lại tên nhóm khẩu vị đầu tư trực quan (ví dụ: "Cân bằng", "Tăng trưởng", hoặc "Thận trọng") kèm thanh mô tả ngắn.
@@ -1413,15 +1415,30 @@ Kiểm tra nghiệm thu: gửi yêu cầu khi chưa tick đồng ý bị chặn 
 
 ## FE-ADMIN-GAPS (08/11/2026) — LÀM SAU, chưa bắt đầu
 
-Ba phần quản lý admin còn thiếu. Mục 1 cần backend làm trước; mục 2 và 3 có thể làm UI ngay với API hiện có.
+Ba phần quản lý admin còn thiếu. **Backend mục 1 và 2 đã xong ngày 12/11/2026** (hợp đồng bên dưới, OpenAPI `backend/docs/openapi.yaml` + `backend/docs/admin-gaps.openapi.yaml`); cả ba mục đều có thể làm UI.
 
-1. **Phân quyền đầu tư** (cần backend trước — chưa có API).
-   - Vai trò: `OPERATIONS`, `DATA_ADMIN` (nhập dữ liệu sản phẩm đầu tư), `MODEL_ADMIN`, `ADVISOR` (lập đề xuất), `APPROVER` (duyệt đề xuất), `SYSTEM_ADMIN`. Bảng `investment_role_grants`.
-   - Hiện chỉ cấp được bằng script/DB; admin mới bị 403 FORBIDDEN ở trang Đầu tư.
-   - UI dự kiến: trong chi tiết người dùng ADMIN, danh sách vai trò có thể bật/tắt, có xác nhận và ghi audit. Chặn tự thu hồi vai trò cuối cùng của chính mình.
-2. **Gửi thông báo toàn hệ thống** — API có sẵn `POST /api/v1/admin/notifications/broadcast` body `{ title, message }`.
-   - Lưu ý: backend hiện chỉ đẩy socket, KHÔNG lưu vào `notifications` → người không online không thấy. Backend sẽ sửa để lưu; UI nên hiển thị cảnh báo này cho tới khi sửa.
-   - UI: form tiêu đề + nội dung, xem trước, xác nhận trước khi gửi.
+Mọi response theo envelope `{ data, meta: { requestId } }`; lỗi `{ error: { code, message, details? } }`.
+
+1. **Phân quyền đầu tư** — backend đã có API.
+   - Vai trò: `OPERATIONS`, `DATA_ADMIN` (nhập dữ liệu sản phẩm đầu tư), `MODEL_ADMIN`, `ADVISOR` (lập đề xuất), `APPROVER` (duyệt đề xuất), `SYSTEM_ADMIN`. Bảng `investment_role_grants`. Vai trò đầu tư chỉ gắn cho tài khoản ADMIN.
+   - **Ai được gọi:** tài khoản đăng nhập role ADMIN **và** đang có vai trò đầu tư `SYSTEM_ADMIN` (tài khoản ACTIVE). ADMIN không có `SYSTEM_ADMIN` nhận 403 `FORBIDDEN`; USER nhận 403. UI kiểm trước bằng `GET /api/v1/investments/permissions` (`data.roles` chứa `SYSTEM_ADMIN`) để ẩn/khóa màn quản lý vai trò và giải thích "Chỉ quản trị viên hệ thống (SYSTEM_ADMIN) được phân quyền đầu tư".
+   - `SYSTEM_ADMIN` đầu tiên do chủ dự án cấp một lần bằng `npm run admin:grant-system-admin` (biến `BOOTSTRAP_ADMIN_EMAIL`; tự từ chối khi đã có SYSTEM_ADMIN đang hoạt động). Sau đó mọi thay đổi đi qua API.
+   - `GET /api/v1/admin/investment-roles` → `data: { items: [{ userId, fullName, email, status, roles: [{ role, grantedBy, createdAt }] }], assignableRoles: [...6 vai trò] }`. Danh sách là các tài khoản ADMIN (tối đa 200), sắp theo email. Dùng làm trang "Phân quyền đầu tư" (trang `/admin/users` hiện chỉ liệt kê USER).
+   - `GET /api/v1/admin/investment-roles/{userId}` → `data: { userId, fullName, email, status, roles }`.
+   - `POST /api/v1/admin/investment-roles/{userId}/grant` body `{ "role": "DATA_ADMIN", "reason": "3–500 ký tự" }` (strict, không nhận trường khác) → 200 `data: { ...như trên, changed }`. Cấp vai trò đã có → 200 `changed: false`, không ghi audit lần hai (bấm hai lần an toàn).
+   - `POST /api/v1/admin/investment-roles/{userId}/revoke` body giống grant → 200 `changed: true`.
+   - Lỗi: 400 `VALIDATION_ERROR` (thiếu/thừa trường, reason < 3 ký tự, role sai, userId không phải UUID); 401; 403 `FORBIDDEN`; 404 `NOT_FOUND` (không có tài khoản); 404 `ROLE_NOT_GRANTED` (thu hồi vai trò tài khoản chưa có); 409 `LAST_ROLE_MANAGER` (thu hồi `SYSTEM_ADMIN` khi không còn ADMIN ACTIVE nào khác giữ `SYSTEM_ADMIN` — gồm cả tự thu hồi của chính mình; thông báo: hãy cấp SYSTEM_ADMIN cho người khác trước); 409 `CONCURRENT_UPDATE` (thử lại); 422 `INVESTMENT_ROLE_ADMIN_ONLY` (đích là tài khoản USER).
+   - Không có `expectedRevision` (bảng không có revision); mỗi thao tác là một transaction serializable kèm audit `INVESTMENT_ROLE_GRANTED`/`INVESTMENT_ROLE_REVOKED` `{ role, reason }`, xem ở `/admin/audit-logs`.
+   - UI: danh sách ADMIN, mỗi dòng bật/tắt 6 vai trò; mở popup xác nhận có ô lý do (bắt buộc ≥3 ký tự) trước khi gọi; sau thành công dùng `data.roles` trả về để cập nhật dòng. Nếu người dùng tự thu hồi vai trò của mình thì tải lại `GET /investments/permissions`.
+2. **Gửi thông báo toàn hệ thống** — `POST /api/v1/admin/notifications/broadcast`, **đã lưu vào `notifications`**.
+   - Ai được gọi: mọi ADMIN (không cần vai trò đầu tư).
+   - Header bắt buộc `Idempotency-Key: <UUID>`: tạo một UUID khi mở form/xác nhận và **giữ nguyên khi bấm lại hoặc thử lại** sau lỗi mạng; chỉ tạo khóa mới cho lần gửi mới.
+   - Body strict `{ "title": "1–120 ký tự", "message": "1–1000 ký tự" }` (không còn giá trị mặc định khi bỏ trống).
+   - 200 `data: { broadcasted: true, broadcastId, title, message, recipients, replayed }`. `recipients` = số USER ACTIVE được lưu thông báo (không gồm ADMIN, tài khoản bị khóa/chưa xác minh). `replayed: true` khi gửi lại cùng khóa sau khi đã xong: không tạo thêm bản ghi, không đẩy socket lại.
+   - Lỗi: 400 `IDEMPOTENCY_KEY_REQUIRED` (thiếu/không phải UUID); 400 `VALIDATION_ERROR`; 401; 403 `FORBIDDEN` (không phải ADMIN); 409 `IDEMPOTENCY_CONFLICT` (cùng khóa nhưng nội dung khác); 409 `CONCURRENT_UPDATE` (thử lại cùng khóa). Lỗi giữa chừng: gọi lại cùng khóa, backend chạy tiếp từ lô đã lưu, không trùng.
+   - Thông báo lưu với `path: "/user/notifications"`, xuất hiện trong `GET /api/v1/me/notifications` của người nhận kể cả khi họ offline.
+   - Socket `notification:broadcast` giờ có thêm `{ broadcastId, recipients, persisted: true }`. **Cần sửa `frontend/src/services/socket.ts`**: khi `persisted === true` thì gọi `refreshNotifications()` thay vì chèn thông báo giả `broadcast-<timestamp>` (nếu không sẽ thấy trùng và bấm "đã đọc" vào id giả).
+   - UI: form tiêu đề + nội dung có đếm ký tự, xem trước, xác nhận "Gửi tới tất cả người dùng đang hoạt động", nút khóa trong lúc gửi (có thể mất vài giây với nhiều người dùng), kết quả hiện "Đã gửi tới N người dùng". Bỏ cảnh báo "chỉ người online thấy".
 3. **Giám sát vận hành** — API có sẵn `GET /api/v1/admin/operations` (trạng thái API/DB, uptime, `mailJobs` theo trạng thái, `recentFailures` 20 job lỗi gần nhất, `lastJobCompletedAt`).
    - Route `/admin/operations` hiện redirect về dashboard; dashboard không hiển thị các số liệu này.
    - UI: thẻ trạng thái + bảng job lỗi; ghi rõ "COMPLETED = nhà cung cấp email đã nhận, chưa chắc đã giao" (`mailDeliveryEvidence`).
@@ -1531,3 +1548,59 @@ Ba phần quản lý admin còn thiếu. Mục 1 cần backend làm trước; m�
 - Đã triển khai Mục tiêu nghỉ hưu (command backend riêng), Kế hoạch result/adjust/compare/history/report, popup AI, theo dõi thực tế + thay đổi tương lai, Thông báo, Cá nhân/cài đặt và Hỗ trợ. Giữ UI khảo sát/auth/ADMIN. Không dùng số mẫu, lưu giả hoặc áp dụng phiên bản khi chỉ thử.
 - Sửa chuỗi tiền/trống/0, revision tài khoản/tùy chọn, lọc/phân trang backend, mapper lưu reforecast, consent/history, xác nhận thao tác. Giữ nguồn/vay/tài sản và bất biến phiên bản cũ. Đổi email chuyển tới yêu cầu Hỗ trợ xác minh; kênh gửi chưa khả dụng được nêu đúng.
 - Backend 1189/1189 và 9 ca HTTP/OpenAPI-AJV đạt, types/generator ổn định; frontend20service/cache/tiền,85browser và5responsive+4report/reforecast kiểm lại đạt.111ảnh/manifest đã lưu; trạng thái cuối và lệnh chạy ở `docs/USER_UI_SYNC_PROGRESS.md`. Chỉ fixture local/memoryDb, chưa PostgreSQL/production/provider/email/deploy.
+
+## FE-DEMO-GAP-20261111 — đối chiếu 25 trang user với bản demo `sites/an-huu-trai-nghiem`
+
+Đối chiếu bằng mã nguồn và tài liệu `docs/chuc-nang-ban-demo` (chưa so ảnh/giao diện). Lõi tính toán khớp: demo dùng bản sao nguyên văn engine gốc; công thức lãi theo tháng, tiền gửi 3 hình thức, coupon tính trên mệnh giá và giỏ so sánh tối đa 3 sản phẩm đều khớp (tài liệu demo ghi "tối đa 4" là sai, mã demo giới hạn 3). Các điểm còn thiếu hoặc lệch:
+
+1. **Tiền dành cho việc khác mỗi tháng (`reservedMonthly`) — cần chủ sản phẩm quyết định trước.**
+   - Demo: `calculator.js:31` trừ khoản này khỏi khả năng góp quỹ hưu (`capacity = thu − chi − trả nợ − reservedMonthly`), có modal 48 và dòng hiển thị trong chọn mức góp.
+   - Bản chính: không có trường tương ứng ở profile v2, backend hay frontend. "Mục tiêu khác" hiện chỉ có mục tiêu một lần theo tháng cần tiền và nhu cầu thanh khoản 1/3/5 năm (`FE-USER-PLANNING-20261110`), nên `contributionCapacity` có thể cao hơn thực tế nếu người dùng cố định giữ lại tiền mỗi tháng.
+   - Cần chọn: (a) thêm trường vào profile v2 + engine + UI, hoặc (b) giữ mô hình mục tiêu một lần và ghi rõ trên UI. Chưa làm gì.
+2. **Khảo sát khoảng trống bảo hiểm (D.I.M.E, demo modal 57).** Chưa có ở bản chính (frontend lẫn backend). Mục BHXH hiện có là bảo hiểm xã hội, không phải bảo hiểm nhân thọ/sức khỏe. Cần quyết định có làm không; nếu làm cần backend (công thức, nguồn số liệu) trước.
+3. **Sắp xếp sản phẩm.** Demo sắp theo lợi suất cao nhất / mức tối thiểu / rủi ro / tên; bản chính chỉ có tên / rủi ro / ngày cập nhật vì `expectedReturn` là chuỗi, catalog chưa có trường số lợi suất hay mức tối thiểu. Cần backend thêm trường số trước khi UI có thể sắp xếp.
+4. **Nhắc việc định kỳ (demo: nhắc ghi nhận khoản góp ngày 25 hằng tháng).** Trang `/user/notifications` có tên "Nhắc việc định kỳ" nhưng backend chưa có job tạo nhắc nhở; `goalAlerts`, `emailDigest`, `partnerUpdates` đều `deliveryAvailable: false`. Hoặc backend thêm job + thông báo trong app, hoặc UI đổi tên/ghi rõ chưa có nhắc việc tự động.
+5. **Công cụ tiền gửi / trái phiếu thiếu vài chỉ số của demo** (UI + có thể bổ sung trường phản hồi từ `backend/src/modules/catalog/tools.ts`):
+   - Lãi suất thực nhận hằng năm (AER) khi chọn lãi kép.
+   - "Số lãi bị mất do rút trước hạn" so với giữ đến đáo hạn.
+   - Tỷ suất sinh lời khi bán trái phiếu trước hạn (HPY); hiện chỉ có lãi/lỗ tuyệt đối.
+6. **Nhập khoản nợ: cảnh báo sớm.** Demo chặn ngay khi tiền trả hằng tháng nhỏ hơn tiền lãi tháng (dư nợ × lãi suất / 12). Bản chính chỉ báo `PAYMENT_NOT_REDUCING_PRINCIPAL` ở trang phân tích nợ, không báo trong `DebtLoanDialog` khi lưu.
+
+Khác biệt có chủ đích, không cần sửa: vòng đời yêu cầu tư vấn dùng trạng thái ticket (`OPEN/IN_PROGRESS/RESOLVED/CLOSED`) thay `CREATED → PENDING_PARTNER → …`; gia đình chỉ ghi số người phụ thuộc, chi phí nuôi dưỡng khai thành khoản chi có tháng kết thúc (không tự tính theo tuổi độc lập); tab "Gợi ý theo kế hoạch" dùng đề xuất đã duyệt từ backend; các modal chỉ có ở bản thử (dữ liệu thử, đặt lại phiên, điều khoản bản thử, quản trị sản phẩm, đánh giá marketplace) không áp dụng cho bản chính.
+
+## FE-AI-ANSWER-20261111 — câu trả lời của Trợ lý AI (ĐÃ XONG 12/11/2026)
+
+> **Kết quả 12/11/2026:** `AiExplainResponse.answerSource` + kiểu `AiAnswerSource` (`services/ai.ts`); tin lịch sử lấy `context.response.answerSource`, thiếu thì coi là `SERVER_FACTS`. Ghi chú nguồn gom vào `answerNote` (`AIAssistantPage.tsx`): `APPROVED_EXCERPT` → "Trích từ tài liệu đã duyệt; trợ lý chưa diễn giải thêm." (kể cả khi Gemini gián đoạn, thay cho câu "dữ liệu hệ thống"). `facts` vẫn không hiển thị thành khối riêng. Trích đoạn dùng `.ai-citation-excerpt`: giữ xuống dòng, cao tối đa 220px, cuộn trong, nhận focus bằng Tab. Gợi ý nhanh: đủ tiền/góp thêm (kế hoạch), tuổi nghỉ hưu (BHXH), nhóm sản phẩm. Dòng báo chưa kết nối AI nay nói "số liệu kế hoạch và tài liệu đã duyệt". Kiểm: 2 ca mới trong `tests/assistant-detail-fixes.spec.ts`.
+
+Backend `POST /api/v1/me/ai/explain` giữ nguyên request. Response thêm trường bắt buộc `answerSource`; các trường khác không đổi. Hợp đồng: `backend/docs/ai.openapi.yaml`, giải thích: `backend/docs/AI_GOVERNANCE.md` (mục 11/11/2026).
+
+1. `frontend/src/services/ai.ts`: thêm `answerSource: "AI_COMPOSED" | "APPROVED_EXCERPT" | "SERVER_FACTS"` vào kiểu phản hồi; khi mở lại lịch sử lấy từ `context.response.answerSource` (tin cũ không có trường này: coi như `SERVER_FACTS`).
+2. `answer` là văn bản thuần, có đoạn cách nhau một dòng trống và gạch đầu dòng `- `. Giữ cách hiển thị hiện tại (`white-space: pre-wrap`); không render markdown/HTML từ `answer`.
+3. Ghi chú dưới câu trả lời: `APPROVED_EXCERPT` → "Trích từ tài liệu đã duyệt; trợ lý chưa diễn giải thêm." Giữ hai ghi chú hiện có theo `status` (Gemini gián đoạn / chưa kết nối). `AI_COMPOSED` không cần ghi chú riêng.
+4. Khi `AI_COMPOSED`, phần lưu ý bắt buộc và danh sách sản phẩm đã nằm sẵn trong `answer`; đừng hiển thị thêm `facts` thành một khối trùng lặp.
+5. `citations[].excerpt` nay là cả một điều luật hoặc một mục hướng dẫn, dài tới 2.400 ký tự và bắt đầu bằng tiêu đề điều. Giữ khối "Tài liệu được dùng" thu gọn; trong mỗi trích đoạn nên giới hạn chiều cao và cho cuộn, giữ xuống dòng. `citations[].id` có dạng `<uuid>:<số>`; chỉ dùng làm key.
+6. Màn đồng ý xử lý dữ liệu: hiển thị nguyên `processingNotice` từ API (đã nêu thêm tóm tắt lọc sản phẩm theo hồ sơ). Không tự viết lại nội dung này ở frontend.
+7. Gợi ý câu hỏi nhanh nên có đủ ba nhóm mà trợ lý trả lời tốt: đọc kết quả kế hoạch ("Kế hoạch của tôi có ổn không?"), lương hưu và BHXH ("Tuổi nghỉ hưu của tôi là bao nhiêu?"), chọn nhóm sản phẩm ("Tôi nên chọn nhóm sản phẩm nào?"). Câu hỏi sản phẩm cho kết quả sát hồ sơ hơn khi gửi kèm `planId`/`versionId` của bản đang áp dụng (trang đã gửi khi có).
+8. Kiểm tra: câu hỏi kiến thức khi chưa có kế hoạch không còn hiện "Chưa chọn phiên bản kế hoạch"; câu hỏi "nên đầu tư sản phẩm nào" có danh sách theo từng mức rủi ro và câu "không phải khuyến nghị đầu tư cá nhân"; thời gian chờ có thể tới khoảng 7 giây nên giữ trạng thái đang trả lời.
+
+## FE-AI-POLICY-20261111 — phiên bản điều khoản AI mới (ĐÃ XONG 12/11/2026)
+
+> **Kết quả 12/11/2026:** khi `reconsentRequired=true` (hoặc bản đã đồng ý khác bản hiện hành), hộp Quyền riêng tư thêm một dòng cảnh báo "Nội dung xử lý của trợ lý đã thay đổi…" phía trên nguyên văn `processingNotice`; không tự gửi đồng ý; vẫn đóng hộp và mở Lịch sử chat được. Lần chọn đầu (`processing=false`) không hiện dòng này. Mock `tests/helpers.ts`, `tests/visual-evidence.spec.ts`, `scripts/actuals-and-ai.test.mjs` đã đổi sang `ai-explanation-gemini-2026-11-v3`.
+
+Backend đổi `AI_POLICY_VERSION` thành `ai-explanation-gemini-2026-11-v3`. `PUT /api/v1/me/ai/privacy` chỉ nhận đúng giá trị này; consent `ai-explanation-gemini-2026-10-v2` nhận `reconsentRequired=true` ở `GET /privacy` và `AI_CONSENT_REQUIRED` (403) ở `/explain`, `POST /conversations`.
+
+1. ĐÃ XONG 11/11/2026 (backend sửa theo yêu cầu của chủ dự án): `frontend/src/services/ai.ts` dòng `AI_POLICY_VERSION`: đổi hằng dự phòng sang `ai-explanation-gemini-2026-11-v3`. Trang trợ lý đã ưu tiên `privacy.policyVersion` từ API nên luồng đồng ý lại hiện tại vẫn chạy; hằng này chỉ dùng khi API không trả phiên bản.
+2. Khi `reconsentRequired=true`: hiện lại hộp đồng ý với nguyên văn `processingNotice` mới và một dòng cho biết nội dung xử lý đã thay đổi; không tự gửi đồng ý thay người dùng. Lịch sử hội thoại cũ vẫn mở xem được trong lúc chưa đồng ý lại.
+3. Mock trong `frontend/tests/helpers.ts`, `frontend/tests/visual-evidence.spec.ts` và `frontend/scripts/actuals-and-ai.test.mjs` còn dùng `ai-explanation-2026-10-v1`; cập nhật theo phiên bản mới khi sửa các test đó.
+4. `backend/scripts/verify-frontend-wire.cjs` lấy phiên bản từ `frontend/src/services/ai.ts`, nên sẽ báo lỗi bước privacy cho tới khi xong mục 1.
+
+## FE-DEMO-GAP-20261111 — kết quả xử lý (11/11/2026)
+
+1. **Tiền giữ riêng mỗi tháng — đã có sẵn, không làm thêm.** Đối chiếu trước đó nhầm: `selection.monthlyReserve` (retirement schema) đã được engine trừ khỏi `contributionCapacity` trước tuổi hưu, và `FinancialCashflowPage` đã có hộp thoại nhập (tương đương demo modal 48).
+2. **Khoảng trống bảo hiểm D.I.M.E — đã làm.** `POST /api/v1/me/product-tools/protection/preview` (USER, chỉ đọc): `{outstandingDebt, monthlyIncomeToReplace, replacementYears 1–40, educationNeed, otherNeeds?, liquidAssets, existingCoverage}` → `components`, `grossNeed`, `liquidAssetsOffset`, `protectionNeed`, `protectionGap`, `surplusCoverage` (không âm). UI: `ProtectionGapDialog`, nút "Khoảng trống bảo hiểm" ở `/user/explore`, điền sẵn dư nợ/thu nhập/quỹ dự phòng từ tóm tắt hồ sơ.
+3. **Sắp xếp theo lợi suất / mức tối thiểu — đã làm, migration CHƯA apply.** Migration `202611110001_product_numeric_terms` thêm `partner_products.referenceYieldPercent DECIMAL(9,4)` và `minimumAmount DECIMAL(20,2)` (nullable, có CHECK). `productInput` nhận 2 trường chuỗi số tùy chọn (bỏ qua = giữ nguyên, null = xóa); `sortBy` thêm `referenceYieldPercent`/`minimumAmount`, sản phẩm chưa khai luôn xếp cuối. Admin nhập ở form sản phẩm; chi tiết sản phẩm hiện mức tối thiểu khi có. **Phải chạy `prisma migrate deploy` trên DB trước khi deploy backend**, nếu không truy vấn sản phẩm sẽ lỗi thiếu cột.
+4. **Nhắc việc định kỳ — đã làm.** `backend/src/jobs/reminders.ts`, worker chạy mỗi giờ: từ ngày 25 (giờ VN) đến cuối tháng tạo 1 thông báo trong app (`/user/simulation`) cho USER ACTIVE đã bật `goalAlerts`, có kế hoạch chính và chưa ghi nhận tháng đó; id cố định theo user+tháng nên không trùng. Không gửi email. `deliveryAvailable.goalAlerts` giờ là `true`; trang Tài khoản ghi rõ cách nhắc.
+5. **Công cụ tiền gửi/trái phiếu — đã làm.** Thêm `effectiveAnnualRatePercent`, `early.forgoneInterest`, `sale.holdingPeriodReturnPercent`, `sale.annualizedReturnPercent`, hiển thị trong `ProductToolsDialog`.
+6. **Cảnh báo trả nợ < lãi — đã làm** trong `DebtLoanDialog` (khoản trả hằng tháng, có lãi suất minh họa).
+
+Kiểm: backend 1213/1213, typecheck backend/frontend, frontend assets 109/109, browser Sản phẩm 17/17 + 3 ca mới (`user-products-tools-extra.spec.ts`). Chưa apply migration lên DB thật, chưa commit.
