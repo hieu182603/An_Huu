@@ -384,7 +384,7 @@ export function AdminUsersPage() {
             totalPages={totalPages}
             totalItems={data.total}
             pageSize={pageSize}
-            pageSizeOptions={[10, 20, 50, 100]}
+            pageSizeOptions={[5, 10, 20, 50, 100]}
             onPageChange={(p) => setPage(p)}
             onPageSizeChange={(s) => {
               setPageSize(s);
