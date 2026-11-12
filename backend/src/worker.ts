@@ -14,7 +14,7 @@ async function main() {
     ? new (await import("./jobs/azure")).AzureEventQueue(config.AZURE_SERVICE_BUS_NAMESPACE!, config.AZURE_SERVICE_BUS_QUEUE) : null;
   const subscription = queue?.subscribe(id => processor.process(id));
   let stopped = false;
-  let nextAiPurge = 0;
+  let nextAiPurge = 0, nextReminder = 0;
   const stop = () => { stopped = true; };
   process.once("SIGTERM", stop); process.once("SIGINT", stop);
   log("info", "worker.started");
@@ -29,6 +29,14 @@ async function main() {
               eligible: result.eligible, deleted: result.deleted, remaining: result.remaining, batches: result.batches });
           }
           catch { log("error", "worker.error", { code: "AI_RETENTION_FAILED" }); }
+        }
+        if (Date.now() >= nextReminder) {
+          nextReminder = Date.now() + 3600000;
+          try {
+            const result = await (await import("./jobs/reminders")).runMonthlyReminders(prisma);
+            if (result.created) log("info", "reminders.created", { code: "MONTHLY_CHECKIN", created: result.created });
+          }
+          catch { log("error", "worker.error", { code: "REMINDERS_FAILED" }); }
         }
         for (const event of await processor.pending()) {
           if (stopped) break;

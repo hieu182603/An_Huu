@@ -19,7 +19,7 @@ describe("T11 secondary modules", () => {
     const f = memoryDb(), s = new CatalogService(f.db);
     expect(await s.settings("one")).toMatchObject({ revision: 0, emailDigest: false, partnerUpdates: false });
     await s.saveSettings("one", preference);
-    expect(await new CatalogService(f.db).settings("one")).toMatchObject({ revision: 1, emailDigest: true, deliveryAvailable: { emailDigest: false }, securityAndSupportRequired: true });
+    expect(await new CatalogService(f.db).settings("one")).toMatchObject({ revision: 1, emailDigest: true, deliveryAvailable: { emailDigest: false, goalAlerts: true }, securityAndSupportRequired: true });
     expect(await s.settings("two")).toMatchObject({ revision: 0, emailDigest: false });
     await expect(s.saveSettings("one", preference)).rejects.toMatchObject({ code: "REVISION_CONFLICT" });
     expect(f.rows("outboxEvent")).toHaveLength(0);

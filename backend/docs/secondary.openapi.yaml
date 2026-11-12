@@ -75,6 +75,22 @@ ProductInput:
         - LOW
         - MEDIUM
         - HIGH
+    referenceYieldPercent:
+      anyOf:
+        - type: string
+          pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,4})?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    minimumAmount:
+      anyOf:
+        - type: string
+          pattern: ^(0|[1-9]\d{0,17})(\.\d{1,2})?$
+        - type: object
+          nullable: true
+          enum:
+            - null
     description:
       anyOf:
         - type: string
@@ -112,6 +128,15 @@ ProductInput:
             - null
     isVisible:
       type: boolean
+    imageUrl:
+      anyOf:
+        - type: string
+          format: uri
+          maxLength: 2000
+        - type: object
+          nullable: true
+          enum:
+            - null
   required:
     - partnerId
     - name
@@ -210,6 +235,22 @@ ProductUpdate:
         riskLevel:
           type: string
           enum: *a2
+        referenceYieldPercent:
+          anyOf:
+            - type: string
+              pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,4})?$
+            - type: object
+              nullable: true
+              enum:
+                - null
+        minimumAmount:
+          anyOf:
+            - type: string
+              pattern: ^(0|[1-9]\d{0,17})(\.\d{1,2})?$
+            - type: object
+              nullable: true
+              enum:
+                - null
         description:
           anyOf:
             - type: string
@@ -247,6 +288,15 @@ ProductUpdate:
                 - null
         isVisible:
           type: boolean
+        imageUrl:
+          anyOf:
+            - type: string
+              format: uri
+              maxLength: 2000
+            - type: object
+              nullable: true
+              enum:
+                - null
       required:
         - partnerId
         - name
@@ -388,6 +438,8 @@ ProductWritten:
     - name
     - category
     - expectedReturn
+    - referenceYieldPercent
+    - minimumAmount
     - riskLevel
     - description
     - annualFee
@@ -403,34 +455,50 @@ ProductWritten:
     name: *a4
     category: *a4
     expectedReturn: *a4
-    riskLevel: &a12
+    referenceYieldPercent: &a12
+      anyOf:
+        - type: string
+          pattern: ^-?[0-9]+(.[0-9]+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    minimumAmount: &a13
+      anyOf:
+        - type: string
+          pattern: ^[0-9]+(.[0-9]+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    riskLevel: &a14
       type: string
       enum:
         - LOW
         - MEDIUM
         - HIGH
-    description: &a13
+    description: &a15
       anyOf:
         - *a4
         - type: object
           nullable: true
           enum:
             - null
-    annualFee: &a14
+    annualFee: &a16
       anyOf:
         - *a4
         - type: object
           nullable: true
           enum:
             - null
-    conditions: &a15
+    conditions: &a17
       anyOf:
         - *a4
         - type: object
           nullable: true
           enum:
             - null
-    disclosure: &a16
+    disclosure: &a18
       anyOf:
         - *a4
         - type: object
@@ -450,6 +518,8 @@ Product:
     - name
     - category
     - expectedReturn
+    - referenceYieldPercent
+    - minimumAmount
     - riskLevel
     - description
     - annualFee
@@ -465,11 +535,13 @@ Product:
     name: *a4
     category: *a4
     expectedReturn: *a4
-    riskLevel: *a12
-    description: *a13
-    annualFee: *a14
-    conditions: *a15
-    disclosure: *a16
+    referenceYieldPercent: *a12
+    minimumAmount: *a13
+    riskLevel: *a14
+    description: *a15
+    annualFee: *a16
+    conditions: *a17
+    disclosure: *a18
     isVisible: *a5
     revision: *a9
     updatedAt: *a10
@@ -509,7 +581,7 @@ Settings:
         goalAlerts:
           type: boolean
           enum:
-            - false
+            - true
         partnerUpdates:
           type: boolean
           enum:
