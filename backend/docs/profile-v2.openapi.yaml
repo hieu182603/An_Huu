@@ -1159,6 +1159,40 @@ FinancialDataV2:
         - endMonth
         - monthlyExpenseToday
         - lifestylePriority
+    retirementSurvey:
+      type: object
+      additionalProperties: false
+      properties:
+        policyVersionId:
+          type: string
+          minLength: 1
+          maxLength: 191
+        monthlyExpenseToday:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        answers:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              questionId:
+                type: string
+                minLength: 1
+                maxLength: 191
+              choiceId:
+                type: string
+                minLength: 1
+                maxLength: 191
+            required:
+              - questionId
+              - choiceId
+          minItems: 1
+          maxItems: 100
+      required:
+        - policyVersionId
+        - monthlyExpenseToday
+        - answers
   required:
     - schemaVersion
     - valuationDate
@@ -1802,6 +1836,40 @@ ProfileChangesV2:
         - endMonth
         - monthlyExpenseToday
         - lifestylePriority
+    retirementSurvey:
+      type: object
+      additionalProperties: false
+      properties:
+        policyVersionId:
+          type: string
+          minLength: 1
+          maxLength: 191
+        monthlyExpenseToday:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        answers:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              questionId:
+                type: string
+                minLength: 1
+                maxLength: 191
+              choiceId:
+                type: string
+                minLength: 1
+                maxLength: 191
+            required:
+              - questionId
+              - choiceId
+          minItems: 1
+          maxItems: 100
+      required:
+        - policyVersionId
+        - monthlyExpenseToday
+        - answers
   required:
     - schemaVersion
 SummaryV2:

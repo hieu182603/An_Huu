@@ -192,3 +192,24 @@ describe("T01 profile persistence and HTTP boundaries (offline database)", () =>
     expect(validateSession).toHaveBeenCalled();
   });
 });
+
+
+describe("durable initial retirement survey",()=>{
+ const retirementSurvey={policyVersionId:"policy-from-survey",monthlyExpenseToday:"0",answers:[{questionId:"Q_RISK",choiceId:"HOLD"}]};
+ it("retains exact survey choices and zero spending across completion, profile edits and reload",async()=>{
+  const f=memoryDb(),service=new ProfileService(f.db);
+  await service.saveDraft("owner",0,"summary",{...fixtureProfile(),retirementSurvey});
+  await service.complete("owner",{expectedDraftRevision:1,expectedProfileRevision:0},randomUUID());
+  await service.patchProfile("owner",1,{schemaVersion:2,income:unknown});
+  const loaded=await new ProfileService(f.db).getProfile("owner");
+  expect(loaded?.data).toMatchObject({retirementSurvey});
+  expect(loaded?.data).not.toHaveProperty("retirementGoal");
+  expect((await service.getProfile("other"))).toBeNull();
+ });
+ it("does not create missing answers or accept duplicate questions and invalid money",()=>{
+  expect(profileV2Schema.parse(fixtureProfile())).not.toHaveProperty("retirementSurvey");
+  expect(profileV2Schema.safeParse({...fixtureProfile(),retirementSurvey:{...retirementSurvey,answers:[]}}).success).toBe(false);
+  expect(profileV2Schema.safeParse({...fixtureProfile(),retirementSurvey:{...retirementSurvey,answers:[...retirementSurvey.answers,...retirementSurvey.answers]}}).success).toBe(false);
+  expect(profileV2Schema.safeParse({...fixtureProfile(),retirementSurvey:{...retirementSurvey,monthlyExpenseToday:"-1"}}).success).toBe(false);
+ });
+});

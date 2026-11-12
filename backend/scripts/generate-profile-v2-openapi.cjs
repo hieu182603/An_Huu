@@ -18,7 +18,7 @@ const debt = require("../src/modules/profiles/schema-v2").debtEntrySchema;
 // PartialDebtEntry shares DebtEntry's properties anchor.
 doc.setIn(["DebtEntry", "properties", "illustration"], schema(debt.shape.illustration));
 for (const [name, shape] of [["FinancialDataV2", profileV2Object.shape], ["ProfileChangesV2", partialProfileV2Object.shape]]) {
-  for (const key of ["lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals", "retirementGoal"])
+  for (const key of ["lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals", "retirementGoal", "retirementSurvey"])
     doc.setIn([name, "properties", key], schema(shape[key]));
 }
 fs.writeFileSync(file, String(doc));
