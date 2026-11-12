@@ -14,6 +14,7 @@
     "retention:run": "node dist/retention.js --execute",
     "db:seed": "node scripts/seed.cjs",
     "admin:bootstrap": "node scripts/bootstrap-admin.cjs",
+    "admin:grant-system-admin": "node scripts/bootstrap-system-admin.cjs",
     "legal:corpus:check": "node scripts/generate-legal-corpus.cjs --check && vitest run src/tests/legal-corpus.test.ts --maxWorkers=2",
     "test:local-db": "node scripts/test-local-db.cjs",
     "prisma:generate": "prisma generate",

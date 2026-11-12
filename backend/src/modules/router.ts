@@ -24,7 +24,8 @@ import { catalogRouter } from "./catalog/router";
 import { notificationSettingsInput } from "./catalog/schema";
 import { consultationLimiter } from "../middlewares/rateLimiter";
 import { OperationsService, auditQuery } from "./operations/service";
-import { SocketService } from "../services/socketService";
+import { NotificationBroadcastService, broadcastInput } from "./community/broadcast";
+import { InvestmentRolesService, investmentRoleChange } from "./users/investment-roles";
 
 import { ProfileService } from "./profiles/service";
 import { DebtService } from "./debts/service";
@@ -60,12 +61,12 @@ import { assetPatchSchema } from "./profiles/asset-commands";
 import { debtPatchSchema } from "./profiles/debt-commands";
 import { pensionPatchSchema } from "./profiles/pension-commands";
 import { familyPatchSchema } from "./profiles/family";
-import { depositInput, depositPreview, bondInput, bondPreview } from "./catalog/tools";
+import { depositInput, depositPreview, bondInput, bondPreview, protectionInput, protectionPreview } from "./catalog/tools";
 import { planningPatchSchema } from "./profiles/planning";
 import type { ExplanationsService } from "./explanations/service";
 import { explanationsRouter } from "./explanations/router";
 
-export type Services = { recommendations?: RecommendationService; holdings?: HoldingsRepository; explanations?: ExplanationsService; marketData?: MarketDataService; allocationRisk?: AllocationRiskService; auth: AuthService; profiles: ProfileService; pensionEstimates?: PensionEstimateService; insuranceHistory?: InsuranceHistoryService; legalRules?: LegalRulesService; catalog?: CatalogService; ai?: AiService; knowledge?: KnowledgeService; actuals?: ActualsService; plans?: PlansService; debts?: DebtService; pensions?: PensionsService; retirement?: RetirementService; assumptions?: AssumptionsService; portfolios?: PortfoliosService; users?: UsersService; content?: ContentService; community?: CommunityService; operations?: OperationsService; settings?: SystemSettingsService };
+export type Services = { recommendations?: RecommendationService; holdings?: HoldingsRepository; explanations?: ExplanationsService; marketData?: MarketDataService; allocationRisk?: AllocationRiskService; auth: AuthService; profiles: ProfileService; pensionEstimates?: PensionEstimateService; insuranceHistory?: InsuranceHistoryService; legalRules?: LegalRulesService; catalog?: CatalogService; ai?: AiService; knowledge?: KnowledgeService; actuals?: ActualsService; plans?: PlansService; debts?: DebtService; pensions?: PensionsService; retirement?: RetirementService; assumptions?: AssumptionsService; portfolios?: PortfoliosService; users?: UsersService; investmentRoles?: InvestmentRolesService; broadcasts?: NotificationBroadcastService; content?: ContentService; community?: CommunityService; operations?: OperationsService; settings?: SystemSettingsService };
 export function sessionGuard(auth: AuthService): RequestHandler {
   return asyncHandler(async (req: AuthenticatedRequest, res, next) => {
     if (!req.user) throw new AppError(401, "UNAUTHENTICATED", "Yêu cầu đăng nhập.");
@@ -125,12 +126,16 @@ export function createApiRouter(services: Services, config: AppConfig) {
   if (services.settings) {
     router.use("/admin/settings", ...authenticated, requireRole("ADMIN"), settingsRouter(services.settings));
   }
-  router.post("/admin/notifications/broadcast", ...authenticated, requireRole("ADMIN"), asyncHandler(async (req: AuthenticatedRequest, res) => {
-    const title = typeof req.body?.title === "string" && req.body.title.trim() ? req.body.title.trim() : "Thông báo toàn hệ thống (Broadcast)";
-    const message = typeof req.body?.message === "string" && req.body.message.trim() ? req.body.message.trim() : "Quản trị viên đã phát đi bản tin cập nhật tham số vận hành.";
-    SocketService.broadcast("notification:broadcast", { title, message, timestamp: new Date().toISOString() });
-    sendData(res, { broadcasted: true, title, message });
-  }));
+  router.post("/admin/notifications/broadcast", ...authenticated, requireRole("ADMIN"), validate(broadcastInput), asyncHandler(async (req: AuthenticatedRequest, res) =>
+    sendData(res, await services.broadcasts!.broadcast(req.user!.userId, req.body, req.get("Idempotency-Key")))));
+  if (services.investmentRoles) {
+    const roles = services.investmentRoles, userParam = (id: unknown) => z.string().uuid().parse(id);
+    router.use("/admin/investment-roles", ...authenticated, requireRole("ADMIN"), (_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
+    router.get("/admin/investment-roles", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await roles.list(req.user!.userId))));
+    router.get("/admin/investment-roles/:userId", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await roles.detail(req.user!.userId, userParam(req.params.userId)))));
+    router.post("/admin/investment-roles/:userId/grant", validate(investmentRoleChange), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await roles.grant(req.user!.userId, userParam(req.params.userId), req.body))));
+    router.post("/admin/investment-roles/:userId/revoke", validate(investmentRoleChange), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await roles.revoke(req.user!.userId, userParam(req.params.userId), req.body))));
+  }
   const uuidParam = (id: unknown) => z.string().uuid().parse(id);
   const listParams = (query: unknown) => listQuery.parse(query);
   const mediaReady: RequestHandler = (_req, _res, next) => [process.env.CLOUDINARY_CLOUD_NAME, process.env.CLOUDINARY_API_KEY, process.env.CLOUDINARY_API_SECRET].every(Boolean)
@@ -226,6 +231,7 @@ export function createApiRouter(services: Services, config: AppConfig) {
   router.post("/me/notifications/:id/read", validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.readNotification(req.user!.userId, uuidParam(req.params.id)))));
   router.post("/me/product-tools/deposit/preview", requireRole("USER"), validate(depositInput), asyncHandler(async (req, res) => sendData(res, depositPreview(req.body))));
   router.post("/me/product-tools/bond/preview", requireRole("USER"), validate(bondInput), asyncHandler(async (req, res) => sendData(res, bondPreview(req.body))));
+  router.post("/me/product-tools/protection/preview", requireRole("USER"), validate(protectionInput), asyncHandler(async (req, res) => sendData(res, protectionPreview(req.body))));
   router.get("/me/saved-products", requireRole("USER"), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.savedProducts(req.user!.userId))));
   router.put("/me/saved-products/:id", requireRole("USER"), validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.saveProduct(req.user!.userId, uuidParam(req.params.id), true))));
   router.delete("/me/saved-products/:id", requireRole("USER"), validate(emptySchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await services.community!.saveProduct(req.user!.userId, uuidParam(req.params.id), false))));
