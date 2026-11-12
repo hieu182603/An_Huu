@@ -2,8 +2,6 @@ import "./user-readability.css";
 import "./user-demo-theme.css";
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
-import logoMark from "../assets/logo-mark.webp";
-import logoFull from "../assets/logo.webp";
 import { Avatar, BrandLogo, Drawer, Icon, Tooltip, type IconName } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
@@ -174,35 +172,31 @@ export default function UserLayout() {
   return (
     <div className={`user-dashboard-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
       {/* Sidebar */}
-      <aside className={`user-sidebar ${collapsed ? "is-collapsed" : ""}`} aria-label={t("nav.main_navigation")}>
-        <div className="sidebar-brand">
+      {/* Sidebar shares the admin sidebar classes (admin-sidebar / admin-nav) so both areas look the same. */}
+      <aside className={`user-sidebar admin-sidebar ${collapsed ? "is-collapsed" : ""}`} aria-label={t("nav.main_navigation")}>
+        <div className="admin-sidebar-brand">
           <Link
             to="/user/dashboard"
-            className="brand-button"
+            className={`dashboard-brand ${collapsed ? "is-compact" : ""}`}
             aria-label={language === "en" ? "An Huu — Overview" : "An Hưu — Tổng quan"}
           >
-            {collapsed ? (
-              <img className="logo-mark" src={logoMark} alt="An Hưu" width="30" height="30" />
-            ) : (
-              <img className="logo" src={logoFull} alt="An Hưu — Lập kế hoạch hôm nay, cho an yên ngày mai" width="124" height="41" />
-            )}
+            <div className={`dashboard-brand ${collapsed ? "is-compact" : ""}`}>
+              <BrandLogo compact={collapsed} inverted />
+            </div>
           </Link>
           <button
             type="button"
-            className="sidebar-collapse"
+            className="admin-sidebar-toggle-btn"
             aria-label={collapsed ? (language === "en" ? "Expand navigation" : "Mở rộng thanh điều hướng") : (language === "en" ? "Collapse navigation" : "Thu gọn thanh điều hướng")}
             title={collapsed ? (language === "en" ? "Expand navigation" : "Mở rộng thanh điều hướng") : (language === "en" ? "Collapse navigation" : "Thu gọn thanh điều hướng")}
             aria-expanded={!collapsed}
             onClick={() => setCollapsed(!collapsed)}
           >
-            <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <path d="M9 4v16m6-12-3 4 3 4" />
-            </svg>
+            <Icon name={collapsed ? "panel-right" : "panel-left"} size="small" />
           </button>
         </div>
 
-        <nav>
+        <nav className="admin-nav">
           {navGroups.map(group => (
             <div className="sidebar-group" key={group.label}>
               {!collapsed && <div className="sidebar-label">{group.label}</div>}
@@ -258,8 +252,8 @@ export default function UserLayout() {
 
       {/* Main Workspace */}
       <div className="dashboard-workspace">
-        <header className="user-topbar">
-          <div className="user-mobile-brand">
+        <header className="user-topbar admin-topbar">
+          <div className="user-mobile-brand admin-mobile-brand">
             <button
               className="icon-button"
               type="button"
@@ -270,8 +264,8 @@ export default function UserLayout() {
             >
               <Icon name="grid" />
             </button>
-            <Link to="/user/dashboard" aria-label={language === "en" ? "An Huu: Overview" : "An Hưu: Tổng quan"}>
-              <BrandLogo compact />
+            <Link to="/user/dashboard" className="dashboard-brand is-compact" aria-label={language === "en" ? "An Huu: Overview" : "An Hưu: Tổng quan"}>
+              <BrandLogo compact inverted />
             </Link>
           </div>
 
@@ -318,9 +312,8 @@ export default function UserLayout() {
               avatarUrl={user?.avatarUrl}
               onLogout={() => { setLogoutError(""); setLogoutOpen(true); }}
               menuItems={[
-                { label: t("topbar.profile"), icon: "users", onClick: () => navigate("/user/account") },
-                { label: t("topbar.settings"), icon: "settings", onClick: () => navigate("/user/account?tab=settings") },
-                { label: language === "en" ? "Advanced account details" : "Thông tin tài khoản nâng cao", icon: "users", onClick: () => openAccountModal("profile") },
+                { label: t("topbar.profile"), icon: "users", onClick: () => openAccountModal("profile") },
+                { label: t("topbar.settings"), icon: "settings", onClick: () => openAccountModal("settings") },
                 { label: language === "en" ? "Explain figures" : "Giải thích số liệu", icon: "info", onClick: () => setExplainMode(value => !value) },
                 { label: t("topbar.export_plan"), icon: "download", onClick: () => openAccountModal("export") },
               ]}
@@ -389,7 +382,7 @@ export default function UserLayout() {
         <div style={{ padding: "12px 16px" }}>
           <LanguageSwitcher variant="select" />
         </div>
-        <nav className="mobile-navigation" aria-label={language === "en" ? "All user features" : "Tất cả chức năng User"}>
+        <nav className="mobile-navigation admin-nav" aria-label={language === "en" ? "All user features" : "Tất cả chức năng User"}>
           {drawerGroups.map(group => <section className="user-drawer-group" key={group.label}><h3>{group.label}</h3>{group.items.map(item => <NavLink key={item.path} to={item.path} {...routeIntent(item.path)} onClick={() => setMobileMenuOpen(false)} className={isDrawerActive(item.path) ? "is-active" : ""} aria-current={isDrawerActive(item.path) ? "page" : false}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}</section>)}
         </nav>
         <button type="button" className="drawer-profile-progress" onClick={() => { setMobileMenuOpen(false); setProgressOpen(true); }}>{language === "en" ? "Profile completion" : "Hoàn thiện hồ sơ"} · {completedGroups}/5</button>

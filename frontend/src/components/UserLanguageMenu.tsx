@@ -16,7 +16,7 @@ export default function UserLanguageMenu() {
     return () => { document.removeEventListener("mousedown", outside); document.removeEventListener("keydown", escape); };
   }, [open]);
   return <div className="user-language-menu" ref={root} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
-    <button type="button" ref={trigger} className="user-language-trigger" aria-label={language === "en" ? "Choose language" : "Chọn ngôn ngữ"} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)}>{language.toUpperCase()}<Icon name="chevron-down" /></button>
+    <button type="button" ref={trigger} className="anhuu-lang-toggle-btn" aria-label={language === "en" ? "Choose language" : "Chọn ngôn ngữ"} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)}><Icon name="globe" className="lang-globe-icon" /><span className="lang-code-badge">{language.toUpperCase()}</span></button>
     {open && <div className="user-language-options" role="menu" aria-label={language === "en" ? "Language" : "Ngôn ngữ"} onKeyDown={event => {
       const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
       const current = buttons.indexOf(document.activeElement as HTMLButtonElement);

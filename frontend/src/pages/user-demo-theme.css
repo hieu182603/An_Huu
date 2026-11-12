@@ -18,8 +18,6 @@
   --demo-muted: #456B91;
   --demo-soft: #E8F2FE;
   --demo-border: #D0E4FE;
-  --sidebar-width: 252px;
-  --sidebar-collapsed: 78px;
   font-family: "Be Vietnam Pro", system-ui, sans-serif;
   line-height: 1.65;
   color: var(--demo-navy);
@@ -30,361 +28,258 @@
 .user-dashboard-shell select,
 .user-dashboard-shell textarea { font-family: inherit; }
 
-/* ---------- Sidebar: Demo Aligned Signature Luxury ---------- */
-.user-dashboard-shell .user-sidebar {
-  width: var(--sidebar-width);
-  padding: 24px 16px 16px;
-  background: #071e40;
-  color: #d2ddec;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+/* ---------- Navigation: shared with the admin area ----------
+ * UserLayout tags the sidebar and header with the admin classes
+ * (admin-sidebar, admin-sidebar-brand, admin-sidebar-toggle-btn, admin-nav,
+ * admin-topbar, admin-mobile-brand), so colours, sizes, the active fillet,
+ * hover, collapse and the mobile header come from the admin rules in index.css.
+ * This block only styles user-only pieces (group labels, AI badge, profile
+ * progress, search trigger, AI shortcut) and outranks older user-scoped rules
+ * (user-readability.css, user-workspace-dialogs.css, responsive.css) that would
+ * otherwise pull the navigation away from the admin look. */
+.user-dashboard-shell .user-sidebar,
+.user-dashboard-shell .user-topbar {
+  font-family: Inter, "Be Vietnam Pro", system-ui, sans-serif;
+  line-height: 1.5;
 }
-.user-dashboard-shell .user-sidebar::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
+.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { font-size: 13.5px; }
 
-/* Brand header lockup */
-.user-dashboard-shell .sidebar-brand {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 4px 32px;
-  min-height: 44px;
-}
-.user-dashboard-shell .sidebar-brand .brand-button {
-  margin: 0;
-  background: #ffffff;
-  border-radius: 10px;
-  padding: 5px 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  border: 0;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  transition: opacity 0.15s ease;
-}
-.user-dashboard-shell .sidebar-brand .brand-button:hover {
-  opacity: 0.92;
-}
-.user-dashboard-shell .sidebar-brand .brand-button.compact {
-  padding: 6px;
-  border-radius: 8px;
-}
-.user-dashboard-shell .sidebar-brand .logo {
-  width: 124px;
-  height: auto;
-  display: block;
-}
-.user-dashboard-shell .sidebar-brand .logo-mark {
-  width: 26px;
-  height: 26px;
-  display: block;
-}
-.user-dashboard-shell .sidebar-collapse {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.04);
-  color: #c6d7ed;
-  border-radius: 9px;
-  width: 34px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.15s ease;
-}
-.user-dashboard-shell .sidebar-collapse:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.25);
-}
-.user-dashboard-shell .sidebar-collapse .icon {
-  width: 16px;
-  height: 16px;
-}
-
-/* Nav groups & labels */
-.user-dashboard-shell .user-sidebar nav {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 0;
-}
-.user-dashboard-shell .sidebar-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.user-dashboard-shell .sidebar-group + .sidebar-group {
-  margin-top: 24px;
-}
-.user-dashboard-shell .sidebar-label {
-  color: #879fbe;
-  font-size: 10px;
+/* Group labels: the admin palette, readable on the navy gradient. */
+.user-dashboard-shell .user-sidebar .sidebar-group { display: grid; gap: 6px; }
+.user-dashboard-shell .user-sidebar .sidebar-group + .sidebar-group { margin-top: var(--space-4); }
+.user-dashboard-shell .user-sidebar.is-collapsed .sidebar-group + .sidebar-group { margin-top: var(--space-3); }
+.user-dashboard-shell .user-sidebar .sidebar-label {
+  margin: 0 0 2px;
+  padding: 0 var(--space-4);
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 1.2px;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
   text-transform: uppercase;
-  padding: 0 14px;
-  margin-bottom: 8px;
-  line-height: 1.3;
 }
 
-/* Nav links */
-.user-dashboard-shell .user-sidebar nav a {
-  position: relative;
-  min-height: 46px;
-  padding: 12px 14px;
-  gap: 12px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #c8d7eb;
-  line-height: 1.3;
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-  transition: background 0.15s ease, color 0.15s ease;
-  border: 1px solid transparent;
-}
-.user-dashboard-shell .user-sidebar nav a .icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  color: #879fbe;
-  transition: color 0.15s ease;
-}
-
-/* Inactive hover */
-.user-dashboard-shell .user-sidebar nav a:hover:not(.is-active) {
-  background: rgba(255, 255, 255, 0.05);
-  color: #ffffff;
-  transform: none;
-}
-.user-dashboard-shell .user-sidebar nav a:hover:not(.is-active) .icon {
-  color: #ffffff;
-}
-
-/* Active item: Signature White-Ice Pill from Demo */
-.user-dashboard-shell .user-sidebar nav a.is-active {
-  background: #e7f0fc;
-  color: #082550;
-  font-weight: 600;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  padding: 12px 14px;
-}
-.user-dashboard-shell .user-sidebar nav a.is-active .icon {
-  color: #082550;
-  filter: none;
-}
-.user-dashboard-shell .user-sidebar nav a.is-active::after {
-  display: none;
-}
-.user-dashboard-shell .user-sidebar nav a.is-active::before {
-  content: "";
-  position: absolute;
-  left: -16px;
-  top: 14px;
-  bottom: 14px;
-  width: 3px;
-  border-radius: 3px;
-  background: #aacdf5;
-  box-shadow: none;
-}
-
-/* AI Badge */
-.user-dashboard-shell .sidebar-ai-badge {
-  margin-left: auto;
+/* AI badge next to "Trợ lý AI". */
+.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a > .sidebar-ai-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 9.5px;
+  margin-left: auto;
+  padding: 1px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-pill);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
-  color: #c7d2fe;
-  background: rgba(99, 102, 241, 0.22);
-  border: 1px solid rgba(165, 180, 252, 0.35);
+}
+.user-dashboard-shell .user-sidebar.admin-sidebar .sidebar-ai-badge > span { display: inline; }
+.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a.is-active > .sidebar-ai-badge {
+  border-color: var(--color-border);
+  color: var(--color-primary-700);
+  background: var(--color-soft);
 }
 
-/* Profile Progress Box */
-.user-dashboard-shell .sidebar-bottom {
-  padding-top: 24px;
-  margin-top: auto;
+/* Profile completion card, styled like the admin sidebar controls. */
+.user-dashboard-shell .user-sidebar .sidebar-bottom {
+  flex-shrink: 0;
+  padding: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 .user-dashboard-shell .profile-progress {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  color: #dce7f5;
-  width: 100%;
-  border-radius: 12px;
-  padding: 15px;
-  text-align: left;
   display: block;
-  text-decoration: none;
-  transition: all 0.15s ease;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+  text-align: left;
+  transition: all var(--duration-fast) ease;
 }
 .user-dashboard-shell .profile-progress:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 .user-dashboard-shell .profile-progress-title {
   display: flex;
-  gap: 8px;
   align-items: center;
-  font-size: 11px;
-  color: #dce7f5;
+  gap: 8px;
+  color: #ffffff;
+  font-size: 12.5px;
 }
-.user-dashboard-shell .profile-progress-title .icon {
-  width: 16px;
-  height: 16px;
-  color: #aacdf5;
-}
-.user-dashboard-shell .profile-progress-title strong {
-  font-weight: 600;
-}
-.user-dashboard-shell .profile-progress-title b {
-  margin-left: auto;
-  color: #bbd9ff;
-  font-weight: 700;
-}
+.user-dashboard-shell .profile-progress-title .icon { width: 16px; height: 16px; color: rgba(255, 255, 255, 0.75); }
+.user-dashboard-shell .profile-progress-title strong { font-weight: 600; }
+.user-dashboard-shell .profile-progress-title b { margin-left: auto; color: #ffffff; font-weight: 700; }
 .user-dashboard-shell .profile-progress-track {
   display: block;
   height: 4px;
-  background: rgba(255, 255, 255, 0.12);
-  margin: 13px 0 10px;
-  border-radius: 4px;
+  margin: 12px 0 10px;
   overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.14);
 }
 .user-dashboard-shell .profile-progress-track i {
   display: block;
   height: 100%;
-  background: #a8c9f3;
-  border-radius: 4px;
+  border-radius: inherit;
+  background: #ffffff;
   transition: width 0.3s ease;
 }
 .user-dashboard-shell .profile-progress small {
   display: block;
-  font-size: 10px;
-  line-height: 1.7;
-  color: #adc0db;
-}
-
-/* Collapsed Mode */
-.user-dashboard-shell .user-sidebar.is-collapsed {
-  padding: 16px 10px 14px;
-  width: var(--sidebar-collapsed);
-}
-.user-dashboard-shell .user-sidebar.is-collapsed .user-sidebar-brand {
-  justify-content: center;
-  padding-bottom: 12px;
-  flex-direction: column;
-  gap: 10px;
-}
-.user-dashboard-shell .user-sidebar.is-collapsed .sidebar-brand-lockup {
-  justify-content: center;
-}
-.user-dashboard-shell .user-sidebar.is-collapsed nav {
-  gap: 6px;
-}
-.user-dashboard-shell .user-sidebar.is-collapsed .sidebar-group + .sidebar-group {
-  margin-top: 10px;
-  padding-top: 10px;
-}
-.user-dashboard-shell .user-sidebar.is-collapsed nav a {
-  width: 44px;
-  height: 42px;
-  min-height: 42px;
-  padding: 0;
-  margin: 0 auto;
-  justify-content: center;
-  border-radius: 10px;
-}
-.user-dashboard-shell .user-sidebar.is-collapsed nav a.is-active::before {
-  display: none;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11.5px;
+  line-height: 1.5;
 }
 .user-dashboard-shell .sidebar-profile-compact {
-  margin: auto auto 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.05);
-  color: #60A5FA;
   display: flex;
+  flex-shrink: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
+  width: 46px;
+  height: 46px;
+  min-height: 46px;
+  margin: var(--space-3) auto var(--space-4);
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
   font-size: 10.5px;
   font-weight: 700;
-  gap: 2px;
-  text-decoration: none;
-  transition: all 0.15s ease;
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
 }
 .user-dashboard-shell .sidebar-profile-compact:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
 }
-.user-dashboard-shell .sidebar-profile-compact .icon {
-  width: 14px;
-  height: 14px;
-  color: #A3C2E6;
+.user-dashboard-shell .sidebar-profile-compact .icon { width: 14px; height: 14px; }
+.user-dashboard-shell .profile-progress:focus-visible,
+.user-dashboard-shell .sidebar-profile-compact:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+
+/* Tablet: admin forces an icon rail below 1024px; users may still expand it. */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .user-dashboard-shell .user-sidebar.admin-sidebar:not(.is-collapsed) .admin-sidebar-brand { justify-content: space-between; padding: 0 var(--space-4) 0 var(--space-5); }
+  .user-dashboard-shell .user-sidebar.admin-sidebar:not(.is-collapsed) .dashboard-brand > .brand-logo-container { display: inline-flex; }
+  .user-dashboard-shell .user-sidebar.admin-sidebar:not(.is-collapsed) .brand-logo-img { max-width: 114px !important; height: 38px !important; }
+  .user-dashboard-shell .user-sidebar.admin-sidebar:not(.is-collapsed) .admin-nav { padding: var(--space-5) 0 var(--space-4) var(--space-3); }
+  .user-dashboard-shell .user-sidebar.admin-sidebar:not(.is-collapsed) .admin-nav a { width: 100%; margin: 0; padding: 0 var(--space-4); justify-content: flex-start; border-radius: 24px 0 0 24px; }
+  .user-dashboard-shell .user-sidebar.admin-sidebar:not(.is-collapsed) .admin-nav a.is-active::before,
+  .user-dashboard-shell .user-sidebar.admin-sidebar:not(.is-collapsed) .admin-nav a.is-active::after { display: block; }
 }
 
-@media (max-height: 720px) {
-  .user-dashboard-shell .user-sidebar { padding: 12px 10px 10px; }
-  .user-dashboard-shell .user-sidebar-brand { margin: 0 0 10px; min-height: 36px; padding-bottom: 8px; }
-  .user-dashboard-shell .sidebar-brand-badge { width: 32px; height: 32px; }
-  .user-dashboard-shell .sidebar-brand-emblem { width: 26px; height: 26px; }
-  .user-dashboard-shell .sidebar-brand-title { font-size: 14px; }
-  .user-dashboard-shell .user-sidebar nav { gap: 3px; }
-  .user-dashboard-shell .sidebar-group { gap: 1px; }
-  .user-dashboard-shell .sidebar-group + .sidebar-group { margin-top: 8px; padding-top: 8px; }
-  .user-dashboard-shell .sidebar-label { margin-bottom: 2px; padding-bottom: 2px; }
-  .user-dashboard-shell .user-sidebar nav a { min-height: 36px; padding: 6px 10px; font-size: 13px; }
-  .user-dashboard-shell .sidebar-profile-progress { padding: 8px 10px; gap: 6px; }
-  .user-dashboard-shell .sidebar-profile-progress .sidebar-profile-action { min-height: 26px; padding: 2px 6px; font-size: 11px; }
+/* ---------- Header: admin topbar plus the user-only controls ---------- */
+/* Admin draws its header edge with the admin border token (#BCD2F0). */
+.user-dashboard-shell .user-topbar.admin-topbar { border-bottom-color: #BCD2F0; }
+.user-dashboard-shell .user-topbar.admin-topbar .topbar-action-btn { min-width: 38px; min-height: 38px; }
+
+/* The feature-search trigger is a button; draw it like the admin search input. */
+.user-dashboard-shell .user-topbar .topbar-search-trigger {
+  height: 40px;
+  min-height: 40px;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  border-radius: 12px;
+  color: #94a3b8;
+  background: rgba(248, 250, 252, 0.72);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.02);
+  font-size: 12.5px;
+  font-weight: 450;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.user-dashboard-shell .user-topbar .topbar-search-trigger:hover {
+  border-color: var(--color-border);
+  background: var(--color-white);
+  box-shadow: 0 2px 12px -2px rgba(5, 38, 89, 0.06);
+}
+.user-dashboard-shell .user-topbar .topbar-search-trigger:focus-visible {
+  outline: none;
+  border-color: var(--color-secondary-500);
+  background: var(--color-white);
+  box-shadow: 0 0 0 3px rgba(51, 77, 175, 0.25), 0 8px 24px -4px rgba(5, 38, 89, 0.08);
+}
+.user-dashboard-shell .user-topbar .topbar-search-trigger:focus-visible .topbar-search-icon { color: var(--color-primary-700); }
+.user-dashboard-shell .user-topbar .topbar-search-label { color: #94a3b8; font-size: 12.5px; }
+@media (min-width: 1001px) {
+  .user-dashboard-shell .user-topbar .topbar-search-trigger { width: 100%; padding: 0 10px 0 13px; }
+}
+@media (max-width: 1000px) {
+  .user-dashboard-shell .user-topbar .topbar-search-trigger { height: 38px; min-height: 38px; padding: 0; border-radius: 11px; background: rgba(255, 255, 255, 0.8); }
 }
 
-@media (max-height: 620px) {
-  .user-dashboard-shell .user-sidebar { padding: 8px 8px 6px; }
-  .user-dashboard-shell .user-sidebar-brand { margin: 0 0 6px; min-height: 32px; }
-  .user-dashboard-shell .user-sidebar nav { gap: 2px; }
-  .user-dashboard-shell .user-sidebar nav a { min-height: 32px; padding: 4px 8px; font-size: 12.5px; }
-  .user-dashboard-shell .sidebar-profile-progress .sidebar-profile-action { display: none; }
+/* AI shortcut: same chrome as the admin language and action buttons. */
+.user-dashboard-shell .user-topbar .topbar-ai-pill {
+  height: 38px;
+  min-height: 38px;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 11px;
+  color: var(--color-primary-700);
+  background: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+  font-size: 12px;
+  font-weight: 700;
+}
+.user-dashboard-shell .user-topbar .topbar-ai-pill:hover {
+  border-color: rgba(21, 58, 82, 0.25);
+  color: var(--color-primary-700);
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+.user-dashboard-shell .user-topbar .topbar-ai-pill .icon { color: var(--color-secondary-600, #486D53); filter: none; }
+.user-dashboard-shell .user-topbar .topbar-ai-pill small {
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: var(--color-primary-700);
+  background: var(--color-soft);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
-/* ---------- Topbar ---------- */
-.user-dashboard-shell .user-topbar {
-  height: 84px; padding: 0 30px; gap: 20px;
-  background: #fffffffa; border-bottom: 0; box-shadow: 0 3px 18px #0b254508;
+/* Phones: the admin mobile header is 64px on frosted glass (user-readability.css forces 56px). */
+@media (max-width: 767px) {
+  .user-dashboard-shell .user-topbar.admin-topbar {
+    height: 64px !important;
+    min-height: 64px !important;
+    background: rgba(255, 255, 255, 0.78) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02), 0 6px 20px -4px rgba(15, 23, 42, 0.03) !important;
+  }
+  .user-dashboard-shell .user-topbar .topbar-search-trigger { width: 44px; height: 44px; min-height: 44px; }
 }
-.user-dashboard-shell .topbar-search-box {
-  min-height: 44px; max-width: 390px; border-radius: 10px;
-  border: 1px solid #dce4ee; background: #f6f8fb; box-shadow: none;
+/* Narrow phones: the user header has more controls than admin's, so the
+   language button drops its globe to leave room for the admin logo card. */
+@media (max-width: 480px) {
+  .user-dashboard-shell .user-topbar .anhuu-lang-toggle-btn { min-width: 44px; padding: 0 8px; }
+  .user-dashboard-shell .user-topbar .anhuu-lang-toggle-btn .lang-globe-icon { display: none; }
+  .user-dashboard-shell .user-topbar .user-topbar-actions { gap: 4px !important; }
 }
-.user-dashboard-shell .topbar-search-input { font-size: 12px; color: #66778d; }
-.user-dashboard-shell .topbar-ai-pill {
-  min-height: 40px; padding: 9px 12px; border-radius: 22px; font-size: 12px;
-  background: #edf2fc; color: #173e75; border: 1px solid #dce6f7; box-shadow: none;
-  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+
+/* Drawer: the admin drawer navigation, with the user group headings. */
+.drawer .mobile-navigation.admin-nav a { font-size: 13.5px; }
+.drawer .mobile-navigation.admin-nav .user-drawer-group { display: grid; gap: 4px; }
+.drawer .mobile-navigation.admin-nav .user-drawer-group h3 {
+  margin: var(--space-4) var(--space-3) var(--space-1);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
-.user-dashboard-shell .topbar-ai-pill small {
-  font-size: 8px; letter-spacing: 0.5px; text-transform: uppercase;
-  background: #dce7fa; border-radius: 4px; padding: 2px 4px; color: #173e75; font-weight: 700;
-}
-.user-dashboard-shell .topbar-action-btn { width: 42px; height: 44px; border-radius: 10px; color: #49617d; background: transparent; }
-.user-dashboard-shell .topbar-action-btn:hover { background: #eff4fa; }
-.user-dashboard-shell .topbar-divider-line { height: 28px; width: 1px; background: #e3e8ef; margin: 0 9px; }
+.drawer .mobile-navigation.admin-nav .user-drawer-group:first-child h3 { margin-top: var(--space-2); }
 
 /* ---------- Content frame ---------- */
 .user-dashboard-shell .dashboard-main { max-width: 1200px; padding: 24px 40px 28px; }
@@ -474,20 +369,15 @@
 
 /* ---------- Responsive (demo breakpoints) ---------- */
 @media (max-width: 1200px) {
-  .user-dashboard-shell { --sidebar-width: 230px; }
-  .user-dashboard-shell .user-sidebar { padding: 24px 12px 16px; }
-  .user-dashboard-shell .user-topbar { padding: 0 20px; gap: 16px; }
   .user-dashboard-shell .dashboard-main { padding: 24px 24px 28px; }
 }
 @media (max-width: 800px) {
-  .user-dashboard-shell .user-topbar { height: 70px; padding: 0 18px; gap: 8px; }
   .user-dashboard-shell .dashboard-main { padding: 20px 18px 100px; }
   .user-dashboard-shell .location-bar { margin-bottom: 20px; font-size: 10px; }
   .user-dashboard-shell :is(.retirement-page-header, .phase-page-header, .page-header) h1,
   .user-dashboard-shell .user-hero-title { font-size: 28px; }
 }
 @media (max-width: 480px) {
-  .user-dashboard-shell .user-topbar { padding: 0 10px; gap: 4px; }
   .user-dashboard-shell .dashboard-main { padding: 18px 14px 100px; }
   .user-dashboard-shell .location-bar { margin-bottom: 18px; }
 }
