@@ -1,0 +1,8 @@
+{
+  "note": "Tài liệu nội bộ viết bằng lời thường cho Trợ lý AI. Nạp bằng: node scripts/load-knowledge.cjs --manifest=seed-data/knowledge-test-2026-11/knowledge-manifest.json --actor=<ADMIN id> [--apply] [--approve]. Mọi con số pháp lý phải khớp văn bản đã ban hành trong seed-data/legal-2026/sources-kb-text; khi có văn bản mới thì sửa tệp .md, tăng version rồi nạp và duyệt lại.",
+  "textDir": ".",
+  "sources": [
+    { "key": "AH_PENSION_QA", "title": "Hỏi đáp về lương hưu và bảo hiểm xã hội", "referenceCode": "AH-PENSION-QA-2026-11", "category": "PENSION_FAQ", "version": "2026-11-11", "effectiveDate": "2026-11-11", "text": "hoi-dap-luong-huu-bhxh.md" },
+    { "key": "AH_PLAN_GUIDE", "title": "Cách đọc kết quả kế hoạch nghỉ hưu và chọn nhóm sản phẩm theo hồ sơ", "referenceCode": "AH-PLAN-GUIDE-2026-11", "category": "PLATFORM_GUIDE", "version": "2026-11-11", "effectiveDate": "2026-11-11", "text": "doc-ket-qua-ke-hoach.md" }
+  ]
+}

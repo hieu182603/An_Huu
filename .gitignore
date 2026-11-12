@@ -73,6 +73,11 @@ artifacts/
 !/backend/scripts/generate-family-openapi.cjs
 !/backend/scripts/generate-planning-openapi.cjs
 !/backend/scripts/cashflow-ui-test-server.cjs
+!/backend/scripts/load-knowledge.cjs
+!/backend/scripts/eval-ai-knowledge.cjs
+!/backend/scripts/eval-ai-answers.cjs
+!/backend/scripts/bootstrap-system-admin.cjs
+!/backend/scripts/generate-admin-gaps-openapi.cjs
 !/backend/scripts/build-allocation-drafts.cjs
 !/backend/scripts/generate-portfolios-openapi.cjs
 !/backend/scripts/generate-allocation-risk-openapi.cjs

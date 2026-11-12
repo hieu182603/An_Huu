@@ -8,7 +8,7 @@ ConsentInput:
     policyVersion:
       type: string
       enum:
-        - ai-explanation-gemini-2026-10-v2
+        - ai-explanation-gemini-2026-11-v3
     processing:
       type: boolean
     saveHistory:
@@ -365,6 +365,7 @@ Explanation:
   required:
     - status
     - answer
+    - answerSource
     - facts
     - citations
     - provenance
@@ -383,6 +384,12 @@ Explanation:
         - PROVIDER_NOT_CONFIGURED
         - PROVIDER_UNAVAILABLE
     answer: *a3
+    answerSource:
+      type: string
+      enum:
+        - AI_COMPOSED
+        - APPROVED_EXCERPT
+        - SERVER_FACTS
     facts:
       type: array
       items:

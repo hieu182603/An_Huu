@@ -185,6 +185,9 @@ async function seedCatalogAndKnowledge(db, s, admin, img) {
     { title: "Cẩm nang sản phẩm tiết kiệm và đầu tư của đối tác An Hưu", referenceCode: "AH-PRODUCTS-2026-11", category: "PRODUCT_GUIDE", version: TODAY, rawContent: productGuide() },
     { title: "Hướng dẫn sử dụng An Hưu và câu hỏi thường gặp", referenceCode: "AH-FAQ-2026-11", category: "PLATFORM_FAQ", version: TODAY, rawContent: fs.readFileSync(path.join(KB_DIR, "anhuu-huong-dan-faq.md"), "utf8").trim() },
     { title: "Kiến thức nền về tiết kiệm và đầu tư cho nghỉ hưu", referenceCode: "AH-EDU-2026-11", category: "FINANCIAL_EDUCATION", version: TODAY, rawContent: fs.readFileSync(path.join(KB_DIR, "kien-thuc-tiet-kiem-dau-tu.md"), "utf8").trim() },
+    // Tài liệu lời thường (hỏi đáp lương hưu/BHXH, cách đọc kết quả): cùng manifest với scripts/load-knowledge.cjs --manifest.
+    ...JSON.parse(fs.readFileSync(path.join(KB_DIR, "knowledge-manifest.json"), "utf8")).sources.map(m => ({ title: m.title, referenceCode: m.referenceCode,
+      category: m.category, version: m.version, rawContent: fs.readFileSync(path.join(KB_DIR, m.text), "utf8").trim() })),
   ].map(k => ({ ...k, effectiveDate: `${TODAY}T00:00:00.000Z`, validUntil: null }));
   for (const k of kb) await upsertKnowledge(db, s.knowledge, admin, k);
   const approved = await approveAllIndexed(db, s.knowledge, admin);

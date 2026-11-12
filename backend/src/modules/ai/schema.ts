@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { moneySchema } from "../../common/http";
 import { monthSchema } from "../../common/calendar";
-export const AI_POLICY_VERSION = "ai-explanation-gemini-2026-10-v2";
+// v3 (11/11/2026): the provider now words the answer and receives the profile-based product filter summary
+// (years to retirement, risk band, emergency-reserve status, allocation). Earlier consents must be confirmed again.
+export const AI_POLICY_VERSION = "ai-explanation-gemini-2026-11-v3";
 export const AI_RETENTION_DAYS = 30;
 export const consentSchema = z.object({ expectedRevision: z.number().int().min(0), policyVersion: z.literal(AI_POLICY_VERSION),
   processing: z.boolean(), saveHistory: z.boolean() }).strict().refine(v => v.processing || !v.saveHistory, "Lưu hội thoại cần đồng ý xử lý.");

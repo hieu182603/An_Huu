@@ -50,3 +50,11 @@ Tham chiếu giao thức chính thức: [Gemini API](https://ai.google.dev/api),
 ## Kiểm tra lại 13/10/2026
 
 `node scripts/verify-gemini.cjs` đạt với cấu hình hiện có `developer/gemini-3.8-flash`, chỉ dữ liệu giả lập, không đọc DB. Giao diện USER/ADMIN được kiểm tra bằng đăng nhập local; lượt nghiệm thu cuối dùng `AI_PROVIDER=none`, rollback toàn bộ ghi DB. Một lần chạy lại định gửi dữ kiện tài khoản tới Gemini bị cơ chế duyệt tự động chặn; không tiếp tục gửi dữ liệu đó. Chế độ kiểm thử không thay cấu hình Gemini trong `.env`. Xem [báo cáo nghiệm thu](../../docs/AI_COMPLETION_2026-10-13.md).
+
+## Cập nhật 11/11/2026 — Gemini viết lời giải thích
+
+Schema trả về nay là `{factKeys, citationIds, answer}`; `answer` chỉ được dùng sau khi `groundedAnswer` chấp nhận (xem AI_GOVERNANCE.md). `maxOutputTokens` 4.096 (gồm cả token suy luận). Với model `gemini-3*` gửi `thinkingConfig.thinkingLevel="low"`: API developer chấp nhận với `gemini-3.8-flash`, thời gian phản hồi đo được giảm từ khoảng 5–12 giây xuống khoảng 2,5–7 giây. Nhiệt độ vẫn 0, không retry, không công cụ.
+
+`node scripts/eval-ai-answers.cjs [--preview-manifest=…]` gửi 12 tình huống **giả lập** (câu hỏi, số kế hoạch và hồ sơ bịa; trích đoạn là văn bản pháp luật/tài liệu công khai đã duyệt, đọc chỉ-đọc) và in câu trả lời. Lần chạy 11/11/2026: 12/12 câu qua bộ kiểm, 0 lỗi provider; có từ chối câu ngoài phạm vi và câu yêu cầu lộ chỉ dẫn/sửa lợi suất. Đây là kiểm thử mẫu, không chứng minh chất lượng với mọi câu hỏi; khi sửa `explanationInstructions` phải chạy lại.
+
+Policy consent hiện hành từ 11/11/2026: `ai-explanation-gemini-2026-11-v3` (thay `ai-explanation-gemini-2026-10-v2` nêu ở các mục trên). Consent bản cũ phải xác nhận lại trước mọi request tới Gemini.
