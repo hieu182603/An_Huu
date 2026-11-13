@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Prisma, type PrismaClient, type KnowledgeSource } from "@prisma/client";
+import { Prisma, type PrismaClient, type KnowledgeSource, type KnowledgeChunk } from "@prisma/client";
 import { z } from "zod";
 import { transaction } from "../../common/transaction";
 import { audit } from "../../common/audit";
@@ -110,6 +110,26 @@ const conflict = () => new AppError(409, "REVISION_CONFLICT", "Nguồn đã thay
 const dto = (s: KnowledgeSource) => ({ id:s.id,title:s.title,referenceCode:s.referenceCode,category:s.category,version:s.version,
   fileUrl:s.fileUrl,effectiveDate:s.effectiveDate?.toISOString() ?? null,validUntil:s.validUntil?.toISOString() ?? null,revision:s.revision,
   status:s.status,isApproved:s.isApproved,indexedHash:s.indexedHash,contentHash:hash(s),indexMethod:s.indexedHash ? "LEXICAL_V1" : null });
+// Loading every approved source text and chunk on each question cost ~3 s per call on the hosted database, twice per
+// answer, and pushed /me/ai/explain past its transaction timeout (P2028 → 503). PostgreSQL instead hashes the whole
+// current rows (md5(row::text), so any edit — through the app or directly in the database — changes the key) and the
+// full rows are reloaded only when that key changed. Cached rows are never mutated; retrieve still verifies every
+// index hash and chunk text on them, so the governance checks see exactly the stored data.
+type Corpus = { key: string; sources: KnowledgeSource[]; chunks: KnowledgeChunk[] };
+let cachedCorpus: Corpus | null = null;
+async function corpusFor(tx: Prisma.TransactionClient, now: Date): Promise<Corpus> {
+  const [print] = await tx.$queryRaw<Array<{ sources: string | null; chunks: string | null }>>`/* knowledge-corpus-fingerprint */
+    WITH s AS (SELECT k.id, md5(k::text) AS h FROM knowledge_sources k WHERE k."isApproved" AND k.status = 'INDEXED'
+      AND k."effectiveDate" <= ${now} AND (k."validUntil" IS NULL OR k."validUntil" > ${now}) ORDER BY k."updatedAt" DESC LIMIT 100)
+    SELECT (SELECT string_agg(s.id || ':' || s.h, ',' ORDER BY s.id) FROM s) AS sources,
+      (SELECT md5(string_agg(md5(c::text), ',' ORDER BY c.id)) FROM knowledge_chunks c WHERE c."sourceId" IN (SELECT id FROM s)) AS chunks`;
+  const key = `${print?.sources ?? ""}|${print?.chunks ?? ""}`;
+  if (cachedCorpus?.key === key) return cachedCorpus;
+  const ids = (print?.sources ?? "").split(",").filter(Boolean).map(entry => entry.slice(0, entry.indexOf(":")));
+  const sources = await tx.knowledgeSource.findMany({ where: { id: { in: ids } }, orderBy: { updatedAt: "desc" } });
+  const chunks = await tx.knowledgeChunk.findMany({ where: { sourceId: { in: ids } }, orderBy: { chunkIndex: "asc" }, take: 4000 });
+  return cachedCorpus = { key, sources, chunks };
+}
 export class KnowledgeService {
   constructor(private db: PrismaClient) {}
   async list(query: z.infer<typeof pageSchema>) { const q = pageSchema.parse(query); return { ...q,total:await this.db.knowledgeSource.count(),
@@ -153,9 +173,9 @@ export class KnowledgeService {
   async retrieve(tx:Prisma.TransactionClient,question:string) {
     const now=new Date(), query=new Map<string,number>(), firsts=new Set<string>();
     scan(prepare(question,64),(t,w)=>{query.set(t,w);if(t.includes(" "))firsts.add(t.slice(0,t.indexOf(" ")));});
-    const sources=await tx.knowledgeSource.findMany({where:{isApproved:true,status:"INDEXED",effectiveDate:{lte:now},OR:[{validUntil:null},{validUntil:{gt:now}}]},orderBy:{updatedAt:"desc"},take:100});
-    const eligible=new Map(sources.filter(s=>s.effectiveDate&&s.indexedHash&&s.indexedHash===hash(s)).map(s=>[s.id,s]));
-    const chunks=await tx.knowledgeChunk.findMany({where:{sourceId:{in:[...eligible.keys()]}},orderBy:{chunkIndex:"asc"},take:4000});
+    const corpus=await corpusFor(tx,now);
+    const eligible=new Map(corpus.sources.filter(s=>s.effectiveDate&&s.indexedHash&&s.indexedHash===hash(s)).map(s=>[s.id,s]));
+    const chunks=corpus.chunks.filter(c=>eligible.has(c.sourceId));
     // A source is read only when its whole stored index verifies: right method, current hash, unmodified text, no gap.
     const verified=new Map<string,number>(),broken=new Set<string>();
     for(const c of chunks){const s=eligible.get(c.sourceId)!; const m=c.metadata as {method?:string;sourceHash?:string;tokens?:string[]}|null;

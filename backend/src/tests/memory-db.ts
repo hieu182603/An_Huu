@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 
 // A deterministic service-test double. It proves workflow behavior/rollback only,
@@ -132,6 +132,14 @@ export function memoryDb() {
     };
   }
   db.$queryRaw = async (parts: TemplateStringsArray, ...values: unknown[]) => {
+    // Emulates the knowledge corpus fingerprint (PostgreSQL md5 of whole rows): any in-place row edit changes it.
+    if (parts[0].startsWith("/* knowledge-corpus-fingerprint */")) {
+      const now = values[0] as Date, digest = (value: unknown) => createHash("md5").update(JSON.stringify(value)).digest("hex");
+      const sources = (tables.knowledgeSource ?? []).filter(k => k.isApproved && k.status === "INDEXED" && k.effectiveDate && k.effectiveDate <= now && (!k.validUntil || k.validUntil > now))
+        .sort((x, y) => +y.updatedAt - +x.updatedAt).slice(0, 100).sort((x, y) => x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+      const ids = new Set(sources.map(k => k.id)), chunks = (tables.knowledgeChunk ?? []).filter(c => ids.has(c.sourceId)).sort((x, y) => x.id < y.id ? -1 : 1);
+      return [{ sources: sources.length ? sources.map(k => `${k.id}:${digest(k)}`).join(",") : null, chunks: chunks.length ? digest(chunks) : null }];
+    }
     // Emulates PlansService.versions() summary projection (verified against PostgreSQL separately).
     if (/^SELECT id, version, "createdAt", "profileRevision",\s+"inputSnapshot"->>'integrityHash' AS "snapshotHash", "inputSnapshot"->'preview'->'references' AS "references", "result"->'summary' AS "summary"\s+FROM plan_versions WHERE "planId" = \? ORDER BY version DESC OFFSET \? LIMIT \?$/.test(parts.join("?"))) {
       const [planId, offset, limit] = values as [string, number, number];
