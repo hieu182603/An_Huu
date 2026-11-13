@@ -68,6 +68,8 @@ export const vi = {
   "admin_nav.legal_rules": "Quản trị luật BHXH",
   "admin_nav.support": "Hỗ trợ & Ticket",
   "admin_nav.operations": "Tình trạng hệ thống",
+  "admin_nav.investment_roles": "Phân quyền đầu tư",
+  "admin_nav.broadcast": "Gửi thông báo",
   "admin_nav.reports": "Báo cáo",
   "admin_nav.settings": "Cấu hình hệ thống",
   "admin_nav.system_ops": "VẬN HÀNH HỆ THỐNG",

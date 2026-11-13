@@ -17,6 +17,7 @@ export const settingsSubNavigation: NavigationItem[] = [
 export const adminNavigation: NavigationItem[] = [
   { path: "/admin/dashboard", label: "Tổng quan", icon: "grid" },
   { path: "/admin/users", label: "Người dùng", icon: "users" },
+  { path: "/admin/investment-roles", label: "Phân quyền đầu tư", icon: "key" },
   { path: "/admin/support", label: "Hỗ trợ & Ticket", icon: "life-buoy" },
   { path: "/admin/partners", label: "Đối tác & Sản phẩm", icon: "briefcase" },
   { path: "/admin/financial-config", label: "Cấu hình tài chính", icon: "target" },
@@ -24,6 +25,8 @@ export const adminNavigation: NavigationItem[] = [
   { path: "/admin/content", label: "Quản lý nội dung", icon: "file-text" },
   { path: "/admin/ai", label: "Trợ lý AI & Tri thức", icon: "sparkles" },
   { path: "/admin/reports", label: "Báo cáo", icon: "chart" },
+  { path: "/admin/broadcast", label: "Gửi thông báo", icon: "megaphone" },
+  { path: "/admin/operations", label: "Tình trạng hệ thống", icon: "activity" },
   {
     path: "/admin/settings",
     label: "Cấu hình hệ thống",

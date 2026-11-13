@@ -56,6 +56,9 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
       case "/admin/content": return t("admin_nav.content");
       case "/admin/ai": return t("admin_nav.ai");
       case "/admin/reports": return t("admin_nav.reports");
+      case "/admin/investment-roles": return t("admin_nav.investment_roles");
+      case "/admin/broadcast": return t("admin_nav.broadcast");
+      case "/admin/operations": return t("admin_nav.operations");
       case "/admin/settings": return t("admin_nav.settings");
       case "/admin/settings/general": return t("admin_nav.settings_general");
       case "/admin/settings/security": return t("admin_nav.settings_security");

@@ -70,6 +70,8 @@ export const en: Record<keyof typeof vi, string> = {
   "admin_nav.legal_rules": "Legal Rules Admin",
   "admin_nav.support": "Support & Tickets",
   "admin_nav.operations": "System Health",
+  "admin_nav.investment_roles": "Investment Roles",
+  "admin_nav.broadcast": "Broadcast",
   "admin_nav.reports": "Reports",
   "admin_nav.settings": "System Settings",
   "admin_nav.system_ops": "SYSTEM OPERATIONS",

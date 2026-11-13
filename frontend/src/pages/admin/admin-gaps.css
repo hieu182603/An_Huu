@@ -1,0 +1,71 @@
+/* Admin pages: investment roles, system broadcast, system health. Builds on admin-management.css. */
+.ag-state { padding: 32px 24px; text-align: center; color: var(--color-text-muted); }
+.ag-state p { margin: 0; }
+
+/* Investment roles */
+.ag-my-roles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; color: var(--color-text-muted); font-size: 13px; }
+.ag-role-list { list-style: none; margin: 0; padding: 0; }
+.ag-role-row { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 24px; padding: 20px 24px; border-bottom: 1px solid var(--color-border); }
+.ag-role-row:last-child { border-bottom: 0; }
+.ag-role-person { display: grid; align-content: start; justify-items: start; gap: 6px; min-width: 0; }
+.ag-role-person strong { display: flex; align-items: center; gap: 8px; color: var(--color-midnight-900); font-size: 15px; }
+.ag-role-person small { color: var(--color-text-muted); font-size: 13px; overflow-wrap: anywhere; }
+.ag-role-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ag-role-toggle { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); }
+.ag-role-toggle.is-on { border-color: rgba(var(--color-primary-rgb), .35); background: var(--color-soft); }
+.ag-role-toggle .switch-control { justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--color-midnight-900); }
+.ag-role-toggle small { color: var(--color-text-muted); font-size: 12px; line-height: 1.5; }
+.ag-confirm-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); }
+.ag-confirm-facts dt { margin-bottom: 4px; color: var(--color-text-muted); font-size: 12px; }
+.ag-confirm-facts dd { display: grid; gap: 2px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.ag-confirm-facts small { color: var(--color-text-muted); font-size: 12px; }
+.modal.ag-confirm-modal { width: min(640px, calc(100vw - 32px)); }
+
+/* Broadcast */
+.ag-broadcast-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 24px; align-items: start; }
+.ag-broadcast-form-card, .ag-broadcast-preview-card { padding: 24px; }
+.ag-broadcast-form { display: grid; gap: 16px; }
+.ag-counter { display: block; margin-top: 4px; text-align: right; color: var(--color-text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.ag-counter.is-over { color: var(--color-danger); font-weight: 600; }
+.ag-broadcast-actions { display: flex; justify-content: flex-end; }
+.ag-broadcast-preview-card h2 { margin: 0; font-size: 16px; }
+.ag-broadcast-preview-card > p { margin: 6px 0 16px; color: var(--color-text-muted); font-size: 13px; }
+.ag-broadcast-preview { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); box-shadow: 0 4px 16px -6px rgba(15, 23, 42, .12); }
+.ag-broadcast-preview-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; height: 32px; border-radius: 50%; background: var(--color-soft); color: var(--color-primary-700); }
+.ag-broadcast-preview > div { min-width: 0; }
+.ag-broadcast-preview strong { display: block; color: var(--color-midnight-900); font-size: 14px; overflow-wrap: anywhere; }
+.ag-broadcast-preview p { margin: 4px 0 6px; color: var(--color-text-main); font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ag-broadcast-preview small { color: var(--color-text-muted); font-size: 12px; }
+.ag-key-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; color: var(--color-text-muted); font-size: 12px; }
+.ag-key-note code { overflow-wrap: anywhere; }
+
+/* System health */
+.ag-health-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.ag-health-card { display: grid; gap: 6px; padding: 20px 24px; border-top: 4px solid var(--color-border); }
+.ag-health-card.is-ok { border-top-color: var(--color-success); }
+.ag-health-card.is-bad { border-top-color: var(--color-danger); }
+.ag-health-card span { color: var(--color-text-muted); font-size: 13px; }
+.ag-health-card strong { color: var(--color-midnight-900); font-size: 22px; }
+.ag-health-card strong.ag-health-date { font-size: 16px; }
+.ag-health-card small { color: var(--color-text-muted); font-size: 12px; }
+.ag-job-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 0; padding: 20px 24px 0; }
+.ag-job-counts > div { padding: 14px 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.ag-job-counts > div.is-failed { border-color: rgba(var(--color-danger-rgb), .4); background: var(--color-danger-soft); }
+.ag-job-counts dt { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; color: var(--color-text-muted); font-size: 12px; }
+.ag-job-counts dt code { font-size: 11px; }
+.ag-job-counts dd { margin: 6px 0 0; color: var(--color-midnight-900); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ag-evidence-note { display: flex; gap: 8px; align-items: flex-start; margin: 16px 24px 0; padding: 12px 14px; border-radius: var(--radius-md); background: var(--color-info-soft); color: var(--color-text-main); font-size: 13px; line-height: 1.6; }
+.ag-config-list { display: flex; flex-wrap: wrap; gap: 12px 24px; list-style: none; margin: 0; padding: 16px 24px 20px; font-size: 13px; }
+.ag-config-list li { display: flex; align-items: center; gap: 8px; }
+.ag-failure-table { min-width: 760px; }
+.ag-failure-table td:last-child { white-space: normal; }
+
+@media (max-width: 1100px) {
+  .ag-role-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ag-health-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ag-broadcast-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 767px) {
+  .ag-role-row { grid-template-columns: 1fr; gap: 16px; padding: 16px; }
+  .ag-role-grid, .ag-health-cards, .ag-confirm-facts { grid-template-columns: 1fr; }
+}
