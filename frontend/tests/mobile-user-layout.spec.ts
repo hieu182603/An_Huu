@@ -127,6 +127,15 @@ function createV2Profile(debtsOverride?: any) {
   };
 }
 
+// Layout fixture for GET /me/financial-profile/debts (DebtReport): declared balances and payments only.
+function declaredDebtReport(profile: any) {
+  const debts = profile.data.debts;
+  const known = (value: any) => (value?.status === "KNOWN" ? value.value : null);
+  const loans = debts.status === "KNOWN" ? debts.entries.map((debt: any) => ({ id: debt.id, status: "DECLARED", outstandingBalance: known(debt.outstandingBalance), monthlyPayment: known(debt.payment), firstMonthInterest: null, payoffDate: null, scheduleStatus: "NOT_DECLARED", rate: null, rows: [], issues: [] })) : [];
+  const total = (key: "outstandingBalance" | "monthlyPayment") => debts.status === "NOT_APPLICABLE" ? "0" : debts.status !== "KNOWN" || loans.some((loan: any) => loan[key] == null) ? null : String(loans.reduce((sum: number, loan: any) => sum + Number(loan[key]), 0));
+  return { profileRevision: profile.revision ?? 0, valuationDate: profile.data.valuationDate, currency: "VND", debtState: debts.status, totals: { outstandingBalance: total("outstandingBalance"), monthlyPayment: total("monthlyPayment"), firstMonthInterest: null, monthlyIncome: null, monthlyExpense: null, availableMonthlySurplus: null, debtToIncomePercent: null }, loans, issues: [] };
+}
+
 async function setupMobileUserEnv(page: Page, options: { activePlan?: boolean; debts?: any; riskAnswers?: Record<string, string> } = {}) {
   const userId = "USR-MOBILE";
 
@@ -155,6 +164,8 @@ async function setupMobileUserEnv(page: Page, options: { activePlan?: boolean; d
 
   const profile = createV2Profile(options.debts);
   await installFinancialProfileRoutes(page, { profile });
+  // /user/debts reads its report from GET /financial-profile/debts; report declared loans as-is (no rate or schedule, so nothing is projected).
+  await page.route("**/api/v1/me/financial-profile/debts", (route) => route.fulfill({ json: { data: declaredDebtReport(profile) } }));
 
   const defaultSummary = {
     retirementMonth: "2048-06",
@@ -716,7 +727,7 @@ test.describe("E1: Playwright Mobile User Layout (375x812 & 320x640)", () => {
         }
       });
 
-      // Assert C4: Trên /user/debts khi có khoản vay ước tính (không có hợp đồng), danh sách khoản vay hiển thị đầy đủ, thẻ gom "Cần bổ sung dữ liệu" chỉ thay cho chỉ số trống
+      // Assert C4 (thiết kế 2 trạng thái đã duyệt 12/11/2026): có khoản vay thì danh mục nợ hiện đầy đủ, một cột, không tràn mép
       test(`C4: Trên /user/debts khi có khoản vay ước tính, danh sách khoản vay hiện đầy đủ (${vp.name})`, async ({ page }) => {
         const estimatedDebts = {
           status: "KNOWN",
@@ -740,27 +751,48 @@ test.describe("E1: Playwright Mobile User Layout (375x812 & 320x640)", () => {
         };
         await setupMobileUserEnv(page, { debts: estimatedDebts });
         await page.goto("/user/debts");
-        await page.waitForLoadState("domcontentloaded");
-        await page.waitForTimeout(600);
-
-        // Assert trang tải thật, không lỗi
-        await expect(page.locator("main")).toBeVisible();
+        await expect(page.getByRole("heading", { level: 1, name: "Khoản nợ & khả năng trả" })).toBeVisible();
         await expect(page.getByText("Trang chưa tải được đầy đủ")).toHaveCount(0);
 
-        // Danh sách khoản vay và các thông tin của nó phải còn hiện
-        const loanCard = page.locator(".debt-loan-card");
-        await expect(loanCard).toBeVisible();
-        await expect(loanCard).toContainText("Vay mua ô tô");
-        await expect(loanCard).toContainText("250.000.000");
-        await expect(loanCard).toContainText("8.500.000");
+        // Danh mục nợ và số liệu của khoản vay phải hiện đầy đủ
+        const loanRow = page.getByTestId("debt-row");
+        await expect(loanRow).toHaveCount(1);
+        await expect(loanRow).toContainText("Vay mua ô tô");
+        await expect(loanRow).toContainText("250.000.000");
+        await expect(loanRow).toContainText("8.500.000");
+        await expect(page.getByTestId("debt-total")).toContainText("250.000.000");
+        await expect(page.locator(".debt-empty-summary")).toHaveCount(0);
+        await expect(page.locator(".debt-impact")).toBeVisible();
+        await expect(page.locator(".debt-comparison")).toBeVisible();
 
-        // Thẻ gom "Cần bổ sung dữ liệu" chỉ thay cho các chỉ số trống, không ẩn khoản vay
-        const dataRequiredCard = page.locator(".debt-mobile-data-required-card");
-        await expect(dataRequiredCard).toBeVisible();
-        await expect(dataRequiredCard).toContainText("Cần bổ sung dữ liệu");
+        // Một cột: tên, số dư và thao tác xếp chồng, không phần nào tràn khỏi màn hình
+        const layout = await loanRow.evaluate(row => {
+          const parts = [".debt-loan-name", ".debt-loan-amount", ".debt-loan-actions"].map(sel => row.querySelector(sel)!.getBoundingClientRect());
+          return { tops: parts.map(r => Math.round(r.top)), maxRight: Math.max(...parts.map(r => r.right)), viewport: innerWidth, pageOverflow: document.documentElement.scrollWidth > innerWidth };
+        });
+        expect(layout.tops[0]).toBeLessThan(layout.tops[1]);
+        expect(layout.tops[1]).toBeLessThan(layout.tops[2]);
+        expect(layout.maxRight).toBeLessThanOrEqual(layout.viewport);
+        expect(layout.pageOverflow).toBe(false);
+      });
 
-        const metricsGrid = page.locator(".debt-results-metrics");
-        await expect(metricsGrid).toBeHidden();
+      // Assert C4: không có khoản vay thì chỉ còn một thẻ gọn, không còn các khung trống
+      test(`C4: Trên /user/debts khi không có khoản vay chỉ hiện thẻ gọn (${vp.name})`, async ({ page }) => {
+        await setupMobileUserEnv(page, { debts: { status: "NOT_APPLICABLE", reason: "Không có nợ" } });
+        await page.goto("/user/debts");
+        await expect(page.getByRole("heading", { level: 1, name: "Khoản nợ & khả năng trả" })).toBeVisible();
+
+        const card = page.locator(".debt-empty-summary");
+        await expect(card).toBeVisible();
+        await expect(card.getByRole("heading", { name: "Không ghi nhận khoản nợ" })).toBeVisible();
+        await expect(card.getByRole("button", { name: "Khai báo khoản vay nếu có", exact: true })).toBeVisible();
+        await expect(card.getByRole("button", { name: "Tôi không có nợ", exact: true })).toHaveCount(0);
+        await expect(page.getByTestId("debt-row")).toHaveCount(0);
+        await expect(page.locator(".debt-impact, .debt-note, .debt-comparison, .debt-schedules")).toHaveCount(0);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+
+        await card.getByRole("button", { name: "Khai báo khoản vay nếu có", exact: true }).click();
+        await expect(page.getByRole("dialog").getByLabel("Tên khoản vay", { exact: true })).toBeVisible();
       });
 
       // Assert C5: Kiểm thanh tiến độ khảo sát: khi chưa trả lời hiện "0/6 câu", nút "Câu tiếp theo" đưa tới câu chưa trả lời, trả lời 1 câu thì số tăng

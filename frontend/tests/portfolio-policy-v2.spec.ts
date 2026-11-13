@@ -53,7 +53,7 @@ async function setup(page: Page, options: { version?: "v1" | "v2"; retirement?: 
       profileRevision:1,valuationDate:"2026-10-15",policyVersionId:policy.id,assumptionVersionId:"assumption-test",informationalOnly:true,
       capital:{status:"INCOMPLETE",growthCapital:null,goals:[],issues:[],warnings:[]},loss:{status:"REVIEW_REQUIRED",message:"",lossAmount:null,allowedLossAmount:null},allocations,assetLabels:{CASH:"Tiền gửi & thanh khoản"},issues:[],
       portfolio:{status: options.missingIssue ? "INCOMPLETE" : "READY",
-      assessment: { totalScore: 30, riskBandId: data.riskBands[0].id, selectedTemplateId: template.id, eligibleTemplateIds: [template.id] }, scenarios: options.missingIssue ? [] : scenarios(startMonth, months),
+      assessment: { totalScore: 30, riskBandId: data.riskBands[0].id, selectedTemplateId: template.id, eligibleTemplateIds: [template.id], checks: [] }, scenarios: options.missingIssue ? [] : scenarios(startMonth, months),
       issues: options.missingIssue ? [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }] : [],
     } } } });
   });
@@ -65,6 +65,7 @@ async function setup(page: Page, options: { version?: "v1" | "v2"; retirement?: 
   await expect.poll(() => calls.length).toBeGreaterThan(0);
   await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();
   await page.getByRole("button",{name:options.en?"View my allocation →":"Xem phương án của tôi →",exact:true}).click();
+  await page.locator(".allocation-result-details > summary").click();
   return { calls, errors, template };
 }
 

@@ -25,7 +25,7 @@ async function setup(page: Page, request: APIRequestContext, changes: object = {
 }
 const dialog = (page: Page) => page.getByRole("dialog");
 async function add(page: Page, name: string, balance = "20.000.000", payment = "2.000.000", split = false) {
-  await page.getByRole("button", { name: "Thêm khoản nợ", exact: true }).click();
+  await page.getByRole("button", { name: /^(Thêm khoản nợ|Khai báo khoản vay nếu có)$/ }).click();
   await dialog(page).getByLabel("Tên khoản vay", { exact: true }).fill(name);
   const source = dialog(page).getByRole("combobox", { name: "Khoản này đã nằm trong số tổng ban đầu chưa?", exact: true });
   if (!split && await source.count()) await source.selectOption("");
