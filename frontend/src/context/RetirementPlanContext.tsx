@@ -64,6 +64,7 @@ interface RetirementPlanContextValue {
 }
 
 const RetirementPlanContext = createContext<RetirementPlanContextValue | null>(null);
+const fetchPlanDetail = (planId: string) => Promise.all([getPlanDetail(planId), listPlanVersions(planId, 1, 50)]);
 
 export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -92,6 +93,7 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   const draftRef = useRef<Partial<RetirementPreviewInput> | null>(null);
   const previewSeq = useRef(0);
   const draftKey = (id: string) => `anhuu:plan-draft:${id}`;
+  const lastPlanKey = (id: string) => `anhuu:last-plan:${id}`;
   const invalidateManualPreview = () => {
     ++previewSeq.current;
     setPreviewData(null);
@@ -146,14 +148,12 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   const pendingSave = useRef<PendingOperation | null>(null);
   const pendingApply = useRef<PendingOperation | null>(null);
 
-  const loadPlanDetail = useCallback(async (planId: string, expectedUserId?: string) => {
+  const loadPlanDetail = useCallback(async (planId: string, expectedUserId?: string, started?: ReturnType<typeof fetchPlanDetail>) => {
     const targetUserId = expectedUserId ?? user?.id;
     const currentSeq = ++planLoadSeq.current;
     try {
-      const [detail, versionsRes] = await Promise.all([
-        getPlanDetail(planId),
-        listPlanVersions(planId, 1, 50),
-      ]);
+      // A read started alongside the plan list is reused; if it failed, read again.
+      const [detail, versionsRes] = (await started?.catch(() => null)) ?? await fetchPlanDetail(planId);
       if (currentSeq !== planLoadSeq.current || activeUserIdRef.current !== targetUserId) return;
       setActivePlan(detail);
       setPlanVersions(versionsRes.items);
@@ -177,6 +177,13 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
     const currentSeq = ++planListSeq.current;
     setLoadingPlans(true);
     setPlansError(null);
+    // The plan to open is almost always the one opened last time: read its
+    // detail together with the list instead of after it. The list still
+    // decides; a wrong or failed guess is simply discarded.
+    let guessId = activePlanIdRef.current;
+    try { guessId ??= localStorage.getItem(lastPlanKey(targetUserId)); } catch { /* Storage may be disabled. */ }
+    const guess = guessId ? fetchPlanDetail(guessId) : undefined;
+    guess?.catch(() => {});
     try {
       const res = await listRetirementPlans(1, 50);
       if (currentSeq !== planListSeq.current || activeUserIdRef.current !== targetUserId) return;
@@ -187,7 +194,9 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
           ? selected
           : res.items[0].id;
         setActivePlanId(targetId);
-        await loadPlanDetail(targetId, targetUserId);
+        // Remember what a fresh page load will open (always the first plan).
+        try { localStorage.setItem(lastPlanKey(targetUserId), res.items[0].id); } catch { /* Only an optimisation. */ }
+        await loadPlanDetail(targetId, targetUserId, targetId === guessId ? guess : undefined);
       } else {
         setActivePlanId(null);
         setActivePlan(null);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProfileV2 } from "../services/financialProfile";
 import type { PlanVersion } from "../services/plans";
 import { previewMonthlyRetirement, type RetirementPreviewInput, type RetirementPreviewResult } from "../services/retirement";
@@ -12,10 +12,16 @@ export function usePlanSynchronization(userId: string | undefined, version: Plan
   const changed = Boolean(input && version && (version.preview.profileRevision !== revision || JSON.stringify(input) !== JSON.stringify(version.preview.selection)));
   const key = JSON.stringify([userId, version?.id, revision, input, attempt]);
   const inputJson = JSON.stringify(input);
+  // The debounce only exists to absorb rapid edits. The first synchronisation
+  // of a saved version (page load) has nothing to wait for.
+  const synced = useRef<string | null>(null);
   useEffect(() => {
     if (!userId || !changed || blocked || sourceError || !input) return;
     let active = true;
+    const scope = `${userId}|${version?.id}`;
+    const delay = synced.current === scope ? 350 : 0;
     const timer = window.setTimeout(() => {
+      synced.current = scope;
       previewMonthlyRetirement(JSON.parse(inputJson)).then(data => {
         if (active) setResult({ key, data, error: null });
       }).catch(error => {
@@ -32,9 +38,9 @@ export function usePlanSynchronization(userId: string | undefined, version: Plan
           setResult({ key, data: null, error: msg });
         }
       });
-    }, 350);
+    }, delay);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [key, inputJson, changed, blocked, sourceError, userId]);
+  }, [key, inputJson, changed, blocked, sourceError, userId]); // eslint-disable-line react-hooks/exhaustive-deps -- version id is part of key
   const current = result?.key === key ? result : null;
   const stableInput = useMemo(() => input, [inputJson]); // eslint-disable-line react-hooks/exhaustive-deps
   const retry = useCallback(() => setAttempt(value => value + 1), []);

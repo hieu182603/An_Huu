@@ -1,0 +1,10 @@
+/* Base rule Font Awesome used to inject at runtime for inline SVG icons.
+   Imported first in main.tsx so app rules such as .icon keep overriding it. */
+.svg-inline--fa {
+  box-sizing: content-box;
+  display: var(--fa-display, inline-block);
+  height: 1em;
+  overflow: visible;
+  vertical-align: -0.125em;
+  width: var(--fa-width, 1.25em);
+}

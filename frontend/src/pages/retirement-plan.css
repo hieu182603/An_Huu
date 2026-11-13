@@ -70,7 +70,7 @@
 
 .retirement-plan-page .plan-settings { margin-bottom: 14px; padding: 26px; border-radius: 18px; box-shadow: none; }
 .retirement-plan-page .plan-settings__eyebrow { margin-bottom: 6px; font-size: 11px; letter-spacing: .08em; }
-.retirement-plan-page .plan-settings__note { padding: 12px 16px; border-left: 3px solid var(--color-secondary-light); border-radius: 0 8px 8px 0; background: var(--color-bg); font-size: 13px; line-height: 1.7; }
+.retirement-plan-page .plan-settings__note { padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg); font-size: 13px; line-height: 1.7; }
 .retirement-plan-page .plan-settings__grid { margin-block: 8px; gap: 20px; }
 .retirement-plan-page .plan-settings__links a { min-height: 40px; }
 .plan-fee-details { border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-white); }
@@ -267,8 +267,8 @@
 .plan-chart-card, .plan-table-card { min-width: 0; padding: 24px; border-radius: 18px; box-shadow: none; }
 .plan-table-card { margin-top: 18px; }
 .plan-milestones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 26px; padding: 18px 20px; list-style: none; border-radius: 12px; background: var(--color-bg); }
-.plan-milestones li { min-width: 0; padding-left: 14px; border-left: 2px solid var(--color-border-input); }
-.plan-milestones li:nth-child(2) { border-left-color: var(--color-secondary-500); }
+.plan-milestones li { min-width: 0; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-white); }
+.plan-milestones li:nth-child(2) { border-color: var(--color-secondary-light); }
 .plan-milestones span { display: block; margin-bottom: 6px; color: var(--color-text-muted); font-size: 12px; }
 .plan-milestones strong { font-size: 15px; font-variant-numeric: tabular-nums; }
 .plan-empty-state { display: grid; justify-items: center; gap: 12px; padding: 36px 24px; border: 1px dashed var(--color-border-input); border-radius: 16px; background: var(--color-white); text-align: center; }
@@ -320,7 +320,7 @@
   .plan-fee-details > summary { padding: 16px; }
   .plan-chart-card, .plan-table-card { padding: 18px 12px; }
   .plan-milestones { gap: 8px; padding: 14px 10px; }
-  .plan-milestones li { padding-left: 8px; }
+  .plan-milestones li { padding: 8px; }
   .plan-milestones span { font-size: 11px; }
   .plan-milestones strong { font-size: 13px; }
   .plan-settings__chips { flex-direction: column; align-items: stretch; }

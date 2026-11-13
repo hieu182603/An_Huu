@@ -657,3 +657,38 @@
 }
 
 @media (max-width: 360px) { .user-dashboard-shell .user-mobile-brand > a { display: none; } }
+
+/* User sidebar only: fit all 8 links + 3 group labels without scrolling on
+ * laptop screens (~600px tall at 125% zoom). Admin sidebar is untouched. */
+.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav { gap: 0; padding: 14px 0 12px var(--space-3); }
+.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { min-height: 44px; }
+.user-dashboard-shell .user-sidebar .sidebar-group { gap: 4px; }
+.user-dashboard-shell .user-sidebar .sidebar-group + .sidebar-group { margin-top: 12px; }
+@media (max-height: 700px) {
+  .user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav { padding-block: 10px 8px; }
+  .user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { min-height: 40px; }
+  .user-dashboard-shell .user-sidebar .sidebar-group { gap: 2px; }
+  .user-dashboard-shell .user-sidebar .sidebar-group + .sidebar-group { margin-top: 10px; }
+}
+@media (max-height: 560px) {
+  .user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { min-height: 36px; }
+  .user-dashboard-shell .user-sidebar .sidebar-group + .sidebar-group { margin-top: 8px; }
+}
+
+/* Profile card stays visible but shrinks on short screens so nav + card fit
+ * without scrolling. Missing groups are still listed in the progress dialog. */
+@media (max-height: 700px) {
+  .user-dashboard-shell .user-sidebar .sidebar-bottom { padding: 10px var(--space-4); }
+  .user-dashboard-shell .profile-progress { padding: 10px 12px; }
+  .user-dashboard-shell .profile-progress-track { margin: 8px 0 0; }
+  .user-dashboard-shell .profile-progress small { display: none; }
+}
+@media (max-height: 560px) {
+  .user-dashboard-shell .user-sidebar .sidebar-bottom { padding-block: 8px; }
+  .user-dashboard-shell .profile-progress { padding: 8px 12px; }
+  .user-dashboard-shell .profile-progress-track { margin-top: 6px; height: 3px; }
+}
+@media (max-height: 520px) {
+  .user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav { padding-block: 6px 4px; }
+  .user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { min-height: 34px; }
+}
