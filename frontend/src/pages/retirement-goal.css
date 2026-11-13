@@ -13,7 +13,20 @@
 .goal-main-form .profile-date-picker { min-height: 50px; border-color: #8eadd1; border-radius: 12px; }
 .goal-main-form .profile-date-picker button { flex-shrink: 0; }
 .goal-main-form .goal-field-note { margin: -14px 0 0; color: #536b85; font-size: 13px; line-height: 1.7; }
-.goal-age-field { display: grid; gap: 6px; }
+/* Both columns of the goal grid (date field and age field) share one structure — label, 8px gap,
+   50px control — so the two inputs sit on the same line. The shared remaining-form rules give
+   them different label margins and display modes, so pin them down here. */
+.goal-main-form .goal-inputs-grid > .profile-formatted-field,
+.goal-main-form .goal-inputs-grid > div { display: flex; flex-direction: column; gap: 8px; margin: 0; min-width: 0; }
+.goal-main-form .goal-inputs-grid .field-label,
+.goal-main-form .goal-inputs-grid .goal-age-field > span,
+.goal-main-form .goal-inputs-grid .goal-valuation-field > span { display: block; margin: 0; font-size: 14px; font-weight: 600; line-height: 24px; min-height: 24px; }
+.goal-main-form .goal-inputs-grid .goal-age-field,
+.goal-main-form .goal-inputs-grid .goal-valuation-field { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.goal-main-form .goal-inputs-grid .goal-valuation-field input { height: 50px; margin: 0; }
+.goal-main-form .goal-inputs-grid .profile-formatted-field > .input-wrap > input,
+.goal-main-form .goal-inputs-grid .goal-age-field input { height: 50px; margin: 0; }
+.goal-main-form .goal-inputs-grid .profile-formatted-field > small { margin: 0; }
 .goal-age-field > div { display: flex; position: relative; align-items: center; }
 .goal-age-field input { width: 100%; padding-right: 64px !important; margin: 0 !important; }
 .goal-age-field > div > span { position: absolute; right: 30px; color: #536b85; pointer-events: none; font-size: 13px; }

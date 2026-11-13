@@ -1,3 +1,11 @@
+## Trợ lý AI — lỗi 503 "Kết nối dữ liệu đang gián đoạn" khi hỏi (13/11/2026)
+
+- **Triệu chứng:** `POST /me/ai/explain` trả 503 `DATABASE_UNAVAILABLE`. `system_logs` (truy vấn chỉ đọc) ghi `cause: PrismaClientKnownRequestError:P2028` lúc 13/11 02:10Z và 14:22Z, tức transaction quá `timeout: 10000` của `common/transaction.ts`, không phải mất kết nối.
+- **Nguyên nhân (đo trên DB thật, không ghi):** mỗi câu hỏi tải toàn bộ `knowledge_sources` (kèm `rawContent`) và 723 `knowledge_chunks` (kèm metadata tokens), khoảng 3–3,5 s, và làm **2 lần** (một lần ở transaction đọc, một lần ở transaction lưu). Cộng với đọc `plan_versions` (~2,7 s), transaction đầu vượt 10 s.
+- **Sửa:** `knowledge.ts` thêm `corpusFor`: một truy vấn `/* knowledge-corpus-fingerprint */` băm `md5(row::text)` của các nguồn hợp lệ và chunk của chúng ngay trong PostgreSQL; chỉ tải lại toàn bộ khi dấu đổi. Mọi sửa đổi (kể cả sửa thẳng DB) đều đổi dấu; `retrieve` vẫn kiểm tra hash và chữ của từng chunk như cũ. `tests/memory-db.ts` giả lập truy vấn này.
+- **Kiểm chứng:** source/test typecheck PASS; `ai.test.ts`, `ai-answer.test.ts`, `ai-knowledge-ranking.test.ts` 40/40 PASS. Benchmark chỉ đọc gọi `AiService.explain` (consent giả, không `conversationId`, không ghi): câu đầu 13,5–14,2 s → 9,5 s; câu sau 10–11 s → 4,3 s. Không migration, không frontend, không gọi Gemini.
+- **Còn lại:** đọc `plan_versions` ~2,7 s mỗi câu (cả dòng lớn để kiểm tra toàn vẹn), chưa tối ưu. Lần hỏi đầu sau khi khởi động process vẫn tải toàn bộ kho. Chưa deploy, chưa kiểm tra trên môi trường production.
+
 ## Trợ lý AI — bổ sung văn bản pháp luật còn thiếu vào kho kiến thức (12/11/2026)
 
 - **Đã thêm** (thư mục mới `seed-data/knowledge-legal-2026-11/`: `knowledge-manifest.json`, bản gốc ở `sources-kb/`, chữ ở `sources-kb-text/`, SHA-256 ở `SHA256SUMS` của từng thư mục, nguồn và cách đối chiếu ở `sources-kb/sources-pages.txt`). **Chưa nạp DB.**
