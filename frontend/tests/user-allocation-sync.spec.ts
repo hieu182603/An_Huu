@@ -14,7 +14,7 @@ async function setup(page:Page,request:APIRequestContext,options:object={},answe
 }
 
 test("capital uses canonical profile purposes and current glide weights without sample returns",async({page,request})=>{
- const s=await setup(page,request);await expect(page.locator(".allocation-result-summary")).toContainText("1.000.000.000");await expect(page.locator(".allocation-capital-total")).toContainText("904.000.000");
+ const s=await setup(page,request);await expect(page.locator(".allocation-total-capital")).toContainText("1.000.000.000");await expect(page.locator(".allocation-result-summary > div")).toHaveCount(3);await expect(page.locator(".allocation-capital-total")).toContainText("904.000.000");
  await expect(panel(page).locator(".allocation-breakdown")).toContainText("100%");await expect(panel(page)).not.toContainText("7,5%");await expect(page.locator(".allocation-life")).toContainText("0 năm tròn");
  expect(s.writes.every(w=>w.path.endsWith("/preview"))).toBe(true);expect(s.errors).toEqual([]);
 });

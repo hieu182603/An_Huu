@@ -7,11 +7,9 @@ const NotificationSettings = lazy(() => import("./pages/admin/settings/Notificat
 const SystemLogs = lazy(() => import("./pages/admin/settings/SystemLogsPage"));
 const SettingsPage = lazy(() => import("./pages/admin/settings/SystemSettingsLayout"));
 const ReportsPage = lazy(() => import("./pages/admin/AdminReportsPage"));
-const SupportPage = lazy(() => import("./pages/SupportPage"));
-const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 import AppLoader from "./components/AppLoader";
-import FinancialProfileGate from "./components/FinancialProfileGate";
-import NotFoundView from "./components/NotFoundView";
+import { AccountProviders, AccountPage, AIAssistantPage, DebtAnalysisPage, ExplorePage, FinancialProfileGate, FinancialProfilePage, KnowledgePage, NotificationsPage, OnboardingPage, RetirementGoalPage, RetirementPlanPage, RiskPortfolioPage, SimulationTrackingPage, SupportPage, UserDashboard, UserLayout } from "./userRoutes";
+const NotFoundView = lazy(() => import("./components/NotFoundView"));
 import { I18nProvider } from "./i18n";
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const HowItWorksPage = lazy(() => import("./marketing/MarketingPages").then(m => ({ default: m.HowItWorksPage })));
@@ -25,20 +23,7 @@ const ForgotPage = lazy(() => import("./pages/AuthPages").then(module => ({ defa
 const LoginPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.LoginPage })));
 const RegisterPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.RegisterPage })));
 const ResetPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.ResetPage })));
-const OnboardingPage = lazy(() => import("./pages/OnboardingPage"));
-const UserLayout = lazy(() => import("./pages/UserLayout"));
-const UserDashboard = lazy(() => import("./pages/UserDashboard"));
-const RetirementGoalPage = lazy(() => import("./pages/RetirementGoalPage"));
-const RetirementPlanPage = lazy(() => import("./pages/RetirementPlanPage"));
-const SimulationTrackingPage = lazy(() => import("./pages/SimulationTrackingPage"));
-const FinancialProfilePage = lazy(() => import("./pages/FinancialProfilePage"));
-const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
-const DebtAnalysisPage = lazy(() => import("./pages/DebtAnalysisPage"));
 const AdminInvestmentsPage = lazy(() => import("./pages/admin/AdminInvestmentsPage"));
-const RiskPortfolioPage = lazy(() => import("./pages/RiskPortfolioPage"));
-const ExplorePage = lazy(() => import("./pages/ExplorePage"));
-const KnowledgePage = lazy(() => import("./pages/KnowledgePage"));
-const AccountPage = lazy(() => import("./pages/AccountPage"));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersApi").then(module => ({ default: module.AdminUsersPage })));
 const AdminUserDetailPage = lazy(() => import("./pages/admin/AdminUsersApi").then(module => ({ default: module.AdminUserDetailPage })));
@@ -49,6 +34,9 @@ const AdminMarketDataPage = lazy(() => import("./pages/admin/AdminMarketDataPage
 const AdminFinancialConfigPage = lazy(() => import("./pages/admin/AdminFinancialConfigPage"));
 const AdminPortfolioPoliciesPage = lazy(() => import("./pages/admin/AdminPortfolioPoliciesPage"));
 const AdminLegalRulesPage = lazy(() => import("./pages/admin/AdminLegalRulesPage"));
+const AdminInvestmentRolesPage = lazy(() => import("./pages/admin/AdminInvestmentRolesPage"));
+const AdminBroadcastPage = lazy(() => import("./pages/admin/AdminBroadcastPage"));
+const AdminSystemHealthPage = lazy(() => import("./pages/admin/AdminSystemHealthPage"));
 import { useAuth, type UserRole } from "./context/AuthContext";
 
 function RequireRole({ role, children }: { role: UserRole; children: ReactNode }) {
@@ -118,10 +106,12 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPage />} />
         <Route path="/reset-password" element={<ResetPage />} />
         <Route path="/verify" element={<Navigate to="/register" replace />} />
-        <Route path="/onboarding" element={<RequireRole role="user"><FinancialProfileGate onboarding><OnboardingPage /></FinancialProfileGate></RequireRole>} />
-        
+        {/* Signed-in user area: profile and plan state live in AccountProviders. */}
+        <Route element={<RequireRole role="user"><AccountProviders /></RequireRole>}>
+        <Route path="/onboarding" element={<FinancialProfileGate onboarding><OnboardingPage /></FinancialProfileGate>} />
+
         {/* User Area Routes */}
-        <Route path="/user" element={<RequireRole role="user"><UserLayout /></RequireRole>}>
+        <Route path="/user" element={<UserLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<UserDashboard />} />
           <Route path="goal" element={<RetirementGoalPage />} />
@@ -139,6 +129,7 @@ export default function App() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="onboarding" element={<Navigate to="/onboarding" replace />} />
         </Route>
+        </Route>
         <Route path="/admin" element={<RequireRole role="admin"><AdminLayout /></RequireRole>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboardPage />} />
@@ -153,7 +144,9 @@ export default function App() {
           <Route path="financial-config" element={<AdminFinancialConfigPage />} />
           <Route path="legal-rules" element={<AdminLegalRulesPage />} />
           <Route path="support" element={<SupportPage admin />} />
-          <Route path="operations" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="investment-roles" element={<AdminInvestmentRolesPage />} />
+          <Route path="broadcast" element={<AdminBroadcastPage />} />
+          <Route path="operations" element={<AdminSystemHealthPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />}>
             <Route index element={<Navigate to="general" replace />} />

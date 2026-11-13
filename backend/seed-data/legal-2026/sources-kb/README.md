@@ -20,3 +20,5 @@ TT 12/2025/TT-BNV dùng trang toàn văn chinhphu.vn (`../sources/R05.html.txt`)
 | VBHN158_2025_TCTD.pdf | Luật Các tổ chức tín dụng, VBHN 158/VBHN-VPQH | datafiles.chinhphu.vn/cpp/files/vbpq/2025/9/158-vbhn-vpqh.pdf |
 
 Chưa nạp: TT 11/2025/TT-BNV, TT 29/2026/TT-NHNN, NĐ 75/2024 (chỉ có bản scan; NĐ 75 đã hết hiệu lực), Công văn 340/BHXH-CSXH và 151/BHXH-ĐTQ (scan), NĐ 351/2025 (chưa tìm được bản chữ), các văn bản đã hết hiệu lực.
+
+Cập nhật 12/11/2026: TT 11/2025/TT-BNV, NĐ 351/2025/NĐ-CP và TT 29/2026/TT-NHNN đã có bản chữ chính thức, lưu ở `../../knowledge-legal-2026-11/` (manifest riêng, chưa nạp DB). CV 340 và CV 151 vẫn chỉ có bản scan.

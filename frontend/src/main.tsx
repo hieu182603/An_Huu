@@ -1,26 +1,16 @@
+import './components/icon-base.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import App from './App'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import { AppLoadingProvider } from './components/AppLoader'
-import { MotionConfig } from 'motion/react'
-import { AuthProvider, useAuth } from './context/AuthContext'
-import { FinancialProfileProvider } from './context/FinancialProfileContext'
+import { LazyMotion, MotionConfig, domAnimation } from 'motion/react'
+import { AuthProvider } from './context/AuthContext'
 import { NotificationProvider } from './components/Notification'
-import { RetirementPlanProvider } from './context/RetirementPlanContext'
+import { preloadRoute } from './services/routePreload'
 import './index.css'
 import './responsive.css'
-
-function AccountProfile({ children }: { children: React.ReactNode }) {
-  return (
-    <FinancialProfileProvider>
-      <RetirementPlanProvider>
-        {children}
-      </RetirementPlanProvider>
-    </FinancialProfileProvider>
-  );
-}
 
 // Vô hiệu hóa toàn bộ tính năng vuốt/cuộn chuột làm tăng giảm giá tiền hoặc số liệu trên các ô input
 if (typeof window !== "undefined") {
@@ -46,20 +36,24 @@ if (typeof window !== "undefined") {
   );
 }
 
+// A hard load of a private page needs its code as well as the session: fetch
+// both at once instead of starting the chunks after the session is restored.
+if (/^\/(user|onboarding)(\/|$)/.test(window.location.pathname)) preloadRoute(window.location.pathname + window.location.search)
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
+      <LazyMotion features={domAnimation} strict>
       <MotionConfig reducedMotion="user">
         <AppLoadingProvider>
           <AuthProvider>
-            <AccountProfile>
-              <NotificationProvider>
-                <AppErrorBoundary><App /></AppErrorBoundary>
-              </NotificationProvider>
-            </AccountProfile>
+            <NotificationProvider>
+              <AppErrorBoundary><App /></AppErrorBoundary>
+            </NotificationProvider>
           </AuthProvider>
         </AppLoadingProvider>
       </MotionConfig>
+      </LazyMotion>
     </BrowserRouter>
   </React.StrictMode>,
 )

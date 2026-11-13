@@ -17,7 +17,7 @@ import { AccuracyChecklist } from "../components/AccuracyChecklist";
 import PlanSyncStatus from "../components/PlanSyncStatus";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation,useSearchParams } from "react-router";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { Alert, Badge, Button, Card, Checkbox, Icon, Input, Modal, useNotification } from "../components/ui";
 import CurrencyInput from "../components/CurrencyInput";
 import { MonthlyRetirementChart } from "../components/charts";
@@ -529,7 +529,7 @@ export default function RetirementPlanPage() {
               {language === "en" ? "Your plan at a glance" : "Tổng quan kế hoạch của bạn"}
             </h2>
             {/* Primary Result Hero - demo layout */}
-            <motion.div
+            <m.div
               className="summary-hero plan-summary-hero plan-result-hero"
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
@@ -553,11 +553,11 @@ export default function RetirementPlanPage() {
                 <p className="plan-summary-hero__desc">
                   {language === "en" ? (
                     <>
-                      You are currently trying <strong>{formatVNDCurrency(summary?.plannedMonthlyContribution ?? null)}/month</strong>. First month contribution budget: <strong>{financeMoney(displayedPreview?.calculation?.rows[0]?.contributionCapacity??null,language==="en")}</strong>.
+                      You are currently trying <strong>{formatVNDCurrency(summary?.plannedMonthlyContribution ?? null)}/month</strong>. First month contribution budget: <strong>{financeMoney(displayedPreview?.calculation?.rows?.[0]?.contributionCapacity??null,language==="en")}</strong>.
                     </>
                   ) : (
                     <>
-                      Bạn đang thử góp <strong>{formatVNDCurrency(summary?.plannedMonthlyContribution ?? null)}/tháng</strong>. Ngân sách có thể góp ở tháng đầu: <strong>{financeMoney(displayedPreview?.calculation?.rows[0]?.contributionCapacity??null,false)}</strong>.
+                      Bạn đang thử góp <strong>{formatVNDCurrency(summary?.plannedMonthlyContribution ?? null)}/tháng</strong>. Ngân sách có thể góp ở tháng đầu: <strong>{financeMoney(displayedPreview?.calculation?.rows?.[0]?.contributionCapacity??null,false)}</strong>.
                     </>
                   )}
                 </p>
@@ -607,7 +607,7 @@ export default function RetirementPlanPage() {
                   <small>{language === "en" ? "Under the current assumptions" : "Theo giả định đang dùng"}</small>
                 </div>
               </div>
-            </motion.div>
+            </m.div>
 
             {/* 4 key metrics, demo order: need · have · gap · spending */}
             <div
@@ -634,8 +634,8 @@ export default function RetirementPlanPage() {
                 {
                   key: "gap" as const,
                   label: language === "en" ? "Remaining gap" : "Phần còn thiếu",
-                  val: summary?formatCompactVND(summary.atRetirement.fundingGap.startsWith("-")?"0":summary.atRetirement.fundingGap):unknown,
-                  sub: `${summary?formatVNDCurrency(summary.atRetirement.fundingGap.startsWith("-")?"0":summary.atRetirement.fundingGap):unknown} · Chênh lệch tại mốc nghỉ hưu`,
+                  val: summary?formatCompactVND(summary.atRetirement.fundingGap?.startsWith("-")?"0":summary.atRetirement.fundingGap):unknown,
+                  sub: `${summary?formatVNDCurrency(summary.atRetirement.fundingGap?.startsWith("-")?"0":summary.atRetirement.fundingGap):unknown} · Chênh lệch tại mốc nghỉ hưu`,
                   top: "#d97706",
                   bg: "#fffaf0",
                 },
@@ -712,14 +712,14 @@ export default function RetirementPlanPage() {
                 <div className="health-kpi" style={{ padding: "16px", border: "1px solid #dce7f3", borderRadius: "10px", background: "#F9FBFF" }}>
                   <span style={{ fontSize: "12px", color: "#536779" }}>{language === "en" ? "First month contribution" : "Thực góp tháng đầu"}</span>
                   <strong style={{ display: "block", fontSize: "20px", color: "#052659", margin: "6px 0 2px" }}>
-                    {summary ? financeMoney(displayedPreview?.calculation?.rows[0]?.contribution??null,language==="en") : unknown}{" "}
+                    {summary ? financeMoney(displayedPreview?.calculation?.rows?.[0]?.contribution??null,language==="en") : unknown}{" "}
                     <small style={{ fontSize: "12px", fontWeight: 400 }}>/{language === "en" ? "mo" : "tháng"}</small>
                   </strong>
                 </div>
                 <div className="health-kpi" style={{ padding: "16px", border: "1px solid #dce7f3", borderRadius: "10px", background: "#F9FBFF" }}>
                   <span style={{ fontSize: "12px", color: "#536779" }}>{language === "en" ? "First month capacity" : "Khả năng ngân sách tháng đầu"}</span><button type="button" className="money-info-trigger" aria-haspopup="dialog" aria-label={language === "en" ? "Explain: Contribution capacity" : "Giải thích: Khả năng ngân sách"} onClick={()=>setMetricInfo("capacity")}><Icon name="info" /></button>
                   <strong style={{ display: "block", fontSize: "20px", color: "#052659", margin: "6px 0 2px" }}>
-                    {financeMoney(displayedPreview?.calculation?.rows[0]?.contributionCapacity??null,language==="en")}{" "}
+                    {financeMoney(displayedPreview?.calculation?.rows?.[0]?.contributionCapacity??null,language==="en")}{" "}
                     <small style={{ fontSize: "12px", fontWeight: 400 }}>/{language === "en" ? "mo" : "tháng"}</small>
                   </strong>
                 </div>

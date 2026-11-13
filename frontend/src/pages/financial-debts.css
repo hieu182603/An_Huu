@@ -11,3 +11,13 @@
 .user-dashboard-shell:has(.financial-debts-page),.user-dashboard-shell:has(.financial-debts-page) .dashboard-workspace{background:#f5f7fa}
 .debt-impact-grid{display:block;margin:18px 0 0}.debt-impact-grid>div{display:flex;align-items:baseline;justify-content:space-between;gap:20px;border-bottom:1px solid #dfe6ef;padding:16px 0}.debt-impact-grid span{font-size:14px}.debt-impact-grid strong{font-size:14px;text-align:right}.debt-add-row{margin-top:22px}.debt-schedule-link{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0;border-bottom:1px solid #dfe6ef}.debt-schedule-link:last-child{border-bottom:0}.debt-schedule-link strong{overflow-wrap:anywhere}.debt-schedule-link p{margin-top:6px}.debt-schedule-link button{flex-shrink:0}
 .user-workspace-dialog.debt-schedule-dialog{width:min(100%,1000px)}
+
+/* C4: compact card when no loans are recorded */
+.debt-empty-summary{display:flex;align-items:flex-start;gap:14px}
+.debt-empty-summary>div{flex:1;min-width:0}
+.debt-empty-summary h2{margin:6px 0 4px}
+.debt-empty-summary p{margin:0}
+.debt-empty-summary .debt-ledger-total{margin-top:16px;padding-top:14px}
+.debt-empty-summary .debt-ledger-total strong{font-size:19px}
+.debt-empty-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+@media(max-width:600px){.debt-empty-summary{flex-direction:column}.debt-empty-summary h2{margin-top:0}.debt-empty-actions .overview-button{flex:1 1 100%;justify-content:center}}

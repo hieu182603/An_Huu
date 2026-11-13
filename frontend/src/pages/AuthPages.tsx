@@ -4,6 +4,7 @@ import ResponsiveDialog from "../components/ResponsiveDialog";
 import { Badge, BrandLogo, Button, Checkbox, GoogleIcon, Icon, Input, useNotification } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { resumeDestination } from "../services/navigation";
+import { preloadRoute } from "../services/routePreload";
 import { ApiError, apiRequest, forgetSession, validPassword } from "../services/api";
 import { isGoogleAuthConfigured, triggerGoogleSignIn } from "../services/googleAuth";
 import { trackLoginEvent, trackSignUpEvent } from "../services/googleAnalytics";
@@ -199,6 +200,9 @@ export function LoginPage() {
     }
     setLoading(true);
     setError("");
+    // Download the destination's code while the server checks the password.
+    const from = typeof location.state?.from === "string" ? location.state.from : "";
+    if (!from.startsWith("/admin")) preloadRoute(from.startsWith("/user/") ? from : (location.state as { isNewUser?: boolean } | null)?.isNewUser ? "/onboarding" : "/user/dashboard");
     try {
       const loggedUser = await login(cleanEmail, cleanPassword, remember);
       const targetDestination = resumeDestination(

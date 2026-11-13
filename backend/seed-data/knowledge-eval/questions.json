@@ -43,6 +43,12 @@
     { "q": "Tỷ lệ đáp ứng 80% nghĩa là gì?", "expect": "không phải xác suất", "topic": "Đọc kết quả" },
     { "q": "Tại sao tiền dư hàng tháng không được cộng vào quỹ?", "expect": "khoản góp bạn đã khai", "topic": "Đọc kết quả" },
     { "q": "Sản phẩm rủi ro cao là những loại nào?", "expect": "[Rr]ủi ro cao: biến động mạnh", "topic": "Chọn sản phẩm" },
-    { "q": "Gợi ý sản phẩm có phải là lời khuyên đầu tư không?", "expect": "không khuyến nghị mua hoặc bán", "topic": "Chọn sản phẩm" }
+    { "q": "Gợi ý sản phẩm có phải là lời khuyên đầu tư không?", "expect": "không khuyến nghị mua hoặc bán", "topic": "Chọn sản phẩm" },
+    { "q": "Đóng BHXH tự nguyện một lần cho thời gian còn thiếu thì từ khi nào được hưởng lương hưu?", "expect": "tháng liền kề sau tháng đóng đủ số tiền cho thời gian đóng bảo hiểm xã hội còn thiếu", "topic": "Thời điểm hưởng lương hưu tự nguyện" },
+    { "q": "Người đóng BHXH tự nguyện chỉ có năm sinh, không rõ ngày tháng sinh thì tính tuổi nghỉ hưu thế nào?", "expect": "ngày 01 tháng 01 của năm sinh", "topic": "Thời điểm hưởng lương hưu tự nguyện" },
+    { "q": "Năm 2026 áp dụng chuẩn nghèo nào?", "expect": "chuẩn nghèo đa chiều giai đoạn 2022 - 2025", "expectTitle": "351/2025", "topic": "Chuẩn nghèo" },
+    { "q": "Chuẩn thu nhập hộ nghèo khu vực đô thị giai đoạn 2027 - 2030 là bao nhiêu?", "expect": "2\\.800\\.000 đồng/người/tháng", "topic": "Chuẩn nghèo" },
+    { "q": "Khoản cho vay có mức giá trị nhỏ tại ngân hàng tối đa bao nhiêu tiền?", "expect": "400\\.000\\.000", "topic": "Cho vay" },
+    { "q": "Khoản vay bị quá hạn thì ngân hàng thu nợ gốc hay lãi trước?", "expect": "nợ gốc thu trước, nợ lãi tiền vay thu sau", "topic": "Cho vay" }
   ]
 }

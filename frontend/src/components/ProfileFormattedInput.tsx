@@ -19,6 +19,26 @@ function moneyText(value: string, vi: boolean, editing = false) {
   return grouped + (fraction !== undefined && (editing || /[1-9]/.test(fraction)) ? `${vi ? "," : "."}${fraction}` : "");
 }
 
+// A blur caused by pressing elsewhere must not remove the quick-pick row until the press
+// ends: the row sits in the layout, so removing it mid-press moves the target and the click is lost.
+let pointerHeld = false;
+if (typeof document !== "undefined") {
+  document.addEventListener("pointerdown", () => { pointerHeld = true; }, true);
+  const release = () => { pointerHeld = false; };
+  document.addEventListener("pointerup", release, true);
+  document.addEventListener("pointercancel", release, true);
+}
+function afterPointerRelease(callback: () => void) {
+  if (!pointerHeld) { callback(); return; }
+  const done = () => {
+    document.removeEventListener("pointerup", done, true);
+    document.removeEventListener("pointercancel", done, true);
+    setTimeout(callback); // after the click that this release produces
+  };
+  document.addEventListener("pointerup", done, true);
+  document.addEventListener("pointercancel", done, true);
+}
+
 function dateText(value: string) {
   return value ? value.split("-").reverse().join("/") : "";
 }
@@ -100,7 +120,7 @@ export default function ProfileFormattedInput({ format, currency = "VND", label,
   };
 
   return <div className={`form-field profile-formatted-field ${message ? "has-error" : ""}`}
-    onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))setIsFocused(false);}}>
+    onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))afterPointerRelease(()=>{if(!focused.current)setIsFocused(false);});}}>
     <label className="field-label" htmlFor={id}>{label}</label>
     <span className="input-wrap">
       <input ref={inputRef} id={id} type="text" inputMode={format === "money" ? "decimal" : "numeric"}

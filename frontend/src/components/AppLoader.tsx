@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useIsPresent, useReducedMotion } from "motion/react";
 import loadingWaves from "../assets/loading-waves.webp";
 import logoHorizontal from "../assets/logo.webp";
 import { Button, Icon } from "./ui";
@@ -90,7 +90,7 @@ function LoaderView({ label = "Vui lòng đợi trong giây lát…", error, onR
   // Keep the screen independent of transformed route containers. An unknown
   // request duration uses a rotating arc, never an invented percentage counter.
   return createPortal(
-    <motion.div className={`anhuu-loading${error ? " is-error" : ""}${percentage === undefined ? " is-indeterminate" : " is-determinate"}`}
+    <m.div className={`anhuu-loading${error ? " is-error" : ""}${percentage === undefined ? " is-indeterminate" : " is-determinate"}`}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       transition={{ duration: reducedMotion ? 0 : .24, ease: "easeOut" }}
       aria-hidden={!present || undefined} inert={!present || undefined}
@@ -155,6 +155,6 @@ function LoaderView({ label = "Vui lòng đợi trong giây lát…", error, onR
         </div>
         {error && onRetry && <div className="anhuu-loading__retry"><Button onClick={onRetry}>Thử kết nối lại</Button></div>}
       </div>
-    </motion.div>, document.body,
+    </m.div>, document.body,
   );
 }

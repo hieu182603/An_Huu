@@ -565,7 +565,7 @@ test.describe("Screen 12: Khoản nợ & Lịch trả nợ (/user/debts)", () =>
 
   test("12.5 Add debt dialog modal opens upon clicking add debt button", async ({ page }) => {
     await page.goto("/user/debts");
-    const addBtn = page.getByRole("button", { name: /Thêm khoản nợ|Khai báo khoản nợ/i }).first();
+    const addBtn = page.getByRole("button", { name: /Thêm khoản nợ|Khai báo khoản (nợ|vay)/i }).first();
     if (await addBtn.count() > 0) {
       await addBtn.click();
       const modal = page.locator('.modal, [role="dialog"]').first();

@@ -109,7 +109,18 @@ function startShared() {
   // A POST and its socket echo can both arrive; reload the authoritative total
   // instead of decrementing twice or counting only the visible first page.
   const onRead = () => { void refreshNotifications(); };
-  const onBroadcast = (payload: { title: string; message: string; timestamp: string }) => {
+  const onBroadcast = (payload: { title: string; message: string; timestamp: string; broadcastId?: string; persisted?: boolean }) => {
+    // Persisted broadcasts already exist in /me/notifications with a real id:
+    // reload instead of inserting a fake row that would duplicate it and
+    // could not be marked as read.
+    if (payload.persisted === true) {
+      // A fetch already in flight may have started before the rows were saved.
+      void (inflight ? inflight.then(() => refreshNotifications()) : refreshNotifications()).then(() => {
+        const saved = state.notifications.find(n => !n.readAt && n.title === payload.title && n.message === payload.message);
+        if (saved) window.dispatchEvent(new CustomEvent("anhuu:notification-received", { detail: { ...saved, isNew: true } }));
+      });
+      return;
+    }
     const syntheticNotif: RealtimeNotification = {
       id: `broadcast-${Date.now()}`, title: payload.title, message: payload.message, path: "/user/notifications",
       readAt: null, createdAt: payload.timestamp || new Date().toISOString(), isNew: true,

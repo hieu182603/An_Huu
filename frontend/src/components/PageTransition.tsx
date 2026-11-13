@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 
 // Mount inside the route's Suspense boundary, after the actual page is ready.
 // No outgoing page is retained: forms and route context have one live owner.
@@ -16,10 +16,10 @@ export default function PageTransition({ children }: { children: ReactNode }) {
     const interacting = focused instanceof HTMLElement && focused.closest('button,input,textarea,select,[contenteditable="true"],[role="menu"],[role="dialog"]');
     if (!interacting) heading?.focus({ preventScroll: true });
   }, []);
-  return <motion.div ref={container} className="anhuu-page-transition"
+  return <m.div ref={container} className="anhuu-page-transition"
     initial={reducedMotion ? false : { opacity: .65, y: 5 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: reducedMotion ? 0 : .18, ease: [.22, 1, .36, 1] }}>
     {children}
-  </motion.div>;
+  </m.div>;
 }

@@ -12,6 +12,10 @@ const dist = path.join(root, 'dist');
 const assetFiles = await readdir(path.join(dist, 'assets'));
 const jsFile = assetFiles.find(f => f.startsWith('index-') && f.endsWith('.js'));
 const cssFile = assetFiles.find(f => f.startsWith('index-') && f.endsWith('.css'));
+// Chunks the entry imports statically: preload them so they download with the
+// entry instead of after it has been parsed.
+const preloads = assetFiles.filter(f => f.startsWith('react-vendor-') && f.endsWith('.js'))
+  .map(f => `\n    <link rel="modulepreload" crossorigin href="/assets/${f}">`).join('');
 
 const template = `<!doctype html>
 <html lang="vi">
@@ -21,7 +25,7 @@ const template = `<!doctype html>
     <meta name="theme-color" content="#10385b" />
     <meta name="google-site-verification" content="google084fb0249d30ed55" />
     <link rel="icon" type="image/png" href="/logo.png" />
-    <script type="module" crossorigin src="/assets/${jsFile}"></script>
+    <script type="module" crossorigin src="/assets/${jsFile}"></script>${preloads}
     <link rel="stylesheet" crossorigin href="/assets/${cssFile}">
   </head>
   <body>

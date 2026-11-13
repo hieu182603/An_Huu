@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { Icon, Switch, Button, Badge, Card, useNotification, type IconName } from "./ui";
 import { AccountProfilePanel, AccountSecurityPanel } from "./AccountApiPanels";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
@@ -183,7 +183,7 @@ export function UserAccountModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <motion.div
+      <m.div
         ref={surface}
         tabIndex={-1}
         className="account-modal-window"
@@ -393,7 +393,7 @@ export function UserAccountModal({
             )}
           </div>
         </div>
-      </motion.div>
+      </m.div>
     </div>,
     document.body
   );

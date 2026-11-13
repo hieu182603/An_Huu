@@ -18,8 +18,8 @@ async function openDashboard(page: import('@playwright/test').Page, viewport = 1
 
 const planGlossary = { version: 'test-v1', terms: [{ key: 'fundCoverage', label: { vi: 'Độ phủ quỹ', en: 'Fund coverage' }, definition: { vi: 'Phần quỹ dự kiến so với quỹ cần có.', en: 'Projected fund compared with the required fund.' } }] };
 
-// The plan page still carries glossary terms (fundCoverage, contributionTiming) and metric targets;
-// the redesigned dashboard and risk page no longer render <Explain> labels.
+// The plan page carries glossary terms (fundCoverage, contributionTiming) and metric targets.
+// Overview, Goal and Allocation labels are covered by the page-term tests at the end of this file.
 async function openPlan(page: import('@playwright/test').Page, viewport = 1440) {
   await page.setViewportSize({ width: viewport, height: 900 });
   const { setupPlanning } = await import('./planning-contract-fixtures');
@@ -346,3 +346,83 @@ test('metric cache retries failures, discards a popup when input changes and fet
   expect(requests[2].source.input.monthlyContribution).toBe('3000000');
   expect(requests[1].source.input.monthlyContribution).toBe('2000000');
 });
+
+// Overview, Goal and Allocation re-wrap their visible labels in <Explain term> (product decision 12/11/2026).
+const pageGlossary = { version: 'test-v1', terms: [
+  { key: 'nearTermGoals', label: { vi: 'Mục tiêu gần hạn', en: 'Near-term goals' }, definition: { vi: 'Mục tiêu có hạn chi nằm trong cửa sổ gần hạn.', en: 'A goal due within the near-term window.' } },
+] };
+
+async function openPlanningPage(page: import('@playwright/test').Page, path: string, viewport = 1440, workspace?: object) {
+  await page.setViewportSize({ width: viewport, height: 900 });
+  const { setupPlanning } = await import('./planning-contract-fixtures');
+  const fixture = await setupPlanning(page);
+  await page.route('**/api/v1/me/explanations/glossary', route => route.fulfill({ json: { data: pageGlossary } }));
+  if (workspace) await page.route('**/api/v1/me/portfolio-policies/workspace/preview', route => route.fulfill({ json: { data: workspace } }));
+  await page.goto(path);
+  return fixture;
+}
+
+async function allocationWorkspace() {
+  const { capital, loss } = await import('./planning-contract-fixtures');
+  const { readFileSync } = await import('node:fs');
+  const policies = JSON.parse(readFileSync(new URL('./fixtures/portfolio-policies.json', import.meta.url), 'utf8'));
+  const template = policies.v2.templates[0];
+  return {
+    profileRevision: 3, valuationDate: '2026-10-15', policyVersionId: 'policy-test', assumptionVersionId: 'asm-1', informationalOnly: true,
+    capital, loss: { ...loss, status: 'WITHIN_LIMIT', exceedsTolerance: false }, allocations: [], assetLabels: {}, issues: [],
+    portfolio: { policyVersionId: 'policy-test', policyVersion: 4, status: 'READY', limitations: [], scenarios: [], issues: [],
+      assessment: { status: 'MATCHED', totalScore: 18, dimensionScores: {}, riskBandId: 'BAND_CONSERVATIVE', selectedTemplateId: template.id, eligibleTemplateIds: [template.id], answers: [], checks: [] } },
+  };
+}
+
+async function expectTermDialog(page: import('@playwright/test').Page, target: import('@playwright/test').Locator, definition: string) {
+  await expect(target).toBeVisible();
+  await target.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText(definition);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+}
+
+test('overview metric labels explain their glossary terms only while the mode is on', async ({ page }) => {
+  await openDashboard(page);
+  const label = page.locator('.dashboard-metric.is-required .dashboard-metric-label');
+  await expect(label).toContainText('Quỹ cần cho mục tiêu');
+  await expect(label.locator('.explain-target')).toHaveCount(0);
+  await toggleExplainMode(page);
+  await expectTermDialog(page, label.locator('.explain-target', { hasText: 'Quỹ cần cho mục tiêu' }), 'Tổng số tiền cần có tại thời điểm bắt đầu nghỉ hưu');
+});
+
+test('goal page title, retirement age and spending labels open their definitions', async ({ page }) => {
+  await openPlanningPage(page, '/user/goal');
+  await expect(page.locator('.goal-page-header h1')).toHaveText('Mục tiêu nghỉ hưu');
+  await expect(page.locator('.goal-main-form .explain-target')).toHaveCount(0);
+  await toggleExplainMode(page);
+  await expectTermDialog(page, page.locator('.goal-page-header h1 .explain-target'), 'Mục tiêu xác định độ tuổi nghỉ hưu mong muốn');
+  await expectTermDialog(page, page.locator('.goal-age-field .explain-target'), 'Độ tuổi bạn mong muốn ngừng làm việc toàn thời gian');
+  await expectTermDialog(page, page.locator('.explain-target', { hasText: 'Chi tiêu nghỉ hưu mỗi tháng' }), 'tính theo thời giá hiện tại');
+  await expectTermDialog(page, page.locator('.goal-sync-timeline .explain-target', { hasText: 'Chuẩn bị đến hết tháng' }), 'Tháng cuối cùng được tính trong phương án đang xem');
+});
+
+test('allocation labels open bundled and backend glossary definitions', async ({ page }) => {
+  await openPlanningPage(page, '/user/risk-portfolio', 1440, await allocationWorkspace());
+  await expect(page.getByRole('heading', { name: 'Phân bổ tài sản', exact: true })).toBeVisible();
+  await expect(page.locator('.allocation-capital .explain-target')).toHaveCount(0);
+  await toggleExplainMode(page);
+  await expectTermDialog(page, page.locator('.allocation-capital .explain-target', { hasText: 'Mục tiêu gần hạn' }), 'Mục tiêu có hạn chi nằm trong cửa sổ gần hạn.');
+  await page.locator('.allocation-steps button').nth(1).click();
+  await expectTermDialog(page, page.locator('.allocation-protection .explain-target', { hasText: 'Chi tiêu khi nghỉ hưu' }), 'tính theo thời giá hiện tại');
+});
+
+for (const [name, width, scoreVisible] of [['mobile', 390, false], ['desktop', 1440, true]] as const) {
+  test(`risk survey result shows the band name with the raw score only on ${name}`, async ({ page }) => {
+    await openPlanningPage(page, '/user/risk-portfolio', width, await allocationWorkspace());
+    await page.locator('.allocation-steps button').nth(1).click();
+    const status = page.locator('.allocation-survey-status');
+    await expect(status.getByText('Thận trọng Bảo toàn', { exact: true })).toBeVisible();
+    await expect(status.getByText('Ưu tiên giữ vốn, chấp nhận ít biến động.', { exact: true })).toBeVisible();
+    const score = status.locator('.allocation-survey-score');
+    await expect(score).toContainText('18/180 điểm');
+    if (scoreVisible) await expect(score).toBeVisible(); else await expect(score).toBeHidden();
+  });
+}

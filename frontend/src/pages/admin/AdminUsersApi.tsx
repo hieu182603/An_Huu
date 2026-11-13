@@ -58,6 +58,7 @@ const StatusBadge = ({ value, language }: { value: string; language: "vi" | "en"
 
 export function AdminUsersPage() {
   const { language } = useI18n();
+  const navigate = useNavigate();
   const statuses = getStatuses(language);
   const allStatusLabel = language === "en" ? "All statuses" : "Tất cả trạng thái";
 
@@ -170,6 +171,9 @@ export function AdminUsersPage() {
           <p>{language === "en" ? "Search accounts, inspect contact details, and administer system access permissions." : "Tìm kiếm tài khoản, kiểm tra thông tin liên hệ và quản trị quyền truy cập hệ thống."}</p>
         </div>
         <div style={{ display: "flex", gap: "var(--space-2)" }}>
+          <Button variant="secondary" icon="key" onClick={() => navigate("/admin/investment-roles")}>
+            {language === "en" ? "Investment roles (ADMIN)" : "Phân quyền đầu tư (ADMIN)"}
+          </Button>
           <Button
             variant="secondary"
             icon="download"

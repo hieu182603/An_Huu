@@ -2,6 +2,7 @@ import { addMonths } from "../../common/calendar";
 import type { AssumptionDocument } from "../assumptions/schema";
 import { AssumptionDecimal as D, validateConfiguration, resolveYearSeries, normalizedAnnualReturn, type ConfigurationIssue } from "../assumptions/series";
 import { dimensions, portfolioDocumentSchema, portfolioPreviewSchema, type PortfolioDocument, type PortfolioPreview, type PortfolioTemplate } from "./schema";
+import { customTargets, customWeightIssues } from "./custom";
 
 type Allocation = { assetClass: string; weightPercent: string };
 const allocationSets = (template: PortfolioTemplate): Allocation[][] =>
@@ -190,7 +191,7 @@ export function previewPortfolio(document: PortfolioDocument, assumptions: Assum
   if (glide && !input.retirementMonth) return { ...context, status: "INCOMPLETE", issues: [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }], scenarios: [] };
   // v1: indexed period targets. v2: whole-year glide position; a change of
   // position forces a rebalance exactly like a v1 period boundary.
-  const targetAt = (i: number, month: string) => {
+  const baseTargetAt = (i: number, month: string) => {
     if (glide) {
       const years = glideYears(glide, month, input.retirementMonth!);
       const previous = i === 0 ? null : glideYears(glide, addMonths(month, -1), input.retirementMonth!);
@@ -200,6 +201,19 @@ export function previewPortfolio(document: PortfolioDocument, assumptions: Assum
     return { targets: new Map(assetCodes.map(code => [code, new D(period.allocations.find(a => a.assetClass === code)?.weightPercent ?? "0").div(100)])),
       boundary: period.fromIndex === i + 1 };
   };
+  const initialTargets = baseTargetAt(0, input.startMonth).targets;
+  const targetAt = (i: number, month: string) => {
+    const base = baseTargetAt(i, month);
+    return input.customAllocation ? { ...base, targets: customTargets(input.customAllocation, initialTargets, base.targets) } : base;
+  };
+  if (input.customAllocation) {
+    const customIssues = customWeightIssues(input.customAllocation, data.schemaVersion === 2 ? data.customization : undefined, assetCodes, targetAt(0, input.startMonth).targets);
+    if (customIssues.length) return { ...context, status: "INCOMPLETE", issues: customIssues.map(code => ({ path: "customAllocation", code })), scenarios: [] };
+    for (let i = 1; i < input.horizonMonths; i++) {
+      const errors = customWeightIssues(input.customAllocation, data.schemaVersion === 2 ? data.customization : undefined, assetCodes, targetAt(i, addMonths(input.startMonth, i)).targets);
+      if (errors.length) return { ...context, status: "INCOMPLETE", issues: errors.map(code => ({ path: `customAllocation.${i}`, code })), scenarios: [] };
+    }
+  }
   const endMonth = addMonths(input.startMonth, input.horizonMonths - 1);
   const series = (assetClass: string) => {
     const request = { versionId: data.assumptionVersionId, startMonth: input.startMonth, endMonth, horizonMonths: input.horizonMonths, assetClass };

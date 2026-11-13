@@ -1413,7 +1413,16 @@ Backend đã bổ sung các API sau (tương thích ngược, frontend hiện t�
 
 Kiểm tra nghiệm thu: gửi yêu cầu khi chưa tick đồng ý bị chặn ở UI; gửi trùng hiện thông báo 409; huỷ xong trạng thái hiện "Đã đóng"; lưu/bỏ lưu đồng bộ sau khi tải lại trang và trên thiết bị khác; bảng kịch bản sốc hiện đủ 2 dòng cổ phiếu khi policy có mức nặng.
 
-## FE-ADMIN-GAPS (08/11/2026) — LÀM SAU, chưa bắt đầu
+## FE-ADMIN-GAPS (08/11/2026) — ĐÃ LÀM (frontend 12/11/2026)
+
+**Frontend đã làm 12/11/2026** (chưa commit):
+- Phân quyền đầu tư: trang mới `/admin/investment-roles` (mục điều hướng "Phân quyền đầu tư", nút "Phân quyền đầu tư (ADMIN)" ở `/admin/users`). Không gắn vào trang chi tiết `/admin/users/:id` vì API đó chỉ trả tài khoản USER. Kiểm `GET /investments/permissions` trước; không có `SYSTEM_ADMIN` thì hiện lời giải thích, không gọi danh sách. Mỗi ADMIN một dòng với 6 công tắc; bật/tắt mở hộp xác nhận có ô lý do 3–500 ký tự rồi gọi grant/revoke, cập nhật dòng bằng `data.roles`. Lỗi: 403, 409 `LAST_ROLE_MANAGER`, 409 `CONCURRENT_UPDATE`, 422 `INVESTMENT_ROLE_ADMIN_ONLY`, 404 `ROLE_NOT_GRANTED` (tải lại dòng), 404 `NOT_FOUND`. `changed: false` hiện thông báo thông tin, không báo lỗi. Tự thu hồi vai trò của mình thì tải lại permissions.
+- Gửi thông báo: trang mới `/admin/broadcast` (mục "Gửi thông báo"): tiêu đề/nội dung có đếm ký tự, xem trước, hộp xác nhận "Gửi tới tất cả người dùng đang hoạt động". Tạo `Idempotency-Key` (UUID v4) khi mở xác nhận, giữ nguyên khi thử lại sau lỗi, đổi khóa khi sửa nội dung hoặc sau khi gửi thành công. Hiện "Đã gửi tới N người dùng" và ghi chú khi `replayed: true`. Timeout yêu cầu 60 giây.
+- `frontend/src/services/socket.ts`: `notification:broadcast` có `persisted: true` thì tải lại `/me/notifications` (chờ cả lượt tải đang chạy), không chèn thông báo giả `broadcast-<timestamp>`. Payload cũ không có `persisted` vẫn giữ cách cũ.
+- Giám sát vận hành: `/admin/operations` thành trang thật (mục "Tình trạng hệ thống"): thẻ API/DB/uptime/job hoàn tất gần nhất, số job email theo trạng thái, ghi chú "COMPLETED = nhà cung cấp email đã nhận, chưa chắc đã giao tới hộp thư người dùng", trạng thái cấu hình, bảng 20 job lỗi gần nhất, nút tải lại (bỏ cache), trạng thái đang tải/lỗi có nút thử lại/trống.
+- File: mới `frontend/src/pages/admin/AdminInvestmentRolesPage.tsx`, `AdminBroadcastPage.tsx`, `AdminSystemHealthPage.tsx`, `admin-gaps.css`, `frontend/tests/admin-gaps.spec.ts`; sửa `frontend/src/App.tsx`, `src/routes.ts`, `src/pages/admin/AdminApp.tsx`, `src/pages/admin/AdminUsersApi.tsx`, `src/services/socket.ts`, `src/services/routePreload.ts`, `src/components/ui.tsx` (thêm icon `key`, `megaphone`, `activity`), `src/i18n/translations/vi.ts`, `en.ts`. Không đổi giao diện user.
+- Kiểm: `npm run typecheck`, `npm run build`, `tests/admin-gaps.spec.ts` 8/8 đạt (API giả lập); hồi quy `admin-users-actions`, `admin-management-actions`, `admin-ui` đạt. Chưa thử với backend thật.
+
 
 Ba phần quản lý admin còn thiếu. **Backend mục 1 và 2 đã xong ngày 12/11/2026** (hợp đồng bên dưới, OpenAPI `backend/docs/openapi.yaml` + `backend/docs/admin-gaps.openapi.yaml`); cả ba mục đều có thể làm UI.
 

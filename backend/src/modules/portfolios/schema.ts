@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { addMonths, dateSchema, monthSchema } from "../../common/calendar";
 import { ratePercentSchema, revisionSchema } from "../assumptions/schema";
 import { riskPolicySchema } from "../allocation-risk/policy";
+import { customAllocationSchema, customizationPolicySchema } from "./custom";
 
 export const PORTFOLIO_POLICY_CODE = "portfolio-policy-v1";
 export const dimensions = ["OBJECTIVE", "HORIZON", "LIQUIDITY", "LOSS_TOLERANCE", "EXPERIENCE", "FINANCIAL_CAPACITY"] as const;
@@ -67,6 +68,7 @@ export const portfolioDocumentV2Schema = z.object({ schemaVersion: z.literal(2),
     }).strict()).min(1).max(20),
   }).strict().optional(),
   allocationRisk: riskPolicySchema.optional(),
+  customization: customizationPolicySchema.optional(),
 }).strict();
 export const portfolioDocumentSchema = z.discriminatedUnion("schemaVersion", [portfolioDocumentV1Schema, portfolioDocumentV2Schema]);
 export const writePortfolioSchema = revisionSchema.extend({ data: portfolioDocumentSchema }).strict();
@@ -76,6 +78,7 @@ export const portfolioPreviewSchema = z.object({ policyVersionId: z.string().uui
   answers: z.array(z.object({ questionId: code, choiceId: code }).strict()).max(30),
   // Required by schema-v2 (glide path) policies; ignored by schema-v1 policies.
   retirementMonth: monthSchema.optional(),
+  customAllocation: customAllocationSchema.optional(),
 }).strict().refine(v => monthSchema.safeParse(addMonths(v.startMonth, v.horizonMonths - 1)).success, "Khoảng tháng vượt năm 2199.");
 export type PortfolioDocument = z.infer<typeof portfolioDocumentSchema>;
 export type PortfolioTemplate = PortfolioDocument["templates"][number];

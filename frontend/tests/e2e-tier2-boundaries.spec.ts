@@ -223,7 +223,7 @@ test.describe("Tier 2 Group 4: Modal Toggles & Dialogs", () => {
 
   test("2.4.3 Add debt modal opens with focus trapped and closes cleanly", async ({ page }) => {
     await page.goto("/user/debts");
-    const addBtn = page.getByRole("button", { name: /Thêm khoản nợ|Khai báo khoản nợ/i }).first();
+    const addBtn = page.getByRole("button", { name: /Thêm khoản nợ|Khai báo khoản (nợ|vay)/i }).first();
     if (await addBtn.count() > 0) {
       await addBtn.click();
       const modal = page.locator('.modal, [role="dialog"]').first();

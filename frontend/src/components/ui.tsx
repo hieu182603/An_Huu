@@ -10,7 +10,6 @@ import logoHorizontal from "../assets/logo.webp";
 import logoVertical from "../assets/logo-vertical.webp";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faAnglesLeft,
   faAnglesRight,
@@ -19,6 +18,7 @@ import {
   faArrowRight,
   faBell,
   faBriefcase,
+  faBullhorn,
   faBullseye,
   faChartColumn,
   faCheck,
@@ -37,7 +37,9 @@ import {
   faFilter,
   faGear,
   faGlobe,
+  faHeartPulse,
   faHouse,
+  faKey,
   faLifeRing,
   faMagnifyingGlass,
   faPlus,
@@ -62,7 +64,7 @@ export type IconName =
   | "file-text" | "filter" | "globe" | "grid" | "home" | "info" | "life-buoy" | "log-out"
   | "maximize" | "message" | "mouse-pointer" | "panel-left" | "panel-right"
   | "plus" | "search" | "settings" | "shield" | "sparkles" | "target" | "trash" | "upload" | "users"
-  | "wallet" | "x" | "alert" | "circle-check" | "eye" | "eye-off" | "edit" | "pen";
+  | "wallet" | "x" | "alert" | "circle-check" | "eye" | "eye-off" | "edit" | "pen" | "key" | "megaphone" | "activity";
 
 export const fontAwesomeIconMap: Record<IconName, IconDefinition> = {
   "angles-left": faAnglesLeft,
@@ -108,9 +110,12 @@ export const fontAwesomeIconMap: Record<IconName, IconDefinition> = {
   "eye-off": faEyeSlash,
   edit: faPenToSquare,
   pen: faPenToSquare,
+  key: faKey,
+  megaphone: faBullhorn,
+  activity: faHeartPulse,
 };
 
-export { FontAwesomeIcon, type IconDefinition };
+export { type IconDefinition };
 
 export function Icon({
   name,
@@ -122,12 +127,20 @@ export function Icon({
   className?: string;
 }) {
   const iconDef = typeof name === "string" ? fontAwesomeIconMap[name] : name;
+  // Same markup Font Awesome's React component produced, without shipping its
+  // ~95 kB runtime in the startup bundle. Base CSS lives in icon-base.css.
+  const [width, height, , , path] = iconDef.icon;
   return (
-    <FontAwesomeIcon
-      icon={iconDef}
-      className={`icon icon-${size} ${className}`.trim()}
+    <svg
+      data-prefix={iconDef.prefix}
+      data-icon={iconDef.iconName}
+      className={`svg-inline--fa fa-${iconDef.iconName} icon icon-${size} ${className}`.trim()}
+      role="img"
+      viewBox={`0 0 ${width} ${height}`}
       aria-hidden="true"
-    />
+    >
+      {(Array.isArray(path) ? path : [path]).map((d, index) => <path key={index} fill="currentColor" d={d} />)}
+    </svg>
   );
 }
 
