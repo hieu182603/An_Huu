@@ -1,25 +1,32 @@
 import { authenticatedRequest } from "./api";
+import * as userRoutes from "../userRoutes";
 
 // Fetch code on navigation intent. Admin routes also warm their first data
 // request so it runs in parallel with the chunk instead of after mount; user
 // routes never request account data here.
 const routes: Record<string, () => Promise<unknown>> = {
-  "/user/dashboard": () => import("../pages/UserDashboard"),
-  "/user/goal": () => import("../pages/RetirementGoalPage"),
-  "/user/plan": () => import("../pages/RetirementPlanPage"),
-  "/user/knowledge": () => import("../pages/KnowledgePage"),
-  "/user/debts": () => import("../pages/DebtAnalysisPage"),
-  "/user/risk-portfolio": () => import("../pages/RiskPortfolioPage"),
-  "/user/assistant": () => import("../pages/AIAssistantPage"),
-  "/user/explore": () => import("../pages/ExplorePage"),
-  "/user/account": () => import("../pages/AccountPage"),
-  "/user/support": () => import("../pages/SupportPage"),
-  "/user/notifications": () => import("../pages/NotificationsPage"),
+  "/onboarding": userRoutes.OnboardingPage.preload,
+  "/user/profile": userRoutes.FinancialProfilePage.preload,
+  "/user/simulation": userRoutes.SimulationTrackingPage.preload,
+  "/user/dashboard": userRoutes.UserDashboard.preload,
+  "/user/goal": userRoutes.RetirementGoalPage.preload,
+  "/user/plan": userRoutes.RetirementPlanPage.preload,
+  "/user/knowledge": userRoutes.KnowledgePage.preload,
+  "/user/debts": userRoutes.DebtAnalysisPage.preload,
+  "/user/risk-portfolio": userRoutes.RiskPortfolioPage.preload,
+  "/user/assistant": userRoutes.AIAssistantPage.preload,
+  "/user/explore": userRoutes.ExplorePage.preload,
+  "/user/account": userRoutes.AccountPage.preload,
+  "/user/support": userRoutes.SupportPage.preload,
+  "/user/notifications": userRoutes.NotificationsPage.preload,
   "/admin/dashboard": () => import("../pages/admin/AdminDashboardPage"),
   "/admin/reports": () => import("../pages/admin/AdminReportsPage"),
+  "/admin/investment-roles": () => import("../pages/admin/AdminInvestmentRolesPage"),
+  "/admin/broadcast": () => import("../pages/admin/AdminBroadcastPage"),
+  "/admin/operations": () => import("../pages/admin/AdminSystemHealthPage"),
   "/admin/users": () => import("../pages/admin/AdminUsersApi"),
   "/admin/content": () => import("../pages/admin/AdminContentApi"),
-  "/admin/support": () => import("../pages/SupportPage"),
+  "/admin/support": userRoutes.SupportPage.preload,
   "/admin/partners": () => import("../pages/admin/AdminBusinessPages"),
   "/admin/ai": () => import("../pages/admin/AdminAIConfigPages"),
   "/admin/financial-config": () => import("../pages/admin/AdminFinancialConfigPage"),
@@ -43,11 +50,24 @@ const adminData: Record<string, string[]> = {
   "/admin/legal-rules": ["/admin/legal-rules"],
 };
 const requested = new Set<string>();
-export function preloadRoute(path: string) {
+// The user shell is needed by every /user page; without this it would only
+// start downloading after the session restore has finished.
+const preloadUserShell = () => { void userRoutes.UserLayout.preload(); };
+// Profile and plan providers wrap /onboarding and every /user page.
+const preloadAccount = () => { void userRoutes.AccountProviders.preload(); };
+export function preloadRoute(target: string) {
+  const path = target.split(/[?#]/)[0];
   const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
   if (connection?.saveData || ["slow-2g", "2g"].includes(connection?.effectiveType || "")) return;
   // Cached for 45s and de-duplicated in api.ts, so repeated hovers cost nothing.
   for (const dataPath of adminData[path] || []) void authenticatedRequest(dataPath).catch(() => {});
+  if (path === "/user" || path.startsWith("/user/")) { preloadAccount(); preloadUserShell(); }
+  if (path === "/onboarding") { preloadAccount(); void userRoutes.FinancialProfileGate.preload(); }
+  // The default tab is its own (large) lazy chunk inside the page.
+  if (path === "/user/simulation" && !/[?&]tab=what-if\b/.test(target) && !requested.has("actuals-tab")) {
+    requested.add("actuals-tab");
+    void import("../pages/simulation/ActualsTab").catch(() => { requested.delete("actuals-tab"); });
+  }
   const load = routes[path];
   if (!load || requested.has(path)) return;
   requested.add(path);

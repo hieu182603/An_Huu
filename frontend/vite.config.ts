@@ -47,6 +47,18 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // React rarely changes between deploys: keep it in its own file so
+        // returning visitors reuse it from cache when only app code changed.
+        // prerender-marketing.mjs adds the matching modulepreload link.
+        manualChunks(id) {
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/.test(id)) return 'react-vendor'
+        },
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 8443,
