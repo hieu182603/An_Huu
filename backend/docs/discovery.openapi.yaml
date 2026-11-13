@@ -46,6 +46,8 @@ SavedProduct:
     - name
     - category
     - expectedReturn
+    - referenceYieldPercent
+    - minimumAmount
     - riskLevel
     - description
     - annualFee
@@ -65,6 +67,22 @@ SavedProduct:
       type: string
     category: *a4
     expectedReturn: *a4
+    referenceYieldPercent:
+      anyOf:
+        - type: string
+          pattern: ^-?[0-9]+(.[0-9]+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
+    minimumAmount:
+      anyOf:
+        - type: string
+          pattern: ^[0-9]+(.[0-9]+)?$
+        - type: object
+          nullable: true
+          enum:
+            - null
     riskLevel:
       type: string
       enum:
@@ -298,6 +316,7 @@ DepositResult:
     interest: &a6
       type: string
       pattern: ^-?[0-9]+(\.[0-9]+)?$
+    effectiveAnnualRatePercent: *a6
     monthlyPayout: *a6
     maturityPayment: *a6
     totalReceived: *a6
@@ -311,12 +330,14 @@ DepositResult:
             alreadyPaid: *a6
             settlementPayment: *a6
             totalReceived: *a6
+            forgoneInterest: *a6
           required:
             - date
             - interest
             - alreadyPaid
             - settlementPayment
             - totalReceived
+            - forgoneInterest
         - type: object
           nullable: true
           enum:
@@ -327,6 +348,7 @@ DepositResult:
     - assumptions
     - maturityDate
     - interest
+    - effectiveAnnualRatePercent
     - monthlyPayout
     - maturityPayment
     - totalReceived
@@ -435,11 +457,15 @@ BondResult:
             collectedCoupons: *a6
             proceeds: *a6
             gain: *a6
+            holdingPeriodReturnPercent: *a6
+            annualizedReturnPercent: *a6
           required:
             - date
             - collectedCoupons
             - proceeds
             - gain
+            - holdingPeriodReturnPercent
+            - annualizedReturnPercent
         - type: object
           nullable: true
           enum:
@@ -457,6 +483,110 @@ BondResult:
     - nominalYtmPercent
     - schedule
     - sale
+ProtectionInput:
+  type: object
+  additionalProperties: false
+  properties:
+    outstandingDebt:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+    monthlyIncomeToReplace:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+    replacementYears:
+      type: integer
+      minimum: 1
+      maximum: 40
+    educationNeed:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+    otherNeeds:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+      default: "0"
+    liquidAssets:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+    existingCoverage:
+      type: string
+      pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+  required:
+    - outstandingDebt
+    - monthlyIncomeToReplace
+    - replacementYears
+    - educationNeed
+    - liquidAssets
+    - existingCoverage
+ProtectionResult:
+  type: object
+  additionalProperties: false
+  properties:
+    informationalOnly: *a8
+    currency: *a9
+    assumptions:
+      type: object
+      additionalProperties: false
+      properties:
+        outstandingDebt:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        monthlyIncomeToReplace:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        replacementYears:
+          type: integer
+          minimum: 1
+          maximum: 40
+        educationNeed:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        otherNeeds:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+          default: "0"
+        liquidAssets:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        existingCoverage:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+      required:
+        - outstandingDebt
+        - monthlyIncomeToReplace
+        - replacementYears
+        - educationNeed
+        - liquidAssets
+        - existingCoverage
+    components:
+      type: object
+      additionalProperties: false
+      properties:
+        debt: *a6
+        incomeReplacement: *a6
+        education: *a6
+        other: *a6
+      required:
+        - debt
+        - incomeReplacement
+        - education
+        - other
+    grossNeed: *a6
+    liquidAssetsOffset: *a6
+    protectionNeed: *a6
+    existingCoverage: *a6
+    protectionGap: *a6
+    surplusCoverage: *a6
+  required:
+    - informationalOnly
+    - currency
+    - assumptions
+    - components
+    - grossNeed
+    - liquidAssetsOffset
+    - protectionNeed
+    - existingCoverage
+    - protectionGap
+    - surplusCoverage
 SavedResult:
   type: object
   additionalProperties: false
@@ -583,6 +713,22 @@ BondEnvelope:
   properties:
     data:
       $ref: "#/BondResult"
+    meta:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId: *a1
+      required:
+        - requestId
+  required:
+    - data
+    - meta
+ProtectionEnvelope:
+  type: object
+  additionalProperties: false
+  properties:
+    data:
+      $ref: "#/ProtectionResult"
     meta:
       type: object
       additionalProperties: false

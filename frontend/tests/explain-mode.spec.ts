@@ -16,6 +16,28 @@ async function openDashboard(page: import('@playwright/test').Page, viewport = 1
   return page.getByRole('button', { name: 'Trợ lý AI', exact: true });
 }
 
+const planGlossary = { version: 'test-v1', terms: [{ key: 'fundCoverage', label: { vi: 'Độ phủ quỹ', en: 'Fund coverage' }, definition: { vi: 'Phần quỹ dự kiến so với quỹ cần có.', en: 'Projected fund compared with the required fund.' } }] };
+
+// The plan page still carries glossary terms (fundCoverage, contributionTiming) and metric targets;
+// the redesigned dashboard and risk page no longer render <Explain> labels.
+async function openPlan(page: import('@playwright/test').Page, viewport = 1440) {
+  await page.setViewportSize({ width: viewport, height: 900 });
+  const { setupPlanning } = await import('./planning-contract-fixtures');
+  const fixture = await setupPlanning(page);
+  await page.route('**/api/v1/me/explanations/glossary', route => route.fulfill({ json: { data: planGlossary } }));
+  await page.goto('/user/plan');
+  await expect(page.locator('.plan-metrics')).toBeVisible();
+  return fixture;
+}
+
+// Contribution settings (amount input, timing) sit on the plan's "adjust" view:
+// "Chỉnh sửa phương án" opens the options dialog, "Giả định nâng cao" switches the view.
+async function openPlanAdjust(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Chỉnh sửa phương án', exact: true }).click();
+  await page.getByRole('button', { name: 'Giả định nâng cao', exact: true }).click();
+  await expect(page.locator('#plan-settings')).toBeVisible();
+}
+
 test('explain mode toggles from the header, supports Escape and leaves targets inert while off', async ({ page }) => {
   const button = await openDashboard(page);
   await expect(page.getByText('Chạm vào cụm từ hoặc con số để xem giải thích')).toHaveCount(0);
@@ -28,15 +50,13 @@ test('explain mode toggles from the header, supports Escape and leaves targets i
 });
 
 test('glossary phrase opens a keyboard-accessible dialog and returns focus on Escape at mobile width', async ({ page }) => {
-  const button = await openDashboard(page, 375);
+  await openPlan(page, 375);
   await toggleExplainMode(page);
-  await page.goto('/user/risk-portfolio');
-  await toggleExplainMode(page);
-  const target = page.getByRole('button', { name: 'lộ trình giảm dần rủi ro' });
+  const target = page.getByRole('button', { name: 'Quỹ dự kiến bằng', exact: true });
   await expect(target).toBeVisible();
   await target.focus(); await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog');
-  await expect(dialog).toContainText('Cách giảm dần mức rủi ro khi gần đến tuổi nghỉ hưu.');
+  await expect(dialog).toContainText('Phần quỹ dự kiến so với quỹ cần có.');
   const bounds = await dialog.evaluate(el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: innerWidth, height: innerHeight, css: getComputedStyle(el).position, inline: (el as HTMLElement).style.cssText, scrollY }; });
   expect(bounds.left >= 0 && bounds.right <= bounds.width && bounds.top >= 0 && bounds.bottom <= bounds.height, JSON.stringify(bounds)).toBe(true);
   await page.keyboard.press('Escape');
@@ -63,7 +83,8 @@ test('selected unknown phrase checks AI consent automatically and sends no quest
   await page.route('**/api/v1/me/ai/privacy', route => route.fulfill({ json: { data: { ...consentedPrivacy, processing: false, acceptedPolicyVersion: null } } }));
   await page.route('**/api/v1/me/ai/explain', route => { explainRequests++; return route.fulfill({ json: { data: {} } }); });
   await toggleExplainMode(page);
-  await page.getByRole('heading', { name: 'Tổng quan' }).evaluate(element => {
+  // Any page heading that is not a glossary term works; the dashboard's h1 is a greeting.
+  await page.getByRole('heading', { level: 1 }).evaluate(element => {
     const range = document.createRange(); range.selectNodeContents(element);
     const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
     document.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
@@ -211,24 +232,29 @@ for (const width of [375, 1440]) test(`metric details preserve popup scrolling a
 });
 
 test('bundled fixed labels work repeatedly without AI even if the glossary is unavailable, in both languages', async ({ page }) => {
-  const button = await openDashboard(page);
+  await openPlan(page);
   let aiCalls = 0;
   await page.route('**/api/v1/me/explanations/glossary', r => r.fulfill({ status: 503, json: { error: { code: 'UNAVAILABLE', message: 'Unavailable' } } }));
   await page.route('**/api/v1/me/ai/**', r => { aiCalls++; return r.abort(); });
+  await openPlanAdjust(page);
+  // Contribution timing sits inside the collapsed "Tùy chọn nâng cao" section.
+  await page.getByText('Tùy chọn nâng cao', { exact: true }).click();
   await toggleExplainMode(page);
-  const target = page.getByRole('button', { name: 'Tiền còn lại mỗi tháng', exact: true });
+  // contributionTiming ships with the UI bundle, so it must work without the server glossary.
+  const target = page.getByRole('button', { name: 'Thời điểm góp vào quỹ', exact: true });
   for (let i = 0; i < 3; i++) {
     await target.click();
-    await expect(page.getByRole('dialog')).toContainText('Khoản còn lại chưa tự trở thành tiền góp');
+    await expect(page.getByRole('dialog')).toContainText('Lựa chọn tiền góp được đưa vào quỹ ở đầu hay cuối tháng');
     await page.keyboard.press('Escape');
   }
   await target.click();
-  await expect(page.getByRole('dialog')).toContainText('Khoản còn lại chưa tự trở thành tiền góp');
+  await expect(page.getByRole('dialog')).toContainText('Lựa chọn tiền góp được đưa vào quỹ ở đầu hay cuối tháng');
   await page.evaluate(() => window.scrollBy(0, 80));
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Chuyển sang Tiếng Anh (English)' }).click();
-  await selectText(page, 'Monthly surplus');
-  await expect(page.getByRole('dialog')).toContainText('The remainder is not automatically contributed');
+  await page.getByRole('button', { name: 'Chọn ngôn ngữ' }).click();
+  await page.getByRole('menuitemradio', { name: 'English' }).click();
+  await selectText(page, 'Contribution timing');
+  await expect(page.getByRole('dialog')).toContainText('Whether contributions enter the fund at the start or end of a month');
   expect(aiCalls).toBe(0);
 });
 
@@ -253,29 +279,30 @@ test('glossary aliases use prepared definitions and toggling mode reuses the glo
 });
 
 test('missing fixed keys never call AI and failed glossary can be retried', async ({ page }) => {
-  await openDashboard(page);
-  await page.goto('/user/risk-portfolio');
   let failed = false, aiCalls = 0;
+  await openPlan(page);
   await page.route('**/api/v1/me/explanations/glossary', r => failed
     ? r.fulfill({ status: 503, json: { error: { code: 'UNAVAILABLE', message: 'Unavailable' } } })
     : r.fulfill({ json: { data: { version: 'empty', terms: [] } } }));
   await page.route('**/api/v1/me/ai/**', r => { aiCalls++; return r.abort(); });
-  const button = page.getByRole('button', { name: 'Trợ lý AI', exact: true });
+  // Reload so the empty glossary above is the one the page loads.
+  await page.reload(); await expect(page.locator('.plan-metrics')).toBeVisible();
+  // fundCoverage is only defined by the server glossary, never by the UI bundle.
+  const target = page.getByRole('button', { name: 'Quỹ dự kiến bằng', exact: true });
   await toggleExplainMode(page);
-  await page.getByRole('button', { name: 'lộ trình giảm dần rủi ro' }).click();
+  await target.click();
   await expect(page.getByRole('dialog')).toContainText('Nhãn này chưa có nội dung giải thích viết sẵn.');
   expect(aiCalls).toBe(0);
   failed = true;
-  await page.reload(); await toggleExplainMode(page);
-  await page.getByRole('button', { name: 'lộ trình giảm dần rủi ro' }).click();
+  await page.reload(); await expect(page.locator('.plan-metrics')).toBeVisible(); await toggleExplainMode(page);
+  await target.click();
   await expect(page.getByRole('dialog')).toContainText('Chưa tải được bảng thuật ngữ');
   const explanationGlossary = { version: 'fixture-v2', terms: [
-    { key: 'emergencyReserve', label: { vi: 'Dự phòng khẩn cấp', en: 'Emergency reserve' }, definition: { vi: 'Phần vốn để ứng phó khi thu nhập gián đoạn hoặc phát sinh nhu cầu cấp bách.', en: 'Capital set aside for interrupted income or urgent needs.' } },
-    { key: 'glidePath', label: { vi: 'Lộ trình giảm dần rủi ro', en: 'Glide path' }, definition: { vi: 'Lịch thay đổi tỷ trọng các nhóm tài sản theo thời gian còn lại tới nghỉ hưu.', en: 'A schedule of asset weights based on time remaining until retirement.' } },
+    { key: 'fundCoverage', label: { vi: 'Độ phủ quỹ', en: 'Fund coverage' }, definition: { vi: 'Tỷ lệ giữa quỹ dự kiến có và quỹ cần có tại mốc nghỉ hưu.', en: 'Projected fund as a share of the required fund at retirement.' } },
   ] };
   await page.route('**/api/v1/me/explanations/glossary', r => r.fulfill({ json: { data: explanationGlossary } }));
   await page.getByRole('button', { name: 'Tải lại thuật ngữ' }).click();
-  await expect(page.getByRole('dialog')).toContainText('Lịch thay đổi tỷ trọng các nhóm tài sản');
+  await expect(page.getByRole('dialog')).toContainText('Tỷ lệ giữa quỹ dự kiến có và quỹ cần có tại mốc nghỉ hưu.');
   expect(aiCalls).toBe(0);
 });
 
@@ -294,7 +321,8 @@ test('metric cache retries failures, discards a popup when input changes and fet
   });
   await page.goto('/user/plan');
   await toggleExplainMode(page);
-  const target = page.locator('.result-total .explain-target');
+  // First metric target on the page: the full amount in the "Quỹ cần khi nghỉ hưu" tile.
+  const target = page.locator('.plan-metrics .explain-target').first();
   await target.click();
   await expect(page.getByRole('dialog')).toContainText('Bạn thao tác hơi nhanh');
   await page.keyboard.press('Escape'); fail = false;
@@ -304,9 +332,14 @@ test('metric cache retries failures, discards a popup when input changes and fet
   await target.click();
   await expect(page.getByRole('dialog')).toContainText('Cách tính theo phương án.');
   expect(requests).toHaveLength(2);
-  await page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)', { exact: true }).fill('3000000');
+  // Metrics sit on the result view; the contribution input is on the adjust view.
+  await page.keyboard.press('Escape');
+  await openPlanAdjust(page);
+  const contribution = page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng', { exact: true });
+  await contribution.fill('3000000');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect.poll(async () => page.getByLabel('Tiền bạn chọn góp hưu trí mỗi tháng (đồng)', { exact: true }).inputValue()).toBe('3000000');
+  await expect.poll(async () => contribution.inputValue()).toBe('3.000.000'); // shown with VN thousands separators
+  await page.getByRole('button', { name: '← Quay lại kết quả' }).click();
   await target.click();
   await expect(page.getByRole('dialog')).toContainText('Cách tính theo phương án.');
   expect(requests).toHaveLength(3);

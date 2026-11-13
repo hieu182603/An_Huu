@@ -1,17 +1,14 @@
 import type { FinancialProfile } from "../context/FinancialProfileContext";
 import type { ProfileV2 } from "../services/financialProfile";
 import { Decimal } from "./decimal";
+import { formatMoneyDecimal } from "./moneyDisplay";
 
 export const financeAmount = (value: unknown): string | null =>
   typeof value === "string" && /^-?\d+(?:\.\d+)?$/.test(value.trim()) ? value.trim() : null;
 const has = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
 
 export function financeMoney(value: string | null, en = false): string {
-  if (value === null) return en ? "Undetermined" : "Chưa xác định";
-  // Format server decimals without first rounding them through a JS number.
-  const [whole, fraction = ""] = value.replace(/^-/, "").split(".");
-  const rounded = (BigInt(whole) + (fraction[0] >= "5" ? 1n : 0n)) * (value.startsWith("-") ? -1n : 1n);
-  return `${new Intl.NumberFormat(en ? "en-US" : "vi-VN").format(rounded)} ₫`;
+  return formatMoneyDecimal(value, en);
 }
 
 export function financeHubSummary(summary: Record<string, string | null> | null, v2: ProfileV2 | null, legacy: FinancialProfile) {

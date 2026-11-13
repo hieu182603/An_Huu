@@ -278,11 +278,9 @@ export default function AdminContentPage() {
         </Alert>
       )}
 
-      {/* Main Table Card */}
-      <Card className="admin-table-card admin-content-table-card">
-        {/* Toolbar */}
-        <div className="admin-table-toolbar admin-content-toolbar">
-          <form className="admin-user-search admin-content-search" onSubmit={handleSearchSubmit}>
+      {/* Filter Toolbar Card */}
+      <Card className="admin-filter-card">
+        <form className="admin-user-search admin-content-search" onSubmit={handleSearchSubmit}>
             <SearchField
               label={isEn ? "Search content" : "Tìm kiếm nội dung"}
               placeholder={isEn ? "Enter title, keyword, author..." : "Nhập tiêu đề, từ khóa, tác giả..."}
@@ -326,8 +324,10 @@ export default function AdminContentPage() {
               </Button>
             )}
           </div>
-        </div>
+      </Card>
 
+      {/* Main Table Card */}
+      <Card className="admin-table-card admin-content-table-card">
         {/* Desktop & Tablet Responsive Table View */}
         <div className="admin-content-table-wrap">
           <table className="admin-content-table">
@@ -486,7 +486,7 @@ export default function AdminContentPage() {
             totalPages={totalPages}
             totalItems={data.total}
             pageSize={pageSize}
-            pageSizeOptions={[10, 20, 50, 100]}
+            pageSizeOptions={[5, 10, 20, 50, 100]}
             onPageChange={(p) => setPage(p)}
             onPageSizeChange={(s) => {
               setPageSize(s);

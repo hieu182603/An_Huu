@@ -7,7 +7,7 @@ import { catalogQuery, productQuery, partnerInput, productInput, notificationSet
 const missing = () => new AppError(404, "NOT_FOUND", "Không tìm thấy đối tác hoặc sản phẩm.");
 const conflict = () => new AppError(409, "REVISION_CONFLICT", "Dữ liệu đã thay đổi. Hãy tải lại trước khi lưu.");
 const partnerSelect = { id: true, name: true, type: true, logoUrl: true, website: true, isHighlight: true, isVisible: true, revision: true, updatedAt: true } as const;
-export const productSelect = { id: true, partnerId: true, name: true, category: true, expectedReturn: true, riskLevel: true, description: true, annualFee: true, conditions: true, disclosure: true, imageUrl: true, isVisible: true, revision: true, updatedAt: true, partner: { select: partnerSelect } } as const;
+export const productSelect = { id: true, partnerId: true, name: true, category: true, expectedReturn: true, referenceYieldPercent: true, minimumAmount: true, riskLevel: true, description: true, annualFee: true, conditions: true, disclosure: true, imageUrl: true, isVisible: true, revision: true, updatedAt: true, partner: { select: partnerSelect } } as const;
 export const publicProductWhere: Prisma.PartnerProductWhereInput = { isVisible: true, partner: { isVisible: true }, annualFee: { not: null, notIn: [""] }, conditions: { not: null, notIn: [""] }, disclosure: { not: null, notIn: [""] } };
 export class CatalogService {
   constructor(private db: PrismaClient) {}
@@ -21,7 +21,7 @@ export class CatalogService {
   async products(query: z.infer<typeof productQuery>, admin = false, id?: string) {
     const where: Prisma.PartnerProductWhereInput = { ...(!admin ? publicProductWhere : {}),
       ...(id ? { id } : {}), ...(query.partnerId ? { partnerId: query.partnerId } : {}), ...(query.category ? { category: query.category } : {}), ...(query.riskLevel ? { riskLevel: query.riskLevel } : {}), ...(query.search ? { OR: [{ name: { contains: query.search, mode: "insensitive" } }, { category: { contains: query.search, mode: "insensitive" } }, { partner: { name: { contains: query.search, mode: "insensitive" } } }] } : {}) };
-    const [items, total] = await Promise.all([this.db.partnerProduct.findMany({ where, select: productSelect, orderBy: [{ [query.sortBy]: query.order }, { id: "asc" }], skip: (query.page - 1) * query.limit, take: query.limit }), this.db.partnerProduct.count({ where })]);
+    const [items, total] = await Promise.all([this.db.partnerProduct.findMany({ where, select: productSelect, orderBy: [{ [query.sortBy]: ["referenceYieldPercent", "minimumAmount"].includes(query.sortBy) ? { sort: query.order, nulls: "last" } : query.order }, { id: "asc" }], skip: (query.page - 1) * query.limit, take: query.limit }), this.db.partnerProduct.count({ where })]);
     if (id && !items.length) throw missing();
     return { items, total, page: query.page, limit: query.limit };
   }
@@ -57,7 +57,7 @@ export class CatalogService {
   }
   private settingsView(row: { revision: number; emailDigest: boolean; goalAlerts: boolean; partnerUpdates: boolean } | null) {
     return { revision: row?.revision ?? 0, emailDigest: row?.emailDigest ?? false, goalAlerts: row?.goalAlerts ?? false, partnerUpdates: row?.partnerUpdates ?? false,
-      deliveryAvailable: { emailDigest: false, goalAlerts: false, partnerUpdates: false }, securityAndSupportRequired: true };
+      deliveryAvailable: { emailDigest: false, goalAlerts: true, partnerUpdates: false }, securityAndSupportRequired: true };
   }
   async settings(userId: string) { return this.settingsView(await this.db.notificationPreference.findUnique({ where: { userId } })); }
   async saveSettings(userId: string, raw: z.infer<typeof notificationSettingsInput>) {

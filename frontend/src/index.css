@@ -3087,7 +3087,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   justify-content: space-between;
   gap: var(--space-5);
   padding: var(--space-5) var(--space-6);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  border-bottom: 1px solid var(--color-border);
   background: #ffffff;
 }
 
@@ -3105,6 +3105,14 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   min-width: 190px;
 }
 
+.admin-filters .button {
+  min-height: 46px;
+}
+
+.admin-filters .button-secondary {
+  border-color: var(--color-border-input);
+}
+
 .admin-users-table-wrap {
   overflow-x: auto;
 }
@@ -3120,7 +3128,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .admin-users-table th {
   height: 46px;
   padding: 0 var(--space-4);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
   font-size: 12px;
   font-weight: 600;
@@ -3135,12 +3143,12 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   padding: 0 var(--space-4);
   white-space: nowrap;
   font-size: 13.5px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+  border-bottom: 1px solid var(--color-border);
   transition: background 0.15s ease;
 }
 
 .admin-users-table tr:hover td {
-  background: rgba(240, 246, 253, 0.5);
+  background: #f0f6fd;
 }
 
 .admin-table-footer nav > button:not(.icon-button) {
@@ -3710,7 +3718,8 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .business-table { min-width: 1080px; }
 .business-table thead { position: static; }
 .business-table th { height: 44px; padding: 0 var(--space-3); border-bottom: 1px solid var(--color-border); white-space: nowrap; font-size: 12px; font-weight: 600; background: var(--color-bg); }
-.business-table td { height: 62px; max-width: 260px; padding: var(--space-2) var(--space-3); color: var(--color-text-muted); font-size: 13px; line-height: 1.45; }
+.business-table td { height: 62px; max-width: 260px; padding: var(--space-2) var(--space-3); color: var(--color-text-muted); font-size: 13px; line-height: 1.45; border-bottom: 1px solid var(--color-border); transition: background 0.15s ease; }
+.business-table tr:hover td { background: #f0f6fd; }
 .business-table td > strong { display: block; color: var(--color-primary-700); font-size: 13px; font-weight: 600; }
 .business-table td > small { display: block; margin-top: var(--space-1); color: var(--color-text-muted); font-size: 11px; }
 .business-table td .switch-control { white-space: nowrap; gap: var(--space-2); min-width: max-content; }
@@ -3966,16 +3975,17 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   transition: background 0.15s ease;
 }
 
-.modern-sources-table tbody tr:hover {
-  background: rgba(248, 250, 252, 0.7);
+.modern-sources-table tbody tr:hover td {
+  background: #f0f6fd;
 }
 
 .modern-sources-table tbody td {
   height: 60px;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid rgba(241, 245, 249, 1);
+  border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
   font-size: 13px;
+  transition: background 0.15s ease;
 }
 
 .source-title-cell {
@@ -4096,7 +4106,8 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .audit-log-card .form-field { min-width: 190px; }
 .audit-table { min-width: 880px; width: 100%; border-collapse: collapse; }
 .audit-table th { height: 44px; padding: 0 var(--space-4); font-size: 12px; font-weight: 600; text-align: left; color: var(--color-text-muted); background: var(--color-bg); border-bottom: 1px solid var(--color-border); }
-.audit-table td { height: 54px; padding: 0 var(--space-4); color: var(--color-text-muted); font-size: 13px; border-bottom: 1px solid var(--color-border); }
+.audit-table td { height: 54px; padding: 0 var(--space-4); color: var(--color-text-muted); font-size: 13px; border-bottom: 1px solid var(--color-border); transition: background 0.15s ease; }
+.audit-table tr:hover td { background: #f0f6fd; }
 .audit-table td strong { color: var(--color-midnight-900); font-size: 13px; font-weight: 600; }
 .support-admin-page { display: grid; gap: var(--space-6); }
 

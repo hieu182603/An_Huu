@@ -19,10 +19,15 @@ export function depositPreview(raw: unknown) {
   const final = v.payout === "COMPOUND" ? principal.mul(new D(v.annualRate).div(1200).plus(1).pow(v.termMonths)) : v.payout === "MONTHLY" ? principal.plus(monthly.mul(v.termMonths)) : principal.plus(principal.mul(v.annualRate).div(1200).mul(v.termMonths).toDecimalPlaces(2));
   const earlyInterest = v.early ? principal.mul(v.early.annualRate).div(1200).mul(v.early.month).toDecimalPlaces(2) : null;
   const paid = v.early && v.payout === "MONTHLY" ? monthly.mul(v.early.month) : new D(0);
+  const interest = final.minus(principal);
+  // Annual equivalent rate only differs from the nominal rate when interest compounds.
+  const effectiveAnnualRatePercent = (v.payout === "COMPOUND" ? new D(v.annualRate).div(1200).plus(1).pow(12).minus(1).mul(100) : new D(v.annualRate)).toFixed(8);
+  // Interest the held deposit would have earned by the same month, minus what early exit pays.
+  const forgone = v.early && earlyInterest ? D.max(0, interest.mul(v.early.month).div(v.termMonths).minus(earlyInterest)).toFixed(2) : null;
   return { informationalOnly: true, currency: "VND", assumptions: v, maturityDate: monthDate(v.startDate, v.termMonths),
-    interest: final.minus(principal).toFixed(2), monthlyPayout: v.payout === "MONTHLY" ? monthly.toFixed(2) : "0.00",
+    interest: interest.toFixed(2), effectiveAnnualRatePercent, monthlyPayout: v.payout === "MONTHLY" ? monthly.toFixed(2) : "0.00",
     maturityPayment: (v.payout === "MONTHLY" ? principal : final).toFixed(2), totalReceived: final.toFixed(2),
-    early: v.early && earlyInterest ? { date: monthDate(v.startDate, v.early.month), interest: earlyInterest.toFixed(2), alreadyPaid: paid.toFixed(2), settlementPayment: principal.plus(earlyInterest).minus(paid).toFixed(2), totalReceived: principal.plus(earlyInterest).toFixed(2) } : null };
+    early: v.early && earlyInterest ? { date: monthDate(v.startDate, v.early.month), interest: earlyInterest.toFixed(2), alreadyPaid: paid.toFixed(2), settlementPayment: principal.plus(earlyInterest).minus(paid).toFixed(2), totalReceived: principal.plus(earlyInterest).toFixed(2), forgoneInterest: forgone! } : null };
 }
 export const bondInput = z.object({ faceValue: positiveMoney, purchasePrice: positiveMoney, quantity: z.number().int().min(1).max(1e9), annualCoupon: rate,
   termMonths: z.number().int().min(1).max(600), couponEveryMonths: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)]), startDate: dateSchema,
@@ -47,5 +52,24 @@ export function bondPreview(raw: unknown) {
   const totalCoupons = coupon.mul(periods), received = totalCoupons.plus(par);
   const collected = v.sale ? coupon.mul(Math.floor(v.sale.month / v.couponEveryMonths)) : null, proceeds = v.sale ? new D(v.sale.price).mul(v.quantity) : null;
   return { informationalOnly: true, currency: "VND", assumptions: v, cost: cost.toFixed(2), faceValueTotal: par.toFixed(2), totalCoupons: totalCoupons.toFixed(2), totalReceived: received.toFixed(2), gain: received.minus(cost).toFixed(2), currentYieldPercent: new D(v.faceValue).mul(v.annualCoupon).div(v.purchasePrice).toFixed(8), nominalYtmPercent: ytm, schedule,
-    sale: collected !== null && proceeds !== null && v.sale ? { date: monthDate(v.startDate, v.sale.month), collectedCoupons: collected.toFixed(2), proceeds: proceeds.toFixed(2), gain: collected.plus(proceeds).minus(cost).toFixed(2) } : null };
+    sale: collected !== null && proceeds !== null && v.sale ? { date: monthDate(v.startDate, v.sale.month), collectedCoupons: collected.toFixed(2), proceeds: proceeds.toFixed(2), gain: collected.plus(proceeds).minus(cost).toFixed(2),
+      // Holding period return on the actual purchase cost, and its simple per-year equivalent.
+      holdingPeriodReturnPercent: collected.plus(proceeds).minus(cost).div(cost).mul(100).toFixed(8),
+      annualizedReturnPercent: collected.plus(proceeds).minus(cost).div(cost).mul(1200).div(v.sale.month).toFixed(8) } : null };
+}
+const nonNegativeMoney = moneySchema.refine(v => /^(0|[1-9]\d{0,15})(\.\d{1,2})?$/.test(v), "Số tiền không âm, tối đa 16 chữ số và 2 số lẻ.");
+/** D.I.M.E. protection need: Debt + Income replacement + Mortgage/education - liquid assets - existing cover.
+ * Illustrative only; it does not read or change the user's profile or plan. */
+export const protectionInput = z.object({
+  outstandingDebt: nonNegativeMoney, monthlyIncomeToReplace: nonNegativeMoney, replacementYears: z.number().int().min(1).max(40),
+  educationNeed: nonNegativeMoney, otherNeeds: nonNegativeMoney.default("0"), liquidAssets: nonNegativeMoney, existingCoverage: nonNegativeMoney,
+}).strict();
+export function protectionPreview(raw: unknown) {
+  const v = protectionInput.parse(raw), income = new D(v.monthlyIncomeToReplace).mul(12).mul(v.replacementYears);
+  const gross = new D(v.outstandingDebt).plus(income).plus(v.educationNeed).plus(v.otherNeeds);
+  const need = D.max(0, gross.minus(v.liquidAssets)), gap = D.max(0, need.minus(v.existingCoverage));
+  return { informationalOnly: true, currency: "VND", assumptions: v,
+    components: { debt: new D(v.outstandingDebt).toFixed(2), incomeReplacement: income.toFixed(2), education: new D(v.educationNeed).toFixed(2), other: new D(v.otherNeeds).toFixed(2) },
+    grossNeed: gross.toFixed(2), liquidAssetsOffset: D.min(gross, v.liquidAssets).toFixed(2), protectionNeed: need.toFixed(2),
+    existingCoverage: new D(v.existingCoverage).toFixed(2), protectionGap: gap.toFixed(2), surplusCoverage: D.max(0, new D(v.existingCoverage).minus(need)).toFixed(2) };
 }

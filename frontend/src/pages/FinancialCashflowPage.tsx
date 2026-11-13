@@ -1,3 +1,4 @@
+import ProfileMoneyMetrics from "../components/ProfileMoneyMetrics";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import CashflowEntryDialog, { isCashflowReference, type CashflowEntry, type CashflowGroup } from "../components/CashflowEntryDialog";
@@ -103,6 +104,7 @@ export default function FinancialCashflowPage() {
     {loading ? <p role="status">{t("Đang tải hồ sơ…", "Loading profile…")}</p> : loadError ? <p role="status">{t("Số liệu tạm ẩn cho đến khi tải lại hồ sơ thành công.", "Figures are hidden until your profile reloads successfully.")}</p> : !hasProfile ? <section className="cashflow-card"><h2>{t("Bạn chưa có hồ sơ tài chính", "Start your financial profile")}</h2><Link to="/onboarding" className="overview-button primary">{t("Khai báo hồ sơ", "Create profile")}</Link></section> : !v2 ? <section className="cashflow-card"><h2>{t("Kê chi tiết từ hồ sơ hiện có", "Itemize your existing profile")}</h2><p>{t("Nâng cấp để giữ các số đã khai và quản lý từng khoản thu chi.", "Upgrade to keep your declared totals and manage individual items.")}</p><button className="overview-button primary" disabled={busy} onClick={() => void upgradeToV2()}>{t("Nâng cấp hồ sơ chi tiết", "Upgrade profile")}</button>{saveError && <p role="alert">{saveError}</p>}</section> : <>
       {saveError && !action && <div className="cashflow-error" role="alert"><p>{saveError}</p><button className="overview-button secondary" onClick={reloadProfile}>{t("Tải lại hồ sơ", "Reload profile")}</button></div>}
       {plansError && <div className="cashflow-error" role="alert"><p>{plansError}</p><button className="overview-button secondary" onClick={() => void refreshPlans()}>{t("Tải lại kế hoạch", "Reload plan")}</button></div>}
+      <ProfileMoneyMetrics />
       <section className="cashflow-card cashflow-budget" aria-labelledby="cashflow-budget-title">
         <header><div><p className="cashflow-period">{row ? t("Dòng tiền dự phóng tháng", "Projected cashflow for") : t("Dòng tiền hồ sơ tháng", "Profile cashflow for")} {formatMonthVN(month!)}</p><h2 id="cashflow-budget-title">{t("Tiền của bạn được dùng thế nào?", "Where does your money go?")}</h2></div><span className={`cashflow-budget-status ${needsWithdrawal || values.surplus?.startsWith("-") ? "is-negative" : ""}`}>{budgetStatus}</span></header>
         <div className="cashflow-budget-layout"><div><div className="cashflow-budget-income"><span>{t("Thu nhập và lương hưu", "Income and pension")}</span><strong>{money(resources)}</strong></div>

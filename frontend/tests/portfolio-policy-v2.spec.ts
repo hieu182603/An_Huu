@@ -63,6 +63,8 @@ async function setup(page: Page, options: { version?: "v1" | "v2"; retirement?: 
   }, { answers: data.questions.map(q => ({ questionId: q.id, choiceId: q.choices[0].id })), templateId: template.id, whatIf: options.whatIf, en: options.en });
   await page.goto("/user/risk-portfolio");
   await expect.poll(() => calls.length).toBeGreaterThan(0);
+  await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();
+  await page.getByRole("button",{name:options.en?"View my allocation →":"Xem phương án của tôi →",exact:true}).click();
   return { calls, errors, template };
 }
 

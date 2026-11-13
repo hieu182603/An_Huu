@@ -153,17 +153,17 @@ interface CacheEntry<T> {
 
 const apiGetCache = new Map<string, CacheEntry<unknown>>();
 const inflightGetRequests = new Map<string, Promise<unknown>>();
+let cacheGeneration = 0;
 
 export function invalidateApiCache(filter?: string | RegExp) {
-  if (!filter) {
-    apiGetCache.clear();
-    return;
-  }
-  for (const key of apiGetCache.keys()) {
-    if (typeof filter === "string" ? key.includes(filter) : filter.test(key)) {
-      apiGetCache.delete(key);
-    }
-  }
+  invalidateMatchingCache(key => !filter || (typeof filter === "string" ? key.includes(filter) : filter.test(key)));
+}
+
+function invalidateMatchingCache(matches: (key: string) => boolean) {
+  ++cacheGeneration;
+  for (const key of apiGetCache.keys()) if (matches(key)) apiGetCache.delete(key);
+  // Reads initiated after a write must never join a request from before that write.
+  for (const key of inflightGetRequests.keys()) if (matches(key)) inflightGetRequests.delete(key);
 }
 
 
@@ -197,6 +197,7 @@ export async function authenticatedRequest<T>(
   }
 
   const exec = async (): Promise<T> => {
+    const readGeneration = cacheGeneration;
     await ensureFreshSession();
     options?.signal?.throwIfAborted();
     assertCurrentSession();
@@ -224,13 +225,15 @@ export async function authenticatedRequest<T>(
     assertCurrentSession();
 
     if (isGet) {
-      apiGetCache.set(cacheKey, { data: res, expiresAt: Date.now() + ttlMs });
+      // A late pre-write response (including skipCache reads) may still resolve
+      // for its original caller, but cannot replace a fresh cached revision.
+      if (readGeneration === cacheGeneration) apiGetCache.set(cacheKey, { data: res, expiresAt: Date.now() + ttlMs });
     } else {
       // Only drop what this write can make stale (e.g. marking a notification
       // read must not refetch plans); unknown writes still clear everything.
       const scope = cacheInvalidationScope(method ?? "POST", path);
       if (scope === null) invalidateApiCache();
-      else for (const key of [...apiGetCache.keys()]) if (scope.some(s => cacheKeyInScope(key, s))) apiGetCache.delete(key);
+      else if (scope.length) invalidateMatchingCache(key => scope.some(s => cacheKeyInScope(key, s)));
     }
     return res;
   };

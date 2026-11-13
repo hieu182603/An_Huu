@@ -1,11 +1,11 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { installRouteAuth, installFinancialProfileRoutes } from "./helpers";
-const api = "http://127.0.0.1:55442", known = (value: string) => ({ status: "KNOWN", value });
+const api = process.env.USER_CASHFLOW_API ?? "http://127.0.0.1:55442", known = (value: string) => ({ status: "KNOWN", value });
 async function setup(page: Page, request: APIRequestContext, changes: object = {}, withPlan = false) {
   const response = await request.post(`${api}/__fixture/reset`, { data: { changes, withPlan } });
   expect(response.ok()).toBeTruthy(); const fixture = await response.json();
   await page.route("**/api/v1/**", route => route.fulfill({ status: 503, json: { error: { code: "UNMOCKED_TEST_API", message: "No asset fixture" } } }));
-  await installRouteAuth(page); await installFinancialProfileRoutes(page, { profile: fixture.profile });
+  await installRouteAuth(page, "USR-001", fixture.accessToken); await installFinancialProfileRoutes(page, { profile: fixture.profile });
   await page.route("**/api/v1/me/retirement/plans**", route => route.fulfill({ json: { data: { items: [], total: 0, page: 1, limit: 50 } } }));
   await page.route("**/socket.io/**", route => route.abort()); await page.routeWebSocket(/socket\.io/, ws => ws.close());
   const writes: Array<{ path: string; body: any; status: number }> = [], errors: string[] = [];
@@ -178,7 +178,7 @@ test("large values retain VND precision and net-worth details trap focus and res
   await setup(page, request);
   await page.getByRole("button", { name: "Sửa Tiền gửi", exact: true }).click();
   await dialog(page).getByLabel("Tổng giá trị tài sản", { exact: true }).fill("9.007.199.254.740.993,25"); await save(page);
-  await expect(page.getByTestId("assets-declared")).toHaveText("9.007.199.254.740.993 ₫");
+  await expect(page.getByTestId("assets-declared")).toHaveText("9.007.199.254.740.993,25 ₫");
   const trigger = page.getByRole("button", { name: "Giải thích tài sản ròng", exact: true }); await trigger.click();
   await expect(dialog(page)).toContainText("tài sản thuộc sở hữu của bạn − phần dư nợ");
   await page.keyboard.press("Shift+Tab"); await expect(dialog(page).getByRole("link", { name: "Rà soát khoản nợ", exact: true })).toBeFocused();

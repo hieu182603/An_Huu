@@ -8,6 +8,8 @@ import { getIO } from "../config/socket";
 import { UsersService } from "./users/service";
 import { ContentService } from "./content/service";
 import { CommunityService } from "./community/service";
+import { NotificationBroadcastService } from "./community/broadcast";
+import { InvestmentRolesService } from "./users/investment-roles";
 import { OperationsService } from "./operations/service";
 import { DebtService } from "./debts/service";
 import { AssumptionsService } from "./assumptions/service";
@@ -62,6 +64,8 @@ export function createServices(db: PrismaClient, config: AppConfig) {
     knowledge: new KnowledgeService(db),
     content: new ContentService(db),
     community: new CommunityService(db),
+    broadcasts: new NotificationBroadcastService(db),
+    investmentRoles: new InvestmentRolesService(db),
     operations: new OperationsService(db),
     users: new UsersService(db, id => { try { getIO().in("user:" + id).disconnectSockets(true); } catch { /* HTTP-only tests. */ } }),
   };

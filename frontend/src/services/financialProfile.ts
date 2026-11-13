@@ -109,6 +109,7 @@ export type GoalEntry = {
   deferrable: KnownOrUnknown<boolean>;
 };
 export type PlanningConstraints = {
+  retirementSurvey?: { policyVersionId: string; monthlyExpenseToday: string; answers: Array<{questionId:string;choiceId:string}> };
   retirementGoal?: {endMonth:string;monthlyExpenseToday:string;lifestylePriority:"BALANCED"|"HEALTH"|"HOUSING"|"TRAVEL"|null};
   lossTolerance?: { amountVnd?: KnownOrUnknown<string>; percent?: KnownOrUnknown<string>; reaction?: KnownOrUnknown<"SELL" | "HOLD" | "BUY_MORE"> };
   incomeStability?: KnownOrUnknown<"STABLE" | "VARIABLE" | "UNCERTAIN">;
@@ -117,7 +118,7 @@ export type PlanningConstraints = {
   goals?: ProfileCollection<GoalEntry>;
 };
 export const planningConstraints = (profile: PlanningConstraints): PlanningConstraints => Object.fromEntries(
-  ["lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals", "retirementGoal"].filter(key => key in profile).map(key => [key, profile[key as keyof PlanningConstraints]])
+  ["lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals", "retirementGoal", "retirementSurvey"].filter(key => key in profile).map(key => [key, profile[key as keyof PlanningConstraints]])
 );
 
 export type ProfileV2 = PlanningConstraints & {
@@ -544,7 +545,13 @@ export function profileFromDraft(base: FinancialProfile, d: OnboardingDraftData)
 export const serverStep = (step: string) => step === "quick-family" ? "personal" : step === "quick-money" ? "income" : step === "quick-risk" ? "investment" : step === "contribution" ? "investment" : step === "expense" ? "expenses" : step === "invest-social" ? "socialSecurity" : step;
 export const clientStep = (step: string) => step === "expenses" ? "expense" : step === "investment" ? "contribution" : step === "socialSecurity" ? "invest-social" : step;
 
+export type QuickStartRisk = {
+  reaction: "SELL" | "HOLD" | "BUY_MORE";
+  incomeStability: "STABLE" | "VARIABLE" | "UNCERTAIN" | "UNKNOWN";
+  limit: {kind:"UNKNOWN"} | {kind:"AMOUNT"|"PERCENT";value:string};
+};
 export interface QuickStartProfileInput {
+  risk?: QuickStartRisk;
   birthMonth: string;
   desiredRetirementMonth: string;
   monthlyIncome: number;
@@ -668,6 +675,14 @@ export function createQuickStartProfileV2(input: QuickStartProfileInput): Profil
     assets: { status: "KNOWN", entries: assetEntries },
     debts,
     pension: { status: "UNKNOWN" },
+    ...(input.risk ? {
+      incomeStability: input.risk.incomeStability === "UNKNOWN" ? unknown : known(input.risk.incomeStability),
+      lossTolerance: {
+        reaction: known(input.risk.reaction),
+        amountVnd: input.risk.limit.kind === "AMOUNT" ? known(input.risk.limit.value) : unknown,
+        percent: input.risk.limit.kind === "PERCENT" ? known(input.risk.limit.value) : unknown,
+      },
+    } : {}),
   };
 }
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { AppConfig } from "../../config/env";
 import { explanationInstructions, type ExplanationPacket, type ExplanationProvider } from "./provider";
 
-const selection = z.object({ factKeys: z.array(z.string()).min(1).max(6), citationIds: z.array(z.string()).max(4) }).strict();
+const selection = z.object({ factKeys: z.array(z.string()).min(1).max(6), citationIds: z.array(z.string()).max(4), answer: z.string().max(4000).optional() }).strict();
 // Never expose upstream error bodies: they may contain prompts or credentials.
 export class GeminiProviderError extends Error {
   constructor(readonly code: string, readonly status?: number) { super(code); this.name = "GeminiProviderError"; }
@@ -25,9 +25,12 @@ export class GeminiProvider implements ExplanationProvider {
           systemInstruction: { parts: [{ text: explanationInstructions }] },
           contents: [{ role: "user", parts: [{ text: JSON.stringify(packet) }] }],
           generationConfig: {
-            temperature: 0, candidateCount: 1, maxOutputTokens: 2048, responseMimeType: "application/json",
-            ...(/^gemini-2\.5-flash(-lite)?$/.test(this.model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-            responseSchema: { type: "OBJECT", required: ["factKeys", "citationIds"], properties: {
+            temperature: 0, candidateCount: 1, maxOutputTokens: 4096, responseMimeType: "application/json",
+            // A short grounded explanation needs no long reasoning; less thinking keeps the chat responsive.
+            ...(/^gemini-2\.5-flash(-lite)?$/.test(this.model) ? { thinkingConfig: { thinkingBudget: 0 } }
+              : /^gemini-3/.test(this.model) ? { thinkingConfig: { thinkingLevel: "low" } } : {}),
+            responseSchema: { type: "OBJECT", required: ["answer", "factKeys", "citationIds"], propertyOrdering: ["factKeys", "citationIds", "answer"], properties: {
+              answer: { type: "STRING" },
               factKeys: { type: "ARRAY", minItems: 1, maxItems: 6, items: { type: "STRING", enum: packet.facts.map(f => f.key) } },
               citationIds: { type: "ARRAY", maxItems: packet.knowledge.length ? 4 : 0, items: { type: "STRING", ...(packet.knowledge.length ? { enum: packet.knowledge.map(k => k.id) } : {}) } },
             } },

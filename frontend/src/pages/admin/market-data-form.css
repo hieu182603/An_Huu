@@ -12,8 +12,9 @@
 .market-form__paste summary, .market-json summary { cursor: pointer; font-weight: 600; min-height: 40px; display: flex; align-items: center; }
 .market-form__table-wrap { max-height: 520px; overflow: auto; border: 1px solid #D0E4FE; border-radius: 12px; }
 .market-form__table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.market-form__table th, .market-form__table td { padding: 4px 6px; border-bottom: 1px solid #eef2f7; text-align: left; white-space: nowrap; }
-.market-form__table thead th { position: sticky; top: 0; z-index: 1; background: #E8F2FE; color: #052659; }
+.market-form__table th, .market-form__table td { padding: 6px 8px; border-bottom: 1px solid var(--color-border, #BCD2F0); text-align: left; white-space: nowrap; transition: background 0.15s ease; }
+.market-form__table thead th { position: sticky; top: 0; z-index: 1; background: #E8F2FE; color: #052659; border-bottom: 1px solid var(--color-border, #BCD2F0); }
+.market-form__table tbody tr:hover td, .market-form__table tbody tr:hover th { background: #f0f6fd; }
 .market-form__table tbody th { color: #456B91; font-weight: 500; font-variant-numeric: tabular-nums; }
 .market-form__table input { width: 96px; min-height: 32px; padding: 4px 8px; border-radius: 8px; text-align: right; font-variant-numeric: tabular-nums; }
 .market-form__table input.is-empty { border-style: dashed; background: #fffaf0; }

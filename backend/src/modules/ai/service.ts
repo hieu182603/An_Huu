@@ -9,27 +9,55 @@ import { ActualsService } from "../actuals/service";
 import { assertActualSource } from "../actuals/lineage";
 import { hasFutureAssumptions } from "../plans/presentation";
 import { KnowledgeService } from "./knowledge";
-import { displayDecimal, questionTopics, fallbackFactKeys, productFactText } from "./presentation";
+import { riskToleranceFromAssessment } from "../recommendation/service";
+import { separateCapital } from "../capital/separation";
+import { displayDecimal, questionTopics, fallbackFactKeys, productFactText, asksAboutPlan, asksForProducts, groundedAnswer, knowledgeLead, type Suitability } from "./presentation";
 import type { ExplanationProvider, ExplanationPacket } from "./provider";
 import { AI_POLICY_VERSION, AI_RETENTION_DAYS, consentSchema, explanationSchema, aiSimulationSchema, titleSchema, messageEditSchema, pageSchema } from "./schema";
 const json=(v:unknown)=>JSON.parse(JSON.stringify(v)) as Prisma.InputJsonObject;
 const digest=(v:unknown)=>createHash("sha256").update(JSON.stringify(v)).digest("hex");
 const missing=()=>new AppError(404,"NOT_FOUND","Không tìm thấy hội thoại còn hiệu lực.");
 const conflict=()=>new AppError(409,"REVISION_CONFLICT","Dữ liệu đã đổi. Hãy tải lại.");
-const selection=z.object({factKeys:z.array(z.string()).min(1).max(6),citationIds:z.array(z.string()).max(4)}).strict();
+const selection=z.object({factKeys:z.array(z.string()).min(1).max(6),citationIds:z.array(z.string()).max(4),answer:z.string().max(4000).optional()}).strict();
+// Facts that carry the person's own plan numbers; their caveats travel with them.
+const PLAN_KEYS=["fund","required","contribution","coverage","shortfall","actual-balance"],CAVEATS=["limits","hypothetical","warnings"];
 const privacyView=(p:{revision:number;processing:boolean;saveHistory:boolean;policyVersion:string}|null)=>({revision:p?.revision??0,
   processing:p?.processing??false,saveHistory:p?.saveHistory??false,policyVersion:AI_POLICY_VERSION,acceptedPolicyVersion:p?.policyVersion??null,
   retentionDays:AI_RETENTION_DAYS,purpose:"EXPLAIN_SERVER_RESULTS",providerData:["QUESTION","SELECTED_RESULT_FACTS","APPROVED_KNOWLEDGE_EXCERPTS"],
   excludedData:["FULL_PROFILE","CONTACT_DETAILS","ACCOUNT_IDS","TRANSACTION_ENTRIES"],historyPolicy:"FIXED_EXPIRY_FROM_CONVERSATION_CREATION"});
 export { purgeExpiredAi } from "./retention";
-/** Visible products + years to the profile's desired retirement month; only this summary reaches the provider. */
-async function productFact(tx:Prisma.TransactionClient,userId:string){
+type OwnedVersion=Awaited<ReturnType<PlansService["readVersion"]>>;
+type Known<T>={status?:string;value?:T}|undefined;
+const yearsUntil=(month:string|undefined)=>month&&/^\d{4}-\d{2}$/.test(month)?Math.max(0,Math.floor((Date.parse(month+"-01")-Date.now())/(365.25*86400000))):null;
+/** Suitability signals the server already holds for this person. With a selected plan version: its retirement month,
+ * the risk band of its pinned survey, its opening allocation and the emergency reserve of its captured profile.
+ * Without one: desired retirement month and declared market-fall reaction of the current profile. */
+function suitability(profileData:unknown,owned:OwnedVersion|null):Suitability{
+  const profile=profileData as {personal?:{desiredRetirementMonth?:Known<string>};lossTolerance?:{reaction?:Known<"SELL"|"HOLD"|"BUY_MORE">}}|null;
+  const month=profile?.personal?.desiredRetirementMonth,reaction=profile?.lossTolerance?.reaction;
+  const base:Suitability={yearsToRetirement:month?.status==="KNOWN"?yearsUntil(month.value):null,survey:null,
+    reaction:reaction?.status==="KNOWN"&&reaction.value?reaction.value:null,emergencyShortfall:null,allocation:[]};
+  if(!owned)return base;
+  try{
+    const {capture,version}=owned,preview=version.preview;
+    const calculation=preview.calculation as unknown as {assessment?:{riskBandId?:string|null};marketRows?:Array<{holdings?:Array<{assetClass:string;startWeightPercent:string}>}>}|undefined;
+    const policy=capture.policy.data as unknown as {riskBands?:Array<{id:string;label:string;minScore:number}>};
+    const bandId=calculation?.assessment?.riskBandId,risk=riskToleranceFromAssessment(policy,bandId),band=policy.riskBands?.find(b=>b.id===bandId);
+    const capital=separateCapital(capture.profile,capture.assumptions.data);
+    const labels=new Map(((capture.assumptions.data as unknown as {assetClasses?:Array<{code:string;label:string}>}).assetClasses??[]).map(a=>[a.code,a.label]));
+    return {...base,yearsToRetirement:yearsUntil((preview.replayInput as unknown as {retirementMonth?:string}|undefined)?.retirementMonth)??base.yearsToRetirement,
+      survey:risk&&band?{risk,label:band.label}:null,
+      emergencyShortfall:capital.emergencyShortfall===null?null:new Prisma.Decimal(capital.emergencyShortfall).gt(0),
+      allocation:(calculation?.marketRows?.[0]?.holdings??[]).filter(h=>new Prisma.Decimal(h.startWeightPercent).gt(0))
+        .map(h=>({label:labels.get(h.assetClass)??h.assetClass,percent:displayDecimal(h.startWeightPercent,1).replace(/,0$/,"")}))};
+  }catch{return base;} // An unreadable old snapshot must not block the explanation; fall back to the profile signals.
+}
+/** Visible products filtered by the person's suitability; only this summary reaches the provider. */
+async function productFact(tx:Prisma.TransactionClient,userId:string,owned:OwnedVersion|null){
   const [profile,rows]=await Promise.all([tx.financialProfile.findUnique({where:{userId},select:{profileData:true}}),
     tx.partnerProduct.findMany({where:{isVisible:true,partner:{isVisible:true},annualFee:{not:null},conditions:{not:null},disclosure:{not:null}},orderBy:{updatedAt:"desc"},take:50,
-      select:{name:true,riskLevel:true,annualFee:true,partner:{select:{name:true}}}})]);
-  const month=(profile?.profileData as {personal?:{desiredRetirementMonth?:{status?:string;value?:string}}}|null)?.personal?.desiredRetirementMonth;
-  const years=month?.status==="KNOWN"&&/^\d{4}-\d{2}$/.test(month.value??"")?Math.max(0,Math.floor((Date.parse(month.value+"-01")-Date.now())/(365.25*86400000))):null;
-  return productFactText(rows.map(r=>({name:r.name,partner:r.partner.name,riskLevel:r.riskLevel,annualFee:r.annualFee})),years);
+      select:{name:true,category:true,riskLevel:true,annualFee:true,partner:{select:{name:true}}}})]);
+  return productFactText(rows.map(r=>({name:r.name,partner:r.partner.name,category:r.category,riskLevel:r.riskLevel,annualFee:r.annualFee})),suitability(profile?.profileData,owned));
 }
 export class AiService {
   constructor(private db:PrismaClient,private provider:ExplanationProvider|null=null,private timeoutMs=8000){}
@@ -42,7 +70,7 @@ export class AiService {
   private privacyResponse(p:Parameters<typeof privacyView>[0]){return {...privacyView(p),providerConfigured:!!this.provider,
     provider:this.provider?.name??null,reconsentRequired:!!p?.processing&&p.policyVersion!==AI_POLICY_VERSION,
     processingNotice:this.provider?.name==="gemini"
-      ? "Google Gemini xử lý câu hỏi, các kết quả cần giải thích và trích đoạn tài liệu đã duyệt. Hệ thống không gửi toàn bộ hồ sơ hoặc thông tin liên hệ của tài khoản. Thông tin cá nhân bạn tự gõ có thể nằm trong câu hỏi được gửi đi. Việc lưu hội thoại trên An Hưu là lựa chọn riêng."
+      ? "Google Gemini xử lý câu hỏi, các kết quả cần giải thích (gồm tóm tắt lọc sản phẩm theo hồ sơ: số năm đến nghỉ hưu, nhóm rủi ro, tình trạng quỹ dự phòng, cơ cấu phân bổ) và trích đoạn tài liệu đã duyệt, rồi viết câu trả lời từ các dữ liệu đó. Hệ thống không gửi toàn bộ hồ sơ hoặc thông tin liên hệ của tài khoản. Thông tin cá nhân bạn tự gõ có thể nằm trong câu hỏi được gửi đi. Việc lưu hội thoại trên An Hưu là lựa chọn riêng."
       : "Giải thích các kết quả đã tính trên hệ thống. Việc lưu hội thoại là lựa chọn riêng."};}
   async privacy(userId:string){return this.privacyResponse(await this.db.aiPrivacy.findUnique({where:{userId}}));}
   async setPrivacy(userId:string,command:z.infer<typeof consentSchema>){const v=consentSchema.parse(command);
@@ -105,7 +133,7 @@ export class AiService {
       if(topics.simulation)facts.push({key:"simulation",text:"Câu hỏi này cần tính lại với điều kiện mới. Chọn ‘Thử thay đổi kế hoạch’, nhập tháng nghỉ hưu hoặc số tiền muốn thử rồi bấm tính. Các số liệu đang giải thích vẫn thuộc phiên bản đã chọn, chưa phải kết quả của thay đổi bạn vừa hỏi."});
       if(topics.inflation)facts.push({key:"inflation",text:"Chi tiêu theo giá trị hôm nay được điều chỉnh theo lạm phát từng tháng trong bộ dữ liệu của kế hoạch. Tiền cần chi mỗi tháng khi nghỉ hưu khác với tổng tiền cần có trong quỹ. Bạn có thể xem nguồn và phiên bản dữ liệu ở phần chi tiết kế hoạch."});
       if(topics.returns)facts.push({key:"returns",text:"Lợi suất dự kiến lấy từ bộ dữ liệu và cách phân bổ đầu tư đã chọn cho kế hoạch. Đây là giả định để tính, không phải lãi suất được bảo đảm. Trợ lý không tự thay tỷ lệ này khi bạn đặt câu hỏi."});
-      if(topics.products)facts.push({key:"products",text:await productFact(tx,userId)});
+      if(topics.products)facts.push({key:"products",text:await productFact(tx,userId,owned)});
       if(preview && hasFutureAssumptions(preview))facts.push({key:"hypothetical",text:"Phiên bản này chứa đầu vào mô phỏng; các giá trị đó chưa thay đổi hồ sơ gốc."});
       if(preview?.warnings.length)facts.push({key:"warnings",text:"Phiên bản có cảnh báo dữ liệu hoặc quy ước tính. Hãy xem các cảnh báo của phiên bản trước khi sử dụng kết quả."});
       const savedActual=preview?.reforecast, savedAnchor=savedActual?.actualRevisions.at(-1);
@@ -117,25 +145,41 @@ export class AiService {
         warningCodes:preview!.warnings.map(w=>w.code),sources:preview!.sources,valueKind:actual||preview!.reforecast?"REFORECAST":"FORECAST",
         actuals:actual?{throughMonth:actual.throughMonth,status:actual.status,anchor:actual.anchor,issues:actual.issues,revisions:actual.actuals.map(a=>({month:a.period,revision:a.revision}))}
           :savedActual?{throughMonth:savedActual.throughMonth,status:"READY",anchor:savedAnchor??null,issues:[],revisions:savedActual.actualRevisions.map(a=>({month:a.period,revision:a.revision}))}:null}:null;
-      return {privacyRevision:privacy.revision,conversation,facts,sources,provenance} as const;
+      return {privacyRevision:privacy.revision,conversation,facts,sources,provenance,hasPlan:!!s,planTopic:asksAboutPlan(v.question)} as const;
     });
     if("previous" in captured)return captured.previous;
     // No DB IDs, profile, transaction rows or prior conversation sent to the provider.
     const packet:ExplanationPacket={question:v.question.replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi,"[email]").replace(/(?:\+?\d[\s().-]*){10,}/g,"[number]"),facts:captured.facts,
       knowledge:captured.sources.map((s,i)=>({id:"k"+i,title:s.title,content:s.content}))};
-    let chosen={factKeys:fallbackFactKeys(v.question,captured.facts),citationIds:packet.knowledge.map(s=>s.id)},status=this.provider?"AI_ASSISTED":"PROVIDER_NOT_CONFIGURED";
+    let selected:{factKeys:string[];citationIds:string[]}|null=null,composed:string|null=null,status=this.provider?"AI_ASSISTED":"PROVIDER_NOT_CONFIGURED";
     if(this.provider){const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;
       try{const raw=await Promise.race([this.provider.select(packet,controller.signal),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error("TIMEOUT"));},this.timeoutMs);})]);
-        const parsed=selection.parse(raw);if(parsed.factKeys.some(k=>!packet.facts.some(f=>f.key===k))||parsed.citationIds.some(k=>!packet.knowledge.some(s=>s.id===k)))throw new Error("INVALID_SELECTION");chosen=parsed;
+        const parsed=selection.parse(raw);if(parsed.factKeys.some(k=>!packet.facts.some(f=>f.key===k))||parsed.citationIds.some(k=>!packet.knowledge.some(s=>s.id===k)))throw new Error("INVALID_SELECTION");
+        // Provider wording is used only when it stays inside server data; otherwise the server's own fact texts answer.
+        selected={factKeys:parsed.factKeys,citationIds:parsed.citationIds};composed=groundedAnswer(parsed.answer,packet);
       }catch{status="PROVIDER_UNAVAILABLE";}finally{if(timer)clearTimeout(timer);controller.abort();}}
     return transaction(this.db,async tx=>{const privacy=await this.consent(tx,userId,!!v.conversationId);if(privacy.revision!==captured.privacyRevision)throw new AppError(409,"AI_PRIVACY_CHANGED","Tùy chọn dữ liệu đã đổi; câu trả lời không được lưu.");
       if(v.conversationId){await this.owned(tx,userId,v.conversationId);const old=await tx.aiMessage.findFirst({where:{conversationId:v.conversationId,requestKey:key,role:"assistant"}});
         if(old){const c=old.context as {requestHash:string;response:unknown};if(c.requestHash!==requestHash)throw new AppError(409,"IDEMPOTENCY_CONFLICT","Khóa đã dùng cho câu hỏi khác.");return c.response;}}
       const fresh=await knowledge.retrieve(tx,v.question);
-      const citations=chosen.citationIds.flatMap(id=>{const s=captured.sources[Number(id.slice(1))];return s&&fresh.some(f=>f.id===s.id&&f.sourceRevision===s.sourceRevision&&f.contentHash===s.contentHash)?[{id:s.id,sourceId:s.sourceId,title:s.title,version:s.version,
+      const citations=(selected?.citationIds??packet.knowledge.map(s=>s.id)).flatMap(id=>{const s=captured.sources[Number(id.slice(1))];return s&&fresh.some(f=>f.id===s.id&&f.sourceRevision===s.sourceRevision&&f.contentHash===s.contentHash)?[{id:s.id,sourceId:s.sourceId,title:s.title,version:s.version,
         url:s.url?.startsWith("https://")?s.url:null,contentHash:s.contentHash,effectiveDate:s.effectiveDate,excerpt:s.content}]:[];});
-      const facts=captured.facts.filter(f=>chosen.factKeys.includes(f.key)||["limits","hypothetical","warnings","actual-status","missing","simulation","products"].includes(f.key));
-      const response={status,answer:facts.map(f=>f.text).join("\n\n"),facts,citations,provenance:captured.provenance,knowledgeStatus:fresh.length?"AVAILABLE":"NO_APPROVED_MATCH",
+      // Without provider wording, a general question is answered by the opening of the best approved excerpt.
+      // The excerpt must really be about the question: at least half of its words, and more than a single chance word ("chào").
+      const best=captured.sources[0],relevant=!!best&&citations[0]?.id===best.id&&best.askedWords>=2&&best.coverage>=0.5;
+      const lead=!selected&&relevant&&(!captured.hasPlan||!captured.planTopic)?{key:"knowledge",text:knowledgeLead(citations[0])}:null;
+      const keys=selected?.factKeys??fallbackFactKeys(v.question,captured.facts,!!lead);
+      // Notices the provider or a topic match cannot drop. Plan caveats follow plan numbers; a worded or excerpt answer
+      // to a general question does not repeat them, and says "no plan selected" only when the question needs one.
+      const usesPlan=keys.some(k=>PLAN_KEYS.includes(k));
+      const always=composed?["actual-status",...(usesPlan?[...CAVEATS,"simulation"]:[]),...(asksForProducts(v.question)?["products"]:[])]
+        :lead?["simulation","products","actual-status",...(usesPlan?CAVEATS:[]),...(captured.planTopic?["missing"]:[])]
+        :[...CAVEATS,"actual-status","missing","simulation","products"];
+      const picked=captured.facts.filter(f=>keys.includes(f.key)||always.includes(f.key)),facts=lead?[lead,...picked]:picked;
+      // After provider wording the server repeats, word for word, the notices and the product list it owns.
+      const verbatim=[...always,...["simulation","products"].filter(k=>keys.includes(k))];
+      const answer=composed?[composed,...picked.filter(f=>verbatim.includes(f.key)).map(f=>f.text)].join("\n\n"):facts.map(f=>f.text).join("\n\n");
+      const response={status,answer,answerSource:composed?"AI_COMPOSED":lead?"APPROVED_EXCERPT":"SERVER_FACTS",facts,citations,provenance:captured.provenance,knowledgeStatus:fresh.length?"AVAILABLE":"NO_APPROVED_MATCH",
         nextAction:"SIMULATE_WITH_USER_INPUTS_THEN_EXPLICIT_APPLY",applied:false,savedHistory:!!v.conversationId,
         conversationId:v.conversationId??null,revision:v.conversationId?v.expectedRevision!+1:null,provider:this.provider?.name??null};
       if(v.conversationId){const changed=await tx.aiConversation.updateMany({where:{id:v.conversationId,userId,revision:v.expectedRevision},data:{revision:{increment:1},...(v.expectedRevision===0?{title:v.question.slice(0,120)}:{})}});if(changed.count!==1)throw conflict();

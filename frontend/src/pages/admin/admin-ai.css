@@ -31,7 +31,7 @@
   font-weight: 600;
   color: var(--color-text-muted, #64748b);
   background: rgba(248, 250, 252, 0.95);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  border-bottom: 1px solid var(--color-border, #BCD2F0);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -41,13 +41,13 @@
   height: auto;
   padding: 10px 12px;
   font-size: 13px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+  border-bottom: 1px solid var(--color-border, #BCD2F0);
   vertical-align: middle;
   transition: background 0.15s ease;
 }
 
 .ai-source-card .ai-source-table tbody tr:hover td {
-  background: rgba(240, 246, 253, 0.45);
+  background: #f0f6fd;
 }
 
 /* Compact Source Title & Info */

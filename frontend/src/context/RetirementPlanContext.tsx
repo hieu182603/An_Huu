@@ -15,13 +15,11 @@ import {
   createRetirementPlan,
   createPlanVersion,
   applyPlanVersion,
-  replayPlanVersion,
   getPlanReport,
   type RetirementPlan,
   type PlanDetail,
   type PlanHistoryItem,
   type PlanVersion,
-  type ReplayResult,
   type PlanReport,
 } from "../services/plans";
 
@@ -62,7 +60,6 @@ interface RetirementPlanContextValue {
   runPreview: (input: RetirementPreviewInput) => Promise<RetirementPreviewResult | null>;
   savePlanVersion: (previewInput: RetirementPreviewInput, inputHash: string) => Promise<SavedPlanVersionResult | null>;
   applyVersion: (versionId: string, profileRevision: number, explicitPlanId?: string, explicitPlanRevision?: number) => Promise<boolean>;
-  replayVersion: (versionId: string) => Promise<ReplayResult | null>;
   fetchPlanReport: (planId?: string, versionId?: string) => Promise<PlanReport | null>;
 }
 
@@ -93,7 +90,18 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   const [lastInputHash, setLastInputHash] = useState<string | null>(null);
   const [draftSelection, setDraftSelection] = useState<Partial<RetirementPreviewInput> | null>(null);
   const draftRef = useRef<Partial<RetirementPreviewInput> | null>(null);
+  const previewSeq = useRef(0);
   const draftKey = (id: string) => `anhuu:plan-draft:${id}`;
+  const invalidateManualPreview = () => {
+    ++previewSeq.current;
+    setPreviewData(null);
+    setPreviewStatus("idle");
+    setPreviewIssues([]);
+    setPreviewWarnings([]);
+    setPreviewError(null);
+    setLastPreviewInput(null);
+    setLastInputHash(null);
+  };
   const updateDraft = (changes: Partial<RetirementPreviewInput>) => {
     const next = { ...draftRef.current, ...changes };
     if ("whatIf" in next) {
@@ -116,6 +124,9 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
     }
     // Session storage survives refresh, stays scoped to the account, and does not apply a plan.
     if (user?.id) sessionStorage.setItem(draftKey(user.id), JSON.stringify(next, (key, value) => key === "advisoryFee" && value === undefined ? null : value));
+    // Other pages can edit the draft without mounting the plan preview effect.
+    // Invalidate both settled and in-flight results before Overview can offer to save them.
+    if (JSON.stringify(next) !== JSON.stringify(draftRef.current)) invalidateManualPreview();
     draftRef.current = next;
     setDraftSelection(next);
   };
@@ -123,10 +134,10 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
     try { if (user?.id) sessionStorage.removeItem(draftKey(user.id)); } catch { /* Keep clearing in-memory state if storage is unavailable. */ }
     draftRef.current = null;
     setDraftSelection(null);
+    invalidateManualPreview();
   };
 
   // Monotonic sequence counters to reject out-of-order responses
-  const previewSeq = useRef(0);
   const planLoadSeq = useRef(0);
   const planListSeq = useRef(0);
   const activeUserIdRef = useRef<string | null>(null);
@@ -399,15 +410,6 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const replayVersion = async (versionId: string): Promise<ReplayResult | null> => {
-    if (!activePlan) return null;
-    try {
-      return await replayPlanVersion(activePlan.id, versionId);
-    } catch {
-      return null;
-    }
-  };
-
   const fetchPlanReport = async (planId?: string, versionId?: string): Promise<PlanReport | null> => {
     const targetId = planId || activePlanId;
     if (!targetId) return null;
@@ -419,8 +421,8 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   };
 
   // Implementations close over current state; consumers get stable identities.
-  const actionsRef = useRef({ updateDraft, clearDraft, selectPlan, runPreview, savePlanVersion, applyVersion, replayVersion, fetchPlanReport });
-  actionsRef.current = { updateDraft, clearDraft, selectPlan, runPreview, savePlanVersion, applyVersion, replayVersion, fetchPlanReport };
+  const actionsRef = useRef({ updateDraft, clearDraft, selectPlan, runPreview, savePlanVersion, applyVersion, fetchPlanReport });
+  actionsRef.current = { updateDraft, clearDraft, selectPlan, runPreview, savePlanVersion, applyVersion, fetchPlanReport };
   const actions = useMemo(() => ({
     updateDraft: (changes: Partial<RetirementPreviewInput>) => actionsRef.current.updateDraft(changes),
     clearDraft: () => actionsRef.current.clearDraft(),
@@ -428,7 +430,6 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
     runPreview: (input: RetirementPreviewInput) => actionsRef.current.runPreview(input),
     savePlanVersion: (input: RetirementPreviewInput, hash: string) => actionsRef.current.savePlanVersion(input, hash),
     applyVersion: (versionId: string, profileRev: number, planId?: string, planRevision?: number) => actionsRef.current.applyVersion(versionId, profileRev, planId, planRevision),
-    replayVersion: (versionId: string) => actionsRef.current.replayVersion(versionId),
     fetchPlanReport: (planId?: string, versionId?: string) => actionsRef.current.fetchPlanReport(planId, versionId),
   }), []);
   const synchronization = usePlanSynchronization(user?.id, activePlan?.current ?? null, v2Profile, profileRevision, draftSelection, loadingProfile || loadingPlans, profileError || plansError);

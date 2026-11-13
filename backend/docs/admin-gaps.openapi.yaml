@@ -1,0 +1,204 @@
+InvestmentRoleChange:
+  type: object
+  additionalProperties: false
+  properties:
+    role:
+      type: string
+      enum:
+        - OPERATIONS
+        - DATA_ADMIN
+        - MODEL_ADMIN
+        - ADVISOR
+        - APPROVER
+        - SYSTEM_ADMIN
+    reason:
+      type: string
+      minLength: 3
+      maxLength: 500
+  required:
+    - role
+    - reason
+BroadcastInput:
+  type: object
+  additionalProperties: false
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 120
+    message:
+      type: string
+      minLength: 1
+      maxLength: 1000
+  required:
+    - title
+    - message
+InvestmentRoleGrant:
+  type: object
+  additionalProperties: false
+  required:
+    - role
+    - grantedBy
+    - createdAt
+  properties:
+    role:
+      type: string
+      enum: &a5
+        - OPERATIONS
+        - DATA_ADMIN
+        - MODEL_ADMIN
+        - ADVISOR
+        - APPROVER
+        - SYSTEM_ADMIN
+    grantedBy: &a1
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+InvestmentRoleAccount:
+  type: object
+  additionalProperties: false
+  required:
+    - userId
+    - fullName
+    - email
+    - status
+    - roles
+  properties:
+    userId: &a2
+      type: string
+      format: uuid
+    fullName: *a1
+    email: *a1
+    status: &a3
+      type: string
+      enum:
+        - ACTIVE
+        - PENDING_VERIFICATION
+        - SUSPENDED
+    roles: &a4
+      type: array
+      items:
+        $ref: "#/InvestmentRoleGrant"
+InvestmentRoleChangeResult:
+  type: object
+  additionalProperties: false
+  required:
+    - userId
+    - fullName
+    - email
+    - status
+    - roles
+    - changed
+  properties:
+    userId: *a2
+    fullName: *a1
+    email: *a1
+    status: *a3
+    roles: *a4
+    changed:
+      type: boolean
+InvestmentRoleList:
+  type: object
+  additionalProperties: false
+  required:
+    - items
+    - assignableRoles
+  properties:
+    items:
+      type: array
+      maxItems: 200
+      items:
+        $ref: "#/InvestmentRoleAccount"
+    assignableRoles:
+      type: array
+      items:
+        type: string
+        enum: *a5
+BroadcastResult:
+  type: object
+  additionalProperties: false
+  required:
+    - broadcasted
+    - broadcastId
+    - title
+    - message
+    - recipients
+    - replayed
+  properties:
+    broadcasted:
+      type: boolean
+      enum:
+        - true
+    broadcastId: *a2
+    title: *a1
+    message: *a1
+    recipients:
+      type: integer
+      minimum: 0
+    replayed:
+      type: boolean
+InvestmentRoleAccountEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/InvestmentRoleAccount"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a2
+InvestmentRoleChangeResultEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/InvestmentRoleChangeResult"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a2
+InvestmentRoleListEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/InvestmentRoleList"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a2
+BroadcastResultEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/BroadcastResult"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a2

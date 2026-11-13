@@ -571,7 +571,7 @@ export function AdminAIManagementPage() {
             totalPages={sourceTotalPages}
             totalItems={filteredSources.length}
             pageSize={sourcePageSize}
-            pageSizeOptions={[10, 20, 50, 100]}
+            pageSizeOptions={[5, 10, 20, 50, 100]}
             onPageChange={setSourcePage}
             onPageSizeChange={(size) => { setSourcePageSize(size); setSourcePage(1); }}
           />

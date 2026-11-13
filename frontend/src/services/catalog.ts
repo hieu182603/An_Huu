@@ -23,6 +23,9 @@ export interface ProductItem {
   name: string;
   category: string;
   expectedReturn: string;
+  /** Optional numeric terms for sorting; null = not declared. */
+  referenceYieldPercent?: string | null;
+  minimumAmount?: string | null;
   riskLevel: RiskLevel;
   description: string | null;
   annualFee: string | null;
@@ -58,6 +61,9 @@ export interface ProductInput {
   name: string;
   category: string;
   expectedReturn: string;
+  /** Optional numeric terms for sorting; null = not declared. */
+  referenceYieldPercent?: string | null;
+  minimumAmount?: string | null;
   riskLevel: RiskLevel;
   description: string | null;
   annualFee: string | null;

@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { installRouteAuth, installFinancialProfileRoutes } from "./helpers";
 import { profile as baseProfile, selection as baseSelection, preview as makePreview } from "./planning-contract-fixtures";
 
-async function setup(page: Page, options: { noProfile?: boolean; noPlan?: boolean; emptyProfile?: boolean; changed?: boolean; syncError?: boolean; plansError?: boolean; zero?: boolean; pension?: boolean; failedApply?: boolean; shortfall?: boolean; birthMonth?: string } = {}) {
+async function setup(page: Page, options: { noProfile?: boolean; noPlan?: boolean; emptyProfile?: boolean; changed?: boolean; syncError?: boolean; plansError?: boolean; zero?: boolean; pension?: boolean; failedApply?: boolean; shortfall?: boolean; birthMonth?: string; exactMoney?: boolean; goalInfo?: "missing" | "zero" | "survey-zero" } = {}) {
   // Every API request stays at the mock boundary, including writes.
   await page.route("**/api/v1/**", route => route.fulfill({ status: 503, json: { error: { code: "UNMOCKED_TEST_API", message: "Missing test fixture" } } }));
   await installRouteAuth(page);
@@ -13,6 +13,11 @@ async function setup(page: Page, options: { noProfile?: boolean; noPlan?: boolea
   if (options.birthMonth) profile.data.personal.birthMonth.value = options.birthMonth;
   profile.summary = { values: { monthlyIncome: "30000000", monthlyExpense: "20000000", monthlyDebtService: "0", availableMonthlySurplus: options.zero ? "0" : "10000000" } };
   profile.data.expenses = { status: "KNOWN", entries: [{ id: "expense", category: "ESSENTIAL", label: "Sinh hoạt", amount: { status: "KNOWN", value: "20000000" }, currency: "VND", frequency: "MONTHLY", startMonth: "2020-01", endMonth: null }] };
+  if (options.goalInfo) {
+    delete profile.data.retirementGoal; delete profile.data.retirementSurvey;
+    if (options.goalInfo === "zero") profile.data.retirementGoal = { endMonth: "2065-01", monthlyExpenseToday: "0", lifestylePriority: null };
+    if (options.goalInfo === "survey-zero") profile.data.retirementSurvey = { policyVersionId: baseSelection.policyVersionId, monthlyExpenseToday: "0", answers: baseSelection.answers };
+  }
   if (options.emptyProfile) {
     for (const key of ["birthMonth", "desiredRetirementMonth"]) profile.data.personal[key] = { status: "UNKNOWN" };
     for (const key of ["income", "expenses", "assets"]) profile.data[key] = { status: "UNKNOWN" };
@@ -37,6 +42,11 @@ async function setup(page: Page, options: { noProfile?: boolean; noPlan?: boolea
       { month: "2065-01", phase: "RETIREMENT", fundedClosingBalance: "0", contribution: "0", withdrawal: "20000000", pension: "0" },
     ];
     if (options.shortfall) data.calculation.rows[3].unfundedWithdrawal = "20000000";
+    if (options.exactMoney) {
+      data.calculation.summary.atRetirement.projectedFund = "9007199254740993.25";
+      data.calculation.summary.atRetirement.requiredFund = "9007199254740994.75";
+      Object.assign(data.calculation.rows[0], { fundedClosingBalance: "9007199254740993.25", contributionCapacity: "9007199254740993.25", contribution: "1234567.89", withdrawal: "543.21" });
+    }
     return data;
   };
   const initial = makeData(selection, options.zero ? "0" : "5200000000", "initial-preview");
@@ -88,7 +98,37 @@ test("zero projection, target and capacity remain zero", async ({ page }) => {
   await expect(page.locator(".dashboard-metric.is-required > strong")).toHaveText("0 ₫");
   await expect(page.locator(".dashboard-metric.is-capacity > strong")).toHaveText("0 ₫/tháng");
   await page.getByRole("button", { name: "Giải thích Quỹ dự kiến khi nghỉ hưu", exact: true }).click();
-  await expect(page.getByRole("dialog").locator("dd").last()).toHaveText("0 ₫");
+  await expect(page.getByRole("dialog").locator(".money-explanation-kpi > strong")).toHaveText("0 ₫");
+});
+
+test("overview and selected chart month retain exact API money beyond safe integers", async ({ page }, info) => {
+  await setup(page, { exactMoney: true });
+  await expect(page.locator(".dashboard-metric.is-projected .dashboard-metric-full")).toHaveText("9.007.199.254.740.993,25 ₫");
+  await expect(page.locator(".dashboard-metric.is-required .dashboard-metric-full")).toHaveText("9.007.199.254.740.994,75 ₫");
+  await expect(page.locator(".dashboard-metric.is-capacity .dashboard-metric-full")).toHaveText("9.007.199.254.740.993,25 ₫/tháng");
+  const chart = page.locator(".plan-chart-interactive");
+  await chart.getByRole("button", { name: /^Bắt đầu ·/ }).click();
+  await expect(chart.getByRole("slider")).toHaveAttribute("aria-valuetext", "11/2026 · 9.007.199.254.740.993,25 ₫");
+  await expect(chart).toContainText("1.234.567,89 ₫");
+  await expect(chart).toContainText("543,21 ₫");
+  await page.getByRole("button", { name: "Giải thích Quỹ dự kiến khi nghỉ hưu", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("9.007.199.254.740.993,25 ₫");
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({width:320,height:740});
+  await expect.poll(() => chart.locator(".chart-axis-label,.chart-target-label").evaluateAll(labels => labels.every(label => {
+    const text=label as SVGGraphicsElement,box=text.getBBox();
+    return box.x >= 0 && box.x + box.width <= text.ownerSVGElement!.viewBox.baseVal.width;
+  }))).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await chart.locator("svg.projection-svg").screenshot({path:info.outputPath("chart-exact-money-mobile.png")});
+  await page.screenshot({path:info.outputPath("overview-exact-money-mobile.png"),fullPage:true});
+});
+
+for (const goalInfo of ["missing", "zero", "survey-zero"] as const) test(`profile progress uses declared retirement spending: ${goalInfo}`, async ({ page }) => {
+  await setup(page, { goalInfo });
+  await page.getByRole("button", { name: "Tiến độ hoàn thiện hồ sơ", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("link", { name: `${goalInfo === "missing" ? "Bổ sung" : "Xem lại"}: Mục tiêu nghỉ hưu`, exact: true })).toBeVisible();
 });
 
 test("no plan or unknown profile never substitutes demo money", async ({ page }) => {
@@ -112,6 +152,10 @@ test("synchronization failure hides old figures, and retry shows the new preview
   const state = await setup(page, { changed: true, syncError: true });
   await expect(page.locator(".plan-sync-status[role=alert]")).toContainText("Chưa cập nhật được số liệu");
   await expect(page.locator(".dashboard-metric.is-projected > strong")).toHaveText("Chưa xác định");
+  await expect(page.locator(".dashboard-metric.is-capacity > strong")).toHaveText("Chưa xác định");
+  await page.getByRole("button", { name: "Giải thích Có thể góp tháng đầu", exact: true }).click();
+  await expect(page.getByRole("dialog").locator(".money-explanation-kpi > strong")).toHaveText("Chưa xác định");
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("img", { name: "Biểu đồ số dư quỹ nghỉ hưu theo từng tháng" })).toHaveCount(0);
   state.setSyncFail(false);
   await page.locator(".plan-sync-status").getByRole("button", { name: "Thử lại" }).click();

@@ -112,6 +112,12 @@ export const profileV2Object = z.object({
   assets: collectionSchema(assetEntrySchema), debts: collectionSchema(debtEntrySchema),
   pension: pensionSchema.optional(),
   retirementGoal: retirementGoalValues.optional(),
+  retirementSurvey: z.object({
+    policyVersionId: z.string().min(1).max(191),
+    monthlyExpenseToday: moneySchema,
+    answers: z.array(z.object({ questionId: z.string().min(1).max(191), choiceId: z.string().min(1).max(191) }).strict()).min(1).max(100)
+      .refine(items => new Set(items.map(item => item.questionId)).size === items.length, "Mỗi câu hỏi chỉ có một câu trả lời."),
+  }).strict().optional(),
   lossTolerance: z.object({ amountVnd: amountSchema.optional(), percent: knownOrUnknown(lossPercent).optional(),
     reaction: knownOrUnknown(z.enum(["SELL", "HOLD", "BUY_MORE"])).optional() }).strict().optional(),
   incomeStability: knownOrUnknown(z.enum(["STABLE", "VARIABLE", "UNCERTAIN"])).optional(),

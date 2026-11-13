@@ -1,7 +1,7 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { installRouteAuth, installFinancialProfileRoutes, defaultMockProfile } from "./helpers";
 
-const api = "http://127.0.0.1:55442", known = (value: string | number) => ({ status: "KNOWN", value });
+const api = process.env.USER_CASHFLOW_API ?? "http://127.0.0.1:55442", known = (value: string | number) => ({ status: "KNOWN", value });
 async function setup(page: Page, request: APIRequestContext, changes: object = {}, withPlan = false) {
   const response = await request.post(`${api}/__fixture/reset`, { data: { changes, withPlan } }); expect(response.ok()).toBeTruthy(); const fixture = await response.json();
   await page.route("**/api/v1/**", route => route.fulfill({ status: 503, json: { error: { code: "UNMOCKED_API", message: "No planning fixture" } } }));

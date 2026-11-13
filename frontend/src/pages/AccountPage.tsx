@@ -230,7 +230,10 @@ export default function AccountPage() {
           {prefsError&&<div role="alert">{prefsError}<button type="button" onClick={()=>setPrefsAttempt(n=>n+1)}>{language==="en"?"Reload options":"Tải lại tùy chọn"}</button></div>}
           {!prefs&&!prefsError&&<p role="status">{language==="en"?"Loading options…":"Đang tải tùy chọn…"}</p>}
           <form onSubmit={handleSavePreferences}><fieldset disabled={!prefs||savingPrefs} style={{border:0,padding:0,margin:0,minWidth:0}}>
-            <label className="check"><input type="checkbox" checked={emailDigest} onChange={e=>setEmailDigest(e.target.checked)}/>{language==="en"?"Email digest preference":"Tùy chọn email tổng hợp"}</label>
+            <label className="check" style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "14px", color: "var(--text, #10385b)", marginBottom: "14px" }}>
+              <input type="checkbox" checked={emailDigest} onChange={e=>setEmailDigest(e.target.checked)} style={{ accentColor: "var(--primary, #334DAF)", width: "18px", height: "18px", flexShrink: 0 }} />
+              <span>{language==="en"?"Email digest preference":"Tùy chọn email tổng hợp"}</span>
+            </label>
             <label className="check" style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "14px", color: "var(--text, #10385b)" }}>
               <input
                 type="checkbox"
@@ -239,7 +242,7 @@ export default function AccountPage() {
                 onChange={e => setReminder(e.target.checked)}
                 style={{ accentColor: "var(--primary, #334DAF)", width: "18px", height: "18px" }}
               />
-              <span>{language === "en" ? "Remind monthly contribution updates" : "Nhắc cập nhật khoản góp mỗi tháng"}</span>
+              <span>{language === "en" ? "Remind monthly contribution updates" : "Nhắc cập nhật khoản góp mỗi tháng"}<small style={{ display: "block", color: "#64748b", fontSize: "12px" }}>{language === "en" ? "In-app notification from the 25th each month when you have a main plan and have not recorded the month yet. No email." : "Thông báo trong ứng dụng từ ngày 25 hằng tháng khi bạn có kế hoạch chính và chưa ghi nhận tháng đó. Không gửi email."}</small></span>
             </label>
 
             <label className="check" style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "14px", color: "var(--text, #10385b)", marginTop: "14px" }}>

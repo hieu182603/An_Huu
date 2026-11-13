@@ -450,6 +450,8 @@ model PartnerProduct {
   name           String
   category       String
   expectedReturn String
+  referenceYieldPercent Decimal? @db.Decimal(9, 4)
+  minimumAmount  Decimal? @db.Decimal(20, 2)
   investmentData InvestmentProductData?
   investmentHoldings InvestmentHolding[]
   recommendationItems InvestmentRecommendationItem[]

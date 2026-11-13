@@ -1690,9 +1690,9 @@ test("anti-slop and terminology integrity: no em-dashes in actual labels and AI 
     assert.ok(!label.includes("—"), `Label for ${key} contains forbidden em-dash`);
   }
 
-  const AI_POLICY_VERSION = "ai-explanation-2026-10-v1";
+  const AI_POLICY_VERSION = "ai-explanation-gemini-2026-11-v3";
   const AI_RETENTION_DAYS = 30;
 
-  assert.equal(AI_POLICY_VERSION, "ai-explanation-2026-10-v1");
+  assert.equal(AI_POLICY_VERSION, "ai-explanation-gemini-2026-11-v3");
   assert.equal(AI_RETENTION_DAYS, 30);
 });

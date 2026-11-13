@@ -13,10 +13,12 @@ export function memoryDb() {
   names.push("legalRuleSetVersion", "socialInsuranceHistoryVersion", "pensionEstimate");
   names.push("systemSetting", "loginLog", "systemLog", "retirementGoal");
   names.push("article", "savedArticle", "savedProduct", "supportTicket", "supportMessage");
+  names.push("investmentRoleGrant");
   function relation(row: Row, key: string): any {
     if (key in row) return row[key];
     const links: Record<string, [string, string]> = { partner: ["partner", "partnerId"], product: ["partnerProduct", "productId"], article: ["article", "articleId"], author: ["user", "authorId"], user: ["user", "userId"] };
     if (links[key]) { const [table, foreignKey] = links[key]; return tables[table]?.find(item => item.id === row[foreignKey]) ?? null; }
+    if (key === "investmentRoles") return tables.investmentRoleGrant.filter(item => item.userId === row.id);
     if (key === "savedBy") return tables.savedArticle?.filter(item => item.articleId === row.id) ?? [];
     return undefined;
   }
@@ -25,7 +27,7 @@ export function memoryDb() {
       if (key === "OR") return value.some((v: Row) => match(row, v));
       if (key === "AND") return (Array.isArray(value) ? value : [value]).every((v: Row) => match(row, v));
       if (key === "NOT") return !(Array.isArray(value) ? value : [value]).some((v: Row) => match(row, v));
-      if (["userId_scope_key", "userId_productId", "userId_articleId"].includes(key)) return match(row, value);
+      if (["userId_scope_key", "userId_productId", "userId_articleId", "userId_role"].includes(key)) return match(row, value);
       const field = relation(row, key);
       if (value && typeof value === "object" && !(value instanceof Date)) {
         if ("some" in value) return Array.isArray(field) && field.some(item => match(item, value.some));
@@ -39,6 +41,7 @@ export function memoryDb() {
   }
   function decorate(row: Row | undefined, options: Row): any {
     if (!row) return null;
+    if (Array.isArray(row)) return row.map(item => decorate(item, options));
     const value = structuredClone(row);
     if (options.include?.user) value.user = structuredClone(tables.user.find(u => u.id === row.userId));
     if (options.select) return Object.fromEntries(Object.entries(options.select).filter(([, selected]) => selected).map(([key, selected]) => [key, selected === true ? relation(value, key) : decorate(relation(value, key), selected as Row)]));
@@ -63,7 +66,9 @@ export function memoryDb() {
         let rows = tables[name].filter(r => match(r, options.where));
         if (options.orderBy) {
           const [key, direction] = Object.entries(Array.isArray(options.orderBy) ? options.orderBy[0] : options.orderBy)[0];
-          rows = [...rows].sort((a, b) => (a[key] > b[key] ? 1 : a[key] < b[key] ? -1 : 0) * (direction === "desc" ? -1 : 1));
+          const order = typeof direction === "object" && direction ? (direction as Row).sort : direction, nullsLast = typeof direction === "object" && (direction as Row)?.nulls === "last";
+          const value = (row: Row) => { const v = row[key]; return v !== null && typeof v === "object" && "toNumber" in v ? (v as { toNumber(): number }).toNumber() : v; };
+          rows = [...rows].sort((a, b) => { const x = value(a), y = value(b); if (nullsLast && (x == null || y == null)) return x == null ? (y == null ? 0 : 1) : -1; return (x > y ? 1 : x < y ? -1 : 0) * (order === "desc" ? -1 : 1); });
         }
         return rows.slice(options.skip || 0, options.take === undefined ? undefined : (options.skip || 0) + options.take).map(r => decorate(r, options));
       },
@@ -102,6 +107,7 @@ export function memoryDb() {
         tables[name].push(row);
         return decorate(row, options);
       },
+      createMany: async ({ data }: Row) => { for (const item of data) await db[name].create({ data: item }); return { count: data.length }; },
       update: async (options: Row) => {
         const row = tables[name].find(r => match(r, options.where));
         if (!row) throw new Error("Missing fixture");

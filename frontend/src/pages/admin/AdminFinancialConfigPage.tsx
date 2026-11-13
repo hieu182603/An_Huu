@@ -4,6 +4,7 @@ import { faRotateRight, faPrint } from "@fortawesome/free-solid-svg-icons";
 import AdminActionButton from "./AdminActionButton";
 import { Alert, Badge, Button, Card, Icon, Input, Modal, Textarea, useNotification } from "../../components/ui";
 import { useI18n } from "../../i18n";
+import "./admin-financial-config.css";
 import {
   approveAssumption,
   createAdminAssumptionDraft,
@@ -241,6 +242,7 @@ export default function AdminFinancialConfigPage() {
 
   const formatDate = (value: string | null) => value ? new Date(value).toLocaleDateString("vi-VN") : "-";
   const publishedCount = versions?.items.filter((item) => item.status === "PUBLISHED").length || 0;
+  const draftCount = versions?.items.filter((item) => item.status !== "PUBLISHED").length || 0;
 
   return (
     <div className="admin-page financial-config-page admin-management-page">
@@ -257,45 +259,157 @@ export default function AdminFinancialConfigPage() {
         </div>
       </header>
 
-      <Link className="button button-secondary" to="/admin/investments">Khuyến nghị và danh mục</Link>
-      <Link className="button button-secondary" to="/admin/portfolio-policies">{isEn ? "Allocation policies" : "Chính sách phân bổ"}</Link>
-      <Link className="button button-secondary" to="/admin/market-data">{isEn ? "Market data documents" : "Tài liệu dữ liệu thị trường"}</Link>
-      <Alert tone="warning" title={isEn ? "Governed configuration" : "Cấu hình có kiểm soát"}>
+      {/* Navigation Hub for Risk Governance suite */}
+      <nav className="financial-subnav-hub" aria-label={isEn ? "Risk Governance Navigation" : "Điều hướng Quản trị rủi ro"}>
+        <Link className="financial-subnav-card" to="/admin/investments">
+          <span className="financial-subnav-icon is-investments" aria-hidden="true">
+            <Icon name="briefcase" />
+          </span>
+          <div className="financial-subnav-body">
+            <span className="financial-subnav-title">{isEn ? "Investment Recommendations" : "Khuyến nghị & Danh mục"}</span>
+            <span className="financial-subnav-desc">{isEn ? "Model portfolios & risk allocations" : "Danh mục mẫu & phân bổ tài sản"}</span>
+          </div>
+          <Icon name="arrow-right" className="financial-subnav-arrow" size="small" />
+        </Link>
+        <Link className="financial-subnav-card" to="/admin/portfolio-policies">
+          <span className="financial-subnav-icon is-policies" aria-hidden="true">
+            <Icon name="target" />
+          </span>
+          <div className="financial-subnav-body">
+            <span className="financial-subnav-title">{isEn ? "Allocation Policies" : "Chính sách phân bổ"}</span>
+            <span className="financial-subnav-desc">{isEn ? "Glide paths & stress testing rules" : "Đường trượt & kịch bản kiểm tra áp lực"}</span>
+          </div>
+          <Icon name="arrow-right" className="financial-subnav-arrow" size="small" />
+        </Link>
+        <Link className="financial-subnav-card" to="/admin/market-data">
+          <span className="financial-subnav-icon is-market-data" aria-hidden="true">
+            <Icon name="file-text" />
+          </span>
+          <div className="financial-subnav-body">
+            <span className="financial-subnav-title">{isEn ? "Market Data Documents" : "Tài liệu dữ liệu thị trường"}</span>
+            <span className="financial-subnav-desc">{isEn ? "Historical returns & CPI time-series" : "Lợi suất lịch sử & chuỗi chỉ số CPI"}</span>
+          </div>
+          <Icon name="arrow-right" className="financial-subnav-arrow" size="small" />
+        </Link>
+      </nav>
+
+      <Alert tone="warning" title={isEn ? "Governed configuration" : "Cấu hình có kiểm soát"} className="financial-governance-alert">
         {isEn ? "Published versions are immutable and selectable by plans. Approval requires validation and an impact review." : "Phiên bản đã công bố là bất biến và có thể được kế hoạch lựa chọn. Phê duyệt yêu cầu kiểm tra cấu hình và xem tác động."}
       </Alert>
       {error && <Alert tone="danger" title={isEn ? "Assumption service error" : "Lỗi dịch vụ giả định"}>{error}</Alert>}
 
-      <div className="admin-management-summary">
-        <Card><span>{isEn ? "Total versions" : "Tổng phiên bản"}</span><strong>{loading ? "…" : versions?.total || 0}</strong></Card>
-        <Card><span>{isEn ? "Drafts / awaiting publication" : "Bản nháp / Chờ công bố"}</span><strong>{loading ? "…" : versions?.items.filter((item) => item.status !== "PUBLISHED").length || 0}</strong></Card>
-        <Card><span>{isEn ? "Published versions" : "Đã công bố"}</span><strong>{loading ? "…" : publishedCount}</strong></Card>
+      {/* KPI Metric Summary Cards */}
+      <div className="financial-kpi-grid">
+        <div className="financial-kpi-card">
+          <div className="financial-kpi-header">
+            <span className="financial-kpi-label">{isEn ? "Total Assumption Sets" : "Tổng bộ giả định"}</span>
+            <span className="financial-kpi-icon-disc is-neutral" aria-hidden="true">
+              <Icon name="grid" size="small" />
+            </span>
+          </div>
+          <strong className="financial-kpi-value">{loading ? "…" : versions?.total || 0}</strong>
+          <div className="financial-kpi-footer">
+            <span>{isEn ? "Governed model series" : "Mô hình chuỗi thời gian"}</span>
+            <span className="financial-kpi-chip is-soft">
+              {loading ? "…" : `v${versions?.items[0]?.version || 1} active`}
+            </span>
+          </div>
+        </div>
+
+        <div className="financial-kpi-card">
+          <div className="financial-kpi-header">
+            <span className="financial-kpi-label">{isEn ? "Drafts / Pending Review" : "Bản nháp / Chờ phê duyệt"}</span>
+            <span className="financial-kpi-icon-disc is-warning" aria-hidden="true">
+              <Icon name="edit" size="small" />
+            </span>
+          </div>
+          <strong className="financial-kpi-value">{loading ? "…" : draftCount}</strong>
+          <div className="financial-kpi-footer">
+            <span>{isEn ? "Awaiting publication" : "Chờ thẩm định & công bố"}</span>
+            {draftCount > 0 ? (
+              <span className="financial-kpi-chip is-warning">{isEn ? "Review needed" : "Cần rà soát"}</span>
+            ) : (
+              <span className="financial-kpi-chip is-soft">{isEn ? "All up to date" : "Đã đồng bộ"}</span>
+            )}
+          </div>
+        </div>
+
+        <div className="financial-kpi-card">
+          <div className="financial-kpi-header">
+            <span className="financial-kpi-label">{isEn ? "Published Baseline" : "Đã công bố (Hiệu lực)"}</span>
+            <span className="financial-kpi-icon-disc is-success" aria-hidden="true">
+              <Icon name="circle-check" size="small" />
+            </span>
+          </div>
+          <strong className="financial-kpi-value">{loading ? "…" : publishedCount}</strong>
+          <div className="financial-kpi-footer">
+            <span>{isEn ? "Active calculation baseline" : "Áp dụng cho tính toán hưu trí"}</span>
+            <span className="financial-kpi-chip is-success">{isEn ? "Governed" : "Chuẩn hóa"}</span>
+          </div>
+        </div>
       </div>
 
       <Card className="financial-assumptions-card">
-        <div className="ai-section-header">
-          <div>
-            <h2>{isEn ? "Stored versions" : "Các phiên bản đã lưu"}</h2>
+        <div className="financial-assumptions-header">
+          <div className="financial-assumptions-header-text">
+            <div className="financial-assumptions-title-row">
+              <h2>{isEn ? "Stored versions" : "Các phiên bản đã lưu"}</h2>
+              <Badge tone="soft">{versions?.total || 0}</Badge>
+            </div>
             <p>{isEn ? "Open a version to review its configuration, sources and approval status." : "Mở chi tiết để xem cấu hình, nguồn dữ liệu và trạng thái phê duyệt."}</p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-            <Badge tone="soft">{versions?.total || 0}</Badge>
-            <AdminActionButton icon="edit" label={isEn ? "Adjust parameters in a new draft" : "Điều chỉnh tham số trong bản nháp mới"} onClick={openCreateModal} disabled={loading || detailLoading || busy} />
+          <div className="financial-assumptions-header-actions">
+            <AdminActionButton
+              icon="edit"
+              label={isEn ? "Adjust parameters in a new draft" : "Điều chỉnh tham số trong bản nháp mới"}
+              onClick={openCreateModal}
+              disabled={loading || detailLoading || busy}
+            />
           </div>
         </div>
         <div className="financial-table-scroll">
           <table className="financial-assumptions-table admin-management-table admin-stack-table">
-            <thead><tr><th className="col-optional">{isEn ? "Version" : "Phiên bản"}</th><th>{isEn ? "Title" : "Tiêu đề"}</th><th>{isEn ? "Status" : "Trạng thái"}</th><th className="col-optional">{isEn ? "Projection" : "Giai đoạn dự phóng"}</th><th>{isEn ? "Effective" : "Hiệu lực"}</th><th>{isEn ? "Actions" : "Thao tác"}</th></tr></thead>
+            <thead>
+              <tr>
+                <th className="col-optional">{isEn ? "Version" : "Phiên bản"}</th>
+                <th>{isEn ? "Title" : "Tiêu đề"}</th>
+                <th>{isEn ? "Status" : "Trạng thái"}</th>
+                <th className="col-optional">{isEn ? "Projection" : "Giai đoạn dự phóng"}</th>
+                <th>{isEn ? "Effective" : "Hiệu lực"}</th>
+                <th style={{ textAlign: "right" }}>{isEn ? "Actions" : "Thao tác"}</th>
+              </tr>
+            </thead>
             <tbody>
               {loading && <tr><td colSpan={6} className="admin-management-empty">{isEn ? "Loading versions…" : "Đang tải phiên bản…"}</td></tr>}
-              {!loading && !versions?.items.length && <tr><td colSpan={6}>{isEn ? "No assumption versions configured." : "Chưa có phiên bản giả định nào."}</td></tr>}
+              {!loading && !versions?.items.length && <tr><td colSpan={6} className="admin-management-empty">{isEn ? "No assumption versions configured." : "Chưa có phiên bản giả định nào."}</td></tr>}
               {versions?.items.map((item) => (
-                <tr key={item.id}>
-                  <td className="col-optional"><strong>v{item.version}</strong><small>r{item.revision}</small></td>
-                  <td><strong>{item.title}</strong><small className="stack-only">v{item.version} · r{item.revision}</small></td>
+                <tr key={item.id} className={item.id === selectedId ? "is-row-selected" : ""}>
+                  <td className="col-optional">
+                    <div className="financial-version-tag">
+                      <span className="version-code">v{item.version}</span>
+                      <span className="revision-code">r{item.revision}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="financial-title-cell">
+                      <strong>{item.title}</strong>
+                      <small className="stack-only">v{item.version} · r{item.revision}</small>
+                    </div>
+                  </td>
                   <td data-label={isEn ? "Status" : "Trạng thái"}><Badge tone={statusTone(item.status)}>{item.status}</Badge></td>
-                  <td className="col-optional" data-label={isEn ? "Projection" : "Dự phóng"}>{item.projectionStartYear}-{item.projectionEndYear}</td>
-                  <td data-label={isEn ? "Effective" : "Hiệu lực"}>{formatDate(item.effectiveAt)}</td>
-                  <td data-label={isEn ? "Actions" : "Thao tác"}><AdminActionButton icon="eye" label={isEn ? "View details" : "Xem chi tiết"} context={item.title} onClick={() => { setSelectedId(item.id); setDetailOpen(true); }} /></td>
+                  <td className="col-optional" data-label={isEn ? "Projection" : "Dự phóng"}>
+                    <span className="financial-projection-pill">
+                      {item.projectionStartYear}–{item.projectionEndYear}
+                    </span>
+                  </td>
+                  <td data-label={isEn ? "Effective" : "Hiệu lực"}>
+                    <span className="financial-date-text">{formatDate(item.effectiveAt)}</span>
+                  </td>
+                  <td data-label={isEn ? "Actions" : "Thao tác"} style={{ textAlign: "right" }}>
+                    <div className="financial-row-actions">
+                      <AdminActionButton icon="eye" label={isEn ? "View details" : "Xem chi tiết"} context={item.title} onClick={() => { setSelectedId(item.id); setDetailOpen(true); }} />
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

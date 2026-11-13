@@ -1,6 +1,6 @@
 import UserKnowledgePage from "./UserKnowledgePage";
-import { useState, useEffect, useMemo, type CSSProperties } from 'react';
-import { Link, useLocation } from 'react-router';
+import { useState, useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { Icon } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n';
@@ -54,32 +54,55 @@ function ClockIcon({ size = 12, style, className = '' }: { size?: number; style?
 
 function PublicKnowledgeView() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
-  const [hashArticleId, setHashArticleId] = useState(() => (typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : ''));
 
-  useEffect(() => {
-    const handleHashChange = () => {
-      setHashArticleId(window.location.hash.replace(/^#/, ''));
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  const currentHashId = location.hash.replace(/^#/, '');
 
   const activeArticle: KnowledgeArticle | null = useMemo(() => {
-    if (!hashArticleId) return null;
-    return ARTICLES_DATA.find(a => a.id === hashArticleId) || null;
-  }, [hashArticleId]);
+    if (!currentHashId) return null;
+    return ARTICLES_DATA.find(a => a.id === currentHashId) || null;
+  }, [currentHashId]);
+
+  const isInitialMount = useRef(true);
+  const prevArticleId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (activeArticle) {
+      const timer = setTimeout(() => {
+        const readerEl = document.getElementById('ed-reader-view');
+        if (readerEl) {
+          readerEl.scrollIntoView({
+            behavior: isInitialMount.current ? 'instant' : 'smooth',
+            block: 'start',
+          });
+          const heading = readerEl.querySelector<HTMLElement>('h2') ?? readerEl;
+          heading.setAttribute('tabindex', '-1');
+          heading.focus({ preventScroll: true });
+        }
+        isInitialMount.current = false;
+        prevArticleId.current = activeArticle.id;
+      }, 0);
+      return () => clearTimeout(timer);
+    } else if (prevArticleId.current && !isInitialMount.current) {
+      const timer = setTimeout(() => {
+        const catalogEl = document.getElementById('ed-catalog-view');
+        if (catalogEl) {
+          catalogEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        prevArticleId.current = null;
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+    isInitialMount.current = false;
+  }, [activeArticle?.id]);
 
   const openArticle = (id: string) => {
-    window.location.hash = id;
-    setHashArticleId(id);
-    window.scrollTo({ top: 380, behavior: 'smooth' });
+    navigate('/kien-thuc#' + id);
   };
 
   const closeArticle = () => {
-    window.history.pushState('', document.title, window.location.pathname);
-    setHashArticleId('');
-    window.scrollTo({ top: 400, behavior: 'smooth' });
+    navigate('/kien-thuc');
   };
 
   const shareArticle = () => {
@@ -231,7 +254,7 @@ function PublicKnowledgeView() {
                 {/* 2-Column Newspaper Layout */}
                 <div className="editorial-newspaper-grid">
                   {/* Left: Main Article Content */}
-                  <article className="card editorial-article-main">
+                  <article id={activeArticle.id} className="card editorial-article-main">
                     <header className="editorial-header">
                       <div className="editorial-kicker">
                         <span className="badge-cat-pill">{activeArticle.category}</span>

@@ -23,6 +23,7 @@ import {
   type AiProvenance,
   type AiConversationItem,
   type AiExplainCommand,
+  type AiAnswerSource,
 } from "../services/ai";
 import { formatAiMoney as formatVNDCurrency } from "../utils/aiPresentation";
 import { useI18n } from "../i18n";
@@ -41,6 +42,18 @@ interface ChatMessage {
   citations?: AiCitation[];
   provenance?: AiProvenance | null;
   status?: string;
+  answerSource?: AiAnswerSource;
+}
+
+/** Note under an answer saying where its wording came from; null when Gemini wrote it normally. */
+function answerNote(msg: ChatMessage, isEn: boolean): string | null {
+  const excerpt = msg.answerSource === "APPROVED_EXCERPT";
+  const excerptNote = isEn ? "Quoted from an approved document; the assistant has not added any interpretation." : "Trích từ tài liệu đã duyệt; trợ lý chưa diễn giải thêm.";
+  if (msg.status === "PROVIDER_UNAVAILABLE") {
+    return `${isEn ? "Gemini is unavailable." : "Gemini đang gián đoạn."} ${excerpt ? excerptNote : (isEn ? "This explanation uses system data." : "Câu trả lời này được tạo từ dữ liệu hệ thống.")}`;
+  }
+  if (msg.status === "PROVIDER_NOT_CONFIGURED") return excerpt ? excerptNote : (isEn ? "Explanation from system data." : "Giải thích từ số liệu hệ thống.");
+  return excerpt ? excerptNote : null;
 }
 
 export default function AIAssistantPage() {
@@ -85,6 +98,8 @@ export default function AIAssistantPage() {
   const [updatingConsent, setUpdatingConsent] = useState(false);
 
   const processingNotice = privacy?.processingNotice;
+  // The user agreed once, but to an older policy version: they must re-read and choose again.
+  const policyChanged = !!privacy && (!!privacy.reconsentRequired || (!!privacy.acceptedPolicyVersion && !!privacy.policyVersion && privacy.acceptedPolicyVersion !== privacy.policyVersion));
 
   // Conversations state
   const [conversations, setConversations] = useState<AiConversationItem[]>([]);
@@ -230,7 +245,7 @@ export default function AIAssistantPage() {
       setCurrentConversationId(detail.id);
       setConversationRevision(detail.revision);
       const loaded: ChatMessage[] = detail.messages.map((m) => {
-        const parsedContext = m.context as { response?: { facts?: AiFact[]; citations?: AiCitation[]; provenance?: AiProvenance; status?: string } } | undefined;
+        const parsedContext = m.context as { response?: { facts?: AiFact[]; citations?: AiCitation[]; provenance?: AiProvenance; status?: string; answerSource?: AiAnswerSource } } | undefined;
         return {
           id: m.id,
           role: m.role,
@@ -240,6 +255,8 @@ export default function AIAssistantPage() {
           citations: m.citedSources || parsedContext?.response?.citations,
           provenance: parsedContext?.response?.provenance,
           status: parsedContext?.response?.status,
+          // Answers saved before answerSource existed were always assembled from server facts.
+          answerSource: m.role === "assistant" ? (parsedContext?.response?.answerSource ?? "SERVER_FACTS") : undefined,
         };
       });
       setMessages(loaded.length > 0 ? loaded : [initialMessage]);
@@ -389,6 +406,7 @@ export default function AIAssistantPage() {
         citations: res.citations,
         provenance: res.provenance,
         status: res.status,
+        answerSource: res.answerSource,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
@@ -507,8 +525,8 @@ export default function AIAssistantPage() {
   const suggestions = [
     { title: isEn ? "Will my retirement fund be enough?" : "Tôi có đủ tiền không?", description: isEn ? "Compare the projected fund with what you need." : "Hiểu số tiền dự kiến có và số tiền cần chuẩn bị.", question: isEn ? "Explain how much of my retirement needs my projected fund covers." : "Tiền dự kiến có đáp ứng bao nhiêu phần trăm số tiền cần khi nghỉ hưu?" },
     { title: isEn ? "How much more should I contribute?" : "Cần góp thêm bao nhiêu?", description: isEn ? "Understand the contribution in your saved plan." : "Xem khoản góp thêm theo kế hoạch đã lưu.", question: isEn ? "Explain the additional monthly contribution in my saved plan." : "Giải thích số tiền cần góp thêm mỗi tháng theo kế hoạch đã lưu của tôi." },
-    { title: isEn ? "When might I run short?" : "Khi nào thiếu tiền?", description: isEn ? "Find the first projected shortfall month." : "Hiểu thời điểm quỹ dự kiến không đủ chi tiêu.", question: isEn ? "When does my saved plan first project a shortfall?" : "Theo kế hoạch đã lưu, tháng nào tôi bắt đầu thiếu tiền và con số đó có ý nghĩa gì?" },
-    { title: isEn ? "What if I retire later?" : "Nghỉ hưu muộn hơn thì sao?", description: isEn ? "See how a later retirement changes the plan." : "Xem nghỉ hưu muộn hơn thay đổi kế hoạch thế nào.", question: isEn ? "How would retiring a few years later change my saved plan?" : "Nếu tôi nghỉ hưu muộn hơn vài năm thì kế hoạch đã lưu thay đổi thế nào?" },
+    { title: isEn ? "What is my retirement age?" : "Tuổi nghỉ hưu của tôi?", description: isEn ? "Pension and social insurance rules." : "Lương hưu và quy định BHXH.", question: isEn ? "What is my statutory retirement age?" : "Tuổi nghỉ hưu của tôi là bao nhiêu?" },
+    { title: isEn ? "Which product group suits me?" : "Nên chọn nhóm sản phẩm nào?", description: isEn ? "Product groups that fit your plan's risk level." : "Nhóm sản phẩm hợp với mức rủi ro trong kế hoạch.", question: isEn ? "Which product group should I choose?" : "Tôi nên chọn nhóm sản phẩm nào?" },
   ];
   const planSummary = !loadingPlans&&!plansError?currentVersion?.preview?.calculation?.summary:undefined;
   const rawShortfall = planSummary?.retirementFundingShortfall ?? planSummary?.atRetirement?.fundingGap;
@@ -594,10 +612,9 @@ export default function AIAssistantPage() {
             <div className="ai-chat-message-meta"><strong>{msg.role === "user" ? (isEn ? "You" : "Bạn") : (isEn ? "An Huu assistant" : "Trợ lý An Hưu")}</strong><span>{msg.time}</span></div>
             {msg.role === "assistant" && <p className="ai-reference-note">{isEn ? "Reference explanation only; not a recommendation to buy or sell a specific product." : "Giải thích để tham khảo; không phải khuyến nghị mua hoặc bán sản phẩm cụ thể."}</p>}
             <div className="ai-chat-message-body">{msg.content.split("\n\n").map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
-            {msg.status === "PROVIDER_UNAVAILABLE" && <p className="ai-chat-response-note">{isEn ? "Gemini is unavailable. This explanation uses system data." : "Gemini đang gián đoạn. Câu trả lời này được tạo từ dữ liệu hệ thống."}</p>}
-            {msg.status === "PROVIDER_NOT_CONFIGURED" && <p className="ai-chat-response-note">{isEn ? "Explanation from system data." : "Giải thích từ số liệu hệ thống."}</p>}
+            {msg.role === "assistant" && answerNote(msg, isEn) && <p className="ai-chat-response-note">{answerNote(msg, isEn)}</p>}
             {!!msg.citations?.length && <details className="ai-chat-sources"><summary>{isEn ? "Reference documents" : "Tài liệu được dùng"} ({msg.citations.length})</summary>
-              {msg.citations.map(citation => <div key={citation.id}><strong>{citation.title}</strong><small>{isEn ? "Version" : "Bản"} {citation.version} · {isEn ? "Effective" : "Hiệu lực"}: {formatDateVN(citation.effectiveDate)}</small><blockquote>{citation.excerpt}</blockquote>
+              {msg.citations.map(citation => <div key={citation.id}><strong>{citation.title}</strong><small>{isEn ? "Version" : "Bản"} {citation.version} · {isEn ? "Effective" : "Hiệu lực"}: {formatDateVN(citation.effectiveDate)}</small><blockquote className="ai-citation-excerpt" tabIndex={0} aria-label={isEn ? `Excerpt from ${citation.title}` : `Trích đoạn ${citation.title}`}>{citation.excerpt}</blockquote>
                 {citation.url?.startsWith("https://") && <a href={citation.url} target="_blank" rel="noreferrer">{isEn ? "Read original document" : "Đọc tài liệu gốc"} ↗</a>}
               </div>)}
             </details>}
@@ -611,7 +628,7 @@ export default function AIAssistantPage() {
       <div className="ai-chat-bottom">
         <div className="ai-chat-composer-wrap">
           {(privacyLoading || privacyError) && <div className="assistant-send-status" role="status"><span>{privacyLoading ? (isEn ? "Checking permissions. You can keep drafting." : "Đang tải quyền xử lý. Bạn vẫn có thể soạn câu hỏi.") : (isEn ? "Could not load permissions. Your draft is kept." : "Chưa tải được quyền xử lý. Câu hỏi được giữ lại; hãy thử lại trước khi gửi.")}</span>{privacyError && <Button variant="secondary" onClick={loadPrivacy}>{isEn ? "Retry permissions" : "Tải lại quyền xử lý"}</Button>}</div>}
-          {!privacyLoading && !privacyError && privacy && !privacy.providerConfigured && <p className="assistant-send-status">{isEn ? "External AI is not connected. Answers use system plan data." : "Chưa kết nối AI ngoài. Hiện trợ lý giải thích từ số liệu kế hoạch."}</p>}
+          {!privacyLoading && !privacyError && privacy && !privacy.providerConfigured && <p className="assistant-send-status">{isEn ? "External AI is not connected. Answers use your plan figures and approved documents." : "Chưa kết nối AI ngoài. Hiện trợ lý trả lời từ số liệu kế hoạch và tài liệu đã duyệt."}</p>}
           <form className="ai-chat-composer" onSubmit={event => { event.preventDefault(); void handleSend(); }}>
             <label className="sr-only" htmlFor="ai-chat-question">{isEn ? "Question for AI assistant" : "Câu hỏi dành cho trợ lý AI"}</label>
             <textarea id="ai-chat-question" ref={textareaRef} placeholder={isEn ? "For example: How much more should I contribute each month?" : "Bạn muốn hỏi gì về kế hoạch nghỉ hưu?"} value={inputPrompt} onChange={event => setInputPrompt(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} rows={2} maxLength={2000} disabled={isTyping} />
@@ -653,6 +670,7 @@ export default function AIAssistantPage() {
       </ResponsiveDialog>
       <ResponsiveDialog open={consentModalOpen} onClose={() => { if (!updatingConsent) setConsentModalOpen(false); }} title={isEn ? "Privacy & conversation history" : "Quyền riêng tư & lịch sử"}>
         <div className="ai-chat-privacy">
+          {policyChanged && <p className="ai-chat-privacy-warning" role="note">{isEn ? "What the assistant processes has changed since you last agreed. Please read the notice below and choose again. Your saved conversations stay viewable meanwhile." : "Nội dung xử lý của trợ lý đã thay đổi so với lần bạn đồng ý trước. Hãy đọc thông báo dưới đây và chọn lại. Trong lúc đó bạn vẫn xem được các hội thoại đã lưu."}</p>}
           <p>{processingNotice || (isEn ? "Questions, plan summary figures and approved excerpts may be sent to Google Gemini to prepare an explanation." : "Câu hỏi, số liệu tóm tắt kế hoạch và trích đoạn tài liệu đã duyệt có thể được gửi tới Google Gemini để hỗ trợ giải thích.")}</p>
           <p>{isEn ? "Do not include passwords, identity numbers or sensitive personal details in a question." : "Không nhập mật khẩu, số giấy tờ hoặc thông tin cá nhân nhạy cảm vào câu hỏi."}</p>
           <h3>{isEn ? "Choose how to keep your conversations" : "Bạn muốn lưu hội thoại như thế nào?"}</h3>

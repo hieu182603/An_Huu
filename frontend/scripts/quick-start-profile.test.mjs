@@ -152,3 +152,23 @@ test("quick-start profile: bước Gia đình ghi hôn nhân và số người p
   assert.equal("maritalStatus" in blank.personal, false);
   assert.equal("dependents" in blank.personal, false);
 });
+
+
+test("quick-start preserves the initial risk survey, explicit zero and an unknown loss limit", () => {
+  const input={birthMonth:"1990-01",desiredRetirementMonth:"2050-01",monthlyIncome:20000000,monthlyExpense:10000000,retirementSavings:500000000,valuationDate:"2026-10-01"};
+  const percent=createQuickStartProfileV2({...input,risk:{reaction:"BUY_MORE",incomeStability:"VARIABLE",limit:{kind:"PERCENT",value:"0"}}});
+  assert.deepEqual(percent.lossTolerance,{reaction:{status:"KNOWN",value:"BUY_MORE"},percent:{status:"KNOWN",value:"0"},amountVnd:{status:"UNKNOWN"}});
+  assert.deepEqual(percent.incomeStability,{status:"KNOWN",value:"VARIABLE"});
+  const amount=createQuickStartProfileV2({...input,risk:{reaction:"SELL",incomeStability:"STABLE",limit:{kind:"AMOUNT",value:"50000000"}}});
+  assert.deepEqual(amount.lossTolerance.amountVnd,{status:"KNOWN",value:"50000000"});
+  assert.deepEqual(amount.lossTolerance.percent,{status:"UNKNOWN"});
+  const unknown=createQuickStartProfileV2({...input,risk:{reaction:"HOLD",incomeStability:"UNKNOWN",limit:{kind:"UNKNOWN"}}});
+  assert.deepEqual(unknown.incomeStability,{status:"UNKNOWN"});assert.deepEqual(unknown.lossTolerance.amountVnd,{status:"UNKNOWN"});assert.deepEqual(unknown.lossTolerance.percent,{status:"UNKNOWN"});
+});
+
+test("saved survey choices and explicit zero retirement spending survive planning constraint extraction",async()=>{
+ const {planningConstraints}=await import("../src/services/financialProfile.ts");
+ const survey={policyVersionId:"policy-pinned",monthlyExpenseToday:"0",answers:[{questionId:"risk",choiceId:"hold"}]};
+ assert.deepEqual(planningConstraints({retirementSurvey:survey}).retirementSurvey,survey);
+ assert.deepEqual(planningConstraints({}),{});
+});

@@ -1,7 +1,7 @@
 import { authenticatedRequest } from "./api";
 import type { SimulatePlanResponse } from "./plans";
 
-export const AI_POLICY_VERSION = "ai-explanation-gemini-2026-10-v2";
+export const AI_POLICY_VERSION = "ai-explanation-gemini-2026-11-v3";
 export const AI_RETENTION_DAYS = 30;
 
 export interface AiPrivacyResponse {
@@ -67,9 +67,13 @@ export interface AiExplainCommand {
   expectedRevision?: number;
 }
 
+/** Who wrote `answer`: checked Gemini wording, the start of an approved excerpt, or server facts. */
+export type AiAnswerSource = "AI_COMPOSED" | "APPROVED_EXCERPT" | "SERVER_FACTS";
+
 export interface AiExplainResponse {
   status: "AI_ASSISTED" | "PROVIDER_NOT_CONFIGURED" | "PROVIDER_UNAVAILABLE";
   answer: string;
+  answerSource: AiAnswerSource;
   facts: AiFact[];
   citations: AiCitation[];
   provenance: AiProvenance | null;

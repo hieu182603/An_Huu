@@ -19,11 +19,14 @@ const ACTION_TITLES: Record<string, [string, string]> = {
   PRODUCT_CONSULT_REQUESTED: ["Yêu cầu tư vấn sản phẩm", "Product consultation requested"],
   PLAN_CALCULATED: ["Tính kế hoạch hưu trí", "Retirement plan calculated"], GOAL_UPDATED: ["Cập nhật mục tiêu hưu trí", "Retirement goal updated"],
 };
-export function getActionLabel(action: string, isEn: boolean): { title: string; icon: "users" | "settings" | "file-text" | "life-buoy" | "shield" } {
+export function getActionLabel(action: string, isEn: boolean): { title: string; icon: "users" | "settings" | "file-text" | "life-buoy" | "shield" | "log-out" } {
   switch (action) {
     case "AUTH_LOGIN":
     case "AUTH_LOGIN_GOOGLE":
       return { title: isEn ? "User Logged In" : "Đăng nhập hệ thống", icon: "users" };
+    case "AUTH_LOGOUT":
+    case "AUTH_LOGOUT_ALL":
+      return { title: isEn ? (action === "AUTH_LOGOUT_ALL" ? "Logged Out Everywhere" : "User Logged Out") : (action === "AUTH_LOGOUT_ALL" ? "Đăng xuất mọi thiết bị" : "Đăng xuất"), icon: "log-out" };
     case "AUTH_REGISTER":
     case "AUTH_REGISTER_GOOGLE":
       return { title: isEn ? "New Account Registered" : "Đăng ký tài khoản mới", icon: "users" };

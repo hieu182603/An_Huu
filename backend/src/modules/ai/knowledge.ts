@@ -5,7 +5,9 @@ import { transaction } from "../../common/transaction";
 import { audit } from "../../common/audit";
 import { AppError } from "../../common/errors";
 import { sourceInputSchema, sourceEditSchema, sourceApprovalSchema, sourceRevisionSchema, pageSchema } from "./schema";
-const hash = (s: KnowledgeSource) => createHash("sha256").update(JSON.stringify([s.title,s.referenceCode,s.category,s.version,s.rawContent,s.fileUrl,s.effectiveDate,s.validUntil])).digest("hex");
+/** Content + metadata hash an index/approval is bound to. */
+export const sourceHash = (s: Pick<KnowledgeSource, "title"|"referenceCode"|"category"|"version"|"rawContent"|"fileUrl"|"effectiveDate"|"validUntil">) => createHash("sha256").update(JSON.stringify([s.title,s.referenceCode,s.category,s.version,s.rawContent,s.fileUrl,s.effectiveDate,s.validUntil])).digest("hex");
+const hash = sourceHash;
 const tokens = (s: string) => [...new Set(s.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").match(/[a-z0-9]{2,}/g) ?? [])];
 // Retrieval ranking (BM25). Terms are derived from the verified chunk content, so stored LEXICAL_V1 metadata stays valid.
 // Accented words, their unaccented "~" forms and adjacent-word bigrams ("lương hưu", "cơ sở") are separate terms.
@@ -29,10 +31,72 @@ const words = (s: string, max = Infinity) => {
 type Words = { ws: string[]; fs: string[]; stop: boolean[] };
 const prepare = (s: string, max?: number): Words => { const ws = words(s, max);
   return { ws, fs: ws.map(w => w && "~" + fold(w)), stop: ws.map(w => STOP.has(w)) }; };
-// Chunk content is fixed for a chunk id + indexed source hash (retrieve verifies it), so its words can be reused.
+// Passage content is fixed for a source id + indexed source hash (retrieve verifies it), so its words can be reused.
 const prepared = new Map<string, Words>();
-const chunkWords = (key: string, content: string) => { let p = prepared.get(key); if (!p) { if (prepared.size >= 5000) prepared.clear();
+const chunkWords = (key: string, content: string) => { let p = prepared.get(key); if (!p) { if (prepared.size >= 12000) prepared.clear();
   prepared.set(key, p = prepare(content)); } return p; };
+// Reading units. The stored 1.500-character chunks cut articles mid-sentence and separate "Điều 66. Mức lương hưu"
+// from its clauses, so ranking and citations use passages rebuilt from the same hash-verified text:
+// one article (legal text) or one blank-line block (guides) each; long ones are cut at line/sentence ends
+// and every continuation repeats the heading line.
+const PASSAGE_MAX = 1200, PASSAGE_MIN = 120, EXCERPT_MAX = 2400, PER_SOURCE = 3;
+const ARTICLE = /^\s*Điều\s+\d+[a-zđ]?\./u;
+/** content = what is ranked (heading + body); section numbers the article/block the window belongs to. */
+export type Passage = { start: number; section: number; heading: string; body: string; content: string };
+export function passagesOf(text: string): Passage[] {
+  type Line = { start: number; text: string };
+  const lines: Line[] = [];
+  for (let at = 0; at <= text.length;) { const end = text.indexOf("\n", at), stop = end < 0 ? text.length : end;
+    lines.push({ start: at, text: text.slice(at, stop).trim() }); at = stop + 1; }
+  const legal = lines.filter(l => ARTICLE.test(l.text)).length >= 3;
+  let sections: Line[][] = [[]];
+  for (let i = 0; i < lines.length; i++) {
+    if (i && (legal ? ARTICLE.test(lines[i].text) : !lines[i - 1].text && !!lines[i].text)) sections.push([]);
+    // Page numbers and table rules of the extracted official copies are not content.
+    if (lines[i].text && !/^\d{1,4}$/.test(lines[i].text) && !/^[|\s—–_-]+$/.test(lines[i].text)) sections[sections.length - 1].push(lines[i]);
+  }
+  sections = sections.filter(s => s.length);
+  // Guides: a bare title or a one-line block reads better together with the block after it.
+  if (!legal) for (let i = sections.length - 2; i >= 0; i--)
+    if (sections[i].reduce((n, l) => n + l.text.length, 0) < PASSAGE_MIN) sections.splice(i, 2, [...sections[i], ...sections[i + 1]]);
+  const out: Passage[] = [];
+  for (const [index, section] of sections.entries()) {
+    const heading = section[0].text.length <= 160 ? section[0].text : "", pieces: Line[] = [];
+    for (const l of section) {
+      // One very long line: cut after a sentence end, else hard.
+      for (let rest = l.text, at = l.start; rest;) {
+        let cut = rest.length <= PASSAGE_MAX ? rest.length : Math.max(rest.lastIndexOf(". ", PASSAGE_MAX), rest.lastIndexOf("; ", PASSAGE_MAX)) + 1;
+        if (cut < PASSAGE_MAX / 2) cut = Math.min(rest.length, PASSAGE_MAX);
+        pieces.push({ start: at, text: rest.slice(0, cut).trim() });
+        const next = rest.slice(cut).trimStart(); at += rest.length - next.length; rest = next;
+      }
+    }
+    let current: Passage | null = null;
+    const close = () => { if (!current) return;
+      current.content = current.start === pieces[0].start || !heading ? current.body : heading + "\n" + current.body; out.push(current); current = null; };
+    for (const p of pieces) {
+      if (current && current.body.length + 1 + p.text.length > PASSAGE_MAX) close();
+      if (current) current.body += "\n" + p.text;
+      else current = { start: p.start, section: index, heading, body: p.text, content: "" };
+    }
+    close();
+  }
+  return out;
+}
+/** The best window plus the neighbouring clauses of the same article/block, lead-in first, up to EXCERPT_MAX. */
+function excerpt(all: Passage[], best: Passage) {
+  const windows = all.filter(p => p.section === best.section), at = windows.indexOf(best);
+  let lo = at, hi = at, size = best.body.length;
+  for (;;) {
+    if (lo > 0 && size + windows[lo - 1].body.length <= EXCERPT_MAX) size += windows[--lo].body.length;
+    else if (hi < windows.length - 1 && size + windows[hi + 1].body.length <= EXCERPT_MAX) size += windows[++hi].body.length;
+    else break;
+  }
+  return (lo > 0 && best.heading ? best.heading + "\n…\n" : "") + windows.slice(lo, hi + 1).map(p => p.body).join("\n");
+}
+const passageCache = new Map<string, Passage[]>();
+const sourcePassages = (key: string, text: string) => { let p = passageCache.get(key); if (!p) { if (passageCache.size >= 300) passageCache.clear();
+  passageCache.set(key, p = passagesOf(text)); } return p; };
 /** Calls visit(term, weight) for each term; `want` limits bigram construction to first words that can match. */
 const scan = ({ ws, fs, stop }: Words, visit: (term: string, weight: number) => void, want?: Set<string>) => {
   for (let i = 0; i < ws.length; i++) { const w = ws[i]; if (!w) continue;
@@ -92,26 +156,37 @@ export class KnowledgeService {
     const sources=await tx.knowledgeSource.findMany({where:{isApproved:true,status:"INDEXED",effectiveDate:{lte:now},OR:[{validUntil:null},{validUntil:{gt:now}}]},orderBy:{updatedAt:"desc"},take:100});
     const eligible=new Map(sources.filter(s=>s.effectiveDate&&s.indexedHash&&s.indexedHash===hash(s)).map(s=>[s.id,s]));
     const chunks=await tx.knowledgeChunk.findMany({where:{sourceId:{in:[...eligible.keys()]}},orderBy:{chunkIndex:"asc"},take:4000});
-    // IDF and average length are computed over the eligible, verified chunks only.
-    const docs=[],df=new Map<string,number>();let total=0;
+    // A source is read only when its whole stored index verifies: right method, current hash, unmodified text, no gap.
+    const verified=new Map<string,number>(),broken=new Set<string>();
     for(const c of chunks){const s=eligible.get(c.sourceId)!; const m=c.metadata as {method?:string;sourceHash?:string;tokens?:string[]}|null;
-        if(m?.method!=="LEXICAL_V1" || m.sourceHash!==s.indexedHash || !Array.isArray(m.tokens))continue;
-        if(c.chunkIndex<0 || c.content!==s.rawContent?.slice(c.chunkIndex*1500,(c.chunkIndex+1)*1500))continue;
+        if(m?.method!=="LEXICAL_V1" || m.sourceHash!==s.indexedHash || !Array.isArray(m.tokens) || c.chunkIndex<0
+          || c.content!==s.rawContent?.slice(c.chunkIndex*1500,(c.chunkIndex+1)*1500))broken.add(s.id);
+        else verified.set(s.id,(verified.get(s.id)??0)+1); }
+    // IDF and average length are computed over the passages of the verified sources only.
+    const docs=[],df=new Map<string,number>();let total=0;
+    for(const s of eligible.values()){if(broken.has(s.id) || verified.get(s.id)!==Math.ceil(s.rawContent!.length/1500))continue;
+      for(const p of sourcePassages(`${s.id}:${s.indexedHash}`,s.rawContent!)){
         const tf=new Map<string,number>();let length=0;
-        scan(chunkWords(`${c.id}:${s.indexedHash}`,c.content),(t,w)=>{if(w===WEIGHT.word)length++;if(query.has(t))tf.set(t,(tf.get(t)??0)+1);},firsts);
-        for(const t of tf.keys())df.set(t,(df.get(t)??0)+1);total+=length;docs.push({c,s,tf,length}); }
+        scan(chunkWords(`${s.id}:${s.indexedHash}:${p.start}`,p.content),(t,w)=>{if(w===WEIGHT.word)length++;if(query.has(t))tf.set(t,(tf.get(t)??0)+1);},firsts);
+        for(const t of tf.keys())df.set(t,(df.get(t)??0)+1);total+=length;docs.push({p,s,tf,length}); } }
     const idf=(t:string)=>Math.log(1+(docs.length-(df.get(t)??0)+0.5)/((df.get(t)??0)+0.5)),avg=total/Math.max(docs.length,1);
     const titles=new Map<string,number>();
     const titleScore=(s:KnowledgeSource)=>{let v=titles.get(s.id);if(v===undefined){const own=new Set<string>();scan(prepare(`${s.title}\n${s.referenceCode??""}`),t=>own.add(t));
       titles.set(s.id,v=[...query].reduce((sum,[t,w])=>own.has(t)&&df.has(t)?sum+w*idf(t):sum,0));}return v;};
+    // Share of the question's own words (accent-insensitive) found in a passage: tells a real answer from a chance word.
+    const asked=[...query].filter(([,w])=>w===WEIGHT.folded).map(([t])=>t);
     const selected=[];
-    for(const {c,s,tf,length} of docs){if(!tf.size)continue;
+    for(const {p,s,tf,length} of docs){if(!tf.size)continue;
         let bm25=0;for(const [t,w] of query){const f=tf.get(t);if(f)bm25+=w*idf(t)*f*(K1+1)/(f+K1*(1-B+B*length/avg));}
         const score=Math.round((bm25+TITLE_WEIGHT*titleScore(s))*1e6)/1e6;
-        selected.push({id:c.id,sourceId:s.id,sourceRevision:s.revision,title:s.title,version:s.version,url:s.fileUrl,
-          content:c.content,contentHash:s.indexedHash!,effectiveDate:s.effectiveDate!.toISOString(),validUntil:s.validUntil?.toISOString()??null,score}); }
-    // Up to 4; drop weak tail matches far below the best chunk.
-    const ranked=selected.sort((a,b)=>b.score-a.score || a.id.localeCompare(b.id)).slice(0,4);
-    return ranked.filter(r=>r.score>=ranked[0].score*MIN_RELATIVE);
+        selected.push({p,s,score,id:`${s.id}:${p.start}`,coverage:asked.length?Math.round(asked.filter(t=>tf.has(t)).length/asked.length*100)/100:0}); }
+    // Up to 4: one excerpt per article/block (its best window), at most PER_SOURCE from one source so a long law
+    // cannot crowd out the guide that explains it; drop weak tail matches far below the best passage.
+    const perSource=new Map<string,number>(),sections=new Set<string>();
+    const ranked=selected.sort((a,b)=>b.score-a.score || a.id.localeCompare(b.id)).filter(({p,s})=>{
+      const section=`${s.id}:${p.section}`,n=perSource.get(s.id)??0;if(sections.has(section)||n>=PER_SOURCE)return false;
+      sections.add(section);perSource.set(s.id,n+1);return true;}).slice(0,4);
+    return ranked.filter(r=>r.score>=ranked[0].score*MIN_RELATIVE).map(({p,s,score,id,coverage})=>({id,coverage,askedWords:asked.length,sourceId:s.id,sourceRevision:s.revision,title:s.title,version:s.version,url:s.fileUrl,
+      content:excerpt(sourcePassages(`${s.id}:${s.indexedHash}`,s.rawContent!),p),contentHash:s.indexedHash!,effectiveDate:s.effectiveDate!.toISOString(),validUntil:s.validUntil?.toISOString()??null,score}));
   }
 }

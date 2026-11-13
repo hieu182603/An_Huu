@@ -2,7 +2,16 @@
 .admin-users-page .business-person > div { display: grid; gap: 4px; }
 .admin-users-page .business-person .avatar { flex-shrink: 0; }
 .admin-users-page .admin-users-table .badge { white-space: nowrap; }
-.admin-users-page .admin-users-table th:last-child,
+.admin-users-page .admin-users-table th:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  min-width: 116px;
+  text-align: center;
+  background: rgba(248, 250, 252, 0.95);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: -6px 0 12px -8px rgba(5, 38, 89, 0.25);
+}
 .admin-users-page .admin-users-table td:last-child {
   position: sticky;
   right: 0;
@@ -10,6 +19,7 @@
   min-width: 116px;
   text-align: center;
   background: var(--color-white);
+  border-bottom: 1px solid var(--color-border);
   box-shadow: -6px 0 12px -8px rgba(5, 38, 89, 0.25);
 }
 .admin-users-page .admin-users-table tr:hover td:last-child { background: #f0f6fd; }
