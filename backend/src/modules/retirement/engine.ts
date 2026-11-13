@@ -3,6 +3,7 @@ import { AppError } from "../../common/errors";
 import { addMonths, dateSchema, monthSchema } from "../../common/calendar";
 import { RETIREMENT_MODEL } from "./schema";
 import { projectRetirement as projectV2, type ProjectionInput as LegacyInput } from "./engine-v2";
+import type { Protection } from "./protected-capital";
 
 export const RetirementDecimal = Prisma.Decimal.clone({ precision: 48 });
 const D = RetirementDecimal;
@@ -17,6 +18,7 @@ export type ProjectionInput = {
   monthlyContribution: string; contributionTiming: "END_OF_MONTH" | "START_OF_MONTH_RESEARCH" | "START_OF_MONTH"; rows: MonthlyInput[];
   modelVersion?: "retirement-monthly-v3";
   contributionStartMonth?: string;
+  protection?: Protection;
 };
 const decimal = (value: string) => {
   if (typeof value !== "string" || !/^-?(0|[1-9]\d*)(\.\d+)?$/.test(value)) throw new AppError(422, "INVALID_PROJECTION_INPUT", "Dữ liệu tính toán phải là chuỗi thập phân.");

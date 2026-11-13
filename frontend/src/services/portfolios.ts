@@ -24,6 +24,8 @@ export interface TemplateAllocation {
   assetClass: string;
   weightPercent: string;
 }
+export type CustomAllocation = { model:"custom-glide-v1";weights:TemplateAllocation[] };
+export type CustomizationPolicy = {evidence:string;path:"FOLLOW_TEMPLATE_SHIFTS";capitalBasis:"PROTECTED_CAPITAL_V1";bounds:Array<{assetClass:string;minPercent:string;maxPercent:string}>};
 
 export interface TemplateSchedulePeriod {
   fromIndex: number;
@@ -69,6 +71,8 @@ export interface PortfolioRule {
 }
 
 export interface PortfolioPolicyDocument {
+  customization?: CustomizationPolicy;
+  allocationRisk?: {essentialThreshold?:string;allGoalsThreshold?:string};
   schemaVersion: 1 | 2;
   title: string;
   reason: string;
@@ -191,12 +195,15 @@ export interface PortfolioPreviewResult {
   issues?: Array<{ path: string; code: string }>;
 }
 
-// User reads verify current publication state on retry; admin methods are unchanged.
-export async function fetchUserPortfolioPolicies(page=1,limit=10):Promise<PortfolioPolicyListResponse>{
- return authenticatedRequest(`/me/portfolio-policies?page=${page}&limit=${limit}`,undefined,"GET",undefined,{skipCache:true});
+// User reads share the API cache so moving between Plan, Allocation and
+// onboarding does not refetch; a retry (fresh) still checks the server.
+// Published versions are immutable (only DRAFT rows can change), so a
+// version's detail is cached longer than the list of published versions.
+export async function fetchUserPortfolioPolicies(page=1,limit=10,fresh=false):Promise<PortfolioPolicyListResponse>{
+ return authenticatedRequest(`/me/portfolio-policies?page=${page}&limit=${limit}`,undefined,"GET",undefined,{skipCache:fresh});
 }
-export async function fetchUserPortfolioPolicyDetail(id:string):Promise<PortfolioPolicyDetail>{
- return authenticatedRequest(`/me/portfolio-policies/${id}`,undefined,"GET",undefined,{skipCache:true});
+export async function fetchUserPortfolioPolicyDetail(id:string,fresh=false):Promise<PortfolioPolicyDetail>{
+ return authenticatedRequest(`/me/portfolio-policies/${id}`,undefined,"GET",undefined,{skipCache:fresh,ttlMs:10*60_000});
 }
 export async function previewUserPortfolio(command:PortfolioPreviewCommand):Promise<PortfolioPreviewResult>{
  return authenticatedRequest("/me/portfolio-policies/preview",command,"POST");

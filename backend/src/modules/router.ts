@@ -95,6 +95,9 @@ export function createApiRouter(services: Services, config: AppConfig) {
   if (services.knowledge) router.use("/admin/knowledge", ...authenticated, requireRole("ADMIN"), knowledgeRouter(services.knowledge));
   if (services.ai) router.use("/me/ai", ...authenticated, requireRole("USER"), aiRouter(services.ai));
   if (services.portfolios && services.assumptions) {
+      if(services.recommendations)router.post("/me/portfolio-policies/workspace/packages",...authenticated,requireRole("USER"),validate(allocationWorkspaceInput),asyncHandler(async(req:AuthenticatedRequest,res)=>{
+        res.set("Cache-Control","no-store");sendData(res,await services.recommendations!.allocationPackages(req.user!.userId,req.body));
+      }));
     router.post("/me/portfolio-policies/workspace/preview", ...authenticated, requireRole("USER"), validate(allocationWorkspaceInput), asyncHandler(async (req:AuthenticatedRequest,res) => {
       res.set("Cache-Control","no-store");
       sendData(res,await allocationWorkspace(profiles,services.portfolios!,services.assumptions!,req.user!.userId,req.body));

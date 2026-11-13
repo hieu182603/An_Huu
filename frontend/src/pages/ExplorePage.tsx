@@ -35,6 +35,8 @@ export default function ExplorePage() {
   const ids = [...new Set((params.get("compare") ?? "").split(",").filter(id => validId.test(id)))].slice(0,3);
   const [search, setSearch] = useState(q), [attempt, setAttempt] = useState(0), [savedAttempt, setSavedAttempt] = useState(0), [ticketAttempt, setTicketAttempt] = useState(0), [saving, setSaving] = useState<string | null>(null), [actionError, setActionError] = useState("");
   const [detail, setDetail] = useState<{ id: string; consult: boolean } | null>(null), [tool, setTool] = useState<"deposit" | "bond" | "protection" | null>(null), [cancel, setCancel] = useState<string | null>(null), [cancelBusy, setCancelBusy] = useState(false);
+  const linkedProduct=params.get("product");
+  useEffect(()=>{if(linkedProduct&&validId.test(linkedProduct))setDetail({id:linkedProduct,consult:false});},[linkedProduct,user?.id]);
   useEffect(() => setSearch(q), [q]);
   const update = (values: Record<string, string | null>, resetPage = true) => { const next = new URLSearchParams(params); if (resetPage) next.delete("page"); for (const [key,value] of Object.entries(values)) { if (value) next.set(key,value); else next.delete(key); } setParams(next); };
   const scope = user?.id ?? "", reload = () => setAttempt(n => n+1);
@@ -87,7 +89,7 @@ export default function ExplorePage() {
       </>}
     </section>
     {facets.error && <DiscoveryError message={facets.error} retry={reload} />}
-    {detail && <ProductDetailsDialog key={detail.id} id={detail.id} initialConsult={detail.consult} onClose={() => setDetail(null)} onSent={() => setTicketAttempt(n => n+1)} />}
+    {detail && <ProductDetailsDialog key={detail.id} id={detail.id} initialConsult={detail.consult} onClose={() => {setDetail(null);if(linkedProduct)update({product:null},false);}} onSent={() => setTicketAttempt(n => n+1)} />}
     {tool === "protection" ? <ProtectionGapDialog onClose={() => setTool(null)} /> : tool && <ProductToolsDialog key={tool} kind={tool} onClose={() => setTool(null)} />}
     <ResponsiveDialog open={cancel !== null} title={t("Rút yêu cầu tư vấn?", "Withdraw consultation request?")} className="user-workspace-dialog" onClose={() => { if (!cancelBusy) setCancel(null); }}><p>{t("Yêu cầu sẽ được đóng; hội thoại đã có vẫn được giữ trong Hỗ trợ.", "This closes the request and keeps its conversation in Support.")}</p>{actionError && <p role="alert">{actionError}</p>}<footer className="discovery-dialog-actions"><button className="overview-button secondary" disabled={cancelBusy} onClick={() => setCancel(null)}>{t("Giữ yêu cầu", "Keep request")}</button><button className="overview-button primary" disabled={cancelBusy} onClick={async () => { if (!cancel || cancelBusy) return; setCancelBusy(true); try { await discovery.cancelTicket(cancel); setCancel(null); setTicketAttempt(n => n+1); } catch (e) { setActionError(e instanceof Error ? e.message : t("Chưa rút được yêu cầu.", "Could not withdraw request.")); } finally { setCancelBusy(false); } }}>{t("Xác nhận rút", "Confirm withdrawal")}</button></footer></ResponsiveDialog>
   </div>;

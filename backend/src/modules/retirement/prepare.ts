@@ -14,6 +14,11 @@ import type { AssumptionDocument } from "../assumptions/schema";
 import { retirementPreviewSchema, RETIREMENT_MODEL, type RetirementPreview } from "./schema";
 import { RetirementDecimal as D, projectRetirement, type MonthlyInput, type ProjectionInput } from "./engine";
 import { applyAdvisoryFee } from "./advisory-fee";
+import { separateCapital } from "../capital/separation";
+import { assessLossConstraint } from "../capital/loss-constraint";
+import { protectCashflows, type Protection } from "./protected-capital";
+import { resolveYearSeries } from "../assumptions/series";
+import {protectedGoals} from "./protected-goals";
 
 type Issue = { path: string; code: string };
 const monthIndex = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1;
@@ -62,11 +67,42 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     retirementMonth }, input.scenario, cache);
   if (portfolio.status !== "READY") { issues.push(...portfolio.issues); return fail(); }
   const scenario = portfolio.scenarios.find(s => s.kind === input.scenario)!;
+  if (input.customAllocation) {
+    const capital = separateCapital(data, assumptions);
+    if (capital.status !== "READY" || capital.growthCapital === null || new D(capital.growthCapital).lte(0)) issue("customAllocation", "GROWTH_CAPITAL_REQUIRED");
+    else if (scenario.rows.some(row => assessLossConstraint(capital, data, policy, row.holdings).status !== "WITHIN_LIMIT"))
+      issue("customAllocation", "LOSS_CONSTRAINT_EXCEEDED");
+    if (issues.length) return fail();
+  }
   // Preserve T04's convention: scenario CPI delta modifies planning inflation;
   // the published real-to-nominal return conversion is performed exactly once.
   const scenarioAssumptions: AssumptionDocument = { ...assumptions, inflation: assumptions.inflation.map(r => ({ ...r,
     percent: new D(r.percent).plus(scenario.changes.find(c => c.year === r.year)!.inflationDeltaPoints).toFixed() })) };
-  const summary = profileV2Summary(data), initialCapital = summary.values.retirementLiquidAssets;
+  const summary = profileV2Summary(data);
+  let initialCapital = summary.values.retirementLiquidAssets;
+  let protection: Protection | undefined;
+  if (input.allocationFunding) {
+    if (policy.schemaVersion !== 2 || !policy.customization || !policy.lossStress) issue("allocationFunding", "CUSTOM_POLICY_REQUIRED");
+    const capital = separateCapital(data, assumptions);
+    if (capital.status !== "READY" || capital.growthCapital === null || new D(capital.growthCapital).lt(0)) issue("allocationFunding", "GROWTH_CAPITAL_REQUIRED");
+    const goals = data.goals;
+    if (!goals || goals.status === "UNKNOWN" || (goals.status==="KNOWN"&&goals.entries.some(g=>g.priority.status!=="KNOWN" || g.dueMonth.status!=="KNOWN" || g.amountToday.status!=="KNOWN")))
+      issue("allocationFunding", "CLASSIFIED_GOAL_CASHFLOWS_REQUIRED");
+    if (capital.warnings.some(w=>w.code==="LIQUIDITY_NEEDS_REQUIRE_GOAL_RECONCILIATION")) issue("allocationFunding", "GOAL_RECONCILIATION_REQUIRED");
+    const preparedGoals=protectedGoals(data,capital,assumptions,input.endMonth);issues.push(...preparedGoals.issues);
+    if (!issues.length && policy.schemaVersion===2 && policy.lossStress) {
+      const deposit=resolveYearSeries(assumptions,{versionId:policy.assumptionVersionId,startMonth:firstMonth,endMonth:input.endMonth,horizonMonths:length,assetClass:policy.lossStress.depositAssetClass});
+      if (deposit.status!=="READY") issues.push(...deposit.issues);
+      else {
+        initialCapital=capital.growthCapital;
+        protection={model:"protected-capital-v1",emergencyReserve:capital.requiredEmergencyReserve!,
+          goals:preparedGoals.goals,
+          depositAssetClass:policy.lossStress.depositAssetClass,
+          depositFactors:deposit.months.map(m=>new D(m.returnAnnualNetNominalPercent).div(1200).plus(1).toFixed()),rawRows:[]};
+      }
+    }
+    if (issues.length) return fail();
+  }
   if (initialCapital === null) issue("assets", "RETIREMENT_CAPITAL_INCOMPLETE");
   // Reserve completeness is reported by the profile summary, independently of retirement capital.
   warnings.push(...summary.issues.filter(i => !i.path.startsWith("income") && !i.path.startsWith("expenses") && !i.path.startsWith("emergencyReserve.") && i.path !== "pension"));
@@ -210,10 +246,12 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     inflationIndex = inflationIndex.mul(scenario.rows[i].inflationMonthlyFactor);
   }
   if (issues.length) return fail();
+  if (protection) protection.rawRows=rows;
+  const fundedRows=protection?protectCashflows(rows,protection):rows;
   const replayInput: ProjectionInput = { valuationDate: data.valuationDate, retirementMonth, initialCapital,
     modelVersion: RETIREMENT_MODEL, contributionStartMonth,
     terminalBalance: input.terminalBalance, monthlyContribution: input.monthlyContribution, contributionTiming: input.contributionTiming,
-    rows: applyAdvisoryFee(rows, initialCapital, retirementMonth, input) };
+    rows: applyAdvisoryFee(fundedRows, initialCapital, retirementMonth, input),...(protection?{protection}:{}) };
   return { status: "READY" as const, issues: [], warnings: unique(warnings), replayInput,
     calculation: { ...projectRetirement(replayInput), netWorth: summary.values.netWorth,
       assessment: portfolio.assessment, marketRows: scenario.rows, scenario: { kind: scenario.kind, label: scenario.label, evidence: scenario.evidence, changes: scenario.changes },

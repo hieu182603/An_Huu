@@ -9,12 +9,15 @@ import type { PortfoliosService } from "./service";
 import type { AssumptionsService } from "../assumptions/service";
 import { separateCapital } from "../capital/separation";
 import { assessLossConstraint } from "../capital/loss-constraint";
+import { customAllocationSchema } from "./custom";
+import { portfolioReturnBreakdown } from "./returns";
 const D = Prisma.Decimal.clone({ precision:48 });
 export const allocationWorkspaceInput = z.object({
   expectedProfileRevision:z.number().int().min(1), policyVersionId:z.string().uuid(),
   answers:z.array(z.object({questionId:z.string().min(1).max(100),choiceId:z.string().min(1).max(100)}).strict()).max(30),
   liquidityNeedMonths:z.number().int().min(0).max(1200), templateId:z.string().min(1).max(100).optional(),
   endMonth:monthSchema.optional(), retirementMonth:monthSchema.optional(),
+  customAllocation:customAllocationSchema.optional(),
 }).strict();
 const percent = z.string().regex(/^(0|[1-9]\d?|100)(\.\d{1,8})?$/).refine(v=>{try{return new D(v).lte(100);}catch{return false;}});
 export const allocationRiskPatch = z.object({expectedRevision:z.number().int().min(1),policyVersionId:z.string().uuid(),
@@ -39,7 +42,7 @@ export async function allocationWorkspace(profiles:ProfileService, portfolios:Po
   const months=input.endMonth?index(input.endMonth)-index(start)+1:0;
   if(input.endMonth && (months<1||months>1200)) throw new AppError(400,"INVALID_HORIZON","Tháng kết thúc phải từ tháng định giá đến tối đa 100 năm.");
   const portfolio=months?await portfolios.preview({policyVersionId:input.policyVersionId,startMonth:start,retirementMonth,horizonMonths:months,
-    answers:input.answers,liquidityNeedMonths:input.liquidityNeedMonths,...(input.templateId?{templateId:input.templateId}:{})}):null;
+    answers:input.answers,liquidityNeedMonths:input.liquidityNeedMonths,...(input.templateId?{templateId:input.templateId}:{}),...(input.customAllocation?{customAllocation:input.customAllocation}:{})}):null;
   const holdings=portfolio?.status==="READY"?portfolio.scenarios.find(s=>s.kind==="BASE")?.rows[0]?.holdings??[]:[];
   const loss=assessLossConstraint(b.capital,b.profile,b.policy.data,holdings);
   const growth=b.capital.growthCapital, canAmount=growth!==null&&new D(growth).gte(0);
@@ -51,6 +54,8 @@ export async function allocationWorkspace(profiles:ProfileService, portfolios:Po
   });
   return {profileRevision:b.record.revision,valuationDate:b.profile.valuationDate,policyVersionId:b.policy.id,assumptionVersionId:b.dependency.id,
     capital:b.capital,portfolio,loss,allocations,assetLabels:Object.fromEntries(b.dependency.data.assetClasses.map(a=>[a.code,a.label])),
+    customAllocation:input.customAllocation??null, customization:b.policy.data.schemaVersion===2?b.policy.data.customization??null:null,
+    returnBreakdown:portfolioReturnBreakdown(portfolio?.scenarios.find(s=>s.kind==="BASE")),
     issues:months?[]:[{path:"endMonth",code:"PLAN_END_MONTH_REQUIRED"}],informationalOnly:true as const};
 }
 export async function saveAllocationRisk(profiles:ProfileService,portfolios:PortfoliosService,assumptions:AssumptionsService,userId:string,raw:unknown) {

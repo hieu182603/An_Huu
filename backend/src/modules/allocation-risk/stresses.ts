@@ -23,7 +23,7 @@ export function extendLongevityContext(
     throw new RangeError("Invalid extraYears for longevity extension");
   }
   const extraMonths = extraYears * 12;
-  const originalRows = context.projection.rows;
+  const originalRows = context.projection.protection?.rawRows ?? context.projection.rows;
   if (!originalRows.length) {
     throw new RangeError("Cannot extend empty projection rows");
   }
@@ -104,6 +104,8 @@ export function extendLongevityContext(
   const extendedProjection: ProjectionInput = {
     ...context.projection,
     rows: extendedRows,
+    ...(context.projection.protection?{protection:{...context.projection.protection,rawRows:extendedRows,
+      depositFactors:[...context.projection.protection.depositFactors,...Array.from({length:extraMonths},()=>new D(lastMarket.returns[context.projection.protection!.depositAssetClass]).plus(1).toFixed())]}}:{}),
   };
 
   const extendedSelection: RetirementPreview = {
@@ -162,7 +164,7 @@ export function deterministicStress(kind: typeof stressKinds[number], context: R
       return review("EXTENDED_SERVER_CASHFLOW_REQUIRED");
     }
   }
-  const market = structuredClone(baseMarket), rows = structuredClone(context.projection.rows);
+  const market = structuredClone(baseMarket), rows = structuredClone(context.projection.protection?.rawRows ?? context.projection.rows);
   const configured = policy!.stresses!;
   const start = "offsetMonths" in p ? addMonths(context.projection.retirementMonth, p.offsetMonths) : "";
   const index = rows.findIndex(r => r.month === start);

@@ -1,4 +1,5 @@
 import { authenticatedRequest } from "./api";
+import { fetchUserPortfolioPolicies, fetchUserPortfolioPolicyDetail } from "./portfolios";
 import * as userRoutes from "../userRoutes";
 
 // Fetch code on navigation intent. Admin routes also warm their first data
@@ -63,6 +64,13 @@ export function preloadRoute(target: string) {
   for (const dataPath of adminData[path] || []) void authenticatedRequest(dataPath).catch(() => {});
   if (path === "/user" || path.startsWith("/user/")) { preloadAccount(); preloadUserShell(); }
   if (path === "/onboarding") { preloadAccount(); void userRoutes.FinancialProfileGate.preload(); }
+  // Plan and Allocation wait on the published policy (shared, not account data);
+  // warm the list and the latest version's detail into the API cache.
+  if (path === "/user/plan" || path === "/user/risk-portfolio") {
+    void fetchUserPortfolioPolicies(1, 50)
+      .then(list => list.items[0] && fetchUserPortfolioPolicyDetail(list.items[0].id))
+      .catch(() => {});
+  }
   // The default tab is its own (large) lazy chunk inside the page.
   if (path === "/user/simulation" && !/[?&]tab=what-if\b/.test(target) && !requested.has("actuals-tab")) {
     requested.add("actuals-tab");

@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useI18n } from "../i18n";
 import type { AllocationWorkspaceResult } from "../services/allocationWorkspace";
@@ -13,21 +13,31 @@ import ResponsiveDialog from "./ResponsiveDialog";
 import { Icon } from "./ui";
 import { Explain } from "./explanations/ExplainMode";
 import "./allocation-results.css";
+import AllocationExperiment, {type AllocationChoice} from "./AllocationExperiment";
+import type { WorkspaceInput } from "../services/allocationWorkspace";
+import type { RetirementPreviewInput } from "../services/retirement";
 
 const palette: Record<string, string> = { CASH: "#4d8a9b", GOV_BOND: "#7476b5", BOND: "#7476b5", EQUITY: "#245dab", STOCK: "#245dab", GOLD: "#c29a39", REAL_ESTATE: "#8c9bab" };
 const colors = ["#4d8a9b", "#7476b5", "#245dab", "#c29a39", "#8c9bab", "#a56c51"];
 const color = (code: string, index: number) => palette[code] ?? colors[index % colors.length];
 
 /** A display of published policy results. Never manufactures optimizer scores or market probabilities. */
-export default function AllocationResults({ data, policy, retirementMonth, complete, usable, loading, select, onApply, onRebalance, explain }: {
+export default function AllocationResults({ data, policy, retirementMonth, complete, usable, loading, select, onApply, onRebalance, explain,planInput,workspaceInput,onChoose,publishedOpen,onPublishedToggle }: {
   data: AllocationWorkspaceResult; policy: PortfolioPolicyDetail; retirementMonth?: string;
   complete: boolean; usable: boolean; loading: boolean; select: (id: string) => void;
   onApply: () => void; onRebalance: () => void;
   explain: (kind: "capital" | "reserve" | "goals", label: string) => ReactNode;
+  planInput:RetirementPreviewInput|null;workspaceInput:WorkspaceInput;onChoose:(selection:AllocationChoice)=>void;
+  publishedOpen:boolean;onPublishedToggle:(open:boolean)=>void;
 }) {
   const en = useI18n().language === "en", language = en ? "en" : "vi";
   const t = (vi: string, english: string) => en ? english : vi;
   const [packages, setPackages] = useState(false);
+  const [referenceState,setReferenceState]=useState({source:data,value:data});
+  const onReferenceChange=useCallback((value:AllocationWorkspaceResult)=>setReferenceState({source:data,value}),[data]);
+  const whyReference=referenceState.source===data?referenceState.value:data;
+  const whyPortfolio=whyReference.portfolio,whyAssessment=whyPortfolio?.assessment;
+  const whyUsable=whyPortfolio?.status==="READY"&&whyReference.loss.status==="WITHIN_LIMIT"&&complete;
   const [alternativesOpen, setAlternativesOpen] = useState(() => !window.matchMedia("(max-width: 800px)").matches);
   const c = data.capital, p = data.portfolio, assessment = p?.assessment;
   const template = policy.data.templates.find(row => row.id === assessment?.selectedTemplateId);
@@ -68,9 +78,9 @@ export default function AllocationResults({ data, policy, retirementMonth, compl
     : code === "TEMPLATE_NOT_ELIGIBLE" ? t("Phương án này chưa phù hợp với câu trả lời và thời gian đã chọn.", "This portfolio does not match your answers and horizon.")
     : t("Cần rà soát thông tin đã khai hoặc chính sách danh mục trước khi tính.", "Review declared information or the portfolio policy before calculating.");
   const criteria = [
-    { known: data.loss.status === "WITHIN_LIMIT", title: data.loss.status === "WITHIN_LIMIT" ? t("Không vượt giới hạn chịu lỗ", "Within your loss limit") : t("Cần rà soát giới hạn chịu lỗ", "Review the loss limit"), detail: `${data.loss.message} ${t("Mức giảm trong tình huống đã duyệt", "Loss in the approved stress")}: ${money(data.loss.lossAmount)}. ${t("Giới hạn đã khai", "Declared limit")}: ${money(data.loss.allowedLossAmount)}.` },
+    { known: whyReference.loss.status === "WITHIN_LIMIT", title: whyReference.loss.status === "WITHIN_LIMIT" ? t("Không vượt giới hạn chịu lỗ", "Within your loss limit") : t("Cần rà soát giới hạn chịu lỗ", "Review the loss limit"), detail: `${whyReference.loss.message} ${t("Mức giảm trong tình huống đã duyệt", "Loss in the approved stress")}: ${money(whyReference.loss.lossAmount)}. ${t("Giới hạn đã khai", "Declared limit")}: ${money(whyReference.loss.allowedLossAmount)}.` },
     { known: c.status === "READY", title: c.status === "READY" ? t("Giữ riêng khoản cần dùng trước", "Protect near-term needs first") : t("Cần xác nhận khoản giữ riêng", "Confirm protected capital"), detail: `${t("Dự phòng", "Emergency reserve")}: ${money(c.requiredEmergencyReserve)}. ${t("Mục tiêu gần hạn", "Near-term goals")}: ${money(c.nearTermGoalsPresentValue)}. ${t("Chỉ phần vốn còn lại được phân bổ dài hạn.", "Only the remainder is allocated for the long term.")}` },
-    { known: p?.status === "READY" && complete, title: p?.status === "READY" && complete ? t("Phù hợp hồ sơ và thời gian đã chọn", "Matches your profile and horizon") : t("Cần chọn phương án phù hợp hồ sơ", "Choose an eligible allocation"), detail: assessment?.checks?.filter(check => check.templateId === template?.id && check.matched).map(check => check.explanation).filter(Boolean).join(" ") || t("Đối chiếu câu trả lời đã lưu, thời gian cần thanh khoản và chính sách đã công bố. Chưa có kết luận về khả năng đủ tiền của toàn bộ kế hoạch.", "Checks saved answers, liquidity needs and the published policy. This does not establish that the whole plan is fully funded.") },
+    { known: whyPortfolio?.status === "READY" && complete, title: whyPortfolio?.status === "READY" && complete ? t("Phù hợp hồ sơ và thời gian đã chọn", "Matches your profile and horizon") : t("Cần chọn phương án phù hợp hồ sơ", "Choose an eligible allocation"), detail: whyAssessment?.checks?.filter(check => check.templateId === whyAssessment.selectedTemplateId && check.matched).map(check => check.explanation).filter(Boolean).join(" ") || t("Đối chiếu câu trả lời đã lưu, thời gian cần thanh khoản và chính sách đã công bố. Chưa có kết luận về khả năng đủ tiền của toàn bộ kế hoạch.", "Checks saved answers, liquidity needs and the published policy. This does not establish that the whole plan is fully funded.") },
   ];
 
   return <section className="allocation-results" aria-label={t("Kết quả phân bổ tài sản", "Asset allocation results")}>
@@ -82,7 +92,8 @@ export default function AllocationResults({ data, policy, retirementMonth, compl
     </dl>
     {(data.issues.length > 0 || c.issues?.length > 0) && <div className="allocation-review" role="status"><h2>{t("Cần bổ sung trước khi phân bổ", "Complete these details before allocation")}</h2><p>{t("Rà soát tài sản, chi thiết yếu, độ ổn định thu nhập, mục tiêu và thời gian tính.", "Review assets, essential spending, income stability, goals and projection dates.")}</p><Link to="/user/profile">{t("Mở Tài chính", "Open Finances")}</Link></div>}
     <header className="allocation-results-heading"><div><h2>{usable ? t("Phương án phân bổ theo hồ sơ của bạn", "An allocation based on your profile") : t("Kiểm tra phương án phân bổ", "Review your allocation")}</h2><p>{t("Đối chiếu phần vốn dài hạn với hồ sơ và giới hạn chịu lỗ đã khai. Xem lại kết quả trước khi đưa vào bản nháp kế hoạch.", "Compare long-term capital against your profile and declared loss limit. Review the result before using it in a plan draft.")}</p></div><span className="allocation-source-badge">{t("Chính sách đã công bố", "Published policy")}</span></header>
-    <section className="allocation-lab-real" aria-label={t("Danh mục và các phương án", "Portfolio and alternatives")}>
+    <AllocationExperiment data={data} input={workspaceInput} plan={planInput} onChoose={onChoose} onReferenceChange={onReferenceChange} thresholds={{essential:policy.data.allocationRisk?.essentialThreshold,all:policy.data.allocationRisk?.allGoalsThreshold}}/>
+    <details className="allocation-template-details" open={publishedOpen} onToggle={event=>onPublishedToggle(event.currentTarget.open)}><summary>{t("Danh mục hiện tại và các phương án đã công bố", "Current and published allocations")}</summary><section className="allocation-lab-real" aria-label={t("Danh mục và các phương án", "Portfolio and alternatives")}>
       <article className="allocation-reference">
         <header className="allocation-result-card-heading"><span className="allocation-result-icon" aria-hidden="true"><Icon name="shield" /></span><div><span className={`allocation-loss-badge${usable ? " is-valid" : ""}`}>{usable ? t("Trong giới hạn chịu lỗ", "Within loss limit") : t("Cần rà soát", "Review needed")}</span><h2>{template?.label ?? t("Phương án phân bổ cho bạn", "Your allocation")}</h2></div></header>
         <div className="allocation-reference-rate"><strong>{annual === null || !Number.isFinite(annual) ? t("Chưa xác định", "Undetermined") : num(annual)}{annual !== null && Number.isFinite(annual) && <small>%/{t("năm", "yr")}</small>}</strong><span>{t("Sinh lời quy đổi của kịch bản cơ sở", "Annual equivalent return of the base scenario")}<br />{t("Theo lịch tỷ trọng và chi phí trong kết quả; không cam kết", "Includes the modeled allocation path and costs; not guaranteed")}</span></div>
@@ -104,8 +115,8 @@ export default function AllocationResults({ data, policy, retirementMonth, compl
           <button type="button" className="overview-button secondary" disabled={!template || p?.status !== "READY"} onClick={onRebalance}>{t("Đề xuất tái cân bằng", "Rebalance proposal")}</button>
         </div>
       </details>
-    </section>
-    <section className="allocation-result-why" id="allocation-result-why"><h2>{usable ? t("Vì sao phương án này phù hợp?", "Why does this allocation fit?") : t("Vì sao cần rà soát phương án?", "Why does this allocation need review?")}</h2><p>{t("Ba cơ sở cần đối chiếu trước khi đưa danh mục vào kế hoạch nghỉ hưu.", "Three checks before using the portfolio in your retirement plan.")}</p><ol>{criteria.map(item => <li key={item.title} className={item.known ? "is-valid" : "is-review"}><span className="allocation-criterion-icon" aria-hidden="true"><Icon name={item.known ? "check" : "info"} /></span><div><h3>{item.title}</h3><p>{item.detail}</p></div></li>)}</ol>
+    </section></details>
+    <section className="allocation-result-why" id="allocation-result-why"><h2>{whyUsable ? t("Vì sao phương án này phù hợp?", "Why does this allocation fit?") : t("Vì sao cần rà soát phương án?", "Why does this allocation need review?")}</h2><p>{t("Ba cơ sở của phương án tham chiếu; đối chiếu trước khi đưa vào kế hoạch nghỉ hưu.", "Three checks for the reference allocation before using it in your retirement plan.")}</p><ol>{criteria.map(item => <li key={item.title} className={item.known ? "is-valid" : "is-review"}><span className="allocation-criterion-icon" aria-hidden="true"><Icon name={item.known ? "check" : "info"} /></span><div><h3>{item.title}</h3><p>{item.detail}</p></div></li>)}</ol>
       <details className="allocation-policy-comparison"><summary>{t("Đối chiếu các cách chia vốn đã công bố", "Compare published allocations")}</summary><div className="allocation-comparison-scroll" role="region" tabIndex={0} aria-label={t("Bảng đối chiếu phương án phân bổ", "Published allocation comparison")}><table><caption>{t("Tỷ trọng tham chiếu tại tháng định giá; kết quả áp dụng do máy chủ kiểm tra lại.", "Reference weights at valuation; the server verifies each selection.")}</caption><thead><tr><th>{t("Phương án", "Allocation")}</th><th>{t("Cách chia vốn", "Capital allocation")}</th><th>{t("Theo hồ sơ hiện tại", "Profile eligibility")}</th></tr></thead><tbody>{policy.data.templates.map(item => <tr key={item.id} className={item.id === template?.id ? "is-current" : ""}><th scope="row">{item.label}</th><td>{weightsFor(item).length ? weightsFor(item).map(row => `${label(row.assetClass)} ${num(Number(row.weightPercent))}%`).join(" · ") : t("Cần xác nhận mốc thời gian", "Confirm projection dates")}</td><td>{assessment?.eligibleTemplateIds.includes(item.id) ? t("Có thể chọn", "Eligible") : t("Chưa phù hợp", "Not eligible")}</td></tr>)}</tbody></table></div></details>
     </section>
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { retirementPreviewSchema } from "../retirement/schema";
 import { LIMITS } from "./simulation";
+import { customAllocationSchema } from "../portfolios/custom";
 
 export const riskRequestSchema = z.object({
   plan: z.discriminatedUnion("kind", [
@@ -9,5 +10,7 @@ export const riskRequestSchema = z.object({
   ]),
   marketVersionId: z.string().uuid().optional(),
   paths: z.number().int().min(1).max(LIMITS.maxPaths).default(100),
+  detail: z.literal("ALLOCATION_V2").optional(),
+  trialAllocation: customAllocationSchema.optional(),
 }).strict();
 export type RiskRequest = z.infer<typeof riskRequestSchema>;

@@ -8,6 +8,7 @@ import type { CapitalSeparation } from "../capital/separation";
 import type { LossConstraint } from "../capital/loss-constraint";
 import { RetirementDecimal as D } from "./engine";
 import { prepareRetirement } from "./prepare";
+import type { protectCashflows } from "./protected-capital";
 import { portfolioPreviewCache } from "../portfolios/engine";
 import type { RetirementPreview } from "./schema";
 
@@ -27,8 +28,10 @@ export function essentialCoverage(profile: ProfileV2, input: RetirementPreview, 
       e.category === "ESSENTIAL" && (!retired || input.retirementAdditionalExpenseIds.includes(e.id))) } : profile.expenses;
     const essential = profileMonthlyCashflow({ income: { status: "KNOWN", entries: [] }, expenses }, row.month).expenses;
     if (essential === null) { complete = false; result.rows.push({ month: row.month, essentialExpense: null, essentialShortfall: null, otherShortfall: null }); continue; }
-    const expense = essential.plus(retired ? row.livingExpense : 0);
-    const availableFund = new D(row.fundedClosingBalance).plus(row.withdrawal).minus(row.unfundedWithdrawal);
+    const protectedRow=row as typeof row & Partial<ReturnType<typeof protectCashflows>[number]>;
+    const expense = essential.plus(retired ? row.livingExpense : 0).plus(protectedRow.essentialGoalExpense??0);
+    const availableFund = new D(row.fundedClosingBalance).plus(row.withdrawal).minus(row.unfundedWithdrawal)
+      .plus(protectedRow.protectedHouseholdPaid??0).plus(protectedRow.protectedEssentialGoalPaid??0);
     const deficit = D.min(row.unfundedWithdrawal, D.max(0, expense.minus(row.income).minus(row.pension).minus(availableFund)));
     total = total.plus(deficit);
     if (deficit.gt(0)) result.firstEssentialShortfallMonth ??= row.month;

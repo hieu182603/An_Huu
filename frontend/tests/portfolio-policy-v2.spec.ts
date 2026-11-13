@@ -65,6 +65,7 @@ async function setup(page: Page, options: { version?: "v1" | "v2"; retirement?: 
   await expect.poll(() => calls.length).toBeGreaterThan(0);
   await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();
   await page.getByRole("button",{name:options.en?"View my allocation →":"Xem phương án của tôi →",exact:true}).click();
+  await page.locator(".allocation-template-details > summary").click();
   await page.locator(".allocation-result-details > summary").click();
   return { calls, errors, template };
 }

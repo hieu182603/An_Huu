@@ -15,7 +15,8 @@ export const retirementPreviewQuerySchema = z.object({ adjustments: z.enum(["inc
 export const retirementPreviewSchema = z.object({
   expectedProfileRevision: z.number().int().min(1), policyVersionId: z.string().uuid(),
   scenario: z.enum(["BASE", "ADVERSE", "FAVORABLE"]), templateId: id.optional(),
-  customAllocation: customAllocationSchema.optional(),
+  customAllocation: customAllocationSchema.nullish().transform(v=>v??undefined),
+  allocationFunding: z.literal("PROTECTED_CAPITAL_V1").nullish().transform(v=>v??undefined),
   answers: z.array(z.object({ questionId: id, choiceId: id }).strict()).max(30),
   liquidityNeedMonths: z.number().int().min(0).max(1200),
   endMonth: monthSchema, monthlyExpenseToday: moneySchema, monthlyContribution: moneySchema,
@@ -54,6 +55,7 @@ export const retirementPreviewSchema = z.object({
 }).strict().superRefine((value, ctx) => {
   const issue = (path: (string | number)[], message: string) => ctx.addIssue({ code: "custom", path, message });
   if (value.customAllocation && !value.templateId) issue(["templateId"], "Cần phương án gốc cho lộ trình tự chọn.");
+  if (value.customAllocation && !value.allocationFunding) issue(["allocationFunding"], "Phân bổ tự chọn cần giữ riêng vốn dự phòng và mục tiêu.");
   if (value.contributionTiming === "END_OF_MONTH" && value.startOfMonthFunding)
     issue(["startOfMonthFunding"], "Chỉ khai nguồn đầu tháng khi chọn góp đầu tháng.");
   if (new Set(value.housing.map(h => h.assetId)).size !== value.housing.length) issue(["housing"], "Không được trùng tài sản.");

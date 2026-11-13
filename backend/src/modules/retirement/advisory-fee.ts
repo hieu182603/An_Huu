@@ -1,5 +1,6 @@
 import { RetirementDecimal as D, type MonthlyInput } from "./engine";
 import type { RetirementPreview } from "./schema";
+import type { protectCashflows } from "./protected-capital";
 
 export type FeeRow = MonthlyInput & { advisoryFeeAmount?: string; advisoryFeeAverageFund?: string; advisoryFeePaidFrom?: "FUND" | "EXTERNAL" };
 /** Full monthly periods, consistent with the kernel. AUM is the funded opening
@@ -23,7 +24,8 @@ export function applyAdvisoryFee(rows: MonthlyInput[], initialCapital: string, r
       const household = D.max(0, remaining);
       r.contributionCapacity = D.min(r.contributionCapacity, household).toFixed();
       r.contribution = D.min(r.plannedContribution, r.contributionCapacity).toFixed();
-      r.withdrawal = D.max(0, remaining.neg()).toFixed();
+      const paid=original as MonthlyInput & Partial<ReturnType<typeof protectCashflows>[number]>;
+      r.withdrawal = D.max(0, remaining.neg().minus(paid.protectedHouseholdPaid??0).minus(paid.protectedGoalPaid??0)).toFixed();
       r.uninvestedSurplus = household.minus(r.contribution).toFixed();
     }
     funded = D.max(0, closing(r));

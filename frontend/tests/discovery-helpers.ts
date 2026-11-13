@@ -8,7 +8,7 @@ export async function setupDiscovery(page: Page, request: APIRequestContext, pat
   await page.route("**/api/v1/me/retirement/plans**",route=>route.fulfill({json:{data:{items:[],page:1,limit:50,total:0}}}));
   await page.route("**/socket.io/**",route=>route.abort());await page.routeWebSocket(/socket\.io/,ws=>ws.close());
   const writes:Array<{path:string;method:string;body:any;status:number}>=[],errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
-  if((changes as {remaining?:boolean}).remaining)await page.route(/\/api\/v1\/me(?:$|[/?])/,async route=>{
+  if((changes as {remaining?:boolean;customAllocation?:boolean}).remaining||(changes as {customAllocation?:boolean}).customAllocation)await page.route(/\/api\/v1\/me(?:$|[/?])/,async route=>{
     const outgoing=route.request(),url=new URL(outgoing.url());const result=await route.fetch({url:discoveryApi+url.pathname+url.search,headers:{...outgoing.headers(),Authorization:`Bearer ${fixture.accessToken}`}});
     if(outgoing.method()!=="GET")writes.push({path:url.pathname,method:outgoing.method(),body:outgoing.postDataJSON(),status:result.status()});await route.fulfill({response:result});
   });

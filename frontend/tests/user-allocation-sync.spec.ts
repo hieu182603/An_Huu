@@ -1,7 +1,8 @@
 import {expect,test,type Page,type APIRequestContext} from "@playwright/test";
 import {installFinancialProfileRoutes} from "./helpers";
 import {setupDiscovery,discoveryApi} from "./discovery-helpers";
-const panel=(page:Page)=>page.locator(".allocation-lab-real"),dialog=(page:Page)=>page.getByRole("dialog");
+async function openPublished(page:Page){const details=page.locator(".allocation-template-details");await expect(details).toBeVisible();if(await details.getAttribute("open")===null)await details.locator(":scope > summary").click();}
+const panel=(page:Page)=>page.locator(".allocation-template-details .allocation-lab-real"),dialog=(page:Page)=>page.getByRole("dialog");
 async function setup(page:Page,request:APIRequestContext,options:object={},answer=true,calculate=true){
  const state=await setupDiscovery(page,request,"/user/risk-portfolio",{allocation:true,...options},answer);
  await expect(page.getByRole("heading",{name:"Phân bổ tài sản",exact:true})).toBeVisible();
@@ -9,7 +10,7 @@ async function setup(page:Page,request:APIRequestContext,options:object={},answe
  await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();
  await page.getByText("Chỉnh giả định nâng cao",{exact:true}).click();
  await page.getByLabel("Tháng kết thúc kế hoạch",{exact:true}).fill("12/2027");await page.getByLabel("Thời gian cần giữ thanh khoản",{exact:true}).fill("12");
- if(answer&&calculate){await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();if((options as any).multiple)await expect(panel(page)).toContainText("Có nhiều phương án phù hợp");else await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();}
+ if(answer&&calculate){await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await openPublished(page);if((options as any).multiple)await expect(panel(page)).toContainText("Có nhiều phương án phù hợp");else await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();}
  return state;
 }
 
@@ -24,7 +25,7 @@ test("three steps reuse the initial survey without repeating questions and show 
  await page.locator(".allocation-steps button").nth(1).click();await expect(page.locator(".allocation-protection").first()).toContainText("16.000.000");
  await page.locator(".allocation-steps button").nth(0).click();await expect(page.getByLabel("Số tháng dự phòng",{exact:true})).toHaveValue("6");
  await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();await expect(page.getByLabel("Tháng kết thúc kế hoạch",{exact:true})).toHaveValue("12/2027");
- await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();
+ await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await openPublished(page);await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();
  expect(state.writes.filter(w=>w.path.endsWith("workspace/preview")).at(-1)?.body.answers).toEqual(state.fixture.allocationCommand.answers);
  await page.reload();await expect(page.getByRole("radiogroup")).toHaveCount(0);await expect(panel(page)).toHaveCount(0);expect(state.errors).toEqual([]);
 });
@@ -37,12 +38,12 @@ test("unknown and negative capital stay explicit and cannot be applied",async({p
  await setup(page,request,{negative:true});await expect(page.locator(".allocation-capital-total")).toContainText("Còn thiếu");await expect(page.getByRole("button",{name:"Áp dụng vào bản xem trước",exact:true})).toBeDisabled();
 });
 test("unpublished policy is unconfigured without fabricated portfolios",async({page,request})=>{
- await setup(page,request,{emptyPolicy:true});await expect(page.getByText("Chưa có chính sách danh mục đã công bố.",{exact:false})).toBeVisible();await expect(page.locator(".allocation-lab-real")).toHaveCount(0);
+ await setup(page,request,{emptyPolicy:true});await expect(page.getByText("Chưa có chính sách danh mục đã công bố.",{exact:false})).toBeVisible();await expect(page.locator(".allocation-template-details .allocation-lab-real")).toHaveCount(0);
 });
 test("failed workspace hides prior capital/results and retry uses the server",async({page,request})=>{
  await setup(page,request);let fail=true;await page.route("**/api/v1/me/portfolio-policies/workspace/preview",route=>fail?route.fulfill({status:503,json:{error:{message:"Chưa tính được phân bổ"}}}):route.fallback());
  await page.locator(".allocation-editor-disclosure > summary").click();await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await expect(page.getByRole("alert")).toContainText("Chưa tính được phân bổ");await expect(page.locator(".allocation-result-summary")).toHaveCount(0);await expect(page.locator(".allocation-breakdown")).toHaveCount(0);
- fail=false;await page.getByRole("button",{name:"Thử lại",exact:true}).click();await expect(page.locator(".allocation-capital-total")).toContainText("904.000.000");
+ fail=false;await page.getByRole("button",{name:"Thử lại",exact:true}).click();await expect(page.locator(".allocation-capital-total")).toContainText("904.000.000");await openPublished(page);await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();
 });
 test("preview confirmation changes only the plan draft with real policy/answers",async({page,request})=>{
  const s=await setup(page,request);await page.getByRole("button",{name:"Áp dụng vào bản xem trước",exact:true}).click();await expect(dialog(page)).toContainText("bản nháp kế hoạch");await dialog(page).getByRole("button",{name:"Xác nhận dùng trong bản nháp",exact:true}).click();await expect(page).toHaveURL(/\/user\/plan/);
@@ -61,7 +62,7 @@ test("capital popups trap focus, restore it and rebalance opens without write",a
 });
 for(const[name,width,height]of[["desktop",1440,1000],["tablet",768,1024],["mobile",390,844],["small-mobile",320,740],["landscape",844,390]]as const)test(`allocation and popups fit ${name}`,async({page,request},info)=>{
  await page.setViewportSize({width,height});const s=await setup(page,request,{},true,false);await page.locator(".allocation-steps button").nth(0).click();await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:info.outputPath("allocation.png"),fullPage:true});const fit=await page.evaluate(()=>({fits:document.documentElement.scrollWidth<=innerWidth+1,overflow:[...document.querySelectorAll("*")].filter(el=>el.getBoundingClientRect().right>innerWidth+1).slice(0,8).map(el=>({tag:el.tagName,cls:el.className,width:el.getBoundingClientRect().width}))}));expect(fit.fits,JSON.stringify(fit.overflow)).toBe(true);
- await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();await page.screenshot({path:info.outputPath("allocation-review.png"),fullPage:true});await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();await page.screenshot({path:info.outputPath("allocation-results.png"),fullPage:true});await page.getByRole("button",{name:"Giải thích: Mục tiêu gần hạn",exact:true}).click();await page.screenshot({path:info.outputPath("capital-popup.png")});await page.keyboard.press("Escape");await page.getByRole("button",{name:"Áp dụng vào bản xem trước",exact:true}).click();await page.screenshot({path:info.outputPath("apply-popup.png")});await page.keyboard.press("Escape");expect(s.errors).toEqual([]);
+ await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();await page.screenshot({path:info.outputPath("allocation-review.png"),fullPage:true});await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await openPublished(page);await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();await page.screenshot({path:info.outputPath("allocation-results.png"),fullPage:true});await page.getByRole("button",{name:"Giải thích: Mục tiêu gần hạn",exact:true}).click();await page.screenshot({path:info.outputPath("capital-popup.png")});await page.keyboard.press("Escape");await page.getByRole("button",{name:"Áp dụng vào bản xem trước",exact:true}).click();await page.screenshot({path:info.outputPath("apply-popup.png")});await page.keyboard.press("Escape");expect(s.errors).toEqual([]);
 });
 
 test("blocked draft storage keeps the confirmation open without claiming application",async({page,request})=>{
@@ -106,7 +107,7 @@ test("converting a limit never declares an unknown reaction as HOLD",async({page
 test("editing the projection horizon hides the prior result until explicitly recalculated",async({page,request})=>{
  const state=await setup(page,request);await page.locator(".allocation-editor-disclosure > summary").click();await page.getByText("Chỉnh giả định nâng cao",{exact:true}).click();
  await page.getByLabel("Tháng kết thúc kế hoạch",{exact:true}).fill("11/2027");await expect(panel(page)).toHaveCount(0);
- await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();
+ await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await openPublished(page);await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();
  expect(state.writes.filter(w=>w.path.endsWith("workspace/preview")).at(-1)?.body.endMonth).toBe("2027-11");expect(state.writes.some(w=>w.path.endsWith("/apply"))).toBe(false);
 });
 

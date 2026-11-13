@@ -152,6 +152,7 @@ interface CacheEntry<T> {
 }
 
 const apiGetCache = new Map<string, CacheEntry<unknown>>();
+const API_CACHE_LIMIT = 300;
 const inflightGetRequests = new Map<string, Promise<unknown>>();
 let cacheGeneration = 0;
 
@@ -173,11 +174,14 @@ export async function authenticatedRequest<T>(
   method?: string,
   extraHeaders?: Record<string, string>,
   // timeoutMs: only for requests the server is known to need longer for.
-  options?: { skipCache?: boolean; ttlMs?: number; signal?: AbortSignal; timeoutMs?: number }
+  // cacheReadOnlyPost: cache a read-only POST (see READ_ONLY_POST) by its body,
+  // like a GET; profile/plan writes clear it through the same path rules.
+  options?: { skipCache?: boolean; ttlMs?: number; signal?: AbortSignal; timeoutMs?: number; cacheReadOnlyPost?: boolean }
 ): Promise<T> {
   const isGet = (method === undefined || method.toUpperCase() === "GET") && body === undefined;
+  const cachedPost = Boolean(options?.cacheReadOnlyPost) && method?.toUpperCase() === "POST" && READ_ONLY_POST.test(path.split("?")[0]);
   const ttlMs = options?.ttlMs ?? 45000;
-  const cacheKey = `${path}|${JSON.stringify(extraHeaders || {})}`;
+  const cacheKey = `${path}|${JSON.stringify(extraHeaders || {})}${cachedPost ? `|${JSON.stringify(body ?? null)}` : ""}`;
   const requestSession = sessionGeneration;
   const assertCurrentSession = () => {
     if (requestSession !== sessionGeneration) {
@@ -185,7 +189,7 @@ export async function authenticatedRequest<T>(
     }
   };
 
-  if (isGet && !options?.skipCache) {
+  if ((isGet || cachedPost) && !options?.skipCache) {
     const cached = apiGetCache.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
       return cached.data as T;
@@ -224,10 +228,15 @@ export async function authenticatedRequest<T>(
 
     assertCurrentSession();
 
-    if (isGet) {
+    if (isGet || cachedPost) {
       // A late pre-write response (including skipCache reads) may still resolve
       // for its original caller, but cannot replace a fresh cached revision.
-      if (readGeneration === cacheGeneration) apiGetCache.set(cacheKey, { data: res, expiresAt: Date.now() + ttlMs });
+      if (readGeneration === cacheGeneration) {
+        apiGetCache.delete(cacheKey);
+        apiGetCache.set(cacheKey, { data: res, expiresAt: Date.now() + ttlMs });
+        // Previews are keyed by their input, so slider edits add entries: keep the newest.
+        for (const key of apiGetCache.keys()) { if (apiGetCache.size <= API_CACHE_LIMIT) break; apiGetCache.delete(key); }
+      }
     } else {
       // Only drop what this write can make stale (e.g. marking a notification
       // read must not refetch plans); unknown writes still clear everything.

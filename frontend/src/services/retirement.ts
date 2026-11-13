@@ -26,6 +26,8 @@ export interface HousingPlanItem {
 }
 
 export interface RetirementPreviewInput {
+  customAllocation?: import("./portfolios").CustomAllocation|null;
+  allocationFunding?: "PROTECTED_CAPITAL_V1"|null;
   advisoryFee?: { annualPercent: string; paidFrom: "FUND" | "EXTERNAL" };
   expectedProfileRevision: number;
   policyVersionId: string;
@@ -326,7 +328,7 @@ export async function previewMonthlyRetirement(
   return await shareInFlight(`${query}|${JSON.stringify(input)}`, signal, shared => authenticatedRequest<RetirementPreviewResult>(
     `/me/retirement/preview${query}`,
     input,
-    "POST", undefined, { signal: shared, ...(adjustments === "include" ? { timeoutMs: PREVIEW_ADJUSTMENTS_TIMEOUT_MS } : {}) }
+    "POST", undefined, { signal: shared, cacheReadOnlyPost: true, ...(adjustments === "include" ? { timeoutMs: PREVIEW_ADJUSTMENTS_TIMEOUT_MS } : {}) }
   ));
 }
 

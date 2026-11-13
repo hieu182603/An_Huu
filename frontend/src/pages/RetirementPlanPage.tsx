@@ -1,3 +1,4 @@
+import { initialPlanSelection } from "../services/initialPlanSelection";
 import PlanEmptyResult from "../components/retirement/PlanEmptyResult";
 import {PlanOptionsDialog, PlanContributionDialog, contributionInput} from "../components/retirement/PlanActionsDialog";
 import PlanSavedViews from "./PlanSavedViews";
@@ -147,8 +148,9 @@ export default function RetirementPlanPage() {
     }
     setLoadingPolicy(true);
     setPolicyDetail(null);
-    (policyId ? fetchUserPortfolioPolicyDetail(policyId) : fetchUserPortfolioPolicies(1, 1).then(async res =>
-      res.status === "AVAILABLE" && res.items.length ? fetchUserPortfolioPolicyDetail(res.items[0].id) : null
+    const fresh = policyAttempt > 0;
+    (policyId ? fetchUserPortfolioPolicyDetail(policyId, fresh) : fetchUserPortfolioPolicies(1, 1, fresh).then(async res =>
+      res.status === "AVAILABLE" && res.items.length ? fetchUserPortfolioPolicyDetail(res.items[0].id, fresh) : null
     )).then(detail => {
       if (active) setPolicyDetail(detail);
     })
@@ -178,28 +180,7 @@ export default function RetirementPlanPage() {
   const previewPayload = useMemo<RetirementPreviewInput | null>(() => {
     if (baseline) return usesActualBalance ? baseline : synchronization.input;
     if (!policyDetail || !defaultEndMonth || !v2Profile || initialExpense===undefined) return null;
-    const initial: RetirementPreviewInput = baseline ?? {
-      expectedProfileRevision: profileRevision,
-      policyVersionId: policyDetail.id,
-      answers: effectiveAnswers,
-      liquidityNeedMonths: 6,
-      endMonth: defaultEndMonth,
-      monthlyExpenseToday: initialExpense!,
-      monthlyContribution: "0",
-      monthlyReserve: "0",
-      terminalBalance: "0",
-      retirementIncomeIds: v2Profile.income.status === "KNOWN" ? v2Profile.income.entries.filter(i => i.source === "PENSION").map(i => i.id) : [],
-      retirementAdditionalExpenseIds: [],
-      debtStress: [],
-      housing: v2Profile.assets.status === "KNOWN" ? v2Profile.assets.entries.filter(a => a.housingPlan?.status === "CONFIRMED").map(a => ({
-        assetId: a.id,
-        amountScope: a.ownershipShare.status === "KNOWN" && a.ownershipShare.value === "1" ? "WHOLE_ASSET" as const : "OWNERS_SHARE" as const,
-      })) : [],
-      scenario: "BASE",
-      contributionTiming: "END_OF_MONTH",
-      surplusPolicy: "EXPLICIT_DEPOSITS_ONLY",
-
-    };
+    const initial = initialPlanSelection(v2Profile, profileRevision, policyDetail.id, defaultEndMonth, initialExpense, effectiveAnswers);
     return reviseSelection(initial, draftSelection ?? {}, profileRevision);
   }, [baseline, JSON.stringify(synchronization.input), draftSelection, usesActualBalance, policyDetail, defaultEndMonth, v2Profile, profileRevision, profile, surveyAnswers, initialExpense]);
 

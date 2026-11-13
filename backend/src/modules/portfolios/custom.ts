@@ -14,6 +14,7 @@ export const customAllocationSchema = z.object({
 export const customizationPolicySchema = z.object({
   evidence: z.string().trim().min(5).max(2000),
   path: z.literal("FOLLOW_TEMPLATE_SHIFTS"),
+  capitalBasis: z.literal("PROTECTED_CAPITAL_V1"),
   bounds: z.array(z.object({ assetClass: code, minPercent: weight, maxPercent: weight }).strict()
     .refine(row => new D(row.minPercent).lte(row.maxPercent))).min(1).max(20)
     .refine(rows => new Set(rows.map(r => r.assetClass)).size === rows.length),

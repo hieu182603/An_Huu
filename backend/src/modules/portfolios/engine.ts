@@ -49,6 +49,15 @@ export function validatePortfolioPolicy(document: PortfolioDocument, assumptions
   if (!data.riskBands.length || nextScore !== maximum + 1) issue("riskBands", "SCORE_RANGE_NOT_COVERED");
   if (!data.templates.length || !data.rules.length) issue("templates", "POLICY_REQUIRED");
   const assets = new Set(assumptions.assetClasses.map(a => a.code));
+  if (data.schemaVersion === 2 && data.customization) {
+    if (!data.lossStress) issue("customization", "LOSS_STRESS_REQUIRED");
+    const bounds = data.customization.bounds;
+    if (bounds.some(b => !assets.has(b.assetClass))) issue("customization", "UNKNOWN_ASSET_CLASS");
+    if (bounds.reduce((s,b)=>s.plus(b.minPercent),new D(0)).gt(100) || bounds.reduce((s,b)=>s.plus(b.maxPercent),new D(0)).lt(100))
+      issue("customization", "CUSTOM_BOUNDS_INFEASIBLE");
+    const used = new Set(data.templates.flatMap(t => allocationSets(t).flatMap(rows => rows.map(r => r.assetClass))));
+    if ([...used].some(code => !bounds.some(b => b.assetClass === code))) issue("customization", "CUSTOM_BOUND_COVERAGE_REQUIRED");
+  }
   if (data.schemaVersion === 2 && data.allocationRisk?.stresses) {
     const stresses = data.allocationRisk.stresses;
     for (const [kind, parameters] of Object.entries(stresses)) {
@@ -207,6 +216,8 @@ export function previewPortfolio(document: PortfolioDocument, assumptions: Assum
     return input.customAllocation ? { ...base, targets: customTargets(input.customAllocation, initialTargets, base.targets) } : base;
   };
   if (input.customAllocation) {
+    if (input.customAllocation.weights.some(r=>!assetCodes.includes(r.assetClass)))
+      return { ...context,status:"INCOMPLETE",issues:[{path:"customAllocation",code:"CUSTOM_ASSET_NOT_ALLOWED"}],scenarios:[] };
     const customIssues = customWeightIssues(input.customAllocation, data.schemaVersion === 2 ? data.customization : undefined, assetCodes, targetAt(0, input.startMonth).targets);
     if (customIssues.length) return { ...context, status: "INCOMPLETE", issues: customIssues.map(code => ({ path: "customAllocation", code })), scenarios: [] };
     for (let i = 1; i < input.horizonMonths; i++) {

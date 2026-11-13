@@ -5,6 +5,7 @@ import type { RetirementPreview } from "../retirement/schema";
 import type { MarketDocument } from "./market-schema";
 import type { RiskPolicy } from "./policy";
 import { validWeights, type Allocation } from "./rebalance";
+import { protectCashflows } from "../retirement/protected-capital";
 
 export const SIMULATION_MODEL = "allocation-risk-v1";
 export const SEED = 20261016;
@@ -16,6 +17,7 @@ export type RiskContext = {
   targets: Allocation[][];
   rebalance: boolean[];
   turnoverCostPercent: string;
+  allGoalsCovered?: boolean;
 };
 export function randomGenerator(seed: number) {
   let state = seed >>> 0;
@@ -72,7 +74,7 @@ export function portfolioFactors(context: RiskContext, market: PathMarket[]) {
 /** Rebuild household budget from pinned nominal flows. Only retirement living
  * expense is CPI-indexed, matching prepareRetirement. Fees are re-evaluated. */
 export function runPath(context: RiskContext, market: PathMarket[], transformed?: MonthlyInput[]) {
-  const base = transformed ?? context.projection.rows;
+  const base = transformed ?? context.projection.protection?.rawRows ?? context.projection.rows;
   const growth = portfolioFactors(context, market);
   let price = new D(1), basePrice = new D(1);
   const prices: string[] = [], essentials: string[] = [];
@@ -94,12 +96,22 @@ export function runPath(context: RiskContext, market: PathMarket[], transformed?
     return { ...original, growthFactor: growth[i], inflationFactor: new D(market[i].cpi).plus(1).toFixed(), livingExpense: living.toFixed(),
       contributionCapacity: allowed.toFixed(), contribution: contribution.toFixed(), withdrawal: D.max(0, remaining.neg()).toFixed(), uninvestedSurplus: capacity.minus(contribution).toFixed() };
   });
+  const protection=context.projection.protection;
+  const protectedRows=protection?protectCashflows(rows,{...protection,depositFactors:market.map(m=>{
+    if(m.returns[protection.depositAssetClass]===undefined)throw new RangeError("Protected deposit market data required");
+    return new D(m.returns[protection.depositAssetClass]).plus(1).toFixed();
+  }),goals:protection.goals.map(g=>({...g,...(g.depositAssetClass?{depositFactors:market.map(m=>{
+    if(m.returns[g.depositAssetClass!]===undefined)throw new RangeError("Protected goal deposit market data required");
+    return new D(m.returns[g.depositAssetClass!]).plus(1).toFixed();
+  })}:{})}))}):rows;
   const result = projectRetirement({ ...context.projection, modelVersion: "retirement-monthly-v3",
-    rows: applyAdvisoryFee(rows, context.projection.initialCapital, context.projection.retirementMonth, context.selection) });
+    rows: applyAdvisoryFee(protectedRows, context.projection.initialCapital, context.projection.retirementMonth, context.selection) });
   let loss = new D(0);
   const balances = result.rows.map((r, i) => {
-    const availableFund = new D(r.fundedClosingBalance).plus(r.withdrawal).minus(r.unfundedWithdrawal);
-    const unmet = D.min(r.unfundedWithdrawal, D.max(0, new D(essentials[i]).minus(r.income).minus(r.pension).minus(availableFund)));
+    const protectedRow=protection?protectedRows[i] as ReturnType<typeof protectCashflows>[number]:null;
+    const availableFund = new D(r.fundedClosingBalance).plus(r.withdrawal).minus(r.unfundedWithdrawal)
+      .plus(protectedRow?.protectedHouseholdPaid??0).plus(protectedRow?.protectedEssentialGoalPaid??0);
+    const unmet = D.min(r.unfundedWithdrawal, D.max(0, new D(essentials[i]).plus(protectedRow?.essentialGoalExpense??0).minus(r.income).minus(r.pension).minus(availableFund)));
     loss = loss.plus(unmet.div(prices[i]));
     return new D(r.fundedClosingBalance).div(prices[i]).toFixed();
   });
@@ -111,26 +123,32 @@ export function marketRows(data: MarketDocument): PathMarket[] {
     new D(row.returns[a.assetClass]).minus(a.fees.treatment === "GROSS" ? a.fees.monthlyDrag : 0).toFixed()])) }));
 }
 export async function simulate(context: RiskContext, data: MarketDocument | null, policy: RiskPolicy | undefined, paths: number,
-  deadline = performance.now() + LIMITS.maxRuntimeMs) {
+  deadline = performance.now() + LIMITS.maxRuntimeMs, detail?: "ALLOCATION_V2") {
   if (!data) return { status: "DATA_REQUIRED" as const, issues: ["PUBLISHED_MONTHLY_TOTAL_RETURN_DATA_REQUIRED"] };
   if (!policy?.blockMonths || !policy.cvarAlpha) return { status: "REVIEW_REQUIRED" as const, issues: ["APPROVED_BLOCK_AND_ALPHA_REQUIRED"] };
-  if (data.rows.length < policy.blockMonths || context.targets.some(ts => ts.some(t => !data.assets.some(a => a.assetClass === t.assetClass))))
+  if (data.rows.length < policy.blockMonths || context.targets.some(ts => ts.some(t => !data.assets.some(a => a.assetClass === t.assetClass)))
+    || (context.projection.protection && (!data.assets.some(a => a.assetClass === context.projection.protection!.depositAssetClass)
+      ||context.projection.protection.goals.some(g=>g.depositAssetClass&&!data.assets.some(a=>a.assetClass===g.depositAssetClass)))))
     return { status: "DATA_REQUIRED" as const, issues: ["HISTORY_OR_ASSET_COVERAGE_REQUIRED"] };
   if (!Number.isInteger(paths) || paths < 1 || paths > LIMITS.maxPaths || paths * context.projection.rows.length > LIMITS.maxPathMonths)
     return { status: "LIMIT_EXCEEDED" as const, issues: ["PATH_MONTH_LIMIT"], limits: LIMITS };
   const random = randomGenerator(SEED), history = marketRows(data), losses: string[] = [], bands = context.projection.rows.map(() => [] as string[]);
-  let successes = 0;
+  let successes = 0, allSuccesses = 0;
   for (let path = 0; path < paths; path++) {
     if (performance.now() >= deadline) return { status: "LIMIT_EXCEEDED" as const, issues: ["RUNTIME_LIMIT_NO_PARTIAL_ESTIMATE"], limits: LIMITS };
     const indices = bootstrapIndices(history.length, bands.length, policy.blockMonths, random);
     const result = runPath(context, indices.map(i => history[i]));
     losses.push(result.essentialLossToday); if (result.funded) successes++;
+    if (result.funded && new D(result.unfundedWithdrawals).isZero() && new D(result.fundedTerminalBalance).gte(context.projection.terminalBalance)) allSuccesses++;
     result.balances.forEach((v, i) => bands[i].push(v));
     await setImmediate();
   }
   if (performance.now() >= deadline) return { status: "LIMIT_EXCEEDED" as const, issues: ["RUNTIME_LIMIT_NO_PARTIAL_ESTIMATE"], limits: LIMITS };
   const interval = wilson(successes, paths), risk = cvar(losses, policy.cvarAlpha);
   return { status: "READY" as const, modelCode: SIMULATION_MODEL, seed: SEED, paths, blockMonths: policy.blockMonths,
+    ...(detail ? { modelCode: "allocation-risk-v2", allGoalsStatus: context.allGoalsCovered ? "READY" as const : "REVIEW_REQUIRED" as const,
+      pAll: context.allGoalsCovered ? allSuccesses / paths : null,
+      allGoalsIssue: context.allGoalsCovered ? null : "CLASSIFIED_GOAL_CASHFLOWS_REQUIRED" } : {}),
     pEssential: successes / paths, wilson: interval, cvarAlpha: policy.cvarAlpha, cvarEssentialShortfallToday: risk,
     display: { pEssentialPercent: probabilityDisplay(successes / paths), wilsonLowerPercent: probabilityDisplay(interval.lower), wilsonUpperPercent: probabilityDisplay(interval.upper), cvarVnd: moneyDisplay(risk) },
     bands: bands.map((values, i) => ({ month: context.projection.rows[i].month, p10: moneyDisplay(quantile(values, .1)), p50: moneyDisplay(quantile(values, .5)), p90: moneyDisplay(quantile(values, .9)) })),

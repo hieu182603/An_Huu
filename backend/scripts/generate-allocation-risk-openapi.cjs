@@ -30,7 +30,7 @@ s.Limits = obj({ maxPaths: integer, maxPathMonths: integer, maxRuntimeMs: intege
 s.Allocation = obj({ assetClass: str, weightPercent: str });
 s.PathResult = obj({ essentialLossToday: str, funded: boolean, balances: arr(str), unfundedWithdrawals: str, fundedTerminalBalance: str });
 const simulation = {
-  modelCode: en("allocation-risk-v1"), seed: integer, paths: integer, blockMonths: integer, pEssential: number,
+  modelCode: en("allocation-risk-v1", "allocation-risk-v2"), seed: integer, paths: integer, blockMonths: integer, pEssential: number,
   wilson: obj({ confidence: number, lower: number, upper: number }), cvarAlpha: str, cvarEssentialShortfallToday: str,
   display: obj({ pEssentialPercent: integer, wilsonLowerPercent: integer, wilsonUpperPercent: integer, cvarVnd: str }),
   bands: arr(obj({ month: str, p10: str, p50: str, p90: str })),
@@ -38,6 +38,11 @@ const simulation = {
     moneyRounding: str, probabilityRounding: str, historyMonths: integer, limitations: arr(str) }),
 };
 s.Candidate = obj({ status: en("READY"), ...simulation, id: str, changePoints: str, targets: arr(arr(ref("Allocation"))) });
+const extended={pAll:{type:"number",nullable:true},allGoalsStatus:str,allGoalsIssue:nullable};
+Object.assign(s.Candidate.properties,extended,{
+ selection:{anyOf:[obj({templateId:str,customAllocation:s.RiskInput.properties.trialAllocation},["templateId"]),{type:"object",nullable:true,enum:[null]}]},
+ loss:{$ref:"./retirement.openapi.yaml#/LossConstraint"}
+});
 const scenarioParameters = Object.values(s.RiskPolicy.properties.stresses.properties);
 s.Scenario = obj({ kind: str, status: en("READY", "REVIEW_REQUIRED", "NOT_APPLICABLE"), issues: arr(str), parameters: { anyOf: scenarioParameters },
   result: ref("PathResult"), assumptions: arr(str) }, ["kind", "status"]);
@@ -51,6 +56,7 @@ s.RiskResult = obj({ status: en("READY", "DATA_REQUIRED", "REVIEW_REQUIRED", "IN
   selectedId: nullable, threshold: str, candidates: arr(ref("Candidate")), rejected: arr(obj({ id: str, issues: arr(str) })),
   adjustmentOptions: { anyOf: [{ $ref: "./retirement.openapi.yaml#/AdjustmentOptions" }, obj({ status: en("REVIEW_REQUIRED"), issues: arr(str) })] }, adjustmentKinds: arr(str), rule: str,
 }, ["status"]);
+Object.assign(s.RiskResult.properties,extended,{referenceId:nullable,allThreshold:nullable});
 s.RiskResult.description = "pEssential is the fraction of COMPLETE paths funding every essential expense, not terminal solvency. CVaR = min eta [eta + mean((loss-eta)+)/(1-alpha)], loss is the sum of essential deficits at opening-month CPI prices. Wilson confidence=95% measures Monte Carlo sampling error only. Bands are funded balances in today's VND, rounded to millions; display probabilities to whole percentage points. Candidate comparison uses raw values, common seed, probability threshold then minimum CVaR then minimum equity shift. No Sharpe criterion. Missing data => DATA_REQUIRED; missing approved parameters/classification => REVIEW_REQUIRED; timeout/operation caps => LIMIT_EXCEEDED without partial statistics. Deterministic scenarios have individual statuses; longevity is the eighth kind. No writes or trades.";
 s.RebalanceResult = obj({ status: en("REVIEW_REQUIRED", "WITHIN_BAND", "PROPOSED"), issues: arr(str), policyVersionId: uuid, policyHash: str, month: str, persisted: boolean, informationalOnly: boolean,
   oldWeights: arr(ref("Allocation")), targetWeights: arr(ref("Allocation")), newWeights: arr(ref("Allocation")), reason: str, bandPoints: str, costPercent: str, cost: str, netValue: str,

@@ -1,3 +1,119 @@
+Packages:
+  type: object
+  additionalProperties: false
+  required:
+    - status
+    - informationalOnly
+    - persisted
+    - lines
+    - A
+    - B
+    - same
+    - profileRevision
+    - policyVersionId
+    - growthCapital
+  properties:
+    status: &a1
+      type: string
+    informationalOnly:
+      type: boolean
+    persisted:
+      type: boolean
+    lines:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - assetClass
+          - weightPercent
+          - amountVnd
+          - status
+          - a
+          - b
+        properties:
+          assetClass: *a1
+          weightPercent: *a1
+          amountVnd:
+            type: string
+            nullable: true
+          status: *a1
+          a:
+            anyOf:
+              - &a2
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                  - name
+                  - partnerId
+                  - partnerName
+                  - category
+                  - annualFeePercent
+                  - liquidityDays
+                  - minimumAmount
+                properties:
+                  id: *a1
+                  name: *a1
+                  partnerId: *a1
+                  partnerName: *a1
+                  category: *a1
+                  annualFeePercent: *a1
+                  liquidityDays:
+                    type: integer
+                  minimumAmount: *a1
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          b:
+            anyOf:
+              - *a2
+              - type: object
+                nullable: true
+                enum:
+                  - null
+    A: &a3
+      type: object
+      additionalProperties: false
+      required:
+        - ids
+        - annualFeeVnd
+        - coveredPercent
+        - providers
+      properties:
+        ids:
+          type: array
+          items: *a1
+        annualFeeVnd: *a1
+        coveredPercent: *a1
+        providers:
+          type: integer
+    B: *a3
+    same:
+      type: boolean
+    profileRevision:
+      type: integer
+    policyVersionId: *a1
+    growthCapital:
+      type: string
+      nullable: true
+PackagesEnvelope:
+  type: object
+  additionalProperties: false
+  required:
+    - data
+    - meta
+  properties:
+    data:
+      $ref: "#/Packages"
+    meta:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+      properties:
+        requestId: *a1
 Input:
   type: object
   additionalProperties: false
@@ -40,6 +156,35 @@ Input:
     retirementMonth:
       type: string
       pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    customAllocation:
+      type: object
+      additionalProperties: false
+      properties:
+        model:
+          type: string
+          enum:
+            - custom-glide-v1
+        weights:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              assetClass:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              weightPercent:
+                type: string
+                maxLength: 20
+                pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+            required:
+              - assetClass
+              - weightPercent
+          minItems: 1
+          maxItems: 20
+      required:
+        - model
+        - weights
   required:
     - expectedProfileRevision
     - policyVersionId
@@ -98,6 +243,9 @@ Result:
   type: object
   additionalProperties: false
   required:
+    - customAllocation
+    - customization
+    - returnBreakdown
     - profileRevision
     - valuationDate
     - policyVersionId
@@ -110,10 +258,134 @@ Result:
     - issues
     - informationalOnly
   properties:
+    customAllocation:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            model:
+              type: string
+              enum:
+                - custom-glide-v1
+            weights:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  assetClass:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  weightPercent:
+                    type: string
+                    maxLength: 20
+                    pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                required:
+                  - assetClass
+                  - weightPercent
+              minItems: 1
+              maxItems: 20
+          required:
+            - model
+            - weights
+        - type: object
+          nullable: true
+          enum:
+            - null
+    customization:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            evidence:
+              type: string
+              minLength: 5
+              maxLength: 2000
+            path:
+              type: string
+              enum:
+                - FOLLOW_TEMPLATE_SHIFTS
+            capitalBasis:
+              type: string
+              enum:
+                - PROTECTED_CAPITAL_V1
+            bounds:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  assetClass:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  minPercent:
+                    type: string
+                    maxLength: 20
+                    pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                  maxPercent:
+                    type: string
+                    maxLength: 20
+                    pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                required:
+                  - assetClass
+                  - minPercent
+                  - maxPercent
+              minItems: 1
+              maxItems: 20
+          required:
+            - evidence
+            - path
+            - capitalBasis
+            - bounds
+        - type: object
+          nullable: true
+          enum:
+            - null
+    returnBreakdown:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - basis
+            - rows
+            - monthly
+            - nominalAnnualPercent
+            - effectiveAnnualPercent
+            - pathAnnualPercent
+            - months
+            - includesModeledTurnoverCosts
+          properties:
+            basis: *a1
+            rows:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - assetClass
+                  - weightPercent
+                  - monthlyRate
+                  - monthlyContribution
+                properties:
+                  assetClass: *a1
+                  weightPercent: *a1
+                  monthlyRate: *a1
+                  monthlyContribution: *a1
+            monthly: *a1
+            nominalAnnualPercent: *a1
+            effectiveAnnualPercent: *a1
+            pathAnnualPercent: *a1
+            months:
+              type: integer
+            includesModeledTurnoverCosts:
+              type: boolean
+        - type: object
+          nullable: true
+          enum:
+            - null
     profileRevision:
       type: integer
-    valuationDate: &a1
-      type: string
+    valuationDate: *a1
     policyVersionId: *a1
     assumptionVersionId: *a1
     capital:
