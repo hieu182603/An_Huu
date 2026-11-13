@@ -148,8 +148,9 @@ export default function RetirementPlanPage() {
     }
     setLoadingPolicy(true);
     setPolicyDetail(null);
-    (policyId ? fetchUserPortfolioPolicyDetail(policyId) : fetchUserPortfolioPolicies(1, 1).then(async res =>
-      res.status === "AVAILABLE" && res.items.length ? fetchUserPortfolioPolicyDetail(res.items[0].id) : null
+    const fresh = policyAttempt > 0;
+    (policyId ? fetchUserPortfolioPolicyDetail(policyId, fresh) : fetchUserPortfolioPolicies(1, 1, fresh).then(async res =>
+      res.status === "AVAILABLE" && res.items.length ? fetchUserPortfolioPolicyDetail(res.items[0].id, fresh) : null
     )).then(detail => {
       if (active) setPolicyDetail(detail);
     })

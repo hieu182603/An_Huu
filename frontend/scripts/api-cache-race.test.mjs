@@ -79,3 +79,24 @@ test("a notification write and read-only preview keep unrelated in-flight profil
     assert.equal(reads, 1);
   } finally { gate.resolve(response({ revision: 1 })); globalThis.fetch = originalFetch; clearAccessToken(); }
 });
+
+test("an opted-in read-only POST is cached by its body and cleared by a profile write", async () => {
+  const originalFetch = globalThis.fetch;
+  let computes = 0;
+  clearAccessToken();
+  globalThis.fetch = async (_url, options) => {
+    if (options.method === "PATCH") return response({ revision: 2 });
+    computes++;
+    return response({ input: JSON.parse(options.body), run: computes });
+  };
+  const preview = body => authenticatedRequest("/me/retirement/preview?adjustments=skip", body, "POST", undefined, { cacheReadOnlyPost: true });
+  try {
+    assert.deepEqual(await preview({ a: 1 }), { input: { a: 1 }, run: 1 });
+    assert.deepEqual(await preview({ a: 1 }), { input: { a: 1 }, run: 1 }, "same input reuses the result");
+    assert.deepEqual(await preview({ a: 2 }), { input: { a: 2 }, run: 2 }, "a different input is computed");
+    await authenticatedRequest("/me/financial-profile", {}, "PATCH");
+    assert.deepEqual(await preview({ a: 1 }), { input: { a: 1 }, run: 3 }, "a profile write makes previews stale");
+    await authenticatedRequest("/me/retirement/preview?adjustments=skip", { a: 1 }, "POST");
+    assert.equal(computes, 4, "without the option a POST is never served from cache");
+  } finally { globalThis.fetch = originalFetch; clearAccessToken(); }
+});

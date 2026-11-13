@@ -328,7 +328,7 @@ export async function previewMonthlyRetirement(
   return await shareInFlight(`${query}|${JSON.stringify(input)}`, signal, shared => authenticatedRequest<RetirementPreviewResult>(
     `/me/retirement/preview${query}`,
     input,
-    "POST", undefined, { signal: shared, ...(adjustments === "include" ? { timeoutMs: PREVIEW_ADJUSTMENTS_TIMEOUT_MS } : {}) }
+    "POST", undefined, { signal: shared, cacheReadOnlyPost: true, ...(adjustments === "include" ? { timeoutMs: PREVIEW_ADJUSTMENTS_TIMEOUT_MS } : {}) }
   ));
 }
 

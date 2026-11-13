@@ -35,9 +35,11 @@ export default function RiskPortfolioPage() {
   const [savingRisk,setSavingRisk]=useState(false), [riskError,setRiskError]=useState("");
   const policies=useDiscoveryQuery(`${user?.id}:${loadingPlans}:${selection.policyVersionId}:${v2Profile?.retirementSurvey?.policyVersionId}:${policyAttempt}`,async()=>{
     if(loadingPlans) return null;
-    const list=await fetchUserPortfolioPolicies(1,50);
+    const fresh=policyAttempt>0, knownId=selection.policyVersionId??v2Profile?.retirementSurvey?.policyVersionId;
+    // A known version's detail does not depend on the list: fetch both at once.
+    const [list,known]=await Promise.all([fetchUserPortfolioPolicies(1,50,fresh),knownId?fetchUserPortfolioPolicyDetail(knownId,fresh):null]);
     if(!list.items.length) return null;
-    return fetchUserPortfolioPolicyDetail(selection.policyVersionId??v2Profile?.retirementSurvey?.policyVersionId??list.items[0].id);
+    return known??fetchUserPortfolioPolicyDetail(list.items[0].id,fresh);
   });
   useEffect(()=>{if(!loadingPlans&&!loadingProfile){setEndMonth(selection.endMonth??"");setLiquidityNeedMonths(selection.liquidityNeedMonths??0);}},[loadingPlans,loadingProfile,currentVersion?.id,user?.id,selection.endMonth,selection.liquidityNeedMonths]);
   const policyDetail=policies.data??null, questions=policyDetail?.data.questions??[];
