@@ -1,0 +1,7 @@
+Tải ngày 2026-11-12 (giờ UTC 15:2x). Mỗi dòng: tệp lưu <- nguồn; ghi chú.
+ND351_2025_CB.docx <- https://congbao.chinhphu.vn/van-ban/nghi-dinh-so-351-2025-nd-cp-468331.htm (tệp DOCX đính kèm trang Công báo, có chữ ký số; Phụ lục đo lường chỉ số không có trong DOCX nên không trích)
+TT11_2025_VBPL.html.txt <- https://vbpl.vn/van-ban/chi-tiet/thong-tu-so-11-2025-tt-bnv--179767 (snapshot trang CSDL quốc gia về pháp luật, toàn văn nhúng trong trang; Công báo không có bản DOC/DOCX)
+TT29_2026_VBPL.html.txt <- https://vbpl.vn/van-ban/chi-tiet/thong-tu-so-29-2026-tt-nhnn-sua-doi-bo-sung-mot-so-dieu-cua-thong-tu-so-39-2016-tt-nhnn-quy-dinh-ve-hoat-dong-cho-vay-cua-to-chuc-tin-dung-chi-nhanh-ngan-hang-nuoc-ngoai-doi-voi-khach-hang--03a52e90-84da-11f1-bb78-cf3252a415e6 (snapshot trang CSDL quốc gia về pháp luật)
+Đối chiếu: TT11 với bản ký scan ../../legal-2026/sources/R06.pdf (datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/11-bnv.pdf), đọc cả 4 trang, khớp Điều 1–7; NĐ351 Điều 1–4 với ../../legal-2026/sources/POVERTY2026.pdf trang 1–2, khớp số liệu 2.200.000/2.800.000 và mốc 01/01–31/12/2026. TT29 chưa có bản ký lưu trong repo để đối chiếu.
+Đã sửa khi trích: bỏ dòng số trang "3" ở đầu trang vbpl TT29; bỏ ký tự "[" thừa ở khối chữ ký DOCX NĐ351. Không sửa chữ nào khác.
+Bỏ qua: Công văn 340/BHXH-CSXH và 151/BHXH-ĐTQ — bản chính thức (baohiemxahoi.gov.vn, xdcs.cdnchinhphu.vn) chỉ là ảnh scan, máy này không có OCR; bản chữ chỉ có ở trang thương mại (luatvietnam.vn, thuvienphapluat.vn), không phải nguồn chính thức.

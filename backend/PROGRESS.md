@@ -1,3 +1,23 @@
+## Trợ lý AI — bổ sung văn bản pháp luật còn thiếu vào kho kiến thức (12/11/2026)
+
+- **Đã thêm** (thư mục mới `seed-data/knowledge-legal-2026-11/`: `knowledge-manifest.json`, bản gốc ở `sources-kb/`, chữ ở `sources-kb-text/`, SHA-256 ở `SHA256SUMS` của từng thư mục, nguồn và cách đối chiếu ở `sources-kb/sources-pages.txt`). **Chưa nạp DB.**
+  - **TT 11/2025/TT-BNV** (Bộ Nội vụ, ký 30/6/2025, hiệu lực 01/7/2025), BHXH tự nguyện. Lấy toàn văn từ vbpl.vn (ItemID 179767) vì Công báo không có bản DOC/DOCX. Đã đối chiếu Điều 1–7 với bản ký scan `legal-2026/sources/R06.pdf`: khớp. Bản gốc `TT11_2025_VBPL.html.txt` sha256 `640eb64a…6c086a78`, chữ `TT11_2025.txt` `79fb0d88…eb0`.
+  - **NĐ 351/2025/NĐ-CP** (Chính phủ, ký 30/12/2025, hiệu lực 15/02/2026), chuẩn nghèo đa chiều 2026–2030. Lấy DOCX từ Công báo (mã 468331). Đã đối chiếu Điều 1–4 với `legal-2026/sources/POVERTY2026.pdf`: khớp. DOCX không có Phụ lục đo lường chỉ số nên không trích. `ND351_2025_CB.docx` `08d33ce5…60f1f4`, `ND351_2025.txt` `acaa44dd…cf4e78`.
+  - **TT 29/2026/TT-NHNN** (NHNN, ký 30/6/2026, hiệu lực 15/8/2026), sửa TT 39/2016 về cho vay. Lấy toàn văn từ vbpl.vn. Chưa có bản ký trong repo để đối chiếu. `TT29_2026_VBPL.html.txt` `9d86ad98…c5eae9`, `TT29_2026.txt` `c11b3317…e43c9`.
+  - Khi trích chỉ bỏ 2 chỗ: số trang "3" ở đầu trang vbpl TT29 và ký tự "[" thừa ở khối chữ ký NĐ351.
+- **Bỏ qua:** CV 340/BHXH-CSXH và CV 151/BHXH-ĐTQ. Bản chính thức (BHXH, cdnchinhphu) chỉ là ảnh scan, máy không có OCR; bản chữ chỉ có ở luatvietnam/thuvienphapluat, không phải nguồn chính thức. Hệ số CV340 và lãi suất CV151 vẫn dùng trong bộ quy định qua bảng đã chép và rà ở `legal-2026`.
+- **Khi commit:** `.gitignore` dòng 113 `*.docx` chặn `sources-kb/ND351_2025_CB.docx`; phải `git add -f`, giống các DOCX cũ trong `legal-2026/sources-kb`. Các tệp `.json`/`.txt` không bị chặn.
+- **Câu hỏi đánh giá:** thêm 6 câu vào `seed-data/knowledge-eval/questions.json` (nay 49 câu): 2 câu TT11 Điều 5, 2 câu NĐ351 Điều 2–3, 2 câu TT29 Điều 2 và 4. Đáp án đều có nguyên văn trong văn bản.
+- **Đo offline (không DB):** `scripts/eval-ai-knowledge.cjs` cần `PrismaClient`/`DATABASE_URL` (đang trỏ DB Azure production) nên **không chạy**. Thay bằng script tạm ngoài repo: dựng kho trong bộ nhớ từ manifest `legal-2026`, `knowledge-test-2026-11` và 2 tài liệu mà `seed-test-data.cjs` nạp (FAQ, kiến thức tiết kiệm), tách phần như `load-knowledge.cjs`, rồi gọi `KnowledgeService.retrieve`. Kết quả:
+  - 43 câu cũ: 93%/100% (đúng đoạn đầu / có trong các đoạn chọn), không đổi khi thêm văn bản mới. DB thật đo 11/11 được 91%/100%.
+  - 49 câu: kho hiện tại 84%/90%; thêm 3 văn bản 92%/100%.
+  - Số đo offline là xấp xỉ: 37 nguồn trong bộ nhớ so với 35 nguồn trên DB thật.
+- **Lệnh để chủ dự án chạy** (từ `backend`, kết nối DB):
+  - Đo trên DB: `node scripts/eval-ai-knowledge.cjs --preview-manifest=seed-data/knowledge-legal-2026-11/knowledge-manifest.json`
+  - Chạy thử, không ghi: `node scripts/load-knowledge.cjs --manifest=seed-data/knowledge-legal-2026-11/knowledge-manifest.json --actor=<ADMIN id>`, kỳ vọng 3 nguồn `create`.
+  - Nạp và duyệt: thêm `--apply --approve` vào lệnh trên.
+- Không sửa code, không chạy lệnh nào kết nối DB; typecheck không cần chạy lại. `legal-2026/sources-kb/README.md` thêm một dòng trỏ tới thư mục mới.
+
 ## Admin — cấp/thu hồi vai trò đầu tư và lưu thông báo toàn hệ thống (12/11/2026)
 
 - **Vai trò đầu tư (`users/investment-roles.ts`):** `GET /api/v1/admin/investment-roles` (các tài khoản ADMIN + vai trò, tối đa 200), `GET /admin/investment-roles/{userId}`, `POST /admin/investment-roles/{userId}/grant` và `/revoke` body strict `{ role, reason }`. Người gọi: login role ADMIN **và** vai trò đầu tư `SYSTEM_ADMIN` còn ACTIVE, kiểm bằng `requireInvestmentRole` trong transaction serializable; khác → 403. Chỉ tài khoản ADMIN nhận vai trò (USER → 422 `INVESTMENT_ROLE_ADMIN_ONLY`). Cấp trùng → 200 `changed:false`, không audit lần hai; thu hồi vai trò không có → 404 `ROLE_NOT_GRANTED`; thu hồi `SYSTEM_ADMIN` khi không còn ADMIN ACTIVE nào khác giữ nó (gồm tự thu hồi) → 409 `LAST_ROLE_MANAGER`. Audit `INVESTMENT_ROLE_GRANTED/REVOKED {role, reason}` cùng transaction. Bảng không có revision nên không CAS. Không migration.
