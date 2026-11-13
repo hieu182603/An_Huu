@@ -57,6 +57,7 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     issue("retirementContributionSchedule", "CONTRIBUTION_OUTSIDE_RETIREMENT");
   const portfolio = previewPortfolio(policy, assumptions, { policyVersionId: input.policyVersionId, startMonth: firstMonth, horizonMonths: length,
     answers: input.answers, liquidityNeedMonths: input.liquidityNeedMonths, ...(input.templateId ? { templateId: input.templateId } : {}),
+    ...(input.customAllocation ? { customAllocation: input.customAllocation } : {}),
     // Glide-path (schema v2) policies de-risk toward this month; v1 policies ignore it.
     retirementMonth }, input.scenario, cache);
   if (portfolio.status !== "READY") { issues.push(...portfolio.issues); return fail(); }

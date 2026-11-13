@@ -4,6 +4,7 @@ import { monthSchema } from "../../common/calendar";
 import { debtPreviewSchema } from "../debts/schema";
 import { ratePercentSchema } from "../assumptions/schema";
 import { Prisma } from "@prisma/client";
+import { customAllocationSchema } from "../portfolios/custom";
 
 const id = z.string().min(1).max(100);
 const schedule = z.array(z.object({ month: monthSchema, amount: moneySchema }).strict()).max(1200)
@@ -14,6 +15,7 @@ export const retirementPreviewQuerySchema = z.object({ adjustments: z.enum(["inc
 export const retirementPreviewSchema = z.object({
   expectedProfileRevision: z.number().int().min(1), policyVersionId: z.string().uuid(),
   scenario: z.enum(["BASE", "ADVERSE", "FAVORABLE"]), templateId: id.optional(),
+  customAllocation: customAllocationSchema.optional(),
   answers: z.array(z.object({ questionId: id, choiceId: id }).strict()).max(30),
   liquidityNeedMonths: z.number().int().min(0).max(1200),
   endMonth: monthSchema, monthlyExpenseToday: moneySchema, monthlyContribution: moneySchema,
@@ -51,6 +53,7 @@ export const retirementPreviewSchema = z.object({
   }).strict().optional(),
 }).strict().superRefine((value, ctx) => {
   const issue = (path: (string | number)[], message: string) => ctx.addIssue({ code: "custom", path, message });
+  if (value.customAllocation && !value.templateId) issue(["templateId"], "Cần phương án gốc cho lộ trình tự chọn.");
   if (value.contributionTiming === "END_OF_MONTH" && value.startOfMonthFunding)
     issue(["startOfMonthFunding"], "Chỉ khai nguồn đầu tháng khi chọn góp đầu tháng.");
   if (new Set(value.housing.map(h => h.assetId)).size !== value.housing.length) issue(["housing"], "Không được trùng tài sản.");
