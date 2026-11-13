@@ -24,6 +24,8 @@ export interface TemplateAllocation {
   assetClass: string;
   weightPercent: string;
 }
+export type CustomAllocation = { model:"custom-glide-v1";weights:TemplateAllocation[] };
+export type CustomizationPolicy = {evidence:string;path:"FOLLOW_TEMPLATE_SHIFTS";capitalBasis:"PROTECTED_CAPITAL_V1";bounds:Array<{assetClass:string;minPercent:string;maxPercent:string}>};
 
 export interface TemplateSchedulePeriod {
   fromIndex: number;
@@ -69,6 +71,8 @@ export interface PortfolioRule {
 }
 
 export interface PortfolioPolicyDocument {
+  customization?: CustomizationPolicy;
+  allocationRisk?: {essentialThreshold?:string;allGoalsThreshold?:string};
   schemaVersion: 1 | 2;
   title: string;
   reason: string;

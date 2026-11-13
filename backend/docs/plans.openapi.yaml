@@ -516,6 +516,49 @@ CreateInput:
           required:
             - annualPercent
             - paidFrom
+        customAllocation:
+          anyOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                model:
+                  type: string
+                  enum:
+                    - custom-glide-v1
+                weights:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      assetClass:
+                        type: string
+                        pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                      weightPercent:
+                        type: string
+                        maxLength: 20
+                        pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                    required:
+                      - assetClass
+                      - weightPercent
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - model
+                - weights
+            - type: object
+              nullable: true
+              enum:
+                - null
+        allocationFunding:
+          anyOf:
+            - type: string
+              enum:
+                - PROTECTED_CAPITAL_V1
+            - type: object
+              nullable: true
+              enum:
+                - null
       required:
         - expectedProfileRevision
         - policyVersionId
@@ -808,6 +851,49 @@ SimulationInput:
           required:
             - annualPercent
             - paidFrom
+        customAllocation:
+          anyOf:
+            - type: object
+              additionalProperties: false
+              properties:
+                model:
+                  type: string
+                  enum:
+                    - custom-glide-v1
+                weights:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      assetClass:
+                        type: string
+                        pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                      weightPercent:
+                        type: string
+                        maxLength: 20
+                        pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                    required:
+                      - assetClass
+                      - weightPercent
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - model
+                - weights
+            - type: object
+              nullable: true
+              enum:
+                - null
+        allocationFunding:
+          anyOf:
+            - type: string
+              enum:
+                - PROTECTED_CAPITAL_V1
+            - type: object
+              nullable: true
+              enum:
+                - null
       required:
         - expectedProfileRevision
         - policyVersionId

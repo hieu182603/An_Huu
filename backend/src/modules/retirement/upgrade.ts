@@ -32,6 +32,7 @@ export type PlanPreview = RetirementResult | SourceRetirementResult;
  * returned candidate is new; neither its parent snapshot nor the profile changes. */
 export function upgradeSourcePreview(capture: Awaited<ReturnType<RetirementService["capture"]>>, preview: PlanPreview,
   parentSnapshotHash: string, knownOn: string): SourceRetirementResult {
+  if (preview.replayInput?.protection) throw new AppError(422,"PROTECTED_SOURCE_UPGRADE_REQUIRED","Kế hoạch có vốn giữ riêng cần luồng đối soát nguồn tương ứng trước khi lập dự báo lại.");
   if (preview.modelVersion !== "retirement-monthly-v3" || preview.status !== "READY" || !preview.replayInput || !preview.calculation || preview.replayInput.modelVersion !== "retirement-monthly-v3")
     throw new AppError(422, "SOURCE_UPGRADE_REQUIRES_V3", "Cần bản dự báo v3 hoàn chỉnh trước khi tạo phiên bản nguồn.");
   if (knownOn < capture.profile.valuationDate) throw new AppError(422, "SOURCE_KNOWLEDGE_DATE_INVALID", "Ngày ghi nhận không được trước ngày định giá nguồn.");

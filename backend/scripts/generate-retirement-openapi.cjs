@@ -26,9 +26,15 @@ s.ReplayInput = obj({ valuationDate: str, retirementMonth: str, initialCapital: 
   monthlyContribution: decimal, contributionTiming: en("END_OF_MONTH", "START_OF_MONTH_RESEARCH", "START_OF_MONTH"), rows: arr(ref("MonthlyInput")) });
 s.ReplayInput.properties.modelVersion = en("retirement-monthly-v3");
 s.ReplayInput.properties.contributionStartMonth = str;
+s.Protection=obj({model:en("protected-capital-v1"),emergencyReserve:decimal,
+ goals:arr(obj({id:str,month:str,amount:decimal,openingReserve:decimal,essential:bool})),depositFactors:arr(decimal),depositAssetClass:str,rawRows:arr(ref("MonthlyInput"))});
+Object.assign(s.Protection.properties.goals.items.properties,{depositAssetClass:str,depositFactors:arr(decimal)});
+s.ReplayInput.properties.protection=ref("Protection");
 s.Row = obj({ ...row, phase: en("ACCUMULATION", "RETIREMENT"), ...Object.fromEntries([
   "openingBalance", "investmentChange", "closingBalance", "fundedClosingBalance", "unfundedWithdrawal", "budgetShortfall", "requiredOpeningBalance", "requiredClosingBalance", "netWithdrawal",
 ].map(k => [k, decimal])) });
+for(const name of ["MonthlyInput","Row"])for(const key of ["protectedHouseholdPaid","goalExpense","protectedGoalPaid","essentialGoalExpense","protectedEssentialGoalPaid","protectedClosingBalance"])
+ s[name].properties[key]=decimal;
 s.Comparison = obj({ projectedFund: decimal, requiredFund: decimal, fundingGap: decimal, coveragePercent: nullableDecimal });
 s.Summary = obj({ valuationDate: str, retirementMonth: str, endMonth: str, accumulationMonths: num, retirementMonths: num,
   initialRetirementCapital: decimal, atRetirement: ref("Comparison"), atValuation: ref("Comparison"), algebraicRequiredFund: decimal,

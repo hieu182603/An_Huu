@@ -22,16 +22,19 @@ import { deterministicStress, extendLongevityContext, severeEquityCrash } from "
 import { allocationCandidates, selectCandidate } from "./selection";
 import { proposeRebalance, rebalanceInputSchema, type Allocation } from "./rebalance";
 import type { z } from "zod";
+import { customTargets, customAllocationSchema, type CustomAllocation } from "../portfolios/custom";
 
 type Capture = Awaited<ReturnType<RetirementService["capture"]>>;
 const review = (...issues: string[]) => ({ status: "REVIEW_REQUIRED" as const, issues });
 const activeUsers = new Set<string>();
-function targetsAt(policy: PortfolioDocument, templateId: string, months: string[], retirementMonth: string): Allocation[][] | null {
+function targetsAt(policy: PortfolioDocument, templateId: string, months: string[], retirementMonth: string, custom?: CustomAllocation): Allocation[][] | null {
   const template = policy.templates.find(t => t.id === templateId);
   if (!template) return null;
   if ("glidePath" in template) {
     const codes = [...new Set(template.glidePath.points.flatMap(p => p.allocations.map(a => a.assetClass)))];
-    return months.map(m => [...glideTargets(template, glideYears(template, m, retirementMonth), codes)].map(([assetClass, w]) => ({ assetClass, weightPercent: w.mul(100).toFixed() })));
+    const initial = glideTargets(template, glideYears(template, months[0], retirementMonth), codes);
+    return months.map(m => { const target = glideTargets(template, glideYears(template, m, retirementMonth), codes);
+      return [...(custom ? customTargets(custom, initial, target) : target)].map(([assetClass, w]) => ({ assetClass, weightPercent: w.mul(100).toFixed() })); });
   }
   return months.map((_, i) => template.schedule.find(s => s.fromIndex <= i + 1 && s.toIndex >= i + 1)?.allocations ?? []);
 }
@@ -44,7 +47,8 @@ function contextOf(capture: Capture, preview: PlanPreview): RiskContext | null {
     calculation: { ...preview.calculation, modelVersion: "retirement-monthly-v3" },
   });
   if (essential.rows.some(r => r.essentialExpense === null)) return null;
-  let essentials = essential.rows.map(r => r.essentialExpense!);
+  let essentials = essential.rows.map((r,i) => new D(r.essentialExpense!).minus(
+    (preview.calculation!.rows[i] as typeof preview.calculation.rows[number]&{essentialGoalExpense?:string}).essentialGoalExpense??0).toFixed());
   // Source plans must retain classified expense identities. New/legacy expense
   // aggregates carry no essential/optional classification: never guess one.
   if (replay.modelVersion === "retirement-monthly-v4") {
@@ -59,7 +63,7 @@ function contextOf(capture: Capture, preview: PlanPreview): RiskContext | null {
   } else if (preview.reforecast && (preview.futureChanges?.length || preview.sourceChanges?.length)) return null;
   const templateId = preview.calculation.assessment.selectedTemplateId;
   if (!templateId) return null;
-  const targets = targetsAt(capture.policy.data, templateId, replay.rows.map(r => r.month), replay.retirementMonth);
+  const targets = targetsAt(capture.policy.data, templateId, replay.rows.map(r => r.month), replay.retirementMonth, preview.selection.customAllocation);
   const template = capture.policy.data.templates.find(t => t.id === templateId);
   if (!targets || !template) return null;
   // Undo only the prior additional external fee; runPath recalculates all fees.
@@ -75,12 +79,17 @@ function contextOf(capture: Capture, preview: PlanPreview): RiskContext | null {
       ...replay.sourceBudget.startFunding,
     } : undefined } : preview.selection;
   return { projection, selection, essentialExpenses: essentials, targets,
+    allGoalsCovered: !!replay.protection || (capture.profile.goals?.status === "KNOWN" && capture.profile.goals.entries.length === 0),
     rebalance: preview.calculation.marketRows.map(r => r.rebalanced), turnoverCostPercent: template.rebalance.turnoverCostPercent };
 }
 function deterministicMarket(preview: PlanPreview): PathMarket[] {
-  return preview.calculation!.marketRows.map(r => ({ cpi: new D(r.inflationMonthlyFactor).minus(1).toFixed(),
+  const protection=preview.replayInput?.protection;
+  return preview.calculation!.marketRows.map((r,i) => ({ cpi: new D(r.inflationMonthlyFactor).minus(1).toFixed(),
     returns: Object.fromEntries(r.holdings.map(h => [h.assetClass,
-      new D(h.annualNetNominalReturnPercent).div(1200).toFixed()])) }));
+      new D(h.annualNetNominalReturnPercent).div(1200).toFixed()]).concat(protection?[
+        [protection.depositAssetClass,new D(protection.depositFactors[i]).minus(1).toFixed()],
+        ...protection.goals.flatMap(g=>g.depositAssetClass&&g.depositFactors?.[i]?[[g.depositAssetClass,new D(g.depositFactors[i]).minus(1).toFixed()]]:[])
+      ]:[])) }));
 }
 export class AllocationRiskService {
   constructor(private db: PrismaClient, private optimizer = { continuous: false, fallback: false }) {}
@@ -110,7 +119,7 @@ export class AllocationRiskService {
     const context = contextOf(capture, preview), policy = capture.policy.data.schemaVersion === 2 ? capture.policy.data.allocationRisk : undefined;
     if (!context) return { ...reference, ...review("CLASSIFIED_SERVER_CASHFLOWS_AND_COMPLETE_PROJECTION_REQUIRED") };
     const deadline = performance.now() + LIMITS.maxRuntimeMs;
-    if (mode === "simulation") return { ...reference, ...await simulate(context, dataset.data, policy, input.paths, deadline) };
+    if (mode === "simulation") return { ...reference, ...await simulate(context, dataset.data, policy, input.paths, deadline, input.detail) };
     if (mode === "scenarios") {
       const propertyInjections = preview.reforecast ? undefined : (capture.profile.assets.status === "KNOWN" ? capture.profile.assets.entries : []).flatMap(a => {
         const plan = a.housingPlan, mapping = preview.selection.housing.find(h => h.assetId === a.id);
@@ -155,6 +164,13 @@ export class AllocationRiskService {
     if (continuous && !continuous.input) return { ...reference, ...review(continuous.issue ?? "OPTIMIZER_CONSTRAINTS_REQUIRED") };
     if (continuous?.candidate) candidates.unshift(continuous.candidate);
     if (continuous && !this.optimizer.fallback) candidates.splice(continuous.candidate ? 1 : 0);
+    if (input.trialAllocation) {
+      const trialPreview = new RetirementService(this.db).evaluate(capture, { ...loaded.selection, customAllocation: input.trialAllocation });
+      const trialContext = contextOf(capture, trialPreview);
+      if (trialPreview.status !== "READY" || !trialContext) return { ...reference, ...review(...trialPreview.issues.map(i=>i.code), "CUSTOM_ALLOCATION_REVIEW_REQUIRED") };
+      candidates.push({ id: "CUSTOM", valid: true, targets: trialContext.targets,
+        changePoints: trialContext.targets[0].reduce((sum,row)=>sum.plus(new D(row.weightPercent).minus(context.targets[0].find(r=>r.assetClass===row.assetClass)?.weightPercent??0).abs()),new D(0)).toFixed() });
+    }
     const scores = [], rejected = [];
     if (input.paths * context.projection.rows.length * candidates.length > LIMITS.maxPathMonths)
       return { ...reference, status: "LIMIT_EXCEEDED" as const, issues: ["CANDIDATE_PATH_MONTH_LIMIT"], limits: LIMITS };
@@ -167,15 +183,37 @@ export class AllocationRiskService {
         t.map(a => ({ assetClass: a.assetClass, startWeightPercent: a.weightPercent }))));
       if (checks.some(c => c.status === "REVIEW_REQUIRED")) return { ...reference, ...review("LOSS_CONSTRAINT_INPUTS_REQUIRED") };
       if (checks.some(c => c.status !== "WITHIN_LIMIT")) { rejected.push({ id: candidate.id, issues: ["LOSS_CONSTRAINT_EXCEEDED"] }); continue; }
-      const result = await simulate({ ...context, targets: candidate.targets }, dataset.data, policy, input.paths, deadline);
+      const result = await simulate({ ...context, targets: candidate.targets }, dataset.data, policy, input.paths, deadline, input.detail);
       if (result.status !== "READY") return { ...reference, ...result };
-      scores.push({ ...result, id: candidate.id, changePoints: candidate.changePoints, targets: candidate.targets });
+      let selection: {templateId:string;customAllocation?:CustomAllocation}|null=null;
+      const templateId=context.selection.templateId??preview.calculation?.assessment.selectedTemplateId;
+      if(input.detail&&templateId){
+        if(candidate.id==="BASE") selection={templateId,...(context.selection.customAllocation?{customAllocation:context.selection.customAllocation}:{})};
+        else if(capture.policy.data.schemaVersion===2&&capture.policy.data.customization){
+          const weights=candidate.targets[0].map(r=>({...r,weightPercent:new D(r.weightPercent).toDecimalPlaces(8).toFixed()}));
+          if(weights.length)weights[weights.length-1].weightPercent=new D(100).minus(weights.slice(0,-1).reduce((s,r)=>s.plus(r.weightPercent),new D(0))).toFixed();
+          const choice=customAllocationSchema.safeParse({model:"custom-glide-v1",weights});
+          if(choice.success){
+            // Normalize the last share after precision rounding, then verify the
+            // replayable recipe reproduces every simulated target.
+            const generated=targetsAt(capture.policy.data,templateId,context.projection.rows.map(r=>r.month),context.projection.retirementMonth,choice.data);
+            const equal=generated?.every((rows,i)=>rows.every(row=>new D(row.weightPercent).minus(candidate.targets[i].find(r=>r.assetClass===row.assetClass)?.weightPercent??-100).abs().lt("0.0000001")));
+            const checked=equal?new RetirementService(this.db).evaluate(capture,{...loaded.selection,templateId,customAllocation:choice.data}):null;
+            if(checked?.status==="READY")selection={templateId,customAllocation:choice.data};
+          }
+        }
+      }
+      scores.push({ ...result, id: candidate.id, changePoints: candidate.changePoints, targets: candidate.targets,...(input.detail?{selection,loss:checks[0]}:{}) });
     }
     const selected = selectCandidate(scores, policy.essentialThreshold);
+    const replayable=scores.filter(c=>c.id!=="CUSTOM"&&(!input.detail||c.selection));
+    const referenceChoice=selectCandidate(replayable,policy.essentialThreshold)
+      ?? [...replayable].sort((a,b)=>new D(a.cvarEssentialShortfallToday).cmp(b.cvarEssentialShortfallToday)||new D(a.changePoints).cmp(b.changePoints))[0];
     const adjustments = selected ? undefined : preview.reforecast ? { status: "REVIEW_REQUIRED", issues: ["REFORECAST_ADJUSTMENTS_REQUIRE_SOURCE_REBUILD"] }
       : adjustmentOptions(capture.profile, preview.selection, capture.policy.data, capture.assumptions.data,
         prepareRetirement(capture.profile, preview.selection, capture.policy.data, capture.assumptions.data));
     return { ...reference, status: selected ? "READY" : "INSUFFICIENT", selectedId: selected?.id ?? null, threshold: policy.essentialThreshold,
+      ...(input.detail?{referenceId:referenceChoice?.id??null,allThreshold:policy.allGoalsThreshold??null}:{}),
       optimization: continuous ? { status: continuous.result?.status ?? "REVIEW_REQUIRED", method: continuous.result?.solverMetadata.method, issues: continuous.result?.issues ?? (continuous.issue ? [continuous.issue] : []), feasible: continuous.result?.solverMetadata.feasible ?? false } : { status: "DISABLED", method: "APPROVED_FINITE_CANDIDATES" },
       candidates: scores, rejected, ...(adjustments ? { adjustmentOptions: adjustments, adjustmentKinds: ["CONTRIBUTE_MORE", "RETIRE_LATER", "SPEND_LESS"] } : {}),
       rule: "P_ESSENTIAL_THRESHOLD_THEN_MIN_CVAR_THEN_MIN_ALLOCATION_CHANGE" };

@@ -13,6 +13,7 @@ export const riskPolicySchema = z.object({
   blockMonths: z.number().int().min(12).max(36).optional(),
   cvarAlpha: decimal.refine(v => new Prisma.Decimal(v).gt(0) && new Prisma.Decimal(v).lt(1)).optional(),
   essentialThreshold: decimal.refine(v => new Prisma.Decimal(v).gt(0) && new Prisma.Decimal(v).lte(1)).optional(),
+  allGoalsThreshold: decimal.refine(v => new Prisma.Decimal(v).gt(0) && new Prisma.Decimal(v).lte(1)).optional(),
   equityShiftPoints: positive.refine(v => new Prisma.Decimal(v).lte(100)).optional(),
   rebalanceBandPoints: percent.optional(),
   continuousOptimizer: z.object({

@@ -8,6 +8,7 @@ const previewOrigin = process.env.USER_UI_PREVIEW_ORIGIN ?? 'http://127.0.0.1:55
 const { createApp } = require('../src/app');
 const { remainingFixture } = require('../src/tests/remaining-user-fixtures');
 const { allocationFixture } = require('../src/tests/allocation-workspace-fixtures');
+const { customFixture } = require('../src/tests/allocation-custom-fixtures');
 const { discoveryFixture } = require('../src/tests/discovery-fixtures');
 const { config, token } = require('../src/tests/helpers');
 const {consultationLimiter,aiLimiter}=require('../src/middlewares/rateLimiter');
@@ -15,7 +16,7 @@ const harness = express(); harness.use(express.json()); let application;
 harness.get('/__fixture/ready', (_req,res) => res.json({ ready:true }));
 harness.post('/__fixture/reset', async (req,res,next) => {
   try {
-    const f = await (req.body.remaining ? remainingFixture(req.body) : req.body.allocation ? allocationFixture(req.body) : discoveryFixture(req.body)); f.auth.validateSession = async () => f.owner;
+    const f = await (req.body.customAllocation ? customFixture({ui:true,noMarket:req.body.noMarket}) : req.body.remaining ? remainingFixture(req.body) : req.body.allocation ? allocationFixture(req.body) : discoveryFixture(req.body)); f.auth.validateSession = async () => f.owner;
     // A reset starts an independent synthetic account fixture; production limits remain unchanged.
     await consultationLimiter.resetKey('user:test-user');await aiLimiter.resetKey('user:test-user');
     application = createApp({ config: { ...config, CLIENT_URL:previewOrigin, origins:[previewOrigin] }, services:f.services });

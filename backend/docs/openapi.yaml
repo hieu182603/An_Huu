@@ -10888,151 +10888,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-  /api/v1/me/portfolio-policies/workspace/preview:
-    post:
-      operationId: previewAllocationWorkspace
-      security:
-        - bearerAuth: []
-      description: USER/v2 read-only current profile revision + published
-        hash-verified policy/dependency. Canonical capital separation, loss
-        stress and first-month actual weights/Decimal amounts. Never infer
-        missing dates, amounts, answers or financial benchmarks. Optional
-        endMonth absent returns capital and explicit PLAN_END_MONTH_REQUIRED,
-        without portfolio result. Negative capital retained. liquidityNeedMonths
-        is portfolio eligibility horizon; reserve months remain based on
-        declared income stability. No cache/profile/plan/holdings write.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./allocation-workspace.openapi.yaml#/Input
-      responses:
-        "200":
-          description: Revision-bound illustrative result
-          content:
-            application/json:
-              schema:
-                $ref: ./allocation-workspace.openapi.yaml#/Envelope
-        "400":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "401":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "403":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "404":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "409":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "422":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "429":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "500":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-  /api/v1/me/financial-profile/loss-tolerance:
-    patch:
-      operationId: saveAllocationLossTolerance
-      security:
-        - bearerAuth: []
-      description: USER/v2 profile CAS. Explicit reaction + PERCENT/AMOUNT limit;
-        counterpart computed from current canonical positive growth capital and
-        published assumptions. Both known values replaced together, zero is
-        explicit. Transaction/audit/outbox marks plans stale; no plan-version
-        apply or trade. Stale/missing/unknown/negative growth rejected.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./allocation-workspace.openapi.yaml#/RiskPatch
-      responses:
-        "200":
-          description: Updated profile revision and summary
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
-        "400":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "401":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "403":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "404":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "409":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "422":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "429":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "500":
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/financial-profile/retirement-goal:
     patch:
       operationId: saveRetirementGoal
@@ -11847,6 +11702,140 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/portfolio-policies/workspace/packages:
+    post:
+      operationId: compareAllocationPackages
+      security: &a1
+        - bearerAuth: []
+      description: USER read-only product comparison on revision-bound allocation.
+        Reviewed current metadata, distribution/risk/liquidity/minimum/lot
+        filters. A lower fee then liquidity; B distinct alternative then
+        liquidity/fee. Missing assets remain uncovered. No orders, holdings or
+        plan writes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-workspace.openapi.yaml#/Input
+      responses:
+        "200":
+          description: Informational comparison
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-workspace.openapi.yaml#/PackagesEnvelope
+        "400": &a2
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401": &a3
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403": &a4
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404": &a5
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409": &a6
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422": &a7
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429": &a8
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500": &a9
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/portfolio-policies/workspace/preview:
+    post:
+      operationId: previewAllocationWorkspace
+      security: *a1
+      description: USER/v2 read-only current profile revision + published
+        hash-verified policy/dependency. Canonical capital separation, loss stress
+        and first-month actual weights/Decimal amounts. Never infer missing dates,
+        amounts, answers or financial benchmarks. Optional endMonth absent returns
+        capital and explicit PLAN_END_MONTH_REQUIRED, without portfolio result.
+        Negative capital retained. liquidityNeedMonths is portfolio eligibility
+        horizon; reserve months remain based on declared income stability. No
+        cache/profile/plan/holdings write.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-workspace.openapi.yaml#/Input
+      responses:
+        "200":
+          description: Revision-bound illustrative result
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-workspace.openapi.yaml#/Envelope
+        "400": *a2
+        "401": *a3
+        "403": *a4
+        "404": *a5
+        "409": *a6
+        "422": *a7
+        "429": *a8
+        "500": *a9
+  /api/v1/me/financial-profile/loss-tolerance:
+    patch:
+      operationId: saveAllocationLossTolerance
+      security: *a1
+      description: USER/v2 profile CAS. Explicit reaction + PERCENT/AMOUNT limit;
+        counterpart computed from current canonical positive growth capital and
+        published assumptions. Both known values replaced together, zero is
+        explicit. Transaction/audit/outbox marks plans stale; no plan-version
+        apply or trade. Stale/missing/unknown/negative growth rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-workspace.openapi.yaml#/RiskPatch
+      responses:
+        "200":
+          description: Updated profile revision and summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400": *a2
+        "401": *a3
+        "403": *a4
+        "404": *a5
+        "409": *a6
+        "422": *a7
+        "429": *a8
+        "500": *a9
 components:
   schemas:
     ErrorEnvelope:

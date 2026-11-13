@@ -85,6 +85,8 @@ export class ActualsService {
         throw new AppError(422, "ADVISORY_FEE_REFORECAST_REVIEW_REQUIRED", "Cần tính lại phí theo giá trị quỹ thực tế trước khi lập dự báo cập nhật.");
       await assertActualSource(tx, userId, version.preview.reforecast);
       const replay = version.preview.replayInput!;
+      if (replay.protection)
+        throw new AppError(422, "PROTECTED_ACTUAL_BALANCES_REQUIRED", "Cần đối soát riêng số dư quỹ dự phòng và quỹ mục tiêu thực tế trước khi dự báo lại kế hoạch phân bổ.");
       const start = replay.valuationDate.slice(0, 7), end = replay.rows.at(-1)!.month;
       if (input.throughMonth < start || input.throughMonth > end) throw new AppError(422, "ACTUAL_PERIOD_OUTSIDE_VERSION", "Tháng đối soát nằm ngoài phiên bản.");
       const actuals = (await tx.actualMonth.findMany({ where: { userId, period: { gte: start, lte: input.throughMonth } }, orderBy: { period: "asc" } })).map(view);

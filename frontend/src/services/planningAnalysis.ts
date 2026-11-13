@@ -21,7 +21,7 @@ export type EssentialCoverage = { basis: string; essentialShortfall: Amount; fir
 export type ReadWarning = { code: string; message: string; endMonth: string; expectedEndMonth: string; goalRevision: number };
 export type RiskPlan = { kind: "PREVIEW"; preview: RetirementPreviewInput } | { kind: "SAVED_VERSION"; planId: string; versionId: string };
 export type Source = { id: string; title: string; url: string; license: string; retrievedOn: string; usage: string; evidence: string };
-export type SimulationResult = { status: string; issues?: string[]; modelCode?: string; paths?: number; seed?: number; blockMonths?: number;
+export type SimulationResult = {pEssential?:number;pAll?:number|null;allGoalsStatus?:string;allGoalsIssue?:string|null; status: string; issues?: string[]; modelCode?: string; paths?: number; seed?: number; blockMonths?: number;
   cvarAlpha?: string; display?: { pEssentialPercent: number; wilsonLowerPercent: number; wilsonUpperPercent: number; cvarVnd: string };
   bands?: Array<{ month: string; p10: string; p50: string; p90: string }>;
   disclosure?: { period: { from: string; to: string }; sources: Source[]; historyMonths: number; limitations: string[]; bandBasis: string; moneyRounding: string; probabilityRounding: string } };
@@ -30,10 +30,10 @@ export type ScenarioResult = { kind?: string; extraYears?: number; status: strin
 export type RiskResult = SimulationResult & { marketVersionId?: string; marketVersion?: number; marketHash?: string; inputHash?: string; policyHash?: string;
   scenarios?: ScenarioResult[]; longevity?: { status: string; results: ScenarioResult[] }; sources?: Array<{ id: string; title?: string; name?: string; url?: string }>;
   optimization?: { status: string; method?: string; feasible?: boolean; issues?: string[] };
-  selectedId?: string | null; threshold?: string; rule?: string; candidates?: Array<SimulationResult & { id: string; changePoints: string; targets: Allocation[][] }>;
+  referenceId?:string|null;allThreshold?:string|null;selectedId?: string | null; threshold?: string; rule?: string; candidates?: Array<SimulationResult & { id: string; changePoints: string; targets: Allocation[][];loss?:LossConstraint;selection?:{templateId:string;customAllocation?:import("./portfolios").CustomAllocation}|null }>;
   rejected?: Array<{ id: string; issues: string[] }>; adjustmentOptions?: AdjustmentOptions; limitations?: string[] };
-export const analyzeRisk = (mode: "simulation" | "scenarios" | "selection", plan: RiskPlan, paths: number, marketVersionId?: string, signal?: AbortSignal) =>
-  authenticatedRequest<RiskResult>(`/me/retirement/risk/${mode}`, { plan, paths, ...(marketVersionId ? { marketVersionId } : {}) }, "POST", undefined, { signal });
+export const analyzeRisk = (mode: "simulation" | "scenarios" | "selection", plan: RiskPlan, paths: number, marketVersionId?: string, signal?: AbortSignal, trialAllocation?: import("./portfolios").CustomAllocation, detail?:"ALLOCATION_V2") =>
+  authenticatedRequest<RiskResult>(`/me/retirement/risk/${mode}`, { plan, paths, ...(marketVersionId ? { marketVersionId } : {}),...(trialAllocation?{trialAllocation}:{}),...(detail?{detail}:{}) }, "POST", undefined, { signal });
 export type RebalanceInput = { policyVersionId: string; templateId: string; month: string; retirementMonth: string;
   holdings: Array<{ assetClass: string; value: string; maturedAmount: string }>; newContribution: string };
 export type RebalanceResult = { status: string; issues?: string[]; persisted?: false; oldWeights?: Allocation[]; targetWeights?: Allocation[]; newWeights?: Allocation[];

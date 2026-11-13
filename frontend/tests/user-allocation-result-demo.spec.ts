@@ -12,7 +12,8 @@ async function result(page: Page, request: APIRequestContext, multiple = false) 
   await page.getByRole("button", { name: "Xem phương án của tôi →", exact: true }).click();
   const payload = await (await response).json();
   await expect(page.locator(".allocation-results")).toBeVisible();
-  if (!multiple) await expect(page.locator(".allocation-reference h2")).toHaveText("Fixture CAUTIOUS");
+  await page.locator(".allocation-template-details > summary").click();
+  if (!multiple) await expect(page.locator(".allocation-template-details .allocation-reference h2")).toHaveText("Fixture CAUTIOUS");
   return { ...state, data: payload.data ?? payload };
 }
 
@@ -38,8 +39,8 @@ test("result displays server amounts and derives the annual equivalent from the 
 test("product dialog reflects the selected allocation, closes with focus restored and opens real catalog routes", async ({ page, request }) => {
   const state = await result(page, request, true);
   await page.getByRole("button", { name: "Fixture GROWTH", exact: true }).click();
-  await expect(page.locator(".allocation-reference h2")).toHaveText("Fixture GROWTH");
-  const trigger = page.getByRole("button", { name: "Gợi ý gói đầu tư phù hợp", exact: true });
+  await expect(page.locator(".allocation-template-details .allocation-reference h2")).toHaveText("Fixture GROWTH");
+  const trigger = page.locator(".allocation-template-details").getByRole("button", { name: "Gợi ý gói đầu tư phù hợp", exact: true });
   await trigger.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("271.200.000");
@@ -58,7 +59,7 @@ for (const [name, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 10
   test(`demo result hierarchy and product dialog fit ${name}`, async ({ page, request }, info) => {
     await page.setViewportSize({ width, height });
     const state = await result(page, request);
-    const reference = await page.locator(".allocation-reference").boundingBox();
+    const reference = await page.locator(".allocation-template-details .allocation-reference").boundingBox();
     const alternatives = await page.locator(".allocation-alternatives").boundingBox();
     expect(reference && alternatives).toBeTruthy();
     if (width > 800) {
@@ -75,7 +76,7 @@ for (const [name, width, height] of [["desktop", 1440, 1000], ["tablet", 768, 10
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: info.outputPath("result.png"), fullPage: true });
-    await page.getByRole("button", { name: "Gợi ý gói đầu tư phù hợp", exact: true }).click();
+    await page.locator(".allocation-template-details").getByRole("button", { name: "Gợi ý gói đầu tư phù hợp", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     expect(await dialog.evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1; })).toBe(true);

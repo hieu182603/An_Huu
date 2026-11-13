@@ -513,6 +513,49 @@ RiskInput:
                   type: string
                   minLength: 1
                   maxLength: 100
+                customAllocation:
+                  anyOf:
+                    - type: object
+                      additionalProperties: false
+                      properties:
+                        model:
+                          type: string
+                          enum:
+                            - custom-glide-v1
+                        weights:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              assetClass:
+                                type: string
+                                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                              weightPercent:
+                                type: string
+                                maxLength: 20
+                                pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                            required:
+                              - assetClass
+                              - weightPercent
+                          minItems: 1
+                          maxItems: 20
+                      required:
+                        - model
+                        - weights
+                    - type: object
+                      nullable: true
+                      enum:
+                        - null
+                allocationFunding:
+                  anyOf:
+                    - type: string
+                      enum:
+                        - PROTECTED_CAPITAL_V1
+                    - type: object
+                      nullable: true
+                      enum:
+                        - null
                 answers:
                   type: array
                   items:
@@ -777,6 +820,39 @@ RiskInput:
       minimum: 1
       maximum: 500
       default: 100
+    detail:
+      type: string
+      enum:
+        - ALLOCATION_V2
+    trialAllocation: &a8
+      type: object
+      additionalProperties: false
+      properties:
+        model:
+          type: string
+          enum:
+            - custom-glide-v1
+        weights:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              assetClass:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              weightPercent:
+                type: string
+                maxLength: 20
+                pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+            required:
+              - assetClass
+              - weightPercent
+          minItems: 1
+          maxItems: 20
+      required:
+        - model
+        - weights
   required:
     - plan
   description: Read-only POST. No client return/CPI arrays, random seed or
@@ -801,6 +877,10 @@ RiskPolicy:
       maxLength: 30
       pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
     essentialThreshold:
+      type: string
+      maxLength: 30
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+    allGoalsThreshold:
       type: string
       maxLength: 30
       pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
@@ -894,7 +974,7 @@ RiskPolicy:
       type: object
       additionalProperties: false
       properties:
-        HIGH_INFLATION: &a7
+        HIGH_INFLATION: &a9
           type: object
           additionalProperties: false
           properties:
@@ -914,7 +994,7 @@ RiskPolicy:
             - offsetMonths
             - durationMonths
             - annualDeltaPoints
-        EQUITY_CRASH: &a8
+        EQUITY_CRASH: &a10
           type: object
           additionalProperties: false
           properties:
@@ -929,11 +1009,15 @@ RiskPolicy:
               type: string
               maxLength: 30
               pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            severeShockPercent:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
           required:
             - offsetMonths
             - assetClass
             - shockPercent
-        RATE_RISE: &a9
+        RATE_RISE: &a11
           type: object
           additionalProperties: false
           properties:
@@ -957,7 +1041,7 @@ RiskPolicy:
             - assetClass
             - durationYears
             - yieldRisePoints
-        CREDIT: &a10
+        CREDIT: &a12
           type: object
           additionalProperties: false
           properties:
@@ -981,7 +1065,7 @@ RiskPolicy:
             - assetClass
             - defaultPercent
             - recoveryPercent
-        GOLD: &a11
+        GOLD: &a13
           type: object
           additionalProperties: false
           properties:
@@ -1005,7 +1089,7 @@ RiskPolicy:
             - assetClass
             - shockPercent
             - spreadPoints
-        PROPERTY_ILLIQUIDITY: &a12
+        PROPERTY_ILLIQUIDITY: &a14
           type: object
           additionalProperties: false
           properties:
@@ -1030,7 +1114,7 @@ RiskPolicy:
             - durationMonths
             - delayMonths
             - haircutPercent
-        INCOME_LOSS: &a13
+        INCOME_LOSS: &a15
           type: object
           additionalProperties: false
           properties:
@@ -1050,7 +1134,7 @@ RiskPolicy:
             - offsetMonths
             - durationMonths
             - lostPercent
-        LONGEVITY: &a14
+        LONGEVITY: &a16
           type: object
           additionalProperties: false
           properties:
@@ -1163,7 +1247,7 @@ MarketVersion:
           nullable: true
           enum:
             - null
-    effectiveAt: &a21
+    effectiveAt: &a7
       type: string
       nullable: true
   required:
@@ -1258,7 +1342,7 @@ PathResult:
   additionalProperties: false
   properties:
     essentialLossToday: *a2
-    funded: &a15
+    funded: &a17
       type: boolean
     balances:
       type: array
@@ -1279,16 +1363,17 @@ Candidate:
       type: string
       enum:
         - READY
-    modelCode: &a16
+    modelCode: &a18
       type: string
       enum:
         - allocation-risk-v1
+        - allocation-risk-v2
     seed: *a1
     paths: *a1
     blockMonths: *a1
     pEssential: &a5
       type: number
-    wilson: &a17
+    wilson: &a19
       type: object
       additionalProperties: false
       properties:
@@ -1301,7 +1386,7 @@ Candidate:
         - upper
     cvarAlpha: *a2
     cvarEssentialShortfallToday: *a2
-    display: &a18
+    display: &a20
       type: object
       additionalProperties: false
       properties:
@@ -1314,7 +1399,7 @@ Candidate:
         - wilsonLowerPercent
         - wilsonUpperPercent
         - cvarVnd
-    bands: &a19
+    bands: &a21
       type: array
       items:
         type: object
@@ -1329,7 +1414,7 @@ Candidate:
           - p10
           - p50
           - p90
-    disclosure: &a20
+    disclosure: &a22
       type: object
       additionalProperties: false
       properties:
@@ -1360,6 +1445,26 @@ Candidate:
         type: array
         items:
           $ref: "#/Allocation"
+    pAll: &a23
+      type: number
+      nullable: true
+    allGoalsStatus: *a2
+    allGoalsIssue: *a7
+    selection:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            templateId: *a2
+            customAllocation: *a8
+          required:
+            - templateId
+        - type: object
+          nullable: true
+          enum:
+            - null
+    loss:
+      $ref: ./retirement.openapi.yaml#/LossConstraint
   required:
     - status
     - modelCode
@@ -1392,14 +1497,14 @@ Scenario:
       items: *a2
     parameters:
       anyOf:
-        - *a7
-        - *a8
         - *a9
         - *a10
         - *a11
         - *a12
         - *a13
         - *a14
+        - *a15
+        - *a16
     result:
       $ref: "#/PathResult"
     assumptions:
@@ -1474,19 +1579,19 @@ RiskResult:
     assumptionVersionId: *a3
     assumptionVersion: *a1
     assumptionHash: *a2
-    informationalOnly: *a15
-    persisted: *a15
-    modelCode: *a16
+    informationalOnly: *a17
+    persisted: *a17
+    modelCode: *a18
     seed: *a1
     paths: *a1
     blockMonths: *a1
     pEssential: *a5
-    wilson: *a17
+    wilson: *a19
     cvarAlpha: *a2
     cvarEssentialShortfallToday: *a2
-    display: *a18
-    bands: *a19
-    disclosure: *a20
+    display: *a20
+    bands: *a21
+    disclosure: *a22
     basis: *a2
     sources:
       type: array
@@ -1510,10 +1615,10 @@ RiskResult:
         issues:
           type: array
           items: *a2
-        feasible: *a15
+        feasible: *a17
       required:
         - status
-    selectedId: *a21
+    selectedId: *a7
     threshold: *a2
     candidates:
       type: array
@@ -1552,6 +1657,11 @@ RiskResult:
       type: array
       items: *a2
     rule: *a2
+    pAll: *a23
+    allGoalsStatus: *a2
+    allGoalsIssue: *a7
+    referenceId: *a7
+    allThreshold: *a7
   required:
     - status
   description: pEssential is the fraction of COMPLETE paths funding every
@@ -1582,8 +1692,8 @@ RebalanceResult:
     policyVersionId: *a3
     policyHash: *a2
     month: *a2
-    persisted: *a15
-    informationalOnly: *a15
+    persisted: *a17
+    informationalOnly: *a17
     oldWeights:
       type: array
       items:

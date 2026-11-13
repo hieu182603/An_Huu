@@ -1,3 +1,5 @@
+import { initialPlanSelection } from "../services/initialPlanSelection";
+import type { RetirementPreviewInput } from "../services/retirement";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useNotification } from "../components/ui";
@@ -56,6 +58,14 @@ export default function RiskPortfolioPage() {
   const workspace=useDiscoveryQuery(`${user?.id}:${loadingProfile}:${policyDetail?.id}:${profileRevision}:${JSON.stringify(answers)}:${liquidityNeedMonths}:${selectedTemplateId}:${endMonth}:${retirementMonth}:${attempt}`,signal=>
     !policyDetail||!profileRevision||loadingProfile?Promise.resolve(null):previewAllocation({expectedProfileRevision:profileRevision,policyVersionId:policyDetail.id,
       answers:questions.filter(q=>answers[q.id]).map(q=>({questionId:q.id,choiceId:answers[q.id]})),liquidityNeedMonths,...(selectedTemplateId?{templateId:selectedTemplateId}:{}),...(endMonth?{endMonth}:{}),...(retirementMonth?{retirementMonth}:{})},signal));
+  const planInput:RetirementPreviewInput|null=v2Profile&&policyDetail&&endMonth&&selection.monthlyExpenseToday!==undefined?{
+    ...(baseline??initialPlanSelection(v2Profile,profileRevision,policyDetail.id,endMonth,selection.monthlyExpenseToday,[])),...draftSelection,
+    expectedProfileRevision:profileRevision,policyVersionId:policyDetail.id,endMonth,liquidityNeedMonths,scenario:"BASE",
+    answers:questions.filter(q=>answers[q.id]).map(q=>({questionId:q.id,choiceId:answers[q.id]})),
+    templateId:selectedTemplateId||undefined,
+    ...(retirementMonth?{whatIf:{...selection.whatIf,retirementMonth}}:{}),
+    ...(policyDetail.data.customization?{allocationFunding:"PROTECTED_CAPITAL_V1"}:{}),customAllocation:selection.policyVersionId===policyDetail.id&&(!selectedTemplateId||selectedTemplateId===selection.templateId)?selection.customAllocation:undefined,
+  }:null;
   const growthCapital=workspace.data?.capital.growthCapital??null;
   const saveRisk=async()=>{
     if(savingRisk||!policyDetail)return;setSavingRisk(true);setRiskError("");
@@ -230,6 +240,6 @@ export default function RiskPortfolioPage() {
 
   return <div className="phase-page risk-portfolio-page allocation-workspace">
     {riskError&&<p role="alert">{riskError}</p>}
-    {loadingProfile||policies.loading||loadingPlans?<p role="status">{language==="en"?"Loading allocation…":"Đang tải phân bổ…"}</p>:loadError?<DiscoveryError message={loadError} retry={reloadProfile}/>:!v2Profile?<p>{language==="en"?"Review your detailed financial profile.":"Hãy rà soát hồ sơ tài chính chi tiết."} <Link to="/user/profile">{language==="en"?"Open Finances":"Mở Tài chính"}</Link></p>:policies.error?<DiscoveryError message={policies.error} retry={()=>setPolicyAttempt(n=>n+1)}/>:!policyDetail?<><h1>{language==="en"?"Asset allocation":"Phân bổ tài sản"}</h1><p>{language==="en"?"No published portfolio policy is available.":"Chưa có chính sách danh mục đã công bố."} <Link to="/user/profile?section=assets">{language==="en"?"Review assets":"Kiểm tra tài sản"}</Link></p><button onClick={()=>setPolicyAttempt(n=>n+1)}>{language==="en"?"Retry":"Thử lại"}</button></>:<AllocationWorkspace profileRevision={profileRevision} retirementExpense={selection.monthlyExpenseToday??null} confirmLoss={confirmSavedLoss} savingRisk={savingRisk} lossAmount={v2Profile.lossTolerance?.amountVnd?.status==="KNOWN"?v2Profile.lossTolerance.amountVnd.value:null} lossPercent={v2Profile.lossTolerance?.percent?.status==="KNOWN"?v2Profile.lossTolerance.percent.value:null} policy={policyDetail} data={workspace.data??null} loading={workspace.loading} error={workspace.error} retry={()=>setAttempt(n=>n+1)} selected={selectedTemplateId} select={setSelectedTemplateId} months={liquidityNeedMonths} setMonths={setLiquidityNeedMonths} endMonth={endMonth} setEndMonth={setEndMonth} retirementMonth={retirementMonth} answers={answers} complete={allAnswered} openRisk={()=>setSearchParams({section:"risk"})}/>}
+    {loadingProfile||policies.loading||loadingPlans?<p role="status">{language==="en"?"Loading allocation…":"Đang tải phân bổ…"}</p>:loadError?<DiscoveryError message={loadError} retry={reloadProfile}/>:!v2Profile?<p>{language==="en"?"Review your detailed financial profile.":"Hãy rà soát hồ sơ tài chính chi tiết."} <Link to="/user/profile">{language==="en"?"Open Finances":"Mở Tài chính"}</Link></p>:policies.error?<DiscoveryError message={policies.error} retry={()=>setPolicyAttempt(n=>n+1)}/>:!policyDetail?<><h1>{language==="en"?"Asset allocation":"Phân bổ tài sản"}</h1><p>{language==="en"?"No published portfolio policy is available.":"Chưa có chính sách danh mục đã công bố."} <Link to="/user/profile?section=assets">{language==="en"?"Review assets":"Kiểm tra tài sản"}</Link></p><button onClick={()=>setPolicyAttempt(n=>n+1)}>{language==="en"?"Retry":"Thử lại"}</button></>:<AllocationWorkspace planInput={planInput} profileRevision={profileRevision} retirementExpense={selection.monthlyExpenseToday??null} confirmLoss={confirmSavedLoss} savingRisk={savingRisk} lossAmount={v2Profile.lossTolerance?.amountVnd?.status==="KNOWN"?v2Profile.lossTolerance.amountVnd.value:null} lossPercent={v2Profile.lossTolerance?.percent?.status==="KNOWN"?v2Profile.lossTolerance.percent.value:null} policy={policyDetail} data={workspace.data??null} loading={workspace.loading} error={workspace.error} retry={()=>setAttempt(n=>n+1)} selected={selectedTemplateId} select={setSelectedTemplateId} months={liquidityNeedMonths} setMonths={setLiquidityNeedMonths} endMonth={endMonth} setEndMonth={setEndMonth} retirementMonth={retirementMonth} answers={answers} complete={allAnswered} openRisk={()=>setSearchParams({section:"risk"})}/>}
   </div>;
 }

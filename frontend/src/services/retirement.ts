@@ -26,6 +26,8 @@ export interface HousingPlanItem {
 }
 
 export interface RetirementPreviewInput {
+  customAllocation?: import("./portfolios").CustomAllocation|null;
+  allocationFunding?: "PROTECTED_CAPITAL_V1"|null;
   advisoryFee?: { annualPercent: string; paidFrom: "FUND" | "EXTERNAL" };
   expectedProfileRevision: number;
   policyVersionId: string;

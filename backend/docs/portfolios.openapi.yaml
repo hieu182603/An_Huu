@@ -971,6 +971,10 @@ Document:
               type: string
               maxLength: 30
               pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            allGoalsThreshold:
+              type: string
+              maxLength: 30
+              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
             equityShiftPoints:
               type: string
               maxLength: 30
@@ -979,6 +983,84 @@ Document:
               type: string
               maxLength: 30
               pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            continuousOptimizer:
+              type: object
+              additionalProperties: false
+              properties:
+                riskAversionGamma:
+                  type: number
+                  minimum: 0
+                  maximum: 1000
+                uncertaintyKappa:
+                  type: number
+                  minimum: 0
+                  maximum: 1000
+                turnoverPenaltyEta:
+                  type: number
+                  minimum: 0
+                  maximum: 1000
+                estimation:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    evidence:
+                      type: string
+                      minLength: 5
+                      maxLength: 2000
+                    historicalWeight:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                    monthlyBaselines:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          assetClass:
+                            type: string
+                            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                          returnRate:
+                            type: number
+                            minimum: -1
+                            maximum: 1
+                        required:
+                          - assetClass
+                          - returnRate
+                      minItems: 1
+                      maxItems: 20
+                  required:
+                    - evidence
+                    - historicalWeight
+                    - monthlyBaselines
+                bounds:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      assetClass:
+                        type: string
+                        pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                      min:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                      max:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                    required:
+                      - assetClass
+                      - min
+                      - max
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - riskAversionGamma
+                - uncertaintyKappa
+                - turnoverPenaltyEta
+                - bounds
             stresses:
               type: object
               additionalProperties: false
@@ -1015,6 +1097,10 @@ Document:
                       type: string
                       pattern: ^[A-Z][A-Z0-9_]{0,39}$
                     shockPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    severeShockPercent:
                       type: string
                       maxLength: 30
                       pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
@@ -1155,10 +1241,58 @@ Document:
                               - 10
                       minItems: 1
                       maxItems: 2
+                    terminalContinuation:
+                      type: string
+                      enum:
+                        - LIVING_CPI_LIFELONG_PENSION_ONLY
                   required:
                     - extraYears
           required:
             - evidence
+        customization:
+          type: object
+          additionalProperties: false
+          properties:
+            evidence:
+              type: string
+              minLength: 5
+              maxLength: 2000
+            path:
+              type: string
+              enum:
+                - FOLLOW_TEMPLATE_SHIFTS
+            capitalBasis:
+              type: string
+              enum:
+                - PROTECTED_CAPITAL_V1
+            bounds:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  assetClass:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  minPercent:
+                    type: string
+                    maxLength: 20
+                    pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                  maxPercent:
+                    type: string
+                    maxLength: 20
+                    pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                required:
+                  - assetClass
+                  - minPercent
+                  - maxPercent
+              minItems: 1
+              maxItems: 20
+          required:
+            - evidence
+            - path
+            - capitalBasis
+            - bounds
       required:
         - schemaVersion
         - title
@@ -2150,6 +2284,10 @@ Write:
                   type: string
                   maxLength: 30
                   pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                allGoalsThreshold:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
                 equityShiftPoints:
                   type: string
                   maxLength: 30
@@ -2158,6 +2296,84 @@ Write:
                   type: string
                   maxLength: 30
                   pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                continuousOptimizer:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    riskAversionGamma:
+                      type: number
+                      minimum: 0
+                      maximum: 1000
+                    uncertaintyKappa:
+                      type: number
+                      minimum: 0
+                      maximum: 1000
+                    turnoverPenaltyEta:
+                      type: number
+                      minimum: 0
+                      maximum: 1000
+                    estimation:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        evidence:
+                          type: string
+                          minLength: 5
+                          maxLength: 2000
+                        historicalWeight:
+                          type: number
+                          minimum: 0
+                          maximum: 1
+                        monthlyBaselines:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            properties:
+                              assetClass:
+                                type: string
+                                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                              returnRate:
+                                type: number
+                                minimum: -1
+                                maximum: 1
+                            required:
+                              - assetClass
+                              - returnRate
+                          minItems: 1
+                          maxItems: 20
+                      required:
+                        - evidence
+                        - historicalWeight
+                        - monthlyBaselines
+                    bounds:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          assetClass:
+                            type: string
+                            pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                          min:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                          max:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                        required:
+                          - assetClass
+                          - min
+                          - max
+                      minItems: 1
+                      maxItems: 20
+                  required:
+                    - riskAversionGamma
+                    - uncertaintyKappa
+                    - turnoverPenaltyEta
+                    - bounds
                 stresses:
                   type: object
                   additionalProperties: false
@@ -2194,6 +2410,10 @@ Write:
                           type: string
                           pattern: ^[A-Z][A-Z0-9_]{0,39}$
                         shockPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                        severeShockPercent:
                           type: string
                           maxLength: 30
                           pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
@@ -2334,10 +2554,58 @@ Write:
                                   - 10
                           minItems: 1
                           maxItems: 2
+                        terminalContinuation:
+                          type: string
+                          enum:
+                            - LIVING_CPI_LIFELONG_PENSION_ONLY
                       required:
                         - extraYears
               required:
                 - evidence
+            customization:
+              type: object
+              additionalProperties: false
+              properties:
+                evidence:
+                  type: string
+                  minLength: 5
+                  maxLength: 2000
+                path:
+                  type: string
+                  enum:
+                    - FOLLOW_TEMPLATE_SHIFTS
+                capitalBasis:
+                  type: string
+                  enum:
+                    - PROTECTED_CAPITAL_V1
+                bounds:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      assetClass:
+                        type: string
+                        pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                      minPercent:
+                        type: string
+                        maxLength: 20
+                        pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                      maxPercent:
+                        type: string
+                        maxLength: 20
+                        pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                    required:
+                      - assetClass
+                      - minPercent
+                      - maxPercent
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - evidence
+                - path
+                - capitalBasis
+                - bounds
           required:
             - schemaVersion
             - title
@@ -2426,6 +2694,35 @@ Input:
     retirementMonth:
       type: string
       pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    customAllocation:
+      type: object
+      additionalProperties: false
+      properties:
+        model:
+          type: string
+          enum:
+            - custom-glide-v1
+        weights:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              assetClass:
+                type: string
+                pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              weightPercent:
+                type: string
+                maxLength: 20
+                pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+            required:
+              - assetClass
+              - weightPercent
+          minItems: 1
+          maxItems: 20
+      required:
+        - model
+        - weights
   required:
     - policyVersionId
     - startMonth

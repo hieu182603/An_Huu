@@ -14,6 +14,7 @@ export function memoryDb() {
   names.push("systemSetting", "loginLog", "systemLog", "retirementGoal");
   names.push("article", "savedArticle", "savedProduct", "supportTicket", "supportMessage");
   names.push("investmentRoleGrant");
+  names.push("investmentProductData");
   function relation(row: Row, key: string): any {
     if (key in row) return row[key];
     const links: Record<string, [string, string]> = { partner: ["partner", "partnerId"], product: ["partnerProduct", "productId"], article: ["article", "articleId"], author: ["user", "authorId"], user: ["user", "userId"] };
@@ -44,6 +45,8 @@ export function memoryDb() {
     if (Array.isArray(row)) return row.map(item => decorate(item, options));
     const value = structuredClone(row);
     if (options.include?.user) value.user = structuredClone(tables.user.find(u => u.id === row.userId));
+    for(const key of ["product","partner"])if(options.include?.[key])
+      value[key]=decorate(relation(row,key),options.include[key]===true?{}:options.include[key]);
     if (options.select) return Object.fromEntries(Object.entries(options.select).filter(([, selected]) => selected).map(([key, selected]) => [key, selected === true ? relation(value, key) : decorate(relation(value, key), selected as Row)]));
     return value;
   }

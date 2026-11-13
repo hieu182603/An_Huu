@@ -13,6 +13,11 @@ import { generatePortfolioRecommendation, RecommendationApprovalManager as Workf
 import { createRecommendation, productDocument, transitionRecommendation, writeProductData } from "./schema";
 import type { AssetClass, ProductMasterData, RecommendationResponse } from "./types";
 import { SsiFastConnectProvider, FiinGroupProvider } from "../market-data/provider";
+import { allocationWorkspace,allocationWorkspaceInput } from "../portfolios/workspace";
+import { ProfileService } from "../profiles/service";
+import { PortfoliosService } from "../portfolios/service";
+import { AssumptionsService } from "../assumptions/service";
+import { buildAllocationPackages } from "./packages";
 
 export const json = (v: unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonObject;
 /** JSON form that survives a PostgreSQL JSONB round-trip unchanged: floats lose digits past ~15 significant
@@ -46,6 +51,18 @@ const staff: InvestmentRole[] = ["ADVISOR", "APPROVER", "OPERATIONS", "SYSTEM_AD
 type References = { holdingsHash: string; profileRevision: number; goalRevision: number; policyId: string; policyRevision: number; assumptionId: string; assumptionRevision: number; products: Array<{ id: string; hash: string; revision: number }> };
 export class RecommendationService {
   constructor(private db: PrismaClient, private publicationEnabled = false, private legalAuthorizationReference = "") {}
+  async allocationPackages(userId:string,raw:unknown){
+    const input=allocationWorkspaceInput.parse(raw);
+    const portfolios=new PortfoliosService(this.db);
+    const workspace=await allocationWorkspace(new ProfileService(this.db),portfolios,new AssumptionsService(this.db),userId,input);
+    if(workspace.capital.status!=="READY"||workspace.loss.status!=="WITHIN_LIMIT"||workspace.portfolio?.status!=="READY")throw review("ALLOCATION_REVIEW_REQUIRED");
+    const policy=await portfolios.get(workspace.policyVersionId,true);
+    const risk=riskToleranceFromAssessment(policy.data,workspace.portfolio.assessment.riskBandId);
+    if(!risk)throw review("RISK_TOLERANCE_REQUIRED");
+    const catalog=(await this.catalog()).filter(row=>!row.stale&&row.product.conditions&&row.product.disclosures).map(row=>row.product);
+    return {...buildAllocationPackages(workspace.allocations,catalog,{clientRiskTolerance:risk,horizonYears:input.liquidityNeedMonths/12}),
+      profileRevision:workspace.profileRevision,policyVersionId:workspace.policyVersionId,growthCapital:workspace.capital.growthCapital};
+  }
   async permissions(actor: string) {
     const grants = await this.db.investmentRoleGrant.findMany({ where: { userId: actor } });
     return { roles: grants.map(g => g.role), publicationEnabled: this.publicationEnabled && !!this.legalAuthorizationReference };
@@ -68,6 +85,7 @@ export class RecommendationService {
       if (digest(data) !== row.documentHash) throw review("PRODUCT_INTEGRITY_FAILED");
       const stale = data.validUntil < new Date().toISOString().slice(0, 10) || data.priceAsOf > new Date().toISOString().slice(0, 10);
       const product: ProductMasterData = { ...data, id: row.productId, partnerId: row.product.partnerId, name: row.product.name, partnerName: row.product.partner.name,
+        conditions:row.product.conditions??undefined,disclosures:row.product.disclosure??undefined,
         riskLevel: row.product.riskLevel, isDistributionPermitted: data.isDistributionPermitted && row.product.isVisible && row.product.partner.isVisible,
         status: stale || (data.sourceKind === "TEST_FIXTURE" && process.env.NODE_ENV !== "test") ? "INACTIVE" : data.status };
       return { ...row, catalogRevision: row.product.revision, data, product, stale };

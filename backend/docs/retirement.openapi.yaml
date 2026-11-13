@@ -18,6 +18,49 @@ Input:
       type: string
       minLength: 1
       maxLength: 100
+    customAllocation:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          properties:
+            model:
+              type: string
+              enum:
+                - custom-glide-v1
+            weights:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                properties:
+                  assetClass:
+                    type: string
+                    pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                  weightPercent:
+                    type: string
+                    maxLength: 20
+                    pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                required:
+                  - assetClass
+                  - weightPercent
+              minItems: 1
+              maxItems: 20
+          required:
+            - model
+            - weights
+        - type: object
+          nullable: true
+          enum:
+            - null
+    allocationFunding:
+      anyOf:
+        - type: string
+          enum:
+            - PROTECTED_CAPITAL_V1
+        - type: object
+          nullable: true
+          enum:
+            - null
     answers:
       type: array
       items:
@@ -755,6 +798,12 @@ MonthlyInput:
     withdrawal: *a2
     uninvestedSurplus: *a2
     capitalInjection: *a2
+    protectedHouseholdPaid: *a2
+    goalExpense: *a2
+    protectedGoalPaid: *a2
+    essentialGoalExpense: *a2
+    protectedEssentialGoalPaid: *a2
+    protectedClosingBalance: *a2
     advisoryFeeAmount: *a2
     advisoryFeeAverageFund: *a2
     advisoryFeePaidFrom:
@@ -801,6 +850,8 @@ ReplayInput:
       enum:
         - retirement-monthly-v3
     contributionStartMonth: *a1
+    protection:
+      $ref: "#/Protection"
   required:
     - valuationDate
     - retirementMonth
@@ -809,6 +860,52 @@ ReplayInput:
     - monthlyContribution
     - contributionTiming
     - rows
+Protection:
+  type: object
+  additionalProperties: false
+  properties:
+    model:
+      type: string
+      enum:
+        - protected-capital-v1
+    emergencyReserve: *a2
+    goals:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id: *a1
+          month: *a1
+          amount: *a2
+          openingReserve: *a2
+          essential:
+            type: boolean
+          depositAssetClass: *a1
+          depositFactors:
+            type: array
+            items: *a2
+        required:
+          - id
+          - month
+          - amount
+          - openingReserve
+          - essential
+    depositFactors:
+      type: array
+      items: *a2
+    depositAssetClass: *a1
+    rawRows:
+      type: array
+      items:
+        $ref: "#/MonthlyInput"
+  required:
+    - model
+    - emergencyReserve
+    - goals
+    - depositFactors
+    - depositAssetClass
+    - rawRows
 Row:
   type: object
   additionalProperties: false
@@ -841,6 +938,12 @@ Row:
     requiredOpeningBalance: *a2
     requiredClosingBalance: *a2
     netWithdrawal: *a2
+    protectedHouseholdPaid: *a2
+    goalExpense: *a2
+    protectedGoalPaid: *a2
+    essentialGoalExpense: *a2
+    protectedEssentialGoalPaid: *a2
+    protectedClosingBalance: *a2
     advisoryFeeAmount: *a2
     advisoryFeeAverageFund: *a2
     advisoryFeePaidFrom:
