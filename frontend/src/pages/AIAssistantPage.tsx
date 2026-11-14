@@ -57,12 +57,11 @@ function answerNote(msg: ChatMessage, isEn: boolean): string | null {
 }
 
 export default function AIAssistantPage() {
-  const [planDetailsOpen, setPlanDetailsOpen] = useState(false);
   const { language } = useI18n();
   const navigate = useNavigate();
   const { notify } = useNotification();
   const { profileRevision, v2Profile } = useFinancialProfile();
-  const { activePlan, currentVersion, loadingPlans, plansError } = useRetirementPlan();
+  const { activePlan, currentVersion, loadingPlans, plansError, refreshPlans } = useRetirementPlan();
 
   const [inputPrompt, setInputPrompt] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -86,7 +85,7 @@ export default function AIAssistantPage() {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(Math.max(textareaRef.current.scrollHeight, 44), 180)}px`;
+      textareaRef.current.style.height = `${Math.min(Math.max(textareaRef.current.scrollHeight, 28), 180)}px`;
     }
   }, [inputPrompt]);
 
@@ -340,7 +339,7 @@ export default function AIAssistantPage() {
 
   const handleSend = async (textToSend?: string) => {
     const question = (textToSend || inputPrompt).trim();
-    if (!question || sending.current || conversationLoading || loadingPlans || privacyLoading || privacyError || !privacy) return;
+    if (!question || sending.current || conversationLoading || loadingPlans || plansError || privacyLoading || privacyError || !privacy) return;
     if (question.length > 2000) {
       notify.error(language === "en" ? "Question too long" : "Câu hỏi quá dài", language === "en" ? "Please keep your question within 2,000 characters." : "Vui lòng rút gọn câu hỏi còn tối đa 2.000 ký tự.");
       return;
@@ -364,7 +363,7 @@ export default function AIAssistantPage() {
     if (!textToSend) {
       setInputPrompt("");
       if (textareaRef.current) {
-        textareaRef.current.style.height = "44px";
+        textareaRef.current.style.height = "28px";
       }
     }
     setIsTyping(true);
@@ -382,7 +381,7 @@ export default function AIAssistantPage() {
       }
       const command: AiExplainCommand = {
         question,
-        // A draft plan has no applied version. Send neither ID in that case.
+        // Use the main version saved in the shared planning flow; chat has no separate plan selection.
         ...(activePlan && currentVersion ? { planId: activePlan.id, versionId: currentVersion.id } : {}),
         ...(conversationId ? { conversationId, expectedRevision: revision } : {}),
       };
@@ -528,25 +527,6 @@ export default function AIAssistantPage() {
     { title: isEn ? "What is my retirement age?" : "Tuổi nghỉ hưu của tôi?", description: isEn ? "Pension and social insurance rules." : "Lương hưu và quy định BHXH.", question: isEn ? "What is my statutory retirement age?" : "Tuổi nghỉ hưu của tôi là bao nhiêu?" },
     { title: isEn ? "Which product group suits me?" : "Nên chọn nhóm sản phẩm nào?", description: isEn ? "Product groups that fit your plan's risk level." : "Nhóm sản phẩm hợp với mức rủi ro trong kế hoạch.", question: isEn ? "Which product group should I choose?" : "Tôi nên chọn nhóm sản phẩm nào?" },
   ];
-  const planSummary = !loadingPlans&&!plansError?currentVersion?.preview?.calculation?.summary:undefined;
-  const rawShortfall = planSummary?.retirementFundingShortfall ?? planSummary?.atRetirement?.fundingGap;
-  const planShortfall = rawShortfall!=null&&Number.isFinite(Number(rawShortfall)) ? Number(rawShortfall) : null;
-  const formatCompactGap = (val: number) => {
-    const abs = Math.abs(val);
-    if (abs >= 1e9) {
-      const b = Math.round((abs / 1e9) * 10) / 10;
-      return `${b.toLocaleString("vi-VN")} tỷ ₫`;
-    }
-    if (abs >= 1e6) {
-      const m = Math.round((abs / 1e6) * 10) / 10;
-      return `${m.toLocaleString("vi-VN")} triệu ₫`;
-    }
-    return formatVNDCurrency(String(Math.round(abs)));
-  };
-  const planVersionLabel = currentVersion
-    ? (isEn ? `Option ${currentVersion.version}` : `Phương án ${currentVersion.version}`)
-    : (isEn ? "Option 1" : "Phương án 1");
-
   const conversationList = Array.isArray(conversations) ? conversations : [];
   const historyList = <div className="ai-history-list">
     {historyError && <div role="alert"><p>{historyError}</p><Button onClick={() => loadConversations()}>{isEn ? "Retry" : "Tải lại hội thoại"}</Button></div>}
@@ -571,27 +551,15 @@ export default function AIAssistantPage() {
         <header className="ai-chat-header">
           <div className="ai-chat-heading"><h1>{isEn ? "An Huu assistant" : "Trợ lý An Hưu"}</h1></div>
           <div className="ai-chat-actions">
-            <button className="ai-plan-trigger" type="button" title={isEn ? "View the retirement plan used for answers" : "Xem kế hoạch nghỉ hưu dùng để trả lời"} aria-haspopup="dialog" onClick={() => setPlanDetailsOpen(true)}><Icon name="file-text" size="small" /><span>{isEn ? "Retirement plan" : "Kế hoạch nghỉ hưu"}</span><span className="ai-plan-version">{loadingPlans ? (isEn ? "Loading..." : "Đang tải...") : planVersionLabel}</span><Icon name="chevron-down" size="small" /></button>
             <button ref={historyToggleRef} className="ai-history-toggle" data-ai="history" type="button" aria-label={isEn ? "Chat history" : "Lịch sử chat"} aria-expanded={drawerOpen} aria-controls="ai-saved-conversations" onClick={() => setDrawerOpen(open => !open)}><Icon name="message" size="small" /><span>{isEn ? "Chat history" : "Lịch sử chat"}</span></button>
-            <button className="ai-new-chat" data-ai="new" type="button" onClick={() => void handleNewConversation()}><Icon name="edit" size="small" /><span>{isEn ? "New chat" : "Chat mới"}</span></button>
+            <button className="ai-new-chat" data-ai="new" type="button" aria-label={isEn ? "New chat" : "Chat mới"} onClick={() => void handleNewConversation()}><Icon name="edit" size="small" /><span>{isEn ? "New chat" : "Chat mới"}</span></button>
           </div>
         </header>
         <div className="ai-chat-body">
         <div className="ai-chat-stage">
           {!hasMessages && !conversationLoading && <section className="ai-chat-welcome">
             <h2>{isEn ? "What would you like to ask?" : "Bạn muốn hỏi gì?"}</h2>
-            <button
-              type="button"
-              className="ai-welcome-plan"
-              data-ai="plan-dialog"
-              onClick={() => setPlanDetailsOpen(true)}
-              title={isEn ? "Click to view plan details" : "Xem kế hoạch trợ lý đang dùng"}
-            >
-              <span>{planVersionLabel}</span>
-              <strong className={planShortfall!==null&&planShortfall > 0 ? "is-short" : "is-ok"}>
-                {planShortfall===null?(isEn?"No projection yet":"Chưa có dự phóng"):planShortfall>0?`${isEn?"Short":"Thiếu"} ${formatCompactGap(planShortfall)}`:(isEn?"Goal met":"Đủ mục tiêu")}
-              </strong>
-            </button>
+            <p>{isEn ? "Ask about your retirement plan, contributions or pension." : "Hỏi về kế hoạch nghỉ hưu, mức góp hoặc lương hưu của bạn."}</p>
             <div className="ai-chat-suggestions" aria-label={isEn ? "Suggested questions" : "Câu hỏi gợi ý"}>
               {suggestions.map(suggestion => (
                 <button
@@ -610,16 +578,13 @@ export default function AIAssistantPage() {
           {conversationLoading && <p role="status" className="ai-chat-notice">{isEn ? "Opening conversation…" : "Đang mở hội thoại…"}</p>}
           {messages.filter(message => message.id !== "m-init-assistant").map(msg => <article key={msg.id} className={`ai-chat-message ${msg.role}`}>
             <div className="ai-chat-message-meta"><strong>{msg.role === "user" ? (isEn ? "You" : "Bạn") : (isEn ? "An Huu assistant" : "Trợ lý An Hưu")}</strong><span>{msg.time}</span></div>
-            {msg.role === "assistant" && <p className="ai-reference-note">{isEn ? "Reference explanation only; not a recommendation to buy or sell a specific product." : "Giải thích để tham khảo; không phải khuyến nghị mua hoặc bán sản phẩm cụ thể."}</p>}
-            <div className="ai-chat-message-body">{msg.content.split("\n\n").map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
-            {msg.role === "assistant" && answerNote(msg, isEn) && <p className="ai-chat-response-note">{answerNote(msg, isEn)}</p>}
-            {!!msg.citations?.length && <details className="ai-chat-sources"><summary>{isEn ? "Reference documents" : "Tài liệu được dùng"} ({msg.citations.length})</summary>
-              {msg.citations.map(citation => <div key={citation.id}><strong>{citation.title}</strong><small>{isEn ? "Version" : "Bản"} {citation.version} · {isEn ? "Effective" : "Hiệu lực"}: {formatDateVN(citation.effectiveDate)}</small><blockquote className="ai-citation-excerpt" tabIndex={0} aria-label={isEn ? `Excerpt from ${citation.title}` : `Trích đoạn ${citation.title}`}>{citation.excerpt}</blockquote>
-                {citation.url?.startsWith("https://") && <a href={citation.url} target="_blank" rel="noreferrer">{isEn ? "Read original document" : "Đọc tài liệu gốc"} ↗</a>}
-              </div>)}
-            </details>}
-            {msg.provenance && <p className="ai-chat-provenance">{isEn ? "Based on saved plan data dated" : "Theo số liệu kế hoạch đã lưu ngày"} {formatDateVN(msg.provenance.valuationDate)}{msg.provenance.valueKind === "REFORECAST" ? (isEn ? " · Updated forecast" : " · Dự báo cập nhật từ thực tế") : ""}.</p>}
-            {msg.role === "user" && currentConversationId && /^[0-9a-f-]{36}$/i.test(msg.id) && <Button variant="ghost" size="small" disabled={isTyping} onClick={() => { setEditingMessage(msg); setEditedQuestion(msg.content); }}>{isEn ? "Edit question" : "Sửa câu hỏi"}</Button>}
+            <div className="ai-chat-message-body">{msg.content.split(/\n\s*\n/).filter(paragraph => paragraph.trim()).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
+            {(msg.provenance || (msg.role === "assistant" && answerNote(msg, isEn))) && <footer className="ai-chat-message-footer">
+              {msg.role === "assistant" && answerNote(msg, isEn) && <p className="ai-chat-response-note">{answerNote(msg, isEn)}</p>}
+              {msg.provenance && <p className="ai-chat-provenance">{isEn ? "Based on saved plan data dated" : "Theo số liệu kế hoạch đã lưu ngày"} {formatDateVN(msg.provenance.valuationDate)}{msg.provenance.valueKind === "REFORECAST" ? (isEn ? " · Updated forecast" : " · Dự báo cập nhật từ thực tế") : ""}.</p>}
+            </footer>}
+            {msg.role === "assistant" && msg.id === messages.at(-1)?.id && canSimulate && !loadingPlans && !plansError && <button type="button" className="ai-chat-simulate" disabled={isTyping} onClick={openSimulation}>{isEn ? "Try plan changes" : "Thử thay đổi kế hoạch"}<Icon name="arrow-right" size="small" /></button>}
+            {msg.role === "user" && currentConversationId && /^[0-9a-f-]{36}$/i.test(msg.id) && <button type="button" className="ai-chat-edit" disabled={isTyping} onClick={() => { setEditingMessage(msg); setEditedQuestion(msg.content); }}><Icon name="edit" size="small" />{isEn ? "Edit question" : "Sửa câu hỏi"}</button>}
           </article>)}
           {isTyping && <div className="ai-chat-pending" role="status"><span className="ai-chat-loading" aria-hidden="true" />{isEn ? "Preparing your explanation…" : "Đang chuẩn bị câu trả lời…"}</div>}
         </div>
@@ -627,14 +592,16 @@ export default function AIAssistantPage() {
 
       <div className="ai-chat-bottom">
         <div className="ai-chat-composer-wrap">
+          {plansError && <div className="assistant-send-status" role="alert"><span>{isEn ? "Could not load your saved plan. Retry before sending your question." : "Chưa tải được kế hoạch đã lưu. Hãy tải lại trước khi gửi câu hỏi."}</span><Button variant="secondary" onClick={() => void refreshPlans()}>{isEn ? "Reload plan" : "Tải lại kế hoạch"}</Button></div>}
+          {!loadingPlans && !plansError && !currentVersion && <p className="ai-chat-context-note">{isEn ? "You can ask general questions. Save a main plan in Retirement plan for answers about your own figures." : "Bạn có thể hỏi kiến thức chung. Hãy lưu kế hoạch chính ở mục Kế hoạch nghỉ hưu để trợ lý giải thích số liệu của bạn."} <Link to="/user/plan">{isEn ? "Open retirement plan" : "Mở kế hoạch nghỉ hưu"}</Link></p>}
           {(privacyLoading || privacyError) && <div className="assistant-send-status" role="status"><span>{privacyLoading ? (isEn ? "Checking permissions. You can keep drafting." : "Đang tải quyền xử lý. Bạn vẫn có thể soạn câu hỏi.") : (isEn ? "Could not load permissions. Your draft is kept." : "Chưa tải được quyền xử lý. Câu hỏi được giữ lại; hãy thử lại trước khi gửi.")}</span>{privacyError && <Button variant="secondary" onClick={loadPrivacy}>{isEn ? "Retry permissions" : "Tải lại quyền xử lý"}</Button>}</div>}
           {!privacyLoading && !privacyError && privacy && !privacy.providerConfigured && <p className="assistant-send-status">{isEn ? "External AI is not connected. Answers use your plan figures and approved documents." : "Chưa kết nối AI ngoài. Hiện trợ lý trả lời từ số liệu kế hoạch và tài liệu đã duyệt."}</p>}
           <form className="ai-chat-composer" onSubmit={event => { event.preventDefault(); void handleSend(); }}>
             <label className="sr-only" htmlFor="ai-chat-question">{isEn ? "Question for AI assistant" : "Câu hỏi dành cho trợ lý AI"}</label>
-            <textarea id="ai-chat-question" ref={textareaRef} placeholder={isEn ? "For example: How much more should I contribute each month?" : "Bạn muốn hỏi gì về kế hoạch nghỉ hưu?"} value={inputPrompt} onChange={event => setInputPrompt(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} rows={2} maxLength={2000} disabled={isTyping} />
+            <textarea id="ai-chat-question" ref={textareaRef} placeholder={isEn ? "For example: How much more should I contribute each month?" : "Bạn muốn hỏi gì về kế hoạch nghỉ hưu?"} value={inputPrompt} onChange={event => setInputPrompt(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} rows={1} maxLength={2000} disabled={isTyping} />
             <div className="ai-chat-composer-actions"><span />
               <div>{inputPrompt.trim() && !isTyping && <button type="button" className="ai-chat-clear" onClick={() => { setInputPrompt(""); textareaRef.current?.focus(); }}>{isEn ? "Clear question" : "Xóa câu hỏi"}</button>}
-                <button type="submit" className="ai-chat-send" disabled={!inputPrompt.trim() || isTyping || conversationLoading || loadingPlans || privacyLoading || privacyError || !privacy}>{isTyping ? (isEn ? "Processing…" : "Đang xử lý…") : (isEn ? "Send question" : "Gửi câu hỏi")}<Icon name="arrow-right" size="small" /></button>
+                <button type="submit" className="ai-chat-send" disabled={!inputPrompt.trim() || isTyping || conversationLoading || loadingPlans || !!plansError || privacyLoading || privacyError || !privacy}>{isTyping ? (isEn ? "Processing…" : "Đang xử lý…") : (isEn ? "Send question" : "Gửi câu hỏi")}<Icon name="arrow-right" size="small" /></button>
               </div>
             </div>
           </form>
@@ -652,22 +619,6 @@ export default function AIAssistantPage() {
           </aside>
         </div>
       </div>
-      <ResponsiveDialog className="ai-plan-dialog" open={planDetailsOpen} onClose={() => setPlanDetailsOpen(false)} title={isEn ? "Plan used for answers" : "Kế hoạch dùng để trả lời"}>
-      <section className="ai-chat-plan" aria-label={isEn ? "Plan used for new questions" : "Kế hoạch dùng cho câu hỏi mới"}>
-        <div className="ai-chat-plan-copy">
-          <Icon name="file-text" />
-          <div><strong className="ai-chat-plan-name">{loadingPlans ? (isEn ? "Loading your plan…" : "Đang tải kế hoạch…") : currentVersion ? (isEn ? `Using plan version ${currentVersion.version}` : `Đang dùng kế hoạch phiên bản ${currentVersion.version}`) : (isEn ? "No applied plan yet" : "Bạn chưa có kế hoạch đang áp dụng")}</strong>
-            <p>{currentVersion ? (isEn ? "Answers use this saved version, including its assumptions." : "Trả lời theo số liệu của bản đã lưu, gồm cả các giả định trong bản này.") : (isEn ? "Save and apply a plan to explain your own figures." : "Cần lưu và áp dụng kế hoạch để giải thích số tiền của bạn.")}</p>
-          </div>
-        </div>
-        <div className="ai-chat-plan-actions">
-          <Link to={activePlan ? "/user/plan" : "/user/goal"}>{currentVersion ? (isEn ? "View plan" : "Xem kế hoạch") : (isEn ? "Set up plan" : "Lập kế hoạch")}</Link>
-          {canSimulate && <Button variant="secondary" onClick={() => { setPlanDetailsOpen(false); openSimulation(); }}>{isEn ? "Try plan changes" : "Thử thay đổi kế hoạch"}</Button>}
-        </div>
-      </section>
-
-
-      </ResponsiveDialog>
       <ResponsiveDialog open={consentModalOpen} onClose={() => { if (!updatingConsent) setConsentModalOpen(false); }} title={isEn ? "Privacy & conversation history" : "Quyền riêng tư & lịch sử"}>
         <div className="ai-chat-privacy">
           {policyChanged && <p className="ai-chat-privacy-warning" role="note">{isEn ? "What the assistant processes has changed since you last agreed. Please read the notice below and choose again. Your saved conversations stay viewable meanwhile." : "Nội dung xử lý của trợ lý đã thay đổi so với lần bạn đồng ý trước. Hãy đọc thông báo dưới đây và chọn lại. Trong lúc đó bạn vẫn xem được các hội thoại đã lưu."}</p>}
