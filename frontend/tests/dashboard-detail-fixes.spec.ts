@@ -141,7 +141,7 @@ test('dashboard: search feedback clears while editing and chart periods announce
 
 test('dashboard export: saved version download and honest print description', async ({ page }) => {
   const f = await dashboard(page);
-  await page.route('**/audit-plan/versions/audit-version/export.csv', route => route.fulfill({ contentType: 'text/csv', headers: { 'content-disposition': 'attachment; filename="saved-plan.csv"' }, body: 'year,balance\n2026,5000\n' }));
+  await page.route('**/audit-plan/versions/audit-version/export.csv*', route => route.fulfill({ contentType: 'text/csv', headers: { 'content-disposition': 'attachment; filename="saved-plan.csv"' }, body: 'year,balance\n2026,5000\n' }));
   await f.account('Xuất kế hoạch hưu trí');
   await expect(page.getByRole('heading', { name: 'Phiên bản kế hoạch đã lưu (CSV)', exact: true })).toBeVisible();
   const download = page.waitForEvent('download'); await page.getByRole('button', { name: 'Xuất tệp CSV', exact: true }).click();
@@ -152,12 +152,38 @@ test('dashboard export: saved version download and honest print description', as
   expect(await page.evaluate(() => (window as any).auditPrintCount)).toBe(1);
 });
 
-test('dashboard export: absent plan clearly labels local estimate', async ({ page }) => {
+test('dashboard export: absent plan disables the saved-version download', async ({ page }) => {
   const f = await dashboard(page, { noPlan: true }); await f.account('Xuất kế hoạch hưu trí');
-  await expect(page.getByRole('heading', { name: 'Ước tính tham khảo từ hồ sơ (CSV)', exact: true })).toBeVisible();
-  const download = page.waitForEvent('download'); await page.getByRole('button', { name: 'Xuất tệp CSV', exact: true }).click();
-  expect((await download).suggestedFilename()).toBe('an-huu-du-phong-dong-tien.csv');
+  await expect(page.getByRole('dialog')).toContainText('Lưu và áp dụng kế hoạch');
+  await expect(page.getByRole('button', { name: 'Xuất tệp CSV', exact: true })).toBeDisabled();
 });
+
+test('account redesign removes the header AI shortcut and explain-menu item', async ({page}) => {
+  await dashboard(page);
+  await expect(page.locator('.topbar-ai-pill')).toHaveCount(0);
+  await page.getByRole('button',{name:'Tài khoản: Nguyễn Minh An',exact:true}).click();
+  await expect(page.getByRole('menuitem',{name:'Giải thích số liệu',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('menuitem',{name:'Hồ sơ',exact:true})).toBeVisible();
+});
+
+for(const viewport of [{width:1440,height:900},{width:768,height:1024},{width:390,height:844},{width:320,height:640},{width:844,height:390}]) {
+  test(`account redesign fits all panels ${viewport.width}x${viewport.height}`,async({page},info)=>{
+    await page.setViewportSize(viewport);const f=await dashboard(page);await f.account('Hồ sơ');
+    const modal=page.getByRole('dialog');
+    for(const [key,label] of [['profile','Thông tin'],['settings','Cài đặt'],['export','Xuất tệp']]) {
+      await modal.getByRole('button',{name:label,exact:true}).click();
+      if(key==='profile') await expect(modal.getByLabel('Họ và tên',{exact:true})).toHaveValue('Nguyễn Minh An');
+      const rect=(await page.locator('.account-modal-window').boundingBox())!;
+      expect(rect.x).toBeGreaterThanOrEqual(0);expect(rect.y).toBeGreaterThanOrEqual(-1);
+      expect(rect.x+rect.width).toBeLessThanOrEqual(viewport.width+1);expect(rect.y+rect.height).toBeLessThanOrEqual(viewport.height+1);
+      expect(await modal.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+      await expect(modal.getByRole('button',{name:'Đóng cửa sổ',exact:true})).toBeInViewport();
+      await page.screenshot({path:info.outputPath(key+'.png')});
+      if(key==='export') {await modal.getByRole('button',{name:'Xuất tệp CSV',exact:true}).scrollIntoViewIfNeeded();await expect(modal.getByRole('button',{name:'Xuất tệp CSV',exact:true})).toBeInViewport();}
+    }
+    await page.keyboard.press('Escape');await expect(modal).toHaveCount(0);
+  });
+}
 
 for (const viewport of [{ width: 1440, height: 1000 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 390, height: 400 }]) {
   test(`dashboard layout: dashboard and popups ${viewport.width}x${viewport.height}`, async ({ page }) => {
