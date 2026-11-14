@@ -50,7 +50,7 @@ function answerNote(msg: ChatMessage, isEn: boolean): string | null {
   const excerpt = msg.answerSource === "APPROVED_EXCERPT";
   const excerptNote = isEn ? "Quoted from an approved document; the assistant has not added any interpretation." : "Trích từ tài liệu đã duyệt; trợ lý chưa diễn giải thêm.";
   if (msg.status === "PROVIDER_UNAVAILABLE") {
-    return `${isEn ? "Gemini is unavailable." : "Gemini đang gián đoạn."} ${excerpt ? excerptNote : (isEn ? "This explanation uses system data." : "Câu trả lời này được tạo từ dữ liệu hệ thống.")}`;
+    return isEn ? "The system is experiencing an error." : "Hệ thống đang gặp lỗi.";
   }
   if (msg.status === "PROVIDER_NOT_CONFIGURED") return excerpt ? excerptNote : (isEn ? "Explanation from system data." : "Giải thích từ số liệu hệ thống.");
   return excerpt ? excerptNote : null;
