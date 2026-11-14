@@ -1,0 +1,42 @@
+/* Catalog navigation, utilities and filters share one compact rhythm. */
+.products-page .marketplace-tabs { gap: 24px; padding: 0; margin: 0; border: 0; border-bottom: 1px solid #d5e3f0; border-radius: 0; background: transparent; scrollbar-width: thin; scrollbar-color: #b4c9e6 transparent; }
+.products-page .marketplace-tab-btn { position: relative; flex: 0 0 auto; min-height: 52px; padding: 12px 0; border-radius: 0; background: transparent; font-size: 14px; font-weight: 500; color: #536b85; }
+.products-page .marketplace-tab-btn::after { position: absolute; right: 0; bottom: 0; left: 0; height: 3px; border-radius: 3px 3px 0 0; background: transparent; content: ""; }
+.products-page .marketplace-tab-btn:hover { color: #245fb5; background: transparent; }
+.products-page .marketplace-tab-btn[aria-selected=true] { color: #173f7d; background: transparent; font-weight: 600; }
+.products-page .marketplace-tab-btn[aria-selected=true]::after { background: #245fb5; }
+.products-page .marketplace-tab-btn .tab-badge { display: inline-grid; place-items: center; min-width: 24px; min-height: 24px; padding: 0 6px; border-radius: 6px; background: #e8eff8; color: #456181; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.products-page .marketplace-tab-btn[aria-selected=true] .tab-badge { background: #dfeafa; color: #173f7d; }
+.products-page .discovery-tools { align-items: center; gap: 8px; margin: 12px 0 20px; }
+.discovery-tools-label { margin-right: 8px; color: #536b85; font-size: 12px; font-weight: 500; }
+.products-page .discovery-tool-link { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 8px; background: #eaf0f8; color: #34577c; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
+.products-page .discovery-tool-link .icon { width: 15px; height: 15px; color: #456b91; }
+.products-page .discovery-tool-link:hover { color: #173f7d; background: #dfeafa; }
+.products-page .products-filters { display: grid; grid-template-columns: minmax(240px, 1.6fr) repeat(3, minmax(140px, 1fr)) auto; align-items: end; gap: 12px; padding: 20px; margin: 0 0 20px; border: 1px solid #dce6f0; border-radius: 12px; background: #fff; }
+.product-search-group, .product-filter-field { display: grid; gap: 8px; min-width: 0; }
+.product-search-group > label, .product-filter-field > span { color: #456181; font-size: 12px; line-height: 1.5; font-weight: 500; }
+.product-search-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.products-page .products-search { flex: 1; grid-column: auto; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid #c8d8eb; border-radius: 8px; background: #fff; }
+.products-page .products-search .icon { width: 16px; height: 16px; flex-shrink: 0; }
+.products-page .products-search input { width: 100%; min-width: 0; min-height: 42px; font-size: 13px; }
+.products-page .products-search input::placeholder { color: #61758d; }
+.products-page .product-search-row .overview-button { flex-shrink: 0; min-height: 44px; padding: 10px 14px; border-radius: 8px; font-size: 13px; }
+.products-page .products-filters select { width: 100%; max-width: none; min-width: 0; height: 44px; padding: 0 10px; border-color: #c8d8eb; border-radius: 8px; color: #24476e; background: #fff; font-size: 13px; text-overflow: ellipsis; }
+.products-page .products-clear { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 0 8px 4px; border-radius: 6px; color: #536b85; white-space: nowrap; font-size: 12px; font-weight: 500; }
+.products-page .products-clear:hover { color: #245fb5; text-decoration: underline; text-underline-offset: 3px; }
+.products-page .products-clear .icon { width: 12px; height: 12px; }
+.products-page .marketplace-tab-btn:focus-visible, .products-page .discovery-tool-link:focus-visible, .products-page .products-clear:focus-visible { outline: 2px solid #2866bd; outline-offset: -2px; }
+@media (max-width: 1200px) {
+  .products-page .products-filters { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 16px 12px; }
+  .product-search-group { grid-column: 1 / -1; }
+}
+@media (max-width: 650px) {
+  .products-page .marketplace-tabs { gap: 20px; }
+  .products-page .marketplace-tab-btn { min-height: 48px; font-size: 13px; }
+  .products-page .discovery-tools { gap: 8px; margin: 12px 0 16px; }
+  .discovery-tools-label { width: 100%; margin-right: 0; }
+  .products-page .discovery-tool-link { min-height: 44px; padding: 8px 10px; font-size: 12px; }
+  .products-page .products-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; padding: 16px; }
+  .products-page .products-filters input, .products-page .products-filters select { font-size: 16px; }
+  .products-page .products-clear { justify-self: end; }
+}
