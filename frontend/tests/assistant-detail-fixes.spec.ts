@@ -72,6 +72,7 @@ async function setupAssistant(page: Page, options: { noPlan?: boolean; draftPlan
   await expect(page.locator('.ai-chat-header')).toBeVisible();
   await expect(page.locator('.anhuu-loading')).toHaveCount(0);
   await page.evaluate(() => document.fonts.ready);
+  return { plan, version };
 }
 
 for (const state of ['none', 'draft', 'applied'] as const) {
@@ -96,9 +97,8 @@ for (const state of ['none', 'draft', 'applied'] as const) {
     } else {
       expect(commands[0]).not.toHaveProperty('planId');
       expect(commands[0]).not.toHaveProperty('versionId');
-      await page.locator('.ai-plan-trigger').click();
-      await expect(page.locator('.ai-chat-plan')).toContainText('Cần lưu và áp dụng kế hoạch');
-      await expect(page.getByRole('link',{name:'Lập kế hoạch',exact:true})).toBeVisible();await page.getByRole('dialog').locator('.dialog-close').click();
+      await expect(page.locator('.ai-chat-context-note')).toContainText('Hãy lưu kế hoạch chính');
+      await expect(page.getByRole('link',{name:'Mở kế hoạch nghỉ hưu',exact:true})).toHaveAttribute('href','/user/plan');
     }
     await input.fill('Giải thích tiếp giúp tôi'); await input.press('Enter');
     await expect.poll(() => commands.length).toBe(2);
@@ -156,20 +156,47 @@ test('assistant: selecting suggestion preserves existing draft without overwriti
   await expect(textbox).toBeFocused();
 });
 
-test('assistant: status badge shows plan version or profile baseline honestly', async ({ page }) => {
+test('assistant uses shared saved plan without a plan chooser', async ({ page }) => {
   await setupAssistant(page);
-  await page.locator('.ai-plan-trigger').click();
-  await expect(page.locator('.ai-chat-plan-name')).toContainText('Đang dùng kế hoạch phiên bản 1');
+  await expect(page.locator('.ai-plan-trigger,.ai-welcome-plan,.ai-plan-dialog')).toHaveCount(0);
+  await expect(page.locator('.ai-chat-context-note')).toHaveCount(0);
   await expect(page.locator('.ai-chat-header')).toContainText('Trợ lý An Hưu');
-  await expect(page.locator('.codex-pulse')).toHaveCount(0);
 });
 
-test('assistant: no plan shows explicit baseline badge', async ({ page }) => {
+test('assistant without a saved main plan offers general questions without inventing an option', async ({ page }) => {
   await setupAssistant(page, { noPlan: true });
-  await page.locator('.ai-plan-trigger').click();
-  await expect(page.locator('.ai-chat-plan-name')).toContainText('chưa có kế hoạch đang áp dụng');
-  await expect(page.locator('.ai-welcome-plan')).toContainText('Chưa có dự phóng');
-  await expect(page.locator('.ai-welcome-plan')).not.toContainText('Thiếu');
+  await expect(page.locator('.ai-chat-context-note')).toContainText('Bạn có thể hỏi kiến thức chung');
+  await expect(page.locator('.ai-welcome-plan,.ai-plan-version')).toHaveCount(0);
+});
+
+test('assistant automatically uses the updated saved main version after reload', async ({page}) => {
+  const {plan,version}=await setupAssistant(page,{saveHistory:false});
+  const current={...version,id:'00000000-0000-4000-8000-000000000008',version:2};
+  const updated={...plan,currentVersionId:current.id,current,revision:2};
+  await page.route('**/api/v1/me/retirement/plans**',route=>{
+    const pathname=new URL(route.request().url()).pathname;
+    return route.fulfill({json:{data:pathname.endsWith('/plans')?{items:[updated],total:1}:pathname.endsWith('/versions')?{items:[{...version,version:3}],total:1}:updated}});
+  });
+  await page.reload();
+  let command:any;
+  await page.route('**/api/v1/me/ai/explain',route=>{command=route.request().postDataJSON();return route.fulfill({json:{data:{answer:'Trả lời theo kế hoạch chính đã lưu.',status:'AI_ASSISTED',facts:[],citations:[]}}});});
+  await page.locator('#ai-chat-question').fill('Giải thích kế hoạch đang lưu');
+  await expect(page.locator('.ai-chat-send')).toBeEnabled();await page.locator('.ai-chat-send').click();
+  await expect(page.locator('.ai-chat-message.assistant')).toContainText('kế hoạch chính đã lưu');
+  expect(command).toMatchObject({planId:plan.id,versionId:current.id});
+  await expect(page.locator('.ai-plan-trigger,.ai-welcome-plan')).toHaveCount(0);
+});
+
+test('assistant waits for the saved plan to recover instead of sending without context', async ({page}) => {
+  await setupAssistant(page,{saveHistory:false});let failed=true,calls=0;
+  await page.route('**/api/v1/me/retirement/plans**',route=>failed?route.fulfill({status:503,json:{error:{message:'Plan unavailable'}}}):route.fallback());
+  await page.route('**/api/v1/me/ai/explain',route=>{calls++;return route.fulfill({json:{data:{answer:'Đã có kế hoạch.',status:'AI_ASSISTED',facts:[],citations:[]}}});});
+  await page.reload();await expect(page.getByRole('button',{name:'Tải lại kế hoạch',exact:true})).toBeVisible();
+  const input=page.locator('#ai-chat-question');await input.fill('Câu hỏi theo kế hoạch');await input.press('Enter');
+  await expect(page.locator('.ai-chat-send')).toBeDisabled();expect(calls).toBe(0);
+  failed=false;await page.getByRole('button',{name:'Tải lại kế hoạch',exact:true}).click();
+  await expect(page.locator('.ai-chat-send')).toBeEnabled();await expect(input).toHaveValue('Câu hỏi theo kế hoạch');
+  await page.locator('.ai-chat-send').click();await expect(page.locator('.ai-chat-message.assistant')).toContainText('Đã có kế hoạch.');expect(calls).toBe(1);
 });
 
 for (const viewport of [{ width: 1920, height: 850 }, { width: 1366, height: 768 }, { width: 1440, height: 1000 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 390, height: 400 }]) {
@@ -231,7 +258,7 @@ for (const options of [{processing:false},{reconsent:true}]) {
   });
 }
 
-test('assistant labels approved-excerpt answers and keeps long citations scrollable', async ({ page }) => {
+test('assistant labels approved-excerpt answers without a document panel or repeated disclaimer', async ({ page }) => {
   await setupAssistant(page, { noProvider: true });
   const excerpt = `Điều 169. Tuổi nghỉ hưu\n${'1. Người lao động bảo đảm điều kiện về thời gian đóng bảo hiểm xã hội theo quy định. '.repeat(25)}`;
   await page.route('**/api/v1/me/ai/explain', route => route.fulfill({ json: { data: {
@@ -252,14 +279,11 @@ test('assistant labels approved-excerpt answers and keeps long citations scrolla
   // Bullet lines stay on their own lines (pre-wrap), not merged into one paragraph line.
   const bullets = await answer.locator('.ai-chat-message-body p').nth(1).evaluate(el => (el as HTMLElement).innerText.split('\n').length);
   expect(bullets).toBe(2);
-  await answer.locator('.ai-chat-sources summary').click();
-  const quote = answer.locator('.ai-citation-excerpt');
-  await expect(quote).toBeVisible();
-  const box = await quote.evaluate(el => ({ client: el.clientHeight, scroll: el.scrollHeight, ws: getComputedStyle(el).whiteSpace, tab: el.tabIndex }));
-  expect(box.client).toBeLessThanOrEqual(220);
-  expect(box.scroll).toBeGreaterThan(box.client);
-  expect(box.ws).toBe('pre-wrap');
-  expect(box.tab).toBe(0);
+  await expect(answer.locator('.ai-chat-sources')).toHaveCount(0);
+  await expect(answer.locator('.ai-reference-note')).toHaveCount(0);
+  await expect(answer).not.toContainText('Tài liệu được dùng');
+  await expect(answer).not.toContainText('Giải thích để tham khảo;');
+  await expect(answer).not.toContainText(excerpt);
   await page.screenshot({ path: test.info().outputPath('approved-excerpt.png') });
 });
 
@@ -358,7 +382,7 @@ test('assistant simulation uses saved month and explicit zero, and reports incom
   await page.route('**/api/v1/me/ai/simulate',route=>{commands.push(route.request().postDataJSON());return route.fulfill({json:{data:{candidate:{status:'INCOMPLETE'},applied:false}}});});
   const input=page.getByRole('textbox',{name:'Câu hỏi dành cho trợ lý AI'});
   await input.fill('Thử thay đổi'); await expect(page.locator('.ai-chat-send')).toBeEnabled(); await input.press('Enter');
-  await page.locator('.ai-plan-trigger').click();await page.getByRole('button',{name:'Thử thay đổi kế hoạch',exact:true}).click();
+  await page.getByRole('button',{name:'Thử thay đổi kế hoạch',exact:true}).click();
   await expect(page.locator('#ai-retirement-month')).toHaveValue('2054-10');
   await expect(page.getByLabel('Tiền góp mỗi tháng',{exact:true})).toHaveValue('0');
   await expect(page.getByLabel('Chi tiêu mỗi tháng khi nghỉ hưu, theo giá hôm nay',{exact:true})).toHaveValue('10.000.000');
@@ -405,7 +429,7 @@ test('assistant comparison names both valuation dates and keeps non-comparable d
     comparison:{status:'NOT_COMPARABLE',reasons:['VALUATION_DATE_DIFFERS'],delta:null},applied:false
   }}}));
   const input=page.getByRole('textbox',{name:'Câu hỏi dành cho trợ lý AI'});await input.fill('Thử kế hoạch');await expect(page.locator('.ai-chat-send')).toBeEnabled();await input.press('Enter');
-  await page.locator('.ai-plan-trigger').click();await page.getByRole('button',{name:'Thử thay đổi kế hoạch',exact:true}).click();await page.getByRole('button',{name:'Tính phương án thử'}).click();
+  await page.getByRole('button',{name:'Thử thay đổi kế hoạch',exact:true}).click();await page.getByRole('button',{name:'Tính phương án thử'}).click();
   const result=page.getByRole('region',{name:'Kết quả mô phỏng'});
   await expect(result).toContainText('08/10/2026');await expect(result).toContainText('13/10/2026');
   await expect(result).toContainText('9.007.199.254.740.993 VND');
@@ -418,7 +442,7 @@ test('assistant redesign exposes only supported actions and keeps privacy access
   await setupAssistant(page);
   await expect(page.getByRole('heading',{name:'Bạn muốn hỏi gì?'})).toBeVisible();
   await expect(page.locator('.ai-chat-suggestions button')).toHaveCount(4);
-  await page.locator('.ai-plan-trigger').click();await expect(page.getByRole('button',{name:'Thử thay đổi kế hoạch',exact:true})).toBeVisible();await page.getByRole('dialog').locator('.dialog-close').click();
+  await expect(page.locator('.ai-plan-trigger,.ai-welcome-plan')).toHaveCount(0);
   await expect(page.getByRole('button',{name:/Tải hội thoại/})).toHaveCount(0);
   await expect(page.getByText('Nghỉ hưu sớm hơn 2 năm cần thêm vốn gì?',{exact:true})).toHaveCount(0);
   await expect(page.locator('.codex-side-rail,.typing-pulse-dots,.codex-status-pill')).toHaveCount(0);
@@ -427,7 +451,7 @@ test('assistant redesign exposes only supported actions and keeps privacy access
   await expect(page.getByRole('button',{name:'Đồng ý, không lưu lịch sử',exact:true})).toBeVisible();
 });
 
-test('assistant answer is not duplicated as fact cards and only shows actual citations', async ({page})=>{
+test('assistant answer is not duplicated as fact cards or a reference panel', async ({page})=>{
   await setupAssistant(page,{saveHistory:false});
   const fact='Theo kế hoạch đã lưu, quỹ dự kiến có đủ cho 80% nhu cầu.';
   await page.route('**/api/v1/me/ai/explain',route=>route.fulfill({json:{data:{answer:fact,status:'AI_ASSISTED',facts:[{key:'coverage',text:fact}],citations:[]}}}));
@@ -462,10 +486,7 @@ for (const viewport of [{width:1920,height:850},{width:1366,height:768}]) {
     expect(panelBox.y).toBeGreaterThanOrEqual(chatBody.y);
     expect(panelBox.y+panelBox.height).toBeLessThanOrEqual(chatBody.y+chatBody.height+1);
     expect(await page.locator('#root').evaluate(el=>(el as HTMLElement).inert)).toBe(false);
-    const planBox=(await page.locator('.ai-plan-trigger').boundingBox())!,toggleBox=(await toggle.boundingBox())!;
-    expect(toggleBox.x).toBeGreaterThanOrEqual(planBox.x+planBox.width);
-    await expect(page.locator('.ai-plan-trigger')).toContainText('Kế hoạch nghỉ hưu');
-    await expect(page.locator('.ai-plan-trigger')).toHaveAttribute('title','Xem kế hoạch nghỉ hưu dùng để trả lời');
+    await expect(page.locator('.ai-plan-trigger,.ai-welcome-plan')).toHaveCount(0);
     await expect(page.locator('.ai-chat-page')).toHaveCSS('background-color','rgb(255, 255, 255)');
     await expect(page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true})).toBeVisible();
     await page.screenshot({path:`../artifacts/ai-completion/chat-toolbar-history-${viewport.width}.png`});
@@ -503,8 +524,6 @@ for (const reducedMotion of ['reduce','no-preference'] as const) {
     await toggle.click();await toggle.click();await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded','true');
     await expect(page.getByRole('complementary',{name:'Hội thoại đã lưu',exact:true})).toBeVisible();
-    await page.locator('.ai-plan-trigger').click();await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('dialog').locator('.dialog-close').click();
     await toggle.click();await expect(toggle).toHaveAttribute('aria-expanded','false');
     await expect(page.locator('.ai-history-panel')).toHaveAttribute('inert','');
     await expect(page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true})).toBeHidden();

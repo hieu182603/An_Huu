@@ -255,7 +255,8 @@
     max-width: 100% !important;
     font-size: 11.5px !important;
   }
-  .user-dashboard-shell .dashboard-main {
+  /* Chat already reserves the bottom navigation in its workspace height. */
+  .user-dashboard-shell .dashboard-main:not(.dashboard-main-assistant) {
     padding-bottom: calc(var(--mobile-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + 20px) !important;
   }
   html:has(.user-dashboard-shell) {
