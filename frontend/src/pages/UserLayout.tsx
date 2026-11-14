@@ -47,7 +47,6 @@ export default function UserLayout() {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
-  const [explainMode, setExplainMode] = useState(false);
 
   const userNavItems: UserNavItem[] = [
     { path: "/user/dashboard", label: t("nav.dashboard"), icon: "home" },
@@ -130,7 +129,7 @@ export default function UserLayout() {
     setAccountModalOpen(true);
   };
 
-  useEffect(() => { setMobileMenuOpen(false); setExplainMode(false); }, [location.pathname]);
+  useEffect(() => { setMobileMenuOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     const tablet = window.matchMedia("(min-width: 768px) and (max-width: 1024px)");
@@ -279,17 +278,6 @@ export default function UserLayout() {
           </button>
 
           <div className="user-topbar-actions">
-            <button
-              type="button"
-              className="topbar-ai-pill"
-              onClick={() => navigate("/user/assistant")}
-              aria-label={t("topbar.ai_assistant")}
-              title={language === "en" ? "Open AI assistant" : "Mở trợ lý AI"}
-            >
-              <Icon name="sparkles" />
-              <span>{language === "en" ? "Assistant" : "Trợ lý"}</span>
-              <small>AI</small>
-            </button>
             <UserLanguageMenu />
             <Tooltip content={t("topbar.support")}>
               <button
@@ -314,7 +302,6 @@ export default function UserLayout() {
               menuItems={[
                 { label: t("topbar.profile"), icon: "users", onClick: () => openAccountModal("profile") },
                 { label: t("topbar.settings"), icon: "settings", onClick: () => openAccountModal("settings") },
-                { label: language === "en" ? "Explain figures" : "Giải thích số liệu", icon: "info", onClick: () => setExplainMode(value => !value) },
                 { label: t("topbar.export_plan"), icon: "download", onClick: () => openAccountModal("export") },
               ]}
             />
@@ -322,7 +309,7 @@ export default function UserLayout() {
         </header>
 
         <main className={`dashboard-main ${location.pathname === "/user/assistant" ? "dashboard-main-assistant" : ""}`} id="main-content">
-          <ExplainModeProvider key={user?.id} enabled={explainMode} onDisable={() => setExplainMode(false)}>
+          <ExplainModeProvider key={user?.id} enabled={false} onDisable={() => {}}>
           {locationLabel && location.pathname !== "/user/assistant" && (
             <nav className="location-bar" aria-label={language === "en" ? "You are here" : "Vị trí hiện tại"}>
               <Link to="/user/dashboard">{language === "en" ? "Your space" : "Không gian của bạn"}</Link>
@@ -330,7 +317,6 @@ export default function UserLayout() {
               <strong aria-current="page">{locationLabel}</strong>
             </nav>
           )}
-          {explainMode && <div className="explain-mode-banner" role="status"><span>{language === "en" ? "Tap a phrase or figure to see an explanation · Esc to exit" : "Chạm vào cụm từ hoặc con số để xem giải thích · Esc để thoát"}</span><Link to="/user/assistant">{language === "en" ? "Open AI chat" : "Mở trò chuyện AI"}</Link></div>}
           <FinancialProfileGate>
             <Suspense fallback={<AppLoader variant="inline" label={t("common.loading")} />}>
               <PageTransition key={location.pathname}>

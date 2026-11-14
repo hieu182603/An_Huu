@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { m, AnimatePresence } from "motion/react";
-import { Icon, Switch, Button, Badge, Card, useNotification, type IconName } from "./ui";
+import { m } from "motion/react";
+import { Icon, Switch, Button, Card, useNotification } from "./ui";
 import { AccountProfilePanel, AccountSecurityPanel } from "./AccountApiPanels";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { getNotificationSettings, updateNotificationSettings, type NotificationSettings } from "../services/notifications";
 import { exportPlanVersionCsv } from "../services/plans";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useI18n } from "../i18n";
+import "./user-account-modal.css";
 
 export type AccountModalTab = "profile" | "settings" | "export";
 
@@ -186,32 +187,31 @@ export function UserAccountModal({
       <m.div
         ref={surface}
         tabIndex={-1}
-        className="account-modal-window"
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        className="account-modal-window account-dialog"
+        initial={{ opacity: 1, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 8 }}
         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       >
-        {/* Left Column / Sidebar Nav */}
-        <aside className="account-modal-sidebar">
-          {/* User Preview */}
-          <div className="account-modal-user-card">
-            <div className="account-modal-avatar-frame">
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.name || "User"} />
-              ) : (
-                <span>{user?.initials || "U"}</span>
-              )}
+          <header className="account-modal-header">
+            <div>
+              <h2 id="account-modal-title">
+                {activeTab === "profile" && (language === "en" ? "Personal Profile" : "Hồ sơ cá nhân")}
+                {activeTab === "settings" && (language === "en" ? "Account Settings" : "Cài đặt tài khoản")}
+                {activeTab === "export" && (language === "en" ? "Export Retirement Plan" : "Xuất kế hoạch hưu trí")}
+              </h2>
+              <p className="account-dialog-identity">{user?.name || (language === "en" ? "Your An Huu account" : "Tài khoản An Hưu")}</p>
             </div>
-            <div className="account-modal-user-info">
-              <strong>{user?.name || (language === "en" ? "An Huu User" : "Người dùng An Hưu")}</strong>
-              <small>{user?.detail || user?.email || (language === "en" ? "Personal Account" : "Tài khoản cá nhân")}</small>
-            </div>
-          </div>
-
-          <div className="account-modal-nav-divider" />
-
-          {/* Navigation Items */}
+            <button
+              type="button"
+              className="account-modal-close-btn"
+              onClick={onClose}
+              aria-label={language === "en" ? "Close window" : "Đóng cửa sổ"}
+              title={language === "en" ? "Close (Esc)" : "Đóng (Esc)"}
+            >
+              <Icon name="x" size="small" />
+            </button>
+          </header>
           <nav className="account-modal-nav" aria-label={language === "en" ? "Account options" : "Tùy chọn tài khoản"}>
             <button
               type="button"
@@ -240,32 +240,9 @@ export function UserAccountModal({
               onClick={() => setActiveTab("export")}
             >
               <span className="tab-btn-icon"><Icon name="download" /></span>
-              <span className="tab-btn-title">{language === "en" ? "Export" : "Xuất kế hoạch"}</span>
+              <span className="tab-btn-title">{language === "en" ? "Export" : "Xuất tệp"}</span>
             </button>
           </nav>
-        </aside>
-
-        {/* Right Column / Content Pane */}
-        <div className="account-modal-content">
-          <header className="account-modal-header">
-            <div>
-              <h2 id="account-modal-title">
-                {activeTab === "profile" && (language === "en" ? "Personal Profile" : "Hồ sơ cá nhân")}
-                {activeTab === "settings" && (language === "en" ? "Account Settings" : "Cài đặt tài khoản")}
-                {activeTab === "export" && (language === "en" ? "Export Retirement Plan" : "Xuất kế hoạch hưu trí")}
-              </h2>
-            </div>
-            <button
-              type="button"
-              className="account-modal-close-btn"
-              onClick={onClose}
-              aria-label={language === "en" ? "Close window" : "Đóng cửa sổ"}
-              title={language === "en" ? "Close (Esc)" : "Đóng (Esc)"}
-            >
-              <span aria-hidden="true">✕</span>
-            </button>
-          </header>
-
           <div className="account-modal-body">
             {/* TAB 1: HỒ SƠ */}
             {activeTab === "profile" && (
@@ -276,7 +253,7 @@ export function UserAccountModal({
 
             {/* TAB 2: CÀI ĐẶT (Đổi mật khẩu & Tùy chọn thông báo) */}
             {activeTab === "settings" && (
-              <div className="account-tab-pane" style={{ display: "grid", gap: "24px" }}>
+              <div className="account-tab-pane account-settings-pane">
                 {/* 1. Security & Password */}
                 <AccountSecurityPanel />
 
@@ -354,7 +331,7 @@ export function UserAccountModal({
 
             {/* TAB 3: XUẤT KẾ HOẠCH HƯU TRÍ */}
             {activeTab === "export" && (
-              <div className="account-tab-pane" style={{ display: "grid", gap: "18px" }}>
+              <div className="account-tab-pane account-export-grid">
                 <Card className="report-card">
                   <div>
                     <span className="report-icon">
@@ -372,7 +349,7 @@ export function UserAccountModal({
 
                 <Card className="report-card">
                   <div>
-                    <span className="report-icon" style={{ background: "rgba(25, 81, 252, 0.12)" }}>
+                    <span className="report-icon" >
                       <Icon name="chart" size="large" />
                     </span>
                     <div>
@@ -392,7 +369,6 @@ export function UserAccountModal({
               </div>
             )}
           </div>
-        </div>
       </m.div>
     </div>,
     document.body
