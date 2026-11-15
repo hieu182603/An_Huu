@@ -1,5 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { planVersionName } from "../src/utils/planVersionName.ts";
+
+test("saved plan names share pinned age and compact contribution across banner, history and report", () => {
+  assert.equal(planVersionName(1, "1990-06", "2050-06", "7500000"), "Phương án 1 (Phiên bản 1 · Nghỉ 60 tuổi, góp 7,5 triệu/tháng)");
+  assert.equal(planVersionName(2, "1990-06", "2050-05", "0"), "Phương án 2 (Phiên bản 2 · Nghỉ 59 tuổi, góp 0/tháng)");
+  assert.equal(planVersionName(3, null, "2050-06", null), "Phương án 3 (Phiên bản 3, góp Chưa xác định/tháng)");
+});
 import { createQuickStartProfileV2 } from "../src/services/financialProfile.ts";
 import { initialPlanSelection } from "../src/services/initialPlanSelection.ts";
 import { illustrativeRetirementEnd, projectionHorizonLabel } from "../src/utils/retirementHorizon.ts";

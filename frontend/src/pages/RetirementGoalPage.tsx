@@ -41,20 +41,24 @@ function GoalForm({ data }: { data: ProfileV2 }) {
   });
 
   const [form, setForm] = useState(original);
-  const [autoEnd, setAutoEnd] = useState(!data.retirementGoal?.endMonth && !selection.endMonth);
+  const [autoEnd, setAutoEnd] = useState(original().end === illustrativeRetirementEnd(original().birth));
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [endEdited, setEndEdited] = useState(false);
   const [error, setError] = useState("");
   const [popup, setPopup] = useState<"explain" | "discard" | null>(null);
   const committed = useRef<{ key: string; revision: number } | null>(null);
 
   useEffect(() => {
-    if (!dirty && !busy) { setForm(original()); setAutoEnd(!data.retirementGoal?.endMonth && !selection.endMonth); }
+    if (!dirty && !busy) { setForm(original()); setAutoEnd(original().end === illustrativeRetirementEnd(original().birth)); }
   }, [profileRevision, currentVersion?.id]);
+
+  const prepareMonth = form.end ? (() => { const index = monthIndex(form.end)! + 1; return `${Math.floor(index/12)}-${String(index%12+1).padStart(2,"0")}`; })() : "";
+  const legacyEnd = Boolean(form.end && form.end !== illustrativeRetirementEnd(form.birth));
 
   const set = (key: keyof typeof form, value: string) => {
     setDirty(true);
-    if (key === "end") setAutoEnd(false);
+    if (key === "end") { setAutoEnd(false); setEndEdited(true); }
     setForm((f) => ({ ...f, [key]: value }));
   };
   const setBirth = (value: string) => {
@@ -87,7 +91,8 @@ function GoalForm({ data }: { data: ProfileV2 }) {
     const start = monthIndex(data.valuationDate.slice(0, 7));
     const birth = monthIndex(form.birth);
     const ret = monthIndex(form.retirement);
-    const end = monthIndex(form.end);
+    const savedEnd = legacyEnd && !endEdited ? illustrativeRetirementEnd(form.birth) : form.end;
+    const end = monthIndex(savedEnd);
 
     if (
       birth === null ||
@@ -120,7 +125,7 @@ function GoalForm({ data }: { data: ProfileV2 }) {
           ...(form.birthDate ? { birthDate: form.birthDate } : {}),
           retirementMonth: form.retirement,
           goal: {
-            endMonth: form.end,
+            endMonth: savedEnd,
             monthlyExpenseToday: form.expense,
             ...(data.retirementGoal?.monthlyContribution !== undefined ? { monthlyContribution: data.retirementGoal.monthlyContribution } : {}),
             lifestylePriority: (form.lifestyle || null) as NonNullable<
@@ -134,7 +139,7 @@ function GoalForm({ data }: { data: ProfileV2 }) {
       }
       updateDraft({
         expectedProfileRevision: revision,
-        endMonth: form.end,
+        endMonth: savedEnd,
         monthlyExpenseToday: form.expense,
         whatIf: { ...selection.whatIf, retirementMonth: form.retirement },
       });
@@ -166,16 +171,16 @@ function GoalForm({ data }: { data: ProfileV2 }) {
       <h2>{t("Mục tiêu của bạn", "Your goal")}</h2>
       <fieldset disabled={busy}>
         <div className="goal-inputs-grid">
-          <ProfileFormattedInput format="date" label={t("Ngày tháng năm sinh", "Date of birth")} value={form.birthDate || form.birth} onChange={setBirth} />
-          <div><label className="goal-age-field"><span><Explain term="retirementAge">{t("Bạn muốn nghỉ hưu năm bao nhiêu tuổi?", "Retirement age")}</Explain></span><div><input aria-label={t("Bạn muốn nghỉ hưu năm bao nhiêu tuổi?", "Retirement age")} type="number" min="18" max="100" value={ageYears ?? ""} onChange={e => e.target.value === "" ? set("retirement", "") : setAge(Number(e.target.value))} /><span>{t("tuổi", "years")}</span></div></label><p className="goal-field-note">{t("Dự kiến nghỉ hưu:", "Retirement month:")} <strong>{form.retirement ? formatMonthVN(form.retirement) : t("Chưa xác định", "Undetermined")}</strong></p></div>
+          <ProfileFormattedInput format="date" hideDateHint label={t("Ngày tháng năm sinh", "Date of birth")} value={form.birthDate || form.birth} onChange={setBirth} />
+          <div><label className="goal-age-field"><span><Explain term="retirementAge">{t("Bạn muốn nghỉ hưu năm bao nhiêu tuổi?", "Retirement age")}</Explain></span><div><input aria-label={t("Bạn muốn nghỉ hưu năm bao nhiêu tuổi?", "Retirement age")} type="number" min="18" max="100" value={ageYears ?? ""} onChange={e => e.target.value === "" ? set("retirement", "") : setAge(Number(e.target.value))} /><span>{t("tuổi", "years")}</span></div></label><p className="goal-field-note">{t("Dự kiến nghỉ hưu:", "Retirement month:")} <strong>{form.retirement ? (en ? `${Number(form.retirement.slice(5))}/${form.retirement.slice(0,4)}` : `tháng ${Number(form.retirement.slice(5))}/${form.retirement.slice(0,4)}`) : t("Chưa xác định", "Undetermined")}</strong></p></div>
         </div>
-        <ProfileFormattedInput format="money" label={<Explain term="expenseToday">{t("Chi tiêu nghỉ hưu mỗi tháng", "Monthly retirement spending")}</Explain>} value={form.expense} onChange={v => set("expense", v)} />
+        <div className="goal-retirement-expense"><ProfileFormattedInput format="money" label={<Explain term="expenseToday">{t("Chi tiêu nghỉ hưu mỗi tháng", "Monthly retirement spending")}</Explain>} value={form.expense} onChange={v => set("expense", v)} /></div>
         <p className="goal-field-note">{t("Theo giá hôm nay; chưa gồm trả nợ và khoản hỗ trợ có lịch riêng.", "At today's prices; debt and separately scheduled support are modeled separately.")}</p>
         <div className="goal-inputs-grid">
-          <label className="goal-valuation-field"><span>{t("Tháng bắt đầu lập số liệu", "Valuation month")}</span><input value={formatMonthVN(data.valuationDate.slice(0, 7))} readOnly /><small>{t("Theo kỳ định giá hồ sơ. Rà soát tài sản trong Tài chính khi muốn đổi kỳ số liệu.", "Uses your profile valuation period. Review assets in Finances before changing it.")}</small></label>
-          <label className="goal-valuation-field"><span>{t("Chuẩn bị quỹ đến tháng", "Prepare the fund by")}</span><input aria-label={t("Chuẩn bị quỹ đến tháng", "Prepare the fund by")} value={form.birth ? formatMonthVN(`${Number(form.birth.slice(0,4))+85}-${form.birth.slice(5)}`) : ""} placeholder="mm/yyyy" readOnly /><small>{t("Tự cập nhật theo tháng bạn đủ 85 tuổi.", "Updates automatically to the month of your 85th birthday.")}</small></label>
+          <label className="goal-valuation-field"><span>{t("Tháng bắt đầu lập số liệu", "Valuation month")}</span><input value={formatMonthVN(data.valuationDate.slice(0, 7))} readOnly /></label>
+          <label className="goal-valuation-field"><span>{t("Chuẩn bị quỹ đến tháng", "Prepare the fund by")}</span><input aria-label={t("Chuẩn bị quỹ đến tháng", "Prepare the fund by")} value={prepareMonth ? formatMonthVN(prepareMonth) : ""} placeholder="mm/yyyy" readOnly /></label>
         </div>
-        <p className="goal-field-note">{autoEnd ? t("Mặc định tính chi tiêu đến trước tháng đủ 85 tuổi như bản demo. Đây là giả định tính toán, không phải dự đoán tuổi thọ.", "Spending is modeled through the month before your 85th birthday, as in the demo. This is a planning assumption, not a lifespan prediction.") : t("Thời gian chi tiêu dùng mốc đã lưu trong kế hoạch. Bạn có thể xem và chỉnh tại phần nâng cao.", "The spending horizon uses the plan's saved end month. Review or adjust it in advanced settings.")}</p>
+        {legacyEnd && !endEdited && <p role="status" className="goal-field-note">{t(`Kế hoạch đang lưu tính đến ${formatMonthVN(form.end)}. Lưu lại để dùng mốc 85 tuổi.`, `The saved plan runs through ${formatMonthVN(form.end)}. Save again to use the age-85 horizon.`)}</p>}
         <details className="goal-exact-month"><summary>{t("Chỉnh thời gian nghỉ hưu và chi tiêu", "Adjust retirement and spending dates")}</summary>
           <div><ProfileFormattedInput format="month" label={t("Tháng nghỉ hưu mong muốn", "Desired retirement month")} value={form.retirement} onChange={v => set("retirement", v)} /><ProfileFormattedInput format="month" label={t("Tính chi tiêu nghỉ hưu đến tháng", "Model retirement spending through")} value={form.end} onChange={v => set("end", v)} />
             <p className="goal-field-note">{t("Chỉ cần chỉnh khi muốn thử thời gian chi tiêu khác; không phải dự đoán tuổi thọ.", "Adjust only to explore a different spending period; this is not a lifespan prediction.")}</p>
@@ -190,8 +195,7 @@ function GoalForm({ data }: { data: ProfileV2 }) {
       <footer className="goal-form-footer"><button type="button" className="overview-button secondary" disabled={busy} onClick={cancel}>{t("Hủy", "Cancel")}</button><button type="submit" className="overview-button primary" disabled={busy}>{busy ? t("Đang lưu…", "Saving…") : t("Lưu và xem kết quả mới", "Save and see new results")}</button></footer>
     </form>
     <section className="remaining-card goal-other-goals"><h2>{t("Mục tiêu lớn khác", "Other major goals")}</h2>{data.goals?.status === "KNOWN" ? data.goals.entries.length ? <ul>{data.goals.entries.map(g => <li key={g.id}><strong>{g.label}</strong><span>{financeMoney(g.amountToday.status === "KNOWN" ? g.amountToday.value : null, en)} · {g.dueMonth.status === "KNOWN" ? formatMonthVN(g.dueMonth.value) : t("Chưa có kỳ hạn", "No due month")}</span></li>)}</ul> : <p>{t("Chưa có mục tiêu lớn khác (mua nhà, xe, quỹ học vấn...)", "No other goals declared.")}</p> : data.goals?.status === "NOT_APPLICABLE" ? <p>{t("Chưa có mục tiêu lớn khác (mua nhà, xe, quỹ học vấn...)", "No other goals confirmed.")}</p> : <p>{t("Mục tiêu khác chưa được xác nhận.", "Other goals have not been confirmed.")}</p>}<Link className="overview-button secondary" to="/user/profile?section=constraints">{t("Xem & chỉnh sửa mục tiêu khác →", "Review other goals →")}</Link></section>
-    <ol className="goal-sync-timeline life-timeline">{([[t("Bắt đầu tính", "Valuation"), data.valuationDate.slice(0, 7)], [t("Nghỉ hưu mong muốn", "Retirement / fund preparation deadline"), form.retirement, "retirementAge"], [t("Chuẩn bị đến", "Prepare through"), form.birth ? `${Number(form.birth.slice(0,4))+85}-${form.birth.slice(5)}` : "", "projectionEnd"]] as Array<[string, string, string?]>).map(([label, date, term]) => <li key={label}><span>{term ? <Explain term={term}>{label}</Explain> : label}</span><strong>{date ? formatMonthVN(date) : t("Chưa xác định", "Undetermined")}</strong>{date && form.birth && <small>{Math.floor((Number(date.slice(0,4))*12+Number(date.slice(5))-Number(form.birth.slice(0,4))*12-Number(form.birth.slice(5)))/12)} {t("tuổi", "years old")}</small>}</li>)}</ol>
-    <p className="goal-field-note">{t("Dự tính chi tiêu đến hết tháng", "Spending modeled through")} {formatMonthVN(form.end)}</p>
+    <ol className="goal-sync-timeline life-timeline">{([[t("BẮT ĐẦU TÍNH", "VALUATION"), data.valuationDate.slice(0, 7)], [t("NGHỈ HƯU MONG MUỐN", "DESIRED RETIREMENT"), form.retirement, "retirementAge"], [t("CHUẨN BỊ ĐẾN", "PREPARE THROUGH"), prepareMonth, "projectionEnd"]] as Array<[string, string, string?]>).map(([label, date, term]) => <li key={label}><span>{term ? <Explain term={term}>{label}</Explain> : label}</span><strong>{date ? formatMonthVN(date) : t("Chưa xác định", "Undetermined")}</strong>{date && form.birth && <small>{Math.floor((Number(date.slice(0,4))*12+Number(date.slice(5))-Number(form.birth.slice(0,4))*12-Number(form.birth.slice(5)))/12)} {t("tuổi", "years old")}</small>}{term === "projectionEnd" && <small>{t("Dự tính chi tiêu đến hết tháng", "Spending modeled through")} {formatMonthVN(form.end)}</small>}</li>)}</ol>
     <ResponsiveDialog open={popup !== null} title={popup === "discard" ? t("Bỏ thay đổi chưa lưu?", "Discard unsaved changes?") : t("Mốc thời gian trong kế hoạch", "Planning dates")} className="user-workspace-dialog goal-timeline-dialog" onClose={() => { if (!busy) setPopup(null); }}>
       {popup === "discard" ? <><p>{t("Các thay đổi chưa lưu sẽ được bỏ khi quay lại Tổng quan.", "Unsaved edits will be discarded when returning to Overview.")}</p><footer><button type="button" className="overview-button secondary" onClick={() => setPopup(null)}>{t("Tiếp tục sửa", "Keep editing")}</button><button type="button" className="overview-button primary" onClick={() => navigate("/user/dashboard")}>{t("Bỏ thay đổi", "Discard changes")}</button></footer></> : <><p>{t("Hồ sơ lưu tháng sinh và tháng nghỉ hưu, không tự tạo ngày sinh cụ thể. Chọn tuổi dùng tháng sinh ở tuổi đó; bạn có thể chỉnh chính xác tháng nghỉ hưu trong mục mở rộng.", "The profile stores birth and retirement months without inventing a birth day. Choosing an age uses that birth month; the exact retirement month is editable in the expanded section.")}</p><p>{t("Mô hình tính đến hết tháng kết thúc đã chọn. Đây là khoảng thời gian dự phóng, không phải cam kết quỹ đủ chi tiêu hay dự đoán tuổi thọ.", "The model runs through the selected end month. This is a projection horizon, not a guarantee of sufficient funding or a life-expectancy prediction.")}</p><p>{t("Thời điểm nhận lương hưu BHXH được khai riêng tại Tài chính → BHXH và có thể khác tháng nghỉ làm.", "State pension start is declared separately under Finances → Pension and can differ from your retirement month.")}</p><p>{t("Lưu mục tiêu cập nhật hồ sơ và bản nháp để xem kết quả mới. Dùng làm kế hoạch chính cần được xác nhận tại trang Kế hoạch.", "Saving updates your profile and draft for a new preview. Applying a main plan requires confirmation on the Plan page.")}</p><footer><button type="button" className="overview-button primary" onClick={() => setPopup(null)}>{t("Đã hiểu", "Got it")}</button></footer></>}
     </ResponsiveDialog>

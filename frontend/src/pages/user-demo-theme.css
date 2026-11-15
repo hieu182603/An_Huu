@@ -734,3 +734,7 @@
 @media(max-width:767px) {
  .user-dashboard-shell .plan-metrics, .user-dashboard-shell .finance-summary-metrics { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
 }
+
+.chart-phase-accumulation, .chart-phase-retirement { display:flex; align-items:center; gap:8px; }
+.chart-phase-accumulation i, .chart-phase-retirement i { display:inline-block; width:12px; height:12px; border-radius:3px; background:rgba(34,94,170,.25); }
+.chart-phase-retirement i { background:rgba(125,91,166,.25); }

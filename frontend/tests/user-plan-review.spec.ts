@@ -15,6 +15,40 @@ test("one retirement month is disclosed beside the calculated results",async({pa
 });
 test.afterEach(async({page})=>{await page.waitForLoadState("networkidle");});
 
+test("saved plan chart, retirement age and banner all use the pinned birth month",async({page,request})=>{
+ const state=await setupRemaining(page,request,"/user/plan");
+ await page.route("**/api/v1/me/retirement/plans/**",async route=>{
+  if(route.request().method()!=="GET")return route.fallback();
+  const url=new URL(route.request().url()),response=await route.fetch({url:discoveryApi+url.pathname+url.search,headers:{...route.request().headers(),Authorization:`Bearer ${state.fixture.accessToken}`}}),json=await response.json();
+  if(json.data?.current)json.data.current.birthMonth="1980-04";
+  await route.fulfill({response,json});
+ });
+ await page.reload();
+ await expect(page.locator(".current-plan-banner")).toContainText("Nghỉ 46 tuổi");
+ await expect(page.locator(".chart-phase-key")).toContainText("Tích lũy đến 46 tuổi");
+ await expect(page.locator(".plan-summary-hero__side > div").last()).toContainText("48 tuổi");
+ for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:test.info().outputPath(`reaudit-pinned-plan-${width}.png`),fullPage:true,animations:"disabled"});}
+});
+
+for (const gap of ["100000000", "0", "-100000000"]) test(`R-03 funding narrative for gap ${gap}`, async ({page,request}) => {
+ const state=await setupRemaining(page,request,"/user/plan",{savedPlan:false});
+ await restoreDraft(page,state.fixture.planInput);
+ await page.route("**/api/v1/me/retirement/preview**",async route=>{
+  const url=new URL(route.request().url());
+  const response=await route.fetch({url:discoveryApi+url.pathname+url.search,headers:{...route.request().headers(),Authorization:`Bearer ${state.fixture.accessToken}`}}), json=await response.json();
+  if(json.data?.calculation)json.data.calculation.summary.atRetirement.fundingGap=gap;
+  await route.fulfill({response,json});
+ });
+ await page.reload();
+ const narrative=page.locator(".plan-gap-explanation");
+ await expect(narrative).toBeVisible();
+ if(Number(gap)>0){await expect(narrative).toContainText("Khoảng thiếu hụt cần lên kế hoạch bù đắp");await expect(narrative).toContainText("còn thiếu 100 triệu ₫");}
+ else {await expect(narrative).toContainText("Quỹ dự kiến đáp ứng mục tiêu");await expect(narrative).toContainText("đủ so với mục tiêu");await expect(narrative).not.toContainText("còn thiếu");}
+ await expect(page.locator(".chart-phase-key")).toContainText("Tích lũy đến");
+ await expect(page.locator(".chart-phase-key")).toContainText("Dùng quỹ khi nghỉ hưu");
+ await expect(page.locator(".plan-summary-hero__title")).toContainText("mức góp cần khoảng");
+});
+
 test("missing goal horizon explains the actual blocker and never asks to save an unknown plan",async({page,request})=>{
  const s=await setupRemaining(page,request,"/user/plan",{savedPlan:false});const record=await s.get("me/financial-profile");const{retirementGoal,...data}=record.data;
  await page.route("**/api/v1/me/financial-profile",route=>route.fulfill({json:{data:{...record,data}}}));

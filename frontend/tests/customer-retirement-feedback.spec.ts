@@ -1,10 +1,20 @@
 import { test, expect, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { installRouteAuth, installFinancialProfileRoutes } from "./helpers";
 import { normalizeQuickStart } from "../../backend/src/modules/profiles/quick-start";
 import { createQuickStartProfileV2 } from "../src/services/financialProfile";
 
 const policies = JSON.parse(readFileSync(new URL("./fixtures/portfolio-policies.json", import.meta.url), "utf8"));
+const goalEvidence=fileURLToPath(new URL("../../artifacts/demo-reaccept-2026-11-15/goal-horizons/",import.meta.url));
+async function captureGoal(page:Page,name:string){
+  mkdirSync(goalEvidence,{recursive:true});
+  for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000});await page.evaluate(()=>document.fonts.ready);
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.screenshot({path:`${goalEvidence}/${name}-${width}.png`,fullPage:true});
+  }
+}
 test.setTimeout(30000);
 test.use({ actionTimeout: 10000 });
 const profile = () => createQuickStartProfileV2({ birthMonth: "1991-11", desiredRetirementMonth: "2056-11", monthlyIncome: 80000000, monthlyExpense: 30000000, retirementSavings: 100000000, hasDebt: false, valuationDate: "2026-11-01" });
@@ -98,24 +108,25 @@ test("loss percentage allows blank editing, rejects a blank submission and accep
   expect(state.getProfile().data.retirementGoal.endMonth).toBe("2076-10");
 });
 
-test("fund preparation shows the 85th birthday independently of retirement age and custom spending horizon", async ({ page }) => {
+test("R-05 preparation follows the saved/custom spending end plus one month", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await setup(page);
   const preparation = page.getByLabel("Chuẩn bị quỹ đến tháng", { exact: true });
   const age = page.getByRole("spinbutton", { name: "Bạn muốn nghỉ hưu năm bao nhiêu tuổi?", exact: true });
   await expect(preparation).toHaveValue("11/2076");
   await expect(preparation).toHaveAttribute("readonly", "");
+  await captureGoal(page,"default");
   await age.fill("60"); await expect(preparation).toHaveValue("11/2076");
   await page.getByText("Chỉnh thời gian nghỉ hưu và chi tiêu", { exact: true }).click();
   const horizon = page.getByLabel("Tính chi tiêu nghỉ hưu đến tháng", { exact: true });
   await expect(horizon).toHaveValue("10/2076");
   await horizon.fill("12/2080");
-  await age.fill("65"); await expect(preparation).toHaveValue("11/2076");
+  await age.fill("65"); await expect(preparation).toHaveValue("01/2081");
   await expect(horizon).toHaveValue("12/2080");
-  await age.fill(""); await expect(preparation).toHaveValue("11/2076");
+  await age.fill(""); await expect(preparation).toHaveValue("01/2081");
   await age.fill("65");
   await page.getByLabel("Tháng nghỉ hưu mong muốn", { exact: true }).fill("08/2056");
-  await expect(preparation).toHaveValue("11/2076");
+  await expect(preparation).toHaveValue("01/2081");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: test.info().outputPath("goal-mobile.png"), fullPage: true });
 });
@@ -144,6 +155,24 @@ test("saved one-month horizon is disclosed and never silently changes", async ({
   await expect(page.getByLabel("Tính chi tiêu nghỉ hưu đến tháng", { exact: true })).toHaveValue("11/2056");
   await page.getByRole("button", { name: "Dùng mốc 85 tuổi như bản demo", exact: true }).click();
   await expect(page.getByLabel("Tính chi tiêu nghỉ hưu đến tháng", { exact: true })).toHaveValue("10/2076");
+});
+
+test("R-05 an old saved horizon shows its actual exclusive boundary and saving adopts age 85", async ({page}) => {
+  const saved=profile();saved.retirementGoal={endMonth:"2076-11",monthlyExpenseToday:"30000000",lifestylePriority:null};
+  const state=await setup(page,undefined,saved);
+  await page.route("**/api/v1/me/financial-profile/retirement-goal",async route=>{
+    const command=route.request().postDataJSON(),updated={...saved,retirementGoal:command.goal};
+    state.setProfile({revision:2,schemaVersion:2,data:updated});
+    await route.fulfill({json:{data:{revision:2,schemaVersion:2,data:updated}}});
+  });
+  await expect(page.getByLabel("Chuẩn bị quỹ đến tháng",{exact:true})).toHaveValue("12/2076");
+  await expect(page.getByRole("status").filter({hasText:"Kế hoạch đang lưu tính đến 11/2076"})).toBeVisible();
+  await expect(page.locator(".goal-sync-timeline li").last()).toContainText("Dự tính chi tiêu đến hết tháng 11/2076");
+  await expect(page.locator("main")).not.toContainText("dd/mm/yyyy · ngày/tháng/năm");
+  await captureGoal(page,"legacy");
+  await page.getByRole("button",{name:"Lưu và xem kết quả mới",exact:true}).click();
+  await expect(page).toHaveURL(/\/user\/plan/);
+  expect(state.getProfile()!.data.retirementGoal.endMonth).toBe("2076-10");
 });
 
 

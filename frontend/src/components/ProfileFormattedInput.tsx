@@ -8,6 +8,7 @@ import "./profile-formatted-input.css";
 type Props = ComponentProps<typeof Input> & {
   format: "money" | "month" | "date";
   currency?: string;
+  hideDateHint?: boolean;
   onFocus?: React.FocusEventHandler<HTMLInputElement>;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
 };
@@ -34,7 +35,7 @@ function parseDate(text: string, monthOnly: boolean): string | null {
   return `${parts[0]}-${String(month).padStart(2, "0")}${monthOnly ? "" : `-${String(day).padStart(2, "0")}`}`;
 }
 
-export default function ProfileFormattedInput({ format, currency = "VND", label, value = "", onChange, helper, error, disabled, placeholder, min, max, onFocus, onBlur }: Props) {
+export default function ProfileFormattedInput({ format, currency = "VND", hideDateHint = false, label, value = "", onChange, helper, error, disabled, placeholder, min, max, onFocus, onBlur }: Props) {
   const { language } = useI18n();
   const vi = language !== "en";
   const id = useId();
@@ -51,7 +52,7 @@ export default function ProfileFormattedInput({ format, currency = "VND", label,
     ? (vi ? "Nhập số tiền không âm; dùng dấu phẩy nếu có phần thập phân." : "Enter a non-negative amount, using a dot for decimals.")
     : (vi ? `Nhập ${format === "month" ? "tháng/năm" : "ngày/tháng/năm"} hợp lệ.` : "Enter a valid date.");
   const message = invalid ? invalidMessage : error;
-  const hint = helper || (format === "money" ? undefined : dateHint);
+  const hint = helper || (format === "money" || hideDateHint ? undefined : dateHint);
 
   const numericValue = Number(value) || 0;
   const suggestions = useMemo(() => {
