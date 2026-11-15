@@ -3,12 +3,16 @@
 .cashflow-ledger-header h3 { margin: 0 0 8px; font-size: 22px; line-height: 1.4; }
 .cashflow-ledger-header p { margin: 0 0 8px; line-height: 1.65; }
 .cashflow-ledger-header small, .cashflow-ledger-footer { color: #52697e; font-size: 14px; }
-.cashflow-ledger-toolbar { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; align-items: center; }
-.cashflow-ledger-toolbar label { display: flex; gap: 12px; align-items: center; font-weight: 600; }
-.cashflow-ledger-toolbar select { background: #fff; color: #173653; font: inherit; min-height: 44px; padding: 8px 32px 8px 12px; border: 1px solid #c9d7e4; border-radius: 10px; }
-.cashflow-ledger-milestones { display: flex; flex-wrap: wrap; gap: 10px; }
-.cashflow-ledger-milestones button { background: #f1f6fc; border: 1px solid #d9e4ee; border-radius: 10px; padding: 10px 14px; min-height: 44px; color: #244e76; cursor: pointer; font: inherit; font-size: 14px; }
-.cashflow-ledger-milestones button strong { margin-left: 8px; }
+.cashflow-ledger-toolbar { display: flex; flex-wrap: wrap; gap: 20px 24px; align-items: flex-end; margin-bottom: 24px; }
+.cashflow-ledger-filters { display: flex; gap: 16px; min-width: 0; }
+.cashflow-ledger-toolbar label { display: flex; flex-direction: column; gap: 8px; min-width: 0; color: #52697e; font-size: 13px; font-weight: 500; }
+.cashflow-ledger-toolbar select { width: 100%; min-width: 140px; background: #fff; color: #173653; font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 8px 32px 8px 12px; border: 1px solid #c9d7e4; border-radius: 10px; cursor: pointer; }
+.cashflow-ledger-toolbar label:last-child select { min-width: 180px; }
+.cashflow-ledger-toolbar select:hover { border-color: #497eb9; }
+.cashflow-ledger-milestones { display: flex; flex-wrap: wrap; gap: 12px; margin-left: auto; }
+.cashflow-ledger-milestones:empty { display: none; }
+.cashflow-ledger-milestones button { display: flex; align-items: center; justify-content: center; gap: 8px; background: #f1f6fc; border: 1px solid #d9e4ee; border-radius: 10px; padding: 10px 14px; min-height: 44px; color: #244e76; cursor: pointer; font: inherit; font-size: 13px; line-height: 1.5; }
+.cashflow-ledger-milestones button strong { font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cashflow-ledger-milestones .is-shortfall { color: #a42d24; background: #fff5f2; border-color: #efd1cb; }
 .cashflow-ledger-guide { font-size: 14px; color: #52697e; line-height: 1.65; margin: 18px 0 14px; max-width: 1000px; }
 .cashflow-ledger-guide p { margin: 4px 0; }
@@ -31,6 +35,7 @@
 .cashflow-month-marker.is-shortfall { color: #b12c26; }
 .cashflow-detail-toggle { background: #fff; color: #285478; border: 1px solid #d5e1ec; border-radius: 8px; padding: 8px 12px; min-height: 44px; font: inherit; font-size: 14px; cursor: pointer; }
 .cashflow-detail-toggle:hover, .cashflow-ledger-milestones button:hover { background: #eaf2fa; }
+.cashflow-ledger-milestones .is-shortfall:hover { background: #fdebe5; border-color: #dba399; }
 .monthly-cashflow-table-component button:focus-visible, .monthly-cashflow-table-component select:focus-visible, .cashflow-ledger-scroll:focus-visible { outline: 3px solid #497eb9; outline-offset: 3px; }
 .cashflow-ledger .cashflow-detail-row > td { padding: 0; white-space: normal; text-align: left; }
 .cashflow-month-detail { padding: 24px; background: #f8fafc; }
@@ -47,14 +52,28 @@
 .cashflow-ledger-footer p { margin: 0 0 4px; }
 .cashflow-ledger-empty { padding: 24px; }
 .cashflow-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@container (max-width: 760px) {
+  .cashflow-ledger-filters { width: 100%; }
+  .cashflow-ledger-toolbar label { flex: 1; }
+  .cashflow-ledger-milestones { width: 100%; margin-left: 0; }
+  .cashflow-ledger-milestones button { flex: 1; }
+}
+@container (max-width: 420px) {
+  .cashflow-ledger-filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 12px; }
+  .cashflow-ledger-toolbar select, .cashflow-ledger-toolbar label:last-child select { min-width: 0; }
+  .cashflow-ledger-milestones { flex-direction: column; gap: 8px; }
+  .cashflow-ledger-milestones button { justify-content: flex-start; }
+  .cashflow-ledger-milestones button strong { margin-left: auto; }
+}
+@container (max-width: 300px) {
+  .cashflow-ledger-filters { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 1100px) { .cashflow-detail-groups { grid-template-columns: 1fr; } }
 @media (max-width: 600px) {
   .cashflow-month-detail { position: sticky; left: 0; width: calc(100cqi - 2px); padding: 16px; box-sizing: border-box; }
   .cashflow-detail-groups dl > div { gap: 10px; }
   .cashflow-ledger-header { flex-direction: column; gap: 12px; }
   .cashflow-ledger-header h3 { font-size: 20px; }
-  .cashflow-ledger-toolbar, .cashflow-ledger-milestones { align-items: stretch; flex-direction: column; width: 100%; }
-  .cashflow-ledger-milestones button { text-align: left; }
   .cashflow-ledger th, .cashflow-ledger td { padding: 12px; }
   .cashflow-ledger tbody th:first-child, .cashflow-ledger thead th:first-child { position: sticky; left: 0; background: #fff; z-index: 1; }
   .cashflow-ledger .cashflow-first-shortfall th:first-child { background: #fff5f2; }
