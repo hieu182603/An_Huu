@@ -1,4 +1,5 @@
 import {formatMoneyDecimal as financeMoney} from "../../utils/moneyDisplay";
+import { formatMonthVN } from "../../utils/date";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { previewMonthlyRetirement, translateIssueCode, type RetirementPreviewInput, type RetirementPreviewResult } from "../../services/retirement";
@@ -6,10 +7,11 @@ import { useI18n } from "../../i18n";
 import { Button, Card, Icon } from "../ui";
 import "./guided-scenarios.css";
 
-export function GuidedScenarios({ input, retirementMonth, delayYears=5, cutPercent=15, onChoose }: { input: RetirementPreviewInput | null; retirementMonth?: string;delayYears?:number;cutPercent?:number;onChoose?:(input:RetirementPreviewInput)=>void }) {
+export function GuidedScenarios({ input, retirementMonth, delayYears=5, cutPercent=15, onChoose, onSave }: { input: RetirementPreviewInput | null; retirementMonth?: string;delayYears?:number;cutPercent?:number;onChoose?:(input:RetirementPreviewInput)=>void; onSave?:(input:RetirementPreviewInput, result:RetirementPreviewResult)=>Promise<void> }) {
   const { language } = useI18n();
   const en = language === "en";
   const [attempt, setAttempt] = useState(0);
+  const [saving, setSaving] = useState<number | null>(null), [saveError, setSaveError] = useState("");
   const [state, setState] = useState<{ key: string; results: Array<RetirementPreviewResult | "error" | null> }>({ key: "", results: [] });
   const anchor = input?.whatIf?.retirementMonth ?? retirementMonth;
   const validMonth = (month?: string): month is string => !!month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
@@ -66,7 +68,8 @@ export function GuidedScenarios({ input, retirementMonth, delayYears=5, cutPerce
   const money = (value: string | null | undefined) => financeMoney(value??null,en);
   return <section className="guided-scenarios" aria-labelledby="guided-scenarios-title">
     <h2 id="guided-scenarios-title">{en ? "Compare three ways forward" : "So sánh ba hướng đi"}</h2>
-    <p>{en ? "Preview only. These cards do not save a version or change the plan in use. All other inputs remain the same." : "Chỉ xem trước. Các thẻ không lưu phiên bản hay thay đổi kế hoạch đang dùng. Các đầu vào khác được giữ nguyên."}</p>
+    {saveError && <p role="alert">{saveError}</p>}
+    <p>{onSave ? (en ? "Save an option to compare later; your main plan changes only after a separate confirmation." : "Lưu phương án để xem lại; chỉ đổi kế hoạch chính sau khi bạn xác nhận riêng.") : en ? "Preview only. These cards do not save a version or change the plan in use. All other inputs remain the same." : "Chỉ xem trước. Các thẻ không lưu phiên bản hay thay đổi kế hoạch đang dùng. Các đầu vào khác được giữ nguyên."}</p>
     {sharedMessages.length > 0 && (
       <div className="guided-scenarios-notice" role="status">
         <Icon name="info" />
@@ -93,11 +96,12 @@ export function GuidedScenarios({ input, retirementMonth, delayYears=5, cutPerce
         {!commands[index] ? <p>{index === 1 && input ? (en ? "This option needs a retirement date and cannot exceed the plan end month." : "Cần có tháng nghỉ hưu và mốc nghỉ muộn không được vượt tháng kết thúc kế hoạch.") : (en ? "Complete the plan inputs to preview." : "Bổ sung đầu vào kế hoạch để xem trước.")}</p>
           : !result ? <p role="status">{en ? "Calculating…" : "Đang tính…"}</p>
           : result === "error" ? <div role="alert"><p>{en ? "Could not calculate this option." : "Chưa tính được phương án này."}</p><Button variant="secondary" onClick={() => setAttempt(n => n + 1)}>{en ? "Retry" : "Thử lại"}</Button></div>
-          : summary ? <><p>{en ? "Retirement month" : "Tháng nghỉ hưu"}: {summary.retirementMonth}</p><dl>
+          : summary ? <><p>{en ? "Retirement month" : "Tháng nghỉ hưu"}: {formatMonthVN(summary.retirementMonth)}</p><dl>
+            <div><dt>{en ? "Spending today" : "Mức chi hôm nay"}</dt><dd>{money(commands[index]?.monthlyExpenseToday)}</dd></div>
             <div><dt>{en ? "Required fund" : "Quỹ cần"}</dt><dd>{money(summary.atRetirement.requiredFund)}</dd></div>
             <div><dt>{en ? "Projected fund" : "Quỹ dự kiến"}</dt><dd>{money(summary.atRetirement.projectedFund)}</dd></div>
             <div><dt>{en ? "Required monthly contribution" : "Khoản góp cần mỗi tháng"}</dt><dd>{money(summary.requiredConstantMonthlyContribution)}</dd></div>
-          </dl>{onChoose&&commands[index]&&<Button variant="secondary" onClick={()=>onChoose(commands[index]!)}>{en?"Use in draft":"Thử trong bản nháp"}</Button>}</> : <div className="guided-scenario-incomplete" role={sharedMessages.length ? undefined : "status"}>
+          </dl><p>{en ? "Covers" : "Đáp ứng"} {new Intl.NumberFormat(en ? "en-US" : "vi-VN", { maximumFractionDigits: 0 }).format(Number(summary.atRetirement.coveragePercent))}% {en ? "of the required fund" : "số tiền cần có"}</p>{onSave&&commands[index]&&<Button variant="primary" disabled={saving!==null} onClick={async()=>{if(saving!==null)return;setSaving(index);setSaveError("");try{await onSave(commands[index]!,result as RetirementPreviewResult);}catch(error){setSaveError(error instanceof Error?error.message:(en?"Could not save this option.":"Chưa lưu được phương án."));}finally{setSaving(null);}}}>{saving===index?(en?"Saving…":"Đang lưu…"):(en?"Save option":"Lưu phương án")}</Button>}{onChoose&&commands[index]&&<Button variant="secondary" onClick={()=>onChoose(commands[index]!)}>{en?"Use in draft":"Thử trong bản nháp"}</Button>}</> : <div className="guided-scenario-incomplete" role={sharedMessages.length ? undefined : "status"}>
             <span><Icon name="info" size="small" />{en ? "Not enough data to calculate." : "Chưa đủ dữ liệu để tính."}</span>
             {ownMessages.length > 0 && <ul>{ownMessages.map(message => <li key={message}>{message}</li>)}</ul>}
             {sharedMessages.length > 0 && <p>{en ? "See the items to complete above." : "Xem các mục cần hoàn tất ở trên."}</p>}

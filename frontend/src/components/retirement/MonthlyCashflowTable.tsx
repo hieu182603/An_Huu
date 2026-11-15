@@ -1,3 +1,4 @@
+import AnnualCashflowTable from "./AnnualCashflowTable";
 import {formatMoneyDecimal as financeMoney} from "../../utils/moneyDisplay";
 import { Fragment, useEffect, useId, useRef, useState, useMemo } from "react";
 import { Icon, Button, Pagination } from "../ui";
@@ -22,6 +23,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
   const { language } = useI18n();
   const isEn = language === "en";
 
+  const [period, setPeriod] = useState<"year" | "month">("year");
   const [selectedYear, setSelectedYear] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -202,6 +204,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
   }, [selectedYear, page, expandedMonth, tableId]);
 
   const jumpToMonth = (month: string) => {
+    setPeriod("month");
     setSelectedYear(month.slice(0, 4)); setCurrentPage(1);
     setExpandedMonth(month); jumpTarget.current = month;
   };
@@ -226,6 +229,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
       {exportError && <p role="alert">{isEn ? "CSV export failed. Please retry." : "Chưa xuất được CSV. Hãy bấm xuất để thử lại."} {exportError}</p>}
 
       <div className="cashflow-ledger-toolbar">
+        <label>{isEn ? "Group by" : "Tổng hợp theo"}<select aria-label={isEn ? "Group cashflow" : "Chế độ dòng tiền"} value={period} onChange={e=>setPeriod(e.target.value as "year"|"month")}><option value="year">{isEn ? "Year" : "Năm"}</option><option value="month">{isEn ? "Month" : "Tháng"}</option></select></label>
         <label>{isEn ? "Year" : "Xem theo năm"}
           <select aria-label={isEn ? "Filter year" : "Lọc năm"} value={selectedYear} onChange={event => { setSelectedYear(event.target.value); setCurrentPage(1); setExpandedMonth(null); }}>
             <option value="ALL">{isEn ? "All years" : "Tất cả các năm"}</option>
@@ -238,6 +242,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
         </div>
       </div>
 
+      {period === "year" ? <AnnualCashflowTable rows={filteredRows} en={isEn}/> : <>
       <div className="cashflow-ledger-guide" id={`${tableId}-guide`}>
         <p>{isEn ? "Unit: VND · All amounts are forecasts." : "Đơn vị: đồng (VND) · Tất cả số tiền là dự tính."}</p>
         <p>{isEn ? "A negative ending balance shows a projected shortfall, not an actual debt balance. Open a month's details to see income, expenses and debt payments." : "Số dư âm là phần tiền dự tính còn thiếu, không phải số nợ thực tế. Bấm “Chi tiết” để xem thu nhập, chi tiêu và trả nợ của tháng đó."}</p>
@@ -304,6 +309,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
         <small>{isEn ? "CSV includes every month and all details, regardless of the year filter." : "File CSV gồm tất cả các tháng và đầy đủ chi tiết, không phụ thuộc năm đang chọn."}</small>
       </footer>
       {totalPages > 1 && <Pagination page={page} totalPages={totalPages} totalItems={filteredRows.length} pageSize={pageSize} onPageChange={next => { setCurrentPage(next); setExpandedMonth(null); }} showRowsPerPage={false} />}
+      </>}
     </section>
   );
 }

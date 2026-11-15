@@ -49,6 +49,22 @@ describe("T08 personal alternatives", () => {
   });
 });
 describe("T08 report, comparison, simulation and CSV", () => {
+  it("saved capital metadata includes pinned alternative asset values without changing the snapshot", async () => {
+    const profile = retirementProfile();
+    profile.assets = { status: "KNOWN", entries: [fixtureAsset()] };
+    profile.reserveMonths = 8; profile.goals = { status: "KNOWN", entries: [] };
+    const f = await plansFixture(profile);
+    const input = { ...f.command.preview, whatIf: { assetValues: [{ assetId: "deposit-1", value: "76000000" }] } };
+    const preview = await f.retirement.preview(f.owner, input, { adjustments: false });
+    const saved = await f.plans.createVersion(f.owner, null, { expectedRevision: 0, expectedInputHash: preview.inputHash, preview: input }, randomUUID());
+    const before = structuredClone(f.rows("planVersion"));
+    expect(saved.saved.preview.capitalSeparation).toEqual(preview.capitalSeparation);
+    expect(saved.saved.preview.capitalSeparation?.investableLiquidAssets).toBe("76000000");
+    const read = await f.plans.version(f.owner, saved.planId, saved.saved.id, true);
+    expect(read.preview.capitalSeparation).toEqual(preview.capitalSeparation);
+    expect("replay" in read && read.replay.matched).toBe(true);
+    expect(f.rows("planVersion")).toEqual(before);
+  });
   it("report does not invent an applied version and can explicitly open an unapplied saved version", async () => {
     const f = await plansFixture(), saved = await f.create();
     expect(await f.plans.report(f.owner, saved.planId, {})).toMatchObject({ status: "NO_APPLIED_VERSION", version: null, goal: null });
@@ -67,7 +83,12 @@ describe("T08 report, comparison, simulation and CSV", () => {
     const saved = await f.plans.createVersion(f.owner, first.planId, { expectedRevision: 1, expectedInputHash: simulation.candidate.inputHash, preview }, randomUUID());
     await f.plans.apply(f.owner, first.planId, { expectedRevision: 2, expectedProfileRevision: 1, versionId: saved.saved.id, confirm: true }, randomUUID());
     const report = await f.plans.report(f.owner, first.planId, {});
-    expect(report.version?.preview).toEqual(simulation.candidate); expect(report.hypothetical).toBe(true);
+    const {capitalSeparation, ...savedCalculation}=report.version!.preview;
+    expect(savedCalculation).toEqual(simulation.candidate);
+    expect(capitalSeparation).toBeDefined(); expect(report.hypothetical).toBe(true);
+    const birth = retirementProfile().personal.birthMonth;
+    expect(report.version!.birthMonth).toBe(birth.status === "KNOWN" ? birth.value : null);
+    expect((await f.plans.versions(f.owner, first.planId, { page: 1, limit: 20 })).items[0].birthMonth).toBe(birth.status === "KNOWN" ? birth.value : null);
     expect(f.rows("financialProfile")).toEqual(before);
     const replay = await f.plans.version(f.owner, first.planId, saved.saved.id, true);
     expect("replay" in replay && replay.replay.matched).toBe(true);

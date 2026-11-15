@@ -7,7 +7,7 @@ export type CapitalSeparation = {
   essentialMonthlyExpense: Amount; reserveMonths: number | null; requiredEmergencyReserve: Amount;
   declaredEmergencyReserve: Amount; emergencyShortfall: Amount; retirementLiquidAssets: Amount;
   nearTermGoalsPresentValue: Amount; growthCapital: Amount; investableLiquidAssets: Amount; declaredOtherGoalsCapital: Amount;
-  goals: Array<{ id: string; dueMonth: string; monthsUntilDue: number; treatment: string; futureAmount: Amount; presentValue: Amount; inflationBasis: string; inflationSourceIds: string[]; depositSourceIds: string[] }>;
+  goals: Array<{ id: string; label: string; dueMonth: string; monthsUntilDue: number; treatment: string; futureAmount: Amount; presentValue: Amount; inflationBasis: string; inflationSourceIds: string[]; depositSourceIds: string[] }>;
   issues: RetirementIssue[]; warnings: RetirementIssue[];
 };
 export type LossConstraint = { status: string; informationalOnly: true; message: string; issues: string[];

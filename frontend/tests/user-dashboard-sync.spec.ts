@@ -85,7 +85,7 @@ async function setup(page: Page, options: { noProfile?: boolean; noPlan?: boolea
 test("saved main plan: correct status, figures and capacity after reserve", async ({ page }) => {
   const state = await setup(page);
   await expect(page.getByRole("region", { name: "Trạng thái kế hoạch" })).toContainText("Phiên bản 1 là kế hoạch chính đang dùng");
-  await expect(page.locator(".dashboard-metric.is-projected > strong")).toHaveText("5,20 tỷ ₫");
+  await expect(page.locator(".dashboard-metric.is-projected > strong")).toHaveText("5,2 tỷ ₫");
   await expect(page.locator(".dashboard-metric.is-capacity > strong")).toHaveText("8 triệu ₫/tháng");
   await expect(page.getByRole("button", { name: "Lưu làm kế hoạch chính", exact: true })).toHaveCount(0);
   await expect(page.locator(".dashboard-next-step a")).toHaveAttribute("href", "/user/simulation");
@@ -103,16 +103,16 @@ test("zero projection, target and capacity remain zero", async ({ page }) => {
 
 test("overview and selected chart month retain exact API money beyond safe integers", async ({ page }, info) => {
   await setup(page, { exactMoney: true });
-  await expect(page.locator(".dashboard-metric.is-projected .dashboard-metric-full")).toHaveText("9.007.199.254.740.993,25 ₫");
-  await expect(page.locator(".dashboard-metric.is-required .dashboard-metric-full")).toHaveText("9.007.199.254.740.994,75 ₫");
-  await expect(page.locator(".dashboard-metric.is-capacity .dashboard-metric-full")).toHaveText("9.007.199.254.740.993,25 ₫/tháng");
+  await expect(page.locator(".dashboard-metric.is-projected .dashboard-metric-full")).toHaveText("≈ 9.007.199.254.740.993 ₫");
+  await expect(page.locator(".dashboard-metric.is-required .dashboard-metric-full")).toHaveText("≈ 9.007.199.254.740.995 ₫");
+  await expect(page.locator(".dashboard-metric.is-capacity .dashboard-metric-full")).toHaveText("≈ 9.007.199.254.740.993 ₫/tháng");
   const chart = page.locator(".plan-chart-interactive");
-  await chart.getByRole("button", { name: /^Bắt đầu ·/ }).click();
-  await expect(chart.getByRole("slider")).toHaveAttribute("aria-valuetext", "11/2026 · 9.007.199.254.740.993,25 ₫");
-  await expect(chart).toContainText("1.234.567,89 ₫");
-  await expect(chart).toContainText("543,21 ₫");
+  await chart.getByRole("button", { name: /^Bắt đầu$/ }).click();
+  await expect(chart.getByRole("slider")).toHaveAttribute("aria-valuetext", "11/2026 · 9.007.199.254.740.993 ₫");
+  await expect(chart).toContainText("1.234.568 ₫");
+  await expect(chart).toContainText("543 ₫");
   await page.getByRole("button", { name: "Giải thích Quỹ dự kiến khi nghỉ hưu", exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText("9.007.199.254.740.993,25 ₫");
+  await expect(page.getByRole("dialog")).toContainText("9.007.199.254.740.993 ₫");
   await page.keyboard.press("Escape");
   await page.setViewportSize({width:320,height:740});
   await expect.poll(() => chart.locator(".chart-axis-label,.chart-target-label").evaluateAll(labels => labels.every(label => {
@@ -159,7 +159,7 @@ test("synchronization failure hides old figures, and retry shows the new preview
   await expect(page.getByRole("img", { name: "Biểu đồ số dư quỹ nghỉ hưu theo từng tháng" })).toHaveCount(0);
   state.setSyncFail(false);
   await page.locator(".plan-sync-status").getByRole("button", { name: "Thử lại" }).click();
-  await expect(page.locator(".dashboard-metric.is-projected > strong")).toHaveText("5,30 tỷ ₫");
+  await expect(page.locator(".dashboard-metric.is-projected > strong")).toHaveText("5,3 tỷ ₫");
   await expect(page.locator(".dashboard-plan-status")).toContainText("Thay đổi chưa được dùng");
   expect(state.errors).toEqual([]);
 });
@@ -169,7 +169,7 @@ test("failed plan load has a working retry", async ({ page }) => {
   await expect(page.getByRole("alert")).toContainText("Chưa tải được kế hoạch");
   await expect(page.locator(".dashboard-metric.is-projected > strong")).toHaveText("Chưa xác định");
   state.setPlansFail(false); await page.getByRole("button", { name: "Tải lại kế hoạch" }).click();
-  await expect(page.locator(".dashboard-metric.is-projected > strong")).toHaveText("5,20 tỷ ₫");
+  await expect(page.locator(".dashboard-metric.is-projected > strong")).toHaveText("5,2 tỷ ₫");
 });
 
 test("feature search supports aliases, Vietnamese without accents, empty results and exact destinations", async ({ page }) => {
@@ -256,7 +256,7 @@ test("tablet navigation can expand and collapse without covering content", async
 test("chart milestones and keyboard slider show actual months, and phone labels stay readable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await setup(page, { shortfall: true });
   const chart = page.locator(".plan-chart-interactive"), slider = chart.getByRole("slider");
-  await chart.getByRole("button", { name: /^Bắt đầu ·/ }).click(); await expect(slider).toHaveValue("0");
+  await chart.getByRole("button", { name: /^Bắt đầu$/ }).click(); await expect(slider).toHaveValue("0");
   await expect(slider).toHaveAttribute("aria-valuetext", "11/2026 · 260.000.000 ₫");
   await slider.focus(); await page.keyboard.press("ArrowRight"); await expect(slider).toHaveValue("1");
   await chart.getByRole("button", { name: /^Bắt đầu thiếu từ/ }).click(); await expect(slider).toHaveValue("3");
@@ -280,7 +280,7 @@ test("chart age uses the declared birth month before the birthday", async ({ pag
   await setup(page, { birthMonth: "1980-12" });
   const chart = page.locator(".plan-chart-interactive");
   await expect(chart.getByRole("button", { name: /^Nghỉ hưu ·/ })).toContainText("52 tuổi");
-  await chart.getByRole("button", { name: /^Bắt đầu ·/ }).click();
+  await chart.getByRole("button", { name: /^Bắt đầu$/ }).click();
   await expect(chart.locator(".chart-inspector")).toContainText("Cuối tháng 11/2026 · 45 tuổi");
 });
 
