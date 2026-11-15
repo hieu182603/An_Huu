@@ -1,3 +1,34 @@
+## Chuẩn bị commit/push develop theo yêu cầu chủ dự án — 15/11/2026
+
+- Chủ dự án đã yêu cầu chia commit theo chức năng và push develop; yêu cầu này thay thế giới hạn không commit/push của các lượt trước. Không merge main hoặc triển khai Azure.
+- Nhóm thay đổi: backend tách vốn/replay; phục hồi kế hoạch sau khảo sát; nhập/lưu Phân bổ; trình bày Kế hoạch/Mục tiêu/bản ghim; Tài chính; topbar; kiểm parity; ghi nhận kết quả kiểm.
+- Đã fetch origin: develop local và remote cùng ce7058242684fb22f6c05716b1a35bf535709bdf trước chia commit. Mã ứng dụng giữ nguyên bản đã qua CI local cài sạch (1267 backend,18 integration,126 frontend,3 SEO); thay đổi thêm chỉ là ghi chú tiến độ này. Kết quả push và trạng thái GitHub Actions sẽ được báo trong chat/task sau khi thực hiện.
+
+## CI local cài sạch theo hai workflow — 15/11/2026
+
+- Snapshot mã hiện tại gồm cả thay đổi chưa commit, cài npm ci riêng cho backend/frontend, không copy .env/node_modules gốc. Node22.23.4/npm10.9.9 Windows. Prisma validate/generate và npm run verify nguyên chuỗi đều đạt: source/test typecheck,104file/1267test,generate+build,startup guard. Bản sao không vướng DLL lock cũ; không dừng process khác để ép mở khóa workspace gốc.
+- Backend npm audit --audit-level=high --omit=dev đạt (0high/critical,1low); npm prune --omit=dev và startup sau prune đạt. Integration dùng cùng cài đặt sạch trước prune; trên GitHub các job cài riêng.
+- PostgreSQL/pgvector container riêng đúng digest trong workflow, migrate DB sạch local rồi3file/18integrationtest đạt. Không dùng Azure. Container/anonymous volume/file credential tạm đã dọn sau kiểm.
+- Frontend126/126,typecheck,build/prerender7,SEO3/3trênNode22 đạt. Audit thêm ngoài gate frontend báo1high Vite6.4.3, cófix; chưa đổi dependency theo phạm vi chỉ chạyCI.
+- Report/rawlogs `.tmp/ci-20261115-124920/ci-logs/REPORT.md` và summary.json ở gốc. Không đổi lock/deps workspace gốc; source ứng dụng khớp bản kiểm. Npm prune chỉ chuẩn hóa line ending lock của bản sao, không đổi JSON. Đây là CI local, không phải run GitHubActions/Ubuntu hoặc deploy. Không commit/push/upload artifact/deploy; admin dữ liệu và nghiệm thu triển khai vẫn còn.
+
+## Demo parity — rà sâu thêm R-11 và bản ghim, 15/11/2026
+
+- Tái hiện metadata dự phòng6 nhưng prepareRetirement dùng9/12 theo incomeStability (UNKNOWN còn chặn GROWTH_CAPITAL_REQUIRED). Chuyển mặc định6 về pure separateCapital, bỏ ba wrapper bù mặc định riêng. Vốn bảo vệ/custom, loss và UI dùng cùng cơ sở; không tự suy theo ổn định thu nhập. Ví dụ golden9tháng trong tests giữ bài toán bằng cách khai reserveMonths9 rõ ràng.
+- PlansService.view giữ dự phòng đã ghim của phiên bản bảo vệ cũ, nhận số tháng từ khoản reserve/chi thiết yếu ghim khi hồ sơ chưa có trường tháng; không ghi snapshot/hash/calculation và không đổi numerical replay. Ca legacy thiếu trường tháng vẫn giữ12, vốn/chi đúng và replay/snapshot bất biến đã đạt.
+- InputHash của preview protected/custom dùng mặc định có marker quy tắc6 để bản xem trước cũ không lưu thành kết quả mới sau đổi quy tắc. Cả3ca VARIABLE/UNCERTAIN/UNKNOWN kiểm metadata=initialCapital/protection; hash cũ bị409 PREVIEW_CHANGED, không có phiên bản được ghi.
+- Frontend sửa ngày sinh ghim cho biểu đồ/hero/banner (không mượn birthMonth hiện tại khi bản ghim lànull), lỗi lưu reserve có retry/gate, và số tiền mobile không bẻ chữ số. Full backend **104file/1.267test đạt**, focused84/84, source/test typecheck đạt. Frontend unit126/126, allocation36/36, plan/visual18/18, dashboard26/26, edge/captures4/4 đạt. Chi tiết/10ảnh mới ở task demo parity và artifacts/demo-reaudit-2026-11-15.
+- DB READ ONLY: mẫu6v3 replay/history birth6/6 khớp;3tài khoản mục tiêu kiểm lại, không ghi/publish policy. Logs `.tmp/reaudit-{backend-verified,capital-final,replay-readonly,live-readonly}.log` ở gốc. Backend npm build bị chặn riêng ở prisma generate (DLL Windows EPERM); Prisma validate và production TS emit riêng đạt, không nhận full npm build backend đã thành công. Frontend build/prerender đạt. Không ép unlock/process khác, migration, commit/push hoặc merge.
+- Next: admin nhập/công bố cấu hình dữ liệu còn thiếu, rồi nghiệm thu lưu/apply thật và môi trường triển khai; không coi các suite memory là production acceptance.
+
+## Demo parity — sửa sau nghiệm thu R-01–R-12, 15/11/2026
+
+- R-11: metadata tách vốn của workspace, preview và bản đọc phiên bản dùng mặc định 6 tháng khi hồ sơ không lưu reserveMonths; không suy từ incomeStability. Giữ số tháng đã lưu, what-if tài sản ghim, snapshot/hash/calculation và replay. Không sửa bộ tính lịch sử hay dữ liệu đã lưu. Thêm ca UNCERTAIN vẫn mặc định 6, đọc/replay không đổi snapshot/profile; cập nhật kiểm supplement không còn đòi incomeStability chỉ để xác định dự phòng mặc định.
+- R-01: bổ sung lựa chọn fixture memory không có quickStartTemplates và server khảo sát dùng lựa chọn này. Browser + HTTP kiểm cả nhánh mapping và nhánh sáu câu chủ động → lưu/apply đúng một kế hoạch; không sinh suitability answers. Runtime engine/policy không có danh mục hardcode mới.
+- Full backend **104 file / 1.263 test đạt**, source/test typecheck đạt. Frontend unit126/126, Finance49/49, Allocation35/35, Plan/visual17/17, Survey20/20, ảnh cuối4/4 và build đạt. Các kết quả chi tiết/ảnh được ghi trực tiếp trong `../docs/TASK_CODEX_DEMO_PARITY_2026_11_14.md`.
+- Script `scripts/audit-demo-reaccept-readonly.cjs` dùng PostgreSQL READ ONLY, chỉ in kiểm tổng hợp: ba tài khoản mục tiêu tồn tại; hai kế hoạch đang dùng replay khớp; tách vốn tài khoản mẫu khớp nghiệm thu; tài khoản khảo sát mới vẫn thiếu mapping và chưa có kế hoạch/đáp án tự tạo. Không ghi DB, công bố policy, migration, commit/push hoặc merge.
+- Bằng chứng: `.tmp/reaccept-backend-full-final.log`, `.tmp/reaccept-backend-{types,test-types}-final.log`, `.tmp/reaccept-live-readonly.log` ở gốc dự án. Tiếp: admin công bố dữ liệu/cấu hình mục 4 của task, sau đó nghiệm thu lưu/apply bằng dữ liệu thật và bản triển khai; chưa coi đây là nghiệm thu production.
+
 ## Demo parity — rà lại backend theo yêu cầu chủ dự án, 15/11/2026
 
 - Tái hiện rồi sửa 3 lỗi còn sót: (1) metadata tách vốn của phiên bản có whatIf.assetValues dùng giá trị gốc thay vì giá trị thử đã ghim; PlansService.view nay áp dụng đúng override khi tạo metadata, không đổi snapshot/hash/calculation; (2) allocationCapital TOTAL cho ra growthCapital dù tài sản UNKNOWN, khiến loss assessment có thể WITHIN_LIMIT; nay capital chưa READY trả REVIEW_REQUIRED/CAPITAL_SEPARATION_REQUIRED và API vẫn chặn lưu risk; (3) mục tiêu khảo sát ESSENTIAL đã trừ tiền nhưng bị essentialCoverage phân loại chi khác; nay dùng ưu tiên canonical, FLEXIBLE vẫn chi khác, ưu tiên UNKNOWN trả null, không cộng trùng nhánh protected/source.
