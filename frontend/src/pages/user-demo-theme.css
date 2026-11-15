@@ -39,7 +39,7 @@
  * otherwise pull the navigation away from the admin look. */
 .user-dashboard-shell .user-sidebar,
 .user-dashboard-shell .user-topbar {
-  font-family: Inter, "Be Vietnam Pro", system-ui, sans-serif;
+  font-family: "Be Vietnam Pro", system-ui, sans-serif;
   line-height: 1.5;
 }
 .user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { font-size: 13.5px; }
@@ -691,4 +691,46 @@
 @media (max-height: 520px) {
   .user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav { padding-block: 6px 4px; }
   .user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { min-height: 34px; }
+}
+
+/* Customer-approved demo parity. */
+.user-dashboard-shell { --sidebar-width: 252px; background: #F6F7F9; }
+/* Route styles load lazily; keep the two workspace surfaces on the approved base. */
+.user-dashboard-shell, .user-dashboard-shell .dashboard-workspace { background: #F6F7F9 !important; }
+.user-dashboard-shell .user-sidebar.admin-sidebar:not(.is-collapsed) .admin-nav { padding-inline: 16px; }
+.user-dashboard-shell h1 { color: #132B45; }
+.user-dashboard-shell .user-sidebar.admin-sidebar { background: #071E40; }
+.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { color: rgb(200,215,235); font-size: 13px; }
+.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a.is-active { color: #132B45; background: #E7F0FC; border-radius: 10px; font-weight: 600; border-left: 3px solid #AACDF5; }
+@media (max-width: 767px) {
+  .user-dashboard-shell .location-bar { display: none; }
+  .user-dashboard-shell h1 { font-size: 25px; }
+  .user-dashboard-shell .user-mobile-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.user-dashboard-shell h1 { color: #132B45 !important; }
+.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a.is-active::before,
+.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a.is-active::after { display: none; }
+.current-plan-banner { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px; margin:18px 0; border:1px solid #b8dcca; border-radius:14px; background:#edf7f3; }
+.current-plan-banner p { margin:6px 0; }
+@media(max-width:767px) {
+ .user-dashboard-shell h1 {font-size:25px !important;}
+ .current-plan-banner {align-items:flex-start;flex-direction:column;}
+ .user-dashboard-shell .plan-kpi-grid, .user-dashboard-shell .finance-metrics {grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+
+.plan-narrative { display:grid; gap:18px; margin:18px 0 24px; font-size:14px; line-height:1.75; }
+.plan-narrative h3 { font-size:16px; margin:0 0 8px; }
+.plan-narrative p { margin:6px 0; }
+.life-timeline small { display:block; color:#536779; }
+.plan-gap-explanation { border:1px solid #d7e5f5; border-radius:12px; background:#f3f8fe; padding:16px 18px; margin:8px 0; color:#132b45; font-size:14px; line-height:1.7; }
+.plan-gap-explanation h4 { font-size:15px; margin:0 0 8px; }
+.plan-gap-explanation p { margin:6px 0; }
+.plan-gap-explanation small { display:block; font-size:12px; color:#536b85; }
+@media(max-width:767px) {
+ .user-dashboard-shell .topbar-assistant-link {width:40px;min-width:40px;padding:8px;justify-content:center;}
+ .user-dashboard-shell .topbar-assistant-label {display:none;}
+}
+@media(max-width:767px) {
+ .user-dashboard-shell .plan-metrics, .user-dashboard-shell .finance-summary-metrics { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
 }

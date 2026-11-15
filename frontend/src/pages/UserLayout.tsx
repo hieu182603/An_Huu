@@ -1,3 +1,4 @@
+import DemoNavigationIcon from "../components/DemoNavigationIcon";
 import "./user-readability.css";
 import "./user-demo-theme.css";
 import { Suspense, useEffect, useState } from "react";
@@ -211,13 +212,8 @@ export default function UserLayout() {
                     title={item.label}
                     aria-label={item.label}
                   >
-                    <Icon name={item.icon} />
+                    <DemoNavigationIcon name={item.icon} />
                     {!collapsed && <span>{item.label}</span>}
-                    {!collapsed && item.badge && (
-                      <span className="sidebar-ai-badge">
-                        <span>{item.badge}</span>
-                      </span>
-                    )}
                   </NavLink>
                 );
               })}
@@ -278,6 +274,7 @@ export default function UserLayout() {
           </button>
 
           <div className="user-topbar-actions">
+            <Link className="overview-button secondary topbar-assistant-link" to="/user/assistant" aria-label={language === "en" ? "Assistant" : "Trợ lý"}><Icon name="sparkles" /><span className="topbar-assistant-label">{language === "en" ? "Assistant" : "Trợ lý"}</span></Link>
             <UserLanguageMenu />
             <Tooltip content={t("topbar.support")}>
               <button
@@ -302,7 +299,7 @@ export default function UserLayout() {
               menuItems={[
                 { label: t("topbar.profile"), icon: "users", onClick: () => openAccountModal("profile") },
                 { label: t("topbar.settings"), icon: "settings", onClick: () => openAccountModal("settings") },
-                { label: t("topbar.export_plan"), icon: "download", onClick: () => openAccountModal("export") },
+                { label: language === "en" ? "Experience feedback" : "Góp ý trải nghiệm", icon: "life-buoy", onClick: () => navigate("/user/support") },
               ]}
             />
           </div>
@@ -334,26 +331,15 @@ export default function UserLayout() {
           <Icon name="home" />
           <span>{language === "en" ? "Overview" : "Tổng quan"}</span>
         </NavLink>
-        <NavLink to="/user/goal" {...routeIntent("/user/goal")} className={isNavActive("/user/goal") ? "is-active" : ""} aria-current={isNavActive("/user/goal") ? "page" : false}>
-          <Icon name="target" />
-          <span>{language === "en" ? "Goals" : "Mục tiêu"}</span>
+        <NavLink to="/user/profile" {...routeIntent("/user/profile")} className={isNavActive("/user/profile") ? "is-active" : ""}>
+          <Icon name="wallet" /><span>{language === "en" ? "Finances" : "Tài chính"}</span>
         </NavLink>
         <NavLink to="/user/plan" {...routeIntent("/user/plan")} className={location.pathname === "/user/plan" ? "is-active" : ""} aria-current={location.pathname === "/user/plan" ? "page" : undefined}>
           <Icon name="compass" />
           <span>{language === "en" ? "Plan" : "Kế hoạch"}</span>
         </NavLink>
-        <NavLink to="/user/assistant" {...routeIntent("/user/assistant")} className={location.pathname === "/user/assistant" ? "is-active" : ""} aria-current={location.pathname === "/user/assistant" ? "page" : undefined}>
-          <Icon name="sparkles" />
-          <span>{language === "en" ? "Assistant" : "Trợ lý"}</span>
-        </NavLink>
-        <button
-          type="button"
-          className={`user-mobile-nav-btn ${accountModalOpen ? "is-active" : ""}`}
-          onClick={() => navigate("/user/account")}
-          aria-label={language === "en" ? "Profile" : "Hồ sơ"}
-        >
-          <Icon name="users" />
-          <span>{language === "en" ? "Profile" : "Hồ sơ"}</span>
+        <button type="button" className={`user-mobile-nav-btn ${mobileMenuOpen ? "is-active" : ""}`} onClick={() => setMobileMenuOpen(true)} aria-expanded={mobileMenuOpen} aria-haspopup="dialog">
+          <DemoNavigationIcon name="grid" /><span>{language === "en" ? "More" : "Thêm"}</span>
         </button>
       </nav>
       <Drawer open={mobileMenuOpen} title={language === "en" ? "All features" : "Tất cả chức năng"} onClose={() => setMobileMenuOpen(false)}>
@@ -369,7 +355,7 @@ export default function UserLayout() {
           <LanguageSwitcher variant="select" />
         </div>
         <nav className="mobile-navigation admin-nav" aria-label={language === "en" ? "All user features" : "Tất cả chức năng User"}>
-          {drawerGroups.map(group => <section className="user-drawer-group" key={group.label}><h3>{group.label}</h3>{group.items.map(item => <NavLink key={item.path} to={item.path} {...routeIntent(item.path)} onClick={() => setMobileMenuOpen(false)} className={isDrawerActive(item.path) ? "is-active" : ""} aria-current={isDrawerActive(item.path) ? "page" : false}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}</section>)}
+          {drawerGroups.map(group => <section className="user-drawer-group" key={group.label}><h3>{group.label}</h3>{group.items.map(item => <NavLink key={item.path} to={item.path} {...routeIntent(item.path)} onClick={() => setMobileMenuOpen(false)} className={isDrawerActive(item.path) ? "is-active" : ""} aria-current={isDrawerActive(item.path) ? "page" : false}><DemoNavigationIcon name={item.icon} /><span>{item.label}</span></NavLink>)}</section>)}
         </nav>
         <button type="button" className="drawer-profile-progress" onClick={() => { setMobileMenuOpen(false); setProgressOpen(true); }}>{language === "en" ? "Profile completion" : "Hoàn thiện hồ sơ"} · {completedGroups}/5</button>
       </Drawer>

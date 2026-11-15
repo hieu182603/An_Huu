@@ -112,7 +112,7 @@ a:focus-visible { outline: 2px solid var(--color-primary-700); outline-offset: 3
 .skip-link { position: fixed; top: var(--space-3); left: var(--space-3); z-index: 1000; padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); color: var(--color-white); background: var(--color-primary-700); transform: translateY(-200%); }
 .skip-link:focus { transform: translateY(0); }
 html { background: var(--color-bg); overflow-x: clip; }
-body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: clip; color: var(--color-text-strong); background: var(--color-bg); font-family: Inter, "Be Vietnam Pro", system-ui, sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: clip; color: var(--color-text-strong); background: var(--color-bg); font-family: "Be Vietnam Pro", system-ui, sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 button, input, textarea, select { color: inherit; font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--color-secondary-700); outline-offset: 2px; box-shadow: 0 0 0 3px rgba(var(--color-secondary-rgb), 0.28); }
