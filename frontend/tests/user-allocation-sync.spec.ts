@@ -3,6 +3,7 @@ import {installFinancialProfileRoutes} from "./helpers";
 import {setupDiscovery,discoveryApi} from "./discovery-helpers";
 async function openPublished(page:Page){const details=page.locator(".allocation-template-details");await expect(details).toBeVisible();if(await details.getAttribute("open")===null)await details.locator(":scope > summary").click();}
 const panel=(page:Page)=>page.locator(".allocation-template-details .allocation-lab-real"),dialog=(page:Page)=>page.getByRole("dialog");
+async function openAlternatives(page:Page){const details=panel(page).locator(".allocation-alternatives");if(await details.getAttribute("open")===null)await details.locator(":scope > summary").click();await expect(details).toHaveAttribute("open","");}
 async function setup(page:Page,request:APIRequestContext,options:object={},answer=true,calculate=true){
  const state=await setupDiscovery(page,request,"/user/risk-portfolio",{allocation:true,...options},answer);
  await expect(page.getByRole("heading",{name:"Phân bổ tài sản",exact:true})).toBeVisible();
@@ -13,6 +14,41 @@ async function setup(page:Page,request:APIRequestContext,options:object={},answe
  if(answer&&calculate){await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await openPublished(page);if((options as any).multiple)await expect(panel(page)).toContainText("Có nhiều phương án phù hợp");else await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();}
  return state;
 }
+
+test("R-11 old selections default to six reserve months and retain an explicitly saved choice",async({page,request})=>{
+ const state=await setup(page,request,{},true,false);
+ for(const liquidityNeedMonths of [undefined,0]){
+  await page.evaluate(months=>{const key="anhuu:plan-draft:USR-001",draft=JSON.parse(sessionStorage.getItem(key)!);if(months===undefined)delete draft.liquidityNeedMonths;else draft.liquidityNeedMonths=months;sessionStorage.setItem(key,JSON.stringify(draft));},liquidityNeedMonths);
+  await page.reload();
+  await expect(page.getByRole("spinbutton",{name:"Số tháng dự phòng",exact:true})).toHaveValue("6");
+  await expect(page.locator(".allocation-capital dl")).toContainText("96.000.000 ₫");
+  await expect(page.locator(".allocation-capital-total")).toContainText("904.000.000 ₫");
+ }
+ await page.getByRole("spinbutton",{name:"Số tháng dự phòng",exact:true}).fill("8");
+ await page.getByRole("spinbutton",{name:"Số tháng dự phòng",exact:true}).blur();
+ await expect.poll(async()=> (await state.get("me/financial-profile")).data.reserveMonths).toBe(8);
+ await page.reload();await expect(page.getByRole("spinbutton",{name:"Số tháng dự phòng",exact:true})).toHaveValue("8");
+ await expect(page.locator(".allocation-capital dl")).toContainText("128.000.000 ₫");
+});
+
+test("failed reserve saving keeps the edit visible and blocks advancing until retry succeeds",async({page,request})=>{
+ const state=await setup(page,request,{},true,false);
+ await page.locator(".allocation-steps button").first().click();
+ let fail=true;
+ await page.route("**/api/v1/me/financial-profile",route=>route.request().method()==="PATCH"&&fail?route.fulfill({status:503,json:{error:{message:"Không lưu được dự phòng trong lượt thử"}}}):route.fallback());
+ const months=page.getByRole("spinbutton",{name:"Số tháng dự phòng",exact:true});
+ await months.fill("8");await months.blur();
+ await expect(page.getByRole("alert")).toContainText("Không lưu được dự phòng");
+ await expect(months).toHaveValue("8");
+ await expect(page.getByRole("button",{name:"Tiếp tục →",exact:true})).toBeDisabled();
+ await expect(page.locator(".allocation-steps button").nth(1)).toBeDisabled();
+ expect((await state.get("me/financial-profile")).data.reserveMonths).not.toBe(8);
+ for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:test.info().outputPath(`reaudit-unsaved-reserve-${width}.png`),fullPage:true,animations:"disabled"});if(width===390)expect(await page.locator(".allocation-known-money strong").evaluate(el=>el.getBoundingClientRect().height<=parseFloat(getComputedStyle(el).lineHeight)+1)).toBe(true);await page.locator(".allocation-reserve-editor").evaluate(el=>el.scrollIntoView({block:"center"}));await page.locator(".allocation-reserve-editor").screenshot({path:test.info().outputPath(`reaudit-reserve-error-${width}.png`),animations:"disabled"});}
+ fail=false;await page.getByRole("button",{name:"Thử lưu số tháng dự phòng",exact:true}).click();
+ await expect.poll(async()=> (await state.get("me/financial-profile")).data.reserveMonths).toBe(8);
+ await expect(page.getByRole("button",{name:"Tiếp tục →",exact:true})).toBeEnabled();
+ await expect(page.locator(".allocation-capital dl")).toContainText("128.000.000 ₫");
+});
 
 test("declared total replaces profile capital once and persists without rewriting asset records",async({page,request})=>{
  const s=await setup(page,request,{},true,false);
@@ -123,13 +159,13 @@ test("risk form keeps its UI, saves zero to backend and survives reload",async({
 test("failed risk save keeps inputs and stays in the form",async({page,request})=>{
  await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro →",exact:true}).click();await page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true}).fill("7");await page.route("**/api/v1/me/financial-profile/loss-tolerance",r=>r.fulfill({status:409,json:{error:{message:"Hồ sơ đã thay đổi"}}}));await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page.getByRole("alert")).toContainText("Hồ sơ đã thay đổi");await expect(page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true})).toHaveValue("7");await expect(page).toHaveURL(/section=risk/);
 });
-test("capital popups trap focus, restore it and rebalance opens without write",async({page,request})=>{
- const s=await setup(page,request);const trigger=page.getByRole("button",{name:"Giải thích: Tổng vốn",exact:true});await trigger.click();await expect(dialog(page)).toContainText("tài sản thanh khoản");await page.keyboard.press("Shift+Tab");expect(await page.evaluate(()=>!!document.activeElement?.closest('[role="dialog"]'))).toBe(true);await page.keyboard.press("Escape");await expect(trigger).toBeFocused();
- await page.getByRole("button",{name:"Đề xuất tái cân bằng",exact:true}).click();await expect(dialog(page).getByRole("button",{name:"Xem đề xuất tái cân bằng",exact:true})).toBeVisible();await page.keyboard.press("Escape");expect(s.writes.every(w=>w.path.endsWith("/preview"))).toBe(true);
+test("rebalance popup traps focus and restores it without writing",async({page,request})=>{
+ const s=await setup(page,request);await openAlternatives(page);const trigger=page.getByRole("button",{name:"Đề xuất tái cân bằng",exact:true});await trigger.click();await expect(dialog(page).getByRole("button",{name:"Xem đề xuất tái cân bằng",exact:true})).toBeVisible();await page.keyboard.press("Shift+Tab");expect(await page.evaluate(()=>!!document.activeElement?.closest('[role="dialog"]'))).toBe(true);await page.keyboard.press("Escape");await expect(trigger).toBeFocused();expect(s.writes.every(w=>w.path.endsWith("/preview"))).toBe(true);
 });
+
 for(const[name,width,height]of[["desktop",1440,1000],["tablet",768,1024],["mobile",390,844],["small-mobile",320,740],["landscape",844,390]]as const)test(`allocation and popups fit ${name}`,async({page,request},info)=>{
  await page.setViewportSize({width,height});const s=await setup(page,request,{},true,false);await page.locator(".allocation-steps button").nth(0).click();await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:info.outputPath("allocation.png"),fullPage:true});const fit=await page.evaluate(()=>({fits:document.documentElement.scrollWidth<=innerWidth+1,overflow:[...document.querySelectorAll("*")].filter(el=>el.getBoundingClientRect().right>innerWidth+1).slice(0,8).map(el=>({tag:el.tagName,cls:el.className,width:el.getBoundingClientRect().width}))}));expect(fit.fits,JSON.stringify(fit.overflow)).toBe(true);
- await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();await page.screenshot({path:info.outputPath("allocation-review.png"),fullPage:true});await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await openPublished(page);await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();await page.screenshot({path:info.outputPath("allocation-results.png"),fullPage:true});await page.getByRole("button",{name:"Giải thích: Mục tiêu gần hạn",exact:true}).click();await page.screenshot({path:info.outputPath("capital-popup.png")});await page.keyboard.press("Escape");await page.getByRole("button",{name:"Áp dụng vào bản xem trước",exact:true}).click();await page.screenshot({path:info.outputPath("apply-popup.png")});await page.keyboard.press("Escape");expect(s.errors).toEqual([]);
+ await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();await page.screenshot({path:info.outputPath("allocation-review.png"),fullPage:true});await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await openPublished(page);await expect(panel(page).getByRole("heading",{name:"Fixture CAUTIOUS",exact:true})).toBeVisible();await page.screenshot({path:info.outputPath("allocation-results.png"),fullPage:true});await openAlternatives(page);await page.getByRole("button",{name:"Đề xuất tái cân bằng",exact:true}).click();await page.screenshot({path:info.outputPath("capital-popup.png")});await page.keyboard.press("Escape");await page.getByRole("button",{name:"Áp dụng vào bản xem trước",exact:true}).click();await page.screenshot({path:info.outputPath("apply-popup.png")});await page.keyboard.press("Escape");expect(s.errors).toEqual([]);
 });
 
 test("blocked draft storage keeps the confirmation open without claiming application",async({page,request})=>{

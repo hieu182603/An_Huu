@@ -39,7 +39,7 @@ export default function AllocationLossLimit({ growth, amount, percent, inputMode
   const badPercent = pc !== "" && !(share >= 0 && share <= 100);
   const changed = a !== savedAmount || pc !== savedPercent, ready = g > 0 && a !== "" && pc !== "" && !badPercent;
   const hint = !(g > 0) ? { kind: "error", text: t("Chưa tự tính được. Vốn dài hạn đang bằng 0 vì số tiền đã khai chưa đủ để giữ quỹ dự phòng và tiền cho mục tiêu gần hạn.", "Cannot calculate yet. Long-term capital is zero after the emergency reserve and near-term goals.") }
-    : badPercent ? { kind: "error", text: t("Mức giảm tối đa là 100% vốn dài hạn. Hãy nhập số từ 0 đến 100, ví dụ 10 hoặc 12.5.", "Enter a share from 0 to 100, for example 10 or 12.5.") }
+    : badPercent ? { kind: "error", text: t("Mức giảm tối đa là 100% vốn dài hạn. Hãy nhập số từ 0 đến 100, ví dụ 10 hoặc 12,5.", "Enter a share from 0 to 100, for example 10 or 12.5.") }
     : over ? { kind: "warn", text: t(`Số tiền lớn hơn toàn bộ vốn dài hạn (${money(g)}), nên được tính là 100%.`, `The amount exceeds long-term capital (${money(g)}), so it counts as 100%.`) }
     : ready ? { kind: "ok", text: last === "AMOUNT"
       ? t(`${money(n)} = ${pc}% trên vốn dài hạn ${money(g)}.`, `${money(n)} = ${pc}% of long-term capital ${money(g)}.`)

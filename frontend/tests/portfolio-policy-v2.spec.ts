@@ -51,7 +51,7 @@ async function setup(page: Page, options: { version?: "v1" | "v2"; retirement?: 
     const allocations=("schedule" in template?template.schedule[0].allocations:template.glidePath.points[0].allocations).map(a=>({...a,amountVnd:null}));
     return route.fulfill({ json: { data: {
       profileRevision:1,valuationDate:"2026-10-15",policyVersionId:policy.id,assumptionVersionId:"assumption-test",informationalOnly:true,
-      capital:{status:"INCOMPLETE",growthCapital:null,goals:[],issues:[],warnings:[]},loss:{status:"REVIEW_REQUIRED",message:"",lossAmount:null,allowedLossAmount:null},allocations,assetLabels:{CASH:"Tiền gửi & thanh khoản"},issues:[],
+      capital:{status:"INCOMPLETE",reserveMonths:6,growthCapital:null,goals:[],issues:[],warnings:[]},loss:{status:"REVIEW_REQUIRED",message:"",lossAmount:null,allowedLossAmount:null},allocations,assetLabels:{CASH:"Tiền gửi & thanh khoản"},issues:[],
       portfolio:{status: options.missingIssue ? "INCOMPLETE" : "READY",
       assessment: { totalScore: 30, riskBandId: data.riskBands[0].id, selectedTemplateId: template.id, eligibleTemplateIds: [template.id], checks: [] }, scenarios: options.missingIssue ? [] : scenarios(startMonth, months),
       issues: options.missingIssue ? [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }] : [],

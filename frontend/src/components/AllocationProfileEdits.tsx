@@ -7,15 +7,23 @@ import ProfileFormattedInput from "./ProfileFormattedInput";
 // so the allocation is always recalculated from one source of truth.
 
 /** Reserve choice is independent of the user's declared income stability. */
-export function AllocationReserveMonths({ months, en }: { months: number | null; en: boolean }) {
-  const { updateProfileV2, saveStatus } = useFinancialProfile();
+export function AllocationReserveMonths({ months, en, onPendingChange }: { months: number | null; en: boolean; onPendingChange?: (pending:boolean)=>void }) {
+  const { updateProfileV2, saveStatus, saveError } = useFinancialProfile();
   const [value,setValue] = useState(months === null ? "" : String(months));
+  const [error,setError] = useState("");
   useEffect(()=>setValue(months === null ? "" : String(months)),[months]);
   const valid = /^\d+$/.test(value) && Number(value)>=6 && Number(value)<=12;
-  return <label>{en ? "How many months of essential spending do you want in reserve?" : "Bạn muốn dự phòng mấy tháng chi tiêu thiết yếu?"}
-    <input aria-label={en ? "Reserve months" : "Số tháng dự phòng"} type="number" min={6} max={12} step={1} value={value} disabled={saveStatus === "saving"} onChange={e=>setValue(e.target.value)} onBlur={()=>{if(valid && Number(value)!==months)void updateProfileV2({reserveMonths:Number(value)});}} />
+  useEffect(()=>onPendingChange?.(!valid||Number(value)!==months||saveStatus==="saving"),[valid,value,months,saveStatus,onPendingChange]);
+  const save=async()=>{
+    if(!valid||Number(value)===months||saveStatus==="saving")return;
+    setError("");
+    try { if(!await updateProfileV2({reserveMonths:Number(value)}))setError(en?"Reserve months were not saved. Retry before continuing.":"Chưa lưu số tháng dự phòng. Thử lưu lại trước khi tiếp tục."); }
+    catch(reason){setError(reason instanceof Error?reason.message:"Chưa lưu số tháng dự phòng.");}
+  };
+  return <div className="allocation-reserve-editor"><label>{en ? "How many months of essential spending do you want in reserve?" : "Bạn muốn dự phòng mấy tháng chi tiêu thiết yếu? (6 đến 12)"}
+    <input aria-label={en ? "Reserve months" : "Số tháng dự phòng"} type="number" min={6} max={12} step={1} value={value} disabled={saveStatus === "saving"} onChange={e=>{setValue(e.target.value);setError("");}} onBlur={()=>void save()} />
     {!valid&&<small role="status">{en ? "Enter a whole number from 6 to 12." : "Nhập số nguyên từ 6 đến 12 tháng."}</small>}
-  </label>;
+  </label>{error&&<><p role="alert">{saveError||error}</p><button type="button" className="overview-button secondary" disabled={saveStatus==="saving"} onClick={()=>void save()}>{en?"Retry saving reserve months":"Thử lưu số tháng dự phòng"}</button></>}</div>;
 }
 
 const known = <T,>(value: T) => ({ status: "KNOWN" as const, value }), unknown = { status: "UNKNOWN" as const };
