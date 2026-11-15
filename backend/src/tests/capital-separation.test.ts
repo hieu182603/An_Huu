@@ -24,7 +24,7 @@ function assumptions(inflation = "4", deposit = "4.5") {
   return a;
 }
 function profile(): ProfileV2 {
-  const p = fixtureProfile({ debts: empty(), incomeStability: known("VARIABLE"), goals: { status: "KNOWN", entries: [goal()] },
+  const p = fixtureProfile({ debts: empty(), reserveMonths: 9, incomeStability: known("VARIABLE"), goals: { status: "KNOWN", entries: [goal()] },
     assets: { status: "KNOWN", entries: [fixtureAsset({ value: known("2000000000"), retirementShare: known("1"), emergencyShare: known("0"), otherGoalsShare: known("0") })] } });
   if (p.expenses.status === "KNOWN") p.expenses.entries[0].amount = known("25000000");
   return p;
@@ -145,8 +145,8 @@ describe("P1 pure capital separation", () => {
       expect(result.warnings.some(i => i.code === "OTHER_GOALS_CAPITAL_SHORTFALL")).toBe(false);
     }
   });
-  it.each([["STABLE", 6], ["VARIABLE", 9], ["UNCERTAIN", 12]] as const)("uses %s stability and only active essential expenses", (stability, months) => {
-    const p = profile(); p.incomeStability = known(stability); p.goals = empty();
+  it.each([["STABLE", 6], ["VARIABLE", 6], ["UNCERTAIN", 6]] as const)("keeps the default reserve independent of %s stability and uses only active essential expenses", (stability, months) => {
+    const p = profile(); delete p.reserveMonths; p.incomeStability = known(stability); p.goals = empty();
     if (p.expenses.status !== "KNOWN") throw new Error("fixture");
     const e = p.expenses.entries[0];
     p.expenses.entries.push({ ...e, id: "optional", category: "OPTIONAL", amount: unknown },
@@ -254,7 +254,9 @@ describe("preview-only supplement and persistence compatibility (memory database
     p.assets = { status: "KNOWN", entries: [fixtureAsset({ value: known("1000"), retirementShare: known("1"), emergencyShare: known("0"), otherGoalsShare: known("0") })] };
     const f = await plansFixture(p), baseline = await f.retirement.preview(f.owner, f.command.preview);
     expect(baseline).toMatchObject({ status: "READY", capitalSeparation: { status: "INCOMPLETE", growthCapital: null } });
-    expect(baseline.capitalSeparation.issues.map(i => i.code)).toEqual(expect.arrayContaining(["GOALS_REQUIRED", "INCOME_STABILITY_REQUIRED"]));
+    expect(baseline.capitalSeparation.issues.map(i => i.code)).toEqual(expect.arrayContaining(["GOALS_REQUIRED"]));
+    expect(baseline.capitalSeparation.reserveMonths).toBe(6);
+    expect(baseline.capitalSeparation.issues.map(i => i.code)).not.toContain("INCOME_STABILITY_REQUIRED");
     const result = await f.retirement.preview(f.owner, { ...f.command.preview, whatIf: { assetValues: [{ assetId: "deposit-1", value: "2000" }] } });
     expect(result.capitalSeparation.retirementLiquidAssets).toBe("2000");
     expect(result.calculation?.summary.initialRetirementCapital).toBe("2000");

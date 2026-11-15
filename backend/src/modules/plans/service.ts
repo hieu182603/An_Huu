@@ -69,11 +69,21 @@ export class PlansService {
         const override = overrides.find(value => value.assetId === asset.id);
         return override ? { ...asset, value: { status: "KNOWN" as const, value: override.value } } : asset;
       }) } } : profile;
+    let capitalSeparation = separateCapital(capitalProfile, snapshot.capture.assumptions.data);
+    // Older protected projections pinned a 9/12-month reserve inferred from
+    // stability. Display that saved basis without changing its replay inputs.
+    const pinnedReserve = snapshot.preview.replayInput?.protection?.emergencyReserve;
+    if (capitalProfile.reserveMonths === undefined && pinnedReserve !== undefined &&
+      capitalSeparation.essentialMonthlyExpense && new Prisma.Decimal(capitalSeparation.essentialMonthlyExpense).gt(0)) {
+      const months = new Prisma.Decimal(pinnedReserve).div(capitalSeparation.essentialMonthlyExpense);
+      if (months.isInteger() && months.gte(6) && months.lte(12))
+        capitalSeparation = separateCapital({ ...capitalProfile, reserveMonths: months.toNumber() }, snapshot.capture.assumptions.data);
+    }
     return { id: row.id, planId: row.planId, version: row.version, createdAt: row.createdAt.toISOString(),
       profileRevision: row.profileRevision, snapshotHash: snapshot.integrityHash,
       birthMonth: snapshot.capture.profile.personal.birthMonth.status === "KNOWN" ? snapshot.capture.profile.personal.birthMonth.value : null,
       // Derive presentation metadata from pinned inputs, never today's profile or rates.
-      preview: { ...snapshot.preview, capitalSeparation: separateCapital(capitalProfile, snapshot.capture.assumptions.data) } };
+      preview: { ...snapshot.preview, capitalSeparation } };
   }
   private async readWarnings(userId: string, row: PlanVersion | null) {
     if (!row) return {};

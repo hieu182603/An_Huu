@@ -24,8 +24,8 @@ export const capitalSeparationSchema = z.object({
 export type CapitalSeparation = z.infer<typeof capitalSeparationSchema>;
 const monthIndex = (m: string) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7));
 
-/** Supplementary allocation only. Never changes fund capital, projection inputs,
- * cashflows or stored snapshots. No database, current clock or financial defaults. */
+/** Pure separation shared by presentation and protected-fund projections.
+ * Never mutates profiles, cashflows or snapshots; no database, clock or rate fallback. */
 export function separateCapital(profile: ProfileV2, assumptions: AssumptionDocument): CapitalSeparation {
   const data = profileV2Schema.parse(profile), month = data.valuationDate.slice(0, 7);
   const issues: CapitalSeparation["issues"] = [], warnings: CapitalSeparation["warnings"] = [];
@@ -52,8 +52,9 @@ export function separateCapital(profile: ProfileV2, assumptions: AssumptionDocum
     ? { ...data.expenses, entries: data.expenses.entries.filter(e => e.category === "ESSENTIAL") } : data.expenses }, month);
   cash.issues.forEach(i => issue(i.path.replace(/^expenses\.entries\.(\d+)/, (_, index) => `expenses.entries.${essentialIndexes[Number(index)]}`), i.code));
   const essentialMonthlyExpense = cash.expenses?.toFixed() ?? null;
-  const reserveMonths = data.reserveMonths ?? (data.incomeStability?.status === "KNOWN" ? { STABLE: 6, VARIABLE: 9, UNCERTAIN: 12 }[data.incomeStability.value] : null);
-  if (reserveMonths === null) issue("incomeStability", "INCOME_STABILITY_REQUIRED");
+  // One rule for allocation, protected projections and presentation. Income
+  // stability is a separate fact and must not choose the reserve for the user.
+  const reserveMonths = data.reserveMonths ?? 6;
   const requiredEmergencyReserve = reserveMonths !== null && essentialMonthlyExpense !== null ? new D(essentialMonthlyExpense).mul(reserveMonths).toFixed() : null;
   const emergencyShortfall = requiredEmergencyReserve !== null && declaredEmergencyReserve !== null
     ? D.max(0, new D(requiredEmergencyReserve).minus(declaredEmergencyReserve)).toFixed() : null;

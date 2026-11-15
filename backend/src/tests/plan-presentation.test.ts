@@ -5,7 +5,7 @@ import SwaggerParser from "@apidevtools/swagger-parser";
 import Ajv from "ajv";
 import { plansFixture } from "./plans-fixtures";
 import { retirementCommand, retirementConfiguration, retirementProfile } from "./retirement-fixtures";
-import { fixtureAsset, known } from "./profile-v2-fixtures";
+import { fixtureAsset, fixtureProfile, known } from "./profile-v2-fixtures";
 import { prepareRetirement } from "../modules/retirement/prepare";
 import { RetirementDecimal as D } from "../modules/retirement/engine";
 import { retirementPreviewSchema } from "../modules/retirement/schema";
@@ -49,6 +49,20 @@ describe("T08 personal alternatives", () => {
   });
 });
 describe("T08 report, comparison, simulation and CSV", () => {
+  it("legacy capital metadata defaults to six months independently of income stability and preserves the pinned snapshot", async () => {
+    const profile = retirementProfile();
+    delete profile.reserveMonths;
+    profile.incomeStability = known("UNCERTAIN");
+    profile.expenses = fixtureProfile().expenses;
+    const f = await plansFixture(profile), saved = await f.create();
+    const before = structuredClone(f.rows("planVersion"));
+    const read = await f.plans.version(f.owner, saved.planId, saved.saved.id, true);
+    expect(read.preview.capitalSeparation?.reserveMonths).toBe(6);
+    expect(read.preview.capitalSeparation?.requiredEmergencyReserve).toBe("96000000");
+    expect("replay" in read && read.replay.matched).toBe(true);
+    expect(f.rows("planVersion")).toEqual(before);
+    expect((await f.profiles.getProfile(f.owner))!.data).not.toHaveProperty("reserveMonths");
+  });
   it("saved capital metadata includes pinned alternative asset values without changing the snapshot", async () => {
     const profile = retirementProfile();
     profile.assets = { status: "KNOWN", entries: [fixtureAsset()] };
