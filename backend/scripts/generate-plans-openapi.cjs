@@ -13,6 +13,7 @@ const nullable = name => ({ anyOf: [ref(name), { type: "object", nullable: true,
 const retirement = name => ({ $ref: "./retirement.openapi.yaml#/" + name });
 const s = { ReforecastInput: schema(saveReforecastSchema), CreateInput: schema(createPlanVersionSchema), ApplyInput: schema(applyPlanVersionSchema), CompareInput: schema(planCompareSchema), SimulationInput: schema(planSimulationSchema) };
 s.Version = obj({ id: uuid, planId: uuid, version: integer, createdAt: date, profileRevision: integer, snapshotHash: str, preview: retirement("Preview") });
+s.Version.properties.birthMonth = { ...str, nullable: true };
 s.Version.properties.preview={oneOf:[retirement('Preview'),{$ref:'./source-snapshot.openapi.yaml#/Preview'}]};
 s.SourcePreviewInput=schema(sourceReforecastSchema);s.SourceSaveInput=schema(saveSourceReforecastSchema);
 s.SourcePreview=obj({status:{type:'string',enum:['READY','BLOCKED','HORIZON_COMPLETE']},issues:arr(obj({month:str,code:str})),inputHash:{...str,nullable:true},
@@ -32,6 +33,7 @@ s.Detail = obj({ ...plan, current: nullable("Version"), profileChanged: bool,
 s.List = obj({ page: integer, limit: integer, total: integer, items: arr(ref("Plan")) });
 s.History = obj({ page: integer, limit: integer, total: integer, items: arr(obj({ id: uuid, version: integer, createdAt: date,
   profileRevision: integer, snapshotHash: str, references: { $ref: "./retirement.openapi.yaml#/Preview/properties/references" }, summary: retirement("Summary") })) });
+s.History.properties.items.items.properties.birthMonth = { ...str, nullable: true };
 s.Replay = obj({ ...s.Version.properties, replay: obj({ matched: { type: "boolean", enum: [true] }, modelVersion: str, summary: retirement("Summary"), rows: arr(retirement("Row")) }) });
 const decimal = { type: "string", pattern: "^-?(0|[1-9]\\d*)(\\.\\d+)?$" };
 s.Goal = obj({ retirementMonth: str, endMonth: str, monthlyExpenseToday: decimal, monthlyContribution: decimal, monthlyReserve: decimal, terminalBalance: decimal });

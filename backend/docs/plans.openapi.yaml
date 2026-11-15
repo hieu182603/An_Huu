@@ -559,6 +559,12 @@ CreateInput:
               nullable: true
               enum:
                 - null
+        planningReaction:
+          type: string
+          enum:
+            - SELL
+            - HOLD
+            - BUY_MORE
       required:
         - expectedProfileRevision
         - policyVersionId
@@ -894,6 +900,12 @@ SimulationInput:
               nullable: true
               enum:
                 - null
+        planningReaction:
+          type: string
+          enum:
+            - SELL
+            - HOLD
+            - BUY_MORE
       required:
         - expectedProfileRevision
         - policyVersionId
@@ -959,6 +971,9 @@ Version:
           - endMonth
           - expectedEndMonth
           - goalRevision
+    birthMonth:
+      type: string
+      nullable: true
 SourcePreviewInput:
   type: object
   additionalProperties: false
@@ -10982,6 +10997,9 @@ History:
             $ref: ./retirement.openapi.yaml#/Preview/properties/references
           summary:
             $ref: ./retirement.openapi.yaml#/Summary
+          birthMonth:
+            type: string
+            nullable: true
 Replay:
   type: object
   additionalProperties: false
@@ -10993,6 +11011,7 @@ Replay:
     - profileRevision
     - snapshotHash
     - preview
+    - birthMonth
     - replay
   properties:
     id: *a10
@@ -11046,6 +11065,9 @@ Replay:
           - endMonth
           - expectedEndMonth
           - goalRevision
+    birthMonth:
+      type: string
+      nullable: true
 Goal:
   type: object
   additionalProperties: false
