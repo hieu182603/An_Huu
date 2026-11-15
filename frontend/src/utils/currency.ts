@@ -2,19 +2,19 @@ export function formatCompactVND(value: number, isVietnamese: boolean, billionFr
   const magnitude = Math.abs(value);
   if (magnitude >= 1_000_000_000) {
     const compact = (value / 1_000_000_000).toFixed(billionFractionDigits);
-    return isVietnamese ? `${compact} tỷ` : `${compact}B VND`;
+    return isVietnamese ? `${compact.replace(".", ",")} tỷ ₫` : `${compact}B ₫`;
   }
   if (magnitude >= 1_000_000) {
     const compact = Math.round(value / 1_000_000);
-    return isVietnamese ? `${compact} tr` : `${compact}M VND`;
+    return isVietnamese ? `${compact} tr ₫` : `${compact}M ₫`;
   }
-  return `${Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
+  return `${Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} ₫`;
 }
 
 export function formatFullVND(value: number, _isVietnamese = true): string {
   const rounded = Math.round(value);
   const isNeg = rounded < 0;
-  return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} VND`;
+  return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} ₫`;
 }
 
 export function formatNumberWithDots(value: number | string): string {
@@ -23,7 +23,7 @@ export function formatNumberWithDots(value: number | string): string {
   return clean.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-export function formatVND(value: number, suffix = "VND"): string {
+export function formatVND(value: number, suffix = "₫"): string {
   if (value === null || value === undefined || Number.isNaN(value)) return `0 ${suffix}`;
   const isNegative = value < 0;
   const clean = Math.floor(Math.abs(value));

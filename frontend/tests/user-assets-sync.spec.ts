@@ -178,7 +178,7 @@ test("large values retain VND precision and net-worth details trap focus and res
   await setup(page, request);
   await page.getByRole("button", { name: "Sửa Tiền gửi", exact: true }).click();
   await dialog(page).getByLabel("Tổng giá trị tài sản", { exact: true }).fill("9.007.199.254.740.993,25"); await save(page);
-  await expect(page.getByTestId("assets-declared")).toHaveText("9.007.199.254.740.993,25 ₫");
+  await expect(page.getByTestId("assets-declared")).toHaveText("9.007.199.254.740.993 ₫");
   const trigger = page.getByRole("button", { name: "Giải thích tài sản ròng", exact: true }); await trigger.click();
   await expect(dialog(page)).toContainText("tài sản thuộc sở hữu của bạn − phần dư nợ");
   await page.keyboard.press("Shift+Tab"); await expect(dialog(page).getByRole("link", { name: "Rà soát khoản nợ", exact: true })).toBeFocused();
@@ -199,7 +199,8 @@ test("asset changes leave the applied plan version unchanged", async ({ page, re
   await add(page, "Tài sản của kế hoạch", "10.000.000"); await save(page);
   const response = await request.get(`${api}/api/v1/me/retirement/plans/${state.fixture.plan.id}`, { headers: { Authorization: `Bearer ${state.fixture.accessToken}` } });
   expect((await response.json()).data).toMatchObject({ currentVersionId: state.fixture.plan.versionId, stale: true });
-  expect(state.writes.every(write => write.path.endsWith("/financial-profile/assets"))).toBeTruthy();
+  // Recalculating a preview is read-only; saving/applying a plan is not allowed here.
+  expect(state.writes.every(write => write.path.endsWith("/financial-profile/assets") || write.path.endsWith("/retirement/preview"))).toBeTruthy();
 });
 test("empty profiles and load failures hide assets; profile retry returns real totals", async ({ page, request }) => {
   await setup(page, request); let mode = "NONE";

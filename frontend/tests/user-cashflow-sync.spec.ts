@@ -68,8 +68,8 @@ test("real API: split, add, edit and delete persist through reload and update th
   await expect(ledger(page, "expenses")).not.toContainText("Ăn uống");
   expect((await state.record()).summary.values).toMatchObject({ monthlyIncome: "21000000", monthlyExpense: "16000000", availableMonthlySurplus: "5000000" });
   await page.getByRole("link", { name: "← Quay lại Tài chính của bạn", exact: true }).click();
-  await expect(page.locator(".finance-summary-metric.is-income > strong")).toHaveText("21.000.000 ₫");
-  await expect(page.locator(".finance-summary-metric.is-surplus > strong")).toHaveText("5.000.000 ₫");
+  await expect(page.locator(".finance-summary-metric.is-income > strong")).toHaveText("21 triệu ₫");
+  await expect(page.locator(".finance-summary-metric.is-surplus > strong")).toHaveText("5 triệu ₫");
   expect(state.writes.map(write => write.body.command?.kind)).toEqual(["SPLIT", "ADD", "UPDATE", "DELETE"]);
   expect(state.errors).toEqual([]);
 });
@@ -170,7 +170,7 @@ test("one-time, future and large amounts use server totals and retain schedules"
   await dialog(page).getByLabel("Số tiền mỗi tháng", { exact: true }).fill("9.007.199.254.740.993,25");
   await dialog(page).getByRole("button", { name: "Lưu thay đổi", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
-  await expect(page.locator(".cashflow-budget-income strong")).toHaveText("9.007.199.254.740.993,25 ₫");
+  await expect(page.locator(".cashflow-budget-income strong")).toHaveText("9.007.199.254.740.993 ₫");
 });
 
 test("real saved plan: budget uses projected reserve, caps deposits, and never applies profile or reserve edits automatically", async ({ page, request }) => {

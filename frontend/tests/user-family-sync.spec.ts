@@ -59,8 +59,9 @@ test("invalid counts focus the field and never produce a successful write", asyn
   expect(state.writes).toEqual([]); expect((await state.record()).revision).toBe(1);
 });
 test("discard restores saved declarations without a network mutation", async ({ page, request }) => {
-  const state = await setup(page, request); await count(page).fill("7"); await marital(page).selectOption("OTHER");
-  await page.getByRole("button", { name: "Hủy thay đổi", exact: true }).click(); await expect(count(page)).toHaveValue(""); await expect(marital(page)).toHaveValue(""); expect(state.writes).toEqual([]);
+  const state = await setup(page, request); await count(page).fill("7"); await marital(page).selectOption("MARRIED");
+  await expect(marital(page).locator('option[value="OTHER"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Hủy", exact: true }).click(); await expect(count(page)).toHaveValue(""); await expect(marital(page)).toHaveValue(""); expect(state.writes).toEqual([]);
 });
 test("failed saves retain the draft and retry writes only once", async ({ page, request }) => {
   const state = await setup(page, request); let fail = true;
@@ -116,6 +117,7 @@ for (const [name, width, height] of [["desktop", 1440, 1000], ["laptop", 1024, 7
     await page.setViewportSize({ width, height }); const state = await setup(page, request, { expenses: { status: "KNOWN", entries: [expense({ label: "Hỗ trợ học phí và sinh hoạt cho bố mẹ cùng các con đang đi học" })] } });
     await expect(page.getByTestId("family-support")).toHaveText("3.000.000 ₫");
     if (width > 650) {
+      await page.evaluate(() => document.fonts.ready);
       const left = await marital(page).boundingBox(), right = await count(page).boundingBox();
       expect(Math.abs(left!.y - right!.y)).toBeLessThanOrEqual(1);
     }

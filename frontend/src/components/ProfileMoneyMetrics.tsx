@@ -1,4 +1,4 @@
-import { formatMoneyDecimal } from "../utils/moneyDisplay";
+import { formatMoneyDecimal, formatCompactMoneyDecimal } from "../utils/moneyDisplay";
 import { useState } from "react";
 import { Link } from "react-router";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
@@ -16,12 +16,12 @@ export default function ProfileMoneyMetrics() {
   const en = useI18n().language === "en", t = (vi: string, english: string) => en ? english : vi;
   const [detail, setDetail] = useState<Metric | null>(null);
   const values = financeHubSummary(profileSummary, v2Profile, profile);
-  const money = (v: string | null) => financeMoney(v, en);
+  const money = (v: string | null) => formatCompactMoneyDecimal(v, en);
   const fullMoney = (v: string | null) => formatMoneyDecimal(v, en);
   const negative = values.surplus?.startsWith("-") ?? false;
   const month = v2Profile?.valuationDate.slice(0, 7);
   const labels: Record<Metric, string> = { income: t("Thu nhập + lương hưu", "Income & pension"), expenses: t("Chi tiêu sinh hoạt", "Living expenses"), debtPayment: t("Trả nợ trong tháng", "Debt payments"), surplus: negative ? t("Ngân sách đang thiếu", "Budget shortfall") : t("Phần dư thu chi", "Monthly surplus") };
-  const captions: Record<Metric, string> = { income: t("Theo lịch nguồn tiền trong hồ sơ", "From the profile's income schedule"), expenses: t("Chưa bao gồm tiền trả nợ", "Excludes debt payments"), debtPayment: t("Theo dư nợ và lịch đã khai", "From declared repayment schedules"), surplus: t("Trước tiền giữ lại và góp nghỉ hưu", "Before reserves and retirement contributions") };
+  const captions: Record<Metric, string> = { income: t("Theo lịch nguồn tiền tháng đầu", "From the profile's income schedule"), expenses: t("Chưa bao gồm tiền trả nợ", "Excludes debt payments"), debtPayment: t("Theo dư nợ và lịch đã khai", "From declared repayment schedules"), surplus: t("Trước tiền giữ lại và góp nghỉ hưu", "Before reserves and retirement contributions") };
   const descriptions: Record<Metric, string> = {
     income: t("Tổng các nguồn thu đến hạn trong tháng định giá hồ sơ, gồm lương hưu khi đã bắt đầu hưởng và có đủ dữ liệu. Nguồn thu ở tháng tương lai không được cộng sớm; nguồn lương hưu không cộng trùng với thu nhập.", "Total income due in the profile's valuation month, including pension once it starts and sufficient details are available. Future income is not counted early, and pension is not counted twice."),
     expenses: t("Tổng chi sinh hoạt có hiệu lực trong tháng định giá hồ sơ. Các khoản trả nợ được tách riêng; tiền để dành mỗi tháng cho việc khác và góp quỹ hưu cũng được đối chiếu riêng trong kế hoạch.", "Living expenses effective in the profile's valuation month. Debt payments, monthly reserves and retirement contributions are accounted for separately."),
@@ -47,7 +47,7 @@ export default function ProfileMoneyMetrics() {
   return <>
     <section className="finance-summary-metrics" aria-label={t("Dòng tiền theo hồ sơ", "Cash flow from your profile")}>{(["income", "expenses", "debtPayment", "surplus"] as const).map(key => <article key={key} className={`finance-summary-metric is-${key}${key === "surplus" && negative ? " is-negative" : ""}`} aria-label={labels[key]}>
       <div><span>{labels[key]}</span><button type="button" className="finance-summary-info" aria-label={`${t("Giải thích", "Explain")} ${labels[key]}`} aria-haspopup="dialog" onClick={() => setDetail(key)}><Icon name="info" /></button></div>
-      <strong>{money(values[key])}</strong><small>{captions[key]}</small>
+      <strong>{money(values[key])}</strong>{values[key]!==null&&<small className="finance-metric-full">≈ {fullMoney(values[key])}</small>}<small>{captions[key]}</small>
     </article>)}</section>
     {data && detail && <MoneyExplanationDialog data={data} onClose={() => setDetail(null)} action={<Link className="overview-button primary" to={detail === "debtPayment" ? "/user/debts" : "/user/profile?section=cashflow"} onClick={() => setDetail(null)}>{detail === "debtPayment" ? t("Xem chi tiết khoản nợ", "Review debt details") : t("Rà soát thu nhập và chi tiêu", "Review income and expenses")}</Link>} />}
   </>;
