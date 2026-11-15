@@ -35,8 +35,12 @@ test("display interpolation respects exact points, both intervals, clamping and 
   assert.deepEqual(portfolioGlideWeights([], 2), []);
 });
 
-test("asset labels use assumption labels, localized known groups and code fallback", () => {
-  assert.equal(portfolioAssetLabel("CASH", "vi", { CASH: "Nhãn từ bộ giả định" }), "Nhãn từ bộ giả định");
+test("canonical asset groups use approved names, while custom classes retain published labels", () => {
+  assert.equal(portfolioAssetLabel("CASH", "vi", { CASH: "Nhãn từ bộ giả định" }), "Tiết kiệm");
+  assert.equal(portfolioAssetLabel("GOV_BOND", "vi", { GOV_BOND: "Nhãn cũ" }), "Trái phiếu Chính phủ");
+  assert.equal(portfolioAssetLabel("EQUITY", "vi", { EQUITY: "Cổ phiếu" }), "Cổ phiếu đa dạng");
+  assert.equal(portfolioAssetLabel("GOLD", "vi", { GOLD: "Nhãn cũ" }), "Vàng");
+  assert.equal(portfolioAssetLabel("BOND", "vi", { BOND: "Trái phiếu doanh nghiệp" }), "Trái phiếu doanh nghiệp");
   assert.equal(portfolioAssetLabel("CASH", "en", {}), "Deposits & cash");
   for (const code of ["CASH", "GOV_BOND", "EQUITY", "GOLD"]) {
     assert.notEqual(portfolioAssetLabel(code, "vi", {}), code);

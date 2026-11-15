@@ -36,15 +36,18 @@ export function portfolioAssetColor(code: string, index = 0): string {
 
 export function portfolioAssetLabel(code: string, language: "vi" | "en", labels: Record<string, string>): string {
   const translations: Record<string, [string, string]> = {
-    CASH: ["Tiền gửi & thanh khoản", "Deposits & cash"],
+    CASH: ["Tiết kiệm", "Deposits & cash"],
     GOV_BOND: ["Trái phiếu Chính phủ", "Government bonds"],
-    EQUITY: ["Cổ phiếu đa dạng hóa", "Diversified equities"],
+    EQUITY: ["Cổ phiếu đa dạng", "Diversified equities"],
     GOLD: ["Vàng", "Gold"],
     BOND: ["Trái phiếu", "Bonds"],
-    STOCK: ["Cổ phiếu", "Equities"],
+    STOCK: ["Cổ phiếu đa dạng", "Equities"],
     BALANCED: ["Quỹ cân bằng", "Balanced funds"],
     REAL_ESTATE: ["Bất động sản", "Real estate"],
   };
+  // The four canonical groups use the approved customer-facing names. Custom
+  // classes keep their published labels; generic BOND is not a government bond.
+  if (["CASH", "GOV_BOND", "EQUITY", "GOLD"].includes(code)) return translations[code][language === "vi" ? 0 : 1];
   return language === "vi"
     ? labels[code] || translations[code]?.[0] || code
     : translations[code]?.[1] || labels[code] || code;

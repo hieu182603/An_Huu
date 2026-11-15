@@ -1,0 +1,21 @@
+const fraction = (value: string) => {
+  const [whole, decimals = ""] = value.split(".");
+  return { n: BigInt(whole + decimals), d: 10n ** BigInt(decimals.length) };
+};
+
+/** Revalue the derived input against today's long-term capital. Never infer a new answer. */
+export function resolveLossTolerance(growth: string | null, amount: string | null, percent: string | null, mode?: "PERCENT" | "AMOUNT") {
+  const inputMode = mode ?? (percent !== null && (amount === null || growth === null || Number(amount) >= Number(growth) * Number(percent) / 100) ? "PERCENT" : "AMOUNT");
+  if (growth === null || Number(growth) <= 0) return { amount: null, percent: null, inputMode };
+  const g = fraction(growth);
+  if (inputMode === "PERCENT") {
+    if (percent === null) return { amount: null, percent, inputMode };
+    const p = fraction(percent), denominator = g.d * p.d * 100n;
+    return { amount: ((g.n * p.n + denominator / 2n) / denominator).toString(), percent, inputMode };
+  }
+  if (amount === null) return { amount, percent: null, inputMode };
+  const a = fraction(amount), denominator = a.d * g.n;
+  const thousandths = (a.n * g.d * 100000n + denominator / 2n) / denominator;
+  const ratio = `${thousandths / 1000n}.${String(thousandths % 1000n).padStart(3, "0")}`.replace(/\.?0+$/, "");
+  return { amount, percent: ratio, inputMode };
+}

@@ -10,6 +10,7 @@ const timing = { offsetMonths: z.number().int().min(-1200).max(1200), durationMo
 export const stressKinds = ["HIGH_INFLATION", "EQUITY_CRASH", "RATE_RISE", "CREDIT", "GOLD", "PROPERTY_ILLIQUIDITY", "INCOME_LOSS", "LONGEVITY"] as const;
 export const riskPolicySchema = z.object({
   evidence: z.string().min(3).max(2000),
+  simulationPaths: z.number().int().min(1).max(500).optional(),
   blockMonths: z.number().int().min(12).max(36).optional(),
   cvarAlpha: decimal.refine(v => new Prisma.Decimal(v).gt(0) && new Prisma.Decimal(v).lt(1)).optional(),
   essentialThreshold: decimal.refine(v => new Prisma.Decimal(v).gt(0) && new Prisma.Decimal(v).lte(1)).optional(),

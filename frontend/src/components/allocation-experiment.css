@@ -1,33 +1,145 @@
+/* Recommended card + adjust-the-weights card, laid out like the demo's allocation lab. */
 .allocation-experiment{margin:24px 0}
-.allocation-experiment .allocation-reference{display:flex;flex-direction:column;gap:16px;min-width:0}
-.allocation-experiment h2{font-size:23px;margin:0;line-height:1.5}
 .allocation-experiment p{font-size:13px;line-height:1.8;margin:0}
-.allocation-experiment .overview-button{width:100%;white-space:normal}
-.allocation-experiment-weights{margin:0}
-.allocation-experiment-weights>div{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--ar-line);font-size:13px;line-height:1.7}
-.allocation-experiment-weights dd{margin:0;text-align:right}
-.allocation-experiment-weights dd span{display:block;color:var(--ar-muted)}
-.allocation-rate-button{border:0;background:transparent;text-align:left;color:var(--ar-ink);padding:8px 0;cursor:pointer}
-.allocation-rate-button strong{display:block;font-size:36px;line-height:1.3}
-.allocation-rate-button span{display:block;color:var(--ar-muted);font-size:12px;margin-top:4px}
-.allocation-probabilities{padding:18px;border-radius:12px;background:#f1f6fb;display:grid;gap:16px}
-.allocation-probabilities>div>div{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:13px}
-.allocation-probabilities strong{font-size:18px}
-.allocation-probabilities meter{display:block;width:100%;height:12px;margin:6px 0;accent-color:#2b61b4}
-.allocation-probabilities small{color:var(--ar-muted);font-size:11px}
-.allocation-slider-row{border:1px solid var(--ar-line);border-radius:12px;padding:14px}
-.allocation-slider-row label{font-size:13px;font-weight:650}
-.allocation-slider-row>div{display:flex;align-items:center;gap:10px;margin-top:12px}
-.allocation-slider-row input[type=range]{min-width:0;flex:1;accent-color:#2b61b4;cursor:pointer}
-.allocation-slider-row input[type=number]{width:84px;min-height:44px;border:1px solid #bed0e2;border-radius:8px;padding:6px 8px;background:#fff;color:#0d2d5a;text-align:right}
-.allocation-template-details{border:1px solid var(--ar-line);border-radius:14px;padding:18px;margin-top:24px}
-.allocation-template-details>summary{cursor:pointer;font-weight:650;font-size:14px}
+.allocation-experiment .allocation-reference{background:#f8fafd}
+.allocation-experiment .allocation-reference-actions .overview-button,.allocation-experiment .allocation-alternatives-body>.overview-button,.allocation-feedback .overview-button{width:100%;white-space:normal}
+.allocation-experiment .allocation-reference-actions .remaining-text{justify-self:center;min-height:44px}
+.allocation-card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.allocation-card-meta .allocation-eyebrow{margin:0;font-size:10px}
+
+/* The return figure opens its calculation; it keeps the demo's large-number look. */
+.allocation-rate-button{width:100%;border:0;border-bottom:1px solid var(--ar-line);background:transparent;color:var(--ar-ink);font:inherit;text-align:left;cursor:pointer}
+.allocation-rate-button:disabled{cursor:default}
+.allocation-rate-button.is-compact{padding:12px 0}
+.allocation-rate-button.is-compact>strong{font-size:32px}
+
+/* Success frequency with the policy threshold marked on the bar. */
+.allocation-success-grid{display:grid;gap:16px;padding:18px;border-radius:12px;background:#f1f6fb;margin-top:4px}
+.allocation-success>div:first-child{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:13px}
+.allocation-success strong{font-size:18px;font-variant-numeric:tabular-nums}
+.allocation-success-track{position:relative;height:10px;margin:8px 0 6px;border-radius:6px;background:#dbe5f0}
+.allocation-success-track>span{display:block;height:100%;border-radius:6px;background:#2b61b4}
+.allocation-success-track>i{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:#142e49}
+.allocation-success small{font-size:11px;color:var(--ar-muted)}
+
+/* Adjust-the-weights card. */
+.allocation-custom>summary em{display:block;font-style:normal;font-size:9px;letter-spacing:1.3px;line-height:1.8;color:var(--ar-muted)}
+.allocation-slider-row{margin:0 0 12px;padding:16px;background:#f8fafc;border:1px solid #e5ecf4;border-radius:12px}
+.allocation-slider-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.allocation-slider-heading label{display:flex;align-items:center;gap:8px;min-width:0;font-size:13px;font-weight:600;line-height:1.6}
+.allocation-slider-heading label i{width:8px;height:8px;border-radius:2px;flex-shrink:0;background:var(--allocation-asset)}
+.allocation-percent-input{display:flex;align-items:center;flex:0 0 auto;padding-right:9px;border:1px solid #bed0e2;border-radius:8px;background:#fff}
+.allocation-percent-input input{width:66px;min-height:44px;border:0;border-radius:8px;padding:8px;background:transparent;color:#0d2d5a;font:inherit;font-size:15px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums;appearance:textfield;-moz-appearance:textfield}
+.allocation-percent-input input::-webkit-inner-spin-button,.allocation-percent-input input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.allocation-percent-input>span{font-size:12px;color:var(--ar-muted)}
+.allocation-percent-input:focus-within{outline:2px solid #2866bd;outline-offset:2px}
+.allocation-experiment .allocation-percent-input input:focus-visible{outline:none}
+.allocation-slider-row input[type=range]{display:block;width:100%;height:44px;margin:2px 0;accent-color:var(--allocation-asset);cursor:pointer}
+.allocation-slider-row input:disabled{cursor:default}
+.allocation-slider-caption{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:11px;line-height:1.7;color:var(--ar-muted)}
+.allocation-slider-caption strong{margin-left:auto;font-size:12px;font-weight:600;color:var(--ar-ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* Live answer for the weights being dragged. */
+.allocation-feedback{display:grid;gap:12px;margin:4px 0 16px}
+.allocation-check{padding:12px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#f1f5f9;font-size:12px;line-height:1.7}
+.allocation-check strong{display:block;font-size:13px}
+.allocation-check.is-valid{background:#f0fdf4;border-color:#bbf7d0;color:#166534}
+.allocation-check.is-invalid{background:#fff7ed;border-color:#fdba74;color:#9a3412}
+.allocation-experiment .allocation-check p{font-size:12px;color:inherit}
+.allocation-method>summary{min-height:44px;display:list-item;padding:10px 0;cursor:pointer;font-size:13px;font-weight:600}
+.allocation-method table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;line-height:1.7;margin-bottom:10px}
+.allocation-method th,.allocation-method td{padding:8px 6px;border-top:1px solid var(--ar-line);text-align:left;overflow-wrap:anywhere}
+.allocation-experiment .allocation-method p{font-size:11px;color:var(--ar-muted)}
+
+/* Recommended versus custom under the same conditions. */
+.allocation-tested{margin-top:24px;padding:24px;background:#fff;border:1px solid var(--ar-line);border-radius:18px}
+.allocation-tested h2{font-size:20px;font-weight:700;line-height:1.5;margin:0 0 16px}
+.allocation-tested table{min-width:0}
+.allocation-tested td{font-variant-numeric:tabular-nums}
+.allocation-tested>p{margin-top:14px;color:var(--ar-muted)}
+.allocation-tested-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:18px}
+
+/* "Why this allocation" table: one row per tested split with its verdict. */
+.allocation-why-table{min-width:720px}
+.allocation-why-table thead th{text-align:right;font-weight:600}
+.allocation-why-table thead th:first-child{text-align:left}
+.allocation-why-table td{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.allocation-why-table td:last-child{text-align:left;white-space:normal;min-width:180px;max-width:280px;color:var(--ar-muted)}
+.allocation-why-table tr.is-current th,.allocation-why-table tr.is-current td{font-weight:600;color:#12355c}
+.allocation-why-name{display:block;font-size:14px;margin-bottom:6px}
+.allocation-why-bar{display:flex;width:180px;max-width:100%;height:8px;border-radius:6px;overflow:hidden;background:#e9eef5}
+.allocation-why-bar i{display:block;height:100%}
+.allocation-why-table th small{display:block;max-width:260px;margin-top:5px;font-size:12px;font-weight:400;line-height:1.5;color:var(--ar-muted)}
+.allocation-why-pick{display:inline-block;padding:3px 10px;border-radius:999px;background:#245dab;color:#fff;font-size:12px;font-weight:600}
+.allocation-why-pick.is-reference{background:#8a5914}
+.allocation-why-table ul{list-style:none;margin:8px 0 0;padding:0;font-size:12px;line-height:1.5;color:#3d516a}
+.allocation-why-table li{position:relative;padding-left:12px}
+.allocation-why-table li::before{content:"•";position:absolute;left:0}
+.allocation-result-why .allocation-why-table li{display:block;border:0;background:transparent;border-radius:0;padding:0 0 0 12px}
+.allocation-result-why>.allocation-comparison-scroll{margin-top:18px}
+
+.allocation-template-details,.allocation-probability-details{border:1px solid var(--ar-line);border-radius:14px;padding:18px;margin-top:24px}
+.allocation-template-details>summary,.allocation-probability-details>summary{cursor:pointer;font-weight:650;font-size:14px}
 .allocation-template-details>.allocation-lab-real{margin-top:18px}
-.allocation-experiment>.allocation-comparison-scroll{margin-top:20px}
-.allocation-package-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}
-.allocation-package-grid>article{border:1px solid #dce6f0;border-radius:12px;padding:18px;min-width:0}
-.allocation-package-grid h3{margin-top:0}
+.allocation-experiment button:focus-visible,.allocation-experiment input:focus-visible,.allocation-experiment summary:focus-visible{outline:3px solid #8db4ed;outline-offset:3px}
+
+/* Loss limit inputs in step 2 of the wizard. */
+.allocation-loss-limit{margin:28px 0}
+.allocation-loss-limit h3{font-size:17px;font-weight:650;line-height:1.5;margin:0}
+.allocation-loss-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}
+.allocation-wizard-body .allocation-loss-fields label{margin:18px 0 0}
+.allocation-loss-input{display:flex;align-items:center;margin-top:8px;border:1px solid #a7bfdc;border-radius:8px;background:#fff}
+.allocation-wizard-body .allocation-loss-input input{border:0;margin:0;background:transparent;text-align:right;font-variant-numeric:tabular-nums}
+.allocation-loss-input i{padding:0 12px 0 4px;font-style:normal;font-size:13px;color:#536b85}
+.allocation-loss-input:focus-within{outline:2px solid #2866bd;outline-offset:2px}
+.allocation-wizard-body .allocation-loss-input input:focus-visible{outline:none}
+.allocation-loss-hint{margin:12px 0 0;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#f1f5f9;font-size:13px;line-height:1.6;color:#334155}
+.allocation-loss-hint[data-kind=ok]{color:#166534;background:#f0fdf4;border-color:#bbf7d0}
+.allocation-loss-hint[data-kind=warn]{color:#8a5914;background:#fffbeb;border-color:#fde68a}
+.allocation-loss-hint[data-kind=error]{color:#9a3412;background:#fff7ed;border-color:#fdba74}
+.allocation-loss-choices{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0;font-size:13px;color:#536b85}
+.allocation-loss-choices .overview-button{min-height:40px;padding:6px 14px;font-size:13px}
+
+/* Two investment packages side by side. */
+.allocation-package-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px 0}
+.allocation-package-grid>article{min-width:0;padding:18px;border:1px solid #dbe4ef;border-top:4px solid #245dab;border-radius:14px;background:#f8fafd}
+.allocation-package-grid>article+article{border-top-color:#1f7a63}
+.allocation-package-grid article>span{font-size:11px;font-weight:600;color:#536982}
+.allocation-package-grid h3{margin:4px 0 2px;font-size:18px}
+.allocation-package-grid article>p{margin:0;font-size:13px;color:#536982}
 .allocation-package-grid .remaining-text{display:block;margin-top:12px}
-.allocation-experiment button:focus-visible,.allocation-experiment input:focus-visible{outline:3px solid #8db4ed;outline-offset:3px}
-@media(max-width:600px){.allocation-package-grid{grid-template-columns:1fr}.allocation-experiment h2{font-size:21px}.allocation-probabilities{padding:14px}.allocation-slider-row input[type=number]{width:74px}}
-.allocation-probability-details{border:1px solid var(--ar-line);border-radius:14px;padding:18px;margin-top:24px}.allocation-probability-details>summary{cursor:pointer;font-weight:650;font-size:14px}
+.allocation-package-table td>span,.allocation-package-table th>span{display:block;margin-top:3px;font-size:12px;line-height:1.5;color:#536982}
+.allocation-package-table td>span.is-metric{color:#1f4f7a;font-weight:600}
+.allocation-package-table td.is-empty{color:#7a8a9a;font-style:italic}
+.allocation-package-table .remaining-text{display:inline-block;margin-top:6px}
+
+@media(max-width:700px){
+  .allocation-why-table{min-width:0}
+  .allocation-why-table thead{display:none}
+  .allocation-why-table,.allocation-why-table tbody,.allocation-why-table tr,.allocation-why-table th,.allocation-why-table td{display:block;width:auto}
+  .allocation-why-table tr{margin:0 0 10px;padding:4px 12px;border:1px solid #dbe4ef;border-radius:12px;background:#fff}
+  .allocation-why-table tr.is-current{border-color:#9dbbe3;background:#eef6ff}
+  .allocation-comparison-scroll .allocation-why-table th,.allocation-comparison-scroll .allocation-why-table td{border:0;padding:8px 0;text-align:left;white-space:normal;max-width:none;min-width:0}
+  .allocation-comparison-scroll .allocation-why-table td{display:flex;justify-content:space-between;gap:12px;border-top:1px dashed #e1e7ef}
+  .allocation-why-table td::before{content:attr(data-label);color:#536982;font-weight:400}
+  .allocation-why-bar{width:100%}
+  .allocation-result-why>.allocation-comparison-scroll{overflow:visible;border:0}
+}
+@media(max-width:600px){
+  .allocation-package-grid,.allocation-loss-fields{grid-template-columns:1fr}
+  .allocation-success-grid{padding:14px}
+  .allocation-tested{padding:16px}
+  .allocation-percent-input input{font-size:16px}
+}
+
+/* Applied-to-preview notice and in-place goal editing. */
+.allocation-applied{margin:20px 0 0;padding:14px 16px;border:1px solid #bbf7d0;border-radius:12px;background:#f0fdf4;color:#166534;font-size:13px;line-height:1.7}
+.allocation-applied a{color:#14532d;font-weight:600;text-underline-offset:3px}
+.allocation-goals{margin:8px 0 16px}
+.allocation-goal{margin:0 0 14px;padding:16px;border:1px solid #dce6f0;border-radius:12px;background:#f8fafd}
+.allocation-goal-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.allocation-goal-heading h3{margin:0;font-size:15px;font-weight:650}
+.allocation-wizard-body .allocation-goal label{margin:14px 0 0}
+.allocation-goals>p{font-size:13px;line-height:1.8;color:#536b85}
+
+.allocation-personal-inputs{display:grid;gap:12px;margin:14px 0}.allocation-personal-inputs p{font-size:12px;line-height:1.65;color:#536779}.allocation-personal-inputs .overview-button{justify-self:start}.allocation-package-save-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}

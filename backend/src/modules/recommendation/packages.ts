@@ -16,7 +16,10 @@ export function buildAllocationPackages(allocations:Allocation[],catalog:Product
   const b=[...fits].filter(p=>p.id!==a?.id).sort((x,y)=>x.liquidityDays-y.liquidityDays||new D(x.annualExpenseRatioPercent).cmp(y.annualExpenseRatioPercent)||x.id.localeCompare(y.id))[0]??a;
   const view=(p:ProductMasterData|null)=>p?{id:p.id,name:p.name,partnerId:p.partnerId,partnerName:p.partnerName,category:p.category,
     annualFeePercent:p.annualExpenseRatioPercent,liquidityDays:p.liquidityDays,minimumAmount:p.minimumInvestmentVnd}:null;
-  return {...row,a:view(a),b:view(b),status:available===null?"CAPITAL_REQUIRED":!pool.length?"NO_PRODUCT":!fits.length?"NO_ELIGIBLE_PRODUCT":"AVAILABLE"};
+  // Smallest entry ticket in this asset class, reported only when it exceeds the capital on this line.
+  const cheapest=pool.map(p=>D.max(p.minimumInvestmentVnd,new D(p.nav).mul(p.lotSize))).sort((x,y)=>x.cmp(y))[0];
+  const minimumNeededVnd=available!==null&&!fits.length&&cheapest?.gt(available)?cheapest.toFixed():null;
+  return {...row,a:view(a),b:view(b),minimumNeededVnd,status:available===null?"CAPITAL_REQUIRED":!pool.length?"NO_PRODUCT":!fits.length?"NO_ELIGIBLE_PRODUCT":"AVAILABLE"};
  });
  const summary=(key:"a"|"b")=>{
   const picks=lines.flatMap(row=>row[key]&&row.amountVnd!==null?[{row,p:row[key]!}]:[]);

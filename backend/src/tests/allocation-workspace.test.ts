@@ -28,6 +28,19 @@ it("reads capital without a horizon, reports incomplete answers and disallows in
  expect((await allocationWorkspace(f.profiles,f.portfolios,f.assumptions,"test-user",{...f.command,answers:[]})).portfolio?.status).toBe("INCOMPLETE");
  await expect(allocationWorkspace(f.profiles,f.portfolios,f.assumptions,"test-user",{...f.command,endMonth:"2026-01"})).rejects.toMatchObject({status:400});
 });
+
+it("explicit total capital never approves incomplete assets or permits saving risk against them", async () => {
+ const f = await allocationFixture({unknownCapital:true});
+ await f.profiles.patchProfile("test-user",2,{schemaVersion:2,allocationCapital:{basis:"TOTAL",totalAmount:"1000000000"}});
+ vi.spyOn(f.auth,"validateSession").mockResolvedValue(f.owner);
+ const app=createApp({config,services:f.services});
+ const before=structuredClone(f.rows("financialProfile"));
+ const response=await request(app).post("/api/v1/me/portfolio-policies/workspace/preview").set("Authorization","Bearer "+token()).send({...f.command,expectedProfileRevision:3});
+ expect(response.status).toBe(200);
+ expect(response.body.data).toMatchObject({capital:{status:"INCOMPLETE"},loss:{status:"REVIEW_REQUIRED",exceedsTolerance:null}});
+ await expect(saveAllocationRisk(f.profiles,f.portfolios,f.assumptions,"test-user",{expectedRevision:3,policyVersionId:f.policy.id,reaction:"HOLD",limit:{kind:"PERCENT",value:"30"}})).rejects.toMatchObject({code:"GROWTH_CAPITAL_REQUIRED"});
+ expect(f.rows("financialProfile")).toEqual(before);
+});
 it("rejects stale revisions, other accounts, unpublished policies and benchmark overrides",async()=>{
  const f=await allocationFixture();
  await expect(allocationWorkspace(f.profiles,f.portfolios,f.assumptions,"test-user",{...f.command,expectedProfileRevision:1})).rejects.toMatchObject({status:409});
