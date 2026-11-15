@@ -2,6 +2,7 @@ import { AppError } from "../../common/errors";
 import { digest } from "../../common/digest";
 import { profileV2Schema, type ProfileV2 } from "../profiles/schema-v2";
 import { buildContractSchedule } from "../debts/loan";
+import { illustrateDebt } from "../debts/illustration";
 import { RetirementDecimal as D, type MonthlyInput } from "./engine";
 import type { RetirementPreview } from "./schema";
 import { assertSourceTotals, sealSourceRegistry, sealSourceRevision, type SourceCell, type SourceRevision } from "./sources";
@@ -9,7 +10,8 @@ import { assertSourceTotals, sealSourceRegistry, sealSourceRevision, type Source
 /** Build identities from pinned inputs, never labels or differences between totals.
  * baselineRows must be the original prepared v3 rows, before actual adjustments.
  * The final reconciliation deliberately fails closed if the old composer changes. */
-export function profileSourceRegistry(profile: ProfileV2, selection: RetirementPreview, baselineRows: MonthlyInput[], originHash: string) {
+export function profileSourceRegistry(profile: ProfileV2, selection: RetirementPreview, baselineRows: MonthlyInput[], originHash: string,
+  goalCashflows: Array<{ id: string; month: string; amount: string }> = []) {
   if (!baselineRows.length) throw new AppError(422, "SOURCE_COMPOSITION_EMPTY", "Thiếu lịch nguồn gốc.");
   const data = profileV2Schema.parse(profile), first = baselineRows[0].month, last = baselineRows.at(-1)!.month;
   for (const override of selection.whatIf?.assetValues ?? []) {
@@ -18,6 +20,9 @@ export function profileSourceRegistry(profile: ProfileV2, selection: RetirementP
     asset.value = { status: "KNOWN", value: override.value };
   }
   const retirement = selection.whatIf?.retirementMonth ?? (data.personal.desiredRetirementMonth.status === "KNOWN" ? data.personal.desiredRetirementMonth.value : "");
+  const prices = new Map<string, InstanceType<typeof D>>();
+  let price = new D(1);
+  for (const row of baselineRows) { prices.set(row.month, price); price = price.mul(row.inflationFactor); }
   const revisions: SourceRevision[] = [];
   const add = (sourceId: string, kind: SourceRevision["kind"], evidence: unknown, schedule: SourceCell[], origin: SourceRevision["origin"] = "PINNED_PROFILE") => {
     revisions.push(sealSourceRevision({ sourceId, revision: 1, previousHash: null, scope: "PLAN_VERSION", kind, origin,
@@ -37,7 +42,7 @@ export function profileSourceRegistry(profile: ProfileV2, selection: RetirementP
     const schedule = baselineRows.filter(r => r.month >= entry.startMonth && (entry.endMonth === null || r.month <= entry.endMonth) &&
       (r.month < retirement || selection.retirementAdditionalExpenseIds.includes(entry.id))).map(r => ({ month: r.month,
         metric: r.month < retirement ? "livingExpense" as const : "additionalExpense" as const,
-        amount: entry.amount.status === "KNOWN" && entry.currency === "VND" ? entry.amount.value : invalid() }));
+        amount: entry.amount.status === "KNOWN" && entry.currency === "VND" ? data.quickStartSurvey && entry.category === "DEPENDENT" && r.month >= retirement ? new D(entry.amount.value).mul(prices.get(r.month)!).toFixed() : entry.amount.value : invalid() }));
     add(`profile:expense:${entry.id}`, "EXPENSE", entry, schedule);
   }
   add("plan:retirement-living", "EXPENSE", { monthlyExpenseToday: selection.monthlyExpenseToday, retirement,
@@ -45,12 +50,15 @@ export function profileSourceRegistry(profile: ProfileV2, selection: RetirementP
     .map(r => ({ month: r.month, metric: "livingExpense", amount: r.livingExpense })), "PLAN_ASSUMPTION");
   add("plan:reserve", "EXPENSE", { monthlyReserve: selection.monthlyReserve }, baselineRows.filter(r => r.month < retirement)
     .map(r => ({ month: r.month, metric: "additionalExpense", amount: selection.monthlyReserve })), "PLAN_ASSUMPTION");
+  for (const goal of goalCashflows) add(`profile:goal:${goal.id}`, "EXPENSE", goal,
+    [{ month: goal.month, metric: "additionalExpense", amount: goal.amount }]);
   if (data.pension?.status === "KNOWN") add("profile:pension", "PENSION", { pension: data.pension, start: data.personal.pensionStartMonth },
     baselineRows.map(r => ({ month: r.month, metric: "pension", amount: r.pension })));
   for (const debt of data.debts.status === "KNOWN" ? data.debts.entries : []) {
     const payments = new Map<string, InstanceType<typeof D>>();
     if (!(debt.outstandingBalance.status === "KNOWN" && new D(debt.outstandingBalance.value).isZero())) {
-      const schedule = buildContractSchedule(debt, data.valuationDate);
+      const schedule = debt.contract?.status !== "KNOWN" && debt.illustration?.annualRatePercent.status === "KNOWN"
+        ? illustrateDebt(debt, data.valuationDate) : buildContractSchedule(debt, data.valuationDate);
       if (schedule.status !== "READY") invalid();
       for (const row of schedule.rows) {
         const month = row.dueDate.slice(0, 7);

@@ -252,6 +252,7 @@ function useProfileState() {
         setOnboardingConstraints(draft && isProfileV2(draft.data) ? planningConstraints(draft.data) : undefined);
         setOnboardingDraft({ ...draftFromProfile(draft ? (isProfileV2(draft.data) ? profileFromV2(base, draft.data) : profileFromData(base, draft.data)) : next, draft ? clientStep(draft.step) : "welcome", draft?.updatedAt),
           ...(draft && isProfileV2(draft.data) ? {
+            quickProfile: draft.data,
             birthMonth: draft.data.personal?.birthMonth?.status === "KNOWN" ? draft.data.personal.birthMonth.value : "",
             desiredRetirementMonth: draft.data.personal?.desiredRetirementMonth?.status === "KNOWN" ? draft.data.personal.desiredRetirementMonth.value : "",
           } : {}) });
@@ -321,7 +322,7 @@ function useProfileState() {
   const updateAssets = (command: AssetCommand) => persistV2("/me/financial-profile/assets", { command });
   const updateDebts = (command: DebtCommand) => persistV2("/me/financial-profile/debts", { command });
   const updatePension = (pension: PensionDeclaration, pensionStartMonth: OptionalMonth) => persistV2("/me/financial-profile/pension", { pension, pensionStartMonth });
-  const updateRetirementGoal = (values:{birthMonth:string;retirementMonth:string;goal:NonNullable<ProfileV2["retirementGoal"]>})=>persistV2("/me/financial-profile/retirement-goal",values);
+  const updateRetirementGoal = (values:{birthMonth:string;birthDate?:string;retirementMonth:string;goal:NonNullable<ProfileV2["retirementGoal"]>})=>persistV2("/me/financial-profile/retirement-goal",values);
   const updateFamily = (values: FamilyValues) => persistV2("/me/financial-profile/family", values);
   const updatePlanning = (values: import("../services/financialProfile").PlanningValues) => persistV2("/me/financial-profile/planning", values);
 
@@ -352,7 +353,7 @@ function useProfileState() {
     // at v2; legacy drafts finish unchanged and add constraints in the profile.
     if (legacyDraft && additions !== undefined) throw new Error("Nháp cũ cần hoàn tất trước. Sau đó bổ sung ràng buộc và mục tiêu trong hồ sơ chi tiết.");
     const generated = draft.quickProfile ?? createDefaultProfileV2(source);
-    const document = legacyDraft ? data : (draft.quickProfile ? { ...draft.quickProfile, ...additions } : { ...generated, ...previous, ...additions });
+    const document = legacyDraft ? data : (draft.quickProfile ? { ...additions, ...draft.quickProfile, ...constraints } : { ...generated, ...previous, ...additions });
     if (isProfileV2(document) && !draft.quickProfile) {
       const before = profileFromDraft(base, onboardingDraft);
       // Keep detailed entries byte-for-byte unless the corresponding quick total
@@ -392,7 +393,7 @@ function useProfileState() {
       draftRef.current = result;
       if (result.data) {
         setOnboardingConstraints(isProfileV2(result.data) ? planningConstraints(result.data) : undefined);
-        setOnboardingDraft({ ...draftFromProfile(isProfileV2(result.data) ? profileFromV2(source, result.data) : profileFromData(base, result.data), clientStep(result.step), result.updatedAt), birthMonth: draft.birthMonth, desiredRetirementMonth: draft.desiredRetirementMonth });
+        setOnboardingDraft({ ...draftFromProfile(isProfileV2(result.data) ? profileFromV2(source, result.data) : profileFromData(base, result.data), clientStep(result.step), result.updatedAt), ...(isProfileV2(result.data) ? { quickProfile: result.data } : {}), birthMonth: draft.birthMonth, desiredRetirementMonth: draft.desiredRetirementMonth });
       }
       if (result.updatedAt) {
         setLastDraftSavedAt(new Date(result.updatedAt).toLocaleString("vi-VN"));

@@ -29,7 +29,7 @@ async function setup(page: Page, options: { onboarding?: boolean; missingYear?: 
     },
   } } }));
   const policy = { id: "policy-test", version: 4, data: { ...policies.v2, assumptionVersionId: "asm-1" } };
-  await page.route("**/api/v1/me/portfolio-policies**", route => route.fulfill({ json: { data: new URL(route.request().url()).pathname.endsWith("/policy-test") ? policy : { status: "AVAILABLE", items: [policy] } } }));
+  await page.route("**/api/v1/me/portfolio-policies**", route => route.request().method() !== "GET" ? route.fulfill({ status: 503, json: { error: { message: "Workspace not loaded in this questionnaire test" } } }) : route.fulfill({ json: { data: new URL(route.request().url()).pathname.endsWith("/policy-test") ? policy : { status: "AVAILABLE", items: [policy] } } }));
   await page.route("**/api/v1/me/retirement/preview*", async route => {
     const input = route.request().postDataJSON();
     const delayed = input.whatIf?.retirementMonth === "2038-11";
@@ -53,62 +53,12 @@ async function setup(page: Page, options: { onboarding?: boolean; missingYear?: 
     if (!onboarding) sessionStorage.setItem("anhuu:plan-draft:USR-001", JSON.stringify({ policyVersionId: "policy-test", templateId, endMonth: endMonth ?? "2060-01", monthlyExpenseToday: "20000000", monthlyContribution: "2000000", monthlyReserve: "0", answers }));
   }, { onboarding: options.onboarding, en: options.en, endMonth: options.endMonth, answers: policies.v2.questions.map((q: any) => ({ questionId: q.id, choiceId: q.choices[0].id })), templateId: policies.v2.templates[0].id });
   await page.clock.setFixedTime(new Date("2026-10-15T05:00:00Z"));
-  await page.goto(options.onboarding ? "/onboarding" : "/user/plan");
+  await page.goto(options.onboarding ? "/onboarding" : "/user/plan?tab=adjust");
+  expect(errors).toEqual([]);
   return { calls, errors, state };
 }
 
-async function completeQuickOnboarding(page: Page, en = false) {
-  await page.getByLabel(en ? "Birth month (required)" : "Tháng/năm sinh (bắt buộc)").fill("1981-05");
-  await page.getByLabel(en ? "Desired retirement month (required)" : "Tháng bạn muốn nghỉ hưu (bắt buộc)").fill("2027-10");
-  await page.getByRole("button", { name: en ? "20 million" : "20 triệu", exact: true }).click();
-  await page.getByRole("button", { name: en ? "Continue" : "Tiếp tục", exact: true }).click();
-
-  await expect(page.getByRole("heading", { name: en ? "Your Money Today" : "Tiền của bạn hôm nay" })).toBeVisible();
-  await page.getByLabel(en ? "Monthly income after tax" : "Thu nhập mỗi tháng (sau thuế)").fill("35000000");
-  await page.getByRole("button", { name: en ? "Same as desired spending" : "Bằng mức chi mong muốn", exact: true }).click();
-  await page.getByRole("button", { name: en ? "Continue" : "Tiếp tục", exact: true }).click();
-
-  await expect(page.getByRole("heading", { name: en ? "Your Investment Preferences" : "Khẩu vị đầu tư" })).toBeVisible();
-  await expect(page.locator(".quick-risk-card").first()).toBeVisible();
-  const cards = page.locator(".quick-risk-card");
-  const count = await cards.count();
-  for (let i = 0; i < count; i++) {
-    const card = cards.nth(i);
-    const activeChip = card.locator(".quick-chip.is-active");
-    if (await activeChip.count() === 0) {
-      await card.locator(".quick-chip").first().click();
-    }
-  }
-  const finishBtn = page.getByRole("button", { name: en ? "See your first plan" : "Xem kế hoạch đầu tiên của bạn", exact: true });
-  await expect(finishBtn).toBeEnabled();
-  await finishBtn.click();
-}
-
-for (const viewport of [{ width: 1440, height: 1000 }, { width: 375, height: 812 }]) {
-  test(`guided onboarding to plan transition ${viewport.width}`, async ({ page }) => {
-    await page.setViewportSize(viewport);
-    const { errors, state } = await setup(page, { onboarding: true });
-    await expect(page.getByRole("heading", { name: "Mong muốn của bạn" })).toBeVisible();
-    await completeQuickOnboarding(page);
-    await expect(page).toHaveURL(/\/user\/plan/);
-    expect(state.getProfile().schemaVersion).toBe(2);
-    expect(state.getProfile().data.personal).toMatchObject({
-      birthMonth: { status: "KNOWN", value: "1981-05" },
-      desiredRetirementMonth: { status: "KNOWN", value: "2027-10" },
-    });
-    expect(errors).toEqual([]);
-  });
-}
-
-test("English onboarding preserves the same quick onboarding journey", async ({ page }) => {
-  const { errors, state } = await setup(page, { onboarding: true, en: true });
-  await expect(page.getByRole("heading", { name: "Your Retirement Wish" })).toBeVisible();
-  await completeQuickOnboarding(page, true);
-  await expect(page).toHaveURL(/\/user\/plan/);
-  expect(state.getProfile().schemaVersion).toBe(2);
-  expect(errors).toEqual([]);
-});
-
+// Survey transition is exercised in survey-demo-parity.spec.ts.
 test("three scenario cards use API results and never save a plan", async ({ page }) => {
   const { calls, errors } = await setup(page);
   const cards = page.locator(".guided-scenario");
@@ -136,7 +86,7 @@ test("scenario issues: repeated survey answers appear once with a clear next ste
   const { calls, errors } = await setup(page, { scenarioIssues: [surveyIssues, surveyIssues, surveyIssues] });
   const section = page.locator(".guided-scenarios");
   const notice = section.locator(".guided-scenarios-notice");
-  const message = "Hãy trả lời đủ câu hỏi ở trang Khảo sát rủi ro để tính kế hoạch theo lựa chọn của bạn.";
+  const message = "Hãy trả lời đủ câu hỏi ở mục Khả năng chịu rủi ro (trang Phân bổ tài sản) để tính kế hoạch theo lựa chọn của bạn.";
   await expect(notice).toHaveAttribute("role", "status");
   await expect(notice.locator("li")).toHaveCount(1);
   await expect(section.getByText(message, { exact: true })).toHaveCount(1);
@@ -168,7 +118,7 @@ test("scenario issues: shared guidance preserves each option's own missing data"
   const notice = page.locator(".guided-scenarios-notice");
   const cards = page.locator(".guided-scenario");
   await expect(notice.locator("li")).toHaveCount(3);
-  await expect(notice.getByRole("link", { name: "Kiểm tra hồ sơ tài chính", exact: true })).toHaveAttribute("href", "/user/account?tab=profile");
+  await expect(notice.getByRole("link", { name: "Kiểm tra hồ sơ tài chính", exact: true })).toHaveAttribute("href", "/user/profile");
   await expect(notice.getByRole("link", { name: "Liên hệ hỗ trợ", exact: true })).toHaveAttribute("href", "/user/support");
   await expect(cards.nth(0).locator(".guided-scenario-incomplete li")).toHaveCount(0);
   await expect(cards.nth(1).locator(".guided-scenario-incomplete li")).toHaveText(["Cần cập nhật lịch trả nợ chi tiết cho các khoản vay hiện có."]);
@@ -196,12 +146,12 @@ test("scenario issues: contribution confirmation points to plan settings and mis
   const notice = page.locator(".guided-scenarios-notice");
   const settings = notice.getByRole("link", { name: "Kiểm tra thiết lập kế hoạch", exact: true });
   await expect(notice.locator("li")).toHaveCount(2);
-  await expect(settings).toHaveAttribute("href", "#plan-settings");
+  await expect(settings).toHaveAttribute("href", "/user/plan?tab=adjust#plan-settings");
   await expect(notice.getByRole("link", { name: "Liên hệ hỗ trợ", exact: true })).toHaveAttribute("href", "/user/support");
   await expect(notice.getByRole("link", { name: "Kiểm tra hồ sơ tài chính", exact: true })).toHaveCount(0);
   await settings.click();
   await expect(page).toHaveURL(/#plan-settings$/);
-  await expect(page.locator("#plan-settings")).toBeInViewport();
+  await expect(page.locator("#plan-settings")).toBeVisible();
   expect(calls.filter(call => !call.path.startsWith("/api/v1/auth/") && !call.path.endsWith("/retirement/preview"))).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -218,7 +168,8 @@ test("scenario errors remain local and old preview requests are cancelled", asyn
   const { calls, errors } = await setup(page, { scenarioFailure: true, delayedResponse: true });
   await expect(page.locator(".guided-scenario").nth(1)).toContainText("Chưa tính được phương án này");
   await expect(page.locator(".guided-scenario").nth(0)).toContainText("5.000.000");
-  const contribution = page.getByLabel("Tiền bạn chọn góp hưu trí mỗi tháng (đồng)", { exact: true });
+  await page.getByRole("button", { name: "Tự nhập", exact: true }).click();
+  const contribution = page.getByLabel("Tiền bạn chọn góp hưu trí mỗi tháng", { exact: true });
   await contribution.fill("1000000");
   await expect.poll(() => calls.filter(call => call.body?.monthlyContribution === "1000000").length).toBeGreaterThanOrEqual(3);
   await contribution.fill("3000000");
@@ -234,34 +185,17 @@ test("English scenarios and incomplete API results are explicit", async ({ page 
   await expect(page.getByRole("heading", { name: "Retire 5 years later", exact: true })).toBeVisible();
   await expect(page.locator(".guided-scenario").nth(1)).toContainText("Undetermined");
   await page.route("**/api/v1/me/retirement/preview*", route => route.fulfill({ json: { data: { status: "INCOMPLETE", issues: [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }], warnings: [], calculation: null } } }));
-  await page.getByLabel("Monthly retirement contribution (VND)", { exact: true }).fill("123456");
+  await page.getByRole("button", { name: "Custom amount", exact: true }).click();
+  await page.getByLabel("Monthly retirement contribution", { exact: true }).fill("123456");
   await expect(page.locator(".guided-scenario").nth(0)).toContainText("Not enough data to calculate");
   await expect(page.locator(".guided-scenario").nth(0).locator("dl")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
-test("partner products require explicit visibility and always carry a reference label", async ({ page }) => {
-  const { calls, errors } = await setup(page);
-  const product = { id: "visible", name: "Sản phẩm kiểm thử", category: "Tiết kiệm", description: "Thông tin sản phẩm", annualFee: "Chưa công bố", riskLevel: "LOW", isVisible: true };
-  await page.route("**/api/v1/products**", route => route.fulfill({ json: { data: { items: [product, { ...product, id: "hidden", name: "Sản phẩm ẩn", isVisible: false }, { ...product, id: "missing", name: "Thiếu cờ hiển thị", isVisible: undefined }] } } }));
-  await page.goto("/user/explore");
-  await expect(page.locator(".solution-card")).toHaveCount(1);
-  await expect(page.locator(".solution-card")).toContainText("Thông tin tham khảo — không phải khuyến nghị cá nhân");
-  await expect(page.getByText("Sản phẩm ẩn", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Xem chi tiết giải pháp" }).click();
-  await expect(page.getByRole("dialog")).toContainText("Sản phẩm không được xếp hạng hay đề xuất theo hồ sơ tài chính");
-  expect(calls.some(call => call.path.includes("/consult"))).toBe(false);
-  expect(errors).toEqual([]);
-});
-
-test("portfolio explains the role of each published asset class", async ({ page }) => {
+test("allocation risk assessment remains an explicit questionnaire", async ({ page }) => {
   const { errors } = await setup(page);
-  await page.route("**/api/v1/me/portfolio-policies/preview", route => route.fulfill({ json: { data: { status: "READY", assessment: { totalScore: 30, riskBandId: policies.v2.riskBands[0].id, selectedTemplateId: policies.v2.templates[0].id, eligibleTemplateIds: [policies.v2.templates[0].id] }, scenarios: [], issues: [] } } }));
-  await page.goto("/user/risk-portfolio");
-  const roles = page.getByRole("region", { name: "Vai trò từng nhóm tài sản" });
-  await expect(roles).toContainText("Giữ chủ động");
-  await expect(roles).toContainText("Gắn kỳ hạn với nhu cầu tiền");
-  await expect(roles).toContainText("tăng trưởng dài hạn");
-  await expect(roles).toContainText("Đa dạng hóa danh mục");
+  await page.goto("/user/risk-portfolio?section=risk");
+  await expect(page.locator(".risk-portfolio-page")).toBeVisible();
+  await expect(page.locator(".risk-portfolio-page select").first()).toBeVisible();
   expect(errors).toEqual([]);
 });

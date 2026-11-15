@@ -20,6 +20,7 @@ type FieldDef = { key: string; label: string; hint: string; kind?: "int" | "deci
 type StressDef = { kind: string; label: string; fields: FieldDef[] };
 
 const RISK_FIELDS: FieldDef[] = [
+  { key: "simulationPaths", label: "Số kịch bản thị trường (1–500)", hint: "Số nguyên do admin công bố; máy chủ vẫn kiểm giới hạn xử lý.", kind: "int" },
   { key: "equityShiftPoints", label: "Bước dịch cổ phiếu (điểm %)", hint: "Ứng viên = danh mục nền và ± bước này. Để trống thì chọn phương án trả REVIEW_REQUIRED." },
   { key: "essentialThreshold", label: "Ngưỡng p thiết yếu (0–1)", hint: "Ví dụ 0.90 = 90% kịch bản đủ chi thiết yếu." },
   { key: "cvarAlpha", label: "CVaR alpha (0–1)", hint: "Ví dụ 0.95." },
@@ -148,6 +149,13 @@ export default function AdminPortfolioPoliciesPage() {
             <Checkbox checked={longevity.includes(10)} label={t("+10 năm", "+10 years")} onChange={v => setLongevity(10, v)} />
           </div>
         </div>
+      </fieldset>}
+
+      {parsed && v2 && <fieldset className="admin-policy-form" disabled={!edit || busy || conflict}>
+        <legend>{t("Danh mục tham khảo cho kế hoạch ban đầu", "Initial planning reference portfolios")}</legend>
+        <p>{t("Admin chọn danh mục cho từng phản ứng do người dùng khai. Đây là cơ sở tính kế hoạch, không phải kết quả chấm sáu câu đánh giá phù hợp. Để trống cấu hình sẽ chặn tính kế hoạch ban đầu; không có danh mục mặc định.", "Select each declared reaction's planning reference. This is not a six-question suitability assessment. Missing configuration blocks initial planning; there is no default portfolio.")}</p>
+        <Checkbox checked={Boolean(parsed.quickStartTemplates)} label={t("Cấu hình danh mục tham khảo ban đầu", "Configure initial planning references")} onChange={enabled=>{const next=structuredClone(parsed);if(enabled)next.quickStartTemplates={evidence:"",SELL:"",HOLD:"",BUY_MORE:""};else delete next.quickStartTemplates;setJson(JSON.stringify(next,null,2));setValidation(null);setConfirm(false);}}/>
+        {parsed.quickStartTemplates && <><div className="admin-policy-grid">{[["SELL",t("Bán bớt", "Sell")],["HOLD",t("Giữ và chờ", "Hold")],["BUY_MORE",t("Chờ phục hồi", "Wait for recovery")]].map(([reaction,label])=><label key={reaction}>{label}<select aria-label={label} value={parsed.quickStartTemplates[reaction]} onChange={event=>{const next=structuredClone(parsed);next.quickStartTemplates[reaction]=event.target.value;setJson(JSON.stringify(next,null,2));setValidation(null);setConfirm(false);}}><option value="">{t("Chọn danh mục", "Select a template")}</option>{parsed.templates.map((template:Doc)=><option key={template.id} value={template.id}>{template.label}</option>)}</select></label>)}</div><label>{t("Căn cứ lựa chọn danh mục", "Reference mapping evidence")}<textarea rows={3} value={parsed.quickStartTemplates.evidence} onChange={event=>{const next=structuredClone(parsed);next.quickStartTemplates.evidence=event.target.value;setJson(JSON.stringify(next,null,2));setValidation(null);setConfirm(false);}}/></label></>}
       </fieldset>}
 
       <details className="admin-policy-json" open={!v2}>

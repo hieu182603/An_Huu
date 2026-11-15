@@ -38,7 +38,7 @@ export function upgradeSourcePreview(capture: Awaited<ReturnType<RetirementServi
   if (knownOn < capture.profile.valuationDate) throw new AppError(422, "SOURCE_KNOWLEDGE_DATE_INVALID", "Ngày ghi nhận không được trước ngày định giá nguồn.");
   const original = prepareRetirement(capture.profile, preview.selection, capture.policy.data, capture.assumptions.data);
   if (!original.replayInput) throw new AppError(422, "SOURCE_BASELINE_INCOMPLETE", "Không tái lập được nguồn ban đầu.");
-  const baseline = profileSourceRegistry(capture.profile, preview.selection, original.replayInput.rows, parentSnapshotHash);
+  const baseline = profileSourceRegistry(capture.profile, preview.selection, original.replayInput.rows, parentSnapshotHash, original.status === "READY" ? original.surveyGoalCashflows : undefined);
   const originalRetirementMonth = preview.reforecast?.originalRetirementMonth ?? preview.replayInput.retirementMonth;
   const registry = importLegacySourceChanges(baseline, preview.replayInput.rows, originalRetirementMonth,
     preview.sourceChanges ?? [], preview.futureChanges ?? [], parentSnapshotHash, knownOn);

@@ -132,3 +132,5 @@ site-artifacts/
 !/backend/scripts/generate-discovery-openapi.cjs
 
 !/backend/scripts/generate-allocation-workspace-openapi.cjs
+!/backend/scripts/generate-remaining-user-openapi.cjs
+!/backend/scripts/survey-ui-test-server.cjs

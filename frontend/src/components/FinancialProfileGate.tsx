@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, Navigate, useLocation } from "react-router";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { Alert, Button, Card, Icon, Modal } from "./ui";
 import { useI18n } from "../i18n";
@@ -156,6 +156,9 @@ export default function FinancialProfileGate({
   const routeContext = getRouteContext(location.pathname, isEn);
   const isUserRoute = /^\/user\/(dashboard|goal|plan|simulation|debts|risk-portfolio)$/.test(location.pathname);
   const showOnboardingPrompt = !loading && !hasProfile && !onboarding && isUserRoute;
+  // Demo parity: someone without a financial profile starts with the survey instead of an
+  // empty overview. Only when the profile actually loaded (a load error keeps the page + retry).
+  if (showOnboardingPrompt && !loadError) return <Navigate to="/onboarding" replace state={{ from: location.pathname }} />;
 
   return (
     <>

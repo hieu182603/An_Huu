@@ -15,6 +15,7 @@ export const retirementPreviewQuerySchema = z.object({ adjustments: z.enum(["inc
 export const retirementPreviewSchema = z.object({
   expectedProfileRevision: z.number().int().min(1), policyVersionId: z.string().uuid(),
   scenario: z.enum(["BASE", "ADVERSE", "FAVORABLE"]), templateId: id.optional(),
+  planningReaction: z.enum(["SELL", "HOLD", "BUY_MORE"]).optional(),
   customAllocation: customAllocationSchema.nullish().transform(v=>v??undefined),
   allocationFunding: z.literal("PROTECTED_CAPITAL_V1").nullish().transform(v=>v??undefined),
   answers: z.array(z.object({ questionId: id, choiceId: id }).strict()).max(30),
@@ -54,6 +55,8 @@ export const retirementPreviewSchema = z.object({
   }).strict().optional(),
 }).strict().superRefine((value, ctx) => {
   const issue = (path: (string | number)[], message: string) => ctx.addIssue({ code: "custom", path, message });
+  if (value.planningReaction && (value.answers.length || value.customAllocation || value.allocationFunding))
+    issue(["planningReaction"], "Kế hoạch tham khảo ban đầu tách riêng khỏi đánh giá phù hợp và phân bổ tự chọn.");
   if (value.customAllocation && !value.templateId) issue(["templateId"], "Cần phương án gốc cho lộ trình tự chọn.");
   if (value.customAllocation && !value.allocationFunding) issue(["allocationFunding"], "Phân bổ tự chọn cần giữ riêng vốn dự phòng và mục tiêu.");
   if (value.contributionTiming === "END_OF_MONTH" && value.startOfMonthFunding)

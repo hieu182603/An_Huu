@@ -21,15 +21,23 @@ export const essentialCoverageSchema = z.object({
 export function essentialCoverage(profile: ProfileV2, input: RetirementPreview, prepared: Prepared): z.infer<typeof essentialCoverageSchema> {
   const result: z.infer<typeof essentialCoverageSchema> = { basis: "ESSENTIAL_FIRST_CLASSIFICATION_ONLY", essentialShortfall: null, firstEssentialShortfallMonth: null, rows: [] };
   if (!prepared.calculation) return result;
+  // New survey goals are one-off additional expenses in the plain v3 composer.
+  // Protected funding owns its own goal classification; source plans require
+  // attribution instead of reusing the original survey's dated cashflows.
+  const surveyGoals = profile.quickStartSurvey && !prepared.replayInput?.protection && prepared.replayInput && !("sourceRegistry" in prepared.replayInput)
+    ? prepared.surveyGoalCashflows ?? [] : [];
+  const priorities = new Map((profile.goals?.status === "KNOWN" ? profile.goals.entries : []).map(goal => [goal.id, goal.priority]));
   let total = new D(0), complete = true;
   for (const row of prepared.calculation.rows) {
     const retired = row.phase === "RETIREMENT";
     const expenses = profile.expenses.status === "KNOWN" ? { ...profile.expenses, entries: profile.expenses.entries.filter(e =>
       e.category === "ESSENTIAL" && (!retired || input.retirementAdditionalExpenseIds.includes(e.id))) } : profile.expenses;
     const essential = profileMonthlyCashflow({ income: { status: "KNOWN", entries: [] }, expenses }, row.month).expenses;
-    if (essential === null) { complete = false; result.rows.push({ month: row.month, essentialExpense: null, essentialShortfall: null, otherShortfall: null }); continue; }
+    const goals = surveyGoals.filter(goal => goal.month === row.month);
+    if (essential === null || goals.some(goal => priorities.get(goal.id)?.status !== "KNOWN")) { complete = false; result.rows.push({ month: row.month, essentialExpense: null, essentialShortfall: null, otherShortfall: null }); continue; }
     const protectedRow=row as typeof row & Partial<ReturnType<typeof protectCashflows>[number]>;
-    const expense = essential.plus(retired ? row.livingExpense : 0).plus(protectedRow.essentialGoalExpense??0);
+    const essentialGoals = goals.filter(goal => { const priority = priorities.get(goal.id); return priority?.status === "KNOWN" && priority.value === "ESSENTIAL"; }).reduce((sum, goal) => sum.plus(goal.amount), new D(0));
+    const expense = essential.plus(retired ? row.livingExpense : 0).plus(protectedRow.essentialGoalExpense??0).plus(essentialGoals);
     const availableFund = new D(row.fundedClosingBalance).plus(row.withdrawal).minus(row.unfundedWithdrawal)
       .plus(protectedRow.protectedHouseholdPaid??0).plus(protectedRow.protectedEssentialGoalPaid??0);
     const deficit = D.min(row.unfundedWithdrawal, D.max(0, expense.minus(row.income).minus(row.pension).minus(availableFund)));

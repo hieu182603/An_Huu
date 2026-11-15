@@ -110,7 +110,7 @@ describe("read-only plan and preview paths", () => {
     expect(full).not.toHaveBeenCalled();
     expect(list).toMatchObject({ total: 1, page: 1, limit: 50 });
     expect(list.items).toEqual([{ id: versionId, version: 1, createdAt: detail.createdAt, profileRevision: 1, snapshotHash: detail.snapshotHash,
-      references: detail.preview.references, summary: detail.preview.calculation!.summary }]);
+      references: detail.preview.references, summary: detail.preview.calculation!.summary, birthMonth: detail.birthMonth }]);
     // Tampering is still caught where the full snapshot is actually used.
     f.rows("planVersion")[0].inputSnapshot.capture.revision = 99;
     expect((await f.plans.versions(f.owner, planId, { page: 1, limit: 50 })).items).toHaveLength(1);
