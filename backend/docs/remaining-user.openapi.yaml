@@ -8,6 +8,9 @@ RetirementGoalPatch:
     birthMonth:
       type: string
       pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+    birthDate:
+      type: string
+      pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
     retirementMonth:
       type: string
       pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
@@ -19,6 +22,9 @@ RetirementGoalPatch:
           type: string
           pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
         monthlyExpenseToday:
+          type: string
+          pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+        monthlyContribution:
           type: string
           pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
         lifestylePriority:

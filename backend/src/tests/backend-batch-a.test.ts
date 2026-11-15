@@ -30,7 +30,7 @@ import { plansFixture } from "./plans-fixtures";
 const file = (name: string) => JSON.parse(readFileSync(`seed-data/allocation-2026-10/${name}`, "utf8"));
 const draftPolicy = () => portfolioDocumentSchema.parse(file("draft-policy-v4.json"));
 function golden() {
-  const p = fixtureProfile({ debts: empty(), incomeStability: known("VARIABLE"),
+  const p = fixtureProfile({ debts: empty(), reserveMonths: 9, incomeStability: known("VARIABLE"),
     lossTolerance: { amountVnd: known("2000000000"), percent: known("23"), reaction: known("HOLD") },
     goals: { status: "KNOWN", entries: [{ id: "tuition", label: "Học phí", amountToday: known("300000000"), dueMonth: known("2029-10"),
       priority: known("ESSENTIAL"), deferrable: { status: "KNOWN", value: false } }] },

@@ -123,7 +123,10 @@ export class RetirementService {
       references: { profileHash: hash(snapshot.profile), policyVersionId: snapshot.policy.id, policyVersion: snapshot.policy.version,
         policyHash: snapshot.policy.documentHash, assumptionVersionId: snapshot.assumptions.id,
         assumptionVersion: snapshot.assumptions.version, assumptionHash: snapshot.assumptions.documentHash },
-      inputHash: hash({ profile: snapshot.profile, input, policyHash: snapshot.policy.documentHash, assumptionHash: snapshot.assumptions.documentHash }),
+      // Invalidate in-flight protected previews made under the former implicit
+      // 9/12-month rule. Stored snapshots retain their original hashes/replay.
+      inputHash: hash({ profile: snapshot.profile, input, policyHash: snapshot.policy.documentHash, assumptionHash: snapshot.assumptions.documentHash,
+        ...((input.allocationFunding || input.customAllocation) && snapshot.profile.reserveMonths === undefined ? { capitalReserveDefaultMonths: 6 } : {}) }),
       sources: snapshot.assumptions.data.sources, selection: input,
     };
   }

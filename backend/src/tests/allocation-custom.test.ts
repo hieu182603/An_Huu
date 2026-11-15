@@ -16,7 +16,8 @@ import { simulate } from "../modules/allocation-risk/simulation";
 import { riskPolicySchema } from "../modules/allocation-risk/policy";
 import { protectCashflows,type Protection } from "../modules/retirement/protected-capital";
 import { Prisma } from "@prisma/client";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { digest } from "../common/digest";
 import { AllocationRiskService } from "../modules/allocation-risk/service";
 import { buildAllocationPackages } from "../modules/recommendation/packages";
 import type { ProductMasterData } from "../modules/recommendation/types";
@@ -27,6 +28,45 @@ import {portfolioAssumptionsFixture} from "./portfolio-fixtures";
 import {fixtureProfile,known,empty} from "./profile-v2-fixtures";
 const custom=customAllocationSchema.parse({model:"custom-glide-v1",weights:[{assetClass:"STOCK",weightPercent:"30"},{assetClass:"BOND",weightPercent:"70"}]});
 describe("custom allocation contracts and persistence",()=>{
+ it("reads an old implicit twelve-month protected reserve from its pinned result without changing replay or the stored snapshot",async()=>{
+  const f=await customFixture();
+  await f.profiles.patchProfile("test-user",f.command.expectedProfileRevision,{schemaVersion:2,reserveMonths:12,incomeStability:known("UNCERTAIN")});
+  const input={...retirementCommand(f.policy.id),...f.command,expectedProfileRevision:f.command.expectedProfileRevision+1,allocationFunding:"PROTECTED_CAPITAL_V1" as const};
+  const preview=await f.services.retirement.preview("test-user",input,{adjustments:false});
+  const saved=await f.services.plans.createVersion("test-user",null,{expectedRevision:0,expectedInputHash:preview.inputHash,preview:input},randomUUID());
+  const row=f.rows("planVersion").find(row=>row.id===saved.saved.id)!;
+  // Reconstruct a pre-default snapshot: the former engine inferred twelve
+  // months but stored only stability in the profile, plus the frozen kernel inputs.
+  const snapshot=structuredClone(row.inputSnapshot) as any;
+  delete snapshot.capture.profile.reserveMonths;
+  const hash=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  snapshot.preview.references.profileHash=hash(snapshot.capture.profile);
+  snapshot.preview.inputHash=hash({profile:snapshot.capture.profile,input:snapshot.preview.selection,policyHash:snapshot.capture.policy.documentHash,assumptionHash:snapshot.capture.assumptions.documentHash});
+  const {integrityHash:_,...payload}=snapshot;
+  row.inputSnapshot={...payload,integrityHash:digest(payload)};
+  const before=structuredClone(f.rows("planVersion"));
+  const read=await f.services.plans.version("test-user",saved.planId,saved.saved.id,true);
+  expect(read.preview.capitalSeparation).toMatchObject({reserveMonths:12,requiredEmergencyReserve:"192000000",growthCapital:"808000000"});
+  expect(read.preview.replayInput?.initialCapital).toBe("808000000");
+  expect("replay" in read&&read.replay.matched).toBe(true);
+  expect(f.rows("planVersion")).toEqual(before);
+ });
+ it.each(["VARIABLE","UNCERTAIN","UNKNOWN"] as const)("keeps the six-month reserve identical in metadata and protected projections for %s income",async stability=>{
+  const f=await customFixture();
+  await f.profiles.patchProfile("test-user",f.command.expectedProfileRevision,{schemaVersion:2,incomeStability:stability==="UNKNOWN"?{status:"UNKNOWN"}:known(stability)});
+  const input={...retirementCommand(f.policy.id),...f.command,expectedProfileRevision:f.command.expectedProfileRevision+1,allocationFunding:"PROTECTED_CAPITAL_V1" as const};
+  const preview=await f.services.retirement.preview("test-user",input,{adjustments:false});
+  expect(preview.status,JSON.stringify(preview.issues)).toBe("READY");
+  expect(preview.capitalSeparation?.reserveMonths).toBe(6);
+  expect(preview.replayInput?.initialCapital).toBe(preview.capitalSeparation?.growthCapital);
+  expect(preview.replayInput?.protection?.emergencyReserve).toBe(preview.capitalSeparation?.requiredEmergencyReserve);
+  const snapshot=await f.services.retirement.capture(f.db,"test-user",preview.selection);
+  const oldHash=createHash("sha256").update(JSON.stringify({profile:snapshot.profile,input:preview.selection,policyHash:snapshot.policy.documentHash,assumptionHash:snapshot.assumptions.documentHash})).digest("hex");
+  expect(preview.inputHash).not.toBe(oldHash);
+  await expect(f.services.plans.createVersion("test-user",null,{expectedRevision:0,expectedInputHash:oldHash,preview:input},randomUUID())).rejects.toMatchObject({code:"PREVIEW_CHANGED"});
+  expect(f.rows("planVersion")).toHaveLength(0);
+  expect((await f.profiles.getProfile("test-user"))!.data).not.toHaveProperty("reserveMonths");
+ });
  it("rejects wrong totals, duplicate codes, negative weights and supplied assumptions",()=>{
   for(const weights of [[{assetClass:"STOCK",weightPercent:"99.99999999"}],[{assetClass:"STOCK",weightPercent:"50"},{assetClass:"STOCK",weightPercent:"50"}],[{assetClass:"STOCK",weightPercent:"-1"}]])
    expect(customAllocationSchema.safeParse({model:"custom-glide-v1",weights}).success).toBe(false);

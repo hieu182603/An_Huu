@@ -24,7 +24,7 @@ function assumptions(inflation = "4", deposit = "4.5") {
   return a;
 }
 function profile(): ProfileV2 {
-  const p = fixtureProfile({ debts: empty(), incomeStability: known("VARIABLE"), goals: { status: "KNOWN", entries: [goal()] },
+  const p = fixtureProfile({ debts: empty(), reserveMonths: 9, incomeStability: known("VARIABLE"), goals: { status: "KNOWN", entries: [goal()] },
     assets: { status: "KNOWN", entries: [fixtureAsset({ value: known("2000000000"), retirementShare: known("1"), emergencyShare: known("0"), otherGoalsShare: known("0") })] } });
   if (p.expenses.status === "KNOWN") p.expenses.entries[0].amount = known("25000000");
   return p;
@@ -61,6 +61,18 @@ describe("P1 profile constraint and goal declarations", () => {
 });
 
 describe("P1 pure capital separation", () => {
+  it("uses an explicitly declared total once, protects reserves and keeps source assets unchanged", () => {
+    const p = profile(), original = structuredClone(p.assets);
+    p.allocationCapital = { basis: "TOTAL", totalAmount: "1000000000" };
+    const c = separateCapital(p, assumptions());
+    expect(c.investableLiquidAssets).toBe("1000000000");
+    expect(new D(c.growthCapital!).plus(c.requiredEmergencyReserve!).plus(c.nearTermGoalsPresentValue!).toFixed()).toBe("1000000000");
+    expect(p.assets).toEqual(original);
+    p.allocationCapital = { basis: "PROFILE" };
+    expect(separateCapital(p, assumptions()).investableLiquidAssets).toBe("2000000000");
+    expect(profileV2Schema.safeParse({ ...p, allocationCapital: { basis: "TOTAL" } }).success).toBe(false);
+    expect(profileV2Schema.safeParse({ ...p, allocationCapital: { basis: "TOTAL", totalAmount: "-1" } }).success).toBe(false);
+  });
   it("verifies the full two-billion allocation and loss using runtime separation and loss engines", () => {
     const p = profile();
     p.lossTolerance = { amountVnd: known("500000000"), percent: known("30") };
@@ -133,8 +145,8 @@ describe("P1 pure capital separation", () => {
       expect(result.warnings.some(i => i.code === "OTHER_GOALS_CAPITAL_SHORTFALL")).toBe(false);
     }
   });
-  it.each([["STABLE", 6], ["VARIABLE", 9], ["UNCERTAIN", 12]] as const)("uses %s stability and only active essential expenses", (stability, months) => {
-    const p = profile(); p.incomeStability = known(stability); p.goals = empty();
+  it.each([["STABLE", 6], ["VARIABLE", 6], ["UNCERTAIN", 6]] as const)("keeps the default reserve independent of %s stability and uses only active essential expenses", (stability, months) => {
+    const p = profile(); delete p.reserveMonths; p.incomeStability = known(stability); p.goals = empty();
     if (p.expenses.status !== "KNOWN") throw new Error("fixture");
     const e = p.expenses.entries[0];
     p.expenses.entries.push({ ...e, id: "optional", category: "OPTIONAL", amount: unknown },
@@ -242,7 +254,9 @@ describe("preview-only supplement and persistence compatibility (memory database
     p.assets = { status: "KNOWN", entries: [fixtureAsset({ value: known("1000"), retirementShare: known("1"), emergencyShare: known("0"), otherGoalsShare: known("0") })] };
     const f = await plansFixture(p), baseline = await f.retirement.preview(f.owner, f.command.preview);
     expect(baseline).toMatchObject({ status: "READY", capitalSeparation: { status: "INCOMPLETE", growthCapital: null } });
-    expect(baseline.capitalSeparation.issues.map(i => i.code)).toEqual(expect.arrayContaining(["GOALS_REQUIRED", "INCOME_STABILITY_REQUIRED"]));
+    expect(baseline.capitalSeparation.issues.map(i => i.code)).toEqual(expect.arrayContaining(["GOALS_REQUIRED"]));
+    expect(baseline.capitalSeparation.reserveMonths).toBe(6);
+    expect(baseline.capitalSeparation.issues.map(i => i.code)).not.toContain("INCOME_STABILITY_REQUIRED");
     const result = await f.retirement.preview(f.owner, { ...f.command.preview, whatIf: { assetValues: [{ assetId: "deposit-1", value: "2000" }] } });
     expect(result.capitalSeparation.retirementLiquidAssets).toBe("2000");
     expect(result.calculation?.summary.initialRetirementCapital).toBe("2000");
@@ -250,4 +264,35 @@ describe("preview-only supplement and persistence compatibility (memory database
     expect(adverse.capitalSeparation).toEqual(baseline.capitalSeparation);
     expect(await f.retirement.preview(f.owner, f.command.preview)).toEqual(baseline);
   });
+});
+
+describe("A-01 loss input mode survives a capital change", () => {
+  it("does not approve loss tolerance when an explicit total masks incomplete asset declarations", () => {
+    const p = profile(); p.assets = unknown; p.goals = empty();
+    p.allocationCapital = { basis: "TOTAL", totalAmount: "1000000000" };
+    p.lossTolerance = { inputMode: "PERCENT", percent: known("30") };
+    const capital = separateCapital(p, assumptions()), policy = glidePortfolioFixture();
+    policy.lossStress = { evidence: "Synthetic loss stress", equityAssetClass: "EQUITY", depositAssetClass: "CASH", shocks: [{ assetClass: "CASH", percent: "0" }, { assetClass: "EQUITY", percent: "-20" }] };
+    expect(capital.status).toBe("INCOMPLETE"); expect(capital.growthCapital).not.toBeNull();
+    const result = assessLossConstraint(capital, p, policy, [{ assetClass: "CASH", startWeightPercent: "50" }, { assetClass: "EQUITY", startWeightPercent: "50" }]);
+    expect(result.status).toBe("REVIEW_REQUIRED");
+    expect(result.exceedsTolerance).toBeNull();
+    expect(result.issues).toContain("CAPITAL_SEPARATION_REQUIRED");
+  });
+  it.each(["PERCENT", "AMOUNT"] as const)("uses the declared %s basis against current capital", inputMode => {
+    const p = profile(), capital = { ...separateCapital(p, assumptions()), growthCapital: "76000000" };
+    p.lossTolerance = {inputMode, percent: known("30"), amountVnd: known("53000000")};
+    const policy = glidePortfolioFixture();
+    policy.lossStress = { evidence: "Test scenario", equityAssetClass: "EQUITY", depositAssetClass: "CASH", shocks: [{assetClass:"CASH",percent:"0"},{assetClass:"EQUITY",percent:"-35"}] };
+    const result = assessLossConstraint(capital,p,policy,[{assetClass:"CASH",startWeightPercent:"50"},{assetClass:"EQUITY",startWeightPercent:"50"}]);
+    expect(result.allowedLossAmount).toBe(inputMode === "PERCENT" ? "22800000" : "53000000");
+  });
+});
+
+it("reserve months can be chosen from 6 through 12 without changing income stability",()=>{
+ const p=profile();p.reserveMonths=8;
+ expect(profileV2Schema.safeParse(p).success).toBe(true);
+ expect(separateCapital(p,assumptions()).reserveMonths).toBe(8);
+ expect(profileV2Schema.safeParse({...p,reserveMonths:5}).success).toBe(false);
+ expect(profileV2Schema.safeParse({...p,reserveMonths:13}).success).toBe(false);
 });

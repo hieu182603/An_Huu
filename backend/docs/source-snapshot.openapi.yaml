@@ -2282,6 +2282,8 @@ Preview:
       type: array
       items:
         $ref: "#/PlannedPairProof"
+    capitalSeparation:
+      $ref: ./retirement.openapi.yaml#/CapitalSeparation
   required:
     - status
     - issues

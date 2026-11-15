@@ -1,20 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { Button, Card, Icon, Input, useNotification } from "../ui";
 import { CurrencyInput } from "../CurrencyInput";
 import { DateInput } from "../DateInput";
 import { useFinancialProfile, type OnboardingDraftData } from "../../context/FinancialProfileContext";
 import { useRetirementPlan } from "../../context/RetirementPlanContext";
 import { useI18n } from "../../i18n";
-import { createQuickStartProfileV2 } from "../../services/financialProfile";
-import { readAndClearSimulatorPrefill, type SimulatorPrefillData } from "../../services/simulatorPrefill";
+import { createQuickStartProfileV2, type QuickStartProfileInput, type QuickStartSurvey } from "../../services/financialProfile";
+import { readSimulatorPrefill, clearSimulatorPrefill, type SimulatorPrefillData } from "../../services/simulatorPrefill";
 import {
   fetchUserPortfolioPolicies,
   fetchUserPortfolioPolicyDetail,
   type PortfolioPolicyDetail,
-  type PortfolioAnswerItem,
 } from "../../services/portfolios";
-import { resumeDestination } from "../../services/navigation";
+import { illustrativeRetirementEnd } from "../../utils/retirementHorizon";
+import { formatMonthVN } from "../../utils/date";
 import "./quick-onboarding.css";
 
 function reserveMonthsText(reserve: number, spending: number) {
@@ -42,25 +42,19 @@ function shiftMonth(ym: string, offset: number): string {
 
 function resolveSupportEnd(planEndMonth: string, duration: string, customEnd: string, retireMonth: string, valMonth: string): string {
   if (!duration || duration === "custom") return customEnd;
-  const last = shiftMonth(planEndMonth, -1);
-  if (duration === "unknown") return last;
-  if (duration === "retirement") return shiftMonth(retireMonth, -1);
-  if (["1", "3", "5", "10"].includes(duration)) {
-    return shiftMonth(valMonth, Number(duration) * 12 - 1);
-  }
+  if (duration === "unknown") return planEndMonth;
+  const end = duration === "retirement" ? shiftMonth(retireMonth, -1)
+    : ["1", "3", "5", "10"].includes(duration) ? shiftMonth(valMonth, Number(duration) * 12 - 1) : "";
+  if (end) return end < valMonth ? valMonth : end > planEndMonth ? planEndMonth : end;
   return "";
 }
 
 function getSupportNote(duration: string, customEnd: string, planEndMonth: string, retireMonth: string, valMonth: string, isEn: boolean): string {
   if (duration === "custom") return "";
+  if (duration === "unknown") return isEn ? `Support included through ${formatMonthVN(planEndMonth)} (end of plan). Adjust when you know more.` : `Tạm tính khoản hỗ trợ đến hết ${formatMonthVN(planEndMonth)} (cuối kế hoạch). Bạn có thể điều chỉnh khi biết rõ hơn.`;
   const end = resolveSupportEnd(planEndMonth, duration, customEnd, retireMonth, valMonth);
   if (!end || end.length < 7) return "";
   const displayEnd = `${end.slice(5)}/${end.slice(0, 4)}`;
-  if (duration === "unknown") {
-    return isEn
-      ? `Estimated support until ${displayEnd} (end of plan). You can adjust when known.`
-      : `Tạm tính khoản hỗ trợ đến hết ${displayEnd} (cuối kế hoạch). Bạn có thể điều chỉnh khi biết rõ hơn.`;
-  }
   if (duration === "retirement") {
     return isEn
       ? `Support calculated until ${displayEnd} (until retirement).`
@@ -75,7 +69,6 @@ const formatVND = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.roun
 
 export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 | 3 | 4) => void } = {}) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { notify } = useNotification();
   const { language } = useI18n();
   const isEn = language === "en";
@@ -88,10 +81,11 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
   }, []);
 
   const currentYear = new Date().getFullYear();
+  const restored = onboardingDraft?.quickProfile?.quickStartSurvey;
 
   // 1. Check simulator prefill on initial mount
-  const [simPrefill, setSimPrefill] = useState<SimulatorPrefillData | null>(() => {
-    return readAndClearSimulatorPrefill();
+  const [simPrefill] = useState<SimulatorPrefillData | null>(() => {
+    return readSimulatorPrefill();
   });
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(() => {
@@ -102,8 +96,9 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
   });
 
   useEffect(() => {
+    document.title = `${isEn ? "Survey · Step" : "Khảo sát · Bước"} ${step}/4 | An Hưu`;
     onStepChange?.(step);
-  }, [step, onStepChange]);
+  }, [step, onStepChange, isEn]);
 
   // Step 1: Desire & Timeline
   const [birthMonth, setBirthMonth] = useState<string>(() => {
@@ -111,7 +106,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
   });
 
   const [birthDate, setBirthDate] = useState<string>(() => {
-    return (onboardingDraft as any)?.birthDate || (onboardingDraft?.birthMonth ? `${onboardingDraft.birthMonth}-01` : "");
+    return restored?.birthDate || onboardingDraft?.quickProfile?.personal.birthDate || "";
   });
 
   const [desiredRetirementMonth, setDesiredRetirementMonth] = useState<string>(() => {
@@ -120,8 +115,9 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
 
   const [monthlyExpense, setMonthlyExpense] = useState<number>(() => {
     if (simPrefill?.monthlyExpenseToday) return simPrefill.monthlyExpenseToday;
-    return onboardingDraft?.essentialExpense || 0;
+    return Number(restored?.monthlyExpenseToday ?? onboardingDraft?.quickProfile?.retirementGoal?.monthlyExpenseToday ?? onboardingDraft?.essentialExpense ?? 0);
   });
+  const [retireAgeText, setRetireAgeText] = useState(() => restored?.retirementAge != null ? String(restored.retirementAge) : desiredRetirementMonth && birthMonth ? String(Number(desiredRetirementMonth.slice(0, 4)) - Number(birthMonth.slice(0, 4))) : String(simPrefill?.retirementAge ?? 60));
 
   // Suggested birth year from simulator
   const suggestedBirthYear = useMemo(() => {
@@ -134,20 +130,15 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
     if (!birthMonth || birthMonth.length < 4) return 0;
     const bYear = parseInt(birthMonth.slice(0, 4), 10);
     if (isNaN(bYear)) return 0;
-    return Math.max(0, currentYear - bYear);
-  }, [birthMonth, currentYear]);
+    return Math.max(0, Math.floor(((Number(planningMonth.slice(0, 4)) - bYear) * 12 + Number(planningMonth.slice(5)) - Number(birthMonth.slice(5))) / 12));
+  }, [birthMonth, planningMonth]);
 
   const currentRetireAge = useMemo(() => {
-    if (desiredRetirementMonth && birthMonth) {
-      const bYear = parseInt(birthMonth.slice(0, 4), 10);
-      const rYear = parseInt(desiredRetirementMonth.slice(0, 4), 10);
-      if (!isNaN(bYear) && !isNaN(rYear)) return rYear - bYear;
-    }
-    return 60;
-  }, [desiredRetirementMonth, birthMonth]);
+    return retireAgeText === "" ? 0 : Number(retireAgeText);
+  }, [retireAgeText]);
 
   const handleRetireAgeChange = (ageVal: number) => {
-    if (birthMonth) {
+    if (birthMonth && Number.isInteger(ageVal) && ageVal >= 18 && ageVal <= 100) {
       const bYear = parseInt(birthMonth.slice(0, 4), 10);
       const bMonth = birthMonth.slice(5, 7) || "01";
       if (!isNaN(bYear)) {
@@ -160,33 +151,33 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
 
   // Step 2: Current Finances
   const [monthlyIncome, setMonthlyIncome] = useState<number>(() => {
-    return onboardingDraft?.primaryIncome || 0;
+    return Number(restored?.monthlyIncome ?? onboardingDraft?.primaryIncome ?? 0);
   });
 
   const [currentExpense, setCurrentExpense] = useState<number>(() => {
-    return onboardingDraft?.essentialExpense || 0;
+    return Number(restored?.monthlyExpense ?? onboardingDraft?.essentialExpense ?? 0);
   });
 
   const [retirementSavings, setRetirementSavings] = useState<number>(() => {
-    return onboardingDraft?.cashSavings || 0;
+    return Number(restored?.retirementSavings ?? onboardingDraft?.cashSavings ?? 0);
   });
 
-  const [contribution, setContribution] = useState<number>(0);
+  const [contribution, setContribution] = useState<number>(() => Number(restored?.monthlyContribution ?? onboardingDraft?.quickProfile?.retirementGoal?.monthlyContribution ?? 0));
 
   const [hasDebt, setHasDebt] = useState<boolean>(() => {
     return Boolean(onboardingDraft?.hasDebt && (onboardingDraft.consumerDebt > 0 || onboardingDraft.mortgageDebt > 0));
   });
 
   const [debtBalance, setDebtBalance] = useState<number>(() => {
-    return (onboardingDraft?.mortgageDebt || 0) + (onboardingDraft?.consumerDebt || 0);
+    return Number(restored?.debtBalance ?? ((onboardingDraft?.mortgageDebt || 0) + (onboardingDraft?.consumerDebt || 0)));
   });
 
   const [debtMonthlyPayment, setDebtMonthlyPayment] = useState<number>(() => {
-    return onboardingDraft?.monthlyDebtService || 0;
+    return Number(restored?.debtMonthlyPayment ?? onboardingDraft?.monthlyDebtService ?? 0);
   });
 
   const [emergencyAmount, setEmergencyAmount] = useState<number>(() => {
-    return onboardingDraft?.cashSavings ? Math.round(onboardingDraft.cashSavings * 0.2) : 0;
+    return Number(restored?.emergencyAmount ?? 0);
   });
 
   const reserveInfo = useMemo(() => {
@@ -194,64 +185,74 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
   }, [emergencyAmount, currentExpense, monthlyExpense]);
 
   // Step 3: Family (demo "Gia đình") & Obligations
-  const [maritalStatus, setMaritalStatus] = useState<"" | "SINGLE" | "MARRIED" | "OTHER">(() => {
+  const [maritalStatus, setMaritalStatus] = useState<"" | "SINGLE" | "MARRIED" | "DIVORCED" | "OTHER">(() => {
     // Server drafts come back with Vietnamese labels; accept both forms.
     const v = onboardingDraft?.quickProfile?.personal?.maritalStatus ?? onboardingDraft?.maritalStatus;
     const byLabel: Record<string, "SINGLE" | "MARRIED" | "OTHER"> = { "Độc thân": "SINGLE", "Đã kết hôn": "MARRIED", "Khác": "OTHER" };
-    return v === "SINGLE" || v === "MARRIED" || v === "OTHER" ? v : (v && byLabel[v]) || "";
+    return restored?.maritalStatus ?? (v === "SINGLE" || v === "MARRIED" || v === "DIVORCED" || v === "OTHER" ? v : (v && byLabel[v]) || "");
   });
   const [dependents, setDependents] = useState<string>(() => {
+    if (restored) return restored.dependents == null ? "" : String(restored.dependents);
     const v = onboardingDraft?.dependents;
     return onboardingDraft?.step && ["quick-risk", "contribution"].includes(onboardingDraft.step) && Number.isInteger(v) ? String(v) : "";
   });
+  const dependentsAuto = useRef(false);
   const dependentsNumber = dependents.trim() === "" ? null : Number(dependents);
-  const family = { maritalStatus: maritalStatus || undefined, dependents: dependentsNumber };
 
-  const planEndMonth = useMemo(() => {
-    if (!birthMonth || birthMonth.length < 4) return "2075-06";
-    const bYear = parseInt(birthMonth.slice(0, 4), 10);
-    const bMonth = birthMonth.slice(5, 7) || "06";
-    return `${bYear + 85}-${bMonth}`;
-  }, [birthMonth]);
+  const planEndMonth = restored?.endMonth ?? illustrativeRetirementEnd(birthMonth);
 
   // Obligations states
-  const [childEnabled, setChildEnabled] = useState(false);
-  const [childAmount, setChildAmount] = useState(5000000);
-  const [childDuration, setChildDuration] = useState("unknown");
-  const [childEnd, setChildEnd] = useState("");
-  const [childIncluded, setChildIncluded] = useState<"yes" | "no">("yes");
+  const savedSupport = (kind: "child" | "parent") => onboardingDraft?.quickProfile?.expenses.status === "KNOWN" ? onboardingDraft.quickProfile.expenses.entries.find(e => e.id === `exp_quick_${kind}`) : undefined;
+  const [childEnabled, setChildEnabled] = useState(restored?.childEnabled ?? Boolean(savedSupport("child")));
+  const [childAmount, setChildAmount] = useState(() => { const amount = savedSupport("child")?.amount; return Number(restored?.childAmount ?? (amount?.status === "KNOWN" ? amount.value : 0)); });
+  const [childDuration, setChildDuration] = useState(restored?.childDuration ?? (savedSupport("child")?.endMonth ? "custom" : "unknown"));
+  const [childEnd, setChildEnd] = useState(restored?.childEnd ?? savedSupport("child")?.endMonth ?? "");
+  const [childIncluded, setChildIncluded] = useState<"yes" | "no">(restored?.childIncluded === false ? "no" : "yes");
 
-  const [parentEnabled, setParentEnabled] = useState(false);
-  const [parentAmount, setParentAmount] = useState(3000000);
-  const [parentDuration, setParentDuration] = useState("unknown");
-  const [parentEnd, setParentEnd] = useState("");
-  const [parentIncluded, setParentIncluded] = useState<"yes" | "no">("yes");
+  const [parentEnabled, setParentEnabled] = useState(restored?.parentEnabled ?? Boolean(savedSupport("parent")));
+  const [parentAmount, setParentAmount] = useState(() => { const amount = savedSupport("parent")?.amount; return Number(restored?.parentAmount ?? (amount?.status === "KNOWN" ? amount.value : 0)); });
+  const [parentDuration, setParentDuration] = useState(restored?.parentDuration ?? (savedSupport("parent")?.endMonth ? "custom" : "unknown"));
+  const [parentEnd, setParentEnd] = useState(restored?.parentEnd ?? savedSupport("parent")?.endMonth ?? "");
+  const [parentIncluded, setParentIncluded] = useState<"yes" | "no">(restored?.parentIncluded === false ? "no" : "yes");
 
-  const [debtEnabled, setDebtEnabled] = useState(hasDebt);
-  const [debtRate, setDebtRate] = useState(8.5);
+  const [debtEnabled, setDebtEnabled] = useState(restored?.debtEnabled ?? hasDebt);
+  const [debtRate, setDebtRate] = useState(() => {
+    const debts = onboardingDraft?.quickProfile?.debts;
+    const rate = debts?.status === "KNOWN" ? debts.entries[0]?.illustration?.annualRatePercent : undefined;
+    return restored?.debtAnnualRatePercent ?? (rate?.status === "KNOWN" ? rate.value : "");
+  });
 
-  const [goalEnabled, setGoalEnabled] = useState(false);
-  const [goalName, setGoalName] = useState("");
-  const [goalAmount, setGoalAmount] = useState(200000000);
-  const [goalMonth, setGoalMonth] = useState("");
-  const [goalDeferrable, setGoalDeferrable] = useState<"no" | "yes">("no");
+  const [goalEnabled, setGoalEnabled] = useState(restored?.goalEnabled ?? false);
+  const [goalName, setGoalName] = useState(restored?.goalName ?? "");
+  const [goalAmount, setGoalAmount] = useState(Number(restored?.goalAmount ?? 0));
+  const [goalMonth, setGoalMonth] = useState(restored?.goalMonth ?? "");
+  const [goalDeferrable, setGoalDeferrable] = useState<"no" | "yes">(restored?.goalDeferrable ? "yes" : "no");
 
-  const [pensionStatus, setPensionStatus] = useState<"unknown" | "none" | "known">("unknown");
-  const [pension, setPension] = useState(5000000);
-  const [pensionStart, setPensionStart] = useState("");
+  const [pensionStatus, setPensionStatus] = useState<"unknown" | "none" | "known">(restored?.pensionStatus ?? "unknown");
+  const [pension, setPension] = useState(Number(restored?.pension ?? 0));
+  const [pensionStart, setPensionStart] = useState(restored?.pensionStart ?? "");
 
   // Step 4: Safety & Risk survey
-  const [comfortReaction, setComfortReaction] = useState<"sell" | "hold" | "calm">(() => { const saved=onboardingDraft?.quickProfile?.lossTolerance?.reaction; return saved?.status==="KNOWN"?({SELL:"sell",HOLD:"hold",BUY_MORE:"calm"} as const)[saved.value]:"hold"; });
-  const [stability, setStability] = useState(() => {const saved=onboardingDraft?.quickProfile?.incomeStability;return saved?.status==="KNOWN"?saved.value.toLowerCase():saved?"unknown":"stable";});
-  const [priority, setPriority] = useState("balanced");
+  const [comfortReaction, setComfortReaction] = useState<"" | "sell" | "hold" | "calm">(() => { const saved=onboardingDraft?.quickProfile?.lossTolerance?.reaction; const reaction=restored?.reaction??(saved?.status==="KNOWN"?saved.value:null); return reaction?({SELL:"sell",HOLD:"hold",BUY_MORE:"calm"} as const)[reaction]:""; });
+  const [stability, setStability] = useState(() => {const saved=onboardingDraft?.quickProfile?.incomeStability;return restored?.stability?.toLowerCase() ?? (saved?.status==="KNOWN"?saved.value.toLowerCase():"unknown");});
+  const [priority, setPriority] = useState(restored?.priority?.toLowerCase() ?? "balanced");
   const [lossStatus, setLossStatus] = useState<"unknown" | "known" | "percent">(() => {const saved=onboardingDraft?.quickProfile?.lossTolerance;return saved?.percent?.status==="KNOWN"?"percent":saved?.amountVnd?.status==="KNOWN"?"known":"unknown";});
-  const [lossAmount, setLossAmount] = useState(() => {const saved=onboardingDraft?.quickProfile?.lossTolerance?.amountVnd;return saved?.status==="KNOWN"?Number(saved.value):50000000;});
-  const [lossPercent, setLossPercent] = useState(() => {const saved=onboardingDraft?.quickProfile?.lossTolerance?.percent;return saved?.status==="KNOWN"?Number(saved.value):15;});
+  const [lossAmount, setLossAmount] = useState(() => {const saved=onboardingDraft?.quickProfile?.lossTolerance?.amountVnd;return saved?.status==="KNOWN"?Number(saved.value):0;});
+  const [lossPercent, setLossPercent] = useState(() => {const saved=onboardingDraft?.quickProfile?.lossTolerance?.percent;return saved?.status==="KNOWN"?saved.value:"";});
+
+  const commitments: Pick<QuickStartProfileInput, "hasDebt" | "debtBalance" | "debtMonthlyPayment" | "debtAnnualRatePercent" | "support"> = {
+    hasDebt: debtEnabled, debtBalance: debtEnabled ? debtBalance : undefined,
+    debtMonthlyPayment: debtEnabled ? debtMonthlyPayment : undefined,
+    debtAnnualRatePercent: debtEnabled ? debtRate : undefined,
+    support: [
+      ...(childEnabled ? [{ kind: "child" as const, amount: childAmount, includedInExpense: childIncluded === "yes", endMonth: childDuration === "unknown" ? null : resolveSupportEnd(planEndMonth, childDuration, childEnd, desiredRetirementMonth, planningMonth) }] : []),
+      ...(parentEnabled ? [{ kind: "parent" as const, amount: parentAmount, includedInExpense: parentIncluded === "yes", endMonth: parentDuration === "unknown" ? null : resolveSupportEnd(planEndMonth, parentDuration, parentEnd, desiredRetirementMonth, planningMonth) }] : []),
+    ],
+  };
 
   // Step 4: Risk survey
   const [policyDetail, setPolicyDetail] = useState<PortfolioPolicyDetail | null>(null);
   const [loadingPolicy, setLoadingPolicy] = useState(true);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [working, setWorking] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -265,7 +266,35 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
     });
   };
 
-  // Load published policy questions for Step 3
+  const buildQuickProfile = (phase: "desire" | "money" | "family" | "risk") => {
+    const moneyReady = phase !== "desire" || restored?.monthlyIncome != null;
+    const survey: QuickStartSurvey = {
+      version: 1, birthDate: birthDate || null, birthMonth: birthMonth || null,
+      retirementAge: currentRetireAge || null, retirementMonth: desiredRetirementMonth || null,
+      ...(restored?.endMonth ? { endMonth: restored.endMonth } : {}), monthlyExpenseToday: String(monthlyExpense),
+      monthlyIncome: moneyReady ? String(monthlyIncome) : null, monthlyExpense: moneyReady ? String(currentExpense) : null,
+      retirementSavings: moneyReady ? String(retirementSavings) : null, monthlyContribution: moneyReady ? String(contribution) : null,
+      emergencyAmount: moneyReady ? String(emergencyAmount) : null,
+      maritalStatus: maritalStatus || null, dependents: dependentsNumber,
+      childEnabled, childAmount: String(childAmount), childDuration: childDuration as QuickStartSurvey["childDuration"], childEnd: childEnd || null, childIncluded: childIncluded === "yes",
+      parentEnabled, parentAmount: String(parentAmount), parentDuration: parentDuration as QuickStartSurvey["parentDuration"], parentEnd: parentEnd || null, parentIncluded: parentIncluded === "yes",
+      debtEnabled, debtBalance: String(debtBalance), debtMonthlyPayment: String(debtMonthlyPayment), debtAnnualRatePercent: debtRate === "" ? null : String(Number(debtRate)),
+      goalEnabled, goalName, goalAmount: String(goalAmount), goalMonth: goalMonth || null, goalDeferrable: goalDeferrable === "yes",
+      pensionStatus, pension: String(pension), pensionStart: pensionStart || desiredRetirementMonth || null,
+      reaction: comfortReaction ? ({ sell: "SELL", hold: "HOLD", calm: "BUY_MORE" } as const)[comfortReaction] : null,
+      stability: stability.toUpperCase() as QuickStartSurvey["stability"], priority: priority.toUpperCase() as QuickStartSurvey["priority"],
+      lossStatus: lossStatus === "known" ? "amount" : lossStatus, lossAmount: String(lossAmount), lossPercent: lossPercent === "" ? null : String(Number(lossPercent)),
+    };
+    // These basic groups are compatibility presentation only. The server
+    // normalizes the retained answers and returns canonical profile records.
+    const profile = createQuickStartProfileV2({ birthMonth, desiredRetirementMonth,
+      monthlyIncome, monthlyExpense: phase === "desire" ? monthlyExpense : currentExpense, retirementSavings,
+      hasDebt: debtEnabled, debtBalance, debtMonthlyPayment, valuationDate: `${planningMonth}-01`,
+      maritalStatus: maritalStatus === "DIVORCED" ? undefined : maritalStatus || undefined, dependents: dependentsNumber });
+    return { ...profile, quickStartSurvey: survey };
+  };
+
+  // Load the published policy for the initial planning reference.
   useEffect(() => {
     let active = true;
     setLoadingPolicy(true);
@@ -289,50 +318,6 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
     };
   }, []);
 
-  // Compute Q_HORIZON default choice
-  const autoHorizonChoiceId = useMemo(() => {
-    if (!desiredRetirementMonth || !policyDetail) return null;
-    const [cy, cm] = planningMonth.split("-").map(Number);
-    const [ry, rm] = desiredRetirementMonth.split("-").map(Number);
-    const diffMonths = (ry - cy) * 12 + (rm - cm);
-    const years = diffMonths / 12;
-
-    let targetId = "HOR_SHORT";
-    if (years >= 20) targetId = "HOR_VERY_LONG";
-    else if (years >= 12) targetId = "HOR_LONG";
-    else if (years >= 5) targetId = "HOR_MEDIUM";
-    else targetId = "HOR_SHORT";
-
-    // Only auto-select if choice exists in policy question
-    const horizonQ = policyDetail?.data?.questions?.find((q) => q.id === "Q_HORIZON");
-    if (horizonQ && horizonQ.choices?.some((c) => c.id === targetId)) {
-      return targetId;
-    }
-    return null;
-  }, [desiredRetirementMonth, planningMonth, policyDetail]);
-
-  // Set Q_HORIZON automatically once policy is loaded
-  useEffect(() => {
-    if (autoHorizonChoiceId && !answers.Q_HORIZON) {
-      setAnswers((prev) => ({ ...prev, Q_HORIZON: autoHorizonChoiceId }));
-    }
-  }, [autoHorizonChoiceId]);
-
-  // Compute Q_FINANCIAL_CAPACITY suggestion
-  const suggestedCapacityId = useMemo(() => {
-    const actualIncome = monthlyIncome;
-    if (actualIncome <= 0) return null;
-    const debtPay = hasDebt ? debtMonthlyPayment : 0;
-    const surplus = actualIncome - currentExpense - debtPay;
-    const ratio = surplus / actualIncome;
-
-    // Below 10% -> CAP_TIGHT; 10% or more -> CAP_STABLE. NEVER CAP_STRONG!
-    if (ratio < 0.1) return "CAP_TIGHT";
-    return "CAP_STABLE";
-  }, [monthlyIncome, currentExpense, hasDebt, debtMonthlyPayment]);
-
-  const questions = policyDetail?.data.questions || [];
-  const allAnswered = questions.length > 0 && questions.every((q) => Boolean(answers[q.id]));
 
   // Step 1 -> Step 2
   const handleNextStep1 = async () => {
@@ -342,15 +327,18 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
     if (!birthMonth || birthMonth.length < 7) {
       errors.birthMonth = isEn ? "Please enter your date of birth." : "Vui lòng nhập hoặc chọn ngày tháng năm sinh.";
     }
-    if (!currentRetireAge || currentRetireAge < 18 || currentRetireAge > 80) {
-      errors.retireAge = isEn ? "Please enter a valid retirement age (18 - 80)." : "Vui lòng nhập tuổi nghỉ hưu hợp lệ từ 18 đến 80.";
+    if (!currentRetireAge || !Number.isInteger(currentRetireAge) || currentRetireAge < 18 || currentRetireAge > 100) {
+      errors.retireAge = isEn ? "Please enter a valid retirement age (18 - 100)." : "Vui lòng nhập tuổi nghỉ hưu hợp lệ từ 18 đến 100.";
     }
     if (!monthlyExpense || monthlyExpense <= 0) {
       errors.monthlyExpense = isEn ? "Please enter your desired monthly spending." : "Vui lòng nhập chi tiêu nghỉ hưu mỗi tháng lớn hơn 0.";
     }
+    if (calculatedAge < 18 || calculatedAge > 100 || !birthDate && !birthMonth) errors.birthMonth = isEn ? "Enter a birth date for age 18–100." : "Nhập ngày sinh hợp lệ, tuổi hiện tại từ 18 đến 100.";
+    if (!planEndMonth || planEndMonth < desiredRetirementMonth || planEndMonth < planningMonth) errors.retireAge = isEn ? "The planning horizon must extend through retirement. Review your goal dates." : "Thời hạn chi tiêu cần bao gồm tháng nghỉ hưu. Hãy kiểm tra lại các mốc mục tiêu.";
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
+      setValidationError(Object.values(errors)[0]);
       return;
     }
     setFieldErrors({});
@@ -367,14 +355,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
 
     setWorking(true);
     try {
-      const partialProfile = createQuickStartProfileV2({
-        birthMonth,
-        desiredRetirementMonth: effectiveRetirementMonth,
-        monthlyIncome: 0,
-        monthlyExpense,
-        retirementSavings: 0,
-        valuationDate: planningMonth + "-01",
-      });
+      const partialProfile = buildQuickProfile("desire");
       const ok = await saveOnboardingDraft({
         birthMonth,
         desiredRetirementMonth: effectiveRetirementMonth,
@@ -389,6 +370,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
         );
         return;
       }
+      clearSimulatorPrefill();
       setStep(2);
       window.scrollTo({ left: 0, top: 0, behavior: "instant" as ScrollBehavior });
     } finally {
@@ -401,32 +383,25 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
     setValidationError(null);
     const errors: Record<string, string> = {};
 
-    if (!currentExpense || currentExpense <= 0) {
-      errors.currentExpense = isEn ? "Please enter your monthly expenses." : "Vui lòng nhập mức chi tiêu mỗi tháng lớn hơn 0.";
+    if (!Number.isFinite(currentExpense) || currentExpense < 0) {
+      errors.currentExpense = isEn ? "Please enter your monthly expenses." : "Vui lòng nhập mức chi tiêu mỗi tháng từ 0 trở lên.";
     }
     if (contribution < 0) {
       errors.contribution = isEn ? "Contribution must be at least 0." : "Số tiền góp mỗi tháng cần lớn hơn hoặc bằng 0.";
     }
+    for (const [key, value] of Object.entries({ monthlyIncome, currentExpense, retirementSavings, contribution, emergencyAmount }))
+      if (!Number.isFinite(value) || value < 0 || value > 1e15) errors[key] = isEn ? "Enter an amount from 0 to 1,000,000 billion VND." : "Nhập số tiền từ 0 đến 1.000.000 tỷ đồng.";
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
+      setValidationError(Object.values(errors)[0]);
       return;
     }
     setFieldErrors({});
 
     setWorking(true);
     try {
-      const partialProfile = createQuickStartProfileV2({
-        birthMonth,
-        desiredRetirementMonth,
-        monthlyIncome,
-        monthlyExpense: currentExpense,
-        retirementSavings,
-        hasDebt,
-        debtBalance: hasDebt ? debtBalance : undefined,
-        debtMonthlyPayment: hasDebt ? debtMonthlyPayment : undefined,
-        valuationDate: planningMonth + "-01",
-      });
+      const partialProfile = buildQuickProfile("money");
       const ok = await saveOnboardingDraft({
         birthMonth,
         desiredRetirementMonth,
@@ -464,46 +439,45 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
       if (parentAmount <= 0) errors.parentAmount = isEn ? "Enter support amount greater than 0." : "Nhập chi phí phụng dưỡng mỗi tháng lớn hơn 0.";
       if (parentDuration === "custom" && !parentEnd) errors.parentEnd = isEn ? "Please pick an end month." : "Vui lòng chọn tháng kết thúc.";
     }
+    const includedSupport = commitments.support!.filter(s => s.includedInExpense).reduce((sum, s) => sum + s.amount, 0);
+    if (includedSupport > currentExpense) errors[parentEnabled ? "parentAmount" : "childAmount"] = isEn ? "Support already included in living expenses exceeds the total declared. Check the amount or choose not included." : "Khoản hỗ trợ chọn đã nằm trong chi sinh hoạt đang vượt tổng chi đã khai. Kiểm tra số tiền hoặc chọn chưa có trong tổng chi.";
+    for (const support of commitments.support!) {
+      if (support.endMonth !== null && support.endMonth < planningMonth) errors[`${support.kind}End`] = isEn ? "Support end must not precede the planning month." : "Tháng kết thúc hỗ trợ không được trước tháng lập kế hoạch.";
+      if (support.endMonth !== null && support.endMonth > planEndMonth) errors[`${support.kind}End`] = isEn ? "Support end must be within the plan horizon." : "Tháng kết thúc hỗ trợ phải nằm trong thời hạn kế hoạch.";
+    }
     if (debtEnabled) {
       if (debtBalance <= 0) errors.debtBalance = isEn ? "Enter balance greater than 0." : "Nhập dư nợ lớn hơn 0.";
       if (debtMonthlyPayment <= 0) errors.debtMonthlyPayment = isEn ? "Enter monthly payment greater than 0." : "Nhập khoản trả lớn hơn 0.";
-      if (debtRate < 0 || debtRate > 100) errors.debtRate = isEn ? "Interest rate must be between 0 and 100%." : "Lãi suất cần từ 0 đến 100%/năm.";
+      if (!debtRate.trim() || !Number.isFinite(Number(debtRate)) || Number(debtRate) < 0 || Number(debtRate) > 100) errors.debtRate = isEn ? "Enter an interest rate from 0 to 100%." : "Nhập lãi suất từ 0 đến 100%/năm; nhập 0 nếu không có lãi.";
+      if (debtRate !== "" && debtMonthlyPayment <= debtBalance * Number(debtRate) / 1200) errors.debtMonthlyPayment = isEn ? "The payment must exceed monthly interest to reduce principal." : "Khoản trả phải lớn hơn tiền lãi tháng để giảm gốc.";
     }
     if (goalEnabled) {
       if (!goalName.trim()) errors.goalName = isEn ? "Please enter a name for your goal." : "Vui lòng đặt tên cho mục tiêu của bạn.";
       if (goalAmount <= 0) errors.goalAmount = isEn ? "Enter target budget greater than 0." : "Nhập ngân sách cần thiết lớn hơn 0.";
       if (!goalMonth) errors.goalMonth = isEn ? "Please select the needed month." : "Vui lòng chọn tháng cần dùng tiền.";
+      else if (goalMonth < planningMonth || goalMonth > planEndMonth) errors.goalMonth = isEn ? "Choose a month within the plan horizon." : "Chọn tháng cần tiền trong thời hạn kế hoạch.";
     }
     if (pensionStatus === "known") {
       if (pension <= 0) errors.pension = isEn ? "Enter estimated pension amount." : "Nhập mức lương hưu ước tính lớn hơn 0.";
-      if (!pensionStart) errors.pensionStart = isEn ? "Please select the start month." : "Vui lòng chọn tháng bắt đầu nhận.";
+      if (!(pensionStart || desiredRetirementMonth)) errors.pensionStart = isEn ? "Please select the start month." : "Vui lòng chọn tháng bắt đầu nhận.";
+      else if ((pensionStart || desiredRetirementMonth) < planningMonth || (pensionStart || desiredRetirementMonth) > planEndMonth) errors.pensionStart = isEn ? "Choose a pension start within the plan horizon." : "Chọn tháng nhận lương hưu trong thời hạn kế hoạch.";
     }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
+      setValidationError(Object.values(errors)[0]);
       return;
     }
     setFieldErrors({});
 
     setWorking(true);
     try {
-      const partialProfile = createQuickStartProfileV2({
-        birthMonth,
-        desiredRetirementMonth,
-        monthlyIncome,
-        monthlyExpense: currentExpense,
-        retirementSavings,
-        hasDebt,
-        debtBalance: hasDebt ? debtBalance : undefined,
-        debtMonthlyPayment: hasDebt ? debtMonthlyPayment : undefined,
-        valuationDate: planningMonth + "-01",
-        ...family,
-      });
+      const partialProfile = buildQuickProfile("family");
       const ok = await saveOnboardingDraft({
         birthMonth,
         desiredRetirementMonth,
         maritalStatus: maritalStatus || "",
-        dependents: dependentsNumber ?? 0,
+        dependents: dependentsNumber,
         step: "quick-risk",
         quickProfile: partialProfile,
       } as Partial<OnboardingDraftData>);
@@ -525,57 +499,27 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
   // Step 4 Completion
   const handleComplete = async () => {
     if (!comfortReaction || working) return;
+    if (lossStatus === "percent" && (!lossPercent.trim() || !Number.isFinite(Number(lossPercent)) || Number(lossPercent) < 0 || Number(lossPercent) > 100)) {
+      setFieldErrors(prev => ({ ...prev, lossPercent: isEn ? "Enter a loss limit from 0 to 100%." : "Nhập tỷ lệ lỗ tối đa từ 0 đến 100%." }));
+      return;
+    }
+    if (!policyDetail || loadingPolicy) { setValidationError(isEn ? "A published planning policy is needed to calculate." : "Chưa tải được chính sách tính kế hoạch đã công bố. Vui lòng thử lại."); return; }
     setWorking(true);
     try {
-      const finalQuickProfile = createQuickStartProfileV2({
-        birthMonth,
-        desiredRetirementMonth,
-        monthlyIncome,
-        monthlyExpense: currentExpense,
-        retirementSavings,
-        hasDebt,
-        debtBalance: hasDebt ? debtBalance : undefined,
-        debtMonthlyPayment: hasDebt ? debtMonthlyPayment : undefined,
-        valuationDate: planningMonth + "-01",
-        ...family,
-        risk: {
-          reaction: ({sell:"SELL",hold:"HOLD",calm:"BUY_MORE"} as const)[comfortReaction],
-          incomeStability: ({stable:"STABLE",variable:"VARIABLE",uncertain:"UNCERTAIN"} as const)[stability as "stable"|"variable"|"uncertain"]??"UNKNOWN",
-          limit: lossStatus==="known"?{kind:"AMOUNT",value:String(lossAmount)}:lossStatus==="percent"?{kind:"PERCENT",value:String(lossPercent)}:{kind:"UNKNOWN"},
-        },
-      });
+      const finalQuickProfile = buildQuickProfile("risk");
 
-      const defaultAnswers: Record<string, string> = { ...answers };
-      questions.forEach((q) => {
-        if (!defaultAnswers[q.id] && q.choices.length > 0) {
-          if (q.id === "Q_HORIZON" && autoHorizonChoiceId) {
-            defaultAnswers[q.id] = autoHorizonChoiceId;
-          } else if (q.id === "Q_FINANCIAL_CAPACITY" && suggestedCapacityId) {
-            defaultAnswers[q.id] = suggestedCapacityId;
-          } else {
-            const idx = comfortReaction === "sell" ? 0 : comfortReaction === "calm" ? Math.min(2, q.choices.length - 1) : 1;
-            defaultAnswers[q.id] = q.choices[idx]?.id || q.choices[0].id;
-          }
-        }
-      });
+      const endMonth = planEndMonth;
+      finalQuickProfile.retirementGoal = { endMonth, monthlyExpenseToday: String(monthlyExpense), monthlyContribution: String(contribution), lifestylePriority: priority.toUpperCase() as "BALANCED" | "HEALTH" | "HOUSING" | "TRAVEL" };
 
-      const answerItems: PortfolioAnswerItem[] = Object.entries(defaultAnswers).map(([questionId, choiceId]) => ({
-        questionId,
-        choiceId,
-      }));
-
-      // Keep exactly the survey selection already used for this first plan on
-      // the server profile; a new tab must not lose it with session storage.
-      if (policyDetail && answerItems.length) finalQuickProfile.retirementSurvey = {
-        policyVersionId: policyDetail.id, monthlyExpenseToday: String(monthlyExpense), answers: answerItems,
-      };
-
-      // Update retirement plan draft answers and set contribution to 0 so required contribution is displayed
+      // Use the amounts and obligations the customer explicitly declared.
       updateDraft({
         policyVersionId: policyDetail?.id,
-        answers: answerItems,
-        monthlyContribution: "0",
+        answers: [],
+        planningReaction: ({sell:"SELL",hold:"HOLD",calm:"BUY_MORE"} as const)[comfortReaction as "sell"|"hold"|"calm"],
+        monthlyContribution: String(contribution),
         monthlyExpenseToday: String(monthlyExpense),
+        endMonth,
+        retirementAdditionalExpenseIds: [...(childEnabled ? ["exp_quick_child"] : []), ...(parentEnabled ? ["exp_quick_parent"] : [])],
         whatIf: desiredRetirementMonth?.trim() ? { retirementMonth: desiredRetirementMonth } : undefined,
       });
 
@@ -597,7 +541,9 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
           isEn ? "Profile Initialized Successfully" : "Khởi tạo hồ sơ thành công",
           isEn ? "Your first retirement plan is ready." : "Bản kế hoạch hưu trí đầu tiên của bạn đã sẵn sàng."
         );
-        navigate(resumeDestination(location.state?.from, "user", "/user/plan"), {
+        // Like the demo, the first survey always ends on the plan page, where the first
+        // preview becomes the main plan (RetirementPlanPage auto-apply).
+        navigate("/user/plan", {
           replace: true,
           state: { fromOnboarding: true },
         });
@@ -648,42 +594,6 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
           ))}
         </ol>
 
-        {/* Dynamic Contextual Tip Card */}
-        <div className="qo-aside-tip-card">
-          <div className="qo-tip-head">
-            <span className="qo-tip-icon-dot"></span>
-            <strong>{isEn ? "Helpful Guidance" : "Gợi ý cho bước này"}</strong>
-          </div>
-          <p className="qo-tip-text">
-            {step === 1 && (isEn
-              ? "Estimate the monthly living cost you desire in retirement at today's prices. An Huu will automatically project inflation and compounding."
-              : "Ước tính mức chi tiêu bạn mong muốn khi về hưu theo thời giá hiện tại. An Hưu sẽ tự động tính bù trừ trượt giá và lạm phát theo thời gian.")}
-            {step === 2 && (isEn
-              ? "Approximate figures are completely fine. Knowing your regular income and routine expenses helps determine your real savings potential."
-              : "Chỉ cần con số ước lượng. Thu nhập thực nhận và chi tiêu sinh hoạt định kỳ giúp xác định chính xác năng lực tích lũy hàng tháng của bạn.")}
-            {step === 3 && (isEn
-              ? "Financial commitments like child education or parent support are scheduled separately to protect your long-term plan from cash flow gaps."
-              : "Các khoản hỗ trợ con cái hay phụng dưỡng cha mẹ được tính riêng theo giai đoạn, giúp bức tranh dòng tiền không bị thâm hụt.")}
-            {step === 4 && (isEn
-              ? "Understanding how you feel about volatility helps select a sustainable asset allocation that you can stick with in all market cycles."
-              : "Hiểu phản ứng của bạn trước biến động ngắn hạn giúp An Hưu xây dựng danh mục phù hợp, để bạn luôn an tâm theo đuổi mục tiêu dài hạn.")}
-          </p>
-        </div>
-
-        {/* Reassurance & Autosave line */}
-        <div className="qo-aside-trust">
-          <div className="qo-trust-item">
-            <Icon name="shield" size="small" />
-            <span>{isEn ? "Draft autosaved to your profile" : "Bản nháp được tự động lưu vào hồ sơ"}</span>
-          </div>
-          <div className="qo-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: "14px", height: "14px", flexShrink: 0 }} aria-hidden="true">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <span>{isEn ? "Takes ~2 mins to complete" : "Chỉ mất khoảng 2 phút hoàn thành"}</span>
-          </div>
-        </div>
       </aside>
 
       <section className="qo-main">
@@ -734,7 +644,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                   onChange={(ym, ymd) => {
                     clearFieldError("birthMonth");
                     setBirthMonth(ym);
-                    if (ymd) setBirthDate(ymd);
+                    setBirthDate(ymd || "");
                     if (ym && currentRetireAge) {
                       const bYear = parseInt(ym.slice(0, 4), 10);
                       const bMonth = ym.slice(5, 7) || "01";
@@ -752,21 +662,22 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                 <Input
                   label={isEn ? "What age do you want to retire?" : "Bạn muốn nghỉ hưu năm bao nhiêu tuổi?"}
                   type="number"
-                  min={calculatedAge > 0 ? calculatedAge : 18}
-                  max={80}
+                  min={18}
+                  max={100}
                   suffix={isEn ? "years old" : "tuổi"}
-                  value={String(currentRetireAge)}
+                  value={retireAgeText}
                   error={fieldErrors.retireAge}
                   onChange={(val) => {
                     clearFieldError("retireAge");
-                    handleRetireAgeChange(Number(val) || 60);
+                    setRetireAgeText(val);
+                    handleRetireAgeChange(val === "" ? NaN : Number(val));
                   }}
                 />
                 {birthMonth && desiredRetirementMonth && (
                   <p className="retirement-estimate" style={{ marginTop: "4px", fontSize: "12px", color: "var(--color-primary-700, #334DAF)" }}>
                     {isEn
-                      ? `Estimated retirement: month ${desiredRetirementMonth.slice(5, 7)}/${desiredRetirementMonth.slice(0, 4)}`
-                      : `Dự kiến nghỉ hưu: tháng ${desiredRetirementMonth.slice(5, 7)}/${desiredRetirementMonth.slice(0, 4)}`}
+                      ? `Estimated retirement: month ${Number(desiredRetirementMonth.slice(5, 7))}/${desiredRetirementMonth.slice(0, 4)}`
+                      : `Dự kiến nghỉ hưu: tháng ${Number(desiredRetirementMonth.slice(5, 7))}/${desiredRetirementMonth.slice(0, 4)}`}
                   </p>
                 )}
               </div>
@@ -782,7 +693,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                   setMonthlyExpense(val);
                 }}
                 placeholder="0"
-                suffix="đ"
+                suffix="₫"
               />
               <p className="quick-helper-text" style={{ fontSize: "12px", color: "var(--muted, #64748b)", marginTop: "4px" }}>
                 {isEn ? "At today's prices; excluding debt payments and separate support schedules." : "Theo giá hôm nay; chưa gồm trả nợ và khoản hỗ trợ có lịch riêng."}
@@ -874,7 +785,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                   label={isEn ? "Emergency fund kept separate" : "Quỹ dự phòng để riêng"}
                   value={emergencyAmount}
                   onChange={(val) => setEmergencyAmount(val)}
-                  placeholder="50.000.000"
+                  placeholder="0"
+                  showZeroWords
                 />
                 <p className="quick-helper-text" style={{ fontSize: "12px", color: "var(--muted, #64748b)", marginTop: "4px" }}>
                   {isEn
@@ -932,14 +844,14 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                   <option value="">{isEn ? "Prefer not to say" : "Chưa muốn cung cấp"}</option>
                   <option value="SINGLE">{isEn ? "Single" : "Độc thân"}</option>
                   <option value="MARRIED">{isEn ? "Married" : "Đã kết hôn"}</option>
-                  <option value="OTHER">{isEn ? "Other" : "Khác"}</option>
+                  <option value="DIVORCED">{isEn ? "Divorced" : "Đã ly hôn"}</option>
                 </select>
                 <p className="family-field-note">{isEn ? "Used to understand shared financial protection in retirement." : "Cơ sở tính dòng tiền và bảo vệ tài chính chung khi về hưu."}</p>
               </div>
 
               <div className={`family-col field dependents-field-wrap ${fieldErrors.dependents ? "has-error" : ""}`}>
                 <label htmlFor="qo-dependents">{isEn ? "People who depend on you financially" : "Số người phụ thuộc tài chính"} <span className="field-optional">{isEn ? "(optional)" : "(không bắt buộc điền)"}</span></label>
-                <input
+                <div className="qo-unit-input"><input
                   id="qo-dependents"
                   type="number"
                   inputMode="numeric"
@@ -951,9 +863,11 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                   aria-invalid={Boolean(fieldErrors.dependents)}
                   onChange={e => {
                     clearFieldError("dependents");
+                    dependentsAuto.current = false;
                     setDependents(e.target.value);
                   }}
                 />
+                <span>{isEn ? "people" : "người"}</span></div>
                 <div className="dependents-presets" role="group" aria-label={isEn ? "Quick choices for dependents" : "Chọn nhanh số người phụ thuộc"}>
                   {[0, 1, 2, 3, 4].map(n => (
                     <button
@@ -963,6 +877,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                       aria-pressed={dependents !== "" && Number(dependents) === n}
                       onClick={() => {
                         clearFieldError("dependents");
+                        dependentsAuto.current = false;
                         setDependents(String(n));
                       }}
                     >
@@ -995,7 +910,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
               {/* Child branch */}
               <section className="survey-branch">
                 <label className="survey-toggle">
-                  <input type="checkbox" checked={childEnabled} onChange={e => setChildEnabled(e.target.checked)} />
+                  <input type="checkbox" checked={childEnabled} onChange={e => { setChildEnabled(e.target.checked); if (dependents === "" || dependentsAuto.current) { dependentsAuto.current = true; setDependents(String(Number(e.target.checked) + Number(parentEnabled))); } }} />
                   <span className="survey-branch-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/></svg>
                   </span>
@@ -1018,12 +933,12 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                           clearFieldError("childAmount");
                           setChildAmount(val);
                         }}
-                        placeholder="5.000.000"
+                        placeholder="Ví dụ: 5.000.000"
                       />
                       <div className="survey-duration-col">
                         <div className="field">
                           <label htmlFor="qo-child-duration">{isEn ? "Expected support duration" : "Thời gian dự kiến chăm lo"}</label>
-                          <select id="qo-child-duration" value={childDuration} onChange={e => setChildDuration(e.target.value)}>
+                          <select id="qo-child-duration" value={childDuration} onChange={e => setChildDuration(e.target.value as typeof childDuration)}>
                             <option value="unknown">{isEn ? "Undetermined" : "Chưa xác định"}</option>
                             <option value="1">{isEn ? "Around 1 year" : "Khoảng 1 năm"}</option>
                             <option value="3">{isEn ? "Around 3 years" : "Khoảng 3 năm"}</option>
@@ -1052,8 +967,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                       <div className="survey-branch-full survey-source-field">
                         <label>{isEn ? "Is this already included in previous living expenses?" : "Khoản này đã nằm trong tổng chi ở bước trước chưa?"}</label>
                         <select value={childIncluded} onChange={e => setChildIncluded(e.target.value as "yes" | "no")}>
-                          <option value="yes">{isEn ? "Included - separate, do not add" : "Đã có - tách ra, không cộng thêm"}</option>
-                          <option value="no">{isEn ? "Not included - add to expenses" : "Chưa có - cộng vào chi tiêu"}</option>
+                          <option value="yes">{isEn ? "Included - separate, do not add" : "Đã có — tách ra, không cộng thêm"}</option>
+                          <option value="no">{isEn ? "Not included - add to expenses" : "Chưa có — cộng vào chi tiêu"}</option>
                         </select>
                       </div>
                     </div>
@@ -1064,7 +979,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
               {/* Parent branch */}
               <section className="survey-branch">
                 <label className="survey-toggle">
-                  <input type="checkbox" checked={parentEnabled} onChange={e => setParentEnabled(e.target.checked)} />
+                  <input type="checkbox" checked={parentEnabled} onChange={e => { setParentEnabled(e.target.checked); if (dependents === "" || dependentsAuto.current) { dependentsAuto.current = true; setDependents(String(Number(e.target.checked) + Number(childEnabled))); } }} />
                   <span className="survey-branch-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
                   </span>
@@ -1087,12 +1002,12 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                           clearFieldError("parentAmount");
                           setParentAmount(val);
                         }}
-                        placeholder="3.000.000"
+                        placeholder="Ví dụ: 3.000.000"
                       />
                       <div className="survey-duration-col">
                         <div className="field">
                           <label htmlFor="qo-parent-duration">{isEn ? "Expected support duration" : "Thời gian dự kiến phụng dưỡng"}</label>
-                          <select id="qo-parent-duration" value={parentDuration} onChange={e => setParentDuration(e.target.value)}>
+                          <select id="qo-parent-duration" value={parentDuration} onChange={e => setParentDuration(e.target.value as typeof parentDuration)}>
                             <option value="unknown">{isEn ? "Undetermined" : "Chưa xác định"}</option>
                             <option value="1">{isEn ? "Around 1 year" : "Khoảng 1 năm"}</option>
                             <option value="3">{isEn ? "Around 3 years" : "Khoảng 3 năm"}</option>
@@ -1121,8 +1036,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                       <div className="survey-branch-full survey-source-field">
                         <label>{isEn ? "Is this already included in previous living expenses?" : "Khoản này đã nằm trong tổng chi ở bước trước chưa?"}</label>
                         <select value={parentIncluded} onChange={e => setParentIncluded(e.target.value as "yes" | "no")}>
-                          <option value="yes">{isEn ? "Included - separate, do not add" : "Đã có - tách ra, không cộng thêm"}</option>
-                          <option value="no">{isEn ? "Not included - add to expenses" : "Chưa có - cộng vào chi tiêu"}</option>
+                          <option value="yes">{isEn ? "Included - separate, do not add" : "Đã có — tách ra, không cộng thêm"}</option>
+                          <option value="no">{isEn ? "Not included - add to expenses" : "Chưa có — cộng vào chi tiêu"}</option>
                         </select>
                       </div>
                     </div>
@@ -1133,7 +1048,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
               {/* Debt branch */}
               <section className="survey-branch">
                 <label className="survey-toggle">
-                  <input type="checkbox" checked={debtEnabled} onChange={e => { setDebtEnabled(e.target.checked); if (!hasDebt && e.target.checked) setHasDebt(true); }} />
+                  <input type="checkbox" checked={debtEnabled} onChange={e => { setDebtEnabled(e.target.checked); setHasDebt(e.target.checked); }} />
                   <span className="survey-branch-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                   </span>
@@ -1156,7 +1071,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                           clearFieldError("debtBalance");
                           setDebtBalance(val);
                         }}
-                        placeholder="300.000.000"
+                        placeholder="Ví dụ: 300.000.000"
                       />
                       <CurrencyInput
                         label={isEn ? "Monthly payment" : "Trả nợ mỗi tháng"}
@@ -1166,29 +1081,31 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                           clearFieldError("debtMonthlyPayment");
                           setDebtMonthlyPayment(val);
                         }}
-                        placeholder="6.000.000"
+                        placeholder="Ví dụ: 6.000.000"
                       />
                       <div className={`survey-branch-full field ${fieldErrors.debtRate ? "has-error" : ""}`}>
                         <label htmlFor="survey-debt-rate">{isEn ? "Interest rate (%/year)" : "Lãi suất khoản vay (%/năm)"}</label>
-                        <input
+                        <div className="qo-unit-input"><input
                           id="survey-debt-rate"
                           type="number"
-                          step="0.1"
+                          inputMode="decimal"
+                          step="any"
                           min={0}
                           max={100}
                           value={debtRate}
                           aria-invalid={Boolean(fieldErrors.debtRate)}
                           onChange={e => {
                             clearFieldError("debtRate");
-                            setDebtRate(Number(e.target.value));
+                            setDebtRate(e.target.value);
                           }}
                         />
+                        <span>{isEn ? "%/year" : "%/năm"}</span></div>
                         {fieldErrors.debtRate ? (
                           <small className="field-error-text error-text" style={{ color: "#dc2626", display: "block", marginTop: "6px", fontSize: "12px", fontWeight: 500 }}>
                             {fieldErrors.debtRate}
                           </small>
                         ) : (
-                          <p className="quick-helper-text">{isEn ? "Enter 0 if interest-free. Monthly payments are separate from living expenses." : "Nhập 0 nếu không có lãi. Khoản trả chưa nằm trong chi sinh hoạt ở bước trước."}</p>
+                          <p className="quick-helper-text">{isEn ? "Enter 0 if interest-free. Monthly payments are separate from living expenses. The rate is used for an illustrative repayment schedule until loan terms are provided." : "Nhập 0 nếu không có lãi. Khoản trả chưa nằm trong chi sinh hoạt ở bước trước."}</p>
                         )}
                       </div>
                     </div>
@@ -1241,7 +1158,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                           clearFieldError("goalAmount");
                           setGoalAmount(val);
                         }}
-                        placeholder="200.000.000"
+                        placeholder="Ví dụ: 200.000.000"
                       />
                       <div className="field">
                         <DateInput
@@ -1256,8 +1173,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                         />
                       </div>
                       <div className="field">
-                        <label>{isEn ? "Can it be deferred if funds fall short?" : "Nếu chưa đủ tiền, có thể lùi lại không?"}</label>
-                        <select value={goalDeferrable} onChange={e => setGoalDeferrable(e.target.value as "no" | "yes")}>
+                        <label htmlFor="qo-goal-deferrable">{isEn ? "Can it be deferred if funds fall short?" : "Nếu chưa đủ tiền, có thể lùi lại không?"}</label>
+                        <select id="qo-goal-deferrable" value={goalDeferrable} onChange={e => setGoalDeferrable(e.target.value as "no" | "yes")}>
                           <option value="no">{isEn ? "No, needed on schedule" : "Không, tôi cần đúng thời điểm"}</option>
                           <option value="yes">{isEn ? "Yes, can defer up to 1 year" : "Có, tôi có thể lùi tối đa 1 năm"}</option>
                         </select>
@@ -1278,7 +1195,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
             <div className="field">
               <label htmlFor="survey-pension-status">{isEn ? "Do you have an estimated pension?" : "Bạn đã có ước tính lương hưu chưa?"}</label>
               <select id="survey-pension-status" value={pensionStatus} onChange={e => setPensionStatus(e.target.value as typeof pensionStatus)}>
-                <option value="unknown">{isEn ? "Not sure - add later" : "Chưa biết - bổ sung sau"}</option>
+                <option value="unknown">{isEn ? "Not sure - add later" : "Chưa biết — bổ sung sau"}</option>
                 <option value="none">{isEn ? "No pension" : "Không có lương hưu"}</option>
                 <option value="known">{isEn ? "Estimated amount available" : "Đã có mức ước tính"}</option>
               </select>
@@ -1293,7 +1210,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                     clearFieldError("pension");
                     setPension(val);
                   }}
-                  placeholder="5.000.000"
+                  placeholder="Ví dụ: 5.000.000"
                 />
                 <DateInput
                   mode="month"
@@ -1395,7 +1312,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
             {lossStatus === "percent" && (
               <div className="field" style={{ marginTop: "12px" }}>
                 <label htmlFor="qo-loss-percent">{isEn ? "Maximum loss rate on long-term capital (%)" : "Tỷ lệ lỗ tối đa trên vốn đầu tư dài hạn (%)"}</label>
-                <input id="qo-loss-percent" type="number" min={0} max={100} step="0.5" value={lossPercent} onChange={e => setLossPercent(Number(e.target.value))} />
+                <input id="qo-loss-percent" type="number" inputMode="decimal" min={0} max={100} step="any" value={lossPercent} aria-invalid={Boolean(fieldErrors.lossPercent)} aria-describedby={fieldErrors.lossPercent ? "qo-loss-percent-error" : undefined} onChange={e => { clearFieldError("lossPercent"); setLossPercent(e.target.value); }} />
+                {fieldErrors.lossPercent && <small id="qo-loss-percent-error" role="alert" className="field-error-text error-text">{fieldErrors.lossPercent}</small>}
               </div>
             )}
             <p className="help" style={{ marginTop: "12px", color: "#475569", fontSize: "12px", lineHeight: "1.45" }}>
@@ -1403,7 +1321,6 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
             </p>
           </details>
 
-          {/* Information used for first plan accordion */}
           <details className="survey-extra">
             <summary>{isEn ? "Information used for your first plan" : "Thông tin dùng cho kế hoạch đầu tiên"}</summary>
             <dl>
@@ -1412,8 +1329,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                 <dd>{currentRetireAge} {isEn ? "years old" : "tuổi"}</dd>
               </div>
               <div className="detail-row">
-                <dt>{isEn ? "Plan until" : "Chuẩn bị đến"}</dt>
-                <dd>85 {isEn ? "years old" : "tuổi"}</dd>
+                <dt>{isEn ? "Prepare through age 85" : "Chuẩn bị đến 85 tuổi"}</dt>
+                <dd>{birthMonth ? formatMonthVN(`${Number(birthMonth.slice(0,4))+85}-${birthMonth.slice(5)}`) : "—"}</dd>
               </div>
               <div className="detail-row">
                 <dt>{isEn ? "Retirement spending at today's value" : "Chi nghỉ hưu theo giá hôm nay"}</dt>
@@ -1425,7 +1342,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
               </div>
             </dl>
             <p className="help" style={{ marginTop: "10px", color: "#475569", fontSize: "12px", lineHeight: "1.45" }}>
-              {isEn ? "First results use 4 / 6 / 8% return scenarios and 3.5% inflation. Major goals and family support are scheduled as declared. Assumptions and allocations can be adjusted later." : "Kết quả đầu tiên dùng lợi suất thử 4 / 6 / 8% và lạm phát 3,5%. Mục tiêu lớn và hỗ trợ gia đình được tính theo lịch đã khai. Có thể chỉnh các giả định và phân bổ sau."}
+              {isEn ? "Returns and inflation use published system assumptions. The default illustration runs through the month before your 85th birthday, editable under advanced goal settings. Review cashflows and allocations before saving." : "Lợi suất và lạm phát theo bộ giả định hệ thống đã công bố. Mặc định tính chi tiêu đến trước tháng đủ 85 tuổi như bản demo; có thể chỉnh tại phần nâng cao của Mục tiêu. Rà soát dòng tiền và phân bổ trước khi lưu kế hoạch."}
             </p>
           </details>
 

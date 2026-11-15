@@ -55,6 +55,8 @@ s.Calculation = obj({ modelVersion: str, conventions: ref("Conventions"), summar
   assessment: { $ref: "./portfolios.openapi.yaml#/Assessment" }, marketRows: arr({ $ref: "./portfolios.openapi.yaml#/Row" }),
   scenario: obj({ kind: en("BASE", "ADVERSE", "FAVORABLE"), label: str, evidence: str, changes: { $ref: "./portfolios.openapi.yaml#/Scenario/properties/changes" } }),
   legalRetirementAge: { $ref: "./pensions.openapi.yaml#/LegacyAgeReference" }, limitations: arr(str) });
+s.Calculation.properties.suitability=en("NOT_ASSESSED");
+s.Calculation.properties.planningBasis=en("PUBLISHED_REACTION_REFERENCE");
 s.Preview = obj({ status: en("READY", "INCOMPLETE"), issues: arr(ref("Issue")), warnings: arr(ref("Issue")), calculation: nullableRef("Calculation"),
   replayInput: nullableRef("ReplayInput"), modelVersion: str, profileRevision: num, valuationDate: str, currency: en("VND"),
   references: obj({ profileHash: str, policyVersionId: str, policyVersion: num, policyHash: str, assumptionVersionId: str, assumptionVersion: num, assumptionHash: str }),
@@ -63,6 +65,7 @@ s.Preview.properties.reforecast = obj({ kind: en("ACTUAL_REFORECAST"), sourceVer
   originalValuationDate: str, originalRetirementMonth: str, throughMonth: str,
   actualRevisions: arr(obj({period:str,revision:num,closingBalance:decimal})) });
 s.Preview.properties.futureChanges = arr(schema(require('../src/modules/actuals/schema').futureChangeSchema));
+s.Preview.properties.surveyGoalCashflows = arr(obj({ id: str, month: str, amount: decimal }));
 s.Preview.properties.sourceChanges = arr(schema(require('../src/modules/actuals/schema').sourceChangeSchema));
 s.Preview.properties.capitalSeparation = ref("CapitalSeparation");
 Object.assign(s.Preview.properties, { lossConstraint: ref("LossConstraint"), essentialCoverage: ref("EssentialCoverage"),

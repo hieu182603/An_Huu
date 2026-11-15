@@ -19,6 +19,7 @@ import { assessLossConstraint } from "../capital/loss-constraint";
 import { protectCashflows, type Protection } from "./protected-capital";
 import { resolveYearSeries } from "../assumptions/series";
 import {protectedGoals} from "./protected-goals";
+import { surveyGoalExpenses } from "./survey-goals";
 
 type Issue = { path: string; code: string };
 const monthIndex = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1;
@@ -29,6 +30,13 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
   const issues: Issue[] = [], warnings: Issue[] = [];
   const issue = (path: string, code: string) => issues.push({ path, code });
   const fail = () => ({ status: "INCOMPLETE" as const, issues: unique(issues), warnings: unique(warnings), calculation: null, replayInput: null });
+  if (input.planningReaction) {
+    const declared = data.lossTolerance?.reaction;
+    if (declared?.status !== "KNOWN" || declared.value !== input.planningReaction) {
+      issue("planningReaction", "DECLARED_REACTION_REQUIRED"); return fail();
+    }
+    warnings.push({ path: "planningReaction", code: "PLANNING_REFERENCE_NOT_SUITABILITY" });
+  }
   if (input.whatIf) {
     warnings.push({ path: "whatIf", code: "HYPOTHETICAL_VALUES_PROFILE_UNCHANGED" });
     if (input.whatIf.retirementMonth) data.personal.desiredRetirementMonth = { status: "KNOWN", value: input.whatIf.retirementMonth };
@@ -44,7 +52,8 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     if (issues.length) return fail();
   }
   if (data.personal.desiredRetirementMonth.status !== "KNOWN") { issue("personal.desiredRetirementMonth", "RETIREMENT_MONTH_REQUIRED"); return fail(); }
-  const firstMonth = data.valuationDate.slice(0, 7), retirementMonth = data.personal.desiredRetirementMonth.value;
+  const firstMonth = data.valuationDate.slice(0, 7), declaredRetirementMonth = data.personal.desiredRetirementMonth.value;
+  const retirementMonth = data.quickStartSurvey && declaredRetirementMonth < firstMonth ? firstMonth : declaredRetirementMonth;
   const contributionStartMonth = input.contributionTiming === "START_OF_MONTH" && !data.valuationDate.endsWith("-01") ? addMonths(firstMonth, 1) : firstMonth;
   if (input.contributionTiming === "START_OF_MONTH" && !input.startOfMonthFunding)
     issue("startOfMonthFunding", "START_OF_MONTH_FUNDING_CONFIRMATION_REQUIRED");
@@ -64,7 +73,7 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     answers: input.answers, liquidityNeedMonths: input.liquidityNeedMonths, ...(input.templateId ? { templateId: input.templateId } : {}),
     ...(input.customAllocation ? { customAllocation: input.customAllocation } : {}),
     // Glide-path (schema v2) policies de-risk toward this month; v1 policies ignore it.
-    retirementMonth }, input.scenario, cache);
+    retirementMonth }, input.scenario, cache, input.planningReaction);
   if (portfolio.status !== "READY") { issues.push(...portfolio.issues); return fail(); }
   const scenario = portfolio.scenarios.find(s => s.kind === input.scenario)!;
   if (input.customAllocation) {
@@ -78,6 +87,8 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
   // the published real-to-nominal return conversion is performed exactly once.
   const scenarioAssumptions: AssumptionDocument = { ...assumptions, inflation: assumptions.inflation.map(r => ({ ...r,
     percent: new D(r.percent).plus(scenario.changes.find(c => c.year === r.year)!.inflationDeltaPoints).toFixed() })) };
+  const surveyGoals = surveyGoalExpenses(data, scenarioAssumptions, input.endMonth, Boolean(input.allocationFunding));
+  issues.push(...surveyGoals.issues);
   const summary = profileV2Summary(data);
   let initialCapital = summary.values.retirementLiquidAssets;
   let protection: Protection | undefined;
@@ -230,7 +241,10 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     const rent = rents.filter(r => r.start <= month).reduce((s, r) => s.plus(r.amount), new D(0));
     const income = (cash.income ?? new D(0)).plus(rent), debt = debtRows.get(month) ?? new D(0);
     const living = retired ? new D(input.monthlyExpenseToday).mul(inflationIndex) : cash.expenses ?? new D(0);
-    const extraExpense = retired ? cash.expenses ?? new D(0) : new D(input.monthlyReserve);
+    const goalExpense = surveyGoals.entries.filter(g => g.month === month).reduce((sum, g) => sum.plus(g.amount), new D(0));
+    const support = retired && data.quickStartSurvey ? profileMonthlyCashflow({ income: { status: "KNOWN", entries: [] },
+      expenses: { status: "KNOWN", entries: expenseEntries.filter(e => e.category === "DEPENDENT" && input.retirementAdditionalExpenseIds.includes(e.id)) } }, month).expenses ?? new D(0) : new D(0);
+    const extraExpense = (retired ? cash.expenses ?? new D(0) : new D(input.monthlyReserve)).plus(support.mul(inflationIndex.minus(1))).plus(goalExpense);
     const remaining = income.plus(pension).minus(living).minus(extraExpense).minus(debt);
     const planned = new D(retired ? input.retirementContributionSchedule.find(r => r.month === month)?.amount ?? "0"
       : input.contributionSchedule.find(r => r.month === month)?.amount ?? input.monthlyContribution);
@@ -253,7 +267,8 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     terminalBalance: input.terminalBalance, monthlyContribution: input.monthlyContribution, contributionTiming: input.contributionTiming,
     rows: applyAdvisoryFee(fundedRows, initialCapital, retirementMonth, input),...(protection?{protection}:{}) };
   return { status: "READY" as const, issues: [], warnings: unique(warnings), replayInput,
-    calculation: { ...projectRetirement(replayInput), netWorth: summary.values.netWorth,
+    ...(data.quickStartSurvey ? { surveyGoalCashflows: surveyGoals.entries } : {}),
+    calculation: { ...projectRetirement(replayInput), ...(input.planningReaction ? {suitability:"NOT_ASSESSED" as const,planningBasis:"PUBLISHED_REACTION_REFERENCE" as const}:{}), netWorth: summary.values.netWorth,
       assessment: portfolio.assessment, marketRows: scenario.rows, scenario: { kind: scenario.kind, label: scenario.label, evidence: scenario.evidence, changes: scenario.changes },
       legalRetirementAge: legalRetirementAge(data.personal, data.valuationDate),
       limitations: ["DETERMINISTIC_NOT_SUCCESS_PROBABILITY", "INITIAL_ALLOCATION_COST_NOT_MODELED",

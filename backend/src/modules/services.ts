@@ -2,6 +2,7 @@ import { RecommendationService } from "./recommendation/service";
 import { HoldingsRepository } from "./holdings/repository";
 import type { PrismaClient } from "@prisma/client";
 import type { AppConfig } from "../config/env";
+import { setTransactionTimeout } from "../common/transaction";
 import { AuthService } from "./auth/service";
 import { ProfileService } from "./profiles/service";
 import { getIO } from "../config/socket";
@@ -32,6 +33,7 @@ import { MarketDataService } from "./allocation-risk/market-service";
 import { AllocationRiskService } from "./allocation-risk/service";
 import { ExplanationsService } from "./explanations/service";
 export function createServices(db: PrismaClient, config: AppConfig) {
+  setTransactionTimeout(config.DB_TRANSACTION_TIMEOUT_MS);
   const settings = new SystemSettingsService(db);
   // Two workers even on a single vCPU (Azure B1): a plain preview then runs beside a long
   // adjustment search instead of queueing behind it. Override with PREVIEW_WORKERS.

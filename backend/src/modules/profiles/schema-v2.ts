@@ -7,6 +7,7 @@ import { buildContractSchedule } from "../debts/loan";
 import { retirementGoalValues } from "./retirement-goal";
 import { pensionSchema, retirementConditionSchema } from "../pensions/schema";
 import { ratePercentSchema } from "../assumptions/schema";
+import { quickStartSurveySchema } from "./quick-start-schema";
 export { dateSchema, monthSchema } from "../../common/calendar";
 const PreciseDecimal = Prisma.Decimal.clone({ precision: 48 });
 // Zod still runs refinements after a field fails its own check, so a malformed value
@@ -91,6 +92,7 @@ export const collectionSchema = <T extends z.ZodTypeAny>(entry: T) => z.discrimi
   z.object({ status: z.literal("KNOWN"), entries: z.array(entry).max(200) }).strict(), unknown, notApplicable,
 ]);
 const personalV2 = z.object({
+  birthDate: dateSchema.optional(),
   birthMonth: knownOrUnknown(monthSchema), desiredRetirementMonth: knownOrUnknown(monthSchema), pensionStartMonth: optionalMonth,
   gender: z.enum(["MALE", "FEMALE", "OTHER", "UNDISCLOSED"]).optional(),
   retirementCondition: retirementConditionSchema.optional(),
@@ -107,6 +109,7 @@ export const goalEntrySchema = z.object({
   deferrable: knownOrUnknown(z.boolean()),
 }).strict();
 export const profileV2Object = z.object({
+  quickStartSurvey: quickStartSurveySchema.optional(),
   schemaVersion: z.literal(2), valuationDate: dateSchema, currency: z.literal("VND").default("VND"), periodUnit: z.literal("MONTH"),
   personal: personalV2, income: collectionSchema(incomeEntrySchema), expenses: collectionSchema(expenseEntrySchema),
   assets: collectionSchema(assetEntrySchema), debts: collectionSchema(debtEntrySchema),
@@ -118,8 +121,12 @@ export const profileV2Object = z.object({
     answers: z.array(z.object({ questionId: z.string().min(1).max(191), choiceId: z.string().min(1).max(191) }).strict()).min(1).max(100)
       .refine(items => new Set(items.map(item => item.questionId)).size === items.length, "Mỗi câu hỏi chỉ có một câu trả lời."),
   }).strict().optional(),
-  lossTolerance: z.object({ amountVnd: amountSchema.optional(), percent: knownOrUnknown(lossPercent).optional(),
+  lossTolerance: z.object({ inputMode: z.enum(["PERCENT", "AMOUNT"]).optional(), amountVnd: amountSchema.optional(), percent: knownOrUnknown(lossPercent).optional(),
     reaction: knownOrUnknown(z.enum(["SELL", "HOLD", "BUY_MORE"])).optional() }).strict().optional(),
+  reserveMonths: z.number().int().min(6).max(12).optional(),
+  allocationCapital: z.object({ basis: z.enum(["PROFILE", "TOTAL"]), totalAmount: moneySchema.optional() }).strict().superRefine((value, ctx) => {
+    if (value.basis === "TOTAL" && value.totalAmount === undefined) ctx.addIssue({ code: "custom", path: ["totalAmount"], message: "Nhập tổng vốn có thể đầu tư hôm nay." });
+  }).optional(),
   incomeStability: knownOrUnknown(z.enum(["STABLE", "VARIABLE", "UNCERTAIN"])).optional(),
   employerConcentration: knownOrUnknown(z.enum(["LOW", "MEDIUM", "HIGH"])).optional(),
   liquidityNeeds: z.object({ y1: amountSchema.optional(), y3: amountSchema.optional(), y5: amountSchema.optional() }).strict().optional(),
@@ -215,6 +222,8 @@ function referencesCheck(data: z.infer<typeof profileV2Object> | z.infer<typeof 
     });
   }
   const birth = data.personal?.birthMonth;
+  if (data.personal?.birthDate && birth?.status === "KNOWN" && data.personal.birthDate.slice(0, 7) !== birth.value)
+    issue(["personal", "birthDate"], "Ngày sinh phải cùng tháng sinh đã khai.");
   const retirement = data.personal?.desiredRetirementMonth;
   if (birth?.status === "KNOWN" && data.valuationDate && birth.value > data.valuationDate.slice(0, 7))
     ctx.addIssue({ code: "custom", path: ["personal", "birthMonth"], message: "Tháng sinh không thể sau ngày định giá." });

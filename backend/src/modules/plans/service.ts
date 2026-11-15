@@ -21,6 +21,7 @@ import { readSourceSnapshot, serializeSourceSnapshot, type SourceSnapshot } from
 import { sourceReforecastSchema, saveSourceReforecastSchema } from "./source-schema";
 import { PensionEstimateService } from "../pensions/estimate-service";
 import { planHorizonWarnings } from "./read-warnings";
+import { separateCapital } from "../capital/separation";
 
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonObject;
 // PostgreSQL JSONB reorders object keys; integrity must not depend on that order.
@@ -31,7 +32,7 @@ const planView = (p: RetirementPlan) => ({ id: p.id, userId: p.userId, revision:
 type Capture = Awaited<ReturnType<RetirementService["capture"]>>;
 type Preview = PlanPreview;
 type Snapshot = { format: typeof SNAPSHOT_FORMAT; capture: Capture; preview: Preview; integrityHash: string };
-type VersionSummaryRow = { id: string; version: number; createdAt: Date; profileRevision: number; snapshotHash: string;
+type VersionSummaryRow = { id: string; version: number; createdAt: Date; profileRevision: number; snapshotHash: string; birthMonth: string | null;
   references: Preview["references"]; summary: NonNullable<Preview["calculation"]>["summary"] };
 const modelRelease = { code: RETIREMENT_MODEL, snapshotFormat: SNAPSHOT_FORMAT, arithmeticPrecision: 48,
   contributionTiming: ["END_OF_MONTH", "START_OF_MONTH"], surplusPolicy: "EXPLICIT_DEPOSITS_ONLY",
@@ -62,8 +63,27 @@ export class PlansService {
   }
   private view(row: PlanVersion) {
     const snapshot = this.snapshot(row);
+    const profile = snapshot.capture.profile, overrides = snapshot.preview.selection.whatIf?.assetValues;
+    const capitalProfile = overrides?.length && profile.assets.status === "KNOWN" ? { ...profile,
+      assets: { ...profile.assets, entries: profile.assets.entries.map(asset => {
+        const override = overrides.find(value => value.assetId === asset.id);
+        return override ? { ...asset, value: { status: "KNOWN" as const, value: override.value } } : asset;
+      }) } } : profile;
+    let capitalSeparation = separateCapital(capitalProfile, snapshot.capture.assumptions.data);
+    // Older protected projections pinned a 9/12-month reserve inferred from
+    // stability. Display that saved basis without changing its replay inputs.
+    const pinnedReserve = snapshot.preview.replayInput?.protection?.emergencyReserve;
+    if (capitalProfile.reserveMonths === undefined && pinnedReserve !== undefined &&
+      capitalSeparation.essentialMonthlyExpense && new Prisma.Decimal(capitalSeparation.essentialMonthlyExpense).gt(0)) {
+      const months = new Prisma.Decimal(pinnedReserve).div(capitalSeparation.essentialMonthlyExpense);
+      if (months.isInteger() && months.gte(6) && months.lte(12))
+        capitalSeparation = separateCapital({ ...capitalProfile, reserveMonths: months.toNumber() }, snapshot.capture.assumptions.data);
+    }
     return { id: row.id, planId: row.planId, version: row.version, createdAt: row.createdAt.toISOString(),
-      profileRevision: row.profileRevision, snapshotHash: snapshot.integrityHash, preview: snapshot.preview };
+      profileRevision: row.profileRevision, snapshotHash: snapshot.integrityHash,
+      birthMonth: snapshot.capture.profile.personal.birthMonth.status === "KNOWN" ? snapshot.capture.profile.personal.birthMonth.value : null,
+      // Derive presentation metadata from pinned inputs, never today's profile or rates.
+      preview: { ...snapshot.preview, capitalSeparation } };
   }
   private async readWarnings(userId: string, row: PlanVersion | null) {
     if (!row) return {};
@@ -204,10 +224,11 @@ export class PlansService {
     const q = planListSchema.parse(query);
     const [, total, rows] = await Promise.all([this.owned(this.db, userId, planId), this.db.planVersion.count({ where: { planId } }),
       this.db.$queryRaw<VersionSummaryRow[]>`SELECT id, version, "createdAt", "profileRevision",
-        "inputSnapshot"->>'integrityHash' AS "snapshotHash", "inputSnapshot"->'preview'->'references' AS "references", "result"->'summary' AS "summary"
+        "inputSnapshot"->>'integrityHash' AS "snapshotHash", "inputSnapshot"->'preview'->'references' AS "references", "result"->'summary' AS "summary",
+        CASE WHEN "inputSnapshot"#>>'{capture,profile,personal,birthMonth,status}' = 'KNOWN' THEN "inputSnapshot"#>>'{capture,profile,personal,birthMonth,value}' ELSE NULL END AS "birthMonth"
         FROM plan_versions WHERE "planId" = ${planId} ORDER BY version DESC OFFSET ${(q.page - 1) * q.limit} LIMIT ${q.limit}`]);
     return { ...q, total, items: rows.map(row => ({ id: row.id, version: row.version, createdAt: row.createdAt.toISOString(),
-      profileRevision: row.profileRevision, snapshotHash: row.snapshotHash, references: row.references, summary: row.summary })) };
+      profileRevision: row.profileRevision, snapshotHash: row.snapshotHash, references: row.references, summary: row.summary, birthMonth: row.birthMonth })) };
   }
   private async ownedVersion(userId: string, planId: string, versionId: string) {
     const [plan, row] = await Promise.all([this.owned(this.db, userId, planId), this.db.planVersion.findFirst({ where: { id: versionId, planId } })]);

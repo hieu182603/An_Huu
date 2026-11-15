@@ -27,7 +27,7 @@ async function publishMarket(service: MarketDataService, data = marketFixture())
   await service.approve("admin", d.id, { expectedRevision: 1, reviewNote: "Fixture approval", confirm: true });
   return service.publish("admin", d.id, { expectedRevision: 2, confirm: true });
 }
-async function setupRisk(initial = "0", zeroLossTolerance = false) {
+async function setupRisk(initial = "0", zeroLossTolerance = false, simulationPaths?: number) {
   const f = memoryDb(), assumptions = new AssumptionsService(f.db), portfolios = new PortfoliosService(f.db);
   const a = portfolioAssumptionsFixture();
   a.assetClasses.push({ code: "CASH", label: "Fixture deposit", horizons: [{ id: "ALL", minMonths: 1, maxMonths: 1200 }] });
@@ -38,6 +38,7 @@ async function setupRisk(initial = "0", zeroLossTolerance = false) {
   const policy = glidePortfolioFixture(av.id);
   policy.scenarios.forEach(s => s.years.forEach(y => y.returns.push({ assetClass: "CASH", deltaPoints: "0" })));
   policy.allocationRisk = { evidence: "Test only policy", blockMonths: 12, cvarAlpha: "0.95", essentialThreshold: "0.90", equityShiftPoints: "10", rebalanceBandPoints: "5", stresses: { LONGEVITY: { extraYears: [5, 10] } } };
+  if (simulationPaths !== undefined) policy.allocationRisk.simulationPaths = simulationPaths;
   policy.lossStress = { evidence: "Fixture shocks only", equityAssetClass: "STOCK", depositAssetClass: "BOND",
     shocks: [{ assetClass: "BOND", percent: "0" }, { assetClass: "STOCK", percent: "-35" }, { assetClass: "CASH", percent: "0" }] };
   const pv = await portfolios.create("admin", policy);
@@ -59,6 +60,11 @@ async function setupRisk(initial = "0", zeroLossTolerance = false) {
   return { ...f, risk, preview, market, profiles, policyId: pv.id };
 }
 describe("P2 market document workflow (memory DB only)", () => {
+  it("uses the published simulation count instead of a user-supplied count", async () => {
+    const f = await setupRisk("0", false, 7);
+    const result = await f.risk.run("test-user", { plan: { kind: "PREVIEW", preview: f.preview }, paths: 1 }, "simulation");
+    expect(result).toMatchObject({ status: "READY", paths: 7 });
+  });
   it("enforces draft/revision/approval/publication and canonical hashes across JSONB key order", async () => {
     const f = memoryDb(), svc = new MarketDataService(f.db), data = marketFixture();
     const d = await svc.create("admin", data);

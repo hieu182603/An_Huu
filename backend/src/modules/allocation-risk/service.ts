@@ -117,9 +117,10 @@ export class AllocationRiskService {
     const reference = { marketVersionId: dataset.id, marketVersion: dataset.version, marketHash: dataset.documentHash,
       inputHash: preview.inputHash, ...preview.references, informationalOnly: true, persisted: false };
     const context = contextOf(capture, preview), policy = capture.policy.data.schemaVersion === 2 ? capture.policy.data.allocationRisk : undefined;
+    const paths = policy?.simulationPaths ?? input.paths;
     if (!context) return { ...reference, ...review("CLASSIFIED_SERVER_CASHFLOWS_AND_COMPLETE_PROJECTION_REQUIRED") };
     const deadline = performance.now() + LIMITS.maxRuntimeMs;
-    if (mode === "simulation") return { ...reference, ...await simulate(context, dataset.data, policy, input.paths, deadline, input.detail) };
+    if (mode === "simulation") return { ...reference, ...await simulate(context, dataset.data, policy, paths, deadline, input.detail) };
     if (mode === "scenarios") {
       const propertyInjections = preview.reforecast ? undefined : (capture.profile.assets.status === "KNOWN" ? capture.profile.assets.entries : []).flatMap(a => {
         const plan = a.housingPlan, mapping = preview.selection.housing.find(h => h.assetId === a.id);
@@ -172,7 +173,7 @@ export class AllocationRiskService {
         changePoints: trialContext.targets[0].reduce((sum,row)=>sum.plus(new D(row.weightPercent).minus(context.targets[0].find(r=>r.assetClass===row.assetClass)?.weightPercent??0).abs()),new D(0)).toFixed() });
     }
     const scores = [], rejected = [];
-    if (input.paths * context.projection.rows.length * candidates.length > LIMITS.maxPathMonths)
+    if (paths * context.projection.rows.length * candidates.length > LIMITS.maxPathMonths)
       return { ...reference, status: "LIMIT_EXCEEDED" as const, issues: ["CANDIDATE_PATH_MONTH_LIMIT"], limits: LIMITS };
     for (const candidate of candidates) {
       if (!candidate.valid) { rejected.push({ id: candidate.id, issues: ["INVALID_WEIGHTS"] }); continue; }
@@ -183,7 +184,7 @@ export class AllocationRiskService {
         t.map(a => ({ assetClass: a.assetClass, startWeightPercent: a.weightPercent }))));
       if (checks.some(c => c.status === "REVIEW_REQUIRED")) return { ...reference, ...review("LOSS_CONSTRAINT_INPUTS_REQUIRED") };
       if (checks.some(c => c.status !== "WITHIN_LIMIT")) { rejected.push({ id: candidate.id, issues: ["LOSS_CONSTRAINT_EXCEEDED"] }); continue; }
-      const result = await simulate({ ...context, targets: candidate.targets }, dataset.data, policy, input.paths, deadline, input.detail);
+      const result = await simulate({ ...context, targets: candidate.targets }, dataset.data, policy, paths, deadline, input.detail);
       if (result.status !== "READY") return { ...reference, ...result };
       let selection: {templateId:string;customAllocation?:CustomAllocation}|null=null;
       const templateId=context.selection.templateId??preview.calculation?.assessment.selectedTemplateId;

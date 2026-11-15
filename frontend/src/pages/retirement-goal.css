@@ -58,3 +58,9 @@
   .goal-main-form input:not([type=checkbox]), .goal-main-form select { font-size: 16px; }
   .goal-form-footer .overview-button { flex: 1 1 auto; }
 }
+
+.goal-sync-timeline li { position:relative; }
+.goal-sync-timeline li::before { content:""; position:absolute; top:-6px; left:0; width:10px; height:10px; border-radius:50%; background:#334daf; }
+.goal-main-form .goal-retirement-expense .profile-formatted-field > .input-wrap > input { text-align:right; padding-right:48px; }
+.goal-main-form .goal-retirement-expense .profile-formatted-field .input-suffix { background:transparent; border:0; border-radius:0; text-transform:none; }
+.goal-main-form .goal-retirement-expense .profile-formatted-field > .money-words { color:#334DAF; font-size:12px; }

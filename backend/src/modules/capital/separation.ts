@@ -15,7 +15,7 @@ export const capitalSeparationSchema = z.object({
   requiredEmergencyReserve: decimal.nullable(), declaredEmergencyReserve: decimal.nullable(), emergencyShortfall: decimal.nullable(),
   retirementLiquidAssets: decimal.nullable(), nearTermGoalsPresentValue: decimal.nullable(), growthCapital: decimal.nullable(),
   investableLiquidAssets: decimal.nullable(), declaredOtherGoalsCapital: decimal.nullable(),
-  goals: z.array(z.object({ id: z.string(), dueMonth: z.string(), monthsUntilDue: z.number().int(),
+  goals: z.array(z.object({ id: z.string(), label: z.string(), dueMonth: z.string(), monthsUntilDue: z.number().int(),
     treatment: z.enum(["RESERVED", "LONG_TERM"]), futureAmount: decimal.nullable(), presentValue: decimal.nullable(),
     inflationBasis: z.enum(["GOAL_SPECIFIC", "PINNED_ASSUMPTIONS"]),
     inflationSourceIds: z.array(z.string()), depositSourceIds: z.array(z.string()),
@@ -24,8 +24,8 @@ export const capitalSeparationSchema = z.object({
 export type CapitalSeparation = z.infer<typeof capitalSeparationSchema>;
 const monthIndex = (m: string) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7));
 
-/** Supplementary allocation only. Never changes fund capital, projection inputs,
- * cashflows or stored snapshots. No database, current clock or financial defaults. */
+/** Pure separation shared by presentation and protected-fund projections.
+ * Never mutates profiles, cashflows or snapshots; no database, clock or rate fallback. */
 export function separateCapital(profile: ProfileV2, assumptions: AssumptionDocument): CapitalSeparation {
   const data = profileV2Schema.parse(profile), month = data.valuationDate.slice(0, 7);
   const issues: CapitalSeparation["issues"] = [], warnings: CapitalSeparation["warnings"] = [];
@@ -43,16 +43,18 @@ export function separateCapital(profile: ProfileV2, assumptions: AssumptionDocum
   // The three declared purposes partition the same owned liquid assets. Reserve
   // against their combined pool, not the retirement portion already net of the
   // other two purposes. Unknown allocations must not become an assumed zero.
-  const investableLiquidAssets = retirementLiquidAssets !== null && declaredEmergencyReserve !== null && declaredOtherGoalsCapital !== null
+  const investableLiquidAssets = data.allocationCapital?.basis === "TOTAL" ? data.allocationCapital.totalAmount! : retirementLiquidAssets !== null && declaredEmergencyReserve !== null && declaredOtherGoalsCapital !== null
     ? new D(retirementLiquidAssets).plus(declaredEmergencyReserve).plus(declaredOtherGoalsCapital).toFixed() : null;
+  if (data.allocationCapital?.basis === "TOTAL") warnings.push({ path: "allocationCapital", code: "USER_DECLARED_ALLOCATION_CAPITAL" });
   const essentialIndexes = data.expenses.status === "KNOWN"
     ? data.expenses.entries.flatMap((entry, index) => entry.category === "ESSENTIAL" ? [index] : []) : [];
   const cash = profileMonthlyCashflow({ income: { status: "KNOWN", entries: [] }, expenses: data.expenses.status === "KNOWN"
     ? { ...data.expenses, entries: data.expenses.entries.filter(e => e.category === "ESSENTIAL") } : data.expenses }, month);
   cash.issues.forEach(i => issue(i.path.replace(/^expenses\.entries\.(\d+)/, (_, index) => `expenses.entries.${essentialIndexes[Number(index)]}`), i.code));
   const essentialMonthlyExpense = cash.expenses?.toFixed() ?? null;
-  const reserveMonths = data.incomeStability?.status === "KNOWN" ? { STABLE: 6, VARIABLE: 9, UNCERTAIN: 12 }[data.incomeStability.value] : null;
-  if (reserveMonths === null) issue("incomeStability", "INCOME_STABILITY_REQUIRED");
+  // One rule for allocation, protected projections and presentation. Income
+  // stability is a separate fact and must not choose the reserve for the user.
+  const reserveMonths = data.reserveMonths ?? 6;
   const requiredEmergencyReserve = reserveMonths !== null && essentialMonthlyExpense !== null ? new D(essentialMonthlyExpense).mul(reserveMonths).toFixed() : null;
   const emergencyShortfall = requiredEmergencyReserve !== null && declaredEmergencyReserve !== null
     ? D.max(0, new D(requiredEmergencyReserve).minus(declaredEmergencyReserve)).toFixed() : null;
@@ -69,7 +71,7 @@ export function separateCapital(profile: ProfileV2, assumptions: AssumptionDocum
     const path = `goals.${goal.id}`;
     if (goal.dueMonth.status !== "KNOWN") { goalIssue(`${path}.dueMonth`, "GOAL_DUE_MONTH_REQUIRED"); continue; }
     const months = monthIndex(goal.dueMonth.value) - monthIndex(month);
-    const row: CapitalSeparation["goals"][number] = { id: goal.id, dueMonth: goal.dueMonth.value, monthsUntilDue: months,
+    const row: CapitalSeparation["goals"][number] = { id: goal.id, label: goal.label, dueMonth: goal.dueMonth.value, monthsUntilDue: months,
       treatment: months <= 60 ? "RESERVED" : "LONG_TERM", futureAmount: null, presentValue: null,
       inflationBasis: goal.inflation ? "GOAL_SPECIFIC" : "PINNED_ASSUMPTIONS", inflationSourceIds: [], depositSourceIds: [] };
     goals.push(row);

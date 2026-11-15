@@ -28,6 +28,7 @@ Packages:
           - assetClass
           - weightPercent
           - amountVnd
+          - minimumNeededVnd
           - status
           - a
           - b
@@ -35,6 +36,9 @@ Packages:
           assetClass: *a1
           weightPercent: *a1
           amountVnd:
+            type: string
+            nullable: true
+          minimumNeededVnd:
             type: string
             nullable: true
           status: *a1
@@ -498,6 +502,8 @@ Result:
             properties:
               id:
                 type: string
+              label:
+                type: string
               dueMonth:
                 type: string
               monthsUntilDue:
@@ -538,6 +544,7 @@ Result:
                   type: string
             required:
               - id
+              - label
               - dueMonth
               - monthsUntilDue
               - treatment

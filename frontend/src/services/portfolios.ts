@@ -71,8 +71,9 @@ export interface PortfolioRule {
 }
 
 export interface PortfolioPolicyDocument {
+  quickStartTemplates?: { evidence: string; SELL: string; HOLD: string; BUY_MORE: string };
   customization?: CustomizationPolicy;
-  allocationRisk?: {essentialThreshold?:string;allGoalsThreshold?:string};
+  allocationRisk?: {simulationPaths?:number;essentialThreshold?:string;allGoalsThreshold?:string};
   schemaVersion: 1 | 2;
   title: string;
   reason: string;

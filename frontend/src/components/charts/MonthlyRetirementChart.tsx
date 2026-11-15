@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n";
 import type { RetirementRow, RetirementSummary } from "../../services/retirement";
 import { formatMonthVN } from "../../utils/date";
-import { formatMoneyDecimal } from "../../utils/moneyDisplay";
+import { formatMoneyDecimal, formatCompactMoneyDecimal } from "../../utils/moneyDisplay";
+import { illustrativeRetirementEnd } from "../../utils/retirementHorizon";
 
 interface MonthlyRetirementChartProps {
   rows: RetirementRow[];
@@ -12,6 +13,7 @@ interface MonthlyRetirementChartProps {
   responsive?: boolean;
   comparisonRows?: RetirementRow[];
   comparisonLabel?: string;
+  showGapNarrative?: boolean;
 }
 
 export type ChartFilterMode = "annual" | "all-months" | "first-5y" | "retirement-phase";
@@ -19,7 +21,7 @@ export type ChartFilterMode = "annual" | "all-months" | "first-5y" | "retirement
 function formatCompactCurrency(val: number): string {
   const n = Number(val) || 0;
   if (Math.abs(n) >= 1e9) {
-    const v = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n / 1e9);
+    const v = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(n / 1e9);
     return `${v} tỷ ₫`;
   }
   if (Math.abs(n) >= 1e6) {
@@ -45,7 +47,7 @@ function formatAxisCompact(val: number): string {
     const v = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(n / 1e6);
     return `${v} triệu`;
   }
-  return `${new Intl.NumberFormat("vi-VN").format(Math.round(n))} ₫`;
+  return n === 0 ? "0" : `${new Intl.NumberFormat("vi-VN").format(Math.round(n))} ₫`;
 }
 
 function formatFullVnd(val: string | number | null | undefined, en: boolean): string {
@@ -81,7 +83,7 @@ function rowOpening(r: RetirementRow | undefined): number {
   return Number(r.openingBalance ?? (r as any).openingFund ?? rowClosing(r));
 }
 
-export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, responsive = false, comparisonRows, comparisonLabel }: MonthlyRetirementChartProps) {
+export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, responsive = false, comparisonRows, comparisonLabel, showGapNarrative = true }: MonthlyRetirementChartProps) {
   const { language } = useI18n();
   const isEn = language === "en";
   const frame = useRef<HTMLDivElement>(null);
@@ -136,6 +138,8 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
 
   const requiredAtRetirement = Number(summary.atRetirement?.requiredFund || 0);
   const projectedAtRetirement = Number(summary.atRetirement?.projectedFund ?? rowClosing(retRow));
+  const hasGap = Number(summary.atRetirement?.fundingGap) > 0;
+  const endsAt85 = Boolean(birthMonth && lastRow.month === illustrativeRetirementEnd(birthMonth));
   const initialFund = rowOpening(firstRow);
 
   const maxBalance = (() => {
@@ -285,34 +289,26 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
           />
           <circle cx={selX} cy={selY} r="5.5" fill="#173a6a" stroke="#fff" strokeWidth="2" />
 
-          <text x={pad.l} y={H - 14} fill="#5e7285" fontSize="11">
-            {startAge === null ? formatMonthVN(firstRow.month) : `${startAge} ${isEn ? "yrs" : "tuổi"}`}
-          </text>
-          {W >= 500 && retX-pad.l>=110 && W-pad.r-retX>=110 && <text x={retX} y={H - 14} textAnchor="middle" fill="#173a6a" fontSize="11" fontWeight="700">
-            {retAge === null ? (isEn ? "Retirement" : "Nghỉ hưu") : isEn ? `Retire · ${retAge} yrs` : `Nghỉ hưu · ${retAge} tuổi`}
-          </text>}
-          <text x={W - pad.r} y={H - 14} textAnchor="end" fill="#5e7285" fontSize="11">
-            {endAge === null ? formatMonthVN(lastRow.month) : `${endAge} ${isEn ? "yrs" : "tuổi"}`}
-          </text>
+          {startAge !== null && endAge !== null ? Array.from({length:Math.floor((endAge-startAge)/10)+1},(_,index)=>startAge+index*10).filter(age=>!endsAt85||age<82).map(age=>{
+            const index=rows.findIndex(row=>(ageAtMonth(row.month,birthYear,birthMonth)??-1)>=age);
+            return index<0?null:<text key={age} x={xOf(index)} y={H-14} textAnchor={age===startAge?"start":"middle"} fill="#5e7285" fontSize="11">{frameWidth<420?String(age):`${age} ${isEn?"yrs":"tuổi"}`}</text>;
+          }) : <><text x={pad.l} y={H-14} fill="#5e7285" fontSize="11">{formatMonthVN(firstRow.month)}</text><text x={W-pad.r} y={H-14} textAnchor="end" fill="#5e7285" fontSize="11">{formatMonthVN(lastRow.month)}</text></>}
+          {endsAt85 && <text x={W-pad.r} y={H-14} textAnchor="end" fill="#5e7285" fontSize="11">85 {isEn ? "yrs" : "tuổi"}</text>}
         </svg>
       </div>
 
-      <div
-        className="chart-phase-key"
-        aria-label={isEn ? "Phase legend" : "Chú giải giai đoạn"}
-        style={{ display: "flex", gap: "18px", flexWrap: "wrap", fontSize: "12px", color: "#4f6478", margin: "8px 0 14px" }}
-      >
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-          <i style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#225eaa", display: "inline-block" }} />
-          {retAge === null ? (isEn ? "Accumulate before retirement" : "Tích lũy trước nghỉ hưu") : isEn ? `Accumulate until age ${retAge}` : `Tích lũy đến ${retAge} tuổi`}
-        </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-          <i style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#7d5ba6", display: "inline-block" }} />
-          {isEn ? "Spend fund in retirement" : "Dùng quỹ khi nghỉ hưu"}
-        </span>
+      <div className="chart-phase-key" aria-label={isEn ? "Chart legend" : "Chú giải biểu đồ"} style={{display:"grid",gap:6,fontSize:12,margin:"8px 0 14px"}}>
+        <span className="chart-phase-accumulation"><i aria-hidden="true" />{isEn ? `Accumulation${retAge === null ? "" : ` until age ${retAge}`}` : `Tích lũy${retAge === null ? "" : ` đến ${retAge} tuổi`}`}</span>
+        <span className="chart-phase-retirement"><i aria-hidden="true" />{isEn ? "Using the fund in retirement" : "Dùng quỹ khi nghỉ hưu"}</span>
+        <span>━━ {isEn ? "Current plan" : "Phương án hiện tại"}</span>
+        {comparisonPoints&&<span>┄┄ {comparisonLabel??(isEn ? "Reference contribution option" : "Phương án theo mức góp tham chiếu")}</span>}
+        {showGapNarrative && <section className="plan-gap-explanation">
+          <h4>{hasGap ? (isEn ? "Funding gap to plan for" : "Khoảng thiếu hụt cần lên kế hoạch bù đắp") : (isEn ? "The projected fund meets the goal" : "Quỹ dự kiến đáp ứng mục tiêu")}</h4>
+          <p>{retAge !== null ? (isEn ? `At age ${retAge}, ` : `Ở tuổi ${retAge}, `) : (isEn ? "At retirement, " : "Khi nghỉ hưu, ")}
+            {isEn ? "the projected fund is " : "quỹ dự kiến "}<strong>{formatCompactMoneyDecimal(summary.atRetirement?.projectedFund ?? null, isEn)}</strong>{hasGap ? <>{isEn ? "; the remaining gap is " : "; còn thiếu "}<strong>{formatCompactMoneyDecimal(summary.atRetirement?.fundingGap ?? null, isEn)}</strong>. {isEn ? "Preparation time remaining: " : "Bạn còn "}{Math.floor(summary.accumulationMonths / 12)} {isEn ? "years" : "năm"}{summary.accumulationMonths % 12 ? ` ${summary.accumulationMonths % 12} ${isEn ? "months" : "tháng"}` : ""}{isEn ? "." : " để chuẩn bị."}</> : <>{isEn ? ", sufficient for the goal of " : ", đủ so với mục tiêu "}<strong>{formatCompactMoneyDecimal(summary.atRetirement?.requiredFund ?? null, isEn)}</strong>.</>}</p>
+          <small>{isEn ? "The projection includes contributions and assumed growth in this result. It is not a guaranteed investment return." : "Số dự kiến đã gồm khoản góp và tăng trưởng giả định trong kết quả này. Đường trên biểu đồ không bảo đảm kết quả đầu tư."}</small>
+        </section>}
       </div>
-
-      {comparisonPoints&&<p className="chart-comparison-legend"><span aria-hidden="true">┄</span> {comparisonLabel??(isEn?"Reference contribution option":"Phương án theo mức góp tham chiếu")}</p>}
       <div
         className="chart-inspector"
         style={{
@@ -397,7 +393,7 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
             cursor: "pointer",
           }}
         >
-          {isEn ? `Start · ${formatCompactCurrency(initialFund)}` : `Bắt đầu · ${formatCompactCurrency(initialFund)}`}
+          {isEn ? "Start" : "Bắt đầu"}
         </button>
         <button
           type="button"
@@ -414,13 +410,13 @@ export function MonthlyRetirementChart({ rows, summary, birthYear, birthMonth, r
           }}
         >
           {isEn
-            ? `Retire${retAge === null ? "" : ` · ${retAge} yrs`} · ${formatCompactCurrency(projectedAtRetirement)}`
-            : `Nghỉ hưu${retAge === null ? "" : ` · ${retAge} tuổi`} · ${formatCompactCurrency(projectedAtRetirement)}`}
+            ? `Retire${retAge === null ? "" : ` · ${retAge} yrs`}`
+            : `Nghỉ hưu${retAge === null ? "" : ` · ${retAge} tuổi`}`}
         </button>
         {firstShortfallRow ? <button type="button" className="chart-shortfall-jump" onClick={() => setSelectedIdx(rows.indexOf(firstShortfallRow))}>
           {isEn
-              ? `Shortfall starts ${formatMonthVN(firstShortfallRow.month)} · first month gap ${formatCompactCurrency(Number(firstShortfallRow.unfundedWithdrawal || 0))}`
-              : `Bắt đầu thiếu từ ${formatMonthVN(firstShortfallRow.month)} · thiếu tháng đầu ${formatCompactCurrency(Number(firstShortfallRow.unfundedWithdrawal || 0))}`}
+              ? `Shortfall starts ${formatMonthVN(firstShortfallRow.month)}`
+              : `Bắt đầu thiếu từ ${formatMonthVN(firstShortfallRow.month)}`}
         </button> : <span style={{ fontSize: "12px", color: "#536779", marginLeft: "4px" }}>{endAge === null ? (isEn ? `Projected through ${formatMonthVN(lastRow.month)}` : `Dự phóng đến ${formatMonthVN(lastRow.month)}`) : isEn ? `Lasts until age ${endAge} (${formatMonthVN(lastRow.month)})` : `Đủ dùng đến ${endAge} tuổi (${formatMonthVN(lastRow.month)})`}</span>}
       </div>
 

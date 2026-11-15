@@ -1,3 +1,4 @@
+import { afterPointerRelease } from "../utils/pointerRelease";
 import { useEffect, useId, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Input } from "./ui";
 import { useI18n } from "../i18n";
@@ -7,6 +8,7 @@ import "./profile-formatted-input.css";
 type Props = ComponentProps<typeof Input> & {
   format: "money" | "month" | "date";
   currency?: string;
+  hideDateHint?: boolean;
   onFocus?: React.FocusEventHandler<HTMLInputElement>;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
 };
@@ -17,26 +19,6 @@ function moneyText(value: string, vi: boolean, editing = false) {
   const [whole, fraction] = value.split(".");
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, vi ? "." : ",");
   return grouped + (fraction !== undefined && (editing || /[1-9]/.test(fraction)) ? `${vi ? "," : "."}${fraction}` : "");
-}
-
-// A blur caused by pressing elsewhere must not remove the quick-pick row until the press
-// ends: the row sits in the layout, so removing it mid-press moves the target and the click is lost.
-let pointerHeld = false;
-if (typeof document !== "undefined") {
-  document.addEventListener("pointerdown", () => { pointerHeld = true; }, true);
-  const release = () => { pointerHeld = false; };
-  document.addEventListener("pointerup", release, true);
-  document.addEventListener("pointercancel", release, true);
-}
-function afterPointerRelease(callback: () => void) {
-  if (!pointerHeld) { callback(); return; }
-  const done = () => {
-    document.removeEventListener("pointerup", done, true);
-    document.removeEventListener("pointercancel", done, true);
-    setTimeout(callback); // after the click that this release produces
-  };
-  document.addEventListener("pointerup", done, true);
-  document.addEventListener("pointercancel", done, true);
 }
 
 function dateText(value: string) {
@@ -53,7 +35,7 @@ function parseDate(text: string, monthOnly: boolean): string | null {
   return `${parts[0]}-${String(month).padStart(2, "0")}${monthOnly ? "" : `-${String(day).padStart(2, "0")}`}`;
 }
 
-export default function ProfileFormattedInput({ format, currency = "VND", label, value = "", onChange, helper, error, disabled, placeholder, min, max, onFocus, onBlur }: Props) {
+export default function ProfileFormattedInput({ format, currency = "VND", hideDateHint = false, label, value = "", onChange, helper, error, disabled, placeholder, min, max, onFocus, onBlur }: Props) {
   const { language } = useI18n();
   const vi = language !== "en";
   const id = useId();
@@ -70,7 +52,7 @@ export default function ProfileFormattedInput({ format, currency = "VND", label,
     ? (vi ? "Nhập số tiền không âm; dùng dấu phẩy nếu có phần thập phân." : "Enter a non-negative amount, using a dot for decimals.")
     : (vi ? `Nhập ${format === "month" ? "tháng/năm" : "ngày/tháng/năm"} hợp lệ.` : "Enter a valid date.");
   const message = invalid ? invalidMessage : error;
-  const hint = helper || (format === "money" ? undefined : dateHint);
+  const hint = helper || (format === "money" || hideDateHint ? undefined : dateHint);
 
   const numericValue = Number(value) || 0;
   const suggestions = useMemo(() => {
@@ -143,7 +125,7 @@ export default function ProfileFormattedInput({ format, currency = "VND", label,
           if (parsed !== null) setDraft(display(parsed.endsWith(".") ? parsed.slice(0, -1) : parsed));
           onBlur?.(event);
         }} />
-      {format === "money" ? <span className="input-suffix">{currency}</span> : <span className="profile-date-picker">
+      {format === "money" ? <span className="input-suffix">{currency === "VND" ? "₫" : currency}</span> : <span className="profile-date-picker">
         <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
         <input type={format} value={value} disabled={disabled} min={min} max={max}
           aria-label={`${vi ? "Mở lịch chọn" : "Open calendar for"} ${typeof label === "string" ? label.toLowerCase() : ""}`}

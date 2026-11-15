@@ -19,7 +19,7 @@ test("allocation reuses the saved goal and survey without a plan or browser draf
   await page.locator(".allocation-steps button").nth(1).click();
   await expect(page.locator(".allocation-protection").first()).toContainText("10.000.000");
   await page.locator(".allocation-steps button").nth(2).click();
-  await page.getByText("Chỉnh giả định nâng cao", { exact: true }).click();
+  await page.getByText("Giả định đang dùng", { exact: true }).click();
   await expect(page.getByLabel("Tháng kết thúc kế hoạch", { exact: true })).toHaveValue("12/2028");
   expect(s.writes.some(w => /\/apply$|\/versions$|\/plans$/.test(w.path))).toBe(false);
   expect(s.errors).toEqual([]);
@@ -39,7 +39,7 @@ test("allocation uses a newer saved goal instead of an older applied snapshot", 
   await page.locator(".allocation-steps button").nth(1).click();
   await expect(page.locator(".allocation-protection").first()).toContainText("0 ₫ / tháng");
   await page.locator(".allocation-steps button").nth(2).click();
-  await page.getByText("Chỉnh giả định nâng cao", { exact: true }).click();
+  await page.getByText("Giả định đang dùng", { exact: true }).click();
   await expect(page.getByLabel("Tháng kết thúc kế hoạch", { exact: true })).toHaveValue("12/2027");
   expect((await s.get(`me/retirement/plans/${s.fixture.planId}`)).currentVersionId).toBe(s.fixture.versionId);
   expect(s.errors).toEqual([]);

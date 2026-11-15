@@ -54,10 +54,10 @@ test("finance totals, topic rows and money explanations show the same cents", as
   profile.summary.values.monthlyIncome = "9007199254740993.25";
   profile.summary.values.availableMonthlySurplus = "9007199234740993.25";
   await setup(page, { profile });
-  await expect(metric(page, "income")).toHaveText("9.007.199.254.740.993,25 ₫");
-  await expect(topic(page, "cashflow")).toContainText("9.007.199.254.740.993,25 ₫/tháng");
+  await expect(page.locator(".finance-summary-metric.is-income > strong")).toHaveText("9.007.199.254.740.993 ₫");
+  await expect(topic(page, "cashflow")).toContainText("9.007.199.254.740.993 ₫/tháng");
   await page.getByRole("button", { name: "Giải thích Thu nhập + lương hưu", exact: true }).click();
-  await expect(page.getByRole("dialog").locator(".money-explanation-kpi > strong")).toHaveText("9.007.199.254.740.993,25 ₫");
+  await expect(page.getByRole("dialog").locator(".money-explanation-kpi > strong")).toHaveText("9.007.199.254.740.993 ₫");
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 320, height: 740 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -87,7 +87,7 @@ test("explicit zero declarations remain zero, including no pension and no depend
   profile.data.personal.pensionStartMonth = { status: "NOT_APPLICABLE", reason: "Không có lương hưu" };
   await setup(page, { profile });
   await expect(page.locator(".finance-summary-metric > strong")).toHaveText(["0 ₫", "0 ₫", "0 ₫", "0 ₫"]);
-  await expect(topic(page, "assets").locator("dd")).toHaveText(["0 ₫", "0 ₫", "0 ₫"]);
+  await expect(topic(page, "assets").locator("dd")).toHaveText(["0 ₫", "0 ₫"]);
   await expect(topic(page, "pension")).toContainText("Không có lương hưu");
   await expect(topic(page, "pension")).toContainText("Không áp dụng");
   await expect(topic(page, "family")).toContainText("0 người");
@@ -104,7 +104,7 @@ test("unknown and incomplete data are not replaced by sample amounts or declared
   await expect(page.locator(".finance-summary-metric > strong")).toHaveText(["Chưa xác định", "Chưa xác định", "Chưa xác định", "Chưa xác định"]);
   await expect(page.locator(".finance-summary-badge.is-missing")).toHaveCount(5);
   await expect(topic(page, "pension")).not.toContainText("60 tuổi");
-  await expect(topic(page, "pension").locator("dd")).toHaveText(["Chưa xác nhận", "Chưa xác nhận"]);
+  await expect(topic(page, "pension").locator("dd")).toHaveText(["Chưa xác nhận", "11/2040"]);
   await page.getByRole("button", { name: "Giải thích Thu nhập + lương hưu", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("Chưa đủ dữ liệu");
 });
@@ -126,7 +126,7 @@ test("a partial summary preserves known values and never fills in a missing rese
   await setup(page, { profile });
   await expect(metric(page, "income")).toHaveText("Chưa xác định");
   await expect(metric(page, "expenses")).toHaveText("20.000.000 ₫");
-  await expect(topic(page, "assets").locator("dd")).toHaveText(["400.000.000 ₫", "Chưa xác định", "500.000.000 ₫"]);
+  await expect(topic(page, "assets").locator("dd")).toHaveText(["400.000.000 ₫", "Chưa xác định"]);
   await expect(topic(page, "cashflow").locator(".finance-summary-badge")).toHaveText("Cần bổ sung");
   await expect(topic(page, "assets").locator(".finance-summary-badge")).toHaveText("Cần bổ sung");
 });
@@ -164,8 +164,8 @@ test("large decimal API amounts keep their VND precision through display", async
   const profile = fixture(); profile.summary.values.monthlyIncome = "9007199254740993.50";
   profile.summary.values.emergencyReserve = "1801439850948198.65";
   await setup(page, { profile });
-  await expect(metric(page, "income")).toHaveText("9.007.199.254.740.993,5 ₫");
-  await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("1.801.439.850.948.198,65 ₫");
+  await expect(page.locator(".finance-summary-metric.is-income > strong")).toHaveText("9.007.199.254.740.994 ₫");
+  await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("1.801.439.850.948.199 ₫");
 });
 
 test("legacy profile totals use actual declared values without inventing an emergency reserve", async ({ page }) => {

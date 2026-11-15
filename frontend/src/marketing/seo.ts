@@ -162,7 +162,7 @@ export function applyPageSeo(pathname: string) {
     document.head.insertAdjacentHTML('beforeend', renderSeoHead(path));
   } else {
     const heading = document.querySelector('.settings-content h2') ?? document.querySelector('h1');
-    document.title = `${heading?.textContent ?? 'Nền tảng hưu trí'} | An Hưu`;
+    if (path !== '/onboarding') document.title = `${path === '/user/risk-portfolio' ? 'Phân bổ tài sản' : heading?.textContent ?? 'Nền tảng hưu trí'} | An Hưu`;
     const robots = document.createElement('meta');
     robots.name = 'robots'; robots.content = 'noindex, follow'; document.head.appendChild(robots);
   }

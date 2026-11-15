@@ -34,12 +34,21 @@ export function saveSimulatorPrefill(data: {
   }
 }
 
+export function clearSimulatorPrefill(): void {
+  try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* Storage may be disabled. */ }
+}
+
 export function readAndClearSimulatorPrefill(): SimulatorPrefillData | null {
+  const value = readSimulatorPrefill();
+  clearSimulatorPrefill();
+  return value;
+}
+
+export function readSimulatorPrefill(): SimulatorPrefillData | null {
   if (typeof window === "undefined" || !window.sessionStorage) return null;
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    sessionStorage.removeItem(STORAGE_KEY);
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const currentAge = typeof parsed.currentAge === "number" ? parsed.currentAge : null;
     const retirementAge =
@@ -76,11 +85,6 @@ export function readAndClearSimulatorPrefill(): SimulatorPrefillData | null {
     }
     return null;
   } catch {
-    try {
-      sessionStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
-    }
     return null;
   }
 }

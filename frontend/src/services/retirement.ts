@@ -1,3 +1,4 @@
+import { formatMoneyDecimal, formatCompactMoneyDecimal } from "../utils/moneyDisplay";
 import { authenticatedRequest } from "./api";
 import { shareInFlight } from "../utils/inFlight";
 import type { ProfileV2 } from "./financialProfile";
@@ -26,6 +27,7 @@ export interface HousingPlanItem {
 }
 
 export interface RetirementPreviewInput {
+  planningReaction?: "SELL" | "HOLD" | "BUY_MORE";
   customAllocation?: import("./portfolios").CustomAllocation|null;
   allocationFunding?: "PROTECTED_CAPITAL_V1"|null;
   advisoryFee?: { annualPercent: string; paidFrom: "FUND" | "EXTERNAL" };
@@ -154,6 +156,8 @@ export interface RetirementConventions {
 }
 
 export interface RetirementCalculation {
+  suitability?: "NOT_ASSESSED";
+  planningBasis?: "PUBLISHED_REACTION_REFERENCE";
   modelVersion: string;
   conventions: RetirementConventions;
   summary: RetirementSummary;
@@ -215,6 +219,7 @@ export interface RetirementPreviewEnvelope {
 }
 
 export const WARNING_MESSAGES: Record<string, string> = {
+  PLANNING_REFERENCE_NOT_SUITABILITY: "Kế hoạch ban đầu dùng danh mục tham khảo theo lựa chọn đã khai; đánh giá mức phù hợp đầu tư được thực hiện riêng tại Phân bổ tài sản.",
   CONTRIBUTION_ESTIMATE_USES_CURRENT_FEE_SCHEDULE_REPREVIEW_REQUIRED: "Khoản góp cần dùng lịch phí hiện tại. Hãy xem trước lại khi đổi khoản góp để tính lại phí tư vấn.",
   PENSION_NOT_INCLUDED: "Kế hoạch chưa bao gồm lương hưu do bạn chưa khai báo mức ước tính cụ thể.",
   PARTIAL_FIRST_MONTH_FULL_PERIOD_NO_PRORATION: "Tháng đầu tiên được tính tròn một kỳ theo ngày định giá.",
@@ -236,6 +241,10 @@ export const ISSUE_MESSAGES: Record<string, string> = {
   INVALID_RETIREMENT_INCOME_REFERENCE: "Khoản thu sau khi nghỉ hưu đã thay đổi hoặc không còn trong hồ sơ. Hãy kiểm tra lại nguồn thu được chọn.",
   PUBLISHED_INFLATION_REQUIRED: "Hệ thống chưa có dữ liệu kinh tế để tính kế hoạch. Bạn không cần sửa hồ sơ; hãy thử lại sau hoặc liên hệ Hỗ trợ.",
   INFLATION_YEAR_MISSING: "Thiếu dữ liệu lạm phát cho một số năm trong thời gian dự phóng.",
+  QUICK_START_POLICY_REQUIRED: "Trả lời 6 câu đánh giá mức chấp nhận rủi ro để tính kế hoạch",
+  DECLARED_REACTION_REQUIRED: "Hãy xác nhận lại phản ứng khi thị trường giảm trong hồ sơ.",
+  PLANNING_TEMPLATE_MISMATCH: "Danh mục tham khảo không khớp lựa chọn đã khai.",
+  PLANNING_REFERENCE_NOT_SUITABILITY: "Kế hoạch ban đầu dùng danh mục tham khảo đã công bố theo phản ứng bạn chọn; chưa phải đánh giá phù hợp đầu tư.",
   ANSWER_REQUIRED: "Hãy trả lời đủ câu hỏi ở mục Khả năng chịu rủi ro (trang Phân bổ tài sản) để tính kế hoạch theo lựa chọn của bạn.",
   POLICY_NOT_COVERED: "Chính sách đã ghim chưa bao phủ kế hoạch này. Cần quản trị viên kiểm tra cấu hình; không tự cắt ngắn thời hạn.",
   PROJECTION_NOT_COVERED: "Bộ giả định chưa phủ đủ thời gian kế hoạch. Cần bổ sung cấu hình đã duyệt, không giảm thời hạn để né lỗi.",
@@ -263,6 +272,10 @@ export const EN_ISSUE_MESSAGES: Record<string, string> = {
   INVALID_RETIREMENT_INCOME_REFERENCE: "Invalid post-retirement income reference.",
   PUBLISHED_INFLATION_REQUIRED: "Published macroeconomic assumption set is required.",
   INFLATION_YEAR_MISSING: "Inflation data missing for projection years.",
+  QUICK_START_POLICY_REQUIRED: "Answer the 6 risk tolerance assessment questions to calculate your plan",
+  DECLARED_REACTION_REQUIRED: "Confirm your response to a market decline in your profile.",
+  PLANNING_TEMPLATE_MISMATCH: "The planning reference does not match your declared reaction.",
+  PLANNING_REFERENCE_NOT_SUITABILITY: "Initial planning uses a published reference; investment suitability has not been assessed.",
   ANSWER_REQUIRED: "Risk tolerance survey questions need to be answered to determine benchmark portfolio.",
   POLICY_NOT_COVERED: "The pinned policy does not cover this plan. Administrator review is needed; do not shorten the horizon automatically.",
   PROJECTION_NOT_COVERED: "The assumptions do not cover the full plan period. Approved configuration is required; do not shorten the plan to bypass this.",
@@ -281,6 +294,7 @@ export const EN_ISSUE_MESSAGES: Record<string, string> = {
 };
 
 export const EN_WARNING_MESSAGES: Record<string, string> = {
+  PLANNING_REFERENCE_NOT_SUITABILITY: "Initial planning uses your declared reaction and a published reference. Investment suitability is assessed separately under Asset allocation.",
   CONTRIBUTION_ESTIMATE_USES_CURRENT_FEE_SCHEDULE_REPREVIEW_REQUIRED: "The required contribution uses the current fee schedule. Preview again after changing contributions to recalculate advisory fees.",
   PENSION_NOT_INCLUDED: "Retirement plan currently excludes state pension because specific estimates are not declared.",
   PARTIAL_FIRST_MONTH_FULL_PERIOD_NO_PRORATION: "First month is treated as a full period based on valuation date.",
@@ -333,33 +347,16 @@ export async function previewMonthlyRetirement(
 }
 
 export function formatVNDCurrency(amount: string | number | null | undefined): string {
-  if (amount === null || amount === undefined) return "Chưa xác định";
-  const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (!Number.isFinite(num)) return "0 đ";
-  const rounded = Math.round(num);
-  const isNeg = rounded < 0;
-  return `${isNeg ? "-" : ""}${Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} đ`;
+  return formatMoneyDecimal(amount == null ? null : String(amount));
 }
 
 export function formatCompactVND(amount: string | number | null | undefined, perMonth = false): string {
-  if (amount === null || amount === undefined) return "Chưa xác định";
-  const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (!Number.isFinite(num)) return "0 đ";
-  const abs = Math.abs(num);
-  if (abs >= 1e9) {
-    const v = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(abs / 1e9);
-    return `${num < 0 ? "-" : ""}${v} tỷ đ${perMonth ? "/tháng" : ""}`;
-  }
-  if (abs >= 1e6) {
-    const v = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: (Math.round(abs / 1e5) % 10 === 0) ? 0 : 1, maximumFractionDigits: 1 }).format(abs / 1e6);
-    return `${num < 0 ? "-" : ""}${v} triệu đ${perMonth ? "/tháng" : ""}`;
-  }
-  return formatVNDCurrency(amount) + (perMonth ? "/tháng" : "");
+  return formatCompactMoneyDecimal(amount == null ? null : String(amount)) + (perMonth && amount != null ? "/tháng" : "");
 }
 
 export function formatPercentNumber(rate: string | number | null | undefined): string {
   if (rate === null || rate === undefined) return "Không áp dụng";
   const num = typeof rate === "string" ? parseFloat(rate) : rate;
   if (!Number.isFinite(num)) return "0%";
-  return num.toFixed(2) + "%";
+  return new Intl.NumberFormat("vi-VN", {maximumFractionDigits: 0}).format(num) + "%";
 }

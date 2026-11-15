@@ -4,12 +4,23 @@ import type { PlanVersion } from "../services/plans";
 import { previewMonthlyRetirement, type RetirementPreviewInput, type RetirementPreviewResult } from "../services/retirement";
 import { selectionForCurrentProfile } from "../services/profilePlanSelection";
 
+// The first survey saves whatIf.retirementMonth equal to the profile's own retirement month.
+// selectionForCurrentProfile drops that redundant date from the live input, so drop it from the
+// saved selection too before comparing; otherwise a just-saved plan always reads as "changed".
+function withoutProfileRetirementMonth(selection: RetirementPreviewInput, profile: ProfileV2): RetirementPreviewInput {
+  const desired = profile.personal.desiredRetirementMonth;
+  if (!selection.whatIf?.retirementMonth || desired.status !== "KNOWN" || selection.whatIf.retirementMonth !== desired.value) return selection;
+  const { retirementMonth: _redundant, ...whatIf } = selection.whatIf;
+  const { whatIf: _saved, ...rest } = selection;
+  return (whatIf.assetValues?.length ? { ...selection, whatIf } : rest) as RetirementPreviewInput;
+}
+
 export function usePlanSynchronization(userId: string | undefined, version: PlanVersion | null, profile: ProfileV2 | null, revision: number, draft: Partial<RetirementPreviewInput> | null, blocked: boolean, sourceError: string | null) {
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<{ key: string; data: RetirementPreviewResult | null; error: string | null } | null>(null);
   const anchored = Boolean(version?.preview.reforecast);
   const input = version && profile && !anchored ? selectionForCurrentProfile(version.preview.selection, draft, profile, revision) : null;
-  const changed = Boolean(input && version && (version.preview.profileRevision !== revision || JSON.stringify(input) !== JSON.stringify(version.preview.selection)));
+  const changed = Boolean(input && version && profile && (version.preview.profileRevision !== revision || JSON.stringify(input) !== JSON.stringify(withoutProfileRetirementMonth(version.preview.selection, profile))));
   const key = JSON.stringify([userId, version?.id, revision, input, attempt]);
   const inputJson = JSON.stringify(input);
   // The debounce only exists to absorb rapid edits. The first synchronisation

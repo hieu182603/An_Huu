@@ -92,6 +92,7 @@ export type DebtEntry = {
 };
 
 export type PersonalProfileV2 = {
+  birthDate?: string;
   birthMonth: KnownOrUnknown<string>;
   desiredRetirementMonth: KnownOrUnknown<string>;
   pensionStartMonth: OptionalMonth;
@@ -110,18 +111,21 @@ export type GoalEntry = {
 };
 export type PlanningConstraints = {
   retirementSurvey?: { policyVersionId: string; monthlyExpenseToday: string; answers: Array<{questionId:string;choiceId:string}> };
-  retirementGoal?: {endMonth:string;monthlyExpenseToday:string;lifestylePriority:"BALANCED"|"HEALTH"|"HOUSING"|"TRAVEL"|null};
-  lossTolerance?: { amountVnd?: KnownOrUnknown<string>; percent?: KnownOrUnknown<string>; reaction?: KnownOrUnknown<"SELL" | "HOLD" | "BUY_MORE"> };
+  retirementGoal?: {endMonth:string;monthlyExpenseToday:string;monthlyContribution?:string;lifestylePriority:"BALANCED"|"HEALTH"|"HOUSING"|"TRAVEL"|null};
+  reserveMonths?: number;
+  allocationCapital?: { basis: "PROFILE" | "TOTAL"; totalAmount?: string };
+  lossTolerance?: { inputMode?: "PERCENT" | "AMOUNT"; amountVnd?: KnownOrUnknown<string>; percent?: KnownOrUnknown<string>; reaction?: KnownOrUnknown<"SELL" | "HOLD" | "BUY_MORE"> };
   incomeStability?: KnownOrUnknown<"STABLE" | "VARIABLE" | "UNCERTAIN">;
   employerConcentration?: KnownOrUnknown<"LOW" | "MEDIUM" | "HIGH">;
   liquidityNeeds?: { y1?: KnownOrUnknown<string>; y3?: KnownOrUnknown<string>; y5?: KnownOrUnknown<string> };
   goals?: ProfileCollection<GoalEntry>;
 };
 export const planningConstraints = (profile: PlanningConstraints): PlanningConstraints => Object.fromEntries(
-  ["lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals", "retirementGoal", "retirementSurvey"].filter(key => key in profile).map(key => [key, profile[key as keyof PlanningConstraints]])
+  ["allocationCapital", "reserveMonths", "lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals", "retirementGoal", "retirementSurvey"].filter(key => key in profile).map(key => [key, profile[key as keyof PlanningConstraints]])
 );
 
 export type ProfileV2 = PlanningConstraints & {
+  quickStartSurvey?: QuickStartSurvey;
   schemaVersion: 2;
   valuationDate: string;
   currency: "VND";
@@ -133,6 +137,20 @@ export type ProfileV2 = PlanningConstraints & {
   debts: ProfileCollection<DebtEntry>;
   pension?: PensionDeclaration;
 };
+
+export interface QuickStartSurvey {
+  version: 1; birthDate?: string | null; birthMonth?: string | null; retirementAge?: number | null; retirementMonth?: string | null; endMonth?: string | null;
+  monthlyExpenseToday?: string | null; monthlyIncome?: string | null; monthlyExpense?: string | null;
+  retirementSavings?: string | null; monthlyContribution?: string | null; emergencyAmount?: string | null;
+  maritalStatus?: "SINGLE" | "MARRIED" | "DIVORCED" | "OTHER" | null; dependents?: number | null;
+  childEnabled?: boolean; childAmount?: string | null; childDuration?: "unknown" | "1" | "3" | "5" | "10" | "retirement" | "custom"; childEnd?: string | null; childIncluded?: boolean;
+  parentEnabled?: boolean; parentAmount?: string | null; parentDuration?: "unknown" | "1" | "3" | "5" | "10" | "retirement" | "custom"; parentEnd?: string | null; parentIncluded?: boolean;
+  debtEnabled?: boolean; debtBalance?: string | null; debtMonthlyPayment?: string | null; debtAnnualRatePercent?: string | null;
+  goalEnabled?: boolean; goalName?: string; goalAmount?: string | null; goalMonth?: string | null; goalDeferrable?: boolean;
+  pensionStatus?: "unknown" | "none" | "known"; pension?: string | null; pensionStart?: string | null;
+  reaction?: "SELL" | "HOLD" | "BUY_MORE" | null; stability?: "UNKNOWN" | "STABLE" | "VARIABLE" | "UNCERTAIN";
+  priority?: "BALANCED" | "HEALTH" | "HOUSING" | "TRAVEL"; lossStatus?: "unknown" | "amount" | "percent"; lossAmount?: string | null; lossPercent?: string | null;
+}
 
 export type CashflowCommand =
   | ({ kind: "ADD" | "UPDATE" | "SPLIT"; sourceId?: string; confirmUnknownGroup?: boolean } &
@@ -560,6 +578,8 @@ export interface QuickStartProfileInput {
   hasDebt?: boolean;
   debtBalance?: number;
   debtMonthlyPayment?: number;
+  debtAnnualRatePercent?: string;
+  support?: Array<{ kind: "child" | "parent"; amount: number; endMonth: string | null; includedInExpense: boolean }>;
   valuationDate?: string;
   retirementShare?: "1" | "UNKNOWN";
   // Family step (optional): omitted values stay out of the profile.
@@ -593,18 +613,25 @@ export function createQuickStartProfileV2(input: QuickStartProfileInput): Profil
   }
 
   const expenseEntries: ExpenseEntry[] = [];
-  if (input.monthlyExpense > 0) {
+  const includedSupport = (input.support ?? []).filter(s => s.includedInExpense).reduce((sum, s) => sum + s.amount, 0);
+  if (includedSupport > input.monthlyExpense) throw new Error("Khoản hỗ trợ đã nằm trong chi sinh hoạt không được vượt tổng chi đã khai.");
+  if (input.monthlyExpense - includedSupport > 0) {
     expenseEntries.push({
       id: "exp_quick",
       label: "Chi tiêu hằng tháng",
       category: "ESSENTIAL",
-      amount: known(input.monthlyExpense.toFixed(2)),
+      amount: known((input.monthlyExpense - includedSupport).toFixed(2)),
       currency: "VND",
       startMonth: currentMonth,
       endMonth: null,
       frequency: "MONTHLY",
     });
   }
+  for (const support of input.support ?? []) expenseEntries.push({
+    id: `exp_quick_${support.kind}`, label: support.kind === "parent" ? "Phụng dưỡng bố mẹ" : "Chăm lo con cái",
+    category: "DEPENDENT", amount: known(support.amount.toFixed(2)), currency: "VND",
+    startMonth: currentMonth, endMonth: support.endMonth, frequency: "MONTHLY",
+  });
 
   const isRetirementShareOne = input.retirementShare !== "UNKNOWN";
   const assetEntries: AssetEntry[] = [];
@@ -640,6 +667,7 @@ export function createQuickStartProfileV2(input: QuickStartProfileInput): Profil
           paymentShare: known("1"),
           balanceShare: known("1"),
           contract: unknown,
+          ...(input.debtAnnualRatePercent !== undefined ? { illustration: { annualRatePercent: known(input.debtAnnualRatePercent) } } : {}),
           responsibility: unknown,
           startMonth: currentMonth,
           endMonth: null,

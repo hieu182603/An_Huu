@@ -1,5 +1,6 @@
 import { useId, useRef, useState, useEffect, useMemo, type ReactNode } from "react";
 import { formatNumberWithDots, numberToVietnameseWords } from "../utils/currency";
+import { afterPointerRelease } from "../utils/pointerRelease";
 
 export interface CurrencyInputProps {
   label: ReactNode;
@@ -23,7 +24,7 @@ export function CurrencyInput({
   labelAction,
   value,
   onChange,
-  suffix = "đ",
+  suffix = "₫",
   helper,
   error,
   placeholder = "0",
@@ -123,7 +124,6 @@ export function CurrencyInput({
   };
 
   const handleBlur = () => {
-    setIsFocused(false);
     if (displayText.trim() === "") {
       setDisplayText("0");
       onChange(0);
@@ -139,7 +139,9 @@ export function CurrencyInput({
     : "";
 
   return (
-    <div className={`field form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`}>
+    <div className={`field form-field ${error ? "has-error" : ""} ${disabled ? "is-disabled" : ""}`} onBlur={event => {
+      if (!event.currentTarget.contains(event.relatedTarget)) afterPointerRelease(() => setIsFocused(false));
+    }}>
       {!hideLabel ? (
         <label className="field-header-row field-label" htmlFor={id}>
           <span>{label}</span>
@@ -201,6 +203,8 @@ export function CurrencyInput({
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
+                }}
+                onClick={() => {
                   onChange(amt);
                   setDisplayText(formatNumberWithDots(amt));
                 }}

@@ -4,7 +4,7 @@ const origin="http://127.0.0.1:62011";
 process.env.USER_DISCOVERY_API="http://127.0.0.1:62012";
 export default defineConfig({
   ...base,
-  testMatch:["user-plan-demo-sync.spec.ts","user-plan-review.spec.ts","user-plan-sync.spec.ts","user-goal-sync.spec.ts","user-money-explanations.spec.ts"],
+  testMatch:["frontend-task-review.spec.ts","user-plan-demo-sync.spec.ts","user-plan-review.spec.ts","user-plan-sync.spec.ts","user-goal-sync.spec.ts","user-money-explanations.spec.ts"],
   outputDir:"../.tmp/user-plan-demo-sync",
   use:{...base.use,baseURL:origin},
   webServer:[

@@ -10,6 +10,7 @@ const doc = parseDocument(fs.readFileSync(file, "utf8"));
 // PartialPersonal shares Personal's properties anchor.
 doc.setIn(["Personal", "properties", "maritalStatus"], schema(profileV2Object.shape.personal.shape.maritalStatus));
 doc.setIn(["Personal", "properties", "careResponsibility"], schema(profileV2Object.shape.personal.shape.careResponsibility));
+doc.setIn(["Personal", "properties", "birthDate"], schema(profileV2Object.shape.personal.shape.birthDate));
 const asset = require("../src/modules/profiles/schema-v2").assetEntrySchema;
 // PartialAssetEntry shares the same YAML properties anchor as AssetEntry.
 doc.setIn(["AssetEntry", "properties", "type"], schema(asset.shape.type));
@@ -18,7 +19,7 @@ const debt = require("../src/modules/profiles/schema-v2").debtEntrySchema;
 // PartialDebtEntry shares DebtEntry's properties anchor.
 doc.setIn(["DebtEntry", "properties", "illustration"], schema(debt.shape.illustration));
 for (const [name, shape] of [["FinancialDataV2", profileV2Object.shape], ["ProfileChangesV2", partialProfileV2Object.shape]]) {
-  for (const key of ["lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals", "retirementGoal", "retirementSurvey"])
+  for (const key of ["allocationCapital", "reserveMonths", "lossTolerance", "incomeStability", "employerConcentration", "liquidityNeeds", "goals", "retirementGoal", "retirementSurvey", "quickStartSurvey"])
     doc.setIn([name, "properties", key], schema(shape[key]));
 }
 fs.writeFileSync(file, String(doc));

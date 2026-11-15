@@ -17,7 +17,12 @@ export async function setupDiscovery(page: Page, request: APIRequestContext, pat
     if(outgoing.method()!=="GET")writes.push({path:url.pathname,method:outgoing.method(),body:outgoing.postDataJSON(),status:result.status()});await route.fulfill({response:result});
   });
   if(initialAllocationSurvey) await page.addInitScript(command=>{
-    sessionStorage.setItem("anhuu:plan-draft:USR-001",JSON.stringify({policyVersionId:command.policyVersionId,answers:command.answers,endMonth:command.endMonth,liquidityNeedMonths:command.liquidityNeedMonths}));
+    // Reload must restore the actual edited draft, not bootstrap over it again.
+    const seeded=`anhuu:test-initial-selection:${command.policyVersionId}`;
+    if(!sessionStorage.getItem(seeded)){
+      sessionStorage.setItem("anhuu:plan-draft:USR-001",JSON.stringify({policyVersionId:command.policyVersionId,answers:command.answers,endMonth:command.endMonth,liquidityNeedMonths:command.liquidityNeedMonths}));
+      sessionStorage.setItem(seeded,"1");
+    }
   },fixture.allocationCommand);
   await page.goto(path);await expect(page.locator(path.includes("risk-portfolio")?".risk-portfolio-page":".discovery-page")).toBeVisible();
   const get=async(path:string)=>(await(await request.get(`${discoveryApi}/api/v1/${path}`,{headers:{Authorization:`Bearer ${fixture.accessToken}`}})).json()).data;

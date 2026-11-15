@@ -14,12 +14,7 @@ import "./user-workspace-dialogs.css";
 export const overviewNumber = (value: unknown): number | null => value == null || String(value).trim() === "" || !Number.isFinite(Number(value)) ? null : Number(value);
 export function overviewMoney(value: string | null, en: boolean, compact = false) {
   if (!compact) return formatMoneyDecimal(value, en);
-  const formatted = formatCompactMoneyDecimal(value, en);
-  const suffix = en ? " billion ₫" : " tỷ ₫";
-  if (!formatted.endsWith(suffix)) return formatted;
-  const separator = en ? "." : ",";
-  const [whole, fraction = ""] = formatted.slice(0, -suffix.length).split(separator);
-  return `${whole}${separator}${fraction.padEnd(2, "0")}${suffix}`;
+  return formatCompactMoneyDecimal(value, en);
 }
 export type DashboardDetail = "projected" | "required" | "capacity" | "assumptions";
 

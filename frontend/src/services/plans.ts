@@ -2,6 +2,7 @@ import { authenticatedRequest, authenticatedBlobRequest } from "./api.ts";
 import type { RetirementPreviewInput, RetirementPreviewResult, RetirementSummary, RetirementRow } from "./retirement.ts";
 
 export interface PlanHistoryItem {
+  birthMonth?: string | null;
   id: string;
   version: number;
   createdAt: string;
@@ -20,6 +21,7 @@ export interface PlanHistoryItem {
 }
 
 export interface PlanVersion {
+  birthMonth?: string | null;
   readWarnings?: import("./planningAnalysis").ReadWarning[];
   id: string;
   planId: string;

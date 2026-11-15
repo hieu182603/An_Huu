@@ -18,6 +18,12 @@ Input:
       type: string
       minLength: 1
       maxLength: 100
+    planningReaction:
+      type: string
+      enum:
+        - SELL
+        - HOLD
+        - BUY_MORE
     customAllocation:
       anyOf:
         - type: object
@@ -407,6 +413,8 @@ CapitalSeparation:
         properties:
           id:
             type: string
+          label:
+            type: string
           dueMonth:
             type: string
           monthsUntilDue:
@@ -447,6 +455,7 @@ CapitalSeparation:
               type: string
         required:
           - id
+          - label
           - dueMonth
           - monthsUntilDue
           - treatment
@@ -1145,6 +1154,14 @@ Calculation:
     limitations:
       type: array
       items: *a1
+    suitability:
+      type: string
+      enum:
+        - NOT_ASSESSED
+    planningBasis:
+      type: string
+      enum:
+        - PUBLISHED_REACTION_REFERENCE
   required:
     - modelVersion
     - conventions
@@ -1299,6 +1316,19 @@ Preview:
           - startMonth
           - endMonth
           - reason
+    surveyGoalCashflows:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id: *a1
+          month: *a1
+          amount: *a2
+        required:
+          - id
+          - month
+          - amount
     sourceChanges:
       type: array
       items:

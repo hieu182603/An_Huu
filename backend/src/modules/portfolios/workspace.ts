@@ -65,6 +65,6 @@ export async function saveAllocationRisk(profiles:ProfileService,portfolios:Port
   const amount=input.limit.kind==="PERCENT"?new D(growth).mul(input.limit.value).div(100).toDecimalPlaces(2,Prisma.Decimal.ROUND_DOWN):new D(input.limit.value);
   if(amount.gt(growth)) throw new AppError(422,"LOSS_EXCEEDS_GROWTH","Mức chịu lỗ không được vượt phần vốn dài hạn.");
   const ratio=input.limit.kind==="PERCENT"?input.limit.value:amount.div(growth).mul(100).toDecimalPlaces(8,Prisma.Decimal.ROUND_DOWN).toFixed();
-  return profiles.patchProfile(userId,input.expectedRevision,{schemaVersion:2,lossTolerance:{reaction:{status:"KNOWN",value:input.reaction},
+  return profiles.patchProfile(userId,input.expectedRevision,{schemaVersion:2,lossTolerance:{inputMode:input.limit.kind,reaction:{status:"KNOWN",value:input.reaction},
     percent:{status:"KNOWN",value:ratio},amountVnd:{status:"KNOWN",value:amount.toFixed()}}});
 }

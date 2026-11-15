@@ -18,6 +18,7 @@ import { profileDebtSummary } from "./debt-summary";
 import { pensionChanges, pensionPatchSchema, profilePensionReport } from "./pension-commands";
 import { familyChanges, familyPatchSchema, profileFamilyReport } from "./family";
 import { planningChanges, planningPatchSchema, profilePlanningReport } from "./planning";
+import { normalizeQuickStart } from "./quick-start";
 
 const conflict = () => new AppError(409, "REVISION_CONFLICT", "Dữ liệu đã thay đổi. Vui lòng tải lại trước khi lưu.");
 function merge(base: ProfileChanges, changes: ProfileChanges) {
@@ -239,9 +240,10 @@ export class ProfileService {
       if ((row?.revision ?? 0) !== expectedRevision) throw conflict();
       if (row && isV2(row.data) !== isV2(checked))
         throw new AppError(409, "DRAFT_SCHEMA_MISMATCH", "Hãy hoàn tất bản nháp hiện có trước khi đổi phiên bản hồ sơ.");
-      const data = isV2(checked)
+      const merged = isV2(checked)
         ? partialProfileV2Schema.parse(mergeV2(row ? partialProfileV2Schema.parse(row.data) : { schemaVersion: 2 }, checked))
         : partialProfileSchema.parse(merge(row ? partialProfileSchema.parse(row.data) : {}, checked));
+      const data = isV2(merged) && merged.quickStartSurvey ? normalizeQuickStart(merged, false, step === "investment" || step === "summary") : merged;
       const draft = row
         ? await tx.onboardingDraft.update({ where: { userId }, data: { data, step, revision: { increment: 1 } } })
         : await tx.onboardingDraft.create({ data: { userId, data, step } });
@@ -262,7 +264,8 @@ export class ProfileService {
       if (draft.revision !== input.expectedDraftRevision) throw conflict();
       const existing = await tx.financialProfile.findUnique({ where: { userId } });
       if ((existing?.revision ?? 0) !== input.expectedProfileRevision) throw conflict();
-      const data = isV2(draft.data) ? profileV2Schema.parse(draft.data) : profileSchema.parse(draft.data);
+      const document = isV2(draft.data) ? partialProfileV2Schema.parse(draft.data) : null;
+      const data = document?.quickStartSurvey ? normalizeQuickStart(document, true) : isV2(draft.data) ? profileV2Schema.parse(draft.data) : profileSchema.parse(draft.data);
       if (existing?.schemaVersion === 2 && !isV2(data))
         throw new AppError(409, "PROFILE_SCHEMA_MISMATCH", "Không thể ghi đè hồ sơ mới bằng bản nháp phiên bản cũ.");
       if (existing && ![1, 2].includes(existing.schemaVersion))

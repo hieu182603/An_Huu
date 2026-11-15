@@ -36,3 +36,8 @@
 @media(max-width:650px){.allocation-page-head{align-items:flex-start}.allocation-wizard .allocation-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.allocation-wizard .allocation-steps button{display:block;font-size:11px;padding:10px 6px;min-height:100px;line-height:1.6}.allocation-wizard .allocation-steps button span{margin:0 0 8px;width:28px;height:28px}.allocation-result-summary,.allocation-review-strip{grid-template-columns:1fr}.allocation-result-summary{padding:20px 16px}.allocation-editor-disclosure>summary{padding:18px 16px}}
 
 .allocation-wizard-body>h2{font-weight:650}
+
+.allocation-wizard-body footer .primary { margin-left:0; }
+@media(max-width:650px) {
+  .allocation-known-money strong { flex-basis:100%; }
+}

@@ -49,6 +49,11 @@ export function validatePortfolioPolicy(document: PortfolioDocument, assumptions
   if (!data.riskBands.length || nextScore !== maximum + 1) issue("riskBands", "SCORE_RANGE_NOT_COVERED");
   if (!data.templates.length || !data.rules.length) issue("templates", "POLICY_REQUIRED");
   const assets = new Set(assumptions.assetClasses.map(a => a.code));
+  if (data.schemaVersion === 2 && data.quickStartTemplates) {
+    for (const reaction of ["SELL", "HOLD", "BUY_MORE"] as const)
+      if (!data.templates.some(template => template.id === data.quickStartTemplates![reaction]))
+        issue(`quickStartTemplates.${reaction}`, "UNKNOWN_TEMPLATE");
+  }
   if (data.schemaVersion === 2 && data.customization) {
     if (!data.lossStress) issue("customization", "LOSS_STRESS_REQUIRED");
     const bounds = data.customization.bounds;
@@ -188,11 +193,22 @@ export const portfolioPreviewCache = (): PortfolioPreviewCache => ({ series: new
 /** `only` limits the scenario paths to one kind. Scenarios are independent, so the
  * requested path is identical either way; retirement previews read just one. */
 export function previewPortfolio(document: PortfolioDocument, assumptions: AssumptionDocument, command: PortfolioPreview,
-  only?: PortfolioDocument["scenarios"][number]["kind"], cache?: PortfolioPreviewCache) {
+  only?: PortfolioDocument["scenarios"][number]["kind"], cache?: PortfolioPreviewCache, planningReaction?: "SELL" | "HOLD" | "BUY_MORE") {
   const data = portfolioDocumentSchema.parse(document), input = portfolioPreviewSchema.parse(command);
-  const validation = cache?.validation ?? validatePortfolioPolicy(data, assumptions), assessment = assessPortfolio(data, input);
+  const validation = cache?.validation ?? validatePortfolioPolicy(data, assumptions);
+  let assessment = assessPortfolio(data, input);
+  if (planningReaction) {
+    const templateId = data.schemaVersion === 2 ? data.quickStartTemplates?.[planningReaction] : undefined;
+    const template = data.templates.find(row => row.id === templateId);
+    const issues = !template ? [{ path: "quickStartTemplates", code: "QUICK_START_POLICY_REQUIRED" }]
+      : input.templateId && input.templateId !== template.id ? [{ path: "templateId", code: "PLANNING_TEMPLATE_MISMATCH" }]
+      : "coverageMonths" in template && input.horizonMonths > template.coverageMonths ? [{ path: "endMonth", code: "TEMPLATE_HORIZON_NOT_COVERED" }] : [];
+    assessment = { ...assessment, status: issues.length ? "INCOMPLETE" : "MATCHED", issues,
+      totalScore: null, dimensionScores: Object.fromEntries(dimensions.map(d => [d, null])), riskBandId: null,
+      answers: [], checks: [], eligibleTemplateIds: template ? [template.id] : [], selectedTemplateId: issues.length ? null : template!.id };
+  }
   if (cache) cache.validation = validation;
-  const context = { assessment, limitations: ["UNIT_PORTFOLIO_WITHOUT_PERSONAL_CASHFLOWS", "INITIAL_ALLOCATION_COST_NOT_MODELED", "NO_TRANSACTIONS_OR_PLAN_APPLICATION"], priceBasis: "NOMINAL", timing: "REBALANCE_START_GROWTH_END" };
+  const context = { assessment, ...(planningReaction ? { suitability: "NOT_ASSESSED" as const, planningBasis: "PUBLISHED_REACTION_REFERENCE" as const } : {}), limitations: ["UNIT_PORTFOLIO_WITHOUT_PERSONAL_CASHFLOWS", "INITIAL_ALLOCATION_COST_NOT_MODELED", "NO_TRANSACTIONS_OR_PLAN_APPLICATION"], priceBasis: "NOMINAL", timing: "REBALANCE_START_GROWTH_END" };
   if (validation.status !== "VALID" || assessment.status !== "MATCHED") return { ...context, status: "INCOMPLETE", issues: [...validation.issues, ...assessment.issues], scenarios: [] };
   const template = data.templates.find(t => t.id === assessment.selectedTemplateId)!;
   const assetCodes = [...new Set(allocationSets(template).flatMap(p => p.filter(a => new D(a.weightPercent).gt(0)).map(a => a.assetClass)))];

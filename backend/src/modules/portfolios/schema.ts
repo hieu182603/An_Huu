@@ -69,6 +69,8 @@ export const portfolioDocumentV2Schema = z.object({ schemaVersion: z.literal(2),
   }).strict().optional(),
   allocationRisk: riskPolicySchema.optional(),
   customization: customizationPolicySchema.optional(),
+  // Explicit, approved planning references; never questionnaire answers or a suitability result.
+  quickStartTemplates: z.object({ evidence: note, SELL: code, HOLD: code, BUY_MORE: code }).strict().optional(),
 }).strict();
 export const portfolioDocumentSchema = z.discriminatedUnion("schemaVersion", [portfolioDocumentV1Schema, portfolioDocumentV2Schema]);
 export const writePortfolioSchema = revisionSchema.extend({ data: portfolioDocumentSchema }).strict();

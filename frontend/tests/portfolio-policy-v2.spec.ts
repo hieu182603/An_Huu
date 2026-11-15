@@ -51,7 +51,7 @@ async function setup(page: Page, options: { version?: "v1" | "v2"; retirement?: 
     const allocations=("schedule" in template?template.schedule[0].allocations:template.glidePath.points[0].allocations).map(a=>({...a,amountVnd:null}));
     return route.fulfill({ json: { data: {
       profileRevision:1,valuationDate:"2026-10-15",policyVersionId:policy.id,assumptionVersionId:"assumption-test",informationalOnly:true,
-      capital:{status:"INCOMPLETE",growthCapital:null,goals:[],issues:[],warnings:[]},loss:{status:"REVIEW_REQUIRED",message:"",lossAmount:null,allowedLossAmount:null},allocations,assetLabels:{CASH:"Tiền gửi & thanh khoản"},issues:[],
+      capital:{status:"INCOMPLETE",reserveMonths:6,growthCapital:null,goals:[],issues:[],warnings:[]},loss:{status:"REVIEW_REQUIRED",message:"",lossAmount:null,allowedLossAmount:null},allocations,assetLabels:{CASH:"Tiền gửi & thanh khoản"},issues:[],
       portfolio:{status: options.missingIssue ? "INCOMPLETE" : "READY",
       assessment: { totalScore: 30, riskBandId: data.riskBands[0].id, selectedTemplateId: template.id, eligibleTemplateIds: [template.id], checks: [] }, scenarios: options.missingIssue ? [] : scenarios(startMonth, months),
       issues: options.missingIssue ? [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }] : [],
@@ -77,7 +77,7 @@ test("v2 renders real glide points, current interpolation and localized asset la
   await expect(table.getByRole("rowheader").first()).toHaveText("15");
   await expect(table.getByRole("rowheader").last()).toHaveText("0");
   await expect(table.locator('[aria-current="true"]')).toContainText("7 · Vị trí hiện tại (nội suy ≈)");
-  await expect(table.getByRole("columnheader", { name: "Tiền gửi & thanh khoản" })).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Tiết kiệm", exact: true })).toBeVisible();
   expect(calls.at(-1).retirementMonth).toBe("2033-11");
   await table.screenshot({ path: "test-results/portfolio-v2-table.png" });
   expect(errors).toEqual([]);
@@ -117,6 +117,6 @@ test("published v1 renders its allocation breakdown and has no glide table", asy
   const { errors, template } = await setup(page, { version: "v1" });
   await expect(page.getByRole("heading", { name: template.label, exact: true })).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);
-  if ("schedule" in template) await expect(page.locator(".allocation-breakdown dt")).toHaveCount(template.schedule[0].allocations.length);
+  if ("schedule" in template) await expect(page.locator(".allocation-template-details .allocation-breakdown dt")).toHaveCount(template.schedule[0].allocations.length);
   expect(errors).toEqual([]);
 });

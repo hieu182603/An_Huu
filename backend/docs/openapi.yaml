@@ -10893,12 +10893,14 @@ paths:
       operationId: saveRetirementGoal
       security:
         - bearerAuth: []
-      description: USER/v2. Exact birth/retirement/end months and monthly expense
-        decimal string, optional lifestyle priority. expectedRevision CAS,
-        transaction/audit/outbox, preserve financial declarations and immutable
-        versions; mark plans stale. No valuation date or benchmark changes, no
-        automatic application. Retirement age 18–100 years; end month not before
-        retirement or valuation.
+      description: USER/v2. Exact birth/retirement/end months, optional full birthDate
+        and monthlyContribution, positive monthly retirement expense decimal
+        string, optional lifestyle priority. Full birthDate must match
+        birthMonth; preserve previously declared contribution when omitted.
+        expectedRevision CAS, transaction/audit/outbox, preserve financial
+        declarations and immutable versions; mark plans stale. No valuation date
+        or benchmark changes, no automatic application. Retirement age 18–100
+        years; end month not before retirement or valuation.
       requestBody:
         required: true
         content:
@@ -11778,13 +11780,13 @@ paths:
       operationId: previewAllocationWorkspace
       security: *a1
       description: USER/v2 read-only current profile revision + published
-        hash-verified policy/dependency. Canonical capital separation, loss stress
-        and first-month actual weights/Decimal amounts. Never infer missing dates,
-        amounts, answers or financial benchmarks. Optional endMonth absent returns
-        capital and explicit PLAN_END_MONTH_REQUIRED, without portfolio result.
-        Negative capital retained. liquidityNeedMonths is portfolio eligibility
-        horizon; reserve months remain based on declared income stability. No
-        cache/profile/plan/holdings write.
+        hash-verified policy/dependency. Canonical capital separation, loss
+        stress and first-month actual weights/Decimal amounts. Never infer
+        missing dates, amounts, answers or financial benchmarks. Optional
+        endMonth absent returns capital and explicit PLAN_END_MONTH_REQUIRED,
+        without portfolio result. Negative capital retained. liquidityNeedMonths
+        is portfolio eligibility horizon; reserve months remain based on
+        declared income stability. No cache/profile/plan/holdings write.
       requestBody:
         required: true
         content:

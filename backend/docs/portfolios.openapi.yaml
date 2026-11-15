@@ -959,6 +959,10 @@ Document:
               type: string
               minLength: 3
               maxLength: 2000
+            simulationPaths:
+              type: integer
+              minimum: 1
+              maximum: 500
             blockMonths:
               type: integer
               minimum: 12
@@ -1293,6 +1297,28 @@ Document:
             - path
             - capitalBasis
             - bounds
+        quickStartTemplates:
+          type: object
+          additionalProperties: false
+          properties:
+            evidence:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            SELL:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+            HOLD:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+            BUY_MORE:
+              type: string
+              pattern: ^[A-Z][A-Z0-9_]{0,39}$
+          required:
+            - evidence
+            - SELL
+            - HOLD
+            - BUY_MORE
       required:
         - schemaVersion
         - title
@@ -2272,6 +2298,10 @@ Write:
                   type: string
                   minLength: 3
                   maxLength: 2000
+                simulationPaths:
+                  type: integer
+                  minimum: 1
+                  maximum: 500
                 blockMonths:
                   type: integer
                   minimum: 12
@@ -2606,6 +2636,28 @@ Write:
                 - path
                 - capitalBasis
                 - bounds
+            quickStartTemplates:
+              type: object
+              additionalProperties: false
+              properties:
+                evidence:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                SELL:
+                  type: string
+                  pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                HOLD:
+                  type: string
+                  pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                BUY_MORE:
+                  type: string
+                  pattern: ^[A-Z][A-Z0-9_]{0,39}$
+              required:
+                - evidence
+                - SELL
+                - HOLD
+                - BUY_MORE
           required:
             - schemaVersion
             - title

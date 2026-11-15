@@ -36,6 +36,9 @@ const schema = z.object({
   // Retirement preview worker threads; unset = min(2, cores - 1), 0 = run on the request thread.
   PREVIEW_WORKERS: z.coerce.number().int().min(0).max(16).optional(),
   PREVIEW_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600000).default(120000),
+  // Interactive transaction limit. Saving a plan version writes ~3–4.5 MB of JSON, which a
+  // laptop far from the database cannot upload in 10 s; raise this for local development only.
+  DB_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().min(2000).max(120000).default(10000),
 });
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env) {

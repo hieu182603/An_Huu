@@ -20,6 +20,7 @@ export function assessLossConstraint(capital: CapitalSeparation, profile: Profil
     allowedLossAmount: null, exceedsTolerance: null, maxEquityWeightPercent: null, proposedLossAmount: null, proposedAllocations: [] };
   const stress = policy.schemaVersion === 2 ? policy.lossStress : undefined;
   if (!stress) result.issues.push("APPROVED_LOSS_STRESS_REQUIRED");
+  if (capital.status !== "READY") result.issues.push("CAPITAL_SEPARATION_REQUIRED");
   if (capital.growthCapital === null || new D(capital.growthCapital).lt(0)) result.issues.push("NONNEGATIVE_GROWTH_CAPITAL_REQUIRED");
   if (!holdings.length) result.issues.push("APPLIED_ALLOCATION_REQUIRED");
   if (result.issues.length || !stress) return result;
@@ -35,10 +36,14 @@ export function assessLossConstraint(capital: CapitalSeparation, profile: Profil
   result.lossPercentOfInvestableAssets = capital.investableLiquidAssets !== null && new D(capital.investableLiquidAssets).gt(0)
     ? loss.div(capital.investableLiquidAssets).mul(100).toFixed() : null;
   const tolerance = profile.lossTolerance;
-  if (tolerance?.percent?.status !== "KNOWN" || tolerance.amountVnd?.status !== "KNOWN") {
+  const pc = tolerance?.percent?.status === "KNOWN" ? tolerance.percent.value : null;
+  const amount = tolerance?.amountVnd?.status === "KNOWN" ? tolerance.amountVnd.value : null;
+  if (tolerance?.inputMode === "PERCENT" ? pc === null : tolerance?.inputMode === "AMOUNT" ? amount === null : pc === null || amount === null) {
     result.issues.push("LOSS_TOLERANCE_REQUIRED"); return result;
   }
-  const allowed = D.min(growth.mul(tolerance.percent.value).div(100), tolerance.amountVnd.value);
+  // Legacy snapshots retain their original conservative minimum for immutable replay.
+  const allowed = tolerance?.inputMode === "PERCENT" ? growth.mul(pc!).div(100)
+    : tolerance?.inputMode === "AMOUNT" ? new D(amount!) : D.min(growth.mul(pc!).div(100), amount!);
   result.allowedLossAmount = allowed.toFixed(); result.exceedsTolerance = loss.gt(allowed);
   const equity = new D(holdings.find(h => h.assetClass === stress.equityAssetClass)?.startWeightPercent ?? "0");
   if (!stress.shocks.some(s => s.assetClass === stress.equityAssetClass) || !stress.shocks.some(s => s.assetClass === stress.depositAssetClass)) {

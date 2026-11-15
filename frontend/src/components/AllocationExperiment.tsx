@@ -1,102 +1,260 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useI18n } from "../i18n";
 import { previewAllocation, type AllocationWorkspaceResult, type WorkspaceInput } from "../services/allocationWorkspace";
 import { analyzeRisk, type RiskResult, type SimulationResult } from "../services/planningAnalysis";
 import type { CustomAllocation } from "../services/portfolios";
 import type { RetirementPreviewInput } from "../services/retirement";
-import { adjustAllocation,initialAllocationWeights } from "../utils/allocationWeights";
+import { adjustAllocation, initialAllocationWeights } from "../utils/allocationWeights";
 import { portfolioAssetLabel } from "../utils/portfolioGlidePath";
 import { financeMoney } from "../utils/financeHubSummary";
 import ResponsiveDialog from "./ResponsiveDialog";
 import AllocationPackages from "./AllocationPackages";
-import "./allocation-experiment.css";
 import AllocationScenarios from "./AllocationScenarios";
+import { Icon } from "./ui";
+import "./allocation-experiment.css";
 
-export type AllocationChoice={templateId:string;customAllocation?:CustomAllocation;allocationFunding?:"PROTECTED_CAPITAL_V1"};
-type Candidate=NonNullable<RiskResult["candidates"]>[number];
-type Props={data:AllocationWorkspaceResult;input:WorkspaceInput;plan:RetirementPreviewInput|null;onChoose:(value:AllocationChoice)=>void;onReferenceChange:(value:AllocationWorkspaceResult)=>void;thresholds?:{essential?:string;all?:string}};
-export default function AllocationExperiment({data,input,plan,onChoose,onReferenceChange,thresholds}:Props){
- const en=useI18n().language==="en",t=(vi:string,eng:string)=>en?eng:vi;
- const label=(code:string)=>portfolioAssetLabel(code,en?"en":"vi",data.assetLabels);
- const money=(v:string|null|undefined)=>financeMoney(v??null,en);
- const policy=data.customization;
- const initialWeights=()=>policy?initialAllocationWeights(plan?.customAllocation?.weights??data.allocations,policy):[];
- const [weights,setWeights]=useState(initialWeights);
- const [result,setResult]=useState<RiskResult|null>(null),[trial,setTrial]=useState<AllocationWorkspaceResult|null>(null),[reference,setReference]=useState(data);
- const [busy,setBusy]=useState(false),[error,setError]=useState(""),[rate,setRate]=useState<AllocationWorkspaceResult|null>(null),[packages,setPackages]=useState<WorkspaceInput|null>(null);
- const [stressPlan,setStressPlan]=useState<RetirementPreviewInput|null>(null);
- const controller=useRef<AbortController|null>(null),sequence=useRef(0),autoRan=useRef("");
- const fingerprint=JSON.stringify({input,plan,data:data.allocations,customization:policy});
- useEffect(()=>onReferenceChange(reference),[reference,onReferenceChange]);
- useEffect(()=>()=>{sequence.current++;controller.current?.abort();},[fingerprint]);
- useEffect(()=>{setResult(null);setTrial(null);setReference(data);setBusy(false);setError("");setWeights(initialWeights());},[fingerprint]);
- const custom:CustomAllocation={model:"custom-glide-v1",weights};
- const referenceCandidate=result?.candidates?.find(c=>c.id===result.referenceId),customCandidate=result?.candidates?.find(c=>c.id==="CUSTOM");
- const eligible=(r:AllocationWorkspaceResult)=>r.portfolio?.status==="READY"&&r.loss.status==="WITHIN_LIMIT"&&r.capital.status==="READY";
- const selectionPlan=plan&&input.templateId?{...plan,templateId:input.templateId,customAllocation:undefined}:null;
- const run=async()=>{
-  if(!selectionPlan||busy)return;
-  controller.current?.abort();const abort=new AbortController();controller.current=abort;
-  const ticket=++sequence.current;setBusy(true);setError("");setResult(null);setTrial(null);
-  try{
-   const nextTrial=policy?await previewAllocation({...input,customAllocation:custom},abort.signal):null;
-   if(ticket!==sequence.current)return;
-   if(nextTrial&&!eligible(nextTrial)){setTrial(nextTrial);setError(t("Tỷ trọng này chưa đáp ứng chính sách hoặc giới hạn chịu lỗ. Hãy điều chỉnh trước khi mô phỏng.","These weights do not satisfy the policy or loss limit. Adjust them before simulation."));return;}
-   const from=data.valuationDate.slice(0,7),to=selectionPlan.endMonth;
-   const months=Math.max(1,(Number(to.slice(0,4))-Number(from.slice(0,4)))*12+Number(to.slice(5,7))-Number(from.slice(5,7))+1);
-   const paths=Math.max(1,Math.min(200,Math.floor(150000/(months*5))));
-   const response=await analyzeRisk("selection",{kind:"PREVIEW",preview:selectionPlan},paths,undefined,abort.signal,policy?custom:undefined,"ALLOCATION_V2");
-   const picked=response.candidates?.find(c=>c.id===response.referenceId);
-   const nextReference=picked?.selection?await previewAllocation({...input,...picked.selection},abort.signal):data;
-   if(ticket!==sequence.current)return;
-   setTrial(nextTrial);setResult(response);setReference(nextReference);
-  }catch(e){if(ticket===sequence.current&&!abort.signal.aborted)setError(e instanceof Error?e.message:t("Chưa tính được kết quả.","Could not calculate the result."));}
-  finally{if(ticket===sequence.current)setBusy(false);}
- };
- useEffect(()=>{if(selectionPlan&&autoRan.current!==fingerprint&&JSON.stringify(weights)===JSON.stringify(initialWeights())){autoRan.current=fingerprint;void run();}},[fingerprint,JSON.stringify(weights)]);
- const change=(code:string,value:string)=>{
-  if(!policy)return;sequence.current++;controller.current?.abort();setBusy(false);setResult(null);setTrial(null);setError("");setWeights(prev=>adjustAllocation(prev,policy,code,value));
- };
- const reset=()=>{if(!policy)return;sequence.current++;controller.current?.abort();setBusy(false);setResult(null);setTrial(null);setError("");setWeights(initialAllocationWeights(reference.allocations,policy));};
- const choose=(candidate:Candidate|undefined,workspace:AllocationWorkspaceResult)=>{
-  if(!candidate?.selection||!eligible(workspace)||!selectionPlan)return;
-  onChoose({...candidate.selection,...(selectionPlan.allocationFunding?{allocationFunding:selectionPlan.allocationFunding}:{})});
- };
- const percentage=(v:number|null|undefined)=>v==null?t("Chưa xác định","Unavailable"):`${new Intl.NumberFormat(en?"en-US":"vi-VN",{maximumFractionDigits:0}).format(v*100)}%`;
- const metrics=(candidate:SimulationResult|undefined)=><div className="allocation-probabilities">
-  {[{label:t("Đủ chi thiết yếu","Essential spending covered"),value:candidate?.pEssential,threshold:result?.threshold??thresholds?.essential},{label:t("Đủ toàn bộ mục tiêu","All goals covered"),value:candidate?.pAll,threshold:result?.allThreshold??thresholds?.all}].map(row=><div key={row.label}><div><span>{row.label}</span><strong>{percentage(row.value)}</strong></div>{row.value!=null&&<meter min={0} max={1} value={row.value} aria-label={row.label}/>}<small>{row.threshold?t(`Ngưỡng theo chính sách: ${Number(row.threshold)*100}%`,`Policy threshold: ${Number(row.threshold)*100}%`):t("Chưa công bố ngưỡng đánh giá","No published threshold")}</small></div>)}
-  {candidate?.display&&<p>{t("Khoảng tin cậy chi thiết yếu (95%):","Essential spending 95% interval:")} {candidate.display.wilsonLowerPercent}–{candidate.display.wilsonUpperPercent}%. CVaR: {money(candidate.display.cvarVnd)}.</p>}
- </div>;
- const ring=(rows:Array<{assetClass:string;weightPercent:string}>)=>{let offset=0;const colors=["#7476b5","#245dab","#c29a39","#4d8a9b","#8c9bab"];return <svg className="allocation-result-ring" viewBox="0 0 200 200" role="img" aria-label={t("Biểu đồ tỷ trọng vốn dài hạn","Long-term capital allocation chart")}><circle cx="100" cy="100" r="78" fill="none" stroke="#e9eff5" strokeWidth="20"/>{rows.map((r,i)=>{const start=offset;offset+=Number(r.weightPercent);return <circle key={r.assetClass} cx="100" cy="100" r="78" fill="none" stroke={colors[i%colors.length]} strokeWidth="20" pathLength="100" strokeDasharray={`${r.weightPercent} ${100-Number(r.weightPercent)}`} strokeDashoffset={-start} transform="rotate(-90 100 100)"/>;})}<text className="allocation-ring-total" x="100" y="99" textAnchor="middle">100%</text><text className="allocation-ring-label" x="100" y="122" textAnchor="middle">{t("Vốn dài hạn","Long-term capital")}</text></svg>;};
- const breakdown=(workspace:AllocationWorkspaceResult)=><dl className="allocation-experiment-weights">{workspace.allocations.map(row=><div key={row.assetClass}><dt>{label(row.assetClass)}</dt><dd><strong>{Number(row.weightPercent).toLocaleString(en?"en-US":"vi-VN",{maximumFractionDigits:2})}%</strong><span>{money(row.amountVnd)}</span></dd></div>)}</dl>;
- const annual=(workspace:AllocationWorkspaceResult)=>workspace.returnBreakdown?.pathAnnualPercent;
- const statusText=result?.status==="DATA_REQUIRED"?t("Chưa có bộ dữ liệu thị trường tháng đã công bố để mô phỏng. Các xác suất được để chưa xác định.","Published monthly market data is required. Probabilities remain unavailable."):result?.status==="LIMIT_EXCEEDED"?t("Phép thử vượt giới hạn xử lý. Chưa có ước lượng hoàn chỉnh; hãy thử lại sau.","The run exceeded processing limits. No complete estimate is available; retry later."):result&&!result.candidates?.length?t("Cần hoàn thiện dòng tiền và chính sách mô phỏng trước khi đánh giá khả năng đủ tiền.","Complete cash flows and simulation policy before estimating funding success."):"";
- return <section className="allocation-experiment" aria-label={t("Thử và đối chiếu phân bổ","Test and compare allocations")}>
-  <div className="allocation-lab-real">
-   <article className="allocation-reference"><span className="allocation-source-badge">{t("PHƯƠNG ÁN THAM CHIẾU","REFERENCE ALLOCATION")}</span><h2>{t("Cách chia để đối chiếu","Your comparison allocation")}</h2>
-    <button type="button" className="allocation-rate-button" onClick={()=>setRate(reference)} disabled={!reference.returnBreakdown}><strong>{annual(reference)?`${Number(annual(reference)).toFixed(2)}%`:"—"}</strong><span>{t("Sinh lời quy đổi / năm ⓘ","Annual equivalent return ⓘ")}</span></button>
-    {reference.allocations.length>0&&ring(reference.allocations)}{breakdown(reference)}{metrics(referenceCandidate)}
-    <p className="allocation-result-footnote">{t("Lọc theo giới hạn chịu lỗ, sau đó chọn theo ngưỡng chi thiết yếu, CVaR và mức thay đổi tỷ trọng. Không có phương án đạt ngưỡng thì chỉ hiển thị để tham khảo.","Loss limit first, then essential-spending threshold, CVaR and allocation change. A below-threshold allocation is shown for comparison only.")}</p>
-    <button className="overview-button primary" disabled={busy||!referenceCandidate?.selection||!eligible(reference)} onClick={()=>choose(referenceCandidate,reference)}>{t("Chọn phương án tham chiếu","Choose reference allocation")}</button>
-    <button className="overview-button secondary" onClick={()=>setPackages({...input,...(referenceCandidate?.selection??{})})} disabled={!eligible(reference)}>{t("Gợi ý gói đầu tư phù hợp","Explore investment packages")}</button>
-    <button className="remaining-text" disabled={busy||!selectionPlan||!referenceCandidate?.selection} onClick={()=>selectionPlan&&referenceCandidate?.selection&&setStressPlan({...selectionPlan,...referenceCandidate.selection})}>{t("Thử các biến cố với phương án này","Stress-test this allocation")}</button>
-   </article>
-   <article className="allocation-reference allocation-custom"><h2>{t("Tự chọn tỷ trọng","Choose your own weights")}</h2><p>{t("Điều chỉnh cách chia; phần còn lại cân đối về 100% trong giới hạn đã công bố.","Adjust the allocation; other shares balance to 100% within published limits.")}</p>
-    {!policy?<p role="status">{t("Chính sách hiện tại chưa công bố giới hạn cho tỷ trọng tự chọn.","The current policy has no published custom-allocation bounds.")}</p>:<>{ring(weights)}{plan?.customAllocation&&<p>{t("Đã nạp tỷ trọng từ lựa chọn hiện có. Kiểm tra lại trước khi dùng kết quả mới.","Weights loaded from your existing selection. Test again before using new results.")}</p>}{weights.map(row=>{const bound=policy.bounds.find(b=>b.assetClass===row.assetClass)!;return <div className="allocation-slider-row" key={row.assetClass}><label htmlFor={`allocation-${row.assetClass}`}>{label(row.assetClass)}</label><div><input id={`allocation-${row.assetClass}`} type="range" disabled={busy||bound.minPercent===bound.maxPercent} min={bound.minPercent} max={bound.maxPercent} step="0.1" value={row.weightPercent} onChange={e=>change(row.assetClass,e.target.value)}/><input type="number" disabled={busy||bound.minPercent===bound.maxPercent} min={bound.minPercent} max={bound.maxPercent} step="0.1" aria-label={`${label(row.assetClass)} (%)`} value={row.weightPercent} onChange={e=>change(row.assetClass,e.target.value)}/><span>%</span></div></div>;})}<p>{t("Tổng tỷ trọng: 100%","Total allocation: 100%")}</p></>}
-    {trial&&<><button type="button" className="allocation-rate-button" onClick={()=>setRate(trial)} disabled={!trial.returnBreakdown}><strong>{annual(trial)?`${Number(annual(trial)).toFixed(2)}%`:"—"}</strong><span>{t("Sinh lời quy đổi / năm ⓘ","Annual equivalent return ⓘ")}</span></button>{breakdown(trial)}<p>{trial.loss.message}</p></>}
-    {metrics(customCandidate)}<button className="overview-button primary" disabled={busy||!selectionPlan} onClick={()=>void run()}>{busy?t("Đang mô phỏng…","Simulating…"):t("Kiểm tra và so sánh","Test and compare")}</button>
-    {policy&&<><button className="remaining-text" disabled={busy} onClick={reset}>{t("Đặt lại theo tham chiếu","Reset to reference")}</button><button className="overview-button secondary" disabled={busy||!customCandidate?.selection||!trial||!eligible(trial)} onClick={()=>trial&&choose(customCandidate,trial)}>{t("Chọn tỷ trọng tự chọn","Choose custom allocation")}</button><button className="overview-button secondary" disabled={busy||!trial||!eligible(trial)} onClick={()=>setPackages({...input,customAllocation:custom})}>{t("Gợi ý gói cho tỷ trọng tự chọn","Explore packages for custom weights")}</button></>}
-    {customCandidate?.selection&&<button className="remaining-text" disabled={busy||!selectionPlan} onClick={()=>selectionPlan&&customCandidate.selection&&setStressPlan({...selectionPlan,...customCandidate.selection})}>{t("Thử biến cố với tỷ trọng tự chọn","Stress-test custom allocation")}</button>}
-    {!selectionPlan&&<p>{t("Bổ sung chi tiêu và thời gian nghỉ hưu để mô phỏng cùng dòng tiền của kế hoạch.","Complete retirement spending and dates to simulate the plan cash flows.")} <Link to="/user/plan?tab=adjust">{t("Mở Kế hoạch","Open Plan")}</Link></p>}
-    {error&&<p role="alert">{error}</p>}{statusText&&<p role="status">{statusText}</p>}
-    {result?.status==="INSUFFICIENT"&&<p role="status">{t("Chưa có phương án đạt ngưỡng chi thiết yếu. Hãy xem lại mức góp, thời điểm nghỉ hưu hoặc chi tiêu.","No allocation meets the essential-spending threshold. Review contributions, retirement date or spending.")}</p>}
-   </article>
-  </div>
-  {!!result?.candidates?.length&&<div className="allocation-comparison-scroll"><table><caption>{t("Kết quả trên cùng dữ liệu và dòng tiền; thay tỷ trọng sẽ xóa kết quả cũ.","Same data and cash flows; editing weights invalidates these results.")}</caption><thead><tr><th>{t("Phương án","Allocation")}</th><th>{t("Đủ thiết yếu","Essentials")}</th><th>{t("Đủ mục tiêu","All goals")}</th><th>CVaR</th><th>{t("Giảm khi sốc","Stress loss")}</th></tr></thead><tbody>{result.candidates.map(row=><tr key={row.id}><th>{row.id==="CUSTOM"?t("Tự chọn","Custom"):row.id===result.referenceId?t("Tham chiếu","Reference"):({BASE:t("Theo hồ sơ","Profile allocation"),LOWER_EQUITY:t("Giảm cổ phiếu","Lower equity"),HIGHER_EQUITY:t("Tăng cổ phiếu","Higher equity"),CONTINUOUS:t("Phân bổ tối ưu","Optimized allocation")} as Record<string,string>)[row.id]??t("Phương án khác","Alternative")}</th><td>{percentage(row.pEssential)}</td><td>{percentage(row.pAll)}</td><td>{money(row.display?.cvarVnd)}</td><td>{money(row.loss?.lossAmount)}</td></tr>)}</tbody></table><p className="allocation-result-footnote">{result.candidates[0]?.paths} {t("đường mô phỏng lịch sử; không bảo đảm kết quả tương lai.","historical simulation paths; future results are not guaranteed.")}</p></div>}
-  {result?.candidates?.[0]?.disclosure&&<details className="allocation-probability-details"><summary>{t("Cơ sở tính xác suất và giới hạn của kết quả","Probability calculation and limitations")}</summary><p>{t("Đủ toàn bộ mục tiêu nghĩa là không thiếu khoản chi nào trong suốt kỳ và đáp ứng số dư cuối kỳ đã khai. Chi tiêu sau hưu theo CPI của mỗi đường thử; khoản chi và mục tiêu danh nghĩa khác giữ nguyên.","All-goals success requires no unfunded withdrawal throughout the horizon and the declared terminal balance. Retirement living expenses follow each path's CPI; other nominal spending and goals remain fixed.")}</p><p>{result.candidates[0].disclosure.period.from} → {result.candidates[0].disclosure.period.to} · {result.candidates[0].disclosure.historyMonths} {t("tháng lịch sử","historical months")} · {result.candidates[0].paths} {t("đường thử","paths")}. {t("Khoảng Wilson chỉ đo sai số lấy mẫu, không đo sai lệch mô hình. Chi phí mua ban đầu, chênh lệch giá và lô giao dịch chưa được trừ trong mô phỏng.","Wilson measures sampling error, not model error. Initial purchase costs, spreads and trading lots are not deducted in the simulation.")}</p><ul>{result.candidates[0].disclosure.sources.map(s=><li key={s.id}><a href={s.url} target="_blank" rel="noreferrer">{s.title}</a> · {s.license}</li>)}</ul></details>}
-  <ResponsiveDialog open={!!rate} title={t("Giải thích tỷ suất sinh lời","Return calculation")} onClose={()=>setRate(null)} className="user-workspace-dialog allocation-products-dialog">{rate?.returnBreakdown&&<><p>{t("Tỷ suất danh nghĩa dùng đầu vào tháng; tỷ suất hiệu dụng có lãi kép. Tỷ suất theo lộ trình còn phản ánh lịch phân bổ và chi phí tái cân bằng đã mô hình hóa.","Nominal return uses monthly inputs; effective return compounds them. Path return also reflects modeled allocation changes and rebalancing costs.")}</p><dl>{rate.returnBreakdown.rows.map(row=><div key={row.assetClass}><dt>{label(row.assetClass)} · {Number(row.weightPercent).toFixed(2)}%</dt><dd>{t("Đóng góp tháng","Monthly contribution")}: {(Number(row.monthlyContribution)*100).toFixed(4)}%</dd></div>)}<div><dt>{t("Danh nghĩa năm (tháng × 12)","Nominal annual (monthly × 12)")}</dt><dd>{Number(rate.returnBreakdown.nominalAnnualPercent).toFixed(2)}%</dd></div><div><dt>{t("Hiệu dụng năm ((1 + tháng)¹² − 1)","Effective annual ((1 + monthly)¹² − 1)")}</dt><dd>{Number(rate.returnBreakdown.effectiveAnnualPercent).toFixed(2)}%</dd></div><div><dt>{t("Quy đổi theo toàn lộ trình","Annualized whole-path return")}</dt><dd>{Number(rate.returnBreakdown.pathAnnualPercent).toFixed(2)}%</dd></div></dl></>}</ResponsiveDialog>
-  <AllocationPackages input={packages} onClose={()=>setPackages(null)} labels={data.assetLabels}/>
-  <AllocationScenarios plan={stressPlan} onClose={()=>setStressPlan(null)}/>
- </section>;
+export type AllocationChoice = { templateId: string; customAllocation?: CustomAllocation; allocationFunding?: "PROTECTED_CAPITAL_V1" };
+type Candidate = NonNullable<RiskResult["candidates"]>[number];
+type Row = { assetClass: string; weightPercent: string };
+type Props = {
+  data: AllocationWorkspaceResult; input: WorkspaceInput; plan: RetirementPreviewInput | null;
+  onChoose: (value: AllocationChoice) => void;
+  onReferenceChange: (value: AllocationWorkspaceResult, result: RiskResult | null) => void;
+  thresholds?: { essential?: string; all?: string };
+  /** Rendered between the two cards and the custom comparison, where the demo explains the pick. */
+  why?: ReactNode;
+};
+
+// One colour per asset class everywhere on the page, so the two rings and the comparison bars agree.
+const palette: Record<string, string> = { CASH: "#4d8a9b", GOV_BOND: "#7476b5", BOND: "#7476b5", EQUITY: "#245dab", STOCK: "#245dab", GOLD: "#c29a39", SILVER: "#8c9bab", REAL_ESTATE: "#a56c51", PROPERTY: "#a56c51" };
+const spare = ["#4d8a9b", "#7476b5", "#245dab", "#c29a39", "#8c9bab", "#a56c51"];
+export const allocationColor = (code: string, index: number) => palette[code] ?? spare[index % spare.length];
+export const allocationPurpose = (code: string, en: boolean) => {
+  const text: Record<string, [string, string]> = {
+    CASH: ["Linh hoạt cho các khoản cần dùng", "Liquidity for upcoming needs"],
+    BOND: ["Tạo nền thu nhập ổn định", "A foundation for regular income"],
+    GOV_BOND: ["Tạo nền thu nhập ổn định", "A foundation for regular income"],
+    STOCK: ["Tăng trưởng trong dài hạn", "Long-term growth"],
+    EQUITY: ["Tăng trưởng trong dài hạn", "Long-term growth"],
+    GOLD: ["Đa dạng hóa danh mục", "Portfolio diversification"],
+  };
+  return (text[code] ?? ["Theo vai trò trong chính sách phân bổ", "As defined in the allocation policy"])[en ? 1 : 0];
+};
+const candidateName = (id: string, referenceId: string | null | undefined, qualified: boolean, en: boolean) => {
+  const t = (vi: string, english: string) => en ? english : vi;
+  if (id === referenceId) return qualified ? t("Phương án đề xuất", "Recommended allocation") : t("Danh mục tham khảo", "Reference allocation");
+  return ({ CUSTOM: t("Tự chọn", "Custom"), BASE: t("Theo hồ sơ", "Profile allocation"), LOWER_EQUITY: t("Giảm cổ phiếu", "Lower equity"),
+    HIGHER_EQUITY: t("Tăng cổ phiếu", "Higher equity"), CONTINUOUS: t("Phân bổ tối ưu", "Optimized allocation") } as Record<string, string>)[id] ?? t("Cách chia khác", "Alternative");
+};
+const meets = (candidate: SimulationResult | undefined, threshold: string | undefined | null) =>
+  candidate?.pEssential != null && !!threshold && candidate.pEssential >= Number(threshold);
+
+/** Every tested allocation side by side with the reason it was or was not picked. Mirrors the demo's "why" table. */
+export function AllocationCandidates({ result, labels, en, rates }: { result: RiskResult; labels: Record<string, string>; en: boolean; rates: Record<string, number> }) {
+  const t = (vi: string, english: string) => en ? english : vi;
+  const money = (v: string | null | undefined) => financeMoney(v ?? null, en);
+  const num = (v: number) => new Intl.NumberFormat(en ? "en-US" : "vi-VN", { maximumFractionDigits: 1 }).format(v);
+  const share = (v: number | null | undefined) => v == null ? "—" : `${num(v * 100)}%`;
+  const all = (result.candidates ?? []).filter(c => c.id !== "CUSTOM"), ref = all.find(c => c.id === result.referenceId);
+  if (!ref) return null;
+  // Compounded annual return of the starting weights on the published monthly inputs: (1 + Σ weight × monthly rate)¹² − 1.
+  const assumed = (c: Candidate) => { const rows = c.targets[0] ?? []; if (!rows.length || rows.some(r => Number(r.weightPercent) > 0 && rates[r.assetClass] === undefined)) return null;
+    return (Math.pow(1 + rows.reduce((sum, r) => sum + Number(r.weightPercent) / 100 * (rates[r.assetClass] ?? 0), 0), 12) - 1) * 100; };
+  const refQ = meets(ref, result.threshold), cvar = (c: Candidate) => Number(c.display?.cvarVnd ?? 0), loss = (c: Candidate) => Number(c.loss?.lossAmount ?? 0);
+  const reason = (c: Candidate) => {
+    if (refQ && !meets(c, result.threshold)) return t("Chưa đạt ngưỡng đủ chi", "Below the essential-spending threshold");
+    if (refQ) return cvar(c) > cvar(ref) + 1 ? t("Thiếu hụt lớn hơn khi thị trường xấu", "Larger shortfall in bad markets") : t("Phải đổi nhiều hơn so với tài sản hiện có", "Needs a larger change from current holdings");
+    if (loss(c) > loss(ref) + 1) return (c.pEssential ?? 0) > (ref.pEssential ?? 0) ? t("Đủ chi nhỉnh hơn nhưng rủi ro giảm giá lớn hơn", "Slightly better coverage but a larger stress loss") : t("Rủi ro giảm giá lớn hơn", "Larger stress loss");
+    const own = assumed(c), base = assumed(ref);
+    if (own !== null && base !== null && own < base - 0.005) return loss(c) < loss(ref) - 1 ? t("An toàn hơn nhưng lợi suất giả định thấp hơn", "Safer but with a lower assumed return") : t("Lợi suất giả định thấp hơn", "Lower assumed return");
+    return t("Cân bằng lợi suất và rủi ro kém hơn", "A weaker balance of return and risk");
+  };
+  const differences = (c: Candidate) => {
+    const parts: string[] = [], own = assumed(c), base = assumed(ref), dr = own !== null && base !== null ? own - base : 0, dl = loss(c) - loss(ref), dc = cvar(c) - cvar(ref), dp = ((c.pEssential ?? 0) - (ref.pEssential ?? 0)) * 100;
+    if (Math.abs(dr) >= 0.005) parts.push(`${t("Lợi suất", "Return")} ${dr < 0 ? t("thấp hơn", "lower by") : t("cao hơn", "higher by")} ${new Intl.NumberFormat(en ? "en-US" : "vi-VN", { maximumFractionDigits: 2 }).format(Math.abs(dr))} ${t("điểm %", "pts")}`);
+    if (Math.abs(dl) > 1) parts.push(`${dl < 0 ? t("Giảm ít hơn", "Loses less:") : t("Giảm nhiều hơn", "Loses more:")} ${money(String(Math.round(Math.abs(dl))))} ${t("khi sốc", "under stress")}`);
+    if (Math.abs(dc) > 1) parts.push(`${t("Thiếu hụt", "Shortfall")} ${dc < 0 ? t("nhỏ hơn", "smaller by") : t("lớn hơn", "larger by")} ${money(String(Math.round(Math.abs(dc))))}`);
+    if (Math.abs(dp) >= 0.05) parts.push(`${t("Đủ chi thiết yếu", "Essential coverage")} ${dp < 0 ? t("thấp hơn", "lower by") : t("cao hơn", "higher by")} ${num(Math.abs(dp))} ${t("điểm %", "pts")}`);
+    return parts;
+  };
+  const mix = (c: Candidate) => (c.targets[0] ?? []).filter(r => Number(r.weightPercent) > 0);
+  const yearly = (c: Candidate) => { const value = assumed(c); return value === null ? "—" : `${new Intl.NumberFormat(en ? "en-US" : "vi-VN", { maximumFractionDigits: 2 }).format(value)}%/${t("năm", "yr")}`; };
+  const headers = [t("Cách chia vốn", "Allocation"), t("Giảm khi thị trường sốc", "Stress loss"), t("Đủ chi thiết yếu", "Essentials covered"), t("Đủ mọi mục tiêu", "All goals covered"), t("Thiếu hụt khi thị trường xấu", "Shortfall in bad markets"), t("Kết luận", "Verdict")];
+  return <>
+    <div className="allocation-comparison-scroll" tabIndex={0} role="region" aria-label={t("So sánh các cách chia vốn đã kiểm tra", "Comparison of tested allocations")}>
+      <table className="allocation-why-table"><thead><tr><th scope="col">{headers[0]}</th><th scope="col">{t("Lợi suất giả định", "Assumed return")}</th>{headers.slice(1).map(h => <th scope="col" key={h}>{h}</th>)}</tr></thead><tbody>
+        {[ref, ...all.filter(c => c !== ref)].map(c => <tr key={c.id} className={c === ref ? "is-current" : ""}>
+          <th scope="row"><span className="allocation-why-name">{candidateName(c.id, result.referenceId, refQ, en)}</span>
+            <span className="allocation-why-bar" role="img" aria-label={mix(c).map(r => `${portfolioAssetLabel(r.assetClass, en ? "en" : "vi", labels)} ${num(Number(r.weightPercent))}%`).join(", ")}>{mix(c).map((r, i) => <i key={r.assetClass} style={{ width: `${r.weightPercent}%`, background: allocationColor(r.assetClass, i) }} />)}</span>
+            <small>{mix(c).map(r => `${portfolioAssetLabel(r.assetClass, en ? "en" : "vi", labels)} ${num(Number(r.weightPercent))}%`).join(" · ")}</small></th>
+          <td data-label={t("Lợi suất giả định", "Assumed return")}>{yearly(c)}</td><td data-label={headers[1]}>{money(c.loss?.lossAmount)}</td><td data-label={headers[2]}>{share(c.pEssential)}</td><td data-label={headers[3]}>{share(c.pAll)}</td><td data-label={headers[4]}>{money(c.display?.cvarVnd)}</td>
+          <td data-label={headers[5]}>{c === ref ? <span className={`allocation-why-pick${refQ ? "" : " is-reference"}`}>{refQ ? t("Đề xuất", "Recommended") : t("Tham khảo", "Reference")}</span>
+            : <>{reason(c)}{differences(c).length > 0 && <ul>{differences(c).map(text => <li key={text}>{text}</li>)}</ul>}</>}</td>
+        </tr>)}
+        {(result.rejected ?? []).filter(r => r.id !== "CUSTOM").map(r => <tr key={r.id}><th scope="row"><span className="allocation-why-name">{candidateName(r.id, null, false, en)}</span></th>
+          <td data-label={t("Lợi suất giả định", "Assumed return")}>—</td><td data-label={headers[1]}>—</td><td data-label={headers[2]}>—</td><td data-label={headers[3]}>—</td><td data-label={headers[4]}>—</td>
+          <td data-label={headers[5]}>{r.issues.includes("LOSS_CONSTRAINT_EXCEEDED") ? t("Vượt giới hạn chịu lỗ", "Exceeds your loss limit") : t("Không đáp ứng ràng buộc của chính sách", "Fails the policy constraints")}</td></tr>)}
+      </tbody></table>
+    </div>
+    <p className="allocation-result-footnote">{t("Lợi suất trước phí theo đầu vào đã công bố, quy đổi lãi kép; là giả định dùng cho phép tính.", "Returns are before fees on published inputs, compounded; they are calculation assumptions.")} {t(`Tỷ lệ đủ chi là tần suất trên ${ref.paths ?? "—"} kịch bản mô phỏng, không phải bảo đảm. Thiếu hụt khi thị trường xấu là mức thiếu chi thiết yếu trung bình ở nhóm kịch bản xấu nhất, quy về giá hôm nay.`, `Coverage is a frequency across ${ref.paths ?? "—"} simulated scenarios, not a guarantee. Shortfall in bad markets is the average essential shortfall in the worst scenarios, in today's money.`)}</p>
+  </>;
+}
+
+export default function AllocationExperiment({ data, input, plan, onChoose, onReferenceChange, thresholds, why }: Props) {
+  const en = useI18n().language === "en", t = (vi: string, eng: string) => en ? eng : vi;
+  const label = (code: string) => portfolioAssetLabel(code, en ? "en" : "vi", data.assetLabels);
+  const money = (v: string | null | undefined) => financeMoney(v ?? null, en);
+  const num = (v: number, digits = 2) => new Intl.NumberFormat(en ? "en-US" : "vi-VN", { maximumFractionDigits: digits }).format(v);
+  const policy = data.customization;
+  const initialWeights = () => policy ? initialAllocationWeights(plan?.customAllocation?.weights ?? data.allocations, policy) : [];
+  const [weights, setWeights] = useState(initialWeights);
+  const [result, setResult] = useState<RiskResult | null>(null), [trial, setTrial] = useState<AllocationWorkspaceResult | null>(null), [reference, setReference] = useState(data);
+  const [busy, setBusy] = useState(false), [error, setError] = useState(""), [rate, setRate] = useState<AllocationWorkspaceResult | null>(null), [packages, setPackages] = useState<WorkspaceInput | null>(null);
+  const [stressPlan, setStressPlan] = useState<RetirementPreviewInput | null>(null);
+  const [customOpen, setCustomOpen] = useState(() => !window.matchMedia("(max-width: 800px)").matches || !!plan?.customAllocation);
+  const controller = useRef<AbortController | null>(null), sequence = useRef(0), autoRan = useRef("");
+  const fingerprint = JSON.stringify({ input, plan, data: data.allocations, customization: policy });
+  const weightsKey = JSON.stringify(weights);
+  useEffect(() => onReferenceChange(reference, result), [reference, result, onReferenceChange]);
+  useEffect(() => () => { sequence.current++; controller.current?.abort(); }, [fingerprint]);
+  useEffect(() => { setResult(null); setTrial(null); setReference(data); setBusy(false); setError(""); setWeights(initialWeights()); }, [fingerprint]);
+  const custom: CustomAllocation = { model: "custom-glide-v1", weights };
+  // Live check while dragging: the server answers with the loss stress, amounts and return for these exact weights.
+  useEffect(() => {
+    if (!policy || !weights.length) return;
+    const abort = new AbortController();
+    const timer = setTimeout(() => { previewAllocation({ ...input, customAllocation: custom }, abort.signal).then(value => { if (!abort.signal.aborted) setTrial(value); }).catch(() => undefined); }, 350);
+    return () => { clearTimeout(timer); abort.abort(); };
+  }, [weightsKey, fingerprint]);
+
+  const threshold = result?.threshold ?? thresholds?.essential, allThreshold = result?.allThreshold ?? thresholds?.all;
+  const referenceCandidate = result?.candidates?.find(c => c.id === result.referenceId), customCandidate = result?.candidates?.find(c => c.id === "CUSTOM");
+  const qualified = meets(referenceCandidate, threshold), tested = (result?.candidates ?? []).filter(c => c.id !== "CUSTOM").length + (result?.rejected ?? []).filter(r => r.id !== "CUSTOM").length;
+  const eligible = (r: AllocationWorkspaceResult) => r.portfolio?.status === "READY" && r.loss.status === "WITHIN_LIMIT" && r.capital.status === "READY";
+  const selectionPlan = plan && input.templateId ? { ...plan, templateId: input.templateId, customAllocation: undefined } : null;
+  const run = async () => {
+    if (!selectionPlan || busy) return;
+    controller.current?.abort(); const abort = new AbortController(); controller.current = abort;
+    const ticket = ++sequence.current; setBusy(true); setError(""); setResult(null);
+    try {
+      const nextTrial = policy ? await previewAllocation({ ...input, customAllocation: custom }, abort.signal) : null;
+      if (ticket !== sequence.current) return;
+      if (nextTrial && !eligible(nextTrial)) { setTrial(nextTrial); setError(t("Tỷ trọng này chưa đáp ứng chính sách hoặc giới hạn chịu lỗ. Hãy điều chỉnh trước khi mô phỏng.", "These weights do not satisfy the policy or loss limit. Adjust them before simulation.")); return; }
+      const from = data.valuationDate.slice(0, 7), to = selectionPlan.endMonth;
+      const months = Math.max(1, (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + Number(to.slice(5, 7)) - Number(from.slice(5, 7)) + 1);
+      const paths = Math.max(1, Math.min(200, Math.floor(150000 / (months * 5))));
+      const response = await analyzeRisk("selection", { kind: "PREVIEW", preview: selectionPlan }, paths, undefined, abort.signal, policy ? custom : undefined, "ALLOCATION_V2");
+      const picked = response.candidates?.find(c => c.id === response.referenceId);
+      const nextReference = picked?.selection ? await previewAllocation({ ...input, ...picked.selection }, abort.signal) : data;
+      if (ticket !== sequence.current) return;
+      setTrial(nextTrial); setResult(response); setReference(nextReference);
+    } catch (e) { if (ticket === sequence.current && !abort.signal.aborted) setError(e instanceof Error ? e.message : t("Chưa tính được kết quả.", "Could not calculate the result.")); }
+    finally { if (ticket === sequence.current) setBusy(false); }
+  };
+  useEffect(() => { if (selectionPlan && autoRan.current !== fingerprint && weightsKey === JSON.stringify(initialWeights())) { autoRan.current = fingerprint; void run(); } }, [fingerprint, weightsKey]);
+  const invalidate = () => { sequence.current++; controller.current?.abort(); setBusy(false); setResult(null); setTrial(null); setError(""); };
+  const change = (code: string, value: string) => { if (!policy) return; invalidate(); setWeights(prev => adjustAllocation(prev, policy, code, value)); };
+  const reset = () => { if (!policy) return; invalidate(); setWeights(initialAllocationWeights(reference.allocations, policy)); };
+  const choose = (candidate: Candidate | undefined, workspace: AllocationWorkspaceResult) => {
+    if (!candidate?.selection || !eligible(workspace) || !selectionPlan) return;
+    onChoose({ ...candidate.selection, ...(selectionPlan.allocationFunding ? { allocationFunding: selectionPlan.allocationFunding } : {}) });
+  };
+  const sameSelection = (a: Candidate["selection"], b: RetirementPreviewInput | null) => !!a && !!b && a.templateId === b.templateId && JSON.stringify(a.customAllocation?.weights ?? null) === JSON.stringify(b.customAllocation?.weights ?? null);
+  const usingReference = sameSelection(referenceCandidate?.selection, plan);
+
+  const share = (v: number | null | undefined) => v == null ? t("Chưa xác định", "Unavailable") : `${num(v * 100, 1)}%`;
+  const meter = (name: string, value: number | null | undefined, target: string | undefined | null) => <div className="allocation-success" key={name}>
+    <div><span>{name}</span><strong>{share(value)}</strong></div>
+    {value != null && <div className="allocation-success-track" role="img" aria-label={`${name}: ${share(value)}${target ? `; ${t("ngưỡng", "threshold")} ${num(Number(target) * 100)}%` : ""}`}><span style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />{target && <i style={{ left: `${Number(target) * 100}%` }} />}</div>}
+    <small>{target ? t(`Ngưỡng mục tiêu ${num(Number(target) * 100)}%`, `Target threshold ${num(Number(target) * 100)}%`) : t("Chưa công bố ngưỡng đánh giá", "No published threshold")}</small>
+  </div>;
+  const metrics = (candidate: SimulationResult | undefined) => <div className="allocation-success-grid">
+    {meter(t("Đủ chi thiết yếu", "Essential spending covered"), candidate?.pEssential, threshold)}{meter(t("Đủ mọi mục tiêu", "All goals covered"), candidate?.pAll, allThreshold)}
+  </div>;
+  const ring = (rows: Row[], small = false) => { let offset = 0; return <svg className={`allocation-result-ring${small ? " is-small" : ""}`} viewBox="0 0 200 200" role="img" aria-label={t("Cơ cấu phần vốn dài hạn, tổng 100 phần trăm", "Long-term capital allocation, 100 percent in total")}>
+    <circle cx="100" cy="100" r="78" fill="none" stroke="#e9eff5" strokeWidth="20" />
+    {rows.map((r, i) => { const start = offset; offset += Number(r.weightPercent); return Number(r.weightPercent) > 0 ? <circle key={r.assetClass} cx="100" cy="100" r="78" fill="none" stroke={allocationColor(r.assetClass, i)} strokeWidth="20" pathLength="100" strokeDasharray={`${r.weightPercent} ${100 - Number(r.weightPercent)}`} strokeDashoffset={-start} transform="rotate(-90 100 100)" /> : null; })}
+    <text className="allocation-ring-total" x="100" y="99" textAnchor="middle">100%</text><text className="allocation-ring-label" x="100" y="122" textAnchor="middle">{t("Vốn dài hạn", "Long-term capital")}</text></svg>; };
+  const annual = (workspace: AllocationWorkspaceResult | null) => workspace?.returnBreakdown?.pathAnnualPercent;
+  const rateButton = (workspace: AllocationWorkspaceResult | null, compact = false) => <button type="button" className={`allocation-reference-rate allocation-rate-button${compact ? " is-compact" : ""}`} onClick={() => setRate(workspace)} disabled={!workspace?.returnBreakdown}>
+    <strong>{annual(workspace) ? num(Number(annual(workspace))) : "—"}{annual(workspace) && <small>%/{t("năm", "yr")}</small>}</strong>
+    <span>{t("Lợi suất đường cơ sở · trước phí tư vấn ⓘ", "Base-path return · before advisory fees ⓘ")}<br />{t("Giả định dùng cho phép tính, không cam kết", "A calculation assumption, not a commitment")}</span></button>;
+  const growth = data.capital.growthCapital === null ? null : Number(data.capital.growthCapital);
+  const lossText = (loss: AllocationWorkspaceResult["loss"]) => `${t("Tình huống thị trường sốc", "Market stress")}: ${money(loss.lossAmount)} / ${t("giới hạn", "limit")} ${money(loss.allowedLossAmount)}.`;
+  const trialValid = !!trial && eligible(trial);
+  const trialProblem = !trial ? "" : trial.capital.status !== "READY" ? t("Cần xác nhận phần vốn dài hạn trước khi thử tỷ trọng.", "Confirm long-term capital before testing weights.")
+    : trial.portfolio?.status !== "READY" ? t("Tỷ trọng chưa đáp ứng giới hạn của chính sách danh mục.", "These weights fall outside the portfolio policy limits.")
+    : trial.loss.status !== "WITHIN_LIMIT" ? `${t("Vượt giới hạn tổn thất đã khai", "Exceeds your declared loss limit")}. ${lossText(trial.loss)}${trial.loss.maxEquityWeightPercent ? ` ${t(`Giảm cổ phiếu xuống tối đa ${num(Number(trial.loss.maxEquityWeightPercent), 1)}% để đạt.`, `Lower equity to at most ${num(Number(trial.loss.maxEquityWeightPercent), 1)}% to pass.`)}` : ""}` : "";
+  const statusText = result?.status === "DATA_REQUIRED" ? t("Chưa có bộ dữ liệu thị trường tháng đã công bố để mô phỏng. Các xác suất được để chưa xác định.", "Published monthly market data is required. Probabilities remain unavailable.") : result?.status === "LIMIT_EXCEEDED" ? t("Phép thử vượt giới hạn xử lý. Chưa có ước lượng hoàn chỉnh; hãy thử lại sau.", "The run exceeded processing limits. No complete estimate is available; retry later.") : result && !result.candidates?.length ? t("Cần hoàn thiện dòng tiền và chính sách mô phỏng trước khi đánh giá khả năng đủ tiền.", "Complete cash flows and simulation policy before estimating funding success.") : "";
+  const customPasses = meets(customCandidate, threshold) && (!allThreshold || (customCandidate?.pAll ?? 0) >= Number(allThreshold));
+
+  return <section className="allocation-experiment" aria-label={t("Thử và đối chiếu phân bổ", "Test and compare allocations")}>
+    <div className="allocation-lab-real">
+      <article className="allocation-reference">
+        <header className="allocation-result-card-heading"><span className="allocation-result-icon" aria-hidden="true"><Icon name="shield" /></span><div>
+          <span className="allocation-card-meta"><span className="allocation-eyebrow">{t("THEO HỒ SƠ CỦA BẠN", "BASED ON YOUR PROFILE")}</span><span className={`allocation-loss-badge${eligible(reference) ? " is-valid" : ""}`}>{eligible(reference) ? t("Trong giới hạn chịu lỗ", "Within loss limit") : t("Cần rà soát", "Review needed")}</span></span>
+          <h2>{!referenceCandidate ? t("Phương án theo hồ sơ", "Profile allocation") : qualified ? t("Phương án đề xuất", "Recommended allocation") : t("Danh mục tham khảo", "Reference allocation")}</h2></div></header>
+        {rateButton(reference)}
+        {reference.allocations.length > 0 && <div className="allocation-breakdown">{ring(reference.allocations)}<dl>{reference.allocations.filter(r => Number(r.weightPercent) > 0).map((row, i) => <div key={row.assetClass}><dt><i style={{ background: allocationColor(row.assetClass, i) }} /><span>{label(row.assetClass)}<small>{allocationPurpose(row.assetClass, en)}</small></span></dt><dd><strong>{num(Number(row.weightPercent))}%</strong><span>{money(row.amountVnd)}</span></dd></div>)}</dl></div>}
+        {referenceCandidate && <div className={`allocation-result-callout${qualified ? " is-valid" : ""}`}><Icon name={qualified ? "check" : "info"} /><p>{qualified ? t(`Tốt nhất trong ${tested} cách chia vốn đã kiểm tra theo tiêu chí của bạn.`, `Best of ${tested} tested allocations under your criteria.`) : t("Ít thiếu hụt nhất trong giới hạn chịu lỗ, nhưng chưa đủ chi thiết yếu.", "Smallest shortfall within your loss limit, but essential spending is not yet covered.")}</p><a href="#allocation-result-why">{t("Xem vì sao ↓", "See why ↓")}</a></div>}
+        {metrics(referenceCandidate)}
+        <p className="allocation-result-footnote">{referenceCandidate?.paths ? t(`Tần suất trên ${referenceCandidate.paths} đường mô phỏng lịch sử; không phải bảo đảm kết quả.`, `Frequency across ${referenceCandidate.paths} historical simulation paths; not a guarantee.`) : busy ? t("Đang kiểm tra các phương án…", "Testing allocations…") : t("Chưa có kết quả mô phỏng cho phương án này.", "No simulation result for this allocation yet.")}
+          {referenceCandidate?.display && <> {t("Khoảng tin cậy 95% của tỷ lệ đủ chi thiết yếu:", "95% interval for essential coverage:")} {referenceCandidate.display.wilsonLowerPercent}–{referenceCandidate.display.wilsonUpperPercent}%.</>}</p>
+        <div className="allocation-reference-actions">
+          <button className="overview-button primary" disabled={busy || !referenceCandidate?.selection || !eligible(reference)} onClick={() => choose(referenceCandidate, reference)}>{usingReference ? (qualified ? t("Đang dùng phương án này trong bản xem trước", "Currently used in the plan preview") : t("Đang xem thử với danh mục tham khảo", "Currently previewing the reference allocation")) : qualified || !referenceCandidate ? t("Dùng phương án này để xem trước", "Use this allocation in the preview") : t("Xem thử kế hoạch với danh mục này", "Preview the plan with this allocation")} <span aria-hidden="true">→</span></button>
+          <button className="overview-button secondary" onClick={() => setPackages({ ...input, ...(referenceCandidate?.selection ?? {}) })} disabled={!eligible(reference)}>{t("Gợi ý gói đầu tư phù hợp", "Explore investment packages")}</button>
+          <button className="remaining-text" disabled={busy || !selectionPlan || !referenceCandidate?.selection} onClick={() => selectionPlan && referenceCandidate?.selection && setStressPlan({ ...selectionPlan, ...referenceCandidate.selection })}>{t("Thử các biến cố với phương án này", "Stress-test this allocation")}</button>
+        </div>
+      </article>
+
+      <details className="allocation-alternatives allocation-custom" open={customOpen} onToggle={event => setCustomOpen(event.currentTarget.open)}>
+        <summary><span className="allocation-result-icon" aria-hidden="true"><Icon name="chart" /></span><span><em>{t("TÙY CHỌN THỬ NGHIỆM · KHÔNG BẮT BUỘC", "OPTIONAL EXPERIMENT")}</em><strong>{t("Tự điều chỉnh tỷ trọng", "Adjust the weights yourself")}</strong><small>{t("Kéo thanh % để thử một cách chia tiền khác và so sánh với phương án đề xuất.", "Drag the sliders to try another split and compare it with the recommended allocation.")}</small></span><span className="allocation-result-toggle" aria-hidden="true">+</span></summary>
+        <div className="allocation-alternatives-body">
+          {!policy ? <p role="status">{t("Chính sách hiện tại chưa công bố giới hạn cho tỷ trọng tự chọn.", "The current policy has no published custom-allocation bounds.")}</p> : <>
+            <div className="allocation-custom-top"><span>{t("Tổng tỷ trọng", "Total weight")} <strong>100%</strong></span><button type="button" className="remaining-text" disabled={busy} onClick={reset}>{t("Về tỷ trọng đề xuất ↺", "Back to recommended ↺")}</button></div>
+            {ring(weights, true)}
+            {plan?.customAllocation && <p>{t("Đã nạp tỷ trọng từ lựa chọn hiện có. Kiểm tra lại trước khi dùng kết quả mới.", "Weights loaded from your existing selection. Test again before using new results.")}</p>}
+            {weights.map((row, i) => { const bound = policy.bounds.find(b => b.assetClass === row.assetClass)!, locked = busy || bound.minPercent === bound.maxPercent; return <div className="allocation-slider-row" key={row.assetClass} style={{ "--allocation-asset": allocationColor(row.assetClass, i) } as CSSProperties}>
+              <div className="allocation-slider-heading"><label htmlFor={`allocation-${row.assetClass}`}><i />{label(row.assetClass)}</label><span className="allocation-percent-input"><input type="number" inputMode="decimal" disabled={locked} min={bound.minPercent} max={bound.maxPercent} step="0.1" aria-label={`${label(row.assetClass)} (%)`} value={row.weightPercent} onChange={e => change(row.assetClass, e.target.value)} /><span>%</span></span></div>
+              <input id={`allocation-${row.assetClass}`} type="range" disabled={locked} min={bound.minPercent} max={bound.maxPercent} step="0.1" value={row.weightPercent} aria-valuetext={`${num(Number(row.weightPercent))}%`} onChange={e => change(row.assetClass, e.target.value)} />
+              <div className="allocation-slider-caption"><span>{allocationPurpose(row.assetClass, en)} · {t(`cho phép ${num(Number(bound.minPercent))}–${num(Number(bound.maxPercent))}%`, `allowed ${num(Number(bound.minPercent))}–${num(Number(bound.maxPercent))}%`)}</span><strong>{growth !== null && growth >= 0 ? money(String(Math.round(growth * Number(row.weightPercent) / 100))) : "—"}</strong></div>
+            </div>; })}
+            <p className="allocation-result-footnote">{t("Khi thay một tỷ trọng, các phần còn lại tự cân đối để tổng luôn bằng 100%.", "Changing one weight rebalances the others so the total stays at 100%.")}</p>
+            <div className="allocation-feedback">
+              {rateButton(trial, true)}
+              <div className={`allocation-check ${!trial ? "is-pending" : trialValid ? "is-valid" : "is-invalid"}`} role="status"><strong>{!trial ? t("Đang kiểm tra ràng buộc…", "Checking constraints…") : trialValid ? t("Đạt kiểm tra ràng buộc ban đầu", "Passes the initial constraint check") : t("Cần điều chỉnh tỷ trọng", "Adjust the weights")}</strong>{trial && <p>{trialValid ? lossText(trial.loss) : trialProblem}</p>}</div>
+              {trialValid && <button className="overview-button secondary" disabled={busy} onClick={() => setPackages({ ...input, customAllocation: custom })}>{t("Gợi ý gói đầu tư cho tỷ trọng tự chọn", "Explore packages for custom weights")}</button>}
+              {trial?.returnBreakdown && <details className="allocation-method"><summary>{t("Hiểu mức sinh lời đang dùng", "How this return is calculated")}</summary><table><thead><tr><th>{t("Tài sản", "Asset")}</th><th>{t("Đầu vào/tháng", "Monthly input")}</th><th>{t("Đóng góp", "Contribution")}</th></tr></thead><tbody>{trial.returnBreakdown.rows.filter(r => Number(r.weightPercent) > 0).map(r => <tr key={r.assetClass}><td>{label(r.assetClass)}</td><td>{num(Number(r.monthlyRate) * 100, 4)}%</td><td>{num(Number(r.monthlyContribution) * 100, 4)} {t("điểm %", "pts")}</td></tr>)}</tbody><tfoot><tr><th>{t("Tổng/tháng", "Monthly total")}</th><td colSpan={2}>{num(Number(trial.returnBreakdown.monthly) * 100, 4)}%</td></tr></tfoot></table><p>{t("Đóng góp = tỷ trọng × lợi suất tháng. Quy đổi năm có lãi kép = (1 + tổng lợi suất tháng)¹² − 1. Đây là giả định của phép tính, không phải lợi nhuận cam kết.", "Contribution = weight × monthly return. Compounded annual = (1 + monthly total)¹² − 1. This is a calculation assumption, not a committed return.")}</p></details>}
+            </div>
+          </>}
+          <button className="overview-button primary" disabled={busy || !selectionPlan || (!!policy && !!trial && !trialValid)} onClick={() => void run()}>{busy ? t("Đang mô phỏng…", "Simulating…") : t("Kiểm tra phương án tự chọn", "Test the custom allocation")}</button>
+          {!selectionPlan && <p>{t("Bổ sung chi tiêu và thời gian nghỉ hưu để mô phỏng cùng dòng tiền của kế hoạch.", "Complete retirement spending and dates to simulate the plan cash flows.")} <Link to="/user/plan?tab=adjust">{t("Mở Kế hoạch", "Open Plan")}</Link></p>}
+          {error && <p role="alert">{error}</p>}{statusText && <p role="status">{statusText}</p>}
+          {result?.status === "INSUFFICIENT" && <p role="status">{t("Chưa có phương án đạt ngưỡng chi thiết yếu. Hãy xem lại mức góp, thời điểm nghỉ hưu hoặc chi tiêu.", "No allocation meets the essential-spending threshold. Review contributions, retirement date or spending.")}</p>}
+        </div>
+      </details>
+    </div>
+
+    {why}
+    {customCandidate && referenceCandidate && <section className="allocation-tested">
+      <h2>{t("Kết quả kiểm tra cùng điều kiện", "Results under the same conditions")}</h2>
+      <div className="allocation-comparison-scroll"><table><thead><tr><th>{t("Chỉ tiêu", "Measure")}</th><th>{qualified ? t("Đề xuất", "Recommended") : t("Tham khảo", "Reference")}</th><th>{t("Tự chọn", "Custom")}</th></tr></thead><tbody>
+        <tr><th>{t("Đủ chi thiết yếu", "Essentials covered")}</th><td>{share(referenceCandidate.pEssential)}</td><td>{share(customCandidate.pEssential)}</td></tr>
+        <tr><th>{t("Đủ toàn bộ mục tiêu", "All goals covered")}</th><td>{share(referenceCandidate.pAll)}</td><td>{share(customCandidate.pAll)}</td></tr>
+        <tr><th>{t("CVaR thiếu chi thiết yếu", "Essential shortfall CVaR")}</th><td>{money(referenceCandidate.display?.cvarVnd)}</td><td>{money(customCandidate.display?.cvarVnd)}</td></tr>
+        <tr><th>{t("Giảm khi thị trường sốc", "Stress loss")}</th><td>{money(referenceCandidate.loss?.lossAmount)}</td><td>{money(customCandidate.loss?.lossAmount)}</td></tr>
+      </tbody></table></div>
+      <p>{customCandidate.paths} {t("đường mô phỏng · cùng lịch thu chi, phí và dữ liệu thị trường.", "simulation paths · same cash flows, fees and market data.")} {customPasses ? t("Phương án tự chọn đạt ngưỡng trong phép thử này.", "The custom allocation meets the thresholds in this test.") : t("Phương án tự chọn chưa đạt ngưỡng mục tiêu; cần xem lại mức góp, tuổi nghỉ hoặc chi tiêu.", "The custom allocation is below the target thresholds; review contributions, retirement age or spending.")}</p>
+      <div className="allocation-tested-actions">
+        <button className="overview-button secondary" disabled={busy || !customCandidate.selection || !trial || !eligible(trial)} onClick={() => trial && choose(customCandidate, trial)}>{t("Xem kế hoạch với tỷ trọng này", "View the plan with these weights")}</button>
+        {customCandidate.selection && <button className="remaining-text" disabled={busy || !selectionPlan} onClick={() => selectionPlan && customCandidate.selection && setStressPlan({ ...selectionPlan, ...customCandidate.selection })}>{t("Thử biến cố với tỷ trọng tự chọn", "Stress-test custom allocation")}</button>}
+      </div>
+    </section>}
+
+    {result?.candidates?.[0]?.disclosure && <details className="allocation-probability-details"><summary>{t("Cơ sở tính xác suất và giới hạn của kết quả", "Probability calculation and limitations")}</summary><p>{t("Đủ toàn bộ mục tiêu nghĩa là không thiếu khoản chi nào trong suốt kỳ và đáp ứng số dư cuối kỳ đã khai. Chi tiêu sau hưu theo CPI của mỗi đường thử; khoản chi và mục tiêu danh nghĩa khác giữ nguyên.", "All-goals success requires no unfunded withdrawal throughout the horizon and the declared terminal balance. Retirement living expenses follow each path's CPI; other nominal spending and goals remain fixed.")}</p><p>{result.candidates[0].disclosure.period.from} → {result.candidates[0].disclosure.period.to} · {result.candidates[0].disclosure.historyMonths} {t("tháng lịch sử", "historical months")} · {result.candidates[0].paths} {t("đường thử", "paths")}. {t("Khoảng Wilson chỉ đo sai số lấy mẫu, không đo sai lệch mô hình. Chi phí mua ban đầu, chênh lệch giá và lô giao dịch chưa được trừ trong mô phỏng.", "Wilson measures sampling error, not model error. Initial purchase costs, spreads and trading lots are not deducted in the simulation.")}</p><ul>{result.candidates[0].disclosure.sources.map(s => <li key={s.id}><a href={s.url} target="_blank" rel="noreferrer">{s.title}</a> · {s.license}</li>)}</ul></details>}
+    <ResponsiveDialog open={!!rate} title={t("Giải thích tỷ suất sinh lời", "Return calculation")} onClose={() => setRate(null)} className="user-workspace-dialog allocation-products-dialog">{rate?.returnBreakdown && <><p>{t("Tỷ suất danh nghĩa dùng đầu vào tháng; tỷ suất hiệu dụng có lãi kép. Tỷ suất theo lộ trình còn phản ánh lịch phân bổ và chi phí tái cân bằng đã mô hình hóa.", "Nominal return uses monthly inputs; effective return compounds them. Path return also reflects modeled allocation changes and rebalancing costs.")}</p><dl>{rate.returnBreakdown.rows.map(row => <div key={row.assetClass}><dt>{label(row.assetClass)} · {Number(row.weightPercent).toFixed(2)}%</dt><dd>{t("Đóng góp tháng", "Monthly contribution")}: {(Number(row.monthlyContribution) * 100).toFixed(4)}%</dd></div>)}<div><dt>{t("Danh nghĩa năm (tháng × 12)", "Nominal annual (monthly × 12)")}</dt><dd>{Number(rate.returnBreakdown.nominalAnnualPercent).toFixed(2)}%</dd></div><div><dt>{t("Hiệu dụng năm ((1 + tháng)¹² − 1)", "Effective annual ((1 + monthly)¹² − 1)")}</dt><dd>{Number(rate.returnBreakdown.effectiveAnnualPercent).toFixed(2)}%</dd></div><div><dt>{t("Quy đổi theo toàn lộ trình", "Annualized whole-path return")}</dt><dd>{Number(rate.returnBreakdown.pathAnnualPercent).toFixed(2)}%</dd></div></dl></>}</ResponsiveDialog>
+    <AllocationPackages input={packages} onClose={() => setPackages(null)} labels={data.assetLabels} />
+    <AllocationScenarios plan={stressPlan} onClose={() => setStressPlan(null)} />
+  </section>;
 }

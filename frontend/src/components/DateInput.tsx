@@ -31,7 +31,7 @@ function formatDateToDisplay(iso: string, mode: "date" | "month"): string {
   }
   if (parts.length >= 2) {
     if (mode === "date") {
-      return `01/${parts[1]}/${parts[0]}`;
+      return `${parts[1]}/${parts[0]}`;
     }
     return `${parts[1]}/${parts[0]}`;
   }
@@ -56,6 +56,8 @@ export function DateInput({
   const generatedId = useId();
   const id = propId || `date-input-${generatedId}`;
   const wrapRef = useRef<HTMLDivElement>(null);
+  const focused = useRef(false);
+  const [invalid, setInvalid] = useState(false);
 
   const defaultPlaceholder = mode === "date" ? "Ngày/tháng/năm" : "Tháng/năm";
   const [displayText, setDisplayText] = useState(() => formatDateToDisplay(value, mode));
@@ -74,7 +76,8 @@ export function DateInput({
   // Sync displayText when value changes externally
   useEffect(() => {
     const formatted = formatDateToDisplay(value, mode);
-    setDisplayText(formatted);
+    if (!focused.current) setDisplayText(formatted);
+    if (value) setInvalid(false);
     if (value && value.length >= 7) {
       setViewPeriod(value.slice(0, 7));
     }
@@ -105,6 +108,7 @@ export function DateInput({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.trim();
     setDisplayText(e.target.value);
+    setInvalid(false);
 
     if (!raw) {
       onChange("", "");
@@ -138,6 +142,7 @@ export function DateInput({
           const ymd = `${year}-${pad(month)}-${pad(day)}`;
           setViewPeriod(ym);
           onChange(ym, ymd);
+          return;
         }
       }
     } else {
@@ -155,12 +160,16 @@ export function DateInput({
           const ym = `${year}-${pad(month)}`;
           setViewPeriod(ym);
           onChange(ym);
+          return;
         }
       }
     }
+    setInvalid(true);
+    onChange("", "");
   };
 
   const handleClear = () => {
+    setInvalid(false);
     setDisplayText("");
     onChange("", "");
     setIsOpen(false);
@@ -273,7 +282,9 @@ export function DateInput({
           disabled={disabled}
           required={required}
           autoComplete="off"
-          aria-invalid={Boolean(error)}
+          aria-invalid={Boolean(error) || invalid}
+          onFocus={() => { focused.current = true; }}
+          onBlur={() => { focused.current = false; }}
           onChange={handleInputChange}
           onClick={() => !disabled && setIsOpen(true)}
         />
@@ -395,9 +406,9 @@ export function DateInput({
         )}
       </div>
 
-      {error ? (
+      {error || invalid ? (
         <small className="field-error-text error-text" style={{ color: "#dc2626", display: "block", marginTop: "6px", fontSize: "12px", fontWeight: 500 }}>
-          {error}
+          {error || (mode === "date" ? "Nhập ngày/tháng/năm hợp lệ." : "Nhập tháng/năm hợp lệ.")}
         </small>
       ) : helper ? (
         <small className="help">{helper}</small>

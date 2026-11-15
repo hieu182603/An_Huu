@@ -3,15 +3,59 @@ import {discoveryApi} from "./discovery-helpers";
 import {setupRemaining} from "./remaining-helpers";
 
 async function restoreDraft(page:Page,input:object){await page.evaluate(draft=>sessionStorage.setItem("anhuu:plan-draft:USR-001",JSON.stringify(draft)),input);}
+
+test("one retirement month is disclosed beside the calculated results",async({page,request})=>{
+ const s=await setupRemaining(page,request,"/user/plan",{savedPlan:false});
+ const profile=(await s.get("me/financial-profile")).data;
+ const retirementMonth=s.fixture.planInput.whatIf?.retirementMonth??profile.personal.desiredRetirementMonth.value;
+ await restoreDraft(page,{...s.fixture.planInput,endMonth:retirementMonth});await page.reload();
+ await expect(page.locator("#plan-overview")).toBeVisible();
+ await expect(page.getByRole("status").filter({hasText:"Tháng kết thúc trùng tháng nghỉ hưu"})).toBeVisible();
+ await expect(page.getByRole("status").filter({hasText:"Tháng kết thúc trùng tháng nghỉ hưu"})).toContainText("quỹ cần chỉ tính 1 tháng chi tiêu");
+});
 test.afterEach(async({page})=>{await page.waitForLoadState("networkidle");});
+
+test("saved plan chart, retirement age and banner all use the pinned birth month",async({page,request})=>{
+ const state=await setupRemaining(page,request,"/user/plan");
+ await page.route("**/api/v1/me/retirement/plans/**",async route=>{
+  if(route.request().method()!=="GET")return route.fallback();
+  const url=new URL(route.request().url()),response=await route.fetch({url:discoveryApi+url.pathname+url.search,headers:{...route.request().headers(),Authorization:`Bearer ${state.fixture.accessToken}`}}),json=await response.json();
+  if(json.data?.current)json.data.current.birthMonth="1980-04";
+  await route.fulfill({response,json});
+ });
+ await page.reload();
+ await expect(page.locator(".current-plan-banner")).toContainText("Nghỉ 46 tuổi");
+ await expect(page.locator(".chart-phase-key")).toContainText("Tích lũy đến 46 tuổi");
+ await expect(page.locator(".plan-summary-hero__side > div").last()).toContainText("48 tuổi");
+ for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:test.info().outputPath(`reaudit-pinned-plan-${width}.png`),fullPage:true,animations:"disabled"});}
+});
+
+for (const gap of ["100000000", "0", "-100000000"]) test(`R-03 funding narrative for gap ${gap}`, async ({page,request}) => {
+ const state=await setupRemaining(page,request,"/user/plan",{savedPlan:false});
+ await restoreDraft(page,state.fixture.planInput);
+ await page.route("**/api/v1/me/retirement/preview**",async route=>{
+  const url=new URL(route.request().url());
+  const response=await route.fetch({url:discoveryApi+url.pathname+url.search,headers:{...route.request().headers(),Authorization:`Bearer ${state.fixture.accessToken}`}}), json=await response.json();
+  if(json.data?.calculation)json.data.calculation.summary.atRetirement.fundingGap=gap;
+  await route.fulfill({response,json});
+ });
+ await page.reload();
+ const narrative=page.locator(".plan-gap-explanation");
+ await expect(narrative).toBeVisible();
+ if(Number(gap)>0){await expect(narrative).toContainText("Khoảng thiếu hụt cần lên kế hoạch bù đắp");await expect(narrative).toContainText("còn thiếu 100 triệu ₫");}
+ else {await expect(narrative).toContainText("Quỹ dự kiến đáp ứng mục tiêu");await expect(narrative).toContainText("đủ so với mục tiêu");await expect(narrative).not.toContainText("còn thiếu");}
+ await expect(page.locator(".chart-phase-key")).toContainText("Tích lũy đến");
+ await expect(page.locator(".chart-phase-key")).toContainText("Dùng quỹ khi nghỉ hưu");
+ await expect(page.locator(".plan-summary-hero__title")).toContainText("mức góp cần khoảng");
+});
 
 test("missing goal horizon explains the actual blocker and never asks to save an unknown plan",async({page,request})=>{
  const s=await setupRemaining(page,request,"/user/plan",{savedPlan:false});const record=await s.get("me/financial-profile");const{retirementGoal,...data}=record.data;
  await page.route("**/api/v1/me/financial-profile",route=>route.fulfill({json:{data:{...record,data}}}));
  const{endMonth,...partial}=s.fixture.planInput;await restoreDraft(page,{...partial,monthlyExpenseToday:"0"});await page.reload();
  await expect(page.locator(".plan-next")).toHaveCount(0);await expect(page.getByRole("link",{name:"Bổ sung thời gian chuẩn bị quỹ",exact:true})).toHaveAttribute("href","/user/goal");await expect(page.getByRole("button",{name:"Lưu làm kế hoạch chính",exact:true})).toHaveCount(0);
- await page.getByRole("link",{name:"Bổ sung thời gian chuẩn bị quỹ",exact:true}).click();await expect(page.getByLabel("Chi tiêu nghỉ hưu mỗi tháng",{exact:true})).toHaveValue("0");await page.getByLabel("Chuẩn bị quỹ đến tháng",{exact:true}).fill("12/2028");await page.getByRole("button",{name:"Lưu và xem kết quả mới",exact:true}).click();
- await expect(page.locator("#plan-overview")).toBeVisible();expect((await s.get("me/financial-profile")).data.retirementGoal.monthlyExpenseToday).toBe("0");expect(s.writes.some(w=>w.path.endsWith("/apply"))).toBe(false);
+ await page.getByRole("link",{name:"Bổ sung thời gian chuẩn bị quỹ",exact:true}).click();await expect(page.getByLabel("Chi tiêu nghỉ hưu mỗi tháng",{exact:true})).toHaveValue("0");await page.getByText("Chỉnh thời gian nghỉ hưu và chi tiêu",{exact:true}).click();await page.getByLabel("Tính chi tiêu nghỉ hưu đến tháng",{exact:true}).fill("12/2028");await page.getByLabel("Chi tiêu nghỉ hưu mỗi tháng",{exact:true}).fill("20000000");await page.getByRole("button",{name:"Lưu và xem kết quả mới",exact:true}).click();
+ await expect(page.locator("#plan-overview")).toBeVisible();expect((await s.get("me/financial-profile")).data.retirementGoal.monthlyExpenseToday).toBe("20000000");expect(s.writes.some(w=>w.path.endsWith("/apply"))).toBe(false);
 });
 
 test("failed first preview retries the same draft without needing an applied plan",async({page,request})=>{
@@ -21,7 +65,7 @@ test("failed first preview retries the same draft without needing an applied pla
 });
 
 test("an applied plan shows its current status instead of asking the user to save it again",async({page,request})=>{
- await setupRemaining(page,request,"/user/plan");await expect(page.locator("#plan-overview")).toBeVisible();await expect(page.locator(".plan-next")).toContainText("Kế hoạch chính đang dùng");await expect(page.getByRole("button",{name:"Lưu làm kế hoạch chính",exact:true})).toHaveCount(0);await expect(page.locator(".chart-phase-key")).toContainText("Tích lũy đến 36 tuổi");
+ await setupRemaining(page,request,"/user/plan");await expect(page.locator("#plan-overview")).toBeVisible();await expect(page.locator(".current-plan-banner")).toContainText("Kế hoạch chính đang dùng");await expect(page.getByRole("button",{name:"Lưu làm kế hoạch chính",exact:true})).toHaveCount(0);await expect(page.getByRole("button",{name:"Nghỉ hưu · 36 tuổi",exact:true})).toBeVisible();
 });
 
 
@@ -50,12 +94,12 @@ test("saving a new ready plan requires confirmation and an apply retry reuses th
  await page.getByRole("button",{name:"Lưu làm kế hoạch chính",exact:true}).click();await page.getByRole("dialog").getByRole("button",{name:"Dùng làm kế hoạch hiện tại",exact:true}).click();await expect(page.getByRole("alert").filter({hasText:"Chưa áp dụng được kế hoạch"})).toBeVisible();
  expect(s.writes.filter(w=>w.path.includes("retirement/preview"))).toHaveLength(previewCount);await expect(page.getByRole("dialog")).toBeVisible();
  const saves=()=>s.writes.filter(w=>w.method==="POST"&&(/\/versions$|\/plans$/.test(w.path))&&w.status===201);expect(saves()).toHaveLength(1);
- fail=false;await page.getByRole("dialog").getByRole("button",{name:"Dùng làm kế hoạch hiện tại",exact:true}).click();await expect(page.getByRole("dialog")).toHaveCount(0);await expect(page.locator(".plan-next")).toContainText("Kế hoạch chính đang dùng");expect(saves()).toHaveLength(1);expect((await s.get("me/retirement/plans")).items).toHaveLength(1);
+ fail=false;await page.getByRole("dialog").getByRole("button",{name:"Dùng làm kế hoạch hiện tại",exact:true}).click();await expect(page.getByRole("dialog")).toHaveCount(0);await expect(page.locator(".current-plan-banner")).toContainText("Kế hoạch chính đang dùng");expect(saves()).toHaveLength(1);expect((await s.get("me/retirement/plans")).items).toHaveLength(1);
 });
 
 for(const[name,width,height]of[["desktop",1440,1000],["mobile",390,844],["small-mobile",320,740]]as const)test(`plan empty and applied states fit ${name}`,async({page,request},info)=>{
  await page.setViewportSize({width,height});await setupRemaining(page,request,"/user/plan",{savedPlan:false});await expect(page.locator(".plan-state-card")).toContainText("Hoàn thiện thông tin");await expect(page.locator(".plan-next")).toHaveCount(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:info.outputPath("plan-empty.png"),fullPage:true});
- await setupRemaining(page,request,"/user/plan");await expect(page.locator("#plan-overview")).toBeVisible();await expect(page.locator(".plan-next")).toContainText("Kế hoạch chính đang dùng");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:info.outputPath("plan-current.png"),fullPage:true});
+ await setupRemaining(page,request,"/user/plan");await expect(page.locator("#plan-overview")).toBeVisible();await expect(page.locator(".current-plan-banner")).toContainText("Kế hoạch chính đang dùng");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:info.outputPath("plan-current.png"),fullPage:true});
 });
 
 

@@ -303,6 +303,9 @@
 
 /* ---- Survey Layout (.setup-shell / .setup-card) ---- */
 .quick-onboarding-container.qo-shell {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);
   gap: 48px;
@@ -531,6 +534,10 @@
 
 /* Right Survey Card */
 .qo-shell .qo-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 40px 44px;
   border: 1px solid rgba(208, 228, 254, 0.95);
   border-radius: 24px;
@@ -540,6 +547,16 @@
     0 16px 32px -4px rgba(5, 38, 89, 0.07),
     0 0 0 1px rgba(255, 255, 255, 0.9) inset;
   position: relative;
+}
+
+.qo-shell .qo-main { min-width: 0; width: 100%; max-width: 100%; }
+@media (max-width: 650px) {
+  .qo-shell .qo-card .two-col { grid-template-columns: minmax(0, 1fr) !important; }
+  .qo-shell .qo-caption { flex-wrap: wrap; gap: 8px; }
+  .qo-shell .qo-pace-note { min-width: 0; white-space: normal; }
+  .qo-shell input, .qo-shell select, .qo-shell .field { min-width: 0; max-width: 100%; }
+  .qo-shell .qo-steps li { min-width: 0; }
+  .qo-shell .form-actions { flex-wrap: wrap; gap: 12px; }
 }
 
 .qo-shell .qo-caption {
@@ -1090,5 +1107,17 @@
   .survey-family-summary-header, .survey-obligations-head { flex-direction: column; align-items: flex-start; gap: 8px; }
   .survey-toggle { padding: 14px; gap: 10px; }
   .survey-branch-body { padding: 14px 16px 16px; }
+  .qo-shell .qo-steps li { flex-direction: column; gap: 6px; align-items: center; }
+  .qo-shell .qo-step-copy strong { font-size: 11px; line-height: 1.4; }
+  .qo-shell .qo-step-number { flex-shrink: 0; }
+  .survey-toggle { display: grid; grid-template-columns: 20px minmax(0, 1fr) 28px; align-items: start; }
+  .survey-toggle input { grid-column: 1; grid-row: 1; margin-top: 4px; }
+  .survey-toggle .survey-branch-copy { grid-column: 2; grid-row: 1; }
+  .survey-toggle .survey-branch-icon { grid-column: 3; grid-row: 1; width: 28px; height: 28px; }
+  .survey-toggle .survey-branch-status { grid-column: 2; grid-row: 2; justify-self: start; }
 }
 
+
+.qo-unit-input {position:relative;min-width:0;}
+.qo-unit-input>input {width:100%;padding-right:74px !important;}
+.qo-unit-input>span {position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;color:#536779;pointer-events:none;}
