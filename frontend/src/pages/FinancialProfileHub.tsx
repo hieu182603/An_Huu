@@ -1,6 +1,3 @@
-import { useState } from "react";
-import NetWorthExplanation from "../components/NetWorthExplanation";
-import { Icon } from "../components/ui";
 import { Link } from "react-router";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useI18n } from "../i18n";
@@ -16,7 +13,6 @@ type Topic = { key: string; title: string; status: Status; rows: Array<[string, 
 
 export default function FinancialProfileHub() {
   const { profile, v2Profile: v2, profileSummary, hasProfile, loadError } = useFinancialProfile();
-  const [netWorthOpen, setNetWorthOpen] = useState(false);
   const { language } = useI18n(), en = language === "en";
   const t = (vi: string, english: string) => en ? english : vi;
   const money = (amount: string | null) => financeMoney(amount, en);
@@ -37,7 +33,7 @@ export default function FinancialProfileHub() {
   const pensionAmount = pension?.status === "KNOWN" ? financeAmount(pension.monthlyAmount) : null;
   const pensionStart = v2?.personal.pensionStartMonth;
   const marital = v2 ? v2.personal.maritalStatus : profile.personal.maritalStatus;
-  const maritalText = ({ SINGLE: t("Độc thân", "Single"), MARRIED: t("Đã kết hôn", "Married"), DIVORCED: t("Đã ly hôn", "Divorced"), OTHER: t("Khác", "Other"), "Đã ly hôn": t("Đã ly hôn", "Divorced"), "Độc thân": t("Độc thân", "Single"), "Đã kết hôn": t("Đã kết hôn", "Married"), "Khác": t("Khác", "Other") } as Record<string, string>)[marital ?? ""] ?? t("Chưa khai", "Not provided");
+  const maritalText = ({ SINGLE: t("Độc thân", "Single"), MARRIED: t("Đã kết hôn", "Married"), DIVORCED: t("Đã ly hôn", "Divorced"), OTHER: t("Khác", "Other"), "Đã ly hôn": t("Đã ly hôn", "Divorced"), "Độc thân": t("Độc thân", "Single"), "Đã kết hôn": t("Đã kết hôn", "Married"), "Khác": t("Khác", "Other") } as Record<string, string>)[marital ?? ""] ?? t("Chưa cung cấp", "Not provided");
   const dependents = v2 ? v2.personal.dependents?.status === "KNOWN" ? v2.personal.dependents.value : null : profile.personal.dependents;
   const topics: Topic[] = [
     { key: "cashflow", title: t("Thu nhập & chi tiêu", "Income & expenses"), status: status(!v2 || declared(v2.income) || declared(v2.expenses), values.income !== null && values.expenses !== null && values.debtPayment !== null && values.surplus !== null),
@@ -55,22 +51,22 @@ export default function FinancialProfileHub() {
       note: pension?.status === "KNOWN" ? t(`Mức tự khai theo ${pension.priceBasis === "TODAY" ? "giá tại" : "giá danh nghĩa khi bắt đầu"} ${formatMonthVN(pension.basisMonth)}; chưa phải kết quả xác minh quyền lợi BHXH.`, `Self-declared amount in ${pension.priceBasis === "TODAY" ? "prices at" : "nominal prices at the start"} ${formatMonthVN(pension.basisMonth)}; pension entitlement has not been verified.`) : t("Lịch sử tham gia BHXH và mức lương hưu dự kiến đưa vào kế hoạch.", "Contribution history and estimated pension used in your plan."),
       action: t("Xem & cập nhật lương hưu", "Review & update pension"), to: "/user/profile?section=insurance" },
     { key: "family", title: t("Gia đình & người phụ thuộc", "Family & dependents"), status: status(Boolean(marital) || dependents !== null, Boolean(marital) && dependents !== null),
-      rows: [[t("Hôn nhân:", "Marital status:"), maritalText], [t("Người phụ thuộc:", "Dependents:"), dependents === null ? t("Chưa khai", "Not provided") : `${dependents} ${t("người", "people")}`]],
+      rows: [[t("Hôn nhân:", "Marital status:"), maritalText], [t("Người phụ thuộc:", "Dependents:"), dependents === null ? t("Chưa cung cấp", "Not provided") : `${dependents} ${t("người", "people")}`]],
       note: t("Tình trạng hôn nhân và số người cần chăm sóc tài chính.", "Marital status and people who depend on your financial support."), action: t("Xem & cập nhật gia đình", "Review & update family"), to: "/user/profile?section=family" },
   ];
 
   return <div className="finance-summary-page">
     <header className="finance-summary-heading"><h1>{t("Tài chính của bạn", "Your finances")}</h1><p>{t("Nắm rõ toàn bộ thu chi, tài sản, nợ và nghĩa vụ gia đình trước khi lập kế hoạch.", "Get a clear view of income, spending, assets, debts and family duties before planning.")}</p></header>
     {loadError ? <p className="finance-summary-unavailable" role="status">{t("Số liệu tạm ẩn cho đến khi tải lại hồ sơ thành công.", "Figures are hidden until your profile reloads successfully.")}</p> : !hasProfile ? <section className="finance-summary-empty"><h2>{t("Bạn chưa có hồ sơ tài chính", "Start your financial profile")}</h2><p>{t("Khai báo thông tin ban đầu để theo dõi và cập nhật hồ sơ tại đây.", "Enter your initial information to review and update it here.")}</p><Link className="overview-button" to="/onboarding" state={{ from: "/user/profile" }}>{t("Khai báo hồ sơ", "Create profile")}</Link></section> : <>
-      <ProfileMoneyMetrics />
+      <ProfileMoneyMetrics fullAmounts />
       <section className="finance-summary-grid" aria-label={t("Các mục hồ sơ tài chính", "Financial profile topics")}>
         {topics.map(topic => <article className={`finance-summary-card${topic.key === "cashflow" && negative ? " is-negative" : ""}`} key={topic.key} aria-labelledby={`finance-topic-${topic.key}`}>
           <header><h2 id={`finance-topic-${topic.key}`}>{topic.title}</h2><span className={`finance-summary-badge is-${topic.status}`}>{topic.status === "done" ? t("Đã khai", "Declared") : topic.status === "partial" ? t("Cần bổ sung", "Needs details") : t("Chưa khai", "Not declared")}</span></header>
-          <dl>{topic.rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>{topic.key === "assets" && <button type="button" className="overview-button secondary" aria-haspopup="dialog" aria-label={t("Giải thích tài sản ròng", "Explain net worth")} onClick={()=>setNetWorthOpen(true)}><Icon name="info" /> {t("Cách tính tài sản ròng", "How net worth is calculated")}</button>}<p>{topic.note}</p><Link to={topic.to} className="overview-button secondary">{topic.action} <span aria-hidden="true">→</span></Link>
+          <dl>{topic.rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><p>{topic.note}</p><Link to={topic.to} className="overview-button secondary">{topic.action} <span aria-hidden="true">→</span></Link>
         </article>)}
       </section>
     </>}
 
-    {netWorthOpen && !loadError && hasProfile && <NetWorthExplanation assets={financeAmount(profileSummary?.totalAssets)} debt={values.debtBalance} netWorth={financeAmount(profileSummary?.netWorth)} valuationDate={v2?.valuationDate} onClose={()=>setNetWorthOpen(false)} />}
+
   </div>;
 }

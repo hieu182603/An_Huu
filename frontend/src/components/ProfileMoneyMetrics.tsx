@@ -11,12 +11,12 @@ import "../pages/finance-hub.css";
 
 type Metric = "income" | "expenses" | "debtPayment" | "surplus";
 
-export default function ProfileMoneyMetrics() {
+export default function ProfileMoneyMetrics({ fullAmounts = false }: { fullAmounts?: boolean }) {
   const { profile, v2Profile, profileSummary, loading, loadError, hasProfile } = useFinancialProfile();
   const en = useI18n().language === "en", t = (vi: string, english: string) => en ? english : vi;
   const [detail, setDetail] = useState<Metric | null>(null);
   const values = financeHubSummary(profileSummary, v2Profile, profile);
-  const money = (v: string | null) => formatCompactMoneyDecimal(v, en);
+  const money = (v: string | null) => fullAmounts ? formatMoneyDecimal(v, en) : formatCompactMoneyDecimal(v, en);
   const fullMoney = (v: string | null) => formatMoneyDecimal(v, en);
   const negative = values.surplus?.startsWith("-") ?? false;
   const month = v2Profile?.valuationDate.slice(0, 7);
@@ -47,7 +47,7 @@ export default function ProfileMoneyMetrics() {
   return <>
     <section className="finance-summary-metrics" aria-label={t("Dòng tiền theo hồ sơ", "Cash flow from your profile")}>{(["income", "expenses", "debtPayment", "surplus"] as const).map(key => <article key={key} className={`finance-summary-metric is-${key}${key === "surplus" && negative ? " is-negative" : ""}`} aria-label={labels[key]}>
       <div><span>{labels[key]}</span><button type="button" className="finance-summary-info" aria-label={`${t("Giải thích", "Explain")} ${labels[key]}`} aria-haspopup="dialog" onClick={() => setDetail(key)}><Icon name="info" /></button></div>
-      <strong>{money(values[key])}</strong>{values[key]!==null&&<small className="finance-metric-full">≈ {fullMoney(values[key])}</small>}<small>{captions[key]}</small>
+      <strong>{money(values[key])}</strong>{!fullAmounts&&values[key]!==null&&<small className="finance-metric-full">≈ {fullMoney(values[key])}</small>}<small>{captions[key]}</small>
     </article>)}</section>
     {data && detail && <MoneyExplanationDialog data={data} onClose={() => setDetail(null)} action={<Link className="overview-button primary" to={detail === "debtPayment" ? "/user/debts" : "/user/profile?section=cashflow"} onClick={() => setDetail(null)}>{detail === "debtPayment" ? t("Xem chi tiết khoản nợ", "Review debt details") : t("Rà soát thu nhập và chi tiêu", "Review income and expenses")}</Link>} />}
   </>;

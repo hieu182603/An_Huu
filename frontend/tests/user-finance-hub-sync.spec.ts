@@ -46,7 +46,7 @@ for (const missing of ["maritalStatus", "dependents"] as const) test(`family bad
   else profile.data.personal.dependents = { status: "UNKNOWN" };
   await setup(page, { profile });
   await expect(topic(page, "family").locator(".finance-summary-badge")).toHaveText("Cần bổ sung");
-  await expect(topic(page, "family")).toContainText("Chưa khai");
+  await expect(topic(page, "family")).toContainText("Chưa cung cấp");
 });
 
 test("finance totals, topic rows and money explanations show the same cents", async ({ page }, info) => {
@@ -54,7 +54,7 @@ test("finance totals, topic rows and money explanations show the same cents", as
   profile.summary.values.monthlyIncome = "9007199254740993.25";
   profile.summary.values.availableMonthlySurplus = "9007199234740993.25";
   await setup(page, { profile });
-  await expect(page.locator(".finance-summary-metric.is-income .finance-metric-full")).toHaveText("≈ 9.007.199.254.740.993 ₫");
+  await expect(page.locator(".finance-summary-metric.is-income > strong")).toHaveText("9.007.199.254.740.993 ₫");
   await expect(topic(page, "cashflow")).toContainText("9.007.199.254.740.993 ₫/tháng");
   await page.getByRole("button", { name: "Giải thích Thu nhập + lương hưu", exact: true }).click();
   await expect(page.getByRole("dialog").locator(".money-explanation-kpi > strong")).toHaveText("9.007.199.254.740.993 ₫");
@@ -67,7 +67,7 @@ test("finance totals, topic rows and money explanations show the same cents", as
 test("hub matches the demo hierarchy and uses profile month, current income and ownership shares", async ({ page }) => {
   const state = await setup(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tài chính của bạn");
-  await expect(page.locator(".finance-summary-metric > strong")).toHaveText(["35 triệu ₫", "20 triệu ₫", "0 ₫", "15 triệu ₫"]);
+  await expect(page.locator(".finance-summary-metric > strong")).toHaveText(["35.000.000 ₫", "20.000.000 ₫", "0 ₫", "15.000.000 ₫"]);
   await expect(topic(page, "assets")).toContainText("400.000.000 ₫");
   await expect(topic(page, "assets")).toContainText("100.000.000 ₫");
   await expect(topic(page, "cashflow")).toContainText("Tháng 03/2028");
@@ -112,7 +112,7 @@ test("unknown and incomplete data are not replaced by sample amounts or declared
 test("negative surplus stays negative and is explained as a budget shortfall", async ({ page }) => {
   const profile = fixture(); profile.summary.values.availableMonthlySurplus = "-5000000";
   await setup(page, { profile });
-  await expect(metric(page, "surplus")).toHaveText("-5 triệu ₫");
+  await expect(metric(page, "surplus")).toHaveText("-5.000.000 ₫");
   await expect(page.locator(".finance-summary-metric.is-negative")).toContainText("Ngân sách đang thiếu");
   await page.getByRole("button", { name: "Giải thích Ngân sách đang thiếu", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("Số âm được giữ nguyên");
@@ -125,7 +125,7 @@ test("a partial summary preserves known values and never fills in a missing rese
   profile.summary.values.emergencyReserve = null;
   await setup(page, { profile });
   await expect(metric(page, "income")).toHaveText("Chưa xác định");
-  await expect(metric(page, "expenses")).toHaveText("20 triệu ₫");
+  await expect(metric(page, "expenses")).toHaveText("20.000.000 ₫");
   await expect(topic(page, "assets").locator("dd")).toHaveText(["400.000.000 ₫", "Chưa xác định"]);
   await expect(topic(page, "cashflow").locator(".finance-summary-badge")).toHaveText("Cần bổ sung");
   await expect(topic(page, "assets").locator(".finance-summary-badge")).toHaveText("Cần bổ sung");
@@ -164,14 +164,14 @@ test("large decimal API amounts keep their VND precision through display", async
   const profile = fixture(); profile.summary.values.monthlyIncome = "9007199254740993.50";
   profile.summary.values.emergencyReserve = "1801439850948198.65";
   await setup(page, { profile });
-  await expect(page.locator(".finance-summary-metric.is-income .finance-metric-full")).toHaveText("≈ 9.007.199.254.740.994 ₫");
+  await expect(page.locator(".finance-summary-metric.is-income > strong")).toHaveText("9.007.199.254.740.994 ₫");
   await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("1.801.439.850.948.199 ₫");
 });
 
 test("legacy profile totals use actual declared values without inventing an emergency reserve", async ({ page }) => {
   const profile = defaultMockProfile(); await setup(page, { profile });
-  await expect(metric(page, "income")).toHaveText("30 triệu ₫");
-  await expect(metric(page, "surplus")).toHaveText("10 triệu ₫");
+  await expect(metric(page, "income")).toHaveText("30.000.000 ₫");
+  await expect(metric(page, "surplus")).toHaveText("10.000.000 ₫");
   await expect(topic(page, "assets").locator("dl > div").filter({ has: page.getByText("Quỹ dự phòng:", { exact: true }) }).locator("dd")).toHaveText("Chưa xác định");
   await expect(topic(page, "pension").locator("dd").last()).toHaveText("Chưa xác nhận");
 });
@@ -189,7 +189,7 @@ test("load failure hides figures and the profile retry restores them", async ({ 
   await expect(page.getByRole("alert")).toContainText("Chưa tải được hồ sơ");
   await expect(page.locator(".finance-summary-metric")).toHaveCount(0);
   state.setFailed(false); await page.getByRole("button", { name: "Thử lại", exact: true }).click();
-  await expect(metric(page, "income")).toHaveText("35 triệu ₫");
+  await expect(metric(page, "income")).toHaveText("35.000.000 ₫");
   expect(state.errors).toEqual([]);
 });
 
@@ -211,8 +211,8 @@ test("a retirement-service outage does not replace profile facts with plan previ
   await setup(page);
   await page.route("**/api/v1/me/retirement/plans**", route => route.fulfill({ status: 503, json: { error: { code: "PLAN_UNAVAILABLE", message: "Kế hoạch tạm không khả dụng" } } }));
   await page.reload();
-  await expect(metric(page, "income")).toHaveText("35 triệu ₫");
-  await expect(metric(page, "surplus")).toHaveText("15 triệu ₫");
+  await expect(metric(page, "income")).toHaveText("35.000.000 ₫");
+  await expect(metric(page, "surplus")).toHaveText("15.000.000 ₫");
   await expect(topic(page, "assets")).toContainText("400.000.000 ₫");
 });
 
@@ -234,7 +234,7 @@ test("language switching covers all hub labels, amounts and popup content", asyn
   await setup(page); await page.getByRole("button", { name: "Chọn ngôn ngữ", exact: true }).click();
   await page.getByRole("menuitemradio", { name: "English", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your finances");
-  await expect(metric(page, "income")).toHaveText("35 million ₫");
+  await expect(metric(page, "income")).toHaveText("35,000,000 ₫");
   await expect(topic(page, "family")).toContainText("0 people");
   await page.getByRole("button", { name: "Explain Monthly surplus", exact: true }).click();
   await expect(page.getByRole("dialog").locator(".money-explanation-result")).toContainText("35,000,000 ₫ − 20,000,000 ₫ − 0 ₫ ≈ 15,000,000 ₫");
