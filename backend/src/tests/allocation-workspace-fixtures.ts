@@ -5,7 +5,7 @@ import { AssumptionsService } from "../modules/assumptions/service";
 import { PortfoliosService } from "../modules/portfolios/service";
 import { AllocationRiskService } from "../modules/allocation-risk/service";
 import { publishedPolicies } from "../modules/portfolios/service";
-export async function allocationFixture(options:{multiple?:boolean;emptyPolicy?:boolean;unknownCapital?:boolean;zero?:boolean;negative?:boolean;endYear?:number}={}) {
+export async function allocationFixture(options:{multiple?:boolean;emptyPolicy?:boolean;unknownCapital?:boolean;zero?:boolean;negative?:boolean;endYear?:number;withoutQuickStart?:boolean}={}) {
   const f=await discoveryFixture({products:3,articles:2}), assumptions=new AssumptionsService(f.db), portfolios=new PortfoliosService(f.db);
   const profile=fixtureProfile({incomeStability:known("STABLE"),goals:empty(),debts:empty(),
     assets:options.unknownCapital?{status:"UNKNOWN"}: {status:"KNOWN",entries:[fixtureAsset({value:known(options.zero?"0":options.negative?"100":"1000000000")})]},
@@ -37,7 +37,7 @@ export async function allocationFixture(options:{multiple?:boolean;emptyPolicy?:
     policyData.rules.forEach(rule=>{rule.dimensions.LOSS_TOLERANCE={min:0,max:10};});
     policyData.templates.find(t=>t.id==="GROWTH")!.glidePath.points.find(point=>point.yearsToAnchor===0)!.allocations=[{assetClass:"BOND",weightPercent:"70"},{assetClass:"STOCK",weightPercent:"30"}];
   }
-  const p=await portfolios.create("test-admin",{...policyData,quickStartTemplates:{evidence:"Synthetic planning references, memory only; not suitability",SELL:policyData.templates[0].id,HOLD:policyData.templates[0].id,BUY_MORE:policyData.templates[1].id},lossStress:{equityAssetClass:"STOCK",depositAssetClass:"BOND",shocks:[{assetClass:"STOCK",percent:"-20"},{assetClass:"BOND",percent:"-2"}],evidence:"Synthetic stress, no production publication"}});
+  const p=await portfolios.create("test-admin",{...policyData,...(options.withoutQuickStart?{}:{quickStartTemplates:{evidence:"Synthetic planning references, memory only; not suitability",SELL:policyData.templates[0].id,HOLD:policyData.templates[0].id,BUY_MORE:policyData.templates[1].id}}),lossStress:{equityAssetClass:"STOCK",depositAssetClass:"BOND",shocks:[{assetClass:"STOCK",percent:"-20"},{assetClass:"BOND",percent:"-2"}],evidence:"Synthetic stress, no production publication"}});
   await portfolios.approve("test-admin",p.id,{expectedRevision:1,confirm:true,reviewNote:"Synthetic allocation review"});
   if(!options.emptyPolicy)await portfolios.publish("test-admin",p.id,{expectedRevision:2,confirm:true});
   publishedPolicies.clear();

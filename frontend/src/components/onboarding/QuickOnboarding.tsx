@@ -676,8 +676,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                 {birthMonth && desiredRetirementMonth && (
                   <p className="retirement-estimate" style={{ marginTop: "4px", fontSize: "12px", color: "var(--color-primary-700, #334DAF)" }}>
                     {isEn
-                      ? `Estimated retirement: month ${desiredRetirementMonth.slice(5, 7)}/${desiredRetirementMonth.slice(0, 4)}`
-                      : `Dự kiến nghỉ hưu: tháng ${desiredRetirementMonth.slice(5, 7)}/${desiredRetirementMonth.slice(0, 4)}`}
+                      ? `Estimated retirement: month ${Number(desiredRetirementMonth.slice(5, 7))}/${desiredRetirementMonth.slice(0, 4)}`
+                      : `Dự kiến nghỉ hưu: tháng ${Number(desiredRetirementMonth.slice(5, 7))}/${desiredRetirementMonth.slice(0, 4)}`}
                   </p>
                 )}
               </div>

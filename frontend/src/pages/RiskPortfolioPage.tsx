@@ -1,7 +1,7 @@
 import { initialPlanSelection } from "../services/initialPlanSelection";
 import type { RetirementPreviewInput } from "../services/retirement";
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useNotification } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
@@ -21,6 +21,7 @@ import "./allocation-workspace.css";
 export default function RiskPortfolioPage() {
   const {user}=useAuth(), {language}=useI18n(), {v2Profile,profileRevision,reloadProfile,updateProfileV2,loading:loadingProfile,loadError}=useFinancialProfile();
   const {currentVersion,draftSelection,loadingPlans,updateDraft}=useRetirementPlan(), {notify}=useNotification();
+  const navigate=useNavigate();
   const [searchParams,setSearchParams]=useSearchParams(), isRiskSubView=searchParams.get("section")==="risk";
   const baseline=currentVersion?.preview.selection;
   const selection=baseline&&v2Profile?selectionForCurrentProfile(baseline,draftSelection,v2Profile,profileRevision):{
@@ -30,7 +31,7 @@ export default function RiskPortfolioPage() {
   };
   const [policyAttempt,setPolicyAttempt]=useState(0);
   const [attempt,setAttempt]=useState(0), [answers,setAnswers]=useState<Record<string,string>>({}), [selectedTemplateId,setSelectedTemplateId]=useState(selection.templateId??"");
-  const [liquidityNeedMonths,setLiquidityNeedMonths]=useState(selection.liquidityNeedMonths??0), [endMonth,setEndMonth]=useState(selection.endMonth??"");
+  const [liquidityNeedMonths,setLiquidityNeedMonths]=useState(selection.liquidityNeedMonths||6), [endMonth,setEndMonth]=useState(selection.endMonth??"");
   const [reactionChoice,setReactionChoice]=useState<"sell"|"hold"|"buy">("hold"), [lossMode,setLossMode]=useState<"percent"|"amount">("percent"), [lossPercent,setLossPercent]=useState(""), [lossAmount,setLossAmount]=useState("");
   const [savingRisk,setSavingRisk]=useState(false), [riskError,setRiskError]=useState("");
   const policies=useDiscoveryQuery(`${user?.id}:${loadingPlans}:${selection.policyVersionId}:${v2Profile?.retirementSurvey?.policyVersionId}:${policyAttempt}`,async()=>{
@@ -42,7 +43,7 @@ export default function RiskPortfolioPage() {
     if(!list.items.length) return null;
     return known??fetchUserPortfolioPolicyDetail(list.items[0].id,fresh);
   });
-  useEffect(()=>{if(!loadingPlans&&!loadingProfile){setEndMonth(selection.endMonth??"");setLiquidityNeedMonths(selection.liquidityNeedMonths??0);}},[loadingPlans,loadingProfile,currentVersion?.id,user?.id,selection.endMonth,selection.liquidityNeedMonths]);
+  useEffect(()=>{if(!loadingPlans&&!loadingProfile){setEndMonth(selection.endMonth??"");setLiquidityNeedMonths(selection.liquidityNeedMonths||6);}},[loadingPlans,loadingProfile,currentVersion?.id,user?.id,selection.endMonth,selection.liquidityNeedMonths]);
   const policyDetail=policies.data??null, questions=policyDetail?.data.questions??[];
   useEffect(()=>{
     if(!policyDetail||!user)return;
@@ -242,7 +243,7 @@ export default function RiskPortfolioPage() {
           <h2>{language==="en"?"Investment suitability questionnaire":"Đánh giá mức phù hợp đầu tư"}</h2>
           <p>{language==="en"?"These answers are separate from the initial retirement planning reference.":"Các câu trả lời này tách riêng khỏi danh mục tham khảo dùng cho kế hoạch ban đầu."}</p>
           {questions.map(question=><label className="field" key={question.id} style={{display:"grid",gap:8,marginBottom:16}}>{question.prompt}<select aria-label={question.prompt} data-policy-question={question.id} value={answers[question.id]??""} onChange={event=>setAnswers(previous=>({...previous,[question.id]:event.target.value}))}><option value="">{language==="en"?"Choose an answer":"Chọn câu trả lời"}</option>{question.choices.map(choice=><option key={choice.id} value={choice.id}>{choice.label}</option>)}</select></label>)}
-          <button className="overview-button primary" disabled={!allAnswered||savingRisk||!selection.monthlyExpenseToday} onClick={async()=>{if(!allAnswered||savingRisk||!selection.monthlyExpenseToday)return;setSavingRisk(true);setRiskError("");try{const items=questions.map(q=>({questionId:q.id,choiceId:answers[q.id]}));const saved=await updateProfileV2({retirementSurvey:{policyVersionId:policyDetail.id,monthlyExpenseToday:selection.monthlyExpenseToday,answers:items}});if(!saved)throw new Error(language==="en"?"Could not save answers.":"Chưa lưu được câu trả lời.");updateDraft({policyVersionId:policyDetail.id,answers:items,planningReaction:undefined,templateId:undefined,customAllocation:undefined,allocationFunding:undefined});setSearchParams({});}catch(error){setRiskError(error instanceof Error?error.message:"Chưa lưu được.");}finally{setSavingRisk(false);}}}>{language==="en"?"Save assessment answers":"Lưu câu trả lời đánh giá"}</button>
+          <button className="overview-button primary" disabled={!allAnswered||savingRisk||!selection.monthlyExpenseToday} onClick={async()=>{if(!allAnswered||savingRisk||!selection.monthlyExpenseToday)return;setSavingRisk(true);setRiskError("");try{const items=questions.map(q=>({questionId:q.id,choiceId:answers[q.id]}));const saved=await updateProfileV2({retirementSurvey:{policyVersionId:policyDetail.id,monthlyExpenseToday:selection.monthlyExpenseToday,answers:items}});if(!saved)throw new Error(language==="en"?"Could not save answers.":"Chưa lưu được câu trả lời.");updateDraft({policyVersionId:policyDetail.id,answers:items,planningReaction:undefined,templateId:undefined,customAllocation:undefined,allocationFunding:undefined});if(!currentVersion&&v2Profile?.quickStartSurvey)navigate("/user/plan",{state:{fromOnboarding:true}});else setSearchParams({});}catch(error){setRiskError(error instanceof Error?error.message:"Chưa lưu được.");}finally{setSavingRisk(false);}}}>{language==="en"?"Save assessment answers":"Lưu câu trả lời đánh giá"}</button>
         </section>}
 
         <button

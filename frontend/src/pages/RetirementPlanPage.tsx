@@ -409,7 +409,8 @@ export default function RetirementPlanPage() {
     if(!baseline&&initialExpense===undefined)missingPlanDetails.push({label:language==="en"?"Set retirement spending":"Bổ sung chi tiêu nghỉ hưu",to:"/user/goal"});
   }
   if(!loadingPolicy&&!policyError&&!policyDetail)missingPlanDetails.push({label:language==="en"?"No published portfolio policy is available. Request support.":"Chưa có chính sách phân bổ đã công bố. Yêu cầu hỗ trợ.",to:"/user/support"});
-  else if(policyDetail&&!hasCompleteSurvey)missingPlanDetails.push({label:language==="en"?"Review your saved risk survey results":"Kiểm tra kết quả khảo sát rủi ro đã lưu",to:"/user/risk-portfolio"});
+  else if(uniqueIssues.some(issue=>issue.code==="QUICK_START_POLICY_REQUIRED"))missingPlanDetails.push({label:translateIssueCode("QUICK_START_POLICY_REQUIRED",language),to:"/user/risk-portfolio?section=risk"});
+  else if(policyDetail&&!hasCompleteSurvey)missingPlanDetails.push({label:language==="en"?"Review your saved risk survey results":"Kiểm tra kết quả khảo sát rủi ro đã lưu",to:"/user/risk-portfolio?section=risk"});
   const retryPlan=()=>{
     if(planBusy)return;
     if(profileError){reloadProfile();return;}

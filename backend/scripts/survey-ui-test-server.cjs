@@ -16,7 +16,7 @@ harness.get('/__fixture/ready', (_req, res) => res.json({ ready: true }));
 harness.get('/__fixture/evidence', (_req, res) => res.json(evidence));
 harness.post('/__fixture/reset', async (req, res, next) => {
   try {
-    const f = await allocationFixture({ endYear: req.body.endYear });
+    const f = await allocationFixture({ endYear: req.body.endYear, withoutQuickStart: req.body.withoutQuickStart });
     // allocationFixture always constructs memoryDb; remove only its synthetic
     // financial profile so onboarding exercises the actual initial-create path.
     await f.db.financialProfile.deleteMany({ where: { userId: 'test-user' } });
