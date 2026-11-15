@@ -15,12 +15,13 @@ import { Icon } from "./ui";
 import "./allocation-experiment.css";
 
 export type AllocationChoice = { templateId: string; customAllocation?: CustomAllocation; allocationFunding?: "PROTECTED_CAPITAL_V1" };
+export type AllocationEvaluationState = { busy: boolean; error: string };
 type Candidate = NonNullable<RiskResult["candidates"]>[number];
 type Row = { assetClass: string; weightPercent: string };
 type Props = {
   data: AllocationWorkspaceResult; input: WorkspaceInput; plan: RetirementPreviewInput | null;
   onChoose: (value: AllocationChoice) => void;
-  onReferenceChange: (value: AllocationWorkspaceResult, result: RiskResult | null) => void;
+  onReferenceChange: (value: AllocationWorkspaceResult, result: RiskResult | null, state: AllocationEvaluationState) => void;
   thresholds?: { essential?: string; all?: string };
   /** Rendered between the two cards and the custom comparison, where the demo explains the pick. */
   why?: ReactNode;
@@ -110,50 +111,60 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   const initialWeights = () => policy ? initialAllocationWeights(plan?.customAllocation?.weights ?? data.allocations, policy) : [];
   const [weights, setWeights] = useState(initialWeights);
   const [result, setResult] = useState<RiskResult | null>(null), [trial, setTrial] = useState<AllocationWorkspaceResult | null>(null), [reference, setReference] = useState(data);
+  const [referenceResult, setReferenceResult] = useState<RiskResult | null>(null);
+  const [trialError, setTrialError] = useState(""), [trialAttempt, setTrialAttempt] = useState(0);
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [rate, setRate] = useState<AllocationWorkspaceResult | null>(null), [packages, setPackages] = useState<WorkspaceInput | null>(null);
   const [stressPlan, setStressPlan] = useState<RetirementPreviewInput | null>(null);
   const [customOpen, setCustomOpen] = useState(() => !window.matchMedia("(max-width: 800px)").matches || !!plan?.customAllocation);
   const controller = useRef<AbortController | null>(null), sequence = useRef(0), autoRan = useRef("");
   const fingerprint = JSON.stringify({ input, plan, data: data.allocations, customization: policy });
   const weightsKey = JSON.stringify(weights);
-  useEffect(() => onReferenceChange(reference, result), [reference, result, onReferenceChange]);
+  useEffect(() => onReferenceChange(reference, referenceResult, { busy, error }), [reference, referenceResult, busy, error, onReferenceChange]);
   useEffect(() => () => { sequence.current++; controller.current?.abort(); }, [fingerprint]);
-  useEffect(() => { setResult(null); setTrial(null); setReference(data); setBusy(false); setError(""); setWeights(initialWeights()); }, [fingerprint]);
+  useEffect(() => { setResult(null); setReferenceResult(null); setTrial(null); setTrialError(""); setReference(data); setBusy(false); setError(""); setWeights(initialWeights()); }, [fingerprint]);
   const custom: CustomAllocation = { model: "custom-glide-v1", weights };
   // Live check while dragging: the server answers with the loss stress, amounts and return for these exact weights.
   useEffect(() => {
     if (!policy || !weights.length) return;
+    setTrial(null); setTrialError("");
+    if (weightsKey === JSON.stringify(initialAllocationWeights(data.allocations, policy))) { setTrial(data); return; }
     const abort = new AbortController();
-    const timer = setTimeout(() => { previewAllocation({ ...input, customAllocation: custom }, abort.signal).then(value => { if (!abort.signal.aborted) setTrial(value); }).catch(() => undefined); }, 350);
+    const timer = setTimeout(() => {
+      previewAllocation({ ...input, customAllocation: custom }, abort.signal)
+        .then(value => { if (!abort.signal.aborted) setTrial(value); })
+        .catch(reason => { if (!abort.signal.aborted) setTrialError(reason instanceof Error ? reason.message : t("Không kiểm tra được tỷ trọng. Hãy thử lại.", "Could not check these weights. Please retry.")); });
+    }, 350);
     return () => { clearTimeout(timer); abort.abort(); };
-  }, [weightsKey, fingerprint]);
+  }, [weightsKey, fingerprint, trialAttempt]);
 
-  const threshold = result?.threshold ?? thresholds?.essential, allThreshold = result?.allThreshold ?? thresholds?.all;
-  const referenceCandidate = result?.candidates?.find(c => c.id === result.referenceId), customCandidate = result?.candidates?.find(c => c.id === "CUSTOM");
-  const qualified = meets(referenceCandidate, threshold), tested = (result?.candidates ?? []).filter(c => c.id !== "CUSTOM").length + (result?.rejected ?? []).filter(r => r.id !== "CUSTOM").length;
+  const threshold = referenceResult?.threshold ?? thresholds?.essential, allThreshold = referenceResult?.allThreshold ?? thresholds?.all;
+  const referenceCandidate = referenceResult?.candidates?.find(c => c.id === referenceResult.referenceId), customCandidate = result?.candidates?.find(c => c.id === "CUSTOM");
+  const qualified = meets(referenceCandidate, threshold), tested = (referenceResult?.candidates ?? []).filter(c => c.id !== "CUSTOM").length + (referenceResult?.rejected ?? []).filter(r => r.id !== "CUSTOM").length;
   const eligible = (r: AllocationWorkspaceResult) => r.portfolio?.status === "READY" && r.loss.status === "WITHIN_LIMIT" && r.capital.status === "READY";
   const selectionPlan = plan && input.templateId ? { ...plan, templateId: input.templateId, customAllocation: undefined } : null;
-  const run = async () => {
+  const run = async (kind: "reference" | "custom" = "custom") => {
     if (!selectionPlan || busy) return;
     controller.current?.abort(); const abort = new AbortController(); controller.current = abort;
     const ticket = ++sequence.current; setBusy(true); setError(""); setResult(null);
     try {
-      const nextTrial = policy ? await previewAllocation({ ...input, customAllocation: custom }, abort.signal) : null;
+      const nextTrial = kind === "custom" && policy ? await previewAllocation({ ...input, customAllocation: custom }, abort.signal) : null;
       if (ticket !== sequence.current) return;
       if (nextTrial && !eligible(nextTrial)) { setTrial(nextTrial); setError(t("Tỷ trọng này chưa đáp ứng chính sách hoặc giới hạn chịu lỗ. Hãy điều chỉnh trước khi mô phỏng.", "These weights do not satisfy the policy or loss limit. Adjust them before simulation.")); return; }
       const from = data.valuationDate.slice(0, 7), to = selectionPlan.endMonth;
       const months = Math.max(1, (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + Number(to.slice(5, 7)) - Number(from.slice(5, 7)) + 1);
       const paths = Math.max(1, Math.min(200, Math.floor(150000 / (months * 5))));
-      const response = await analyzeRisk("selection", { kind: "PREVIEW", preview: selectionPlan }, paths, undefined, abort.signal, policy ? custom : undefined, "ALLOCATION_V2");
+      const response = await analyzeRisk("selection", { kind: "PREVIEW", preview: selectionPlan }, paths, undefined, abort.signal, kind === "custom" && policy ? custom : undefined, "ALLOCATION_V2");
       const picked = response.candidates?.find(c => c.id === response.referenceId);
-      const nextReference = picked?.selection ? await previewAllocation({ ...input, ...picked.selection }, abort.signal) : data;
+      const sameReference = picked?.selection?.templateId === data.portfolio?.assessment.selectedTemplateId && JSON.stringify(picked?.selection?.customAllocation ?? null) === JSON.stringify(data.customAllocation ?? null);
+      const nextReference = picked?.selection && !sameReference ? await previewAllocation({ ...input, ...picked.selection }, abort.signal) : data;
       if (ticket !== sequence.current) return;
-      setTrial(nextTrial); setResult(response); setReference(nextReference);
+      if (nextTrial) setTrial(nextTrial);
+      setResult(response); setReferenceResult(response); setReference(nextReference);
     } catch (e) { if (ticket === sequence.current && !abort.signal.aborted) setError(e instanceof Error ? e.message : t("Chưa tính được kết quả.", "Could not calculate the result.")); }
     finally { if (ticket === sequence.current) setBusy(false); }
   };
-  useEffect(() => { if (selectionPlan && autoRan.current !== fingerprint && weightsKey === JSON.stringify(initialWeights())) { autoRan.current = fingerprint; void run(); } }, [fingerprint, weightsKey]);
-  const invalidate = () => { sequence.current++; controller.current?.abort(); setBusy(false); setResult(null); setTrial(null); setError(""); };
+  useEffect(() => { if (selectionPlan && autoRan.current !== fingerprint && weightsKey === JSON.stringify(initialWeights())) { autoRan.current = fingerprint; void run("reference"); } }, [fingerprint, weightsKey]);
+  const invalidate = () => { sequence.current++; controller.current?.abort(); setBusy(false); setResult(null); setTrial(null); setTrialError(""); setTrialAttempt(n => n + 1); setError(""); };
   const change = (code: string, value: string) => { if (!policy) return; invalidate(); setWeights(prev => adjustAllocation(prev, policy, code, value)); };
   const reset = () => { if (!policy) return; invalidate(); setWeights(initialAllocationWeights(reference.allocations, policy)); };
   const choose = (candidate: Candidate | undefined, workspace: AllocationWorkspaceResult) => {
@@ -190,6 +201,10 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   const customPasses = meets(customCandidate, threshold) && (!allThreshold || (customCandidate?.pAll ?? 0) >= Number(allThreshold));
 
   return <section className="allocation-experiment" aria-label={t("Thử và đối chiếu phân bổ", "Test and compare allocations")}>
+    {busy && <div className="allocation-evaluation-notice" role="status"><progress aria-label={t("Đang kiểm tra các phương án", "Testing allocations")} /><div><strong>{t("Đang kiểm tra các phương án…", "Testing allocations…")}</strong><p>{t("Đối chiếu vốn, giới hạn chịu lỗ và các kịch bản thị trường.", "Comparing capital, loss limits and market scenarios.")}</p></div></div>}
+    {error && <div className="allocation-evaluation-notice is-error" role="alert"><div><strong>{t("Chưa tính được phương án", "Could not calculate the allocation")}</strong><p>{error}</p></div><button type="button" className="overview-button secondary" disabled={busy || !selectionPlan} onClick={() => void run()}>{t("Thử tính lại", "Retry calculation")}</button></div>}
+    {!selectionPlan && <div className="allocation-evaluation-notice" role="status"><div><strong>{t("Cần bổ sung thông tin kế hoạch", "Complete your plan inputs")}</strong><p>{t("Xác nhận chi tiêu và thời gian nghỉ hưu để tính phương án theo dòng tiền của bạn.", "Confirm retirement spending and dates to calculate an allocation using your cash flows.")}</p></div><Link className="overview-button secondary" to="/user/plan?tab=adjust">{t("Bổ sung thông tin", "Complete inputs")}</Link></div>}
+    {statusText && <div className="allocation-evaluation-notice" role="status"><p>{statusText}</p></div>}
     <div className="allocation-lab-real">
       <article className="allocation-reference">
         <header className="allocation-result-card-heading"><span className="allocation-result-icon" aria-hidden="true"><Icon name="shield" /></span><div>
@@ -223,14 +238,13 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
             <p className="allocation-result-footnote">{t("Khi thay một tỷ trọng, các phần còn lại tự cân đối để tổng luôn bằng 100%.", "Changing one weight rebalances the others so the total stays at 100%.")}</p>
             <div className="allocation-feedback">
               {rateButton(trial, true)}
-              <div className={`allocation-check ${!trial ? "is-pending" : trialValid ? "is-valid" : "is-invalid"}`} role="status"><strong>{!trial ? t("Đang kiểm tra ràng buộc…", "Checking constraints…") : trialValid ? t("Đạt kiểm tra ràng buộc ban đầu", "Passes the initial constraint check") : t("Cần điều chỉnh tỷ trọng", "Adjust the weights")}</strong>{trial && <p>{trialValid ? lossText(trial.loss) : trialProblem}</p>}</div>
+              <div className={`allocation-check ${trialError ? "is-invalid" : !trial ? "is-pending" : trialValid ? "is-valid" : "is-invalid"}`} role="status"><strong>{trialError ? t("Chưa kiểm tra được tỷ trọng", "Could not check these weights") : !trial ? t("Đang kiểm tra ràng buộc…", "Checking constraints…") : trialValid ? t("Đạt kiểm tra ràng buộc ban đầu", "Passes the initial constraint check") : t("Cần điều chỉnh tỷ trọng", "Adjust the weights")}</strong>{trialError ? <><p>{trialError}</p><button type="button" className="remaining-text" onClick={() => setTrialAttempt(n => n + 1)}>{t("Thử kiểm tra lại", "Retry check")}</button></> : trial && <p>{trialValid ? lossText(trial.loss) : trialProblem}</p>}</div>
               {trialValid && <button className="overview-button secondary" disabled={busy} onClick={() => setPackages({ ...input, customAllocation: custom })}>{t("Gợi ý gói đầu tư cho tỷ trọng tự chọn", "Explore packages for custom weights")}</button>}
               {trial?.returnBreakdown && <details className="allocation-method"><summary>{t("Hiểu mức sinh lời đang dùng", "How this return is calculated")}</summary><table><thead><tr><th>{t("Tài sản", "Asset")}</th><th>{t("Đầu vào/tháng", "Monthly input")}</th><th>{t("Đóng góp", "Contribution")}</th></tr></thead><tbody>{trial.returnBreakdown.rows.filter(r => Number(r.weightPercent) > 0).map(r => <tr key={r.assetClass}><td>{label(r.assetClass)}</td><td>{num(Number(r.monthlyRate) * 100, 4)}%</td><td>{num(Number(r.monthlyContribution) * 100, 4)} {t("điểm %", "pts")}</td></tr>)}</tbody><tfoot><tr><th>{t("Tổng/tháng", "Monthly total")}</th><td colSpan={2}>{num(Number(trial.returnBreakdown.monthly) * 100, 4)}%</td></tr></tfoot></table><p>{t("Đóng góp = tỷ trọng × lợi suất tháng. Quy đổi năm có lãi kép = (1 + tổng lợi suất tháng)¹² − 1. Đây là giả định của phép tính, không phải lợi nhuận cam kết.", "Contribution = weight × monthly return. Compounded annual = (1 + monthly total)¹² − 1. This is a calculation assumption, not a committed return.")}</p></details>}
             </div>
           </>}
-          <button className="overview-button primary" disabled={busy || !selectionPlan || (!!policy && !!trial && !trialValid)} onClick={() => void run()}>{busy ? t("Đang mô phỏng…", "Simulating…") : t("Kiểm tra phương án tự chọn", "Test the custom allocation")}</button>
+          <button className="overview-button primary" disabled={busy || !selectionPlan || (!!policy && !trialValid)} onClick={() => void run()}>{busy ? t("Đang mô phỏng…", "Simulating…") : t("Kiểm tra phương án tự chọn", "Test the custom allocation")}</button>
           {!selectionPlan && <p>{t("Bổ sung chi tiêu và thời gian nghỉ hưu để mô phỏng cùng dòng tiền của kế hoạch.", "Complete retirement spending and dates to simulate the plan cash flows.")} <Link to="/user/plan?tab=adjust">{t("Mở Kế hoạch", "Open Plan")}</Link></p>}
-          {error && <p role="alert">{error}</p>}{statusText && <p role="status">{statusText}</p>}
           {result?.status === "INSUFFICIENT" && <p role="status">{t("Chưa có phương án đạt ngưỡng chi thiết yếu. Hãy xem lại mức góp, thời điểm nghỉ hưu hoặc chi tiêu.", "No allocation meets the essential-spending threshold. Review contributions, retirement date or spending.")}</p>}
         </div>
       </details>
