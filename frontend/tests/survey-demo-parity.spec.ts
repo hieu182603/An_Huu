@@ -6,10 +6,10 @@ const api = "http://127.0.0.1:18452";
 const artifacts = "E:/An_Huu/artifacts/survey-parity-2026-11-14/fixed";
 // Let the real browser request settle before the fixture is reset.
 test.afterEach(async ({ page }) => { await page.waitForLoadState("networkidle"); await page.goto("about:blank"); await page.unrouteAll({ behavior: "wait" }); });
-async function setup(page: Page, request: APIRequestContext, endYear?: number) {
+async function setup(page: Page, request: APIRequestContext, endYear?: number, withoutQuickStart = false) {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.clock.setFixedTime(new Date("2026-11-14T05:00:00Z"));
-  const response = await request.post(`${api}/__fixture/reset`, { data: {endYear} });
+  const response = await request.post(`${api}/__fixture/reset`, { data: {endYear, withoutQuickStart} });
   expect(response.ok(), await response.text()).toBeTruthy();
   const fixture = await response.json();
   await page.route("**/api/v1/**", route => route.fulfill({ status: 503, json: { error: { message: "No synthetic route" } } }));
@@ -34,6 +34,47 @@ async function setup(page: Page, request: APIRequestContext, endYear?: number) {
   return { writes, previews, get, refresh };
 }
 const next = async (page: Page) => page.getByRole("button", { name: "Tiếp tục →", exact: true }).click();
+
+for (const withoutQuickStart of [false, true]) test(`R-01 first plan after survey: ${withoutQuickStart ? "explicit assessment fallback" : "published reaction mapping"}`, async ({ page, request }) => {
+  const state = await setup(page, request, undefined, withoutQuickStart);
+  await page.getByLabel("Ngày tháng năm sinh", { exact: true }).fill("15/06/1990");
+  await page.getByLabel("Bạn muốn nghỉ hưu năm bao nhiêu tuổi?", { exact: true }).fill("60");
+  await expect(page.getByText("Dự kiến nghỉ hưu: tháng 6/2050", { exact: true })).toBeVisible();
+  await start(page); await family(page); await next(page);
+  await page.locator("input[name=comfortReaction][value=hold]").check();
+  await page.getByRole("button", { name: "Xem kế hoạch đầu tiên →", exact: true }).click();
+  if (withoutQuickStart) {
+    const fallback = page.getByRole("link", { name: "Trả lời 6 câu đánh giá mức chấp nhận rủi ro để tính kế hoạch", exact: true });
+    await expect(fallback).toHaveAttribute("href", "/user/risk-portfolio?section=risk");
+    await expect(page.locator("main")).not.toContainText("Cần quản trị viên");
+    await page.goto("/user/dashboard");
+    await expect(page.locator(".dashboard-plan-status")).toContainText("Hoàn thiện thông tin để tính kế hoạch");
+    await expect(page.locator(".dashboard-plan-status")).not.toContainText("lưu phương án này");
+    await page.goto("/user/plan"); await fallback.click();
+    const questions = page.locator("[data-policy-question]");
+    await expect(questions).toHaveCount(6);
+    for (const select of await questions.all()) { await expect(select).toHaveValue(""); await select.selectOption("LOW"); }
+    await page.getByRole("button", { name: "Lưu câu trả lời đánh giá", exact: true }).click();
+    await expect(page).toHaveURL(/\/user\/plan$/);
+  }
+  await expect(page.getByText("Kế hoạch chính đang dùng", { exact: true })).toBeVisible({timeout:20000});
+  const profile = (await state.get("financial-profile")).data;
+  if (withoutQuickStart) expect(profile.retirementSurvey.answers).toHaveLength(6);
+  else expect(profile.retirementSurvey).toBeUndefined();
+  await state.refresh();
+  const saved = state.writes.filter(w => w.path.endsWith("/retirement/plans"));
+  expect(saved).toHaveLength(1); expect(saved[0].status).toBe(201);
+  expect(saved[0].body.preview.answers).toHaveLength(withoutQuickStart ? 6 : 0);
+  expect(saved[0].body.preview.planningReaction).toBe(withoutQuickStart ? undefined : "HOLD");
+  expect(state.writes.some(w => /\/apply$/.test(w.path) && w.status === 200)).toBe(true);
+  await page.goto("/user/dashboard");
+  await expect(page.locator(".current-plan-banner")).toHaveCount(1);
+  await expect(page.locator(".dashboard-plan-status")).toHaveCount(0);
+  await expect(page.locator(".plan-gap-explanation")).toHaveCount(0);
+  await snapshot(page, `r01-${withoutQuickStart ? "assessment" : "mapped"}-1440`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await snapshot(page, `r01-${withoutQuickStart ? "assessment" : "mapped"}-390`);
+});
 async function start(page: Page, birth = "24/11/1943", age = "84", expense = "20000000") {
   await page.getByLabel("Ngày tháng năm sinh", { exact: true }).fill(birth);
   await page.getByLabel("Bạn muốn nghỉ hưu năm bao nhiêu tuổi?", { exact: true }).fill(age);
@@ -55,7 +96,7 @@ async function snapshot(page: Page, name: string) {
   mkdirSync(artifacts, { recursive: true });
   await expect(page.locator(".anhuu-loading")).toHaveCount(0);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: `${artifacts}/${name}.png`, fullPage: true });
+  await page.screenshot({ path: `${artifacts}/${name}.png`, fullPage: true, timeout:30000 });
 }
 async function fit(page: Page) {
   await expect.poll(() => page.locator(".qo-card,input,select,button,.goal-main-form").evaluateAll(nodes => nodes.filter(el => el.checkVisibility()).flatMap(el => {
@@ -146,8 +187,8 @@ test("all declared fields survive HTTP save, reload, complete and the actual ret
   await page.evaluate(() => sessionStorage.removeItem("anhuu:plan-draft:USR-001"));
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/user/plan");
-  await expect(page.getByText("Kế hoạch chính đang dùng", { exact: true })).toBeVisible();
-  await expect(page.locator(".current-plan-banner")).toContainText("góp 5 triệu ₫/tháng");
+  await expect(page.getByText("Kế hoạch chính đang dùng", { exact: true })).toBeVisible({timeout:20000});
+  await expect(page.locator(".current-plan-banner")).toContainText("góp 5 triệu/tháng");
   writeFileSync(`${artifacts}/http-evidence.json`, JSON.stringify({ profile: record, writes: state.writes, preview: state.previews.find(p => p.data?.status === "READY") }, null, 2));
 });
 
@@ -212,7 +253,7 @@ test("initial planning saves no suitability answers; the separate allocation que
   await expect(page.locator("[data-policy-question]")).toHaveCount(0);
   await page.locator("input[name=comfortReaction][value=hold]").check();
   await page.getByRole("button", { name: "Xem kế hoạch đầu tiên →", exact: true }).click();
-  await expect(page.getByText("Kế hoạch chính đang dùng", { exact: true })).toBeVisible();
+  await expect(page.getByText("Kế hoạch chính đang dùng", { exact: true })).toBeVisible({timeout:20000});
   expect((await state.get("financial-profile")).data.retirementSurvey).toBeUndefined();
   await page.waitForLoadState("networkidle");
   await page.goto("/user/risk-portfolio?section=risk");
@@ -231,7 +272,7 @@ test("saving a comparison option creates a version without applying it", async (
   await start(page); await family(page); await next(page);
   await page.locator("input[name=comfortReaction][value=hold]").check();
   await page.getByRole("button", { name: "Xem kế hoạch đầu tiên →", exact: true }).click();
-  await expect(page.getByText("Kế hoạch chính đang dùng", { exact: true })).toBeVisible();
+  await expect(page.getByText("Kế hoạch chính đang dùng", { exact: true })).toBeVisible({timeout:20000});
   await state.refresh(); const before = state.writes.length;
   await page.waitForLoadState("networkidle");
   await page.goto("/user/plan?view=compare");

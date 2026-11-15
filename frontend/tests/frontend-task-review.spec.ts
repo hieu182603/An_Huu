@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { setupRemaining } from "./remaining-helpers";
 
-const output = fileURLToPath(new URL("../../artifacts/frontend-task-review-2026-11-15/", import.meta.url));
+const output = fileURLToPath(new URL("../../artifacts/demo-reaccept-2026-11-15/main/", import.meta.url));
 test.afterEach(async ({ page }) => { await page.waitForLoadState("networkidle"); });
 
 for (const width of [1440, 390]) test(`T2–T8 visual and navigation contract at ${width}px`, async ({ page, request }) => {
@@ -50,8 +50,32 @@ for (const width of [1440, 390]) test(`T2–T8 visual and navigation contract at
       if (metrics.sidebar.solidIcons.length) failures.push(`sidebar solid icons: ${metrics.sidebar.solidIcons.join(", ")}`);
     }
     if (name === "allocation" && metrics.title !== "Phân bổ tài sản | An Hưu") failures.push(`allocation tab title: ${metrics.title}`);
+    if(name === "dashboard") {
+      await expect(page.locator(".current-plan-banner")).toHaveCount(1);
+      await expect(page.locator(".dashboard-plan-status")).toHaveCount(0);
+      await expect(page.locator(".plan-gap-explanation")).toHaveCount(0);
+      await expect(page.locator(".dashboard-metric-full").first()).not.toContainText("≈");
+      await expect(page.locator(".chart-phase-key")).toContainText("Dùng quỹ khi nghỉ hưu");
+    }
+    if(name === "profile") {
+      await expect(page.locator(".finance-metric-full")).toHaveCount(0);
+      await expect(page.getByRole("button",{name:"Giải thích tài sản ròng",exact:true})).toHaveCount(0);
+      await expect(page.locator(".finance-summary-metric.is-income > strong")).toContainText("₫");
+    }
+    if(name === "goal") {
+      await expect(page.locator("main")).not.toContainText("dd/mm/yyyy · ngày/tháng/năm");
+      await expect(page.locator("main")).not.toContainText("Theo kỳ định giá hồ sơ");
+      await expect(page.locator(".goal-sync-timeline li").last()).toContainText("Dự tính chi tiêu đến hết tháng 12/2028");
+      await expect(page.getByLabel("Chuẩn bị quỹ đến tháng",{exact:true})).toHaveValue("01/2029");
+      expect(await page.getByLabel("Chi tiêu nghỉ hưu mỗi tháng",{exact:true}).evaluate(el=>getComputedStyle(el).textAlign)).toBe("right");
+      expect(await page.locator(".goal-retirement-expense .money-words").evaluate(el=>({color:getComputedStyle(el).color,size:getComputedStyle(el).fontSize}))).toEqual({color:"rgb(51, 77, 175)",size:"12px"});
+    }
+    if(name === "history") {
+      await expect(page.locator(".saved-version-list")).toContainText("(+0% so với kế hoạch chính)");
+    }
     if (name === "plan") {
       if (!await page.locator(".plan-gap-explanation").isVisible()) failures.push("plan: no visible explanation of projected fund, gap and preparation time");
+      await expect(page.locator(".plan-gap-explanation")).toContainText("Quỹ dự kiến đáp ứng mục tiêu");
       await expect(page.locator(".plan-gap-explanation")).not.toContainText(/còn thiếu\s*-/);
       if (text.includes("đến 85 tuổi")) failures.push("plan: custom fixture horizon is incorrectly labeled age 85");
       await page.getByText("Chi tiết dòng tiền và giả định", { exact: true }).click();
