@@ -287,3 +287,68 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* FE-CUSTOMER-20261118: risk sub-view layout + visual suitability questionnaire */
+.risk-reaction-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.risk-loss-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 0; align-items: start; }
+.risk-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #edf2f7;
+  padding-top: 18px;
+  margin-top: 18px;
+}
+.risk-btn-cancel {
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1px solid #cddfee;
+  background: #fff;
+  color: #052659;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.risk-btn-cancel:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+.risk-btn-submit {
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: 0;
+  background: #052659;
+  color: #fff;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.risk-btn-submit:hover:not(:disabled) {
+  background: #0b397e;
+}
+.risk-btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.risk-quiz-progress { margin: 4px 0 16px; font-size: 13px; color: #536779; }
+.risk-quiz-progress strong { color: #052659; font-size: 15px; }
+.risk-quiz-list { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 18px; }
+.risk-quiz-question { margin: 0; padding: 16px; border: 1px solid #d5e3f0; border-radius: 14px; background: #fbfdff; min-width: 0; }
+.risk-quiz-question.answered { border-color: #9cc0e6; }
+.risk-quiz-question legend { display: flex; align-items: flex-start; gap: 10px; padding: 0; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: #052659; line-height: 1.45; float: left; width: 100%; }
+.risk-quiz-question legend + * { clear: both; }
+.risk-quiz-num { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #e3eef9; color: #173d68; font-size: 12px; font-weight: 700; }
+.risk-quiz-question.answered .risk-quiz-num { background: #225eaa; color: #fff; }
+.risk-quiz-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.risk-quiz-choice { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid #cddfee; border-radius: 12px; background: #fff; cursor: pointer; font-size: 13px; color: #052659; line-height: 1.4; }
+.risk-quiz-choice:hover { border-color: #7da0ca; }
+.risk-quiz-choice input { margin-top: 2px; accent-color: #225eaa; flex: none; }
+.risk-quiz-choice:has(input:focus-visible) { outline: 2px solid #225eaa; outline-offset: 2px; }
+.risk-quiz-choice.checked { border: 1.5px solid #225eaa; background: #f0f7ff; }
+.risk-quiz-choice strong { display: block; font-weight: 600; }
+.risk-quiz-choice small { display: block; margin-top: 2px; font-size: 12px; color: #536779; }
+@media (max-width: 720px) {
+  .risk-reaction-grid, .risk-loss-grid, .risk-quiz-choices { grid-template-columns: minmax(0, 1fr); }
+}
