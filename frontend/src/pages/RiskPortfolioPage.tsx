@@ -11,6 +11,7 @@ import { useDiscoveryQuery } from "../hooks/useDiscoveryQuery";
 import { fetchUserPortfolioPolicies, fetchUserPortfolioPolicyDetail } from "../services/portfolios";
 import { previewAllocation, saveAllocationTolerance } from "../services/allocationWorkspace";
 import { readRiskDraft } from "../services/riskDraft";
+import { policyQuestionPrompt } from "../services/policyQuestionLabels";
 import { selectionForCurrentProfile } from "../services/profilePlanSelection";
 import { financeMoney } from "../utils/financeHubSummary";
 import { Decimal } from "../utils/decimal";
@@ -57,6 +58,7 @@ export default function RiskPortfolioPage() {
     setLossPercent(loss?.percent?.status==="KNOWN"?loss.percent.value:"");setLossAmount(loss?.amountVnd?.status==="KNOWN"?loss.amountVnd.value:"");
     setReactionChoice(loss?.reaction?.status==="KNOWN"?({SELL:"sell",HOLD:"hold",BUY_MORE:"buy"} as const)[loss.reaction.value]:"hold");
   },[profileRevision,isRiskSubView]);
+  const answeredCount=questions.filter(q=>q.choices.some(c=>c.id===answers[q.id])).length;
   const allAnswered=questions.length>0&&questions.every(q=>q.choices.some(c=>c.id===answers[q.id]));
   const retirementMonth=selection.whatIf?.retirementMonth??(v2Profile?.personal.desiredRetirementMonth?.status==="KNOWN"?v2Profile.personal.desiredRetirementMonth.value:undefined);
   const workspace=useDiscoveryQuery(`${user?.id}:${loadingProfile}:${policyDetail?.id}:${profileRevision}:${JSON.stringify(answers)}:${liquidityNeedMonths}:${selectedTemplateId}:${endMonth}:${retirementMonth}:${attempt}`,signal=>
@@ -148,11 +150,11 @@ export default function RiskPortfolioPage() {
                 ? "When your investment drops about 15% over a few months, what do you usually do?"
                 : "Khi khoản đầu tư giảm khoảng 15% trong vài tháng, bạn thường làm gì?"}
             </label>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px" }}>
+            <div className="risk-reaction-grid">
               {[
-                { id: "sell" as const, title: "Bán bớt để giữ phần còn lại", desc: "Ưu tiên an toàn trước biến động" },
-                { id: "hold" as const, title: "Giữ nguyên và theo dõi thêm", desc: "Chấp nhận dao động vừa phải" },
-                { id: "buy" as const, title: "Chấp nhận biến động để chờ phục hồi", desc: "Đầu tư cho mục tiêu dài hạn" },
+                { id: "sell" as const, title: language === "en" ? "Sell some to preserve capital" : "Bán bớt để giữ phần còn lại", desc: language === "en" ? "Prioritize safety during volatility" : "Ưu tiên an toàn trước biến động" },
+                { id: "hold" as const, title: language === "en" ? "Hold and monitor" : "Giữ nguyên và theo dõi thêm", desc: language === "en" ? "Accept moderate fluctuation" : "Chấp nhận dao động vừa phải" },
+                { id: "buy" as const, title: language === "en" ? "Accept volatility for recovery" : "Chấp nhận biến động để chờ phục hồi", desc: language === "en" ? "Invest for long-term goals" : "Đầu tư cho mục tiêu dài hạn" },
               ].map(opt => {
                 const active = reactionChoice === opt.id;
                 return (
@@ -183,58 +185,72 @@ export default function RiskPortfolioPage() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px", marginBottom: "20px" }}>
-            <div>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#052659", marginBottom: "6px" }}>
-                Nếu thị trường giảm ngắn hạn, bạn chấp nhận giảm tối đa bao nhiêu ở phần vốn dài hạn?
-              </label>
-              <select
-                value={lossMode}
-                onChange={e => setLossMode(e.target.value as "percent" | "amount")}
-                style={{ width: "100%", height: "42px", padding: "0 14px", borderRadius: "10px", border: "1px solid #cddfee", fontSize: "14px", color: "#052659", background: "#fff" }}
-              >
-                <option value="percent">Chọn theo tỷ lệ %</option>
-                <option value="amount">Chọn theo số tiền ₫</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#052659", marginBottom: "6px" }}>
-                {lossMode === "percent" ? "Mức giảm tối đa có thể chấp nhận (%)" : "Mức giảm tối đa có thể chấp nhận (VND)"}
-              </label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type={lossMode === "percent" ? "number" : "text"}
-                  min={0}
-                  max={lossMode === "percent" ? 100 : undefined}
-                  aria-label={lossMode === "percent" ? "Mức giảm tối đa có thể chấp nhận (%)" : "Mức giảm tối đa có thể chấp nhận (VND)"}
-                  value={lossMode === "percent" ? lossPercent : lossAmount}
-                  onChange={e => lossMode === "percent" ? setLossPercent(e.target.value) : setLossAmount(e.target.value)}
-                  style={{ width: "100%", height: "42px", padding: "0 36px 0 14px", borderRadius: "10px", border: "1px solid #cddfee", fontSize: "14px", color: "#052659" }}
-                />
-                <span style={{ position: "absolute", right: "12px", top: "11px", fontSize: "13px", color: "#64748b" }}>{lossMode === "percent" ? "%" : "₫"}</span>
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ display: "block", fontSize: "13.5px", fontWeight: 600, color: "#052659", marginBottom: "10px" }}>
+              {language === "en"
+                ? "If the market drops in the short term, what is the maximum drop you can accept on your long-term capital?"
+                : "Nếu thị trường giảm ngắn hạn, bạn chấp nhận giảm tối đa bao nhiêu ở phần vốn dài hạn?"}
+            </label>
+            <div className="risk-loss-grid">
+              <div>
+                <label htmlFor="risk-loss-mode" style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#052659", marginBottom: "6px" }}>
+                  {language === "en" ? "Selection mode" : "Hình thức chọn"}
+                </label>
+                <select
+                  id="risk-loss-mode"
+                  value={lossMode}
+                  onChange={e => setLossMode(e.target.value as "percent" | "amount")}
+                  style={{ width: "100%", height: "42px", padding: "0 14px", borderRadius: "10px", border: "1px solid #cddfee", fontSize: "14px", color: "#052659", background: "#fff" }}
+                >
+                  <option value="percent">{language === "en" ? "Select by percentage %" : "Chọn theo tỷ lệ %"}</option>
+                  <option value="amount">{language === "en" ? "Select by amount ₫" : "Chọn theo số tiền ₫"}</option>
+                </select>
+                <small style={{ display: "block", fontSize: "12px", color: "#536779", marginTop: "6px" }}>
+                  {language === "en" ? "Choose percentage or exact VND amount." : "Chọn tỷ lệ % hoặc số tiền cụ thể."}
+                </small>
               </div>
-              <small style={{ display: "block", fontSize: "12px", color: "#536779", marginTop: "6px" }}>
-                Tương đương trên phần vốn dài hạn đang xét: {financeMoney(equivLoss, language === "en")}.
-              </small>
+
+              <div>
+                <label htmlFor="risk-loss-value" style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#052659", marginBottom: "6px" }}>
+                  {lossMode === "percent"
+                    ? (language === "en" ? "Maximum acceptable loss (%)" : "Mức giảm tối đa có thể chấp nhận (%)")
+                    : (language === "en" ? "Maximum acceptable loss (VND)" : "Mức giảm tối đa có thể chấp nhận (VND)")}
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    id="risk-loss-value"
+                    type={lossMode === "percent" ? "number" : "text"}
+                    min={0}
+                    max={lossMode === "percent" ? 100 : undefined}
+                    aria-label={lossMode === "percent" ? "Mức giảm tối đa có thể chấp nhận (%)" : "Mức giảm tối đa có thể chấp nhận (VND)"}
+                    value={lossMode === "percent" ? lossPercent : lossAmount}
+                    onChange={e => lossMode === "percent" ? setLossPercent(e.target.value) : setLossAmount(e.target.value)}
+                    style={{ width: "100%", height: "42px", padding: "0 36px 0 14px", borderRadius: "10px", border: "1px solid #cddfee", fontSize: "14px", color: "#052659" }}
+                  />
+                  <span style={{ position: "absolute", right: "12px", top: "11px", fontSize: "13px", color: "#64748b" }}>{lossMode === "percent" ? "%" : "₫"}</span>
+                </div>
+                <small style={{ display: "block", fontSize: "12px", color: "#536779", marginTop: "6px" }}>
+                  {language === "en" ? "Equivalent on considered long-term capital: " : "Tương đương trên phần vốn dài hạn đang xét: "}{financeMoney(equivLoss, language === "en")}.
+                </small>
+              </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="risk-actions">
             <button
               type="button"
+              className="risk-btn-cancel"
               onClick={() => setSearchParams({})}
-              style={{ background: "transparent", border: 0, color: "#052659", fontWeight: 600, fontSize: "13.5px", cursor: "pointer" }}
             >
-              Hủy
+              {language === "en" ? "Cancel" : "Hủy"}
             </button>
             <button
               type="button"
+              className="risk-btn-submit"
               disabled={savingRisk || !policyDetail}
               onClick={() => void saveRisk()}
-              style={{ padding: "10px 18px", borderRadius: "10px", border: 0, background: "#052659", color: "#fff", fontWeight: 600, fontSize: "13.5px", cursor: "pointer" }}
             >
-              Cập nhật và tính lại
+              {language === "en" ? "Update and recalculate" : "Cập nhật và tính lại"}
             </button>
           </div>
         </section>
@@ -242,7 +258,20 @@ export default function RiskPortfolioPage() {
         {policyDetail && <section className="card" style={{padding:24,marginBottom:20}}>
           <h2>{language==="en"?"Investment suitability questionnaire":"Đánh giá mức phù hợp đầu tư"}</h2>
           <p>{language==="en"?"These answers are separate from the initial retirement planning reference.":"Các câu trả lời này tách riêng khỏi danh mục tham khảo dùng cho kế hoạch ban đầu."}</p>
-          {questions.map(question=><label className="field" key={question.id} style={{display:"grid",gap:8,marginBottom:16}}>{question.prompt}<select aria-label={question.prompt} data-policy-question={question.id} value={answers[question.id]??""} onChange={event=>setAnswers(previous=>({...previous,[question.id]:event.target.value}))}><option value="">{language==="en"?"Choose an answer":"Chọn câu trả lời"}</option>{question.choices.map(choice=><option key={choice.id} value={choice.id}>{choice.label}</option>)}</select></label>)}
+          <p className="risk-quiz-progress" aria-live="polite"><strong>{answeredCount}/{questions.length}</strong> {language==="en"?"questions answered":"câu đã trả lời"}</p>
+          <ol className="risk-quiz-list">
+            {questions.map((question,index)=>{const prompt=policyQuestionPrompt(question,language),headingId=`risk-q-${question.id}`;return <li key={question.id}>
+              <fieldset className={`risk-quiz-question${answers[question.id]?" answered":""}`} data-policy-question={question.id} data-answer={answers[question.id]??""} aria-labelledby={headingId}>
+                <legend id={headingId}><span className="risk-quiz-num" aria-hidden="true">{index+1}</span>{prompt}</legend>
+                <div className="risk-quiz-choices">
+                  {question.choices.map(choice=>{const checked=answers[question.id]===choice.id,[title,...rest]=choice.label.split(/,\s*/);return <label key={choice.id} className={`risk-quiz-choice${checked?" checked":""}`}>
+                    <input type="radio" name={`policy-q-${question.id}`} value={choice.id} checked={checked} onChange={()=>setAnswers(previous=>({...previous,[question.id]:choice.id}))}/>
+                    <span><strong>{title}</strong>{rest.length>0&&<small>{rest.join(", ")}</small>}</span>
+                  </label>;})}
+                </div>
+              </fieldset>
+            </li>;})}
+          </ol>
           <button className="overview-button primary" disabled={!allAnswered||savingRisk||!selection.monthlyExpenseToday} onClick={async()=>{if(!allAnswered||savingRisk||!selection.monthlyExpenseToday)return;setSavingRisk(true);setRiskError("");try{const items=questions.map(q=>({questionId:q.id,choiceId:answers[q.id]}));const saved=await updateProfileV2({retirementSurvey:{policyVersionId:policyDetail.id,monthlyExpenseToday:selection.monthlyExpenseToday,answers:items}});if(!saved)throw new Error(language==="en"?"Could not save answers.":"Chưa lưu được câu trả lời.");updateDraft({policyVersionId:policyDetail.id,answers:items,planningReaction:undefined,templateId:undefined,customAllocation:undefined,allocationFunding:undefined});if(!currentVersion&&v2Profile?.quickStartSurvey)navigate("/user/plan",{state:{fromOnboarding:true}});else setSearchParams({});}catch(error){setRiskError(error instanceof Error?error.message:"Chưa lưu được.");}finally{setSavingRisk(false);}}}>{language==="en"?"Save assessment answers":"Lưu câu trả lời đánh giá"}</button>
         </section>}
 
@@ -259,6 +288,6 @@ export default function RiskPortfolioPage() {
 
   return <div className="phase-page risk-portfolio-page allocation-workspace">
     {riskError&&<p role="alert">{riskError}</p>}
-    {loadingProfile||policies.loading||loadingPlans?<p role="status">{language==="en"?"Loading allocation…":"Đang tải phân bổ…"}</p>:loadError?<DiscoveryError message={loadError} retry={reloadProfile}/>:!v2Profile?<p>{language==="en"?"Review your detailed financial profile.":"Hãy rà soát hồ sơ tài chính chi tiết."} <Link to="/user/profile">{language==="en"?"Open Finances":"Mở Tài chính"}</Link></p>:policies.error?<DiscoveryError message={policies.error} retry={()=>setPolicyAttempt(n=>n+1)}/>:!policyDetail?<><h1>{language==="en"?"Asset allocation":"Phân bổ tài sản"}</h1><p>{language==="en"?"No published portfolio policy is available.":"Chưa có chính sách danh mục đã công bố."} <Link to="/user/profile?section=assets">{language==="en"?"Review assets":"Kiểm tra tài sản"}</Link></p><button onClick={()=>setPolicyAttempt(n=>n+1)}>{language==="en"?"Retry":"Thử lại"}</button></>:<AllocationWorkspace lossInputMode={v2Profile.lossTolerance?.inputMode} planInput={planInput} profileRevision={profileRevision} retirementExpense={selection.monthlyExpenseToday??null} confirmLoss={confirmSavedLoss} saveLoss={saveLossInPlace} riskError={riskError} savingRisk={savingRisk} lossAmount={v2Profile.lossTolerance?.amountVnd?.status==="KNOWN"?v2Profile.lossTolerance.amountVnd.value:null} lossPercent={v2Profile.lossTolerance?.percent?.status==="KNOWN"?v2Profile.lossTolerance.percent.value:null} policy={policyDetail} data={workspace.data??null} loading={workspace.loading} error={workspace.error} retry={()=>setAttempt(n=>n+1)} selected={selectedTemplateId} select={setSelectedTemplateId} months={liquidityNeedMonths} setMonths={setLiquidityNeedMonths} endMonth={endMonth} setEndMonth={setEndMonth} retirementMonth={retirementMonth} answers={answers} complete={allAnswered} openRisk={()=>setSearchParams({section:"risk"})}/>}
+    {loadingProfile||policies.loading||loadingPlans?<p role="status">{language==="en"?"Loading allocation…":"Đang tải phân bổ…"}</p>:loadError?<DiscoveryError message={loadError} retry={reloadProfile}/>:!v2Profile?<p>{language==="en"?"Review your detailed financial profile.":"Hãy rà soát hồ sơ tài chính chi tiết."} <Link to="/user/profile">{language==="en"?"Open Finances":"Mở Tài chính"}</Link></p>:policies.error?<DiscoveryError message={policies.error} retry={()=>setPolicyAttempt(n=>n+1)}/>:!policyDetail?<><h1>{language==="en"?"Asset allocation":"Phân bổ tài sản"}</h1><p>{language==="en"?"No published portfolio policy is available.":"Chưa có chính sách danh mục đã công bố."} <Link to="/user/profile?section=assets">{language==="en"?"Review assets":"Kiểm tra tài sản"}</Link></p><button onClick={()=>setPolicyAttempt(n=>n+1)}>{language==="en"?"Retry":"Thử lại"}</button></>:<AllocationWorkspace lossInputMode={v2Profile.lossTolerance?.inputMode} planInput={planInput} profileRevision={profileRevision} retirementExpense={selection.monthlyExpenseToday??null} confirmLoss={confirmSavedLoss} saveLoss={saveLossInPlace} riskError={riskError} savingRisk={savingRisk} lossAmount={v2Profile.lossTolerance?.amountVnd?.status==="KNOWN"?v2Profile.lossTolerance.amountVnd.value:null} lossPercent={v2Profile.lossTolerance?.percent?.status==="KNOWN"?v2Profile.lossTolerance.percent.value:null} policy={policyDetail} data={workspace.data??(workspace.loading?workspace.previous:null)??null} loading={workspace.loading} error={workspace.error} retry={()=>setAttempt(n=>n+1)} selected={selectedTemplateId} select={setSelectedTemplateId} months={liquidityNeedMonths} setMonths={setLiquidityNeedMonths} endMonth={endMonth} setEndMonth={setEndMonth} retirementMonth={retirementMonth} answers={answers} complete={allAnswered} openRisk={()=>setSearchParams({section:"risk"})}/>}
   </div>;
 }

@@ -8,5 +8,7 @@ export function useDiscoveryQuery<T>(key: string, query: (signal: AbortSignal) =
     return () => { active = false; controller.abort(); };
   }, [key]);
   const current = state?.key === key ? state : null;
-  return { data: current?.data, error: current?.error, loading: !current };
+  // `previous` is the last successful result for an earlier key, so pages can keep
+  // showing figures while a refresh runs instead of blanking them.
+  return { data: current?.data, error: current?.error, loading: !current, previous: state?.data };
 }
