@@ -628,6 +628,7 @@ export function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   type Field = "name" | "email" | "phone" | "password" | "agree";
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<Field, string>>>({});
   const clearFieldError = (field: Field) => setFieldErrors(current => ({ ...current, [field]: undefined }));
@@ -666,13 +667,15 @@ export function RegisterPage() {
       return;
     }
 
+    setGoogleLoading(true);
     try {
       await triggerGoogleSignIn(
         async (_payload, credential) => {
           const u = await loginWithGoogle(credential);
-          trackSignUpEvent("google");
-          notify.success("Đăng ký thành công với Google", `Chào mừng bạn gia nhập An Hưu, ${u.name}!`);
-          navigate(resumeDestination(location.state?.from, u.role, "/onboarding"), { replace: true });
+          if (u.isNewUser) trackSignUpEvent("google"); else trackLoginEvent("google");
+          if (u.isNewUser) notify.success("Đăng ký thành công với Google", `Chào mừng bạn gia nhập An Hưu, ${u.name}!`);
+          else notify.success("Đăng nhập Google thành công", `Chào mừng bạn trở lại, ${u.name}!`);
+          navigate(resumeDestination(location.state?.from, u.role, u.isNewUser ? "/onboarding" : undefined), { replace: true });
         },
         (err) => {
           console.error("Google Auth Error:", err);
@@ -682,6 +685,8 @@ export function RegisterPage() {
     } catch (err: unknown) {
       console.error(err);
       setError("Không thể khởi động Google Sign-In. Vui lòng kiểm tra cấu hình mạng hoặc Google Cloud Console.");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -950,11 +955,11 @@ export function RegisterPage() {
             <button
               type="button"
               className="auth-btn-google"
-              disabled={loading || initializing}
+              disabled={loading || googleLoading || initializing}
               onClick={handleGoogleAuth}
             >
               <GoogleIcon />
-              <span>Đăng ký bằng tài khoản Google</span>
+              <span>{googleLoading ? "Đang kết nối Google..." : "Đăng ký bằng tài khoản Google"}</span>
             </button>
 
             <div style={{ textAlign: "center", marginTop: "16px" }}>

@@ -381,7 +381,28 @@ test('cashflow table explains amounts, opens monthly details and jumps to milest
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/user/plan');
+  await page.locator('summary').filter({ hasText: 'Chi tiết dòng tiền và giả định' }).click();
   const table = page.locator('.monthly-cashflow-table-component');
+  await expect(table.getByRole('columnheader')).toHaveCount(5);
+  await table.screenshot({ path: '../artifacts/cashflow-table-annual-desktop.png' });
+  const toolbar = table.locator('.cashflow-ledger-toolbar');
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await toolbar.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    const { toolbarBox, controls, tableTop } = await toolbar.evaluate(el => ({
+      toolbarBox: el.getBoundingClientRect().toJSON(),
+      controls: [...el.querySelectorAll('select, button')].map(control => control.getBoundingClientRect().toJSON()),
+      tableTop: el.parentElement!.querySelector('.cashflow-ledger-scroll')!.getBoundingClientRect().top,
+    }));
+    for (const box of controls) {
+      expect(box.x).toBeGreaterThanOrEqual(toolbarBox.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(toolbarBox.x + toolbarBox.width + 1);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(tableTop - toolbarBox.y - toolbarBox.height).toBeGreaterThanOrEqual(24);
+    if (width === 390) await toolbar.screenshot({ path: '../artifacts/cashflow-toolbar-mobile.png' });
+  }
+  await table.getByRole('combobox', { name: 'Chế độ dòng tiền' }).selectOption('month');
   await expect(table.getByRole('columnheader')).toHaveCount(6);
   await expect(table.locator('tbody > tr:visible')).toHaveCount(12);
   await expect(table).toContainText('không phải số nợ thực tế');

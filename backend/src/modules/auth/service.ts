@@ -307,7 +307,7 @@ export class AuthService {
     if (!session) throw unauthorized();
     return publicUser(user);
   }
-  async googleLogin(credential: string) {
+  async googleLogin(credential: string, meta?: { ipAddress?: string; userAgent?: string }) {
     if (!this.config.GOOGLE_CLIENT_ID) throw new AppError(503, "GOOGLE_NOT_CONFIGURED", "Đăng nhập Google chưa được cấu hình.");
     let payload: GoogleTokenPayload | undefined;
     try {
@@ -316,15 +316,16 @@ export class AuthService {
     } catch { throw unauthorized(); }
     if (!payload?.email || !payload.sub || payload.email_verified !== true) throw unauthorized();
     // Only automatically link emails for which Google is authoritative.
-    if (!payload.email.toLowerCase().endsWith("@gmail.com") && !payload.hd)
+    if (!/@(gmail|googlemail)\.com$/i.test(payload.email) && !payload.hd)
       throw new AppError(403, "EMAIL_LOGIN_REQUIRED", "Vui lòng đăng nhập bằng email và mật khẩu cho địa chỉ này.");
 
-    const email = payload.email.trim().toLowerCase();
+    const email = payload.email.trim().toLowerCase().replace(/@googlemail\.com$/, "@gmail.com");
     const fullName = (payload.name || email.split("@")[0]).slice(0, 120);
     const avatarUrl = payload.picture ? String(payload.picture).slice(0, 1000) : null;
 
     return transaction(this.db, async tx => {
       let user = await tx.user.findUnique({ where: { email } });
+      const isNewUser = !user;
       if (!user) {
         const randomPass = randomBytes(32).toString("hex");
         const passwordHash = await bcrypt.hash(randomPass, 12);
@@ -355,8 +356,9 @@ export class AuthService {
       const lifetime = seconds(this.config.JWT_REFRESH_EXPIRES_IN);
       const session = await this.issueSession(tx, user, new Date(Date.now() + lifetime * 1000), undefined, true);
       await tx.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
-      await audit(tx, user.id, "AUTH_LOGIN_GOOGLE", "USER", user.id);
-      return { ...session, remember: true };
+      await audit(tx, user.id, "AUTH_LOGIN_GOOGLE", "USER", user.id, undefined, { ipAddress: meta?.ipAddress, userAgent: meta?.userAgent });
+      if (this.settings) await this.settings.recordLoginLog({ userId: user.id, identifier: email, status: "SUCCESS", ipAddress: meta?.ipAddress, userAgent: meta?.userAgent });
+      return { ...session, remember: true, isNewUser };
     });
   }
 }

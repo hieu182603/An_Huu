@@ -229,6 +229,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
       {exportError && <p role="alert">{isEn ? "CSV export failed. Please retry." : "Chưa xuất được CSV. Hãy bấm xuất để thử lại."} {exportError}</p>}
 
       <div className="cashflow-ledger-toolbar">
+        <div className="cashflow-ledger-filters">
         <label>{isEn ? "Group by" : "Tổng hợp theo"}<select aria-label={isEn ? "Group cashflow" : "Chế độ dòng tiền"} value={period} onChange={e=>setPeriod(e.target.value as "year"|"month")}><option value="year">{isEn ? "Year" : "Năm"}</option><option value="month">{isEn ? "Month" : "Tháng"}</option></select></label>
         <label>{isEn ? "Year" : "Xem theo năm"}
           <select aria-label={isEn ? "Filter year" : "Lọc năm"} value={selectedYear} onChange={event => { setSelectedYear(event.target.value); setCurrentPage(1); setExpandedMonth(null); }}>
@@ -236,6 +237,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
             {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
           </select>
         </label>
+        </div>
         <div className="cashflow-ledger-milestones">
           {safeRows.some(row => row.month === summary.retirementMonth) && <button type="button" onClick={() => jumpToMonth(summary.retirementMonth)}>{isEn ? "Retirement starts" : "Bắt đầu nghỉ hưu"} <strong>{formatMonthVN(summary.retirementMonth)}</strong><span aria-hidden="true"> →</span></button>}
           {summary.firstShortfallMonth && safeRows.some(row => row.month === summary.firstShortfallMonth) && <button type="button" className="is-shortfall" onClick={() => jumpToMonth(summary.firstShortfallMonth!)}>{isEn ? "First fund shortfall" : "Bắt đầu thiếu quỹ"} <strong>{formatMonthVN(summary.firstShortfallMonth)}</strong><span aria-hidden="true"> →</span></button>}

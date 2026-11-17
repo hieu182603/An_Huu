@@ -1,5 +1,14 @@
 /* Recommended card + adjust-the-weights card, laid out like the demo's allocation lab. */
 .allocation-experiment{margin:24px 0}
+.allocation-evaluation-notice{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:18px 20px;margin-bottom:24px;border:1px solid #dce6f0;border-radius:14px;background:#eef4fb;color:#142e49}
+.allocation-evaluation-notice>div{flex:1;min-width:0}
+.allocation-evaluation-notice strong{font-size:14px;line-height:1.7}
+.allocation-evaluation-notice p{color:#536b85}
+.allocation-evaluation-notice progress{width:64px;height:6px;flex-shrink:0;accent-color:#245dab}
+.allocation-evaluation-notice .overview-button{flex-shrink:0;min-height:44px}
+.allocation-evaluation-notice.is-error{background:#fff5f2;border-color:#efd1cb;color:#a42d24}
+.allocation-evaluation-notice.is-error p{color:#a42d24}
+@media(max-width:800px){.allocation-evaluation-notice{flex-wrap:wrap}.allocation-evaluation-notice .overview-button{width:100%}}
 .allocation-experiment p{font-size:13px;line-height:1.8;margin:0}
 .allocation-experiment .allocation-reference{background:#f8fafd}
 .allocation-experiment .allocation-reference-actions .overview-button,.allocation-experiment .allocation-alternatives-body>.overview-button,.allocation-feedback .overview-button{width:100%;white-space:normal}
@@ -14,13 +23,15 @@
 .allocation-rate-button.is-compact>strong{font-size:32px}
 
 /* Success frequency with the policy threshold marked on the bar. */
-.allocation-success-grid{display:grid;gap:16px;padding:18px;border-radius:12px;background:#f1f6fb;margin-top:4px}
+.allocation-success-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:22px}
 .allocation-success>div:first-child{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:13px}
 .allocation-success strong{font-size:18px;font-variant-numeric:tabular-nums}
 .allocation-success-track{position:relative;height:10px;margin:8px 0 6px;border-radius:6px;background:#dbe5f0}
 .allocation-success-track>span{display:block;height:100%;border-radius:6px;background:#2b61b4}
 .allocation-success-track>i{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:#142e49}
 .allocation-success small{font-size:11px;color:var(--ar-muted)}
+@media(min-width:801px) and (max-width:1100px){.allocation-success-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:500px){.allocation-success-grid{grid-template-columns:minmax(0,1fr)}}
 
 /* Adjust-the-weights card. */
 .allocation-custom>summary em{display:block;font-style:normal;font-size:9px;letter-spacing:1.3px;line-height:1.8;color:var(--ar-muted)}
