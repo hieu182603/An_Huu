@@ -10,7 +10,7 @@ type AuthContextType = {
   user: AuthUser | null; isAuthenticated: boolean; initializing: boolean;
   restoreError: string | null; retrySession: () => void;
   login: (email: string, password: string, remember?: boolean) => Promise<AuthUser>;
-  loginWithGoogle: (credential: string) => Promise<AuthUser>;
+  loginWithGoogle: (credential: string) => Promise<AuthUser & { isNewUser: boolean }>;
   logout: () => Promise<void>;
 };
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -105,8 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const current = toUser(session.user); setUser(current); broadcastSession("session-changed"); return current;
   }, []);
   const loginWithGoogle = useCallback(async (credential: string) => {
-    const session = await startSession("/auth/google", { credential });
-    const current = toUser(session.user); setUser(current); broadcastSession("session-changed"); return current;
+    const session = await startSession("/auth/google", { credential }) as Awaited<ReturnType<typeof startSession>> & { isNewUser?: boolean };
+    const current = toUser(session.user); setUser(current); broadcastSession("session-changed"); return { ...current, isNewUser: session.isNewUser === true };
   }, []);
   const logout = useCallback(async () => {
     await endSession();

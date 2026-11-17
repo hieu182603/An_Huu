@@ -183,12 +183,12 @@ export function createApiRouter(services: Services, config: AppConfig) {
     if (!value || !/^[a-zA-Z0-9_-]{43}$/.test(value)) throw new AppError(401, "UNAUTHENTICATED", "Yêu cầu đăng nhập.");
     return value;
   }
-  function sendSession(res: Response, session: Awaited<ReturnType<AuthService["refresh"]>>) {
+  function sendSession(res: Response, session: Awaited<ReturnType<AuthService["refresh"]>> & { isNewUser?: boolean }) {
     res.cookie(cookieName, session.refreshToken, {
       ...cookieOptions, ...(session.persistent ? { expires: session.expiresAt } : {}),
     });
     res.setHeader("Cache-Control", "no-store");
-    sendData(res, { accessToken: session.accessToken, tokenType: "Bearer", user: session.user });
+    sendData(res, { accessToken: session.accessToken, tokenType: "Bearer", user: session.user, ...(session.isNewUser === undefined ? {} : { isNewUser: session.isNewUser }) });
   }
   router.post("/auth/register", authLimiter, validate(registerSchema), accountLimiter, asyncHandler(async (req, res) => sendData(res, await auth.register(req.body), 202)));
   router.post("/auth/verify-email", authLimiter, validate(verifySchema), accountLimiter, asyncHandler(async (req, res) => sendData(res, await auth.verifyEmail(req.body.email, req.body.otp))));
@@ -196,7 +196,7 @@ export function createApiRouter(services: Services, config: AppConfig) {
   router.post("/auth/forgot-password", authLimiter, validate(emailRequestSchema), accountLimiter, asyncHandler(async (req, res) => sendData(res, await auth.requestEmail(req.body.email, "PASSWORD_RESET"), 202)));
   router.post("/auth/reset-password", authLimiter, validate(resetSchema), asyncHandler(async (req, res) => sendData(res, await auth.resetPassword(req.body.token, req.body.password))));
   router.post("/auth/login", authLimiter, validate(loginSchema), accountLimiter, asyncHandler(async (req, res) => sendSession(res, await auth.login(req.body, { ipAddress: req.ip, userAgent: req.get("user-agent") }))));
-  router.post("/auth/google", authLimiter, validate(googleAuthSchema), asyncHandler(async (req, res) => sendSession(res, await auth.googleLogin(req.body.credential))));
+  router.post("/auth/google", authLimiter, validate(googleAuthSchema), asyncHandler(async (req, res) => sendSession(res, await auth.googleLogin(req.body.credential, { ipAddress: req.ip, userAgent: req.get("user-agent") }))));
   router.post("/auth/refresh", cookieCsrf, validate(emptySchema), asyncHandler(async (req, res) => {
     try { sendSession(res, await auth.refresh(refreshCookie(req))); }
     catch (error) { if (error instanceof AppError && error.status === 401) res.clearCookie(cookieName, cookieOptions); throw error; }
