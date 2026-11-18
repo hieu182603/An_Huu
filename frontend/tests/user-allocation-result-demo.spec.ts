@@ -21,9 +21,9 @@ async function result(page: Page, request: APIRequestContext, multiple = false) 
 test("result displays server amounts in the capital summary and the experiment card", async ({ page, request }) => {
   const state = await result(page, request);
   await expect(page.locator(".allocation-experiment .allocation-breakdown")).toBeVisible();
-  await expect(page.locator(".allocation-result-summary > div")).toHaveCount(3);
-  await expect(page.locator(".allocation-result-summary > div").nth(0)).toContainText("96.000.000");
-  await expect(page.locator(".allocation-result-summary > div").nth(2)).toContainText("904.000.000");
+  await expect(page.locator(".allocation-result-summary > div")).toHaveCount(4);
+  await expect(page.locator(".allocation-result-summary > div").nth(1)).toContainText("96.000.000");
+  await expect(page.locator(".allocation-result-summary > div").nth(3)).toContainText("904.000.000");
   await expect(page.locator(".allocation-result-why li")).toHaveCount(3);
   await expect(page.locator(".allocation-results")).not.toContainText("120 đường mô phỏng");
   await expect(page.locator(".allocation-results input[type=range]")).toHaveCount(0);
