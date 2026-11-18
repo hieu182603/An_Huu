@@ -547,7 +547,7 @@ export default function RetirementPlanPage() {
                 </span>
                 <h2 className="plan-summary-hero__title">
                   {needsUpfrontFunding?(language==="en"?"Review upfront capital before contributing":"Cần bổ sung vốn trước khi góp"):hasAccumulation?(contributionEnough
-                    ?(language==="en"?"Your current contribution is enough. Required contribution is about":"Mức góp đang thử đã đủ. Mức góp cần chỉ khoảng")
+                    ?(language==="en"?"To reach your goal, the required monthly contribution is":"Để đạt được mục tiêu, mức góp cần khoảng")
                     :extraMonthly?(language==="en"?"To reach your goal, you still need about":"Để đạt được mục tiêu, còn cần thêm khoảng")
                     :(language==="en"?"To reach your goal, the required monthly contribution is":"Để đạt được mục tiêu, mức góp cần khoảng")):(language==="en"?"Additional capital to prepare":"Phần vốn cần chuẩn bị thêm")}
                 </h2>

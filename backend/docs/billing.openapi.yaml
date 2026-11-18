@@ -1,0 +1,915 @@
+# Service fee billing (phí dịch vụ hoạch định theo quy mô tài sản, payOS). P1 contract.
+# Plan: docs/KE_HOACH_TRIEN_KHAI_PHI_DICH_VU.md. Money: integer VND numbers; Decimal columns are strings.
+#
+# P2: feature gating. While the billing account is OVERDUE, the write/compute routes below answer
+#   402 { error: { code: BILLING_OVERDUE, message, details: BillingOverdueDetails }, requestId }
+# (no fieldErrors). Every GET, CSV export, financial-profile edit, account, support, notification and
+# billing route keeps working; user data is never locked. Gated routes (all under /api/v1/me):
+#   POST retirement/plans, retirement/plans/{id}/(versions|apply|compare|reforecasts|source-reforecasts[/preview]),
+#   retirement/plans/{id}/versions/{versionId}/(simulate|replay), PUT retirement/actuals/{period},
+#   POST retirement/actuals/reforecast[/preview], ai/(explain|simulate|conversations), explanations/metric,
+#   portfolio-policies/workspace/*, retirement/risk/*, retirement/(preview|pension-impact), pension/preview, debts/preview.
+# With BILLING_ENABLED=false nothing is gated. After paying, the account is ACTIVE again within a few seconds.
+Period:
+  type: string
+  pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+FeeSchedule:
+  type: object
+  additionalProperties: false
+  required: [id, version, annualRatePercent, minMonthlyVnd, maxMonthlyVnd, roundingStepVnd, dueDay, reminderDays, trialMonths, effectiveFromPeriod]
+  properties:
+    id: { type: string, format: uuid }
+    version: { type: integer, minimum: 1 }
+    annualRatePercent: { type: string, description: 'Decimal percent per year, e.g. 0.5' }
+    minMonthlyVnd: { type: integer, minimum: 0 }
+    maxMonthlyVnd: { type: integer, nullable: true }
+    roundingStepVnd: { type: integer, minimum: 1 }
+    dueDay: { type: integer, minimum: 1, maximum: 28 }
+    reminderDays: { type: array, items: { type: integer } }
+    trialMonths: { type: integer, minimum: 0 }
+    effectiveFromPeriod: { type: string, nullable: true }
+FeeScheduleEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      additionalProperties: false
+      required: [period, termsVersion, current, upcoming]
+      properties:
+        period: { $ref: "#/Period" }
+        termsVersion: { type: string }
+        current: { $ref: "#/FeeSchedule" }
+        upcoming: { anyOf: [{ $ref: "#/FeeSchedule" }, { type: object, nullable: true, enum: [null] }] }
+    meta: { type: object }
+FeeComputation:
+  type: object
+  required: [baseAmountVnd, rawFeeVnd, scheduleFeeVnd, amountVnd, applied]
+  properties:
+    baseAmountVnd: { type: string, description: "Whole VND fee base after flooring, never negative" }
+    rawFeeVnd: { type: string, description: "base × rate ÷ 12 before rounding, 2 decimals" }
+    scheduleFeeVnd: { type: integer, description: After rounding up and the min/max clamp }
+    amountVnd: { type: integer, description: "Amount the user pays, after a per-user override" }
+    applied:
+      type: object
+      additionalProperties: false
+      required: [minimum, maximum, override]
+      properties:
+        minimum: { type: boolean }
+        maximum: { type: boolean }
+        override: { type: string, nullable: true, enum: [DISCOUNT_PERCENT, FIXED_AMOUNT, WAIVE, null] }
+EstimateInput:
+  type: object
+  additionalProperties: false
+  required: [baseAmountVnd]
+  properties:
+    baseAmountVnd: { type: string, pattern: '^(0|[1-9]\d{0,17})$' }
+EstimateEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      allOf:
+        - $ref: "#/FeeComputation"
+        - type: object
+          required: [period, schedule]
+          properties:
+            period: { $ref: "#/Period" }
+            schedule: { $ref: "#/FeeSchedule" }
+    meta: { type: object }
+BillingOverdueDetails:
+  type: object
+  additionalProperties: false
+  required: [statementId, amountDueVnd, dueDate]
+  properties:
+    statementId: { type: string, format: uuid }
+    amountDueVnd: { type: integer, minimum: 0 }
+    dueDate: { type: string, format: date-time }
+RevisionInput:
+  type: object
+  additionalProperties: false
+  required: [expectedRevision]
+  properties:
+    expectedRevision: { type: integer, minimum: 0, description: 'revision from the last GET /me/billing or account response' }
+TermsInput:
+  type: object
+  additionalProperties: false
+  required: [termsVersion]
+  properties:
+    termsVersion: { type: string, minLength: 3, maxLength: 80 }
+BillingAccount:
+  type: object
+  additionalProperties: false
+  required: [status, trialEndsAt, termsVersion, termsAcceptedAt, stoppedFromPeriod, revision]
+  properties:
+    status: { type: string, enum: [TRIAL, ACTIVE, OVERDUE, STOPPED] }
+    trialEndsAt: { type: string, format: date-time, nullable: true }
+    termsVersion: { type: string }
+    termsAcceptedAt: { type: string, format: date-time }
+    stoppedFromPeriod: { type: string, nullable: true }
+    revision: { type: integer }
+BillingAccountEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data: { $ref: "#/BillingAccount" }
+    meta: { type: object }
+FeeStatement:
+  type: object
+  required: [id, period, status, baseAmountVnd, rawFeeVnd, scheduleFeeVnd, amountVnd, amountDueVnd, dueDate, paidAt, feeScheduleId, overrideId, createdAt]
+  properties:
+    id: { type: string, format: uuid }
+    period: { $ref: "#/Period" }
+    status: { type: string, enum: [ISSUED, PAID, OVERDUE, WAIVED, VOID] }
+    baseAmountVnd: { type: string }
+    rawFeeVnd: { type: string }
+    scheduleFeeVnd: { type: integer }
+    amountVnd: { type: integer, description: Statement amount (immutable) }
+    amountDueVnd: { type: integer, minimum: 0, description: "amountVnd − adjustments − payments + refunds, floored at 0" }
+    dueDate: { type: string, format: date-time }
+    paidAt: { type: string, format: date-time, nullable: true }
+    feeScheduleId: { type: string, format: uuid }
+    overrideId: { type: string, format: uuid, nullable: true }
+    createdAt: { type: string, format: date-time }
+BillingOverviewEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      additionalProperties: false
+      required: [termsVersion, account, termsRequired, currentStatement, nextEstimate, override]
+      properties:
+        termsVersion: { type: string }
+        account: { anyOf: [{ $ref: "#/BillingAccount" }, { type: object, nullable: true, enum: [null] }] }
+        termsRequired: { type: boolean, description: True until the user accepts the current fee terms }
+        currentStatement: { anyOf: [{ $ref: "#/FeeStatement" }, { type: object, nullable: true, enum: [null] }] }
+        nextEstimate:
+          anyOf:
+            - type: object
+              nullable: true
+              enum: [null]
+            - allOf:
+                - $ref: "#/FeeComputation"
+                - type: object
+                  required: [period, baseSource]
+                  properties:
+                    period: { $ref: "#/Period" }
+                    baseSource:
+                      type: object
+                      properties:
+                        metric: { type: string, enum: [retirementLiquidAssets] }
+                        profileRevision: { type: integer, nullable: true }
+                        valuationDate: { type: string, nullable: true }
+                        issues: { type: array, items: { type: string } }
+        override:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string, format: uuid }
+            kind: { type: string, enum: [DISCOUNT_PERCENT, FIXED_AMOUNT, WAIVE] }
+            value: { type: string, nullable: true }
+            fromPeriod: { type: string }
+            toPeriod: { type: string, nullable: true }
+    meta: { type: object }
+StatementListEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [page, limit, total, items]
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        items: { type: array, items: { $ref: "#/FeeStatement" } }
+    meta: { type: object }
+PaymentOrder:
+  type: object
+  additionalProperties: false
+  required: [id, orderCode, statementId, amountVnd, status, checkoutUrl, qrCode, expiredAt]
+  properties:
+    id: { type: string, format: uuid }
+    orderCode: { type: string, description: payOS orderCode as a decimal string }
+    statementId: { type: string, format: uuid }
+    amountVnd: { type: integer, minimum: 1 }
+    status: { type: string, enum: [PENDING, PAID, UNDERPAID, EXPIRED, CANCELLED] }
+    checkoutUrl: { type: string, nullable: true, description: payOS hosted checkout page }
+    qrCode: { type: string, nullable: true, description: VietQR payload string to render as a QR image }
+    expiredAt: { type: string, format: date-time }
+StatementDetailEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      allOf:
+        - $ref: "#/FeeStatement"
+        - type: object
+          required: [baseSource, schedule, adjustments, payments, refunds, orders]
+          properties:
+            baseSource: { type: object }
+            schedule: { anyOf: [{ $ref: "#/FeeSchedule" }, { type: object, nullable: true, enum: [null] }] }
+            adjustments: { type: array, items: { type: object } }
+            payments: { type: array, items: { type: object } }
+            refunds: { type: array, items: { type: object } }
+            orders: { type: array, items: { $ref: "#/PaymentOrder" } }
+    meta: { type: object }
+PaymentOrderEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data: { $ref: "#/PaymentOrder" }
+    meta: { type: object }
+OrderStatusEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [order, statement]
+      properties:
+        order: { $ref: "#/PaymentOrder" }
+        statement:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string, format: uuid }
+            period: { $ref: "#/Period" }
+            status: { type: string, enum: [ISSUED, PAID, OVERDUE, WAIVED, VOID] }
+            amountDueVnd: { type: integer }
+    meta: { type: object }
+PayosWebhook:
+  type: object
+  required: [code, data, signature]
+  description: Sent by payOS. `signature` = HMAC-SHA256 (checksum key) over `data` with sorted keys.
+  properties:
+    code: { type: string }
+    desc: { type: string }
+    success: { type: boolean }
+    data: { type: object, additionalProperties: true }
+    signature: { type: string }
+PayosWebhookAck:
+  type: object
+  required: [success, outcome]
+  properties:
+    success: { type: boolean }
+    outcome: { type: string, enum: [APPLIED, UNDERPAID, DUPLICATE, EXTRA_TRANSFER, IGNORED, UNKNOWN_ORDER, NOT_SUCCESS] }
+# ───────────────────────── P3: admin API ─────────────────────────
+# Reads need role ADMIN. Writes additionally need an InvestmentRoleGrant (403 FORBIDDEN otherwise):
+#   OPERATIONS    manual payment, refund, adjust, void, reconcile, resolve alert, per-user overrides
+#   SYSTEM_ADMIN  create / edit / preview / publish fee schedules
+# Every write body is strict (unknown fields are rejected) and carries `reason` (or `note`) of at least 10 characters,
+# stored with an AuditLog row in the same transaction. Money is integer VND; Decimal columns are strings.
+# While BILLING_ENABLED=false every admin billing route answers 503 BILLING_DISABLED.
+AdminReason:
+  type: string
+  minLength: 10
+  maxLength: 500
+  description: Required on every admin write; at least 10 characters after trimming.
+AdminUserRef:
+  anyOf:
+    - type: object
+      required: [email, fullName]
+      properties:
+        email: { type: string }
+        fullName: { type: string }
+    - { type: object, nullable: true, enum: [null] }
+AdminStatementState:
+  type: object
+  required: [id, period, status, amountDueVnd]
+  properties:
+    id: { type: string, format: uuid }
+    period: { $ref: "#/Period" }
+    status: { type: string, enum: [ISSUED, PAID, OVERDUE, WAIVED, VOID] }
+    amountDueVnd: { type: integer, minimum: 0 }
+    overpaidVnd: { type: integer, minimum: 0 }
+PermissionsEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      additionalProperties: false
+      required: [canOperate, canManageSchedules]
+      properties:
+        canOperate: { type: boolean, description: Holds the OPERATIONS grant }
+        canManageSchedules: { type: boolean, description: Holds the SYSTEM_ADMIN grant }
+    meta: { type: object }
+AdminStatement:
+  type: object
+  required: [id, userId, user, period, status, baseAmountVnd, rawFeeVnd, scheduleFeeVnd, amountVnd, adjustedVnd, paidVnd, refundedVnd, amountDueVnd, overpaidVnd, dueDate, paidAt, feeScheduleId, overrideId, createdAt]
+  properties:
+    id: { type: string, format: uuid }
+    userId: { type: string, format: uuid }
+    user: { $ref: "#/AdminUserRef" }
+    period: { $ref: "#/Period" }
+    status: { type: string, enum: [ISSUED, PAID, OVERDUE, WAIVED, VOID] }
+    baseAmountVnd: { type: string }
+    rawFeeVnd: { type: string }
+    scheduleFeeVnd: { type: integer }
+    amountVnd: { type: integer, description: Immutable amount issued }
+    adjustedVnd: { type: integer, description: Sum of adjustments }
+    paidVnd: { type: integer, description: Sum of payments }
+    refundedVnd: { type: integer, description: Sum of refunds }
+    amountDueVnd: { type: integer, minimum: 0, description: "amountVnd - adjustments - payments + refunds, floored at 0" }
+    overpaidVnd: { type: integer, minimum: 0, description: Amount received beyond what was owed }
+    dueDate: { type: string, format: date-time }
+    paidAt: { type: string, format: date-time, nullable: true }
+    feeScheduleId: { type: string, format: uuid }
+    overrideId: { type: string, format: uuid, nullable: true }
+    createdAt: { type: string, format: date-time }
+AdminStatementListEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [page, limit, total, items]
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        items: { type: array, items: { $ref: "#/AdminStatement" } }
+    meta: { type: object }
+AdminPayment:
+  type: object
+  required: [id, statementId, userId, source, amountVnd, orderId, bankReference, receivedAt, recordedById, note, createdAt]
+  properties:
+    id: { type: string, format: uuid }
+    statementId: { type: string, format: uuid }
+    userId: { type: string, format: uuid }
+    source: { type: string, enum: [PAYOS, MANUAL_TRANSFER] }
+    amountVnd: { type: integer, minimum: 1 }
+    orderId: { type: string, format: uuid, nullable: true }
+    bankReference: { type: string, nullable: true }
+    receivedAt: { type: string, format: date-time }
+    recordedById: { type: string, nullable: true, description: Admin who recorded a MANUAL_TRANSFER }
+    note: { type: string, nullable: true }
+    createdAt: { type: string, format: date-time }
+AdminOrder:
+  type: object
+  required: [id, orderCode, statementId, userId, amountVnd, status, payosPaymentLinkId, expiredAt, createdAt, updatedAt]
+  properties:
+    id: { type: string, format: uuid }
+    orderCode: { type: string, description: payOS orderCode as a decimal string }
+    statementId: { type: string, format: uuid }
+    userId: { type: string, format: uuid }
+    amountVnd: { type: integer, minimum: 1 }
+    status: { type: string, enum: [PENDING, PAID, UNDERPAID, EXPIRED, CANCELLED] }
+    payosPaymentLinkId: { type: string, nullable: true }
+    expiredAt: { type: string, format: date-time }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+AdminFeeSchedule:
+  type: object
+  required: [id, version, status, annualRatePercent, minMonthlyVnd, maxMonthlyVnd, roundingStepVnd, dueDay, reminderDays, trialMonths, effectiveFromPeriod, note, createdById, publishedById, publishedAt, createdAt, updatedAt]
+  properties:
+    id: { type: string, format: uuid }
+    version: { type: integer, minimum: 1 }
+    status: { type: string, enum: [DRAFT, PUBLISHED, SUPERSEDED] }
+    annualRatePercent: { type: string }
+    minMonthlyVnd: { type: integer, minimum: 0 }
+    maxMonthlyVnd: { type: integer, nullable: true }
+    roundingStepVnd: { type: integer, minimum: 1 }
+    dueDay: { type: integer, minimum: 1, maximum: 28 }
+    reminderDays: { type: array, items: { type: integer } }
+    trialMonths: { type: integer, minimum: 0, maximum: 12 }
+    effectiveFromPeriod: { type: string, nullable: true }
+    note: { type: string, nullable: true }
+    createdById: { type: string }
+    publishedById: { type: string, nullable: true }
+    publishedAt: { type: string, format: date-time, nullable: true }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time, description: Send back as expectedUpdatedAt when editing a draft }
+AdminStatementDetailEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      allOf:
+        - $ref: "#/AdminStatement"
+        - type: object
+          required: [baseSource, schedule, adjustments, payments, refunds, orders, webhookEvents, auditTrail]
+          properties:
+            baseSource: { type: object }
+            schedule: { anyOf: [{ $ref: "#/AdminFeeSchedule" }, { type: object, nullable: true, enum: [null] }] }
+            adjustments:
+              type: array
+              items:
+                type: object
+                required: [id, amountVnd, reason, createdById, createdAt]
+                properties:
+                  id: { type: string, format: uuid }
+                  amountVnd: { type: integer }
+                  reason: { type: string }
+                  createdById: { type: string }
+                  createdAt: { type: string, format: date-time }
+            payments:
+              type: array
+              items:
+                allOf:
+                  - $ref: "#/AdminPayment"
+                  - type: object
+                    required: [refundedVnd, refundableVnd]
+                    properties:
+                      refundedVnd: { type: integer }
+                      refundableVnd: { type: integer, description: Payment amount minus refunds so far }
+            refunds:
+              type: array
+              items:
+                type: object
+                required: [id, paymentId, amountVnd, bankReference, reason, recordedById, createdAt]
+                properties:
+                  id: { type: string, format: uuid }
+                  paymentId: { type: string, format: uuid }
+                  amountVnd: { type: integer }
+                  bankReference: { type: string }
+                  reason: { type: string }
+                  recordedById: { type: string }
+                  createdAt: { type: string, format: date-time }
+            orders: { type: array, items: { $ref: "#/AdminOrder" } }
+            webhookEvents:
+              type: array
+              items:
+                type: object
+                required: [id, orderCode, reference, signatureValid, outcome, payload, receivedAt]
+                properties:
+                  id: { type: string, format: uuid }
+                  orderCode: { type: string }
+                  reference: { type: string }
+                  signatureValid: { type: boolean }
+                  outcome: { type: string, description: "APPLIED, DUPLICATE, UNKNOWN_ORDER, NOT_SUCCESS, UNDERPAID, EXTRA_TRANSFER, ..." }
+                  payload: { type: object, description: Counterparty account numbers and names are masked }
+                  receivedAt: { type: string, format: date-time }
+            auditTrail:
+              type: array
+              items:
+                type: object
+                required: [id, action, performerName, performer, details, createdAt]
+                properties:
+                  id: { type: string, format: uuid }
+                  action: { type: string }
+                  performerName: { type: string }
+                  performer: { $ref: "#/AdminUserRef" }
+                  details: { type: object, nullable: true }
+                  createdAt: { type: string, format: date-time }
+    meta: { type: object }
+AdminOverviewEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [period, totals, statusCounts, series, unresolvedAlertCount]
+      properties:
+        period: { $ref: "#/Period" }
+        totals:
+          type: object
+          required: [dueTotalVnd, collectedVnd, remainingVnd, overpaidVnd, collectionRate, statementCount]
+          properties:
+            dueTotalVnd: { type: integer, description: "Issued amounts minus adjustments, voided statements excluded" }
+            collectedVnd: { type: integer, description: Payments minus refunds }
+            remainingVnd: { type: integer, description: Still owed on ISSUED/OVERDUE statements }
+            overpaidVnd: { type: integer }
+            collectionRate: { type: number, minimum: 0, description: "collected / due, 0 when nothing is due" }
+            statementCount: { type: integer }
+        statusCounts:
+          type: object
+          required: [ISSUED, PAID, OVERDUE, WAIVED, VOID]
+          properties:
+            ISSUED: { type: integer }
+            PAID: { type: integer }
+            OVERDUE: { type: integer }
+            WAIVED: { type: integer }
+            VOID: { type: integer }
+        series:
+          type: array
+          minItems: 12
+          maxItems: 12
+          items:
+            type: object
+            required: [period, statementCount, dueTotalVnd, collectedVnd, remainingVnd, collectionRate]
+            properties:
+              period: { $ref: "#/Period" }
+              statementCount: { type: integer }
+              dueTotalVnd: { type: integer }
+              collectedVnd: { type: integer }
+              remainingVnd: { type: integer }
+              collectionRate: { type: number }
+        unresolvedAlertCount: { type: integer }
+    meta: { type: object }
+AdminOrderListEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [page, limit, total, items]
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        items:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/AdminOrder"
+              - type: object
+                required: [user, period, statementStatus, receivedVnd, bankReference, paidAt]
+                properties:
+                  user: { $ref: "#/AdminUserRef" }
+                  period: { type: string, nullable: true }
+                  statementStatus: { type: string, nullable: true, enum: [ISSUED, PAID, OVERDUE, WAIVED, VOID, null] }
+                  receivedVnd: { type: integer, nullable: true }
+                  bankReference: { type: string, nullable: true }
+                  paidAt: { type: string, format: date-time, nullable: true }
+    meta: { type: object }
+AdminAlert:
+  type: object
+  required: [key, type, userId, user, statementId, period, orderId, amountVnd, message, occurredAt, details, resolved]
+  properties:
+    key: { type: string, description: "Stable alert key: UNDERPAID:<orderId>, OVERPAID:<statementId>:<excessVnd> or EXTRA_TRANSFER:<webhookEventId>" }
+    type: { type: string, enum: [UNDERPAID, OVERPAID, EXTRA_TRANSFER] }
+    userId: { type: string, format: uuid }
+    user: { $ref: "#/AdminUserRef" }
+    statementId: { type: string, format: uuid }
+    period: { $ref: "#/Period" }
+    orderId: { type: string, format: uuid, nullable: true }
+    amountVnd: { type: integer, description: "Missing amount (UNDERPAID), excess (OVERPAID) or the extra transfer" }
+    message: { type: string, description: Vietnamese text ready to show }
+    occurredAt: { type: string, format: date-time }
+    details: { type: object }
+    resolved:
+      anyOf:
+        - type: object
+          required: [at, note, byId]
+          properties:
+            at: { type: string, format: date-time }
+            note: { type: string }
+            byId: { type: string, nullable: true }
+        - { type: object, nullable: true, enum: [null] }
+AdminAlertListEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [page, limit, total, unresolvedCount, items]
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        unresolvedCount: { type: integer }
+        items: { type: array, items: { $ref: "#/AdminAlert" } }
+    meta: { type: object }
+ResolveAlertInput:
+  type: object
+  additionalProperties: false
+  required: [key, note]
+  properties:
+    key: { type: string, pattern: '^(UNDERPAID|OVERPAID|EXTRA_TRANSFER):[0-9a-f-]{36}(:\d{1,12})?$' }
+    note: { $ref: "#/AdminReason" }
+ResolveAlertEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [key, type, resolved, note, statementId]
+      properties:
+        key: { type: string }
+        type: { type: string, enum: [UNDERPAID, OVERPAID, EXTRA_TRANSFER] }
+        resolved: { type: boolean }
+        note: { type: string }
+        statementId: { type: string, format: uuid }
+    meta: { type: object }
+ReasonInput:
+  type: object
+  additionalProperties: false
+  required: [reason]
+  properties:
+    reason: { $ref: "#/AdminReason" }
+EmptyInput:
+  type: object
+  additionalProperties: false
+ManualPaymentInput:
+  type: object
+  additionalProperties: false
+  required: [amountVnd, bankReference, receivedAt, reason]
+  properties:
+    amountVnd: { type: integer, minimum: 1, maximum: 2000000000 }
+    bankReference: { type: string, minLength: 3, maxLength: 100, description: Unique among MANUAL_TRANSFER payments (409 otherwise) }
+    receivedAt: { type: string, format: date-time, description: When the money arrived; not in the future }
+    reason: { $ref: "#/AdminReason" }
+ManualPaymentEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [payment, statement]
+      properties:
+        payment: { $ref: "#/AdminPayment" }
+        statement: { $ref: "#/AdminStatementState" }
+    meta: { type: object }
+RefundInput:
+  type: object
+  additionalProperties: false
+  required: [amountVnd, bankReference, reason]
+  properties:
+    amountVnd: { type: integer, minimum: 1, maximum: 2000000000, description: At most the payment amount minus earlier refunds }
+    bankReference: { type: string, minLength: 3, maxLength: 100 }
+    reason: { $ref: "#/AdminReason" }
+    waiveRemaining: { type: boolean, default: false, description: "Also waive what the statement would still owe after this refund (refund policy), in the same transaction. Without it the statement reopens as ISSUED or OVERDUE." }
+RefundEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [refund, refundableVnd, statement]
+      properties:
+        refund:
+          type: object
+          required: [id, paymentId, amountVnd, bankReference, reason, recordedById, createdAt]
+          properties:
+            id: { type: string, format: uuid }
+            paymentId: { type: string, format: uuid }
+            amountVnd: { type: integer }
+            bankReference: { type: string }
+            reason: { type: string }
+            recordedById: { type: string }
+            createdAt: { type: string, format: date-time }
+        refundableVnd: { type: integer, description: Still refundable on this payment }
+        statement: { $ref: "#/AdminStatementState" }
+    meta: { type: object }
+AdjustInput:
+  type: object
+  additionalProperties: false
+  required: [amountVnd, reason]
+  properties:
+    amountVnd: { type: integer, minimum: 1, maximum: 2000000000, description: At most the current amount due }
+    reason: { $ref: "#/AdminReason" }
+AdjustEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [adjustment, statement, cancelledOrders]
+      properties:
+        adjustment:
+          type: object
+          required: [id, statementId, amountVnd, reason, createdById, createdAt]
+          properties:
+            id: { type: string, format: uuid }
+            statementId: { type: string, format: uuid }
+            amountVnd: { type: integer }
+            reason: { type: string }
+            createdById: { type: string }
+            createdAt: { type: string, format: date-time }
+        statement: { $ref: "#/AdminStatementState" }
+        cancelledOrders: { type: integer, description: PENDING payOS orders cancelled }
+    meta: { type: object }
+VoidEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [id, period, status, cancelledOrders]
+      properties:
+        id: { type: string, format: uuid }
+        period: { $ref: "#/Period" }
+        status: { type: string, enum: [VOID] }
+        cancelledOrders: { type: integer }
+    meta: { type: object }
+ReconcileEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [outcome, order, statement]
+      properties:
+        outcome: { type: string, enum: [APPLIED, UNDERPAID, DUPLICATE, EXTRA_TRANSFER, IGNORED, EXPIRED, CANCELLED, PENDING] }
+        order: { $ref: "#/AdminOrder" }
+        statement:
+          anyOf:
+            - type: object
+              required: [id, period, status, amountDueVnd]
+              properties:
+                id: { type: string, format: uuid }
+                period: { $ref: "#/Period" }
+                status: { type: string, enum: [ISSUED, PAID, OVERDUE, WAIVED, VOID] }
+                amountDueVnd: { type: integer }
+            - { type: object, nullable: true, enum: [null] }
+    meta: { type: object }
+FeeScheduleTerms:
+  type: object
+  required: [annualRatePercent, minMonthlyVnd, maxMonthlyVnd, roundingStepVnd, dueDay, reminderDays, trialMonths]
+  properties:
+    annualRatePercent: { type: string, pattern: '^(100(\.0{1,4})?|\d{1,2}(\.\d{1,4})?)$', description: "Percent per year 0-100, up to 4 decimals (a JSON number is also accepted)" }
+    minMonthlyVnd: { type: integer, minimum: 0 }
+    maxMonthlyVnd: { type: integer, minimum: 0, nullable: true, description: ">= minMonthlyVnd; null = no cap" }
+    roundingStepVnd: { type: integer, minimum: 1 }
+    dueDay: { type: integer, minimum: 1, maximum: 28 }
+    reminderDays: { type: array, maxItems: 10, items: { type: integer, minimum: 1, maximum: 28 }, description: Strictly increasing }
+    trialMonths: { type: integer, minimum: 0, maximum: 12 }
+CreateScheduleInput:
+  type: object
+  additionalProperties: false
+  required: [annualRatePercent, minMonthlyVnd, maxMonthlyVnd, roundingStepVnd, dueDay, reminderDays, trialMonths, reason]
+  properties:
+    annualRatePercent: { type: string, pattern: '^(100(\.0{1,4})?|\d{1,2}(\.\d{1,4})?)$' }
+    minMonthlyVnd: { type: integer, minimum: 0 }
+    maxMonthlyVnd: { type: integer, minimum: 0, nullable: true }
+    roundingStepVnd: { type: integer, minimum: 1 }
+    dueDay: { type: integer, minimum: 1, maximum: 28 }
+    reminderDays: { type: array, maxItems: 10, items: { type: integer, minimum: 1, maximum: 28 } }
+    trialMonths: { type: integer, minimum: 0, maximum: 12 }
+    note: { type: string, maxLength: 500, nullable: true }
+    reason: { $ref: "#/AdminReason" }
+PatchScheduleInput:
+  type: object
+  additionalProperties: false
+  required: [expectedUpdatedAt, reason]
+  properties:
+    expectedUpdatedAt: { type: string, format: date-time, description: The draft's updatedAt as last read; 409 REVISION_CONFLICT if it changed }
+    annualRatePercent: { type: string, pattern: '^(100(\.0{1,4})?|\d{1,2}(\.\d{1,4})?)$' }
+    minMonthlyVnd: { type: integer, minimum: 0 }
+    maxMonthlyVnd: { type: integer, minimum: 0, nullable: true }
+    roundingStepVnd: { type: integer, minimum: 1 }
+    dueDay: { type: integer, minimum: 1, maximum: 28 }
+    reminderDays: { type: array, maxItems: 10, items: { type: integer, minimum: 1, maximum: 28 } }
+    trialMonths: { type: integer, minimum: 0, maximum: 12 }
+    note: { type: string, maxLength: 500, nullable: true }
+    reason: { $ref: "#/AdminReason" }
+PublishScheduleInput:
+  type: object
+  additionalProperties: false
+  required: [effectiveFromPeriod, reason]
+  properties:
+    effectiveFromPeriod: { $ref: "#/Period" }
+    reason: { $ref: "#/AdminReason" }
+FeeScheduleListEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/AdminFeeSchedule" } }
+    meta: { type: object }
+AdminFeeScheduleEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data: { $ref: "#/AdminFeeSchedule" }
+    meta: { type: object }
+PublishScheduleEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      allOf:
+        - $ref: "#/AdminFeeSchedule"
+        - type: object
+          required: [notified]
+          properties:
+            notified: { type: integer, description: In-app notices created now (accounts already notified by the rollover job are skipped) }
+    meta: { type: object }
+SchedulePreviewEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [period, accountCount, current, draft, totalBeforeVnd, totalAfterVnd, totalDeltaVnd, counts, topChanges]
+      properties:
+        period: { $ref: "#/Period" }
+        accountCount: { type: integer, description: "TRIAL, ACTIVE and OVERDUE accounts compared" }
+        current:
+          type: object
+          required: [id, version]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer }
+        draft:
+          type: object
+          required: [id, version, status]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer }
+            status: { type: string, enum: [DRAFT, PUBLISHED, SUPERSEDED] }
+        totalBeforeVnd: { type: integer }
+        totalAfterVnd: { type: integer }
+        totalDeltaVnd: { type: integer }
+        counts:
+          type: object
+          required: [up, down, same]
+          properties:
+            up: { type: integer }
+            down: { type: integer }
+            same: { type: integer }
+        topChanges:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [userId, email, fullName, baseAmountVnd, beforeVnd, afterVnd, deltaVnd]
+            properties:
+              userId: { type: string }
+              email: { type: string, nullable: true }
+              fullName: { type: string, nullable: true }
+              baseAmountVnd: { type: string }
+              beforeVnd: { type: integer }
+              afterVnd: { type: integer }
+              deltaVnd: { type: integer }
+    meta: { type: object }
+AdminOverride:
+  type: object
+  required: [id, userId, user, kind, value, fromPeriod, toPeriod, reason, createdById, revokedAt, revokedById, createdAt]
+  properties:
+    id: { type: string, format: uuid }
+    userId: { type: string, format: uuid }
+    user: { $ref: "#/AdminUserRef" }
+    kind: { type: string, enum: [DISCOUNT_PERCENT, FIXED_AMOUNT, WAIVE] }
+    value: { type: string, nullable: true, description: Percent or VND; null for WAIVE }
+    fromPeriod: { $ref: "#/Period" }
+    toPeriod: { type: string, nullable: true }
+    reason: { type: string }
+    createdById: { type: string }
+    revokedAt: { type: string, format: date-time, nullable: true }
+    revokedById: { type: string, nullable: true }
+    createdAt: { type: string, format: date-time }
+CreateOverrideInput:
+  type: object
+  additionalProperties: false
+  required: [kind, fromPeriod, reason]
+  properties:
+    kind: { type: string, enum: [DISCOUNT_PERCENT, FIXED_AMOUNT, WAIVE] }
+    value:
+      type: string
+      nullable: true
+      description: "DISCOUNT_PERCENT: greater than 0 up to 100 (4 decimals). FIXED_AMOUNT: integer VND >= 0. WAIVE: omit. A JSON number is also accepted."
+    fromPeriod: { $ref: "#/Period" }
+    toPeriod: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$', nullable: true, description: ">= fromPeriod; omit for open-ended" }
+    reason: { $ref: "#/AdminReason" }
+AdminOverrideEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data: { $ref: "#/AdminOverride" }
+    meta: { type: object }
+OverrideListEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [page, limit, total, items]
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        items: { type: array, items: { $ref: "#/AdminOverride" } }
+    meta: { type: object }
+RevokeOverrideEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      allOf:
+        - $ref: "#/AdminOverride"
+        - type: object
+          required: [effect]
+          properties:
+            effect: { type: string, enum: [END_AT_CURRENT_PERIOD, REVOKED_BEFORE_START] }
+    meta: { type: object }
+AdminUserBillingEnvelope:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [user, account, statements, orders, overrides]
+      properties:
+        user:
+          type: object
+          required: [id, email, fullName, status]
+          properties:
+            id: { type: string, format: uuid }
+            email: { type: string }
+            fullName: { type: string }
+            status: { type: string }
+        account:
+          anyOf:
+            - { $ref: "#/BillingAccount" }
+            - { type: object, nullable: true, enum: [null] }
+        statements: { type: array, items: { $ref: "#/AdminStatement" } }
+        orders: { type: array, items: { $ref: "#/AdminOrder" } }
+        overrides: { type: array, items: { $ref: "#/AdminOverride" } }
+    meta: { type: object }

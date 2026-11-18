@@ -33,8 +33,14 @@ import { SystemSettingsService } from "./settings/service";
 import { MarketDataService } from "./allocation-risk/market-service";
 import { AllocationRiskService } from "./allocation-risk/service";
 import { ExplanationsService } from "./explanations/service";
+import { BillingService } from "./billing/service";
+import { BillingAdminService } from "./billing/admin-service";
+import { PayosClient } from "./billing/payos";
 export function createServices(db: PrismaClient, config: AppConfig) {
   setTransactionTimeout(config.DB_TRANSACTION_TIMEOUT_MS);
+  const payosGateway = config.PAYOS_CLIENT_ID && config.PAYOS_API_KEY && config.PAYOS_CHECKSUM_KEY
+    ? new PayosClient({ clientId: config.PAYOS_CLIENT_ID, apiKey: config.PAYOS_API_KEY, checksumKey: config.PAYOS_CHECKSUM_KEY, baseUrl: config.PAYOS_API_BASE_URL, timeoutMs: config.PAYOS_TIMEOUT_MS })
+    : null;
   const settings = new SystemSettingsService(db);
   // Leave one core to the request thread: on a single vCPU (Azure B1) two busy workers
   // starved the event loop (eventloop.blocked 2-3.7 s). Searches use at most this many
@@ -72,6 +78,10 @@ export function createServices(db: PrismaClient, config: AppConfig) {
     broadcasts: new NotificationBroadcastService(db),
     investmentRoles: new InvestmentRolesService(db),
     operations: new OperationsService(db),
+    billing: new BillingService(db, payosGateway,
+      { enabled: config.BILLING_ENABLED === "true", termsVersion: config.BILLING_TERMS_VERSION, checksumKey: config.PAYOS_CHECKSUM_KEY,
+        returnUrl: config.BILLING_RETURN_URL ?? `${config.CLIENT_URL}/user/billing/result` }),
+    billingAdmin: new BillingAdminService(db, payosGateway, { enabled: config.BILLING_ENABLED === "true" }),
     users: new UsersService(db, id => { try { getIO().in("user:" + id).disconnectSockets(true); } catch { /* HTTP-only tests. */ } }),
   };
 }

@@ -39,6 +39,16 @@ const schema = z.object({
   // Interactive transaction limit. Saving a plan version writes ~3–4.5 MB of JSON, which a
   // laptop far from the database cannot upload in 10 s; raise this for local development only.
   DB_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().min(2000).max(120000).default(10000),
+  // Service fee billing via payOS (docs/KE_HOACH_TRIEN_KHAI_PHI_DICH_VU.md). Off by default:
+  // with "false" no billing API answers, nothing is gated and no statement is issued.
+  BILLING_ENABLED: z.enum(["true", "false"]).default("false"),
+  BILLING_TERMS_VERSION: z.string().trim().min(3).max(80).default("phi-dich-vu-2026-11-v1"),
+  BILLING_RETURN_URL: z.string().url().optional(),
+  PAYOS_CLIENT_ID: z.string().trim().min(1).optional(),
+  PAYOS_API_KEY: z.string().trim().min(1).optional(),
+  PAYOS_CHECKSUM_KEY: z.string().trim().min(1).optional(),
+  PAYOS_API_BASE_URL: z.string().url().default("https://api-merchant.payos.vn"),
+  PAYOS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000),
 });
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env) {
@@ -46,6 +56,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env) {
   if (!parsed.success) throw new Error("Cấu hình không hợp lệ: " +
     [...new Set(parsed.error.issues.map(i => i.path[0]))].join(", "));
   const config = parsed.data;
+  if (config.BILLING_ENABLED === "true" && (!config.PAYOS_CLIENT_ID || !config.PAYOS_API_KEY || !config.PAYOS_CHECKSUM_KEY))
+    throw new Error("Thu phí yêu cầu PAYOS_CLIENT_ID, PAYOS_API_KEY và PAYOS_CHECKSUM_KEY.");
   if (config.AI_PROVIDER === "gemini" && !config.GEMINI_API_KEY)
     throw new Error("Gemini yêu cầu GEMINI_API_KEY.");
   if (config.JOB_TRANSPORT === "azure" && !config.AZURE_SERVICE_BUS_NAMESPACE)

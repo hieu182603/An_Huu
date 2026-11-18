@@ -65,8 +65,13 @@ import { depositInput, depositPreview, bondInput, bondPreview, protectionInput, 
 import { planningPatchSchema } from "./profiles/planning";
 import type { ExplanationsService } from "./explanations/service";
 import { explanationsRouter } from "./explanations/router";
+import type { BillingService } from "./billing/service";
+import { billingMeRouter, billingPublicRouter, payosWebhookRouter } from "./billing/router";
+import type { BillingAdminService } from "./billing/admin-service";
+import { billingAdminRouter } from "./billing/admin-router";
+import { billingGate } from "./billing/entitlement";
 
-export type Services = { recommendations?: RecommendationService; holdings?: HoldingsRepository; explanations?: ExplanationsService; marketData?: MarketDataService; allocationRisk?: AllocationRiskService; auth: AuthService; profiles: ProfileService; pensionEstimates?: PensionEstimateService; insuranceHistory?: InsuranceHistoryService; legalRules?: LegalRulesService; catalog?: CatalogService; ai?: AiService; knowledge?: KnowledgeService; actuals?: ActualsService; plans?: PlansService; debts?: DebtService; pensions?: PensionsService; retirement?: RetirementService; assumptions?: AssumptionsService; portfolios?: PortfoliosService; users?: UsersService; investmentRoles?: InvestmentRolesService; broadcasts?: NotificationBroadcastService; content?: ContentService; community?: CommunityService; operations?: OperationsService; settings?: SystemSettingsService };
+export type Services = { recommendations?: RecommendationService; holdings?: HoldingsRepository; explanations?: ExplanationsService; marketData?: MarketDataService; allocationRisk?: AllocationRiskService; auth: AuthService; profiles: ProfileService; pensionEstimates?: PensionEstimateService; insuranceHistory?: InsuranceHistoryService; legalRules?: LegalRulesService; catalog?: CatalogService; ai?: AiService; knowledge?: KnowledgeService; actuals?: ActualsService; plans?: PlansService; debts?: DebtService; pensions?: PensionsService; retirement?: RetirementService; assumptions?: AssumptionsService; portfolios?: PortfoliosService; users?: UsersService; investmentRoles?: InvestmentRolesService; broadcasts?: NotificationBroadcastService; content?: ContentService; community?: CommunityService; operations?: OperationsService; settings?: SystemSettingsService; billing?: BillingService; billingAdmin?: BillingAdminService };
 export function sessionGuard(auth: AuthService): RequestHandler {
   return asyncHandler(async (req: AuthenticatedRequest, res, next) => {
     if (!req.user) throw new AppError(401, "UNAUTHENTICATED", "Yêu cầu đăng nhập.");
@@ -80,7 +85,8 @@ export function createApiRouter(services: Services, config: AppConfig) {
   const { auth, profiles } = services;
   const cookieName = config.NODE_ENV === "production" ? "__Host-anhuu_refresh" : "anhuu_refresh";
   const cookieOptions = { httpOnly: true, secure: config.NODE_ENV === "production", sameSite: config.COOKIE_SAME_SITE, path: "/" } as const;
-  const authenticated = [createAuthenticate(config), sessionGuard(auth)];
+  // The billing gate answers 402 BILLING_OVERDUE on the write/compute routes listed in billing/entitlement.ts only.
+  const authenticated = [createAuthenticate(config), sessionGuard(auth), ...(services.billing ? [billingGate(services.billing)] : [])];
   if (services.recommendations && services.holdings) router.use("/investments", ...authenticated, investmentRouter(services.recommendations, services.holdings));
   if (services.explanations) router.use("/me/explanations", ...authenticated, requireRole("USER"), explanationsRouter(services.explanations));
   if (services.marketData) router.use("/admin/market-data", ...authenticated, requireRole("ADMIN"), marketDataRouter(services.marketData));
@@ -94,6 +100,21 @@ export function createApiRouter(services: Services, config: AppConfig) {
   }
   if (services.knowledge) router.use("/admin/knowledge", ...authenticated, requireRole("ADMIN"), knowledgeRouter(services.knowledge));
   if (services.ai) router.use("/me/ai", ...authenticated, requireRole("USER"), aiRouter(services.ai));
+  if (services.billing) {
+    router.use("/billing", billingPublicRouter(services.billing));
+    router.use("/webhooks/payos", payosWebhookRouter(services.billing));
+    router.use("/me/billing", ...authenticated, requireRole("USER"), billingMeRouter(services.billing));
+  }
+  if (services.billingAdmin) {
+    const billingAdmin = services.billingAdmin;
+    router.use("/admin/billing", ...authenticated, requireRole("ADMIN"), billingAdminRouter(billingAdmin));
+    // Billing tab of the user detail page. Distinct from GET /admin/users/:id (one more path segment), so it never shadows it.
+    router.get("/admin/users/:id/billing", ...authenticated, requireRole("ADMIN"), (req, res, next) => {
+      res.setHeader("Cache-Control", "no-store");
+      if (!billingAdmin.enabled) return next(new AppError(503, "BILLING_DISABLED", "Chức năng phí dịch vụ chưa được bật."));
+      asyncHandler(async (_req, response) => sendData(response, await billingAdmin.userBilling(z.string().uuid().parse(req.params.id))))(req, res, next);
+    });
+  }
   if (services.portfolios && services.assumptions) {
       if(services.recommendations)router.post("/me/portfolio-policies/workspace/packages",...authenticated,requireRole("USER"),validate(allocationWorkspaceInput),asyncHandler(async(req:AuthenticatedRequest,res)=>{
         res.set("Cache-Control","no-store");sendData(res,await services.recommendations!.allocationPackages(req.user!.userId,req.body));
