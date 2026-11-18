@@ -15,3 +15,6 @@ test("zero capital does not invent a tolerance and known zero stays zero", () =>
 test("legacy records preserve the smaller cap until an explicit mode is saved",()=>{
  assert.deepEqual(resolve("76000000","19000000","30"),{amount:"19000000",percent:"25",inputMode:"AMOUNT"});
 });
+// Customer feedback 18/11/2026: a percent saved before long-term capital is known stays visible.
+assert.deepEqual(resolve(null, null, "15", "PERCENT"), { amount: null, percent: "15", inputMode: "PERCENT" });
+assert.deepEqual(resolve("0", "53000000", null, "AMOUNT"), { amount: null, percent: null, inputMode: "AMOUNT" });

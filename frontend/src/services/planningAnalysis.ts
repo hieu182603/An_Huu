@@ -30,8 +30,15 @@ export type ScenarioResult = { kind?: string; extraYears?: number; status: strin
 export type RiskResult = SimulationResult & { marketVersionId?: string; marketVersion?: number; marketHash?: string; inputHash?: string; policyHash?: string;
   scenarios?: ScenarioResult[]; longevity?: { status: string; results: ScenarioResult[] }; sources?: Array<{ id: string; title?: string; name?: string; url?: string }>;
   optimization?: { status: string; method?: string; feasible?: boolean; issues?: string[] };
-  referenceId?:string|null;allThreshold?:string|null;selectedId?: string | null; threshold?: string; rule?: string; candidates?: Array<SimulationResult & { id: string; changePoints: string; targets: Allocation[][];loss?:LossConstraint;selection?:{templateId:string;customAllocation?:import("./portfolios").CustomAllocation}|null }>;
+  referenceId?:string|null;allThreshold?:string|null;referenceKind?:ReferenceKind|null;lossFeasibility?:LossFeasibility|null;deterministic?:DeterministicSelection;selectedId?: string | null; threshold?: string; rule?: string; candidates?: Array<SimulationResult & { id: string; changePoints: string; targets: Allocation[][];loss?:LossConstraint;selection?:{templateId:string;customAllocation?:import("./portfolios").CustomAllocation}|null;withinLossLimit?:boolean;applicable?:boolean;applyIssues?:string[] }>;
   rejected?: Array<{ id: string; issues: string[] }>; adjustmentOptions?: AdjustmentOptions; limitations?: string[] };
+/** QUALIFIED: meets the essential threshold. LOSS_REDUCED_WITHIN_LIMIT: the template with stock moved to deposits to fit the
+ * declared loss limit. LEAST_LOSS_OVER_LIMIT: nothing fits; shown for reference only. TEMPLATE_UNSIMULATED: no published market data. */
+export type ReferenceKind = "QUALIFIED" | "BEST_WITHIN_LOSS_LIMIT" | "LOSS_REDUCED_WITHIN_LIMIT" | "LEAST_LOSS_OVER_LIMIT" | "TEMPLATE_UNSIMULATED";
+export type LossFeasibility = { minimumLossAmount: string; allowedLossAmount: string; requiredToleranceAmountVnd: string; requiredTolerancePercentOfGrowth: string };
+export type PinnedCandidate = { id: string; changePoints: string; targets: Allocation[][]; loss: LossConstraint; withinLossLimit: boolean; essentialLossToday: string; funded: boolean; fundedTerminalBalance: string };
+export type DeterministicSelection = { basis: "PINNED_DETERMINISTIC_ASSUMPTIONS"; referenceId: string | null; referenceKind: ReferenceKind | null; candidates: PinnedCandidate[];
+  rejected: Array<{ id: string; issues: string[] }>; lossFeasibility: LossFeasibility | null; applicable: false; applyIssues: string[]; limitations: string[] };
 export const analyzeRisk = (mode: "simulation" | "scenarios" | "selection", plan: RiskPlan, paths: number, marketVersionId?: string, signal?: AbortSignal, trialAllocation?: import("./portfolios").CustomAllocation, detail?:"ALLOCATION_V2") =>
   authenticatedRequest<RiskResult>(`/me/retirement/risk/${mode}`, { plan, paths, ...(marketVersionId ? { marketVersionId } : {}),...(trialAllocation?{trialAllocation}:{}),...(detail?{detail}:{}) }, "POST", undefined, { signal });
 export type RebalanceInput = { policyVersionId: string; templateId: string; month: string; retirementMonth: string;

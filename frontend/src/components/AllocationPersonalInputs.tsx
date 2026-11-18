@@ -5,23 +5,25 @@ import { useRetirementPlan } from "../context/RetirementPlanContext";
 import type { RetirementPreviewInput } from "../services/retirement";
 import { allocationExpenseChanges } from "../utils/allocationExpenses";
 import ProfileFormattedInput from "./ProfileFormattedInput";
+import { formatMoneyDecimal } from "../utils/moneyDisplay";
 
 const amountValid = (value: string) => /^\d+(?:\.\d{1,2})?$/.test(value);
 
-export function AllocationCapitalInput({ en }: { en: boolean }) {
+/** suggested: server figures; total = retirement + declared reserve + other goals capital, the same sum the server uses for the PROFILE basis. */
+export function AllocationCapitalInput({ en, suggested }: { en: boolean; suggested?: { total: string; retirement: string; reserve: string; otherGoals: string } | null }) {
   const { v2Profile, updateProfileV2, saveStatus, saveError } = useFinancialProfile();
   const saved = v2Profile?.allocationCapital;
-  const [basis, setBasis] = useState(saved?.basis ?? "PROFILE"), [amount, setAmount] = useState(saved?.totalAmount ?? "");
-  useEffect(() => { setBasis(saved?.basis ?? "PROFILE"); setAmount(saved?.totalAmount ?? ""); }, [JSON.stringify(saved)]);
+  const [basis, setBasis] = useState(saved?.basis ?? "PROFILE"), [amount, setAmount] = useState(saved?.totalAmount ?? suggested?.total ?? "");
+  useEffect(() => { setBasis(saved?.basis ?? "PROFILE"); setAmount(saved?.totalAmount ?? suggested?.total ?? ""); }, [JSON.stringify(saved), suggested?.total]);
   const changed = basis !== (saved?.basis ?? "PROFILE") || basis === "TOTAL" && amount !== saved?.totalAmount;
   return <div className="allocation-personal-inputs"><label>{en ? "Allocation capital" : "Số vốn dùng để phân bổ"}<select aria-label={en ? "Allocation capital" : "Số vốn dùng để phân bổ"} value={basis} onChange={e => setBasis(e.target.value as typeof basis)} disabled={saveStatus === "saving"}>
     <option value="PROFILE">{en ? "Capital declared in your profile" : "Tiền nghỉ hưu đã khai trong hồ sơ"}</option><option value="TOTAL">{en ? "Total investable capital (including reserve)" : "Tổng vốn đầu tư (gồm cả dự phòng)"}</option>
-  </select></label>{basis === "TOTAL" && <><ProfileFormattedInput format="money" label={en ? "Total available to invest today" : "Tổng tiền có thể đầu tư hôm nay"} value={amount} onChange={setAmount} disabled={saveStatus === "saving"} /><p>{en ? "Declare your available total, including reserves and near-term goals. It replaces the profile total for allocation; it does not add to it. Asset records stay separate. Review the resulting plan before applying." : "Khai tổng tiền hiện có, gồm dự phòng và mục tiêu gần hạn. Phân bổ dùng tổng này thay cho tổng trong hồ sơ, không cộng hai lần. Danh sách tài sản vẫn được giữ; bạn xem lại kế hoạch trước khi áp dụng."}</p></>}
+  </select></label>{basis === "TOTAL" && <><ProfileFormattedInput format="money" label={en ? "Total available to invest today" : "Tổng tiền có thể đầu tư hôm nay"} value={amount} onChange={setAmount} disabled={saveStatus === "saving"} />{suggested && amount !== suggested.total && <p className="allocation-capital-formula"><button type="button" className="remaining-text" onClick={() => setAmount(suggested.total)}>{en ? "Use the calculated total" : "Dùng số tự tính"}</button></p>}</>}
     {changed && <button type="button" className="overview-button primary" disabled={saveStatus === "saving" || basis === "TOTAL" && !amountValid(amount)} onClick={() => void updateProfileV2({ allocationCapital: { basis, ...(basis === "TOTAL" ? { totalAmount: amount } : {}) } })}>{en ? "Save capital and recalculate" : "Lưu vốn và tính lại"}</button>}{changed && saveStatus === "error" && <p role="alert">{saveError}</p>}
   </div>;
 }
 
-export function AllocationSpendingInputs({ en, current, retirement, endMonth }: { en: boolean; current: string | null; retirement: string | null; endMonth: string }) {
+export function AllocationSpendingInputs({ en, current, retirement, endMonth, only }: { en: boolean; current: string | null; retirement: string | null; endMonth: string; only?: "current" | "retirement" }) {
   const t = (vi: string, english: string) => en ? english : vi;
   const { v2Profile: profile, updateProfileV2, updateRetirementGoal, saveStatus, saveError } = useFinancialProfile();
   const { updateDraft } = useRetirementPlan();
@@ -29,21 +31,23 @@ export function AllocationSpendingInputs({ en, current, retirement, endMonth }: 
   useEffect(() => { setNow(current ?? ""); setLater(retirement ?? ""); }, [current, retirement]);
   const changed = now !== (current ?? "") || later !== (retirement ?? "");
   const save = async () => {
-    if (!profile || !amountValid(now) || !amountValid(later) || Number(later) <= 0) { setError(t("Nhập hai mức chi; chi khi nghỉ hưu phải lớn hơn 0.", "Enter both spending amounts; retirement spending must be positive.")); return; }
+    // Each step shows one field; only the visible (or changed) amount has to be valid.
+    const checkNow = only !== "retirement" || now !== (current ?? ""), checkLater = only !== "current" || later !== (retirement ?? "");
+    if (!profile || checkNow && !amountValid(now) || checkLater && (!amountValid(later) || Number(later) <= 0)) { setError(t("Nhập hai mức chi; chi khi nghỉ hưu phải lớn hơn 0.", "Enter both spending amounts; retirement spending must be positive.")); return; }
     const birth = profile.personal.birthMonth, ret = profile.personal.desiredRetirementMonth;
     const expenses = allocationExpenseChanges(profile, now);
     if (now !== current && !expenses) { setError(t("Lịch chi có khoản chưa rõ, ngoại tệ hoặc chi một lần. Hãy sửa từng khoản trong Tài chính trước.", "The schedule has unknown, foreign-currency or one-off items. Edit individual expenses in Finances first.")); return; }
     if (birth.status !== "KNOWN" || ret.status !== "KNOWN" || !endMonth) { setError(t("Bổ sung các mốc thời gian trong Mục tiêu trước khi lưu.", "Complete your goal dates before saving.")); return; }
     setError("");
     if (now !== current && !await updateProfileV2({ expenses: { status: "KNOWN", entries: expenses! } })) return;
-    if (later !== retirement) {
+    if (checkLater && later !== retirement) {
       const saved = await updateRetirementGoal({ birthMonth: birth.value, ...(profile.personal.birthDate ? { birthDate: profile.personal.birthDate } : {}), retirementMonth: ret.value, goal: { ...profile.retirementGoal, endMonth, monthlyExpenseToday: later, lifestylePriority: profile.retirementGoal?.lifestylePriority ?? null } });
       if (!saved) return;
       updateDraft({ monthlyExpenseToday: later });
     }
   };
-  return <div className="allocation-personal-inputs"><ProfileFormattedInput format="money" label={t("Chi phí cần thiết mỗi tháng hiện nay", "Essential monthly expenses today")} value={now} onChange={setNow} disabled={saveStatus === "saving"} /><ProfileFormattedInput format="money" label={t("Chi phí cần thiết mỗi tháng khi nghỉ hưu", "Essential monthly expenses in retirement")} value={later} onChange={setLater} disabled={saveStatus === "saving"} />
-    <p>{t("Mức chi hiện nay được chia theo tỷ lệ các khoản thiết yếu đang có; lịch và các nhóm chi khác được giữ. Mức chi nghỉ hưu cập nhật mục tiêu của bạn.", "Current spending is apportioned across existing essential entries; schedules and other categories are preserved. Retirement spending updates your goal.")}</p>
+  return <div className="allocation-personal-inputs">{only !== "retirement" && <ProfileFormattedInput format="money" label={t("Chi phí cần thiết mỗi tháng hiện nay", "Essential monthly expenses today")} value={now} onChange={setNow} disabled={saveStatus === "saving"} />}{only !== "current" && <ProfileFormattedInput format="money" label={t("Chi phí cần thiết mỗi tháng khi nghỉ hưu", "Essential monthly expenses in retirement")} value={later} onChange={setLater} disabled={saveStatus === "saving"} />}
+    <p>{only === "current" ? t("Mức chi hiện nay được chia theo tỷ lệ các khoản thiết yếu đang có và dùng để tính quỹ dự phòng bên dưới.", "Current spending is apportioned across existing essential entries and sets the reserve below.") : only === "retirement" ? t("Mức chi nghỉ hưu cập nhật mục tiêu của bạn.", "Retirement spending updates your goal.") : t("Mức chi hiện nay được chia theo tỷ lệ các khoản thiết yếu đang có; lịch và các nhóm chi khác được giữ. Mức chi nghỉ hưu cập nhật mục tiêu của bạn.", "Current spending is apportioned across existing essential entries; schedules and other categories are preserved. Retirement spending updates your goal.")}</p>
     {(error || changed && saveStatus === "error") && <p role="alert">{error || saveError}</p>}{changed && <button type="button" className="overview-button primary" disabled={saveStatus === "saving"} onClick={() => void save().catch(reason => setError(reason instanceof Error ? reason.message : "Chưa lưu được thông tin."))}>{t("Lưu chi tiêu và tính lại", "Save spending and recalculate")}</button>}{(error || current === null) && <Link to="/user/profile?section=cashflow">{t("Xem từng khoản chi →", "Review expense entries →")}</Link>}
   </div>;
 }

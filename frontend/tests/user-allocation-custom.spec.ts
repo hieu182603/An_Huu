@@ -123,3 +123,34 @@ for(const [name,width,height] of [["desktop",1440,1000],["tablet",768,1024],["mo
   await page.screenshot({path:info.outputPath("allocation-packages.png")});await page.keyboard.press("Escape");await expect(trigger).toBeFocused();expect(state.errors).toEqual([]);
  });
 }
+
+// Loss-limit and missing-data states (algorithm §10.4; customer decision 18/11/2026): always a reference, never a fake probability.
+const lossRow={informationalOnly:true,status:"WITHIN_LIMIT",message:"",issues:[],growthCapital:"666000000",lossAmount:"50000000",lossPercentOfGrowth:"7.5",lossPercentOfInvestableAssets:null,allowedLossAmount:"99900000",exceedsTolerance:false,maxEquityWeightPercent:"20",proposedLossAmount:"50000000",proposedAllocations:[]};
+async function mockSelection(page:Page,request:APIRequestContext,data:Record<string,unknown>){const state=await setupDiscovery(page,request,"/user/risk-portfolio",{customAllocation:true},true);await page.route("**/api/v1/me/retirement/risk/selection",route=>route.fulfill({json:{data,meta:{requestId:"mock"}}}));await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await expect(page.locator(".allocation-results-heading h2")).toBeVisible();return state;}
+test("without published market data the page shows the policy allocation checked against the loss limit and no probability",async({page,request})=>{
+
+ const s=await mockSelection(page,request,{status:"DATA_REQUIRED",issues:["PUBLISHED_MONTHLY_TOTAL_RETURN_DATA_REQUIRED"],marketVersionId:null,marketVersion:null,marketHash:null,deterministic:{basis:"PINNED_DETERMINISTIC_ASSUMPTIONS",referenceId:"BASE",referenceKind:"TEMPLATE_UNSIMULATED",
+  candidates:[{id:"BASE",changePoints:"0",targets:[[{assetClass:"STOCK",weightPercent:"20"},{assetClass:"BOND",weightPercent:"80"}]],loss:lossRow,withinLossLimit:true,essentialLossToday:"0",funded:true,fundedTerminalBalance:"0"}],
+  rejected:[],lossFeasibility:null,applicable:false,applyIssues:["PUBLISHED_MONTHLY_TOTAL_RETURN_DATA_REQUIRED"],limitations:["NO_PROBABILITY_WITHOUT_PUBLISHED_MARKET_DATA"]}});
+ await expect(page.locator(".allocation-results-heading h2")).toHaveText("Phương án theo chính sách, chưa mô phỏng");
+ const card=page.locator(".allocation-experiment .allocation-reference");
+ await expect(card.locator(".allocation-loss-badge")).toHaveText("Trong giới hạn chịu lỗ");
+ await expect(card.locator(".allocation-breakdown dd strong").first()).toHaveText("20%");
+ await expect(card.locator(".allocation-success")).toHaveCount(0);await expect(card.locator(".allocation-data-missing")).toBeVisible();
+ await expect(card.locator(".allocation-reference-actions .overview-button.primary")).toBeDisabled();
+ expect(s.errors).toEqual([]);
+});
+test("when nothing fits the loss limit the least-loss allocation is a reference only with the minimum limit to accept",async({page,request})=>{
+
+ const s=await mockSelection(page,request,{status:"INSUFFICIENT",issues:["NO_CANDIDATE_WITHIN_LOSS_LIMIT"],selectedId:null,threshold:"0.9",referenceId:"LEAST_LOSS",referenceKind:"LEAST_LOSS_OVER_LIMIT",allThreshold:null,
+  lossFeasibility:{minimumLossAmount:"121545000",allowedLossAmount:"99900000",requiredToleranceAmountVnd:"121545000",requiredTolerancePercentOfGrowth:"18.3"},
+  candidates:[{status:"READY",id:"LEAST_LOSS",changePoints:"45",targets:[[{assetClass:"STOCK",weightPercent:"0"},{assetClass:"BOND",weightPercent:"100"}]],pEssential:0.4,pAll:0.3,paths:120,cvarEssentialShortfallToday:"0",selection:null,withinLossLimit:false,applicable:false,applyIssues:["LOSS_CONSTRAINT_EXCEEDED"],loss:{...lossRow,status:"NOT_FEASIBLE",exceedsTolerance:true,lossAmount:"121545000"}}],
+  rejected:[{id:"BASE",issues:["LOSS_CONSTRAINT_EXCEEDED"]}],rule:"P_ESSENTIAL_THRESHOLD_THEN_MIN_CVAR_THEN_MIN_ALLOCATION_CHANGE"});
+ await expect(page.locator(".allocation-results-heading h2")).toHaveText("Chưa có phương án trong giới hạn chịu lỗ");
+ const card=page.locator(".allocation-experiment .allocation-reference");
+ await expect(card.locator(".allocation-loss-badge")).toHaveText("Vượt giới hạn chịu lỗ");
+ await expect(card.getByRole("heading",{level:2})).toHaveText("Danh mục tham khảo, vượt giới hạn");
+ await expect(card.locator(".allocation-result-callout.is-over")).toContainText("cần chấp nhận giảm tối thiểu 18,3% vốn dài hạn");
+ await expect(card.locator(".allocation-reference-actions .overview-button.primary")).toBeDisabled();
+ expect(s.errors).toEqual([]);
+});

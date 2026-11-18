@@ -2,28 +2,82 @@ import { useEffect, useState } from "react";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import type { GoalEntry } from "../services/financialProfile";
 import ProfileFormattedInput from "./ProfileFormattedInput";
+import { Decimal } from "../utils/decimal";
+import { financeMoney } from "../utils/financeHubSummary";
 
 // These two editors change the saved profile itself (the same fields the Finances pages edit),
 // so the allocation is always recalculated from one source of truth.
 
 /** Reserve choice is independent of the user's declared income stability. */
-export function AllocationReserveMonths({ months, en, onPendingChange }: { months: number | null; en: boolean; onPendingChange?: (pending:boolean)=>void }) {
+export function AllocationReserveMonths({ months, en, essentialExpense, onPendingChange }: { months: number | null; en: boolean; essentialExpense?: string | null; onPendingChange?: (pending:boolean)=>void }) {
   const { updateProfileV2, saveStatus, saveError } = useFinancialProfile();
   const [value,setValue] = useState(months === null ? "" : String(months));
   const [error,setError] = useState("");
   useEffect(()=>setValue(months === null ? "" : String(months)),[months]);
   const valid = /^\d+$/.test(value) && Number(value)>=6 && Number(value)<=12;
   useEffect(()=>onPendingChange?.(!valid||Number(value)!==months||saveStatus==="saving"),[valid,value,months,saveStatus,onPendingChange]);
-  const save=async()=>{
-    if(!valid||Number(value)===months||saveStatus==="saving")return;
+  const save=async(targetMonths?: number)=>{
+    const n = targetMonths ?? Number(value);
+    if(n < 6 || n > 12 || n === months || saveStatus === "saving") return;
     setError("");
-    try { if(!await updateProfileV2({reserveMonths:Number(value)}))setError(en?"Reserve months were not saved. Retry before continuing.":"Chưa lưu số tháng dự phòng. Thử lưu lại trước khi tiếp tục."); }
-    catch(reason){setError(reason instanceof Error?reason.message:"Chưa lưu số tháng dự phòng.");}
+    try {
+      if(!await updateProfileV2({reserveMonths:n})) setError(en ? "Reserve months were not saved. Retry before continuing." : "Chưa lưu số tháng dự phòng. Thử lưu lại trước khi tiếp tục.");
+    }
+    catch(reason){setError(reason instanceof Error ? reason.message : "Chưa lưu số tháng dự phòng.");}
   };
-  return <div className="allocation-reserve-editor"><label>{en ? "How many months of essential spending do you want in reserve?" : "Bạn muốn dự phòng mấy tháng chi tiêu thiết yếu? (6 đến 12)"}
-    <input aria-label={en ? "Reserve months" : "Số tháng dự phòng"} type="number" min={6} max={12} step={1} value={value} disabled={saveStatus === "saving"} onChange={e=>{setValue(e.target.value);setError("");}} onBlur={()=>void save()} />
-    {!valid&&<small role="status">{en ? "Enter a whole number from 6 to 12." : "Nhập số nguyên từ 6 đến 12 tháng."}</small>}
-  </label>{error&&<><p role="alert">{saveError||error}</p><button type="button" className="overview-button secondary" disabled={saveStatus==="saving"} onClick={()=>void save()}>{en?"Retry saving reserve months":"Thử lưu số tháng dự phòng"}</button></>}</div>;
+  const pickPreset = (preset: number) => {
+    setValue(String(preset));
+    setError("");
+    void save(preset);
+  };
+  return <div className="allocation-reserve-editor">
+    <div className="allocation-field-header">
+      <label htmlFor="reserve-months-input">{en ? "How many months of essential spending do you want in reserve?" : "Bạn muốn dự phòng mấy tháng chi tiêu thiết yếu? (6 đến 12 tháng)"}</label>
+      <span className="allocation-field-tag">{en ? "Emergency Buffer" : "Quỹ khẩn cấp"}</span>
+    </div>
+    <div className="allocation-reserve-controls">
+      <div className="allocation-reserve-presets" role="group" aria-label={en ? "Preset months" : "Chọn nhanh số tháng"}>
+        {[6, 9, 12].map(preset => (
+          <button
+            type="button"
+            key={preset}
+            className={`allocation-reserve-chip${Number(value) === preset ? " is-selected" : ""}`}
+            disabled={saveStatus === "saving"}
+            onClick={() => pickPreset(preset)}
+          >
+            <strong>{preset} {en ? "months" : "tháng"}</strong>
+            <small>{preset === 6 ? (en ? "Standard (6M)" : "Chuẩn (6T)") : preset === 9 ? (en ? "Secure (9M)" : "An toàn (9T)") : (en ? "Cautious (12M)" : "Vững chắc (12T)")}</small>
+          </button>
+        ))}
+      </div>
+      <div className="allocation-reserve-custom-wrap">
+        <span className="allocation-reserve-custom-label">{en ? "Or custom:" : "Tùy chọn:"}</span>
+        <input
+          id="reserve-months-input"
+          aria-label={en ? "Reserve months" : "Số tháng dự phòng"}
+          type="number"
+          min={6}
+          max={12}
+          step={1}
+          value={value}
+          disabled={saveStatus === "saving"}
+          onChange={e => { setValue(e.target.value); setError(""); }}
+          onBlur={() => void save()}
+        />
+        <span className="allocation-reserve-unit">{en ? "months" : "tháng"}</span>
+      </div>
+    </div>
+    {valid && essentialExpense && Number(essentialExpense) > 0 && (
+      <div className="allocation-reserve-preview">
+        <span className="allocation-reserve-preview-badge">🛡️ {en ? "Calculated reserve" : "Quỹ dự phòng tương ứng"}</span>
+        <span className="allocation-reserve-preview-formula">
+          {financeMoney(essentialExpense, en)}/tháng × {value} {en ? "months" : "tháng"} = <strong>{financeMoney(new Decimal(essentialExpense).mul(value).toString(), en)}</strong>
+        </span>
+      </div>
+    )}
+    {!valid && <small className="allocation-error-text" role="status">{en ? "Enter a whole number from 6 to 12." : "Nhập số nguyên từ 6 đến 12 tháng."}</small>}
+    {error && <><p role="alert">{saveError || error}</p><button type="button" className="overview-button secondary" disabled={saveStatus === "saving"} onClick={() => void save()}>{en ? "Retry saving reserve months" : "Thử lưu số tháng dự phòng"}</button></>}
+  </div>;
 }
 
 const known = <T,>(value: T) => ({ status: "KNOWN" as const, value }), unknown = { status: "UNKNOWN" as const };
@@ -64,4 +118,35 @@ export function AllocationGoals({ en, minMonth }: { en: boolean; minMonth?: stri
     {(problem || (changed && saveStatus === "error" && saveError)) && <p role="alert">{problem || saveError}</p>}
     {changed && <button type="button" className="overview-button primary" disabled={saving} onClick={() => void save()}>{saving ? t("Đang lưu…", "Saving…") : t("Lưu mục tiêu và tính lại", "Save goals and recalculate")}</button>}
   </div>;
+}
+
+/** Yes/No question that settles `goals` (an UNKNOWN answer blocks long-term capital with
+ *  GOALS_REQUIRED). "No" saves an explicit empty list; "Yes" opens the goal editor. */
+export function AllocationGoalsQuestion({ en, minMonth, id }: { en: boolean; minMonth?: string; id?: string }) {
+  const t = (vi: string, english: string) => en ? english : vi;
+  const { v2Profile, updateProfileV2, saveStatus } = useFinancialProfile(), saving = saveStatus === "saving";
+  const goals = v2Profile?.goals, answered = goals?.status === "KNOWN", count = goals?.status === "KNOWN" ? goals.entries.length : 0;
+  const [choice, setChoice] = useState<"yes" | "no" | null>(answered ? (count ? "yes" : "no") : null), [confirmNo, setConfirmNo] = useState(false), [problem, setProblem] = useState("");
+  useEffect(() => { setChoice(answered ? (count ? "yes" : "no") : null); setConfirmNo(false); }, [answered, count]);
+  const sayNo = async () => {
+    setProblem("");
+    // Only this save's own failure is shown here; other editors report theirs (shared saveError).
+    if (!await updateProfileV2({ goals: { status: "KNOWN", entries: [] } })) setProblem(t("Chưa lưu được câu trả lời. Hãy thử lại.", "Your answer was not saved. Please retry."));
+  };
+  const pickNo = () => { setChoice("no"); if (count) setConfirmNo(true); else if (!answered) void sayNo(); };
+  return <fieldset className="allocation-goals-question" id={id}>
+    <legend>{t("Trong tương lai bạn có khoản lớn cần dùng không?", "Do you have a large expense coming up?")}</legend>
+    <p>{t("Ví dụ học phí, mua nhà, chữa bệnh, chăm sóc cha mẹ. Khoản cần trong 5 năm tới được giữ riêng, không đem đầu tư.",
+      "For example tuition, a home, medical care or caring for parents. Money needed within 5 years is set aside, not invested.")}</p>
+    <div className="allocation-choice-row" role="radiogroup">
+      <label className={`allocation-choice${choice === "no" ? " is-selected" : ""}`}><input type="radio" name="allocation-goals" checked={choice === "no"} disabled={saving} onChange={pickNo} /><span><strong>{t("Không có", "No")}</strong><small>{t("Toàn bộ phần còn lại dành cho dài hạn", "Everything left goes to the long term")}</small></span></label>
+      <label className={`allocation-choice${choice === "yes" ? " is-selected" : ""}`}><input type="radio" name="allocation-goals" checked={choice === "yes"} disabled={saving} onChange={() => { setChoice("yes"); setConfirmNo(false); }} /><span><strong>{t("Có", "Yes")}</strong><small>{t("Khai số tiền và thời điểm cần", "Enter the amount and when you need it")}</small></span></label>
+    </div>
+    {confirmNo && <div className="allocation-loss-hint" data-kind="warn"><p>{t(`Bạn đã khai ${count} khoản. Chọn "Không có" sẽ xoá các khoản này khỏi hồ sơ.`, `You have ${count} goals. Choosing "No" removes them from your profile.`)}</p>
+      <button type="button" className="overview-button secondary" disabled={saving} onClick={() => void sayNo()}>{t("Xoá và xác nhận không có", "Remove and confirm none")}</button>
+      <button type="button" className="remaining-text" onClick={() => { setChoice("yes"); setConfirmNo(false); }}>{t("Giữ các khoản đã khai", "Keep my goals")}</button></div>}
+    {choice === "yes" && <AllocationGoals en={en} minMonth={minMonth} />}
+    {problem && <p role="alert">{problem}</p>}
+    {choice === null && <p className="allocation-required-note" role="status">{t("Cần trả lời câu này để tính phần vốn dài hạn.", "Answer this to calculate long-term capital.")}</p>}
+  </fieldset>;
 }
