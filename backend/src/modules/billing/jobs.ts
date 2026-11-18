@@ -5,7 +5,7 @@ import { log } from "../../common/logger";
 import { transaction } from "../../common/transaction";
 import { enqueue } from "../../jobs/outbox";
 import { computeFee } from "./fee-math";
-import { dueDateOf, periodOf, periodStart, vnDayOfMonth } from "./periods";
+import { periodOf, periodStart, statementDueDate, vnDayOfMonth } from "./periods";
 import { reconcileOrder, statementDue } from "./ledger";
 import type { PaymentGateway } from "./payos";
 import { feeBase, overrideFor, overrideTerms, scheduleFor } from "./terms";
@@ -59,7 +59,7 @@ export async function issueStatementIn(tx: Tx, account: Account, period: string,
   const statement = await tx.feeStatement.create({ data: { userId: account.userId, period, baseAmountVnd: fee.baseAmountVnd,
     baseSource: JSON.parse(JSON.stringify(base.source)) as Prisma.InputJsonObject, feeScheduleId: schedule.id, overrideId: override?.id ?? null,
     rawFeeVnd: fee.rawFeeVnd, scheduleFeeVnd: fee.scheduleFeeVnd, amountVnd: fee.amountVnd, status: waived ? "WAIVED" : "ISSUED",
-    dueDate: dueDateOf(period, schedule.dueDay) } });
+    dueDate: statementDueDate(period, schedule.dueDay, now) } });
   await audit(tx, account.userId, "BILLING_STATEMENT_ISSUED", "FEE_STATEMENT", statement.id,
     { period, scheduleVersion: schedule.version, waived, trialEnded: account.status === "TRIAL" }, { performerName: "system" });
   await tx.notification.create({ data: { id: stableId(`billing-issued:${statement.id}`), userId: account.userId, path: "/user/account",
@@ -70,10 +70,15 @@ export async function issueStatementIn(tx: Tx, account: Account, period: string,
   return waived ? "WAIVED" : "ISSUED";
 }
 
-/** Day 1–3 (Vietnam time) of the month: bill every eligible account once for the current period. */
-export async function issueStatements(db: PrismaClient, now: Date) {
+/**
+ * Bills every eligible account once for the current period. Runs every day (catch-up): an account
+ * only becomes eligible when its trial ends (the 1st of a month, or the launch date), so in steady
+ * state this issues on day 1; a missed run or the launch date is caught up later in the month.
+ * Nothing is issued before `launchAt` (BILLING_LAUNCH_AT).
+ */
+export async function issueStatements(db: PrismaClient, now: Date, launchAt: Date | null = null) {
   const result = { due: false, issued: 0, waived: 0, skipped: 0, failed: 0 };
-  if (vnDayOfMonth(now) > 3) return result;
+  if (launchAt && now.getTime() < launchAt.getTime()) return result;
   result.due = true;
   const period = periodOf(now);
   let cursor: string | undefined;
@@ -240,12 +245,12 @@ export async function rolloverSchedules(db: PrismaClient, now: Date) {
 
 type Counts = Record<string, number | boolean>;
 /** Job table for the worker: `frequent` every 5 minutes, `hourly` every hour. */
-export function createBillingJobs(db: PrismaClient, gateway: PaymentGateway | null) {
+export function createBillingJobs(db: PrismaClient, gateway: PaymentGateway | null, launchAt: Date | null = null) {
   const job = (code: string, run: (now: Date) => Promise<Counts>) => ({ code, run });
   return {
     frequent: [job("EXPIRE_ORDERS", now => expireOrders(db, gateway, now))],
     hourly: [
-      job("ISSUE_STATEMENTS", now => issueStatements(db, now)),
+      job("ISSUE_STATEMENTS", now => issueStatements(db, now, launchAt)),
       job("REMIND_STATEMENTS", now => remindStatements(db, now)),
       job("MARK_OVERDUE", now => markOverdue(db, now)),
       job("RECONCILE_PENDING", now => reconcilePending(db, gateway, now)),
