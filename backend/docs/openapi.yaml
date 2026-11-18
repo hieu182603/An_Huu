@@ -11885,6 +11885,1738 @@ paths:
         "422": *a7
         "429": *a8
         "500": *a9
+  /api/v1/billing/fee-schedule:
+    get:
+      operationId: getFeeSchedule
+      security: []
+      description: Public. Fee schedule in force for the current Vietnam month and the next published one. 503 BILLING_DISABLED while BILLING_ENABLED=false.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/FeeScheduleEnvelope
+        "409":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/billing:
+    get:
+      operationId: getBillingOverview
+      security:
+        - bearerAuth: []
+      description: USER. Account state, statement to act on (oldest unpaid, else latest), next period estimate from the current profile (base = retirementLiquidAssets; unknown = 0 → minimum fee, reason in baseSource.issues). termsRequired until the current terms are accepted. 503 BILLING_DISABLED while BILLING_ENABLED=false.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/BillingOverviewEnvelope
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/billing/estimate:
+    post:
+      operationId: estimateBillingFee
+      security:
+        - bearerAuth: []
+      description: USER. Fee from next period for a given base (onboarding / asset edit preview). Rounds up to the step, clamps to min/max, applies the user's active override. 503 BILLING_DISABLED while BILLING_ENABLED=false.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/EstimateInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/EstimateEnvelope
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/billing/terms:
+    post:
+      operationId: acceptBillingTerms
+      security:
+        - bearerAuth: []
+      description: USER. Records acceptance of the fee terms. termsVersion must equal the server's current version (409 TERMS_VERSION_MISMATCH). First acceptance opens a TRIAL account; repeat with the same version is a no-op. 503 BILLING_DISABLED while BILLING_ENABLED=false.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/TermsInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/BillingAccountEnvelope
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/billing/statements:
+    get:
+      operationId: listFeeStatements
+      security:
+        - bearerAuth: []
+      description: USER. Own statements, newest period first. 503 BILLING_DISABLED while BILLING_ENABLED=false.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/StatementListEnvelope
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/billing/statements/{id}:
+    get:
+      operationId: getFeeStatement
+      security:
+        - bearerAuth: []
+      description: USER. Own statement with fee base snapshot, schedule terms, adjustments, payments, refunds and recent orders. 503 BILLING_DISABLED while BILLING_ENABLED=false.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/StatementDetailEnvelope
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/billing/statements/{id}/pay:
+    post:
+      operationId: payFeeStatement
+      security:
+        - bearerAuth: []
+      description: USER. Creates or reuses a payOS link (15 min) for the remaining amount. A same-amount pending link with more than 2 min left is reused; older pending links are cancelled. Idempotency-Key replays the first response. Body must be an empty object. 409 STATEMENT_SETTLED, 502 PAYMENT_PROVIDER_ERROR/UNAVAILABLE, 503 BILLING_DISABLED while BILLING_ENABLED=false.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/PaymentOrderEnvelope
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/billing/orders/{id}:
+    get:
+      operationId: getPaymentOrder
+      security:
+        - bearerAuth: []
+      description: USER. Result page polling. A PENDING order is reconciled with payOS first, so a lost webhook does not block the user. 503 BILLING_DISABLED while BILLING_ENABLED=false.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/OrderStatusEnvelope
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/webhooks/payos:
+    post:
+      operationId: payosWebhook
+      security: []
+      description: payOS only, no JWT. Authenticated by HMAC-SHA256 over `data` (sorted keys). Duplicates are no-ops; unknown orderCode (payOS confirm-webhook test) is acknowledged with outcome UNKNOWN_ORDER. Amount below the order amount is recorded as UNDERPAID and does not settle the statement. Counterparty account data is masked before storage. Response is not wrapped in the data envelope.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/PayosWebhook
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/PayosWebhookAck
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/billing/stop:
+    post:
+      operationId: stopBilling
+      security:
+        - bearerAuth: []
+      description: "USER. Stops billing from the next period (stoppedFromPeriod = next Vietnam-time month); the current period's statement stays payable. Optimistic check on expectedRevision. Repeating it on an already stopped account returns the account unchanged."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/RevisionInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/BillingAccountEnvelope
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Rejected; no partial write. TERMS_REQUIRED (no billing account), REVISION_CONFLICT (expectedRevision is stale), BILLING_NOT_STOPPED (resume only)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/billing/resume:
+    post:
+      operationId: resumeBilling
+      security:
+        - bearerAuth: []
+      description: "USER. Resumes billing: status becomes ACTIVE, OVERDUE while an OVERDUE statement is still open, or TRIAL if the trial has not ended; stoppedFromPeriod is cleared. If no statement exists for the current Vietnam-time month and no earlier one is unpaid, it is issued immediately. Optimistic check on expectedRevision."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/RevisionInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/BillingAccountEnvelope
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Rejected; no partial write. TERMS_REQUIRED (no billing account), REVISION_CONFLICT (expectedRevision is stale), BILLING_NOT_STOPPED (resume only)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/permissions:
+    get:
+      operationId: adminBillingPermissions
+      security:
+        - bearerAuth: []
+      description: "ADMIN. What the calling admin may do, so the UI can hide buttons: canOperate = OPERATIONS grant, canManageSchedules = SYSTEM_ADMIN grant."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/PermissionsEnvelope
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/overview:
+    get:
+      operationId: adminBillingOverview
+      security:
+        - bearerAuth: []
+      description: "ADMIN. Totals for one period (due after adjustments, collected = payments minus refunds, remaining on open statements, overpaid), counts by statement status, collection rate and a 12 month series ending at the period. Voided statements are excluded from money figures."
+      parameters:
+        - name: period
+          in: query
+          description: "Billing month YYYY-MM (Vietnam time). Defaults to the current month."
+          schema: {"type":"string","pattern":"^\\d{4}-(0[1-9]|1[0-2])$"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdminOverviewEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/statements:
+    get:
+      operationId: adminListFeeStatements
+      security:
+        - bearerAuth: []
+      description: "ADMIN. Statements newest period first. q matches e-mail or name (case-insensitive substring); overdueOnly = status OVERDUE; hasAlert filters by unresolved derived alerts."
+      parameters:
+        - name: page
+          in: query
+          schema: {"type":"integer","minimum":1}
+        - name: limit
+          in: query
+          schema: {"type":"integer","minimum":1,"maximum":100}
+        - name: period
+          in: query
+          description: "Billing month YYYY-MM (Vietnam time). Defaults to the current month."
+          schema: {"type":"string","pattern":"^\\d{4}-(0[1-9]|1[0-2])$"}
+        - name: status
+          in: query
+          schema: {"type":"string","enum":["ISSUED","PAID","OVERDUE","WAIVED","VOID"]}
+        - name: q
+          in: query
+          schema: {"type":"string","maxLength":100}
+        - name: overdueOnly
+          in: query
+          schema: {"type":"string","enum":["true","false"]}
+        - name: hasAlert
+          in: query
+          schema: {"type":"string","enum":["true","false"]}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdminStatementListEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/statements/{id}:
+    get:
+      operationId: adminGetFeeStatement
+      security:
+        - bearerAuth: []
+      description: "ADMIN. One statement with user, schedule, adjustments, payments (with refundable amount), refunds, payOS orders, related webhook events (account numbers masked) and the audit trail."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdminStatementDetailEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/statements/{id}/manual-payment:
+    post:
+      operationId: adminRecordManualPayment
+      security:
+        - bearerAuth: []
+      description: "ADMIN + OPERATIONS. Records a bank transfer received outside payOS (source MANUAL_TRANSFER). Settles like a provider payment: statement PAID when nothing is left, an OVERDUE account returns to ACTIVE when no other statement is overdue, the user gets an in-app notice and a receipt e-mail. Overpayment is accepted and shows up as an OVERPAID alert. Idempotency-Key required. 409 DUPLICATE_BANK_REFERENCE, STATEMENT_VOID; 422 RECEIVED_AT_IN_FUTURE. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: "UUID chosen by the client; replaying the same key with the same body returns the first result, a different body is 409 IDEMPOTENCY_CONFLICT."
+          schema: {"type":"string","format":"uuid"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/ManualPaymentInput
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/ManualPaymentEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Conflict with the current state; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: "Rejected by a business rule; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/statements/{id}/adjust:
+    post:
+      operationId: adminAdjustFeeStatement
+      security:
+        - bearerAuth: []
+      description: "ADMIN + OPERATIONS. Reduces what is owed (0 < amountVnd <= current due) without changing the statement amount. Fully covered with no payments gives WAIVED, with payments PAID. PENDING payOS orders of the statement are cancelled (database first, payOS link best effort). 409 ADJUSTMENT_EXCEEDS_DUE, STATEMENT_SETTLED, STATEMENT_VOID. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/AdjustInput
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdjustEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Conflict with the current state; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/statements/{id}/void:
+    post:
+      operationId: adminVoidFeeStatement
+      security:
+        - bearerAuth: []
+      description: "ADMIN + OPERATIONS. Cancels a statement issued by mistake (status VOID, pending orders cancelled, overdue account reopened). Only for ISSUED/OVERDUE statements with no payment: 409 STATEMENT_HAS_PAYMENTS, STATEMENT_NOT_VOIDABLE, STATEMENT_VOID. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/ReasonInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/VoidEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Conflict with the current state; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/orders:
+    get:
+      operationId: adminListPaymentOrders
+      security:
+        - bearerAuth: []
+      description: "ADMIN. payOS orders newest first, with user, period, received amount and bank reference. from/to are Vietnam calendar days (YYYY-MM-DD, inclusive)."
+      parameters:
+        - name: page
+          in: query
+          schema: {"type":"integer","minimum":1}
+        - name: limit
+          in: query
+          schema: {"type":"integer","minimum":1,"maximum":100}
+        - name: status
+          in: query
+          schema: {"type":"string","enum":["PENDING","PAID","UNDERPAID","EXPIRED","CANCELLED"]}
+        - name: from
+          in: query
+          schema: {"type":"string","pattern":"^\\d{4}-\\d{2}-\\d{2}$"}
+        - name: to
+          in: query
+          schema: {"type":"string","pattern":"^\\d{4}-\\d{2}-\\d{2}$"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdminOrderListEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/orders/{id}/reconcile:
+    post:
+      operationId: adminReconcilePaymentOrder
+      security:
+        - bearerAuth: []
+      description: "ADMIN + OPERATIONS. Asks payOS about one order now and applies what it reports (same function as the result page and the jobs; idempotent). outcome is APPLIED, UNDERPAID, DUPLICATE, EXTRA_TRANSFER, IGNORED, EXPIRED, CANCELLED or PENDING. 503 when payOS is not configured; 502 when payOS is unreachable. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/ReasonInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/ReconcileEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: "payOS unreachable or rejected the request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/payments/{id}/refund:
+    post:
+      operationId: adminRecordRefund
+      security:
+        - bearerAuth: []
+      description: "ADMIN + OPERATIONS. Records money handed back to the customer (the bank transfer itself is done outside the system). amountVnd must not exceed the payment minus earlier refunds. A PAID statement whose due becomes positive returns to ISSUED, or OVERDUE (gating the account) when its due date has passed. Idempotency-Key required. 409 REFUND_EXCEEDS_PAYMENT, DUPLICATE_BANK_REFERENCE. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: "UUID chosen by the client; replaying the same key with the same body returns the first result, a different body is 409 IDEMPOTENCY_CONFLICT."
+          schema: {"type":"string","format":"uuid"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/RefundInput
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/RefundEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Conflict with the current state; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/alerts:
+    get:
+      operationId: adminListBillingAlerts
+      security:
+        - bearerAuth: []
+      description: "ADMIN. Alerts derived from the data (never stored): UNDERPAID orders on open statements, OVERPAID statements (payments in the last 180 days), EXTRA_TRANSFER webhook events (money received for an already paid order and not yet in the ledger). Resolved alerts are hidden unless includeResolved=true; an alert whose cause is fixed disappears by itself."
+      parameters:
+        - name: page
+          in: query
+          schema: {"type":"integer","minimum":1}
+        - name: limit
+          in: query
+          schema: {"type":"integer","minimum":1,"maximum":100}
+        - name: includeResolved
+          in: query
+          schema: {"type":"string","enum":["true","false"]}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdminAlertListEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/alerts/resolve:
+    post:
+      operationId: adminResolveBillingAlert
+      security:
+        - bearerAuth: []
+      description: "ADMIN + OPERATIONS. Marks an alert as handled; recorded as an AuditLog row (action BILLING_ALERT_RESOLVED, targetType BILLING_ALERT, targetId = key). 404 when the key is not a current alert, 409 ALERT_ALREADY_RESOLVED. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/ResolveAlertInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/ResolveAlertEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Conflict with the current state; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/fee-schedules:
+    get:
+      operationId: adminListFeeSchedules
+      security:
+        - bearerAuth: []
+      description: "ADMIN. Every fee schedule version, newest first."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/FeeScheduleListEnvelope
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: adminCreateFeeSchedule
+      security:
+        - bearerAuth: []
+      description: "ADMIN + SYSTEM_ADMIN. Creates a DRAFT with the next version number. Rules: rate 0-100 (4 decimals), min >= 0, max >= min or null, rounding > 0, dueDay 1-28, reminderDays 1-28 strictly increasing, trialMonths 0-12. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/CreateScheduleInput
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdminFeeScheduleEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/fee-schedules/{id}:
+    patch:
+      operationId: adminUpdateFeeSchedule
+      security:
+        - bearerAuth: []
+      description: "ADMIN + SYSTEM_ADMIN. Edits a DRAFT (409 SCHEDULE_NOT_DRAFT otherwise). expectedUpdatedAt must equal the draft's current updatedAt (409 REVISION_CONFLICT). The merged terms are validated again. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/PatchScheduleInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdminFeeScheduleEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Conflict with the current state; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/fee-schedules/{id}/preview:
+    post:
+      operationId: adminPreviewFeeSchedule
+      security:
+        - bearerAuth: []
+      description: "ADMIN + SYSTEM_ADMIN. Read-only impact preview: for every TRIAL/ACTIVE/OVERDUE account, next period's fee under the schedule in force versus this schedule, using the current fee base and any override. Totals, counts up/down/same and the 20 largest changes. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/EmptyInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/SchedulePreviewEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Conflict with the current state; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/fee-schedules/{id}/publish:
+    post:
+      operationId: adminPublishFeeSchedule
+      security:
+        - bearerAuth: []
+      description: "ADMIN + SYSTEM_ADMIN. Publishes a DRAFT from effectiveFromPeriod (>= next period; 422 EFFECTIVE_PERIOD_TOO_EARLY). 409 PERIOD_ALREADY_ISSUED when a statement already exists for that period or later, SCHEDULE_PERIOD_CONFLICT when another published schedule starts at or after it, SCHEDULE_NOT_DRAFT. Active accounts get an in-app notice with the same ids the 7-day rollover job uses, so nobody is told twice. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/PublishScheduleInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/PublishScheduleEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Conflict with the current state; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: "Rejected by a business rule; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/overrides:
+    get:
+      operationId: adminListFeeOverrides
+      security:
+        - bearerAuth: []
+      description: "ADMIN. Active per-user fee overrides (not revoked and not finished before the current period), newest first."
+      parameters:
+        - name: page
+          in: query
+          schema: {"type":"integer","minimum":1}
+        - name: limit
+          in: query
+          schema: {"type":"integer","minimum":1,"maximum":100}
+        - name: userId
+          in: query
+          schema: {"type":"string","format":"uuid"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/OverrideListEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/users/{userId}/overrides:
+    post:
+      operationId: adminCreateFeeOverride
+      security:
+        - bearerAuth: []
+      description: "ADMIN + OPERATIONS. Gives one user a discount (DISCOUNT_PERCENT 0-100 exclusive of 0), a fixed monthly fee (FIXED_AMOUNT, integer VND >= 0) or no fee (WAIVE, no value) for [fromPeriod, toPeriod]. fromPeriod must be after the current period (422 OVERRIDE_PERIOD_TOO_EARLY); 409 OVERRIDE_OVERLAP with an active override of the same user. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/CreateOverrideInput
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdminOverrideEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Conflict with the current state; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: "Rejected by a business rule; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/overrides/{id}/revoke:
+    post:
+      operationId: adminRevokeFeeOverride
+      security:
+        - bearerAuth: []
+      description: "ADMIN + OPERATIONS. Effective from the next period, never retroactive. An override that has started is closed with toPeriod = current period (effect END_AT_CURRENT_PERIOD); one that has not started is revoked outright (REVOKED_BEFORE_START). 409 OVERRIDE_REVOKED, OVERRIDE_ENDED. 403 FORBIDDEN: the admin lacks the required InvestmentRoleGrant."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./billing.openapi.yaml#/ReasonInput
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/RevokeOverrideEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: "Conflict with the current state; no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/users/{userId}:
+    get:
+      operationId: adminGetUserBilling
+      security:
+        - bearerAuth: []
+      description: "ADMIN. Billing tab of one user: account, latest 24 statements, latest 10 orders and every override."
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdminUserBillingEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/users/{id}/billing:
+    get:
+      operationId: adminGetUserBillingAlias
+      security:
+        - bearerAuth: []
+      description: "ADMIN. Same response as GET /admin/billing/users/{userId}, under the users resource for the user detail page."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {"type":"string","format":"uuid"}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: ./billing.openapi.yaml#/AdminUserBillingEnvelope
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: "Not found"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/billing/export.csv:
+    get:
+      operationId: adminExportBillingCsv
+      security:
+        - bearerAuth: []
+      description: "ADMIN. Accounting CSV (UTF-8 with BOM, CRLF) with one row per statement of the period: period, e-mail, name, fee base, schedule fee, fee due, adjustments, collected, refunded, remaining, status, bank references, collection date (Vietnam time). Text cells that start with = + - @ are prefixed with a quote. The export is audited."
+      parameters:
+        - name: period
+          in: query
+          description: "Billing month YYYY-MM (Vietnam time). Defaults to the current month."
+          schema: {"type":"string","pattern":"^\\d{4}-(0[1-9]|1[0-2])$"}
+      responses:
+        "200":
+          description: OK
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          description: "Validation failed (VALIDATION_ERROR with fieldErrors, e.g. reason shorter than 10 characters or a missing Idempotency-Key); no partial write"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: "Unauthenticated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: "Not an ADMIN, or the InvestmentRoleGrant for this action is missing (FORBIDDEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 components:
   schemas:
     ErrorEnvelope:
@@ -11911,6 +13643,10 @@ components:
                 type: array
                 items:
                   type: string
+            details:
+              type: object
+              additionalProperties: true
+              description: Optional structured context. Today only 402 BILLING_OVERDUE sets it (see billing.openapi.yaml#/BillingOverdueDetails).
         requestId:
           type: string
           format: uuid

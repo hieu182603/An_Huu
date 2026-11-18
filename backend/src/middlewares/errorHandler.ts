@@ -78,7 +78,7 @@ export function createErrorHandler(recordSystemLog?: SystemSettingsService["reco
   const retryAfter = (result as AppError & { retryAfterSeconds?: unknown }).retryAfterSeconds;
   if (result.status === 503 && typeof retryAfter === "number" && retryAfter > 0) res.set("Retry-After", String(Math.ceil(retryAfter)));
   res.status(result.status).json({
-    error: { code: result.code, message: result.message, ...(result.fieldErrors ? { fieldErrors: result.fieldErrors } : {}) },
+    error: { code: result.code, message: result.message, ...(result.fieldErrors ? { fieldErrors: result.fieldErrors } : {}), ...(result.details ? { details: result.details } : {}) },
     requestId: res.locals.requestId,
   });
  };

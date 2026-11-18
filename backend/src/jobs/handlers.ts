@@ -4,6 +4,7 @@ import type { AppConfig } from "../config/env";
 import { unseal } from "./outbox";
 import { renderAuthEmail } from "../templates/authEmail";
 import { handlePlanUpdateEvent } from "../modules/plans/events";
+import { handleBillingEvent } from "../modules/billing/mail";
 
 export type Mail = { to: string; subject: string; text: string; html?: string; idempotencyKey: string };
 export type MailSender = (mail: Mail) => Promise<void>;
@@ -12,6 +13,10 @@ export function createEventHandler(db: PrismaClient, config: AppConfig, send: Ma
   return async (event: OutboxEvent) => {
     if (["financial.recalculate_batch", "financial.recalculate_plan"].includes(event.type)) {
       await handlePlanUpdateEvent(db, event);
+      return;
+    }
+    if (event.type.startsWith("billing.")) {
+      await handleBillingEvent(db, config, send, event);
       return;
     }
     if (event.type === "notification.account_updated" || event.type === "notification.password_changed") {

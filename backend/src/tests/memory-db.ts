@@ -15,6 +15,7 @@ export function memoryDb() {
   names.push("article", "savedArticle", "savedProduct", "supportTicket", "supportMessage");
   names.push("investmentRoleGrant");
   names.push("investmentProductData");
+  names.push("feeSchedule", "billingAccount", "userFeeOverride", "feeStatement", "statementAdjustment", "paymentOrder", "payment", "refund", "paymentWebhookEvent");
   function relation(row: Row, key: string): any {
     if (key in row) return row[key];
     const links: Record<string, [string, string]> = { partner: ["partner", "partnerId"], product: ["partnerProduct", "productId"], article: ["article", "articleId"], author: ["user", "authorId"], user: ["user", "userId"] };
@@ -105,6 +106,12 @@ export function memoryDb() {
           aiMessage: { context: null, citedSources: null, tokensUsed: null, requestKey: null },
           assumptionSetVersion: { status: "DRAFT", revision: 1, effectiveAt: null, publishedBy: null },
           outboxEvent: { status: "PENDING", attempts: 0, availableAt: now, lockedUntil: null, leaseId: null, completedAt: null },
+          billingAccount: { revision: 0, trialEndsAt: null, stoppedFromPeriod: null },
+          userFeeOverride: { toPeriod: null, revokedAt: null, revokedById: null, value: null },
+          feeStatement: { status: "ISSUED", paidAt: null, overrideId: null },
+          // Emulates payment_order_code_seq (START 100000).
+          paymentOrder: { status: "PENDING", payosPaymentLinkId: null, checkoutUrl: null, qrCode: null, orderCode: BigInt(100000 + tables.paymentOrder.length) },
+          payment: { orderId: null, bankReference: null, recordedById: null, note: null },
         };
         const row = { ...defaults, ...modelDefaults[name], ...structuredClone(data) };
         tables[name].push(row);
