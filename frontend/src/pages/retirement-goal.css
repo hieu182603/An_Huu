@@ -46,238 +46,302 @@
 .goal-other-goals li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #dce6f0; padding: 12px 0; }
 .goal-other-goals li span { overflow-wrap: anywhere; }
 /* ==========================================================================
-   Goal Sync Timeline - Premium Milestone Roadmap Card
+   Goal Sync Timeline - Connected Milestone Roadmap
    ========================================================================== */
 .goal-sync-timeline {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
   background: #ffffff;
   border: 1px solid #dce6f0;
   border-radius: 16px;
-  padding: 30px 32px 32px;
+  padding: 28px 32px 36px;
   margin: 24px 0 32px;
-  box-shadow: 0 2px 8px rgba(5, 38, 89, 0.04);
+  box-shadow: 0 1px 3px rgba(5, 38, 89, 0.04);
   list-style: none;
-  position: relative;
 }
 
-/* Card Header inside Timeline */
-.goal-timeline-card-header {
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 0 0 22px 0 !important;
-  margin-bottom: 8px;
-  border-top: 0 !important;
-  border-bottom: 1px solid #edf2f7;
+/* Header */
+.goal-timeline-header {
+  margin-bottom: 28px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #f0f4f8;
   list-style: none;
-}
-.goal-timeline-card-header::before {
-  display: none !important;
-}
-.goal-timeline-header-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.goal-timeline-eyebrow {
-  display: block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  color: #456b91;
-  text-transform: uppercase;
 }
 .goal-timeline-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
   color: #052659;
+  letter-spacing: -0.2px;
   line-height: 1.35;
-  letter-spacing: -0.3px;
 }
 .goal-timeline-desc {
-  margin: 2px 0 0;
+  margin: 6px 0 0;
   font-size: 13.5px;
   color: #536b85;
-  line-height: 1.6;
-}
-.goal-timeline-summary-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 14px;
-  border-radius: 99px;
-  background: #f0f7ff;
-  border: 1px solid #cddfee;
-  color: #052659;
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
+  line-height: 1.5;
 }
 
-/* Milestone Nodes / Cards */
-.goal-timeline-node {
-  position: relative;
+/* Milestones Row */
+.goal-timeline-milestones-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.goal-milestone-col {
   display: flex;
   flex-direction: column;
-  border: 1px solid #e1ecf6;
-  border-radius: 14px;
-  background: #fbfdff;
-  padding: 22px 20px !important;
   min-width: 0;
-  border-top: 3px solid #8caace !important;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-  list-style: none;
-}
-.goal-timeline-node::before {
-  display: none !important; /* Hide old raw 10px dot */
-}
-.goal-timeline-node:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(5, 38, 89, 0.06);
-  border-color: #9cc0e6;
+  position: relative;
 }
 
-/* Specific Milestone Highlights */
-.goal-timeline-node.node-start {
-  border-top-color: #64748b !important;
-}
-.goal-timeline-node.node-target.is-hero {
-  border-top-color: #225eaa !important;
-  border-color: #225eaa;
-  background: linear-gradient(180deg, #f0f6ff 0%, #ffffff 100%);
-  box-shadow: 0 4px 14px rgba(34, 94, 170, 0.1);
-}
-.goal-timeline-node.node-end {
-  border-top-color: #475569 !important;
+/* Track Head (Dot + Connector Line + Phase Pill) */
+.goal-milestone-track-head {
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 32px;
+  margin-bottom: 16px;
 }
 
-/* Node Top Bar */
-.goal-timeline-node-top {
+/* Milestone Dots */
+.goal-milestone-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #5483b3;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px #c1e8ff;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.milestone-start .goal-milestone-dot {
+  background: #052659;
+  box-shadow: 0 0 0 2px #d0e4fe;
+}
+
+/* The Core Goal Node - Distinct Hero */
+.milestone-target.is-hero .goal-milestone-dot {
+  width: 22px;
+  height: 22px;
+  background: #334daf;
+  border: 3.5px solid #ffffff;
+  box-shadow: 0 0 0 2.5px #334daf, 0 3px 8px rgba(51, 77, 175, 0.3);
+  margin-left: -3px;
+}
+
+.milestone-end .goal-milestone-dot {
+  background: #7096d1;
+  box-shadow: 0 0 0 2px #e2edf7;
+}
+
+/* Connector Line & Phase Pill */
+.goal-milestone-connector {
+  position: absolute;
+  left: 20px;
+  right: -28px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.milestone-target.is-hero .goal-milestone-connector {
+  left: 24px;
+}
+
+.goal-connector-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #d0e4fe;
+  z-index: 1;
+}
+
+.line-accum {
+  background: linear-gradient(90deg, #93c5fd 0%, #334daf 100%);
+}
+
+.line-spend {
+  background: linear-gradient(90deg, #334daf 0%, #cbd5e1 100%);
+}
+
+.goal-connector-pill {
+  position: relative;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 99px;
+  white-space: nowrap;
+  letter-spacing: 0.1px;
+}
+
+.pill-accum {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.pill-spend {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+
+/* Milestone Content */
+.goal-milestone-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.goal-milestone-label {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-.goal-timeline-step-badge {
-  display: inline-grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: #e6f0fa;
-  color: #173d68;
-  font-size: 11px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.node-target.is-hero .goal-timeline-step-badge {
-  background: #225eaa;
-  color: #ffffff;
-}
-.goal-timeline-label {
   font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.6px;
-  color: #456b91;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
+  color: #5483b3;
+  margin-bottom: 8px;
 }
-.goal-timeline-label button {
+.goal-milestone-label button {
   font: inherit;
   color: inherit;
   letter-spacing: inherit;
 }
-.node-target.is-hero .goal-timeline-label {
-  color: #173d68;
-}
-.goal-timeline-hero-tag {
-  margin-left: auto;
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 4px;
-  background: #e0edfc;
-  color: #1d4ed8;
-  letter-spacing: 0.2px;
+.milestone-target.is-hero .goal-milestone-label {
+  color: #052659;
 }
 
-/* Date & Age Badge */
-.goal-timeline-date-wrap {
+.goal-hero-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #e8f2fe;
+  color: #1e40af;
+}
+
+/* Date and Age Row */
+.goal-milestone-date-wrap {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
   flex-wrap: wrap;
+  margin-bottom: 8px;
 }
-.goal-timeline-date {
+
+.goal-milestone-date {
   font-size: 26px;
   font-weight: 700;
-  line-height: 1.2;
   color: #052659;
   letter-spacing: -0.5px;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
   margin: 0 !important;
 }
-.node-target.is-hero .goal-timeline-date {
-  color: #1d4ed8;
+
+.milestone-target.is-hero .goal-milestone-date {
+  color: #334daf;
   font-weight: 800;
 }
-.goal-timeline-age-badge {
+
+.goal-milestone-age {
   display: inline-flex;
   align-items: center;
-  padding: 3px 9px;
-  border-radius: 99px;
-  background: #eef4fb;
-  color: #1e3a5f;
   font-size: 12px;
   font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 99px;
   line-height: 1.4;
 }
-.node-target.is-hero .goal-timeline-age-badge {
-  background: #dbeafe;
+
+.goal-milestone-age.is-hero {
+  background: #e0edfc;
   color: #1e40af;
   font-weight: 700;
 }
 
-/* Meta / Note */
-.goal-timeline-node-meta {
-  margin-top: auto;
-  padding-top: 10px;
-  border-top: 1px dashed #e2edf7;
+/* Supporting Note */
+.goal-milestone-note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #64748b;
 }
-.goal-timeline-note {
-  display: block;
-  font-size: 12px;
-  line-height: 1.6;
-  color: #536779;
+
+.milestone-target.is-hero .goal-milestone-note {
+  color: #334daf;
 }
-.node-target.is-hero .goal-timeline-note {
-  color: #225eaa;
-  font-weight: 500;
-}
+
 .goal-timeline-dialog .modal-body > p { color: #536b85; margin: 0 0 18px; line-height: 1.8; }
 .goal-timeline-dialog footer { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; margin-top: 24px; }
-@media(max-width: 900px) {
-  .goal-timeline-card-header {
-    flex-direction: column;
-    align-items: flex-start;
+
+@media (max-width: 768px) {
+  .goal-timeline-milestones-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    position: relative;
+    padding-left: 32px;
+  }
+  .goal-timeline-milestones-row::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 14px;
+    bottom: 30px;
+    width: 2px;
+    background: linear-gradient(180deg, #93c5fd 0%, #334daf 50%, #cbd5e1 100%);
+  }
+  .goal-milestone-col {
+    padding-bottom: 24px;
+  }
+  .goal-milestone-track-head {
+    position: static;
+    height: auto;
+    margin-bottom: 0;
+  }
+  .goal-milestone-dot {
+    position: absolute;
+    left: 0;
+    top: 4px;
+  }
+  .milestone-target.is-hero .goal-milestone-dot {
+    left: -3px;
+    top: 2px;
+  }
+  .goal-milestone-connector {
+    display: none;
+  }
+  .goal-milestone-content {
+    padding-left: 0;
   }
 }
-@media(max-width: 720px) {
+
+@media (max-width: 720px) {
   .goal-page-header h1 { font-size: 28px; }
   .goal-main-form, .goal-other-goals { padding: 22px 16px; }
   .goal-inputs-grid { grid-template-columns: minmax(0, 1fr); }
   .goal-sync-timeline {
-    grid-template-columns: minmax(0, 1fr) !important;
-    padding: 22px 18px 20px;
-    gap: 16px;
+    padding: 22px 18px 24px;
   }
-  .goal-timeline-date { font-size: 22px; }
+  .goal-milestone-date { font-size: 22px; }
   .goal-main-form input:not([type=checkbox]), .goal-main-form select { font-size: 16px; }
   .goal-form-footer .overview-button { flex: 1 1 auto; }
 }

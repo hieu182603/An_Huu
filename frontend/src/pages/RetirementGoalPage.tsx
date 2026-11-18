@@ -174,6 +174,16 @@ function GoalForm({ data }: { data: ProfileV2 }) {
       : null;
     const spendYears = spendMonths !== null && spendMonths > 0 ? Math.floor(spendMonths / 12) : null;
 
+    const getAgeAt = (d: string | undefined) => {
+      if (!d || !form.birth || d.length < 7 || form.birth.length < 7) return null;
+      return Math.floor(
+        (Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7)) - Number(form.birth.slice(0, 4)) * 12 - Number(form.birth.slice(5, 7))) / 12
+      );
+    };
+    const startAge = getAgeAt(data.valuationDate.slice(0, 7));
+    const targetAge = getAgeAt(form.retirement);
+    const endAge = getAgeAt(prepareMonth);
+
     return <div className="goal-page-wrapper remaining-user-page goal-sync-page">
     <header className="goal-page-header"><h1><Explain term="retirementGoal">{t("Mục tiêu nghỉ hưu", "Retirement goals")}</Explain></h1><p>{t("Chọn mốc thời gian, mức sống và thời gian cần chuẩn bị quỹ.", "Choose your timeline, spending and preparation horizon.")}</p></header>
     <form onSubmit={save} className="remaining-form remaining-card goal-main-form">
@@ -205,76 +215,89 @@ function GoalForm({ data }: { data: ProfileV2 }) {
     </form>
     <section className="remaining-card goal-other-goals"><h2>{t("Mục tiêu lớn khác", "Other major goals")}</h2>{data.goals?.status === "KNOWN" ? data.goals.entries.length ? <ul>{data.goals.entries.map(g => <li key={g.id}><strong>{g.label}</strong><span>{financeMoney(g.amountToday.status === "KNOWN" ? g.amountToday.value : null, en)} · {g.dueMonth.status === "KNOWN" ? formatMonthVN(g.dueMonth.value) : t("Chưa có kỳ hạn", "No due month")}</span></li>)}</ul> : <p>{t("Chưa có mục tiêu lớn khác (mua nhà, xe, quỹ học vấn...)", "No other goals declared.")}</p> : data.goals?.status === "NOT_APPLICABLE" ? <p>{t("Chưa có mục tiêu lớn khác (mua nhà, xe, quỹ học vấn...)", "No other goals confirmed.")}</p> : <p>{t("Mục tiêu khác chưa được xác nhận.", "Other goals have not been confirmed.")}</p>}<Link className="overview-button secondary" to="/user/profile?section=constraints">{t("Xem & chỉnh sửa mục tiêu khác →", "Review other goals →")}</Link></section>
     <ol className="remaining-card goal-sync-timeline life-timeline" aria-label={t("Lộ trình các mốc thời gian", "Planning milestones timeline")}>
-      <li className="goal-timeline-card-header">
-        <div className="goal-timeline-header-copy">
-          <span className="goal-timeline-eyebrow">{t("LỘ TRÌNH KẾ HOẠCH", "PLANNING ROADMAP")}</span>
-          <h2 className="goal-timeline-title">{t("Các mốc thời gian cốt lõi", "Key planning milestones")}</h2>
-          <p className="goal-timeline-desc">
-            {t("Tổng quan 3 mốc định hình dòng tiền tích lũy và thời gian chuẩn bị quỹ hưu trí của bạn.", "Overview of the three key milestones shaping your accumulation cashflows and retirement fund horizon.")}
-          </p>
-        </div>
-        {(accumYears || spendYears) ? (
-          <div className="goal-timeline-summary-badge">
-            {accumYears ? `${accumYears} ${t("năm tích lũy", "years saving")}` : ""}
-            {accumYears && spendYears ? " · " : ""}
-            {spendYears ? `${spendYears} ${t("năm an hưởng", "years retired")}` : ""}
-          </div>
-        ) : null}
+      <li className="goal-timeline-header">
+        <h2 className="goal-timeline-title">{t("Các mốc thời gian cốt lõi", "Key planning milestones")}</h2>
+        <p className="goal-timeline-desc">
+          {t("Tổng quan 3 mốc định hình dòng tiền tích lũy và thời gian chuẩn bị quỹ hưu trí của bạn.", "Overview of the three key milestones shaping your accumulation cashflows and retirement fund horizon.")}
+        </p>
       </li>
 
-      {([
-        [t("BẮT ĐẦU TÍNH", "VALUATION"), data.valuationDate.slice(0, 7), undefined, "start"],
-        [t("NGHỈ HƯU MONG MUỐN", "DESIRED RETIREMENT"), form.retirement, "retirementAge", "target"],
-        [t("CHUẨN BỊ ĐẾN", "PREPARE THROUGH"), prepareMonth, "projectionEnd", "end"],
-      ] as Array<[string, string, string | undefined, string]>).map(([label, date, term, role], idx) => {
-        const age = date && form.birth
-          ? Math.floor((Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - Number(form.birth.slice(0, 4)) * 12 - Number(form.birth.slice(5, 7))) / 12)
-          : null;
-        const isHero = role === "target";
-        const stepNum = `0${idx + 1}`;
-
-        return (
-          <li key={label} className={`goal-timeline-node node-${role}${isHero ? " is-hero" : ""}`}>
-            <div className="goal-timeline-node-top">
-              <span className="goal-timeline-step-badge">{stepNum}</span>
-              <span className="goal-timeline-label">
-                {term ? <Explain term={term}>{label}</Explain> : label}
+      <li className="goal-timeline-milestones-row">
+        {/* Milestone 1: Start */}
+        <div className="goal-milestone-col milestone-start">
+          <div className="goal-milestone-track-head">
+            <span className="goal-milestone-dot" />
+            <div className="goal-milestone-connector">
+              <span className="goal-connector-line line-accum" />
+              <span className="goal-connector-pill pill-accum">
+                {accumYears ? `${accumYears} ${t("năm tích lũy", "years saving")}` : t("Giai đoạn tích lũy", "Accumulation phase")}
               </span>
-              {isHero && <span className="goal-timeline-hero-tag">{t("★ Mục tiêu", "★ Core Goal")}</span>}
             </div>
+          </div>
+          <div className="goal-milestone-content">
+            <span className="goal-milestone-label">{t("BẮT ĐẦU TÍNH", "VALUATION")}</span>
+            <div className="goal-milestone-date-wrap">
+              <strong className="goal-milestone-date">{data.valuationDate.slice(0, 7) ? formatMonthVN(data.valuationDate.slice(0, 7)) : ""}</strong>
+              {startAge !== null && (
+                <span className="goal-milestone-age">{startAge} {t("tuổi", "years old")}</span>
+              )}
+            </div>
+            <p className="goal-milestone-note">{t("Thời điểm định giá tài sản & bắt đầu lộ trình", "Asset valuation & plan starting point")}</p>
+          </div>
+        </div>
 
-            <div className="goal-timeline-date-wrap">
-              <strong className="goal-timeline-date">{date ? formatMonthVN(date) : t("Chưa xác định", "Undetermined")}</strong>
-              {age !== null && (
-                <span className="goal-timeline-age-badge">
-                  {age} {t("tuổi", "years old")}
-                </span>
+        {/* Milestone 2: Retirement Target */}
+        <div className="goal-milestone-col milestone-target is-hero">
+          <div className="goal-milestone-track-head">
+            <span className="goal-milestone-dot" />
+            <div className="goal-milestone-connector">
+              <span className="goal-connector-line line-spend" />
+              <span className="goal-connector-pill pill-spend">
+                {spendYears ? `${spendYears} ${t("năm an hưởng", "years retired")}` : t("Giai đoạn an hưởng", "Retirement phase")}
+              </span>
+            </div>
+          </div>
+          <div className="goal-milestone-content">
+            <span className="goal-milestone-label">
+              <Explain term="retirementAge">{t("NGHỈ HƯU MONG MUỐN", "DESIRED RETIREMENT")}</Explain>
+              <span className="goal-hero-badge">{t("Mục tiêu hưu trí", "Retirement Goal")}</span>
+            </span>
+            <div className="goal-milestone-date-wrap">
+              <strong className="goal-milestone-date">{form.retirement ? formatMonthVN(form.retirement) : t("Chưa xác định", "Undetermined")}</strong>
+              {targetAge !== null && (
+                <span className="goal-milestone-age is-hero">{targetAge} {t("tuổi", "years old")}</span>
               )}
             </div>
+            <p className="goal-milestone-note">
+              {accumYears
+                ? t(`Sau ${accumYears} năm tích lũy · Bắt đầu chi dùng quỹ`, `After ${accumYears} years saving · Fund spending begins`)
+                : t("Bắt đầu bước vào giai đoạn an hưởng", "Retirement begins")}
+            </p>
+          </div>
+        </div>
 
-            <div className="goal-timeline-node-meta">
-              {role === "start" && (
-                <small className="goal-timeline-note">
-                  {t("Thời điểm định giá tài sản & bắt đầu lộ trình", "Asset valuation & plan starting point")}
-                </small>
-              )}
-              {role === "target" && (
-                <small className="goal-timeline-note">
-                  {accumYears
-                    ? t(`Sau ${accumYears} năm tích lũy · Bắt đầu chi dùng quỹ`, `After ${accumYears} years saving · Fund spending begins`)
-                    : t("Bắt đầu bước vào giai đoạn an hưởng", "Retirement begins")}
-                </small>
-              )}
-              {role === "end" && (
-                <small className="goal-timeline-note">
-                  {spendYears ? `${spendYears} ${t("năm an hưởng", "years retired")} · ` : ""}
-                  {t("Dự tính chi tiêu đến hết tháng", "Spending modeled through")} {formatMonthVN(form.end)}
-                </small>
+        {/* Milestone 3: End Horizon */}
+        <div className="goal-milestone-col milestone-end">
+          <div className="goal-milestone-track-head">
+            <span className="goal-milestone-dot" />
+          </div>
+          <div className="goal-milestone-content">
+            <span className="goal-milestone-label">
+              <Explain term="projectionEnd">{t("CHUẨN BỊ ĐẾN", "PREPARE THROUGH")}</Explain>
+            </span>
+            <div className="goal-milestone-date-wrap">
+              <strong className="goal-milestone-date">{prepareMonth ? formatMonthVN(prepareMonth) : t("Chưa xác định", "Undetermined")}</strong>
+              {endAge !== null && (
+                <span className="goal-milestone-age">{endAge} {t("tuổi", "years old")}</span>
               )}
             </div>
-          </li>
-        );
-      })}
+            <p className="goal-milestone-note">
+              {spendYears ? `${spendYears} ${t("năm an hưởng", "years retired")} · ` : ""}
+              {t("Dự tính chi tiêu đến hết tháng", "Spending modeled through")} {formatMonthVN(form.end)}
+            </p>
+          </div>
+        </div>
+      </li>
     </ol>
     <ResponsiveDialog open={popup !== null} title={popup === "discard" ? t("Bỏ thay đổi chưa lưu?", "Discard unsaved changes?") : t("Mốc thời gian trong kế hoạch", "Planning dates")} className="user-workspace-dialog goal-timeline-dialog" onClose={() => { if (!busy) setPopup(null); }}>
       {popup === "discard" ? <><p>{t("Các thay đổi chưa lưu sẽ được bỏ khi quay lại Tổng quan.", "Unsaved edits will be discarded when returning to Overview.")}</p><footer><button type="button" className="overview-button secondary" onClick={() => setPopup(null)}>{t("Tiếp tục sửa", "Keep editing")}</button><button type="button" className="overview-button primary" onClick={() => navigate("/user/dashboard")}>{t("Bỏ thay đổi", "Discard changes")}</button></footer></> : <><p>{t("Hồ sơ lưu tháng sinh và tháng nghỉ hưu, không tự tạo ngày sinh cụ thể. Chọn tuổi dùng tháng sinh ở tuổi đó; bạn có thể chỉnh chính xác tháng nghỉ hưu trong mục mở rộng.", "The profile stores birth and retirement months without inventing a birth day. Choosing an age uses that birth month; the exact retirement month is editable in the expanded section.")}</p><p>{t("Mô hình tính đến hết tháng kết thúc đã chọn. Đây là khoảng thời gian dự phóng, không phải cam kết quỹ đủ chi tiêu hay dự đoán tuổi thọ.", "The model runs through the selected end month. This is a projection horizon, not a guarantee of sufficient funding or a life-expectancy prediction.")}</p><p>{t("Thời điểm nhận lương hưu BHXH được khai riêng tại Tài chính → BHXH và có thể khác tháng nghỉ làm.", "State pension start is declared separately under Finances → Pension and can differ from your retirement month.")}</p><p>{t("Lưu mục tiêu cập nhật hồ sơ và bản nháp để xem kết quả mới. Dùng làm kế hoạch chính cần được xác nhận tại trang Kế hoạch.", "Saving updates your profile and draft for a new preview. Applying a main plan requires confirmation on the Plan page.")}</p><footer><button type="button" className="overview-button primary" onClick={() => setPopup(null)}>{t("Đã hiểu", "Got it")}</button></footer></>}
