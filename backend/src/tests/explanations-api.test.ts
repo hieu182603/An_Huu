@@ -14,6 +14,7 @@ import { projectRetirement as legacyProjection } from "../modules/retirement/eng
 import { plansFixture } from "./plans-fixtures";
 import { retirementProfile } from "./retirement-fixtures";
 import { config, token } from "./helpers";
+import { forgetVerifiedSnapshots } from "../modules/plans/service";
 
 const root = "/api/v1/me/explanations";
 const metricKey = "summary.atRetirement.projectedFund";
@@ -94,6 +95,7 @@ describe("deterministic explanations trust boundaries", () => {
   it("uses PlansService integrity validation for saved explanations", async () => {
     const f = await fixture(), saved = await f.create();
     f.rows("planVersion")[0].result.summary.atRetirement.projectedFund = "999999";
+    forgetVerifiedSnapshots();
     await expect(f.explanations.metric(f.owner, { metricKey,
       source: { kind: "PLAN_VERSION", planId: saved.planId, versionId: saved.saved.id } }))
       .rejects.toMatchObject({ status: 409, code: "SNAPSHOT_INTEGRITY_FAILED" });

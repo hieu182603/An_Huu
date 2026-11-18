@@ -39,6 +39,13 @@ const modelRelease = { code: RETIREMENT_MODEL, snapshotFormat: SNAPSHOT_FORMAT, 
   withdrawalTiming: "END_OF_MONTH", businessParameters: "SEPARATELY_APPROVED_T03_T04" };
 const sourceModelRelease = { ...modelRelease, code: SOURCE_MODEL, snapshotFormat: SOURCE_SNAPSHOT_FORMAT, sources: "PINNED_REGISTRY_V1", numericalKernel: RETIREMENT_MODEL };
 
+const verifiedSnapshots = new Set<string>(), VERIFIED_LIMIT = 500;
+const verifiedKey = (row: PlanVersion, integrityHash: string) =>
+  [row.id, integrityHash, row.profileRevision, row.assumptionVersionId, row.asOfDate.toISOString()].join("|");
+function rememberVerified(key: string) {
+  verifiedSnapshots.delete(key); verifiedSnapshots.add(key);
+  while (verifiedSnapshots.size > VERIFIED_LIMIT) verifiedSnapshots.delete(verifiedSnapshots.values().next().value!);
+}
 export class PlansService {
   constructor(private db: PrismaClient) {}
   private async owned(tx: Prisma.TransactionClient, userId: string, id: string) {
@@ -54,11 +61,19 @@ export class PlansService {
     if ((stored.preview.replayInput?.modelVersion ?? "retirement-monthly-v2") !== stored.preview.modelVersion)
       throw new AppError(409, "SNAPSHOT_INTEGRITY_FAILED", "Mô hình tính lại không khớp phiên bản.");
     const { integrityHash, ...payload } = stored;
-    if (digest(payload) !== integrityHash || stored.preview.status !== "READY" || !stored.preview.calculation || !stored.preview.replayInput ||
-      digest(row.result) !== digest(stored.preview.calculation) || digest(row.chartSeries) !== digest(stored.preview.calculation.rows) ||
+    if (stored.preview.status !== "READY" || !stored.preview.calculation || !stored.preview.replayInput ||
       row.profileRevision !== stored.preview.profileRevision || row.assumptionVersionId !== stored.preview.references.assumptionVersionId ||
       row.asOfDate.toISOString().slice(0, 10) !== stored.preview.valuationDate)
       throw new AppError(409, "SNAPSHOT_INTEGRITY_FAILED", "Dữ liệu phiên bản không còn khớp bản đã lưu.");
+    // The digests below hash ~3 MB per long plan. Versions are immutable, so one
+    // verification per (row, integrityHash) per process is kept (owner decision 17/11/2026:
+    // a direct DB edit after the first check is detected only after a restart).
+    const key = verifiedKey(row, integrityHash);
+    if (verifiedSnapshots.has(key)) return stored;
+    if (digest(payload) !== integrityHash ||
+      digest(row.result) !== digest(stored.preview.calculation) || digest(row.chartSeries) !== digest(stored.preview.calculation.rows))
+      throw new AppError(409, "SNAPSHOT_INTEGRITY_FAILED", "Dữ liệu phiên bản không còn khớp bản đã lưu.");
+    rememberVerified(key);
     return stored;
   }
   private view(row: PlanVersion) {
@@ -145,6 +160,8 @@ export class PlansService {
       const changed = await tx.retirementPlan.updateMany({ where: { id: plan.id, userId, revision: expectedRevision }, data: { revision: { increment: 1 } } });
       if (changed.count !== 1) throw conflict();
       await audit(tx, userId, "PLAN_VERSION_CREATED", "RETIREMENT_PLAN", plan.id, { versionId: version.id, snapshotHash: snapshot.integrityHash });
+      // Stored from exactly these objects a moment ago; re-hashing them proves nothing new.
+      rememberVerified(verifiedKey(version, snapshot.integrityHash));
       return { planId: plan.id, revision: expectedRevision + 1, currentVersionId: plan.currentVersionId,
         baselineVersionId: plan.baselineVersionId, saved: this.view(version) };
   }
@@ -315,3 +332,5 @@ export class PlansService {
     });
   }
 }
+/** Forget every verified version, as a process restart would (tests and operators). */
+export function forgetVerifiedSnapshots() { verifiedSnapshots.clear(); }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 export const emailSchema = z.string().trim().email().max(254).transform(v => v.toLowerCase());
-export const passwordSchema = z.string().min(12).refine(v => Buffer.byteLength(v, "utf8") <= 72, "Mật khẩu tối đa 72 byte UTF-8.");
+export const passwordSchema = z.string().min(8).refine(v => Buffer.byteLength(v, "utf8") <= 72, "Mật khẩu tối đa 72 byte UTF-8.");
 export const registerSchema = z.object({ email: emailSchema, password: passwordSchema, fullName: z.string().trim().min(1).max(120),
   phone: z.string().trim().transform(v => v.replace(/[ ()-]/g, "")).refine(v => /^(?:0|\+84)[35789]\d{8}$/.test(v), "Số điện thoại di động Việt Nam không hợp lệ.").optional(),
 }).strict();

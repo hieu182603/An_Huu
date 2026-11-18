@@ -1,3 +1,4 @@
+import { availableParallelism } from "node:os";
 import { RecommendationService } from "./recommendation/service";
 import { HoldingsRepository } from "./holdings/repository";
 import type { PrismaClient } from "@prisma/client";
@@ -35,9 +36,11 @@ import { ExplanationsService } from "./explanations/service";
 export function createServices(db: PrismaClient, config: AppConfig) {
   setTransactionTimeout(config.DB_TRANSACTION_TIMEOUT_MS);
   const settings = new SystemSettingsService(db);
-  // Two workers even on a single vCPU (Azure B1): a plain preview then runs beside a long
-  // adjustment search instead of queueing behind it. Override with PREVIEW_WORKERS.
-  const previewWorkers = config.PREVIEW_WORKERS ?? (config.NODE_ENV === "test" ? 0 : 2);
+  // Leave one core to the request thread: on a single vCPU (Azure B1) two busy workers
+  // starved the event loop (eventloop.blocked 2-3.7 s). Searches use at most this many
+  // workers; plain previews may start one more on demand so they never wait for a
+  // 30-90 s search (preview-pool.ts). Override with PREVIEW_WORKERS.
+  const previewWorkers = config.PREVIEW_WORKERS ?? (config.NODE_ENV === "test" ? 0 : Math.max(1, Math.min(2, availableParallelism() - 1)));
   const previewPool = previewWorkers > 0 ? createPreviewPool({ size: previewWorkers, timeoutMs: config.PREVIEW_TIMEOUT_MS }) : undefined;
   return {
     previewPool,

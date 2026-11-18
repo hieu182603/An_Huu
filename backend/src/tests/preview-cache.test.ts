@@ -67,12 +67,16 @@ describe("preview pool warm-up", () => {
   it("lets a plain preview overtake queued adjustment searches", async () => {
     const pool = createPreviewPool({ size: 1, timeoutMs: 60_000 }); pools.push(pool);
     const f = await plansFixture(), capture = await f.retirement.capture(f.db, f.owner, f.command.preview), input = f.command.preview;
+    // Start the regular and the plain-only worker first, so cold start-up does not decide the order.
+    await Promise.all([pool.run(capture, input, { adjustments: false }), pool.run(capture, input, { adjustments: false })]);
     const order: string[] = [];
     const track = (name: string, p: Promise<unknown>) => p.then(() => { order.push(name); });
     const running = track("search-1", pool.run(capture, input, { adjustments: true }));
     const queuedSearch = track("search-2", pool.run(capture, input, { adjustments: true }));
     const plain = track("plain", pool.run(capture, input, { adjustments: false }));
     await Promise.all([running, queuedSearch, plain]);
-    expect(order).toEqual(["search-1", "plain", "search-2"]);
+    // The plain preview runs on the plain-only worker instead of waiting for search-1.
+    expect(order.indexOf("plain")).toBeLessThan(order.indexOf("search-2"));
+    expect(order.indexOf("search-1")).toBeLessThan(order.indexOf("search-2"));
   }, 120_000);
 });
