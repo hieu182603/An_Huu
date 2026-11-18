@@ -1613,3 +1613,101 @@ Backend đổi `AI_POLICY_VERSION` thành `ai-explanation-gemini-2026-11-v3`. `P
 6. **Cảnh báo trả nợ < lãi — đã làm** trong `DebtLoanDialog` (khoản trả hằng tháng, có lãi suất minh họa).
 
 Kiểm: backend 1213/1213, typecheck backend/frontend, frontend assets 109/109, browser Sản phẩm 17/17 + 3 ca mới (`user-products-tools-extra.spec.ts`). Chưa apply migration lên DB thật, chưa commit.
+
+## FE-SLOW-LOAD-20261117 — trang hiện "Đang tính…" lâu sau khi đăng nhập (ĐÃ LÀM phần frontend, chờ đo lại trên B1)
+Khách báo vào các trang phải đợi mới hiện số. Đã đo (17/11/2026): hồ sơ nhỏ, server tính nhẹ (nợ vài chục ms, phân bổ 100–400 ms, Monte Carlo ~108 ms), mỗi request ~0,3 s. Nghi vấn chính là request nối đuôi ở frontend, không phải file hồ sơ nặng.
+1. `FinancialProfileContext.tsx:241`: giữ gọi song song hồ sơ + nháp; ngay khi có `profileRevision` thì prefetch API từng trang (nợ, tài sản, dòng tiền) thay vì đợi trang mount.
+2. `DebtAnalysisPage.tsx:38`: bỏ `skipCache: true` khi không có xung đột revision; dùng cache theo revision (`apiGetCache` trong `services/api.ts`). Nếu giữ thì phải lý giải được bằng số đo.
+3. Thay chữ "Đang tính…" (`DebtAnalysisPage.tsx:82`, `AllocationWorkspace.tsx:112`) bằng skeleton; hiện số cũ trong cache trong lúc làm mới.
+4. Backend đã có `Server-Timing` (`total;dur=`) trên mọi `/me/financial-profile/*`, `/me/retirement/*`; dùng tab Network đo trước/sau.
+Kiểm: waterfall sau đăng nhập không còn request nối đuôi không cần thiết; số hiện trong ≤1 s trên mạng bình thường.
+
+Tiến độ (17/11/2026, chỉ `frontend/`, chưa commit):
+- [x] C1 `FinancialProfileContext.tsx`: vẫn gọi song song hồ sơ + nháp; có hồ sơ v2 thì prefetch `/me/financial-profile/debts` và `/assets` vào cache (`skipCache` chỉ khi người dùng bấm tải lại). Dòng tiền không có GET riêng. `GET /me/retirement/plans` KHÔNG prefetch: `listRetirementPlans` luôn đọc `skipCache` và `RetirementPlanContext` đã tải song song từ provider, prefetch chỉ thêm 1 request thừa.
+- [x] C2 `DebtAnalysisPage.tsx`, `FinancialAssetsPage.tsx`: `skipCache: attempt > 0` — lần đầu dùng cache/in-flight; bấm Thử lại vẫn bỏ cache; lệch revision vẫn báo lỗi như cũ. Ghi hồ sơ đã xoá cache `/me/financial-profile/*` qua `cacheInvalidationScope`.
+- [x] C3 Preview: `usePlanSynchronization` debounce 400 ms + `AbortController` huỷ request cũ; so sánh phương án ở `RetirementPlanPage` debounce 400 ms; `RetirementPlanContext.runPreview` huỷ preview trước khi gửi preview mới. `RetirementGoalPage` không gọi preview trực tiếp (đi qua đồng bộ kế hoạch).
+- [x] C4 Trang Nợ: skeleton thay chữ "Đang tính khoản nợ…", giữ báo cáo cũ trong lúc tải revision mới. Phân bổ: skeleton khi chưa có số; khi làm mới giữ số cũ (`useDiscoveryQuery` trả thêm `previous`) và khoá nút áp dụng tới khi có số mới.
+- [x] C5 `preloadRoute` đã được gọi sau đăng nhập (`AuthPages.tsx:205`), khi mở thẳng URL (`main.tsx`) và trong `FinancialProfileGate`; không cần sửa.
+- [ ] Đo lại waterfall/Server-Timing trên B1 sau khi deploy.
+
+## FE-CUSTOMER-20261118 — Khảo sát khởi tạo & Khả năng chịu rủi ro (phản hồi khách)
+
+1. **Ô "Tỷ lệ lỗ tối đa trên vốn đầu tư dài hạn (%)" bị mất trên desktop** — ô vẫn render nhưng không có CSS (viền 0, nền trong suốt) nên chỉ thấy nhãn; mobile hiển thị được do trình duyệt tự vẽ khung. Sửa: bọc `qo-unit-input` + hậu tố `%`, thêm style `.qo-loss-percent-field` (`QuickOnboarding.tsx`, `quick-onboarding.css`). Trang rủi ro: ô "Mức giảm tối đa có thể chấp nhận (%)" vốn nhập/lưu được; lưới 3 cột/2 cột chuyển sang class `.risk-reaction-grid`/`.risk-loss-grid`, về 1 cột ≤720px.
+2. **6 câu "Đánh giá mức phù hợp đầu tư"** (`RiskPortfolioPage.tsx`, `risk-portfolio.css`): dropdown → thẻ radio đánh số, thẻ chọn tô viền, nhãn choice tách "tiêu đề, mô tả" theo dấu phẩy đầu, tiến độ "x/6 câu đã trả lời". Giữ nguyên question/choice id và cách lưu. `fieldset[data-policy-question]` có `data-answer`; test e2e (`survey-demo-parity`, `customer-retirement-feedback`) đã đổi `selectOption` → check radio.
+3. **"Thặng dư"**: policy đã PUBLISHED không sửa; nhãn thay thế ở `src/services/policyQuestionLabels.ts` (`Q_FINANCIAL_CAPACITY` → "Dòng tiền dư hàng tháng sau khi trừ các khoản chi tiêu", chỉ tiếng Việt). Đổi thêm: `vi.ts` `dashboard.cashflow.surplus_sub`, 3 nhãn trong `simulation/ActualsTab.tsx`. Chưa đổi: "Thặng dư tích lũy" ở `ProjectionWealthChart.tsx` (vùng trang kế hoạch, khái niệm khác).
+
+Kiểm: `typecheck` sạch, `test:assets` 126/126; ảnh 1280/390px ở `artifacts/fe-customer-20261118/`. Chưa chạy lại toàn bộ e2e Playwright (cần fixture backend).
+
+### FE-CUSTOMER-20261118 — Phân bổ tài sản & thẻ "Tài sản & dự phòng" (phiên phân bổ)
+
+- **Thứ tự bước**: ô "Chi phí cần thiết mỗi tháng hiện nay" chuyển sang bước 1, ngay trước câu hỏi số tháng dự phòng; bước 2 chỉ còn chi nghỉ hưu. `AllocationSpendingInputs` có prop `only` và chỉ kiểm tra ô đang hiện/đã đổi.
+- **Tổng vốn tự tính**: khi chọn "Tổng vốn đầu tư (gồm cả dự phòng)", ô được điền sẵn = `retirementLiquidAssets + declaredEmergencyReserve + declaredOtherGoalsCapital` (đúng công thức server dùng cho basis PROFILE trong `capital/separation.ts`), cộng bằng `Decimal`; công thức hiện dưới ô, vẫn sửa được, có nút "Dùng số tự tính".
+- **Gộp quỹ**: thẻ Tài chính và khối bước 1 hiển thị "Quỹ dành cho hưu trí (đã bao gồm quỹ dự phòng)" = hưu trí + dự phòng (Decimal), chi tiết 2 khoản bên dưới.
+- **Giải thích**: 4 dòng của khối "Mỗi khoản tiền, một vai trò" có nút "i" mở hộp giải thích kèm phép tính bằng số thật. Dòng cuối khi `growthCapital` âm: nhãn "Còn thiếu để giữ đủ dự phòng và mục tiêu gần hạn", hiện **số dương** và một câu giải thích.
+- **Tự điều chỉnh tỷ trọng**: không phải lỗi giao diện. Ô % chỉ hiện khi policy PUBLISHED có `data.customization` (schemaVersion 2, `path: FOLLOW_TEMPLATE_SHIFTS`, `capitalBasis: PROTECTED_CAPITAL_V1`, `bounds` cho mọi lớp tài sản mà template dùng, kèm `lossStress`) — `published-policy-v2` và cả bản nháp `draft-policy-v4` đều chưa có. Thông báo "Chưa có bộ dữ liệu thị trường tháng" là vì không có bộ market data tổng lợi suất tháng đã PUBLISHED (`allocation-risk/service.ts` → `PUBLISHED_MONTHLY_TOTAL_RETURN_DATA_REQUIRED`). **Cần admin**: (1) thêm `customization.bounds` vào policy rồi công bố; (2) công bố bộ dữ liệu thị trường tháng. Không sửa DB.
+- Kiểm tra: `tsc` sạch; `test:assets` 126/126; Playwright `user-allocation-sync.spec.ts` 31/31 (đã cập nhật test chi tiêu theo bước mới); đã chụp ảnh 1280px/390px.
+
+### FE-CUSTOMER-20261118 — phần phiên chính (kế hoạch, điều hướng, header, mật khẩu)
+- Trang Kế hoạch (`RetirementPlanPage.tsx`): tiêu đề "Để đạt được mục tiêu, còn cần thêm khoảng X/tháng" với X = requiredConstantMonthlyContribution − plannedMonthlyContribution (Decimal). Khi mức đang thử đã đủ: "Mức góp đang thử đã đủ. Mức góp cần chỉ khoảng …". Dòng mô tả thêm "Mức góp cần khoảng …" khi còn thiếu. Spec `user-plan-review` chấp nhận cả 3 cách diễn đạt.
+- Thanh điều hướng dưới mobile lệch trái: `user-readability.css` (và `index.css`) ép `repeat(5,1fr) !important` cho 4 mục → đổi `repeat(4, minmax(0,1fr))`.
+- Header trang chủ ghim: `.mk-header` sticky top 0, z-index 50; `html:has(.mk-header){scroll-padding-top:96px}` để link neo không bị che.
+- Mật khẩu tối thiểu 8 ký tự (khách yêu cầu): backend `auth/schema.ts` min(8) + openapi.yaml 4 chỗ + test `password-policy.test.ts`; frontend `api.ts validPassword`, AuthPages, AccountApiPanels.
+- Phụ: nút ẩn/hiện mật khẩu 40→44px (vùng chạm); 3 spec auth dùng nhãn cũ "Tôi đồng ý" → "Đồng ý điều khoản" (nhãn đổi từ commit 6f1ae41).
+- Kiểm: Playwright plan-review 41/41, survey 20/20, register 9/9 (sau build); xem trực tiếp header ghim và gợi ý mật khẩu trên dev server.
+- Chưa làm: mục "công thức khác bản dùng thử" (cần khách chỉ rõ chỗ lệch); "tự điều chỉnh tỷ trọng" cần admin công bố `customization` trong policy + bộ dữ liệu thị trường tháng.
+
+### FE-ALLOCATION-3STEP-20261118 — trang Phân bổ 3 bước (khách khó chịu "Nếu quỹ giảm…")
+Nguyên nhân bế tắc: vốn dài hạn `null` vì `goals` UNKNOWN (GOALS_REQUIRED) nhưng UI báo "bằng 0 vì chưa đủ tiền"; câu khoản lớn nằm ở bước 3 và ghi "Không bắt buộc"; AllocationGoals không lưu được "không có"; frontend + server chặn lưu khi vốn ≤0/null; `resolveLossTolerance` giấu % đã lưu; `FinancialProfileGate` tháo cả trang mỗi lần tải lại hồ sơ nên wizard về bước 1 sau mỗi lần lưu.
+- Bước 1 "Tiền của bạn": tổng vốn, chi thiết yếu, số tháng dự phòng, câu bắt buộc Có/Không "khoản lớn cần dùng" (`AllocationGoalsQuestion`, "Không có" lưu goals KNOWN rỗng), khối phép trừ Tổng − Dự phòng − Khoản 5 năm = Vốn dài hạn + danh sách việc còn thiếu có nút nhảy tới.
+- Bước 2 "Mức chịu giảm" (`AllocationLossLimit` viết lại): chọn nhanh 5/10/15/20%, ưu tiên %, luôn lưu được %; số tiền tự tính khi vốn dài hạn > 0; nút về bước 1.
+- Bước 3: chi tiêu khi nghỉ hưu + bảng chi thiết yếu + tóm tắt.
+- Khung trái: "Chờ thông tin/Chờ câu trả lời/Cần thêm thông tin" + việc còn thiếu thay cho "Chưa xác định".
+- Backend `saveAllocationRisk`: khi vốn dài hạn chưa có/≤0 cho lưu PERCENT (chỉ percent, không amount); AMOUNT vẫn 422.
+- `FinancialProfileGate` chỉ chặn ở lần tải đầu; `RiskPortfolioPage` giữ policy cũ khi làm mới.
+- Test: allocation-sync 67/67 (thêm ca mô phỏng khách), allocation-workspace backend 10/10, loss-tolerance script.
+- Đối chiếu demo `sites/an-huu-trai-nghiem` (#allocation): tên bước trả về như demo "Tiền có thể đầu tư / Khoản cần bảo vệ / Kiểm tra và tính"; chi tiêu khi nghỉ hưu + bảng chi thiết yếu/dự phòng còn thiếu + mức chịu giảm ở bước 2 như demo; bước 3 chỉ còn tóm tắt có nút Sửa. Khác demo có chủ đích: chi tiêu hiện nay ở bước 1 (khách yêu cầu), câu "khoản lớn cần dùng" bắt buộc ở bước 1 (server cần để tính vốn dài hạn). Trạng thái khảo sát rủi ro hiện ở bước 2.
+
+### FE-ADMIN-ALLOC-PARAMS-20261118 — admin tự điền thông số phân bổ và dữ liệu thị trường theo ngày
+Khách chốt: admin phải tự điền thông số và tỷ trọng; dữ liệu thị trường cập nhật theo ngày; không dùng dữ liệu giả; chỉ tạo/sửa BẢN NHÁP, công bố vẫn là nút riêng có xác nhận.
+- **Chính sách danh mục** (`AdminPortfolioPoliciesPage.tsx` + mới `PortfolioPolicyParamsForm.tsx`, chỉ tài liệu schemaVersion 2):
+  - Thêm ô `allocationRisk.allGoalsThreshold` cạnh `equityShiftPoints`, `essentialThreshold` (các ô cũ vẫn giữ).
+  - "Tỷ trọng danh mục mẫu": từng template → từng mốc `yearsToAnchor` → bảng lớp tài sản/tỷ trọng, hiện tổng (đỏ khi ≠ 100%), thêm/xóa lớp, thêm/xóa mốc.
+  - "Cú sốc thua lỗ" (`lossStress`): căn cứ, lớp cổ phiếu/tiền gửi, bảng mức sốc (−100..0%), nút thêm mọi lớp template đang dùng.
+  - "Cho phép khách tự điều chỉnh" (`customization`): căn cứ, `path=FOLLOW_TEMPLATE_SHIFTS` và `capitalBasis=PROTECTED_CAPITAL_V1` cố định, bảng min/max cho mọi lớp template dùng (tự điền sẵn khi bật).
+  - Kiểm tra phía client bằng số nguyên thu nhỏ (không float): trùng/thiếu lớp, mốc 0 năm, tổng 100%, min ≤ max, Σmin ≤ 100 ≤ Σmax, lossStress phủ mọi lớp, cổ phiếu giảm sâu hơn tiền gửi, customization cần lossStress. Còn lỗi thì nút "Lưu bản nháp" bị khóa và danh sách lỗi hiện ra. Form ghi thẳng vào JSON (khối JSON nâng cao vẫn đồng bộ).
+- **Dữ liệu thị trường** (`MarketDataForm.tsx` + mới `MarketDailyImport.tsx`): khối "Cập nhật từ giá theo ngày (CSV)" — dán/chọn tệp CSV `date,EQUITY,…` (YYYY-MM-DD hoặc DD/MM/YYYY), CPI tháng dạng % so tháng trước hoặc chỉ số, số ngày cho phép quan sát cuối tháng sớm hơn cuối tháng (mặc định 7). Gọi `POST /api/v1/admin/market-data/convert-daily` (chỉ quy đổi, không ghi gì), hiện bảng xem trước (ô "thiếu" tô đỏ, tooltip ngày giá cuối tháng), lỗi theo dòng/tháng và cảnh báo. Chỉ khi VALID mới có nút "Đưa vào bản nháp" → thay `period`, `rows`, đồng bộ cột `assets` (giữ căn cứ đã nhập cho lớp trùng mã, báo lớp bị bỏ). Admin vẫn bấm "Lưu bản nháp"; duyệt/công bố không đổi.
+- Test: Playwright `tests/admin-allocation-params.spec.ts` (config `playwright.admin-params.config.ts`, vite dev cổng 62471, mock toàn bộ API, không công bố) 2/2 đạt; `tsc` frontend sạch với các file này (lỗi còn lại ở `AllocationExperiment.tsx` là của phiên khác đang sửa).
+
+### FE-ALLOCATION-ALWAYS-RESULT-20261118: trang Phân bổ luôn có danh mục tham khảo
+Khách chốt 18/11/2026: hiện danh mục vượt giới hạn làm tham khảo; chỉ cho áp dụng khi có dữ liệu thị trường admin đã công bố; không dùng dữ liệu giả của demo. Kế hoạch: `docs/plan-phan-bo-luon-co-ket-qua.md`.
+- Backend `allocation-risk/service.ts` (chế độ `selection`):
+  - Thêm ứng viên `LOSS_REDUCED`: chuyển vừa đủ cổ phiếu sang tiền gửi cho tháng đầu rồi theo lộ trình mẫu (`loss-candidates.ts`, thuật toán §10.4).
+  - Khi không ứng viên nào trong giới hạn: mô phỏng `LEAST_LOSS` (chuyển hết cổ phiếu sang tiền gửi) làm tham khảo. Trả `referenceKind: LEAST_LOSS_OVER_LIMIT`, `lossFeasibility` (mức chịu giảm tối thiểu cần chấp nhận, làm tròn lên), `issues: NO_CANDIDATE_WITHIN_LOSS_LIMIT`, không gợi ý góp thêm/nghỉ muộn cho trường hợp này. `selectedId` vẫn `null`.
+  - Thiếu dữ liệu thị trường: `selection` vẫn trả `DATA_REQUIRED` nhưng kèm `deterministic` (kiểm tra giới hạn lỗ và đường giả định cố định, không có xác suất, `applicable:false`). `simulation`/`scenarios` không đổi.
+  - Ứng viên không phát lại được vẫn được hiển thị làm tham khảo (`applicable:false`, `applyIssues`).
+  - OpenAPI sinh lại (`scripts/generate-allocation-risk-openapi.cjs`): `referenceKind`, `LossFeasibility`, `DeterministicSelection`, `PinnedCandidate`; `marketVersionId/marketVersion/marketHash` nullable.
+- Frontend `AllocationExperiment.tsx`, `AllocationResults.tsx`: tiêu đề "Chưa có phương án trong giới hạn chịu lỗ" / "Phương án theo chính sách, chưa mô phỏng"; thẻ hiện tỷ trọng của chính ứng viên (không phải của mẫu); nhãn "Vượt giới hạn chịu lỗ" + hộp nêu mức chịu giảm tối thiểu và nút "Sửa mức chịu giảm"; nút áp dụng và gợi ý gói bị khóa khi vượt giới hạn hoặc chưa có dữ liệu.
+- Bỏ theo demo: mục "Lộ trình và các kịch bản đã công bố"; "Chỉnh thông tin phân bổ" thành nút "Sửa thông tin phân bổ". Khối "Danh mục hiện tại và các phương án đã công bố" giữ lại (thu gọn) vì chứa nút áp dụng/tái cân bằng khi chưa có mô phỏng.
+- Test: vitest `allocation-loss-candidates.test.ts` (ca 99,9 tr / danh mục thận trọng), `allocation-risk-api` thêm ca thiếu dữ liệu; Playwright `user-allocation-custom.spec.ts` thêm 2 ca (thiếu dữ liệu, vượt giới hạn). Lưu ý: `playwright.allocation-result-review.config.ts` và `allocation-custom` chạy bản build sẵn ở `.tmp/allocation-result-review-dist`; phải `vite build --outDir ../.tmp/allocation-result-review-dist` trước khi chạy.
+
+### FE-ALLOCATION-DEMO-PARITY-20261118: thu gọn khối danh mục mẫu, khóa áp dụng khi thiếu dữ liệu
+- Khối "Danh mục hiện tại và các phương án đã công bố" đổi thành "Đổi danh mục mẫu" (vẫn class `.allocation-template-details`, đóng mặc định). Bỏ thẻ trùng với thẻ chính (tỷ suất, vòng tròn, gói đầu tư, khối con "Thử phương án phân bổ khác"). Bên trong `.allocation-template-body`: vấn đề hồ sơ, các thẻ chọn mẫu, tỷ trọng, mức giảm khi sốc / giới hạn, nút "Áp dụng vào bản xem trước", "Đề xuất tái cân bằng", "Đặt lại theo câu trả lời".
+- "Áp dụng vào bản xem trước" khóa khi kết quả selection trả `DATA_REQUIRED` (chưa có dữ liệu thị trường công bố), kèm dòng giải thích.
+- Nhãn đầu kết quả `.allocation-source-badge`: "Chưa có dữ liệu thị trường" (`is-missing`) / "Dữ liệu thị trường đã công bố · vN" / "Chính sách đã công bố" khi chưa chạy.
+- Backend: `POST /me/retirement/risk/scenarios` chạy được khi chưa có dữ liệu thị trường (giả định cố định, `marketVersionId:null`); `simulation` vẫn trả `DATA_REQUIRED`. Nút "Thử các biến cố với phương án này" mở được khi thiếu dữ liệu nếu tham khảo là mẫu gốc (`BASE`).
+
+### FE-ALLOCATION-PATH-BUDGET-20261118: số đường mô phỏng vừa giới hạn 10 giây
+- Đã công bố dữ liệu thị trường v5 (DB thật). Đo trên backend: 1 đường × 612 tháng ≈ 0,2 s; `selection` 20 đường × 2 phương án = 8,3 s, nên 49 đường (công thức cũ `150000/(months*5)`) luôn trả `RUNTIME_LIMIT_NO_PARTIAL_ESTIMATE`.
+- `AllocationExperiment.tsx`: số đường = `clamp(floor(30000/(months*3)), 4, 200)`; nếu server vẫn báo vượt thời gian thì chạy lại 1 lần với nửa số đường. Hồ sơ thử (612 tháng): 16 đường, 3,2 s, ra "Phương án đề xuất", đủ chi thiết yếu 100% (khoảng tin cậy 81–100%).
+- Nút "Dùng phương án này" vẫn khóa khi phương án chọn là `LOSS_REDUCED`, vì chính sách v4 chưa có `customization`.
+
+### FE-ALLOCATION-LATEST-POLICY-20261118: trang Phân bổ dùng chính sách mới nhất
+- DB thật 18/11/2026 (chủ sản phẩm yêu cầu): công bố chính sách danh mục v6 `d513f7df-643e-4eb9-a773-040ab10db290` = v4 giữ nguyên + `customization` (CASH 5–70, GOV_BOND 0–60, EQUITY 0–60, GOLD 0–15; FOLLOW_TEMPLATE_SHIFTS; PROTECTED_CAPITAL_V1). Đã chạy kiểm tra trong bộ nhớ (VALID) trước khi ghi.
+- `RiskPortfolioPage.tsx`: trước đây ghim phiên bản theo khảo sát/bản nháp cũ (v4) nên không bao giờ thấy v6. Nay luôn dùng bản công bố mới nhất; câu trả lời khảo sát và danh mục mẫu cũ được mang sang nếu mã câu hỏi/lựa chọn/mẫu còn tồn tại. Kế hoạch đã lưu vẫn ghim phiên bản cũ ở server.
+- Kiểm tra trên trang thật: phương án đề xuất 25/30/35/10, đủ chi thiết yếu 100%, ba nút áp dụng/gói đầu tư/biến cố mở, 4 thanh kéo hoạt động.
+
+### FE-ALLOCATION-REMOVE-TEMPLATE-SWITCHER-20261118: bỏ khối "Đổi danh mục mẫu" và "Cơ sở tính xác suất"
+- Khách chốt giao diện theo demo nên xóa 2 khối demo không có: "Đổi danh mục mẫu" (`AllocationResults.tsx`) và "Cơ sở tính xác suất và giới hạn của kết quả" (`AllocationExperiment.tsx`).
+- Hệ quả: trang không còn chọn danh mục mẫu thủ công, nút "Áp dụng vào bản xem trước" và "Đề xuất tái cân bằng" ở trang kết quả. Phần tái cân bằng còn ở mục "Tài sản đang nắm giữ". Danh sách vấn đề (`p.issues`, ví dụ thiếu tháng nghỉ hưu) được giữ lại phía trên thẻ kết quả.
+- Đã dọn: modal "apply"/"rebalance", state `chosen`, `publishedOpen`, `canApply` và prop `select` trong `AllocationWorkspace.tsx`, `RiskPortfolioPage.tsx`.
+- Test: bỏ 4 test của tính năng đã xóa trong `user-allocation-sync.spec.ts`; sửa `portfolio-policy-v2`, `user-allocation-result-demo`.
