@@ -1121,3 +1121,36 @@
 .qo-unit-input {position:relative;min-width:0;}
 .qo-unit-input>input {width:100%;padding-right:74px !important;}
 .qo-unit-input>span {position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;color:#536779;pointer-events:none;}
+
+/* FE-CUSTOMER-20261118: the loss-% input had no border/background on desktop, so only its label was visible. */
+.qo-shell .qo-loss-percent-field input {
+  width: 100%; min-height: 50px; height: 50px; box-sizing: border-box;
+  border: 1px solid #7DA0CA; border-radius: 12px; padding: 10px 14px;
+  background-color: #fff; color: #052659; font: inherit; font-size: 14px;
+}
+.qo-shell .qo-loss-percent-field input:focus { outline: 2px solid #173d68; outline-offset: 1px; }
+.qo-shell .qo-loss-percent-field.has-error input { border-color: #b42318; }
+/* Large future expense: explicit Yes/No, same wording as the allocation page. */
+.qo-goal-question{margin:0;padding:16px 18px;border:1px solid #dbe3ec;border-radius:12px;background:#fff}
+.qo-goal-question[aria-invalid=true]{border-color:#c2410c}
+.qo-goal-question legend{padding:0 6px;font-weight:700;font-size:16px;color:#0f294a}
+.qo-goal-question>p{margin:0 0 12px;font-size:14px;color:#536b85}
+.qo-goal-choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.qo-goal-choices label{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #dbe3ec;border-radius:10px;cursor:pointer}
+.qo-goal-choices label.is-selected{border:2px solid #245db1;background:#f0f6ff}
+.qo-goal-choices input{width:18px;height:18px;margin:2px 0 0;flex:none;accent-color:#245db1}
+.qo-goal-choices strong{display:block;color:#0f294a}
+.qo-goal-choices small{display:block;color:#536b85}
+@media(max-width:560px){.qo-goal-choices{grid-template-columns:1fr}}
+/* Large future expense: explicit Yes/No, same wording as the allocation page. */
+.qo-goal-question{margin:0;padding:16px 18px;border:1px solid #dbe3ec;border-radius:12px;background:#fff}
+.qo-goal-question[aria-invalid=true]{border-color:#c2410c}
+.qo-goal-question legend{padding:0 6px;font-weight:700;font-size:16px;color:#0f294a}
+.qo-goal-question>p{margin:0 0 12px;font-size:14px;color:#536b85}
+.qo-goal-choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.qo-goal-choices label{display:flex;gap:10px;align-items:flex-start;padding:14px;border:1px solid #dbe3ec;border-radius:10px;cursor:pointer}
+.qo-goal-choices label.is-selected{border:2px solid #245db1;background:#f0f6ff}
+.qo-goal-choices input{width:18px;height:18px;margin:2px 0 0;flex:none;accent-color:#245db1}
+.qo-goal-choices strong{display:block;color:#0f294a}
+.qo-goal-choices small{display:block;color:#536b85}
+@media(max-width:560px){.qo-goal-choices{grid-template-columns:1fr}}

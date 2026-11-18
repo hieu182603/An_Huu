@@ -53,7 +53,7 @@ for (const withoutQuickStart of [false, true]) test(`R-01 first plan after surve
     await page.goto("/user/plan"); await fallback.click();
     const questions = page.locator("[data-policy-question]");
     await expect(questions).toHaveCount(6);
-    for (const select of await questions.all()) { await expect(select).toHaveValue(""); await select.selectOption("LOW"); }
+    for (const question of await questions.all()) { await expect(question).toHaveAttribute("data-answer", ""); await question.locator('input[value="LOW"]').check(); }
     await page.getByRole("button", { name: "Lưu câu trả lời đánh giá", exact: true }).click();
     await expect(page).toHaveURL(/\/user\/plan$/);
   }
@@ -90,7 +90,7 @@ async function start(page: Page, birth = "24/11/1943", age = "84", expense = "20
 }
 async function family(page: Page) {
   await next(page);
-  await expect(page.locator("#step3-family-title")).toBeVisible();
+  await expect(page.locator("#step3-family-title")).toBeVisible(); await page.getByRole("radio", { name: /^Không có/ }).check();
 }
 async function snapshot(page: Page, name: string) {
   mkdirSync(artifacts, { recursive: true });
@@ -124,7 +124,7 @@ test("all declared fields survive HTTP save, reload, complete and the actual ret
   await page.getByLabel("Dư nợ hiện tại", { exact: true }).fill("6000000");
   await page.getByLabel("Trả nợ mỗi tháng", { exact: true }).fill("2000000");
   await page.locator("#survey-debt-rate").fill("0");
-  await page.getByRole("checkbox", { name: /Tôi có một mục tiêu lớn khác/ }).check();
+  await page.getByRole("radio", { name: /^Có/ }).check();
   await page.locator("#survey-goal-name").fill("Học phí thử nghiệm");
   await page.getByLabel("Cần bao nhiêu tiền (theo giá hiện tại)?", { exact: true }).fill("12000000");
   await page.getByLabel("Khi nào bạn cần dùng số tiền này?", { exact: true }).fill("06/2028");
@@ -138,7 +138,7 @@ test("all declared fields survive HTTP save, reload, complete and the actual ret
   await expect(page.locator("#qo-stability")).toHaveValue("unknown");
   const policySelects = page.locator("[data-policy-question]");
   await expect(policySelects).toHaveCount(0);
-  for (const select of await policySelects.all()) await expect(select).toHaveValue("");
+  for (const question of await policySelects.all()) await expect(question).toHaveAttribute("data-answer", "");
   await page.locator("input[name=comfortReaction][value=hold]").check();
   await page.locator("#qo-stability").selectOption("variable");
   await page.locator("#qo-priority").selectOption("health");
@@ -148,7 +148,7 @@ test("all declared fields survive HTTP save, reload, complete and the actual ret
   await page.locator("#qo-loss-percent").press("Backspace");
   await expect(page.locator("#qo-loss-percent")).toHaveValue("");
   await page.locator("#qo-loss-percent").fill("12.5");
-  for (const select of await policySelects.all()) await select.selectOption("LOW");
+  for (const question of await policySelects.all()) await question.locator('input[value="LOW"]').check();
   await page.getByRole("button", { name: "Xem kế hoạch đầu tiên →", exact: true }).click();
   await expect(page).toHaveURL(/\/user\/plan/);
   await expect.poll(async () => { await state.refresh(); return state.previews.some(p => p.data?.status === "READY"); }).toBeTruthy();
@@ -194,7 +194,7 @@ test("all declared fields survive HTTP save, reload, complete and the actual ret
 
 test("draft resume keeps the actual birth day and separate current spending, retirement spending, contribution and reserve", async ({ page, request }) => {
   await setup(page, request); await start(page, "24/11/1991", "60"); await family(page);
-  await page.reload(); await expect(page.locator("#step3-family-title")).toBeVisible();
+  await page.reload(); await expect(page.locator("#step3-family-title")).toBeVisible(); await page.getByRole("radio", { name: /^Không có/ }).check();
   await page.getByRole("button", { name: "← Tiền hôm nay", exact: true }).click();
   await expect(page.getByLabel("Bạn đang chi bao nhiêu mỗi tháng?", { exact: true })).toHaveValue("25.000.000");
   await expect(page.getByLabel("Bạn muốn góp vào quỹ hưu mỗi tháng bao nhiêu?", { exact: true })).toHaveValue("5.000.000");
@@ -223,7 +223,7 @@ test("a loan payment that cannot cover interest is rejected before persistence",
   await page.getByLabel("Trả nợ mỗi tháng", { exact: true }).fill("1");
   await page.locator("#survey-debt-rate").fill("12");
   await state.refresh(); const count = state.writes.length; await next(page);
-  await expect(page.locator("#step3-family-title")).toBeVisible();
+  await expect(page.locator("#step3-family-title")).toBeVisible(); await page.getByRole("radio", { name: /^Không có/ }).check();
   await expect(page.getByText("Khoản trả phải lớn hơn tiền lãi tháng để giảm gốc.", { exact: true }).first()).toBeVisible();
   await state.refresh(); expect(state.writes).toHaveLength(count);
 });
@@ -259,7 +259,7 @@ test("initial planning saves no suitability answers; the separate allocation que
   await page.goto("/user/risk-portfolio?section=risk");
   const questions = page.locator("[data-policy-question]");
   await expect(questions).toHaveCount(6);
-  for (const select of await questions.all()) { await expect(select).toHaveValue(""); await select.selectOption("LOW"); }
+  for (const question of await questions.all()) { await expect(question).toHaveAttribute("data-answer", ""); await question.locator('input[value="LOW"]').check(); }
   await page.getByRole("button", { name: "Lưu câu trả lời đánh giá", exact: true }).click();
   await expect(page).toHaveURL(/\/user\/risk-portfolio$/);
   const saved = (await state.get("financial-profile")).data;
@@ -298,7 +298,7 @@ for (const width of [1440,390]) test(`sample profile: five main pages preserve l
   await page.getByLabel("Quỹ dự phòng để riêng",{exact:true}).fill("60000000");
   await family(page);await next(page);
   await page.locator("input[name=comfortReaction][value=hold]").check();
-  for(const select of await page.locator("[data-policy-question]").all())await select.selectOption("LOW");
+  for(const question of await page.locator("[data-policy-question]").all())await question.locator('input[value="LOW"]').check();
   await page.getByRole("button",{name:"Xem kế hoạch đầu tiên →",exact:true}).click();
   await expect(page).toHaveURL(/\/user\/plan/);
   await expect(page.getByText("Kế hoạch chính đang dùng",{exact:true})).toBeVisible();

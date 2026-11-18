@@ -234,15 +234,11 @@ test("save confirms before mutation, and an apply retry does not save another ve
   expect(state.errors).toEqual([]);
 });
 
-test("language popover selects a language, closes, and restores focus", async ({ page }) => {
+test("language button switches language in one click", async ({ page }) => {
   await setup(page);
-  const trigger = page.getByRole("button", { name: "Chọn ngôn ngữ", exact: true });
-  await trigger.click(); const menu = page.getByRole("menu", { name: "Ngôn ngữ", exact: true });
-  await expect(menu.getByRole("menuitemradio", { name: "Tiếng Việt", exact: true })).toHaveAttribute("aria-checked", "true");
-  await page.keyboard.press("ArrowDown"); await expect(menu.getByRole("menuitemradio", { name: "English", exact: true })).toBeFocused();
-  await page.keyboard.press("Enter"); await expect(menu).toHaveCount(0);
+  const trigger = page.getByRole("button", { name: "Chuyển sang English", exact: true });
+  await trigger.click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Hi An");
-  await expect(page.getByRole("button", { name: "Choose language", exact: true })).toBeFocused();
   await page.keyboard.press("Control+k"); await expect(page.getByRole("dialog")).toHaveAccessibleName("What would you like to find?");
   await page.keyboard.press("Escape");
 });

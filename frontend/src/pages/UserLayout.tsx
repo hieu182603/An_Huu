@@ -274,16 +274,15 @@ export default function UserLayout() {
           </button>
 
           <div className="user-topbar-actions">
-            <Link className="overview-button secondary topbar-assistant-link" to="/user/assistant" aria-label={language === "en" ? "Assistant" : "Trợ lý"}><Icon name="sparkles" /><span className="topbar-assistant-label">{language === "en" ? "Assistant" : "Trợ lý"}</span></Link>
             <UserLanguageMenu />
             <Tooltip content={t("topbar.support")}>
               <button
                 type="button"
-                className="topbar-action-btn"
+                className="topbar-action-btn topbar-support-btn"
                 onClick={() => navigate("/user/support")}
                 aria-label={t("topbar.support")}
               >
-                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4M12 17h.01"/></svg>
+                <Icon name="circle-question" />
               </button>
             </Tooltip>
             <NotificationDropdown />

@@ -216,8 +216,8 @@ test("foreign currency keeps totals unknown through API reload", async ({ page, 
 
 test("English labels and money follow the shared language menu", async ({ page, request }) => {
   await setup(page, request);
-  await page.getByRole("button", { name: "Chọn ngôn ngữ", exact: true }).click();
-  await page.getByRole("menuitemradio", { name: /English/ }).click();
+  await page.getByRole("button", { name: "Chuyển sang English", exact: true }).click();
+ 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Income & expenses");
   await expect(page.locator(".cashflow-budget-income strong")).toHaveText("20,000,000 ₫");
   await ledger(page, "income").getByRole("button", { name: "+ Add income", exact: true }).click();

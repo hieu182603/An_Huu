@@ -222,7 +222,10 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
     return restored?.debtAnnualRatePercent ?? (rate?.status === "KNOWN" ? rate.value : "");
   });
 
-  const [goalEnabled, setGoalEnabled] = useState(restored?.goalEnabled ?? false);
+  // Explicit Yes/No (customer 18/11/2026): the allocation needs this answer to compute long-term capital.
+  const [goalChoice, setGoalChoice] = useState<"" | "yes" | "no">(restored?.goalEnabled === true ? "yes" : restored?.goalEnabled === false && ["quick-risk", "contribution"].includes(onboardingDraft?.step || "") ? "no" : "");
+  const goalEnabled = goalChoice === "yes";
+  const setGoalEnabled = (on: boolean) => setGoalChoice(on ? "yes" : "no");
   const [goalName, setGoalName] = useState(restored?.goalName ?? "");
   const [goalAmount, setGoalAmount] = useState(Number(restored?.goalAmount ?? 0));
   const [goalMonth, setGoalMonth] = useState(restored?.goalMonth ?? "");
@@ -451,6 +454,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
       if (!debtRate.trim() || !Number.isFinite(Number(debtRate)) || Number(debtRate) < 0 || Number(debtRate) > 100) errors.debtRate = isEn ? "Enter an interest rate from 0 to 100%." : "Nhập lãi suất từ 0 đến 100%/năm; nhập 0 nếu không có lãi.";
       if (debtRate !== "" && debtMonthlyPayment <= debtBalance * Number(debtRate) / 1200) errors.debtMonthlyPayment = isEn ? "The payment must exceed monthly interest to reduce principal." : "Khoản trả phải lớn hơn tiền lãi tháng để giảm gốc.";
     }
+    if (!goalChoice) errors.goalChoice = isEn ? "Please answer whether you have a large future expense." : "Hãy trả lời câu \"Trong tương lai bạn có khoản lớn cần dùng không?\".";
     if (goalEnabled) {
       if (!goalName.trim()) errors.goalName = isEn ? "Please enter a name for your goal." : "Vui lòng đặt tên cho mục tiêu của bạn.";
       if (goalAmount <= 0) errors.goalAmount = isEn ? "Enter target budget greater than 0." : "Nhập ngân sách cần thiết lớn hơn 0.";
@@ -1115,19 +1119,15 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
 
               {/* Goal branch */}
               <section className="survey-branch">
-                <label className="survey-toggle">
-                  <input type="checkbox" checked={goalEnabled} onChange={e => setGoalEnabled(e.target.checked)} />
-                  <span className="survey-branch-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
-                  </span>
-                  <span className="survey-branch-copy">
-                    <strong>{isEn ? "I have another major life goal" : "Tôi có một mục tiêu lớn khác"}</strong>
-                    <small>{isEn ? "College tuition, home renovation or lump-sum expense." : "Học phí, sửa nhà hoặc khoản cần chi một lần."}</small>
-                  </span>
-                  <span className="survey-branch-status" aria-hidden="true">
-                    <span className={goalEnabled ? "status-on" : "status-off"}>{goalEnabled ? "Đang khai báo" : "Chọn"}</span>
-                  </span>
-                </label>
+                <fieldset className="qo-goal-question" aria-invalid={Boolean(fieldErrors.goalChoice)}>
+                  <legend>{isEn ? "Do you have a large expense coming up?" : "Trong tương lai bạn có khoản lớn cần dùng không?"}</legend>
+                  <p>{isEn ? "For example tuition, a home, medical care or caring for parents. Money needed within 5 years is kept aside, not invested." : "Ví dụ học phí, mua nhà, chữa bệnh, chăm sóc cha mẹ. Khoản cần trong 5 năm tới được giữ riêng, không đem đầu tư."}</p>
+                  <div className="qo-goal-choices">
+                    <label className={goalChoice === "no" ? "is-selected" : ""}><input type="radio" name="qo-goal-choice" checked={goalChoice === "no"} onChange={() => { clearFieldError("goalChoice"); setGoalChoice("no"); }} /><span><strong>{isEn ? "No" : "Không có"}</strong><small>{isEn ? "All remaining money is long-term" : "Toàn bộ phần còn lại dành cho dài hạn"}</small></span></label>
+                    <label className={goalChoice === "yes" ? "is-selected" : ""}><input type="radio" name="qo-goal-choice" checked={goalChoice === "yes"} onChange={() => { clearFieldError("goalChoice"); setGoalChoice("yes"); }} /><span><strong>{isEn ? "Yes" : "Có"}</strong><small>{isEn ? "Enter the amount and when it is needed" : "Khai số tiền và thời điểm cần"}</small></span></label>
+                  </div>
+                  {fieldErrors.goalChoice && <p className="field-error" role="alert">{fieldErrors.goalChoice}</p>}
+                </fieldset>
                 {goalEnabled && (
                   <div className="survey-branch-body">
                     <div className="survey-branch-grid">
@@ -1310,9 +1310,9 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
               </div>
             )}
             {lossStatus === "percent" && (
-              <div className="field" style={{ marginTop: "12px" }}>
+              <div className={`field qo-loss-percent-field ${fieldErrors.lossPercent ? "has-error" : ""}`} style={{ marginTop: "12px" }}>
                 <label htmlFor="qo-loss-percent">{isEn ? "Maximum loss rate on long-term capital (%)" : "Tỷ lệ lỗ tối đa trên vốn đầu tư dài hạn (%)"}</label>
-                <input id="qo-loss-percent" type="number" inputMode="decimal" min={0} max={100} step="any" value={lossPercent} aria-invalid={Boolean(fieldErrors.lossPercent)} aria-describedby={fieldErrors.lossPercent ? "qo-loss-percent-error" : undefined} onChange={e => { clearFieldError("lossPercent"); setLossPercent(e.target.value); }} />
+                <div className="qo-unit-input"><input id="qo-loss-percent" type="number" inputMode="decimal" min={0} max={100} step="any" value={lossPercent} aria-invalid={Boolean(fieldErrors.lossPercent)} aria-describedby={fieldErrors.lossPercent ? "qo-loss-percent-error" : undefined} onChange={e => { clearFieldError("lossPercent"); setLossPercent(e.target.value); }} /><span aria-hidden="true">%</span></div>
                 {fieldErrors.lossPercent && <small id="qo-loss-percent-error" role="alert" className="field-error-text error-text">{fieldErrors.lossPercent}</small>}
               </div>
             )}

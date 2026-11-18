@@ -24,7 +24,7 @@ async function fixture(page: Page) {
     await page.locator('#register-name').fill('Nguyễn Minh An');
     await page.locator('#register-email').fill('audit@example.test');
     await page.locator('#register-password').fill('valid-password-123');
-    await page.getByLabel(/Tôi đồng ý/).check();
+    await page.getByLabel(/Đồng ý điều khoản/).check();
   };
   const open = async () => { await fill(); await submit(); await expect(page.getByRole('dialog')).toBeVisible(); };
   const digits = () => page.locator('.otp-digit-slot').evaluateAll(inputs => inputs.map(input => (input as HTMLInputElement).value));
@@ -102,20 +102,20 @@ test('register: changing emails keeps each request time and reload makes no deli
 
 test('register: field errors clear independently and password byte boundaries are explicit', async ({ page }) => {
   const f = await fixture(page); await f.fill();
-  await page.locator('#register-phone').fill('123'); await page.getByLabel(/Tôi đồng ý/).uncheck(); await f.submit();
+  await page.locator('#register-phone').fill('123'); await page.getByLabel(/Đồng ý điều khoản/).uncheck(); await f.submit();
   await expect(page.locator('#register-phone')).toBeFocused();
   await expect(page.locator('#register-phone')).toHaveAttribute('aria-invalid', 'true');
   await page.locator('#register-phone').fill('+84 912 345 678');
   await expect(page.locator('#register-phone-error')).toHaveCount(0);
   await expect(page.locator('#register-agree-error')).toBeVisible();
-  await page.getByLabel(/Tôi đồng ý/).check(); await expect(page.locator('#register-agree-error')).toHaveCount(0);
-  for (const value of ['a'.repeat(11), 'a'.repeat(73), 'ấ'.repeat(25)]) {
+  await page.getByLabel(/Đồng ý điều khoản/).check(); await expect(page.locator('#register-agree-error')).toHaveCount(0);
+  for (const value of ['a'.repeat(7), 'a'.repeat(73), 'ấ'.repeat(25)]) {
     await page.locator('#register-password').fill(value); await f.submit();
     await expect(page.locator('#register-password-error')).toBeVisible();
     await expect(page.locator('#register-password')).toBeFocused();
   }
   expect(f.count('/register')).toBe(0);
-  for (const value of ['a'.repeat(12), 'a'.repeat(72), 'ấ'.repeat(24)]) {
+  for (const value of ['a'.repeat(8), 'a'.repeat(72), 'ấ'.repeat(24)]) {
     await page.locator('#register-password').fill(value);
     await expect(page.locator('#register-password-hint')).toHaveText('Đủ độ dài cho phép');
   }

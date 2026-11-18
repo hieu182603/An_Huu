@@ -306,7 +306,7 @@ export async function authenticatedBlobRequest(path: string): Promise<{ blob: Bl
   }
 }
 export function validPassword(password: string) {
-  return password.length >= 12 && new TextEncoder().encode(password).length <= 72;
+  return password.length >= 8 && new TextEncoder().encode(password).length <= 72;
 }
 export function updateSessionUser(user: ApiUser) {
   window.dispatchEvent(new CustomEvent("anhuu:session-updated", { detail: user }));

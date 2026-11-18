@@ -21,7 +21,9 @@
 .mk-site :focus-visible, .mk-mobile-nav :focus-visible { outline: 3px solid #008a75; outline-offset: 5px; }
 .mk-header :focus-visible, .mk-hero :focus-visible, .mk-final :focus-visible { outline-color: #83d8c8; }
 .mk-container { width: min(1200px, calc(100% - 96px)); margin-inline: auto; }
-.mk-header { position: relative; z-index: 10; color: #eaf5fa; background: #0b2545; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.mk-header { position: sticky; top: 0; z-index: 50; color: #eaf5fa; background: #0b2545; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+/* Customer request 18/11/2026: keep the header pinned; anchors land below it. */
+html:has(.mk-header) { scroll-padding-top: 96px; }
 .mk-header-inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 94px; }
 .mk-logo { flex-shrink: 0; }
 .mk-logo .brand-logo-container { vertical-align: middle; }

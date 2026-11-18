@@ -50,6 +50,7 @@ async function setup(page: Page, step?: "personal" | "investment", saved = profi
 test("support has no invented amount; saves the declared amount once and restores it after reload", async ({ page }) => {
   const state = await setup(page, "personal");
   await page.getByRole("checkbox", { name: /Tôi có bố mẹ già/ }).check();
+  await page.getByRole("radio", { name: /^Không có/ }).check();
   const amount = page.getByLabel("Chi phí phụng dưỡng mỗi tháng", { exact: true });
   await expect(amount).toHaveValue("0");
   await amount.focus(); await expect(amount).toHaveValue("");
@@ -67,6 +68,7 @@ test("support has no invented amount; saves the declared amount once and restore
 test("loan rate can be cleared and typed; blank blocks saving and zero is persisted as interest-free", async ({ page }) => {
   const state = await setup(page, "personal");
   await page.getByRole("checkbox", { name: /Tôi đang trả một khoản vay/ }).check();
+  await page.getByRole("radio", { name: /^Không có/ }).check();
   await page.getByLabel("Dư nợ hiện tại", { exact: true }).fill("100000000");
   await page.getByLabel("Trả nợ mỗi tháng", { exact: true }).fill("10000000");
   const rate = page.locator("#survey-debt-rate");
@@ -91,7 +93,7 @@ test("loss percentage allows blank editing, rejects a blank submission and accep
   const state = await setup(page, "investment", saved);
   await page.getByText("Mức lỗ tối đa bạn có thể chấp nhận", { exact: true }).click();
   await page.getByRole("radio").nth(1).check();
-  for (const select of await page.locator("[data-policy-question]").all()) await select.selectOption({ index: 1 });
+  for (const question of await page.locator("[data-policy-question]").all()) await question.locator("input[type=radio]").first().check();
   await expect(page.locator("#qo-loss-status")).toBeVisible();
   await page.locator("#qo-loss-status").selectOption("percent");
   const rate = page.locator("#qo-loss-percent");

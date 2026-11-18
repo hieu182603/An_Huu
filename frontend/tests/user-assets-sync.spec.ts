@@ -188,7 +188,7 @@ test("large values retain VND precision and net-worth details trap focus and res
 test("zero living expenses have no infinite month ratio and language switching covers the page and editor", async ({ page, request }) => {
   await setup(page, request, { expenses: { status: "KNOWN", entries: [] } });
   await expect(page.getByTestId("assets-coverage")).toHaveText("Chi sinh hoạt bằng 0; không tính số tháng");
-  await page.getByRole("button", { name: "Chọn ngôn ngữ", exact: true }).click(); await page.getByRole("menuitemradio", { name: "English", exact: true }).click();
+  await page.getByRole("button", { name: "Chuyển sang English", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Assets & emergency reserve");
   await expect(page.getByTestId("assets-owned")).toHaveText("100,000,000 ₫");
   await page.getByRole("button", { name: "+ Add asset", exact: true }).click(); await expect(dialog(page)).toHaveAccessibleName("Add asset");

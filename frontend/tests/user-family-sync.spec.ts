@@ -95,7 +95,7 @@ test("report failure shows no stale total and retry restores the current report"
   fail = false; await page.getByRole("button", { name: "Thử lại", exact: true }).click(); await expect(page.getByTestId("family-support")).toHaveText("3.000.000 ₫");
 });
 test("English labels and the other-goals navigation work", async ({ page, request }) => {
-  const state = await setup(page, request); await page.getByRole("button", { name: "Chọn ngôn ngữ", exact: true }).click(); await page.getByRole("menuitemradio", { name: "English", exact: true }).click();
+  const state = await setup(page, request); await page.getByRole("button", { name: "Chuyển sang English", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Family & dependents"); await expect(page.getByLabel("Marital status", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Review other goals", exact: true }).click(); await expect(page).toHaveURL(/section=constraints/); expect(state.errors).toEqual([]); expect(state.writes).toEqual([]);
 });

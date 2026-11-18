@@ -7,6 +7,7 @@ import {PlanOptionsDialog, PlanContributionDialog, contributionInput} from "../c
 import PlanSavedViews from "./PlanSavedViews";
 import PlanMoneyExplanation, { type PlanMoneyMetric } from "../components/retirement/PlanMoneyExplanation";
 import ProfileFormattedInput from "../components/ProfileFormattedInput";
+import { Decimal } from "../utils/decimal";
 import {formatMoneyDecimal as financeMoney} from "../utils/moneyDisplay";
 import ResponsiveDialog from "../components/ResponsiveDialog";
 import "../components/user-workspace-dialogs.css";
@@ -357,8 +358,9 @@ export default function RetirementPlanPage() {
     if(!comparisonInput){setComparison(null);return;}
     const controller=new AbortController();let active=true;
     setComparison(null);
-    void previewMonthlyRetirement(comparisonInput,controller.signal).then(preview=>{if(active)setComparison({key:comparisonKey,preview,error:preview.status==="READY"?"":language==="en"?"Reference option needs more information.":"Phương án tham chiếu cần bổ sung thông tin."});}).catch(error=>{if(active)setComparison({key:comparisonKey,preview:null,error:error instanceof Error?error.message:String(error)});});
-    return()=>{active=false;controller.abort();};
+    // Debounce so quick edits do not queue reference previews on the server.
+    const timer=window.setTimeout(()=>{void previewMonthlyRetirement(comparisonInput,controller.signal).then(preview=>{if(active)setComparison({key:comparisonKey,preview,error:preview.status==="READY"?"":language==="en"?"Reference option needs more information.":"Phương án tham chiếu cần bổ sung thông tin."});}).catch(error=>{if(active)setComparison({key:comparisonKey,preview:null,error:error instanceof Error?error.message:String(error)});});},400);
+    return()=>{active=false;window.clearTimeout(timer);controller.abort();};
   },[comparisonKey,comparisonAttempt]);
   const comparisonPreview=comparison?.key===comparisonKey?comparison.preview:null;
   const coverageValue = summary?.atRetirement?.coveragePercent;
@@ -378,7 +380,13 @@ export default function RetirementPlanPage() {
   const hasUnfundedWithdrawals=Number(summary?.unfundedWithdrawals)>0;
   const hasAccumulation=Number(summary?.accumulationMonths)>0;
   const needsUpfrontFunding=hasAccumulation&&hasFundingShortfall&&summary?.requiredConstantMonthlyContribution==null;
-  const heroAmount=hasAccumulation?summary?.requiredConstantMonthlyContribution:summary?.atRetirement.fundingGap?.startsWith("-")?"0":summary?.atRetirement.fundingGap;
+  const requiredMonthly=hasAccumulation?summary?.requiredConstantMonthlyContribution??null:null;
+  // Customer wording (18/11/2026): "Để đạt được mục tiêu, còn cần thêm khoảng…" shows the
+  // monthly gap between the required and the currently tried contribution, not the total.
+  const extraMonthly=requiredMonthly!=null&&summary?.plannedMonthlyContribution!=null
+    ?new Decimal(requiredMonthly).minus(summary.plannedMonthlyContribution):null;
+  const contributionEnough=extraMonthly!=null&&!extraMonthly.gt(0);
+  const heroAmount=hasAccumulation?(extraMonthly&&!contributionEnough?extraMonthly.toFixed():requiredMonthly):summary?.atRetirement.fundingGap?.startsWith("-")?"0":summary?.atRetirement.fundingGap;
   const isAppliedPlan = viewingCurrent;
 
   const requiredContributionText = summary?.requiredConstantMonthlyContribution != null
@@ -538,7 +546,10 @@ export default function RetirementPlanPage() {
                   {language === "en" ? "Based on your profile and current choices" : "Theo hồ sơ và các lựa chọn đang thử"}
                 </span>
                 <h2 className="plan-summary-hero__title">
-                  {needsUpfrontFunding?(language==="en"?"Review upfront capital before contributing":"Cần bổ sung vốn trước khi góp"):hasAccumulation?(language==="en"?"To reach your goal, the required monthly contribution is":"Để đạt được mục tiêu, mức góp cần khoảng"):(language==="en"?"Additional capital to prepare":"Phần vốn cần chuẩn bị thêm")}
+                  {needsUpfrontFunding?(language==="en"?"Review upfront capital before contributing":"Cần bổ sung vốn trước khi góp"):hasAccumulation?(contributionEnough
+                    ?(language==="en"?"Your current contribution is enough. Required contribution is about":"Mức góp đang thử đã đủ. Mức góp cần chỉ khoảng")
+                    :extraMonthly?(language==="en"?"To reach your goal, you still need about":"Để đạt được mục tiêu, còn cần thêm khoảng")
+                    :(language==="en"?"To reach your goal, the required monthly contribution is":"Để đạt được mục tiêu, mức góp cần khoảng")):(language==="en"?"Additional capital to prepare":"Phần vốn cần chuẩn bị thêm")}
                 </h2>
                 <strong
                   className="plan-summary-hero__number"
@@ -551,11 +562,11 @@ export default function RetirementPlanPage() {
                 <p className="plan-summary-hero__desc">
                   {language === "en" ? (
                     <>
-                      You are currently trying <strong>{formatVNDCurrency(summary?.plannedMonthlyContribution ?? null)}/month</strong>. First month contribution budget: <strong>{financeMoney(displayedPreview?.calculation?.rows?.[0]?.contributionCapacity??null,language==="en")}</strong>.
+                      {extraMonthly&&!contributionEnough&&<>Required contribution is about <strong>{formatVNDCurrency(requiredMonthly)}/month</strong>. </>}You are currently trying <strong>{formatVNDCurrency(summary?.plannedMonthlyContribution ?? null)}/month</strong>. First month contribution budget: <strong>{financeMoney(displayedPreview?.calculation?.rows?.[0]?.contributionCapacity??null,language==="en")}</strong>.
                     </>
                   ) : (
                     <>
-                      Bạn đang thử góp <strong>{formatVNDCurrency(summary?.plannedMonthlyContribution ?? null)}/tháng</strong>. Ngân sách có thể góp ở tháng đầu: <strong>{financeMoney(displayedPreview?.calculation?.rows?.[0]?.contributionCapacity??null,false)}</strong>.
+                      {extraMonthly&&!contributionEnough&&<>Mức góp cần khoảng <strong>{formatVNDCurrency(requiredMonthly)}/tháng</strong>. </>}Bạn đang thử góp <strong>{formatVNDCurrency(summary?.plannedMonthlyContribution ?? null)}/tháng</strong>. Ngân sách có thể góp ở tháng đầu: <strong>{financeMoney(displayedPreview?.calculation?.rows?.[0]?.contributionCapacity??null,false)}</strong>.
                     </>
                   )}
                 </p>

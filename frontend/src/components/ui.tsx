@@ -11,6 +11,9 @@ import logoVertical from "../assets/logo-vertical.webp";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n";
 import {
+  faCircleQuestion as faCircleQuestionRegular,
+} from "@fortawesome/free-regular-svg-icons";
+import {
   faAnglesLeft,
   faAnglesRight,
   faArrowLeft,
@@ -27,6 +30,7 @@ import {
   faChevronRight,
   faCircleCheck,
   faCircleInfo,
+  faCircleQuestion,
   faCommentDots,
   faCompass,
   faDownload,
@@ -37,6 +41,7 @@ import {
   faFilter,
   faGear,
   faGlobe,
+  faHeadset,
   faHeartPulse,
   faHouse,
   faKey,
@@ -64,7 +69,7 @@ export type IconName =
   | "file-text" | "filter" | "globe" | "grid" | "home" | "info" | "life-buoy" | "log-out"
   | "maximize" | "message" | "mouse-pointer" | "panel-left" | "panel-right"
   | "plus" | "search" | "settings" | "shield" | "sparkles" | "target" | "trash" | "upload" | "users"
-  | "wallet" | "x" | "alert" | "circle-check" | "eye" | "eye-off" | "edit" | "pen" | "key" | "megaphone" | "activity";
+  | "wallet" | "x" | "alert" | "circle-check" | "circle-question" | "circle-question-solid" | "help" | "headset" | "eye" | "eye-off" | "edit" | "pen" | "key" | "megaphone" | "activity";
 
 export const fontAwesomeIconMap: Record<IconName, IconDefinition> = {
   "angles-left": faAnglesLeft,
@@ -106,6 +111,10 @@ export const fontAwesomeIconMap: Record<IconName, IconDefinition> = {
   x: faXmark,
   alert: faTriangleExclamation,
   "circle-check": faCircleCheck,
+  "circle-question": faCircleQuestionRegular as unknown as IconDefinition,
+  "circle-question-solid": faCircleQuestion,
+  help: faCircleQuestionRegular as unknown as IconDefinition,
+  headset: faHeadset,
   eye: faEye,
   "eye-off": faEyeSlash,
   edit: faPenToSquare,

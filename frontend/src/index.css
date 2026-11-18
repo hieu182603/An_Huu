@@ -387,7 +387,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 .auth-input.has-eye { padding-right: 44px; }
 .auth-eye-btn { position: absolute; right: 4px; background: none; border: none; cursor: pointer; color: var(--color-text-muted); padding: 6px; display: flex; align-items: center; justify-content: center; transition: color 0.15s ease; border-radius: 6px; }
 .auth-eye-btn:hover { color: var(--color-primary-700); background: rgba(var(--color-midnight-rgb), 0.04); }
-.auth-register-page .auth-eye-btn, .auth-login-page .auth-eye-btn { width: 40px; height: 40px; padding: 8px; right: 3px; }
+.auth-register-page .auth-eye-btn, .auth-login-page .auth-eye-btn { width: 44px; height: 44px; padding: 10px; right: 1px; }
 .auth-register-page .auth-input.has-eye, .auth-login-page .auth-input.has-eye { padding-right: 48px; }
 .auth-register-page .auth-field-label { flex-wrap: wrap; gap: 4px 12px; }
 .auth-field-error { margin: 6px 0 0; color: #9B1C1C; font-size: 13px; }
@@ -912,8 +912,8 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-width: 44px;
+  gap: 6px;
+  min-width: 54px;
   height: 38px;
   padding: 0 10px;
   border-radius: 11px;
@@ -939,20 +939,50 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
 }
 
 .anhuu-lang-toggle-btn .lang-globe-icon {
-  font-size: 13px;
-  color: var(--color-secondary-600, #486D53);
-  transition: transform 0.3s ease;
+  font-size: 13.5px;
+  color: #2563eb;
+  transition: transform 0.3s ease, color 0.2s ease;
 }
 
 .anhuu-lang-toggle-btn:hover .lang-globe-icon {
   transform: rotate(20deg);
+  color: #1d4ed8;
 }
 
 .anhuu-lang-toggle-btn .lang-code-badge {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 750;
   letter-spacing: 0.04em;
   color: var(--color-primary-700);
+}
+
+.anhuu-lang-toggle-btn .lang-chevron-icon {
+  font-size: 9px;
+  color: #94a3b8;
+  margin-left: 1px;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
+}
+
+.anhuu-lang-toggle-btn:hover .lang-chevron-icon {
+  color: #475569;
+}
+
+.anhuu-lang-toggle-btn[aria-expanded="true"] .lang-chevron-icon {
+  transform: rotate(180deg);
+}
+
+.topbar-action-btn.topbar-support-btn {
+  font-size: 16px;
+  color: #64748b;
+}
+
+.topbar-action-btn.topbar-support-btn:hover {
+  color: #0f294a;
+}
+
+.topbar-action-btn.topbar-support-btn:hover svg {
+  transform: scale(1.08);
+  transition: transform 0.2s ease;
 }
 
 .anhuu-lang-select-wrap {
@@ -1692,7 +1722,7 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   .user-topbar { min-height: 64px; padding: 0 var(--space-4); }.user-topbar > .search-field { display: none; }.user-topbar::before { display: block; width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--color-primary-700); content: ""; }.user-topbar-actions .avatar-copy, .user-topbar-actions > .icon-button:last-child { display: none; }
   .dashboard-main { padding: var(--space-6) var(--space-4); }
   .chart-period { width: 100%; margin-top: var(--space-3); }.chart-period button { flex: 1; }
-  .user-mobile-nav { position: fixed; z-index: 60; right: 0; bottom: 0; left: 0; display: grid; height: 72px; grid-template-columns: repeat(5, 1fr); padding: var(--space-1) var(--space-2); border-top: 1px solid var(--color-border); background: var(--color-white); }.user-mobile-nav button { display: grid; min-height: 60px; place-items: center; align-content: center; gap: 2px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--color-text-muted); background: transparent; font-size: 11px; }.user-mobile-nav button.is-active { color: var(--color-primary-700); background: var(--color-soft); }.user-mobile-nav .icon { width: 19px; height: 19px; }
+  .user-mobile-nav { position: fixed; z-index: 60; right: 0; bottom: 0; left: 0; display: grid; height: 72px; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: var(--space-1) var(--space-2); border-top: 1px solid var(--color-border); background: var(--color-white); }.user-mobile-nav button { display: grid; min-height: 60px; place-items: center; align-content: center; gap: 2px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--color-text-muted); background: transparent; font-size: 11px; }.user-mobile-nav button.is-active { color: var(--color-primary-700); background: var(--color-soft); }.user-mobile-nav .icon { width: 19px; height: 19px; }
 }
 
 /* Phase 5: Retirement goal and plan */
@@ -5582,14 +5612,14 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   height: 18px;
   padding: 0 4px;
   border-radius: 999px;
-  background: #0284c7;
+  background: #dc2626;
   color: #ffffff;
   font-size: 10px;
   font-weight: 700;
   line-height: 18px;
   text-align: center;
   border: 2px solid #ffffff;
-  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.4);
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4);
   pointer-events: none;
   animation: notifPillBounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

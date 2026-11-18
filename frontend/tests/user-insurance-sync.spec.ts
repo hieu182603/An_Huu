@@ -129,7 +129,7 @@ test("pension edits only mark the applied plan stale while history edits keep th
   await openHistory(page); await addPeriod(page); await savePeriod(page); expect((await state.record()).data.pension.monthlyAmount).toBe("5000000"); expect((await state.record()).revision).toBe(2);
 });
 test("English labels, formatted amounts and keyboard focus work across the page and period dialog", async ({ page, request }) => {
-  const state = await setup(page, request); await page.getByRole("button", { name: "Chọn ngôn ngữ", exact: true }).click(); await page.getByRole("menuitemradio", { name: "English", exact: true }).click(); await expect(page.getByRole("heading", { level: 1 })).toHaveText("Social insurance and pension income");
+  const state = await setup(page, request); await page.getByRole("button", { name: "Chuyển sang English", exact: true }).click(); await expect(page.getByRole("heading", { level: 1 })).toHaveText("Social insurance and pension income");
   await page.locator(".insurance-history>summary").click(); const trigger = page.getByRole("button", { name: "Add contribution period", exact: true }); await trigger.click(); await expect(dialog(page).getByLabel("From month", { exact: true })).toBeFocused(); await page.keyboard.press("Escape"); await expect(trigger).toBeFocused(); expect(state.errors).toEqual([]); expect(state.writes).toHaveLength(0);
 });
 test("capital reduction compares the same published model with and without pension and never applies it", async ({ page, request }) => {
