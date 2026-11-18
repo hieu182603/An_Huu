@@ -17,6 +17,18 @@ export function periodStart(period: string): Date {
 export function dueDateOf(period: string, dueDay: number): Date {
   return new Date(`${period}-${String(dueDay).padStart(2, "0")}T23:59:59.999+07:00`);
 }
+/**
+ * Due date of a statement issued at `issuedAt`: the period's due day, but never less than
+ * `dueDay - 1` days after the issue day (end of that Vietnam day). Issued on the 1st this is exactly
+ * the due day; issued late in the month (catch-up, launch) the user still gets the same grace.
+ */
+export function statementDueDate(period: string, dueDay: number, issuedAt: Date): Date {
+  const standard = dueDateOf(period, dueDay);
+  const vn = new Date(issuedAt.getTime() + VN_OFFSET_MS);
+  const day = new Date(Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate() + dueDay - 1));
+  const minimum = new Date(`${day.toISOString().slice(0, 10)}T23:59:59.999+07:00`);
+  return minimum > standard ? minimum : standard;
+}
 /** Vietnam calendar day of month for `now`. */
 export function vnDayOfMonth(now: Date): number {
   return new Date(now.getTime() + VN_OFFSET_MS).getUTCDate();

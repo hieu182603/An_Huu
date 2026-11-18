@@ -10,7 +10,7 @@ import { createErrorHandler } from "../middlewares/errorHandler";
 import { BillingService } from "../modules/billing/service";
 import { billingGate, isBillingGated, requireBillingActive } from "../modules/billing/entitlement";
 import { expireOrders, issueStatements, markOverdue, reconcilePending, remindStatements, rolloverSchedules, stableId } from "../modules/billing/jobs";
-import { dueDateOf, periodStart } from "../modules/billing/periods";
+import { dueDateOf, periodStart, statementDueDate } from "../modules/billing/periods";
 import { signData, type PaymentGateway } from "../modules/billing/payos";
 import { renderBillingEmail } from "../templates/billingEmail";
 
@@ -48,14 +48,47 @@ const order = (s: Fixture, statementId: string, userId: string, data: Record<str
 const paid = (reference: string) => ({ status: "PAID", amount: 49000, amountPaid: 49000, transactions: [{ reference, amount: 49000, transactionDateTime: "2026-11-18 11:00:00" }] });
 const events = (s: Fixture, type: string) => s.f.rows("outboxEvent").filter(e => e.type === type) as Array<OutboxEvent & Record<string, any>>;
 
+describe("launch and catch-up", () => {
+  it("issues a missed statement later in the month with a full grace period (launch 20/11 → due 29/11)", async () => {
+    const s = await setup();
+    await account(s, "u1", { status: "TRIAL", trialEndsAt: new Date("2026-11-20T00:00:00.000+07:00") });
+    const launch = new Date("2026-11-20T00:00:00.000+07:00");
+    await expect(issueStatements(s.f.db, new Date("2026-11-19T16:30:00.000Z"), launch)).resolves.toMatchObject({ issued: 0 }); // 23:30 ngày 19/11
+    await expect(issueStatements(s.f.db, new Date("2026-11-19T17:30:00.000Z"), launch)).resolves.toMatchObject({ due: true, issued: 1 }); // 00:30 ngày 20/11
+    const [row] = s.f.rows("feeStatement");
+    expect(row).toMatchObject({ period: "2026-11", status: "ISSUED" });
+    expect(row.dueDate.toISOString()).toBe("2026-11-29T16:59:59.999Z");
+    expect(s.f.rows("billingAccount")[0].status).toBe("ACTIVE");
+    await expect(issueStatements(s.f.db, new Date("2026-11-25T05:00:00.000Z"), launch)).resolves.toMatchObject({ issued: 0 }); // idempotent
+  });
+
+  it("keeps the normal due date for statements issued on the 1st", () => {
+    expect(statementDueDate("2026-12", 10, new Date("2026-11-30T17:30:00.000Z")).toISOString()).toBe("2026-12-10T16:59:59.999Z");
+    expect(statementDueDate("2026-12", 10, new Date("2026-12-28T05:00:00.000Z")).toISOString()).toBe("2027-01-06T16:59:59.999Z");
+  });
+
+  it("ends trials accepted before launch at the launch moment, later ones on the 1st", async () => {
+    const f = memoryDb();
+    await f.db.feeSchedule.create({ data: { id: randomUUID(), version: 1, status: "PUBLISHED", ...SCHEDULE, dueDay: 10, reminderDays: [5, 8], trialMonths: 1,
+      effectiveFromPeriod: "2026-11", createdById: "system", publishedById: "system", publishedAt: NOV18 } });
+    const launch = new Date("2026-11-20T00:00:00.000+07:00");
+    let clock = NOV18;
+    const service = new BillingService(f.db, fakeGateway(), { enabled: true, termsVersion: "terms-v1", returnUrl: "https://app.test/r", checksumKey: KEY, launchAt: launch, now: () => clock });
+    await expect(service.acceptTerms("early", "terms-v1")).resolves.toMatchObject({ status: "TRIAL", trialEndsAt: launch });
+    clock = new Date("2026-11-21T05:00:00.000Z");
+    const late = await service.acceptTerms("late", "terms-v1");
+    expect(late.trialEndsAt!.toISOString()).toBe(periodStart("2026-12").toISOString());
+  });
+});
+
 describe("issueStatements", () => {
-  it("issues on Vietnam day 1 even when UTC is still the previous month, and not on day 4", async () => {
+  it("issues on Vietnam day 1 even when UTC is still the previous month, never before the launch moment", async () => {
     const s = await setup();
     await account(s, "u1");
-    await expect(issueStatements(s.f.db, new Date("2026-11-30T16:59:00.000Z"))).resolves.toMatchObject({ due: false, issued: 0 }); // 23:59 ngày 30/11 giờ VN
-    await expect(issueStatements(s.f.db, new Date("2026-12-04T05:00:00.000Z"))).resolves.toMatchObject({ due: false, issued: 0 });
+    const launch = new Date("2026-12-01T00:00:00.000+07:00");
+    await expect(issueStatements(s.f.db, new Date("2026-11-30T16:59:00.000Z"), launch)).resolves.toMatchObject({ due: false, issued: 0 }); // 23:59 ngày 30/11 giờ VN
     expect(s.f.rows("feeStatement")).toHaveLength(0);
-    await expect(issueStatements(s.f.db, DEC1_VN)).resolves.toMatchObject({ due: true, issued: 1 });
+    await expect(issueStatements(s.f.db, DEC1_VN, launch)).resolves.toMatchObject({ due: true, issued: 1 });
     const [row] = s.f.rows("feeStatement");
     expect(row).toMatchObject({ userId: "u1", period: "2026-12", status: "ISSUED", amountVnd: 49000, scheduleFeeVnd: 49000, baseAmountVnd: "0", rawFeeVnd: "0.00", feeScheduleId: s.schedule.id });
     expect(row.baseSource).toMatchObject({ metric: "retirementLiquidAssets", issues: ["PROFILE_MISSING"] });

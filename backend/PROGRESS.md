@@ -1,3 +1,19 @@
+## Phí dịch vụ — kỳ phí đầu tiên 20/11/2026 + job chạy trong server — 19/11/2026
+
+- Chủ dự án chọn: kỳ phí đầu tiên ngày 20/11/2026 cho MỌI người dùng đã đồng ý điều khoản.
+- PHÁT HIỆN: production chỉ chạy node dist/server.js (inline outbox), không chạy worker.ts → job billing (lập kỳ phí, nhắc, quá hạn, đối soát) chưa từng chạy trên production. Sửa: billing/scheduler.ts createBillingRunner dùng chung; server.ts (JOB_TRANSPORT=inline) tick mỗi phút, worker.ts dùng cùng runner. Nhịp: EXPIRE_ORDERS 5 phút, còn lại mỗi giờ; job idempotent nên chạy trùng an toàn.
+- BILLING_LAUNCH_AT (ISO có offset): trước mốc không lập kỳ phí; điều khoản đồng ý trước mốc có trialEndsAt = mốc. issueStatements bỏ giới hạn ngày 1–3 → lập bù mọi ngày (ổn định vẫn ra ngày 1 vì dùng thử kết thúc ngày 1). Hạn thanh toán = max(ngày dueDay của kỳ, ngày lập + dueDay−1) → lập 20/11 hạn 29/11.
+- Test: thêm 3 test launch/catch-up/trial; billing 95/95; toàn bộ 111 file/1379 PASS; source/test typecheck PASS.
+- Chính sách phí (frontend, chưa commit) bổ sung đợt ra mắt 20/11 và quy tắc hạn.
+
+## Phí dịch vụ — lên production — 19/11/2026
+
+- Migration 202611180001 chạy thử trong transaction + ROLLBACK trên DB Azure (34 lệnh, 9 bảng, chạy lại idempotent) rồi prisma migrate deploy: APPLIED. migrate diff chỉ báo sequence payment_order_code_seq (giới hạn đã biết của Prisma với dbgenerated, không phải drift).
+- Commit ee5c583 (billing) + 2f048d3 (frontend chủ dự án), PR #26 develop→main merged, deploy Azure PASS.
+- App settings Azure (az cli, rg-anhuu/anhuu-backend): PAYOS_CLIENT_ID/API_KEY/CHECKSUM_KEY + BILLING_ENABLED=true. Webhook chữ ký sai → 400 đúng.
+- Chủ dự án đồng ý: biểu phí v1 đổi effectiveFromPeriod 2026-12 → 2026-11 trực tiếp trên DB (chưa có fee_statements), có AuditLog BILLING_SCHEDULE_EFFECTIVE_CHANGED. KHÔNG sửa file migration đã apply (giữ checksum); DB mới tạo từ migration sẽ vẫn là 2026-12.
+- Tiếp: chủ dự án lưu Webhook URL trên my.payos.vn; frontend FE-BILLING-P1..P3 chưa làm.
+
 ## Phí dịch vụ — kiểm thử payOS thật — 19/11/2026
 
 - Chủ dự án đồng ý thử kênh thật 2.000đ. Dùng PayosClient của dự án với key trong backend/.env (không in key). orderCode 971148009: createLink PASS (PENDING, checkout pay.payos.vn, QR VietQR), getLink PASS (amount 2000, amountPaid 0), cancelLink PASS → CANCELLED, amountPaid 0. Không có tiền nào được chuyển.

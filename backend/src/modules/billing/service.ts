@@ -20,6 +20,8 @@ export type BillingOptions = {
   returnUrl: string;
   checksumKey?: string;
   linkTtlMinutes?: number;
+  /** BILLING_LAUNCH_AT: first moment statements may be issued. Trials accepted before it end at it. */
+  launchAt?: Date | null;
   now?: () => Date;
 };
 type Tx = Prisma.TransactionClient;
@@ -79,6 +81,12 @@ export class BillingService {
     return { period, ...computeFee(baseAmountVnd, schedule, overrideTerms(override)), schedule: scheduleView(schedule) };
   }
 
+  /** Normally the 1st of the month `trialMonths` after the current one; before launch, the launch moment if earlier. */
+  private trialEnd(period: string, trialMonths: number, now: Date) {
+    const normal = periodStart(addMonths(period, trialMonths)), launch = this.options.launchAt;
+    return launch && now.getTime() < launch.getTime() && launch.getTime() < normal.getTime() ? launch : normal;
+  }
+
   /** Records consent to the fee terms; the first acceptance opens a TRIAL account. Idempotent per version. */
   async acceptTerms(userId: string, termsVersion: string) {
     this.ensureEnabled();
@@ -98,7 +106,7 @@ export class BillingService {
       // statement is issued on the 1st of that month (no pro-rata days).
       const trial = schedule.trialMonths > 0;
       const created = await tx.billingAccount.create({ data: { userId, status: trial ? "TRIAL" : "ACTIVE",
-        trialEndsAt: trial ? periodStart(addMonths(period, schedule.trialMonths)) : null, termsVersion, termsAcceptedAt: now } });
+        trialEndsAt: trial ? this.trialEnd(period, schedule.trialMonths, now) : null, termsVersion, termsAcceptedAt: now } });
       await audit(tx, userId, "BILLING_TERMS_ACCEPTED", "BILLING_ACCOUNT", userId, { termsVersion, trialMonths: schedule.trialMonths });
       return accountView(created);
     });

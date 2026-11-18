@@ -64,6 +64,14 @@ async function start() {
         }
       };
       void runPoll();
+      // Production runs only this process: billing jobs (statements, reminders, overdue, payOS
+      // reconciliation) run here too, checked every minute, with the same cadence as the worker.
+      const billing = (await import("./modules/billing/scheduler")).createBillingRunner(prisma, config);
+      if (billing) {
+        const timer = setInterval(() => { if (!workerStopped && !stopping) void billing.tick(); }, 60_000);
+        timer.unref();
+        setTimeout(() => { if (!workerStopped && !stopping) void billing.tick(); }, 15_000).unref();
+      }
       log("info", "worker.started");
     } catch {
       log("error", "worker.error", { code: "INLINE_INIT_FAILED" });

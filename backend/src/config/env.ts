@@ -44,6 +44,9 @@ const schema = z.object({
   BILLING_ENABLED: z.enum(["true", "false"]).default("false"),
   BILLING_TERMS_VERSION: z.string().trim().min(3).max(80).default("phi-dich-vu-2026-11-v1"),
   BILLING_RETURN_URL: z.string().url().optional(),
+  // First moment statements may be issued (ISO with offset, e.g. 2026-11-20T00:00:00+07:00). Trials accepted
+  // before it end at it. Unset = no launch gate (trial ends on the 1st of the month after trialMonths).
+  BILLING_LAUNCH_AT: z.string().datetime({ offset: true }).optional(),
   PAYOS_CLIENT_ID: z.string().trim().min(1).optional(),
   PAYOS_API_KEY: z.string().trim().min(1).optional(),
   PAYOS_CHECKSUM_KEY: z.string().trim().min(1).optional(),

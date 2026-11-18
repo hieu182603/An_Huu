@@ -80,7 +80,8 @@ export function createServices(db: PrismaClient, config: AppConfig) {
     operations: new OperationsService(db),
     billing: new BillingService(db, payosGateway,
       { enabled: config.BILLING_ENABLED === "true", termsVersion: config.BILLING_TERMS_VERSION, checksumKey: config.PAYOS_CHECKSUM_KEY,
-        returnUrl: config.BILLING_RETURN_URL ?? `${config.CLIENT_URL}/user/billing/result` }),
+        returnUrl: config.BILLING_RETURN_URL ?? `${config.CLIENT_URL}/user/billing/result`,
+        launchAt: config.BILLING_LAUNCH_AT ? new Date(config.BILLING_LAUNCH_AT) : null }),
     billingAdmin: new BillingAdminService(db, payosGateway, { enabled: config.BILLING_ENABLED === "true" }),
     users: new UsersService(db, id => { try { getIO().in("user:" + id).disconnectSockets(true); } catch { /* HTTP-only tests. */ } }),
   };
