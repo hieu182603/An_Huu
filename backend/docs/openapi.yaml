@@ -1251,7 +1251,7 @@ paths:
                   maxLength: 200
                 password:
                   type: string
-                  minLength: 12
+                  minLength: 8
                   maxLength: 72
                   description: At most 72 UTF-8 bytes; must differ from currentPassword.
               required:
@@ -9156,6 +9156,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/admin/market-data/convert-daily:
+    post:
+      operationId: convertDailyMarketData
+      summary: convertDailyMarketData
+      security:
+        - bearerAuth: []
+      description: ADMIN only. Converts daily prices / total-return index levels
+        and monthly CPI into the monthly rows of a market data document for
+        preview. Pure conversion; writes nothing. Save the draft with POST or
+        PATCH /admin/market-data; publishing stays a separate confirmed step.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/MarketDailyConvert
+      responses:
+        "200":
+          description: Conversion result (VALID or INVALID with issues)
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/MarketDailyResultEnvelope
+        "400":
+          description: Validation, authorization or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/admin/market-data/{id}:
     get:
       operationId: getMarketDataset
@@ -12007,7 +12054,7 @@ components:
           maxLength: 254
         password:
           type: string
-          minLength: 12
+          minLength: 8
           maxLength: 72
           description: At most 72 UTF-8 bytes; whitespace is preserved.
         fullName:
@@ -12028,7 +12075,7 @@ components:
           maxLength: 254
         password:
           type: string
-          minLength: 12
+          minLength: 8
           maxLength: 72
           description: At most 72 UTF-8 bytes; whitespace is preserved.
         remember:
@@ -12070,7 +12117,7 @@ components:
           pattern: ^[a-zA-Z0-9_-]{43}$
         password:
           type: string
-          minLength: 12
+          minLength: 8
           maxLength: 72
           description: At most 72 UTF-8 bytes; whitespace is preserved.
       required:

@@ -38,8 +38,14 @@ it("explicit total capital never approves incomplete assets or permits saving ri
  const response=await request(app).post("/api/v1/me/portfolio-policies/workspace/preview").set("Authorization","Bearer "+token()).send({...f.command,expectedProfileRevision:3});
  expect(response.status).toBe(200);
  expect(response.body.data).toMatchObject({capital:{status:"INCOMPLETE"},loss:{status:"REVIEW_REQUIRED",exceedsTolerance:null}});
- await expect(saveAllocationRisk(f.profiles,f.portfolios,f.assumptions,"test-user",{expectedRevision:3,policyVersionId:f.policy.id,reaction:"HOLD",limit:{kind:"PERCENT",value:"30"}})).rejects.toMatchObject({code:"GROWTH_CAPITAL_REQUIRED"});
+ // An amount needs known long-term capital; nothing is written.
+ await expect(saveAllocationRisk(f.profiles,f.portfolios,f.assumptions,"test-user",{expectedRevision:3,policyVersionId:f.policy.id,reaction:"HOLD",limit:{kind:"AMOUNT",value:"1000000"}})).rejects.toMatchObject({code:"GROWTH_CAPITAL_REQUIRED"});
  expect(f.rows("financialProfile")).toEqual(before);
+ // A percent is kept on its own (customer feedback 18/11/2026) and approves nothing else.
+ const saved=await saveAllocationRisk(f.profiles,f.portfolios,f.assumptions,"test-user",{expectedRevision:3,policyVersionId:f.policy.id,reaction:"HOLD",limit:{kind:"PERCENT",value:"30"}});
+ expect((saved.data as {lossTolerance:unknown}).lossTolerance).toEqual({inputMode:"PERCENT",reaction:{status:"KNOWN",value:"HOLD"},percent:{status:"KNOWN",value:"30"}});
+ const after=await request(app).post("/api/v1/me/portfolio-policies/workspace/preview").set("Authorization","Bearer "+token()).send({...f.command,expectedProfileRevision:4});
+ expect(after.body.data).toMatchObject({capital:{status:"INCOMPLETE"},loss:{status:"REVIEW_REQUIRED",exceedsTolerance:null}});
 });
 it("rejects stale revisions, other accounts, unpublished policies and benchmark overrides",async()=>{
  const f=await allocationFixture();

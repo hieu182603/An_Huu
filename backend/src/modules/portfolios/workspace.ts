@@ -61,7 +61,14 @@ export async function allocationWorkspace(profiles:ProfileService, portfolios:Po
 export async function saveAllocationRisk(profiles:ProfileService,portfolios:PortfoliosService,assumptions:AssumptionsService,userId:string,raw:unknown) {
   const input=allocationRiskPatch.parse(raw), b=await basis(profiles,portfolios,assumptions,userId,input.expectedRevision,input.policyVersionId);
   const growth=b.capital.growthCapital;
-  if(b.capital.status!=="READY"||growth===null||new D(growth).lte(0)) throw new AppError(422,"GROWTH_CAPITAL_REQUIRED","Cần xác định phần vốn dài hạn lớn hơn 0 trước khi xác nhận giới hạn chịu lỗ.");
+  if(b.capital.status!=="READY"||growth===null||new D(growth).lte(0)) {
+    // A share of long-term capital is meaningful before that capital is known (customer
+    // feedback 18/11/2026: the form was a dead end). Keep only the percent; the amount is
+    // derived from growth capital whenever it exists (loss-constraint.ts, PERCENT mode).
+    if(input.limit.kind!=="PERCENT") throw new AppError(422,"GROWTH_CAPITAL_REQUIRED","Cần xác định phần vốn dài hạn lớn hơn 0 trước khi nhập giới hạn theo số tiền. Bạn vẫn có thể nhập theo phần trăm.");
+    return profiles.patchProfile(userId,input.expectedRevision,{schemaVersion:2,lossTolerance:{inputMode:"PERCENT",reaction:{status:"KNOWN",value:input.reaction},
+      percent:{status:"KNOWN",value:input.limit.value}}});
+  }
   const amount=input.limit.kind==="PERCENT"?new D(growth).mul(input.limit.value).div(100).toDecimalPlaces(2,Prisma.Decimal.ROUND_DOWN):new D(input.limit.value);
   if(amount.gt(growth)) throw new AppError(422,"LOSS_EXCEEDS_GROWTH","Mức chịu lỗ không được vượt phần vốn dài hạn.");
   const ratio=input.limit.kind==="PERCENT"?input.limit.value:amount.div(growth).mul(100).toDecimalPlaces(8,Prisma.Decimal.ROUND_DOWN).toFixed();

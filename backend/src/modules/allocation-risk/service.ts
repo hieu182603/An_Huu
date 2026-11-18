@@ -20,6 +20,7 @@ import { continuousCandidate } from "./optimizer-candidate";
 import { checkPortfolioFeasibility } from "./optimizer";
 import { deterministicStress, extendLongevityContext, severeEquityCrash } from "./stresses";
 import { allocationCandidates, selectCandidate } from "./selection";
+import { leastLossCandidate, lossFeasibility, lossReducedCandidate } from "./loss-candidates";
 import { proposeRebalance, rebalanceInputSchema, type Allocation } from "./rebalance";
 import type { z } from "zod";
 import { customTargets, customAllocationSchema, type CustomAllocation } from "../portfolios/custom";
@@ -112,15 +113,17 @@ export class AllocationRiskService {
   private async execute(userId: string, command: RiskRequest, mode: "simulation" | "scenarios" | "selection") {
     const loaded = await this.load(userId, command), { input, capture } = loaded;
     const dataset = await new MarketDataService(this.db).published(input.marketVersionId);
-    if (!dataset) return { status: "DATA_REQUIRED" as const, issues: ["PUBLISHED_MONTHLY_TOTAL_RETURN_DATA_REQUIRED"] };
+    const dataRequired = { status: "DATA_REQUIRED" as const, issues: ["PUBLISHED_MONTHLY_TOTAL_RETURN_DATA_REQUIRED"] };
+    // Scenarios and selection run on pinned deterministic assumptions; only Monte Carlo needs published data.
+    if (!dataset && mode === "simulation") return dataRequired;
     const preview: PlanPreview = loaded.preview ?? new RetirementService(this.db).evaluate(capture, loaded.selection);
-    const reference = { marketVersionId: dataset.id, marketVersion: dataset.version, marketHash: dataset.documentHash,
+    const reference = { marketVersionId: dataset?.id ?? null, marketVersion: dataset?.version ?? null, marketHash: dataset?.documentHash ?? null,
       inputHash: preview.inputHash, ...preview.references, informationalOnly: true, persisted: false };
     const context = contextOf(capture, preview), policy = capture.policy.data.schemaVersion === 2 ? capture.policy.data.allocationRisk : undefined;
     const paths = policy?.simulationPaths ?? input.paths;
     if (!context) return { ...reference, ...review("CLASSIFIED_SERVER_CASHFLOWS_AND_COMPLETE_PROJECTION_REQUIRED") };
     const deadline = performance.now() + LIMITS.maxRuntimeMs;
-    if (mode === "simulation") return { ...reference, ...await simulate(context, dataset.data, policy, paths, deadline, input.detail) };
+    if (mode === "simulation") return { ...reference, ...await simulate(context, dataset!.data, policy, paths, deadline, input.detail) };
     if (mode === "scenarios") {
       const propertyInjections = preview.reforecast ? undefined : (capture.profile.assets.status === "KNOWN" ? capture.profile.assets.entries : []).flatMap(a => {
         const plan = a.housingPlan, mapping = preview.selection.housing.find(h => h.assetId === a.id);
@@ -160,8 +163,8 @@ export class AllocationRiskService {
     }
     const capital = separateCapital(riskProfile, capture.assumptions.data);
     const candidates = allocationCandidates(context.targets, stress.equityAssetClass, stress.depositAssetClass, policy.equityShiftPoints);
-    const continuous = this.optimizer.continuous && policy.continuousOptimizer ? continuousCandidate(context.targets, dataset.data, policy.continuousOptimizer) : undefined;
-    if (this.optimizer.continuous && !continuous) return { ...reference, ...review("APPROVED_OPTIMIZER_POLICY_REQUIRED") };
+    const continuous = dataset && this.optimizer.continuous && policy.continuousOptimizer ? continuousCandidate(context.targets, dataset.data, policy.continuousOptimizer) : undefined;
+    if (dataset && this.optimizer.continuous && !continuous) return { ...reference, ...review("APPROVED_OPTIMIZER_POLICY_REQUIRED") };
     if (continuous && !continuous.input) return { ...reference, ...review(continuous.issue ?? "OPTIMIZER_CONSTRAINTS_REQUIRED") };
     if (continuous?.candidate) candidates.unshift(continuous.candidate);
     if (continuous && !this.optimizer.fallback) candidates.splice(continuous.candidate ? 1 : 0);
@@ -172,8 +175,12 @@ export class AllocationRiskService {
       candidates.push({ id: "CUSTOM", valid: true, targets: trialContext.targets,
         changePoints: trialContext.targets[0].reduce((sum,row)=>sum.plus(new D(row.weightPercent).minus(context.targets[0].find(r=>r.assetClass===row.assetClass)?.weightPercent??0).abs()),new D(0)).toFixed() });
     }
-    const scores = [], rejected = [];
-    if (paths * context.projection.rows.length * candidates.length > LIMITS.maxPathMonths)
+    const lossCheck = (t: Allocation[]) => assessLossConstraint(capital, riskProfile, capture.policy.data, t.map(a => ({ assetClass: a.assetClass, startWeightPercent: a.weightPercent })));
+    const reduced = lossReducedCandidate(context.targets, stress.equityAssetClass, stress.depositAssetClass, lossCheck);
+    if (reduced) candidates.push(reduced);
+    const scores = [], rejected = [], pinned: Array<Record<string, unknown> & { id: string; changePoints: string }> = [];
+    const market = dataset ? null : deterministicMarket(preview);
+    if (dataset && paths * context.projection.rows.length * (candidates.length + 1) > LIMITS.maxPathMonths)
       return { ...reference, status: "LIMIT_EXCEEDED" as const, issues: ["CANDIDATE_PATH_MONTH_LIMIT"], limits: LIMITS };
     for (const candidate of candidates) {
       if (!candidate.valid) { rejected.push({ id: candidate.id, issues: ["INVALID_WEIGHTS"] }); continue; }
@@ -184,6 +191,12 @@ export class AllocationRiskService {
         t.map(a => ({ assetClass: a.assetClass, startWeightPercent: a.weightPercent }))));
       if (checks.some(c => c.status === "REVIEW_REQUIRED")) return { ...reference, ...review("LOSS_CONSTRAINT_INPUTS_REQUIRED") };
       if (checks.some(c => c.status !== "WITHIN_LIMIT")) { rejected.push({ id: candidate.id, issues: ["LOSS_CONSTRAINT_EXCEEDED"] }); continue; }
+      if (!dataset) {
+        const path = runPath({ ...context, targets: candidate.targets }, market!);
+        pinned.push({ id: candidate.id, changePoints: candidate.changePoints, targets: candidate.targets, loss: checks[0], withinLossLimit: true,
+          essentialLossToday: path.essentialLossToday, funded: path.funded, fundedTerminalBalance: path.fundedTerminalBalance });
+        continue;
+      }
       const result = await simulate({ ...context, targets: candidate.targets }, dataset.data, policy, paths, deadline, input.detail);
       if (result.status !== "READY") return { ...reference, ...result };
       let selection: {templateId:string;customAllocation?:CustomAllocation}|null=null;
@@ -204,19 +217,47 @@ export class AllocationRiskService {
           }
         }
       }
-      scores.push({ ...result, id: candidate.id, changePoints: candidate.changePoints, targets: candidate.targets,...(input.detail?{selection,loss:checks[0]}:{}) });
+      scores.push({ ...result, id: candidate.id, changePoints: candidate.changePoints, targets: candidate.targets, withinLossLimit: true,
+        ...(input.detail?{selection,loss:checks[0],applicable:!!selection,applyIssues:selection?[]:["CUSTOM_POLICY_REQUIRED"]}:{}) });
+    }
+    // Nothing fits the declared loss limit: show the least-loss allocation reachable with the
+    // approved equity-to-deposit move as a reference only, with the limit the customer would need.
+    const least = leastLossCandidate(context.targets, stress.equityAssetClass, stress.depositAssetClass);
+    const leastCheck = least.valid ? lossCheck(least.targets[0]) : null;
+    const feasibility = (scores.length || pinned.length) || !leastCheck ? null : lossFeasibility(leastCheck);
+    if (!dataset) {
+      const ordered = [...pinned].sort((a, b) => new D(a.changePoints).cmp(b.changePoints) || a.id.localeCompare(b.id));
+      const over = !ordered.length && least.valid && leastCheck ? (() => { const path = runPath({ ...context, targets: least.targets }, market!);
+        return { id: least.id, changePoints: least.changePoints, targets: least.targets, loss: leastCheck, withinLossLimit: false,
+          essentialLossToday: path.essentialLossToday, funded: path.funded, fundedTerminalBalance: path.fundedTerminalBalance }; })() : null;
+      const pick = ordered[0] ?? over;
+      return { ...reference, ...dataRequired, deterministic: {
+        basis: "PINNED_DETERMINISTIC_ASSUMPTIONS", referenceId: pick?.id ?? null,
+        referenceKind: !pick ? null : pick === over ? "LEAST_LOSS_OVER_LIMIT" : pick.id === "LOSS_REDUCED" ? "LOSS_REDUCED_WITHIN_LIMIT" : "TEMPLATE_UNSIMULATED",
+        candidates: over ? [...ordered, over] : ordered, rejected, lossFeasibility: feasibility, applicable: false,
+        applyIssues: ["PUBLISHED_MONTHLY_TOTAL_RETURN_DATA_REQUIRED"], limitations: ["NO_PROBABILITY_WITHOUT_PUBLISHED_MARKET_DATA"] } };
+    }
+    let overLimit: (typeof scores)[number] | null = null;
+    if (!scores.length && least.valid && leastCheck && paths * context.projection.rows.length * (candidates.length + 1) <= LIMITS.maxPathMonths) {
+      const result = await simulate({ ...context, targets: least.targets }, dataset.data, policy, paths, deadline, input.detail);
+      if (result.status === "READY") overLimit = { ...result, id: least.id, changePoints: least.changePoints, targets: least.targets, withinLossLimit: false,
+        ...(input.detail ? { selection: null, loss: leastCheck, applicable: false, applyIssues: ["LOSS_CONSTRAINT_EXCEEDED"] } : {}) } as (typeof scores)[number];
     }
     const selected = selectCandidate(scores, policy.essentialThreshold);
     const replayable=scores.filter(c=>c.id!=="CUSTOM"&&(!input.detail||c.selection));
-    const referenceChoice=selectCandidate(replayable,policy.essentialThreshold)
-      ?? [...replayable].sort((a,b)=>new D(a.cvarEssentialShortfallToday).cmp(b.cvarEssentialShortfallToday)||new D(a.changePoints).cmp(b.changePoints))[0];
-    const adjustments = selected ? undefined : preview.reforecast ? { status: "REVIEW_REQUIRED", issues: ["REFORECAST_ADJUSTMENTS_REQUIRE_SOURCE_REBUILD"] }
+    const shown=replayable.length?replayable:scores.filter(c=>c.id!=="CUSTOM");
+    const referenceChoice=selectCandidate(shown,policy.essentialThreshold)
+      ?? [...shown].sort((a,b)=>new D(a.cvarEssentialShortfallToday).cmp(b.cvarEssentialShortfallToday)||new D(a.changePoints).cmp(b.changePoints))[0]
+      ?? overLimit ?? undefined;
+    const referenceKind=!referenceChoice?null:referenceChoice===overLimit?"LEAST_LOSS_OVER_LIMIT":selected&&referenceChoice.id===selected.id?"QUALIFIED"
+      :referenceChoice.id==="LOSS_REDUCED"?"LOSS_REDUCED_WITHIN_LIMIT":"BEST_WITHIN_LOSS_LIMIT";
+    const adjustments = selected || !scores.length ? undefined : preview.reforecast ? { status: "REVIEW_REQUIRED", issues: ["REFORECAST_ADJUSTMENTS_REQUIRE_SOURCE_REBUILD"] }
       : adjustmentOptions(capture.profile, preview.selection, capture.policy.data, capture.assumptions.data,
         prepareRetirement(capture.profile, preview.selection, capture.policy.data, capture.assumptions.data));
-    return { ...reference, status: selected ? "READY" : "INSUFFICIENT", selectedId: selected?.id ?? null, threshold: policy.essentialThreshold,
-      ...(input.detail?{referenceId:referenceChoice?.id??null,allThreshold:policy.allGoalsThreshold??null}:{}),
+    return { ...reference, status: selected ? "READY" : "INSUFFICIENT", ...(!scores.length ? { issues: ["NO_CANDIDATE_WITHIN_LOSS_LIMIT"] } : {}), selectedId: selected?.id ?? null, threshold: policy.essentialThreshold,
+      ...(input.detail?{referenceId:referenceChoice?.id??null,referenceKind,lossFeasibility:feasibility,allThreshold:policy.allGoalsThreshold??null}:{}),
       optimization: continuous ? { status: continuous.result?.status ?? "REVIEW_REQUIRED", method: continuous.result?.solverMetadata.method, issues: continuous.result?.issues ?? (continuous.issue ? [continuous.issue] : []), feasible: continuous.result?.solverMetadata.feasible ?? false } : { status: "DISABLED", method: "APPROVED_FINITE_CANDIDATES" },
-      candidates: scores, rejected, ...(adjustments ? { adjustmentOptions: adjustments, adjustmentKinds: ["CONTRIBUTE_MORE", "RETIRE_LATER", "SPEND_LESS"] } : {}),
+      candidates: overLimit ? [...scores, overLimit] : scores, rejected, ...(adjustments ? { adjustmentOptions: adjustments, adjustmentKinds: ["CONTRIBUTE_MORE", "RETIRE_LATER", "SPEND_LESS"] } : {}),
       rule: "P_ESSENTIAL_THRESHOLD_THEN_MIN_CVAR_THEN_MIN_ALLOCATION_CHANGE" };
   }
   async rebalance(command: z.infer<typeof rebalanceInputSchema>) {

@@ -187,12 +187,24 @@ export function assessPortfolio(document: PortfolioDocument, command: PortfolioP
 /** Reuse across previews of the SAME policy and assumption objects only (one
  * adjustment search). Validation and base series never depend on the retirement
  * month, answers or scenario; the objects must not be mutated while it is alive. */
-export type PortfolioPreviewCache = { validation?: ReturnType<typeof validatePortfolioPolicy>; series: Map<string, ReturnType<typeof resolveYearSeries>> };
-export const portfolioPreviewCache = (): PortfolioPreviewCache => ({ series: new Map() });
+export type PortfolioPreviewCache = { validation?: ReturnType<typeof validatePortfolioPolicy>; series: Map<string, ReturnType<typeof resolveYearSeries>>;
+  /** Whole results by command: the spending search repeats an identical portfolio ~30 times.
+   * Callers only read the returned object, so sharing it is safe. */
+  results?: Map<string, ReturnType<typeof computePortfolioPreview>> };
+export const portfolioPreviewCache = (): PortfolioPreviewCache => ({ series: new Map(), results: new Map() });
 
 /** `only` limits the scenario paths to one kind. Scenarios are independent, so the
  * requested path is identical either way; retirement previews read just one. */
 export function previewPortfolio(document: PortfolioDocument, assumptions: AssumptionDocument, command: PortfolioPreview,
+  only?: PortfolioDocument["scenarios"][number]["kind"], cache?: PortfolioPreviewCache, planningReaction?: "SELL" | "HOLD" | "BUY_MORE"): ReturnType<typeof computePortfolioPreview> {
+  if (!cache?.results) return computePortfolioPreview(document, assumptions, command, only, cache, planningReaction);
+  const key = JSON.stringify([command, only ?? null, planningReaction ?? null]), hit = cache.results.get(key);
+  if (hit) return hit;
+  const result = computePortfolioPreview(document, assumptions, command, only, cache, planningReaction);
+  cache.results.set(key, result);
+  return result;
+}
+function computePortfolioPreview(document: PortfolioDocument, assumptions: AssumptionDocument, command: PortfolioPreview,
   only?: PortfolioDocument["scenarios"][number]["kind"], cache?: PortfolioPreviewCache, planningReaction?: "SELL" | "HOLD" | "BUY_MORE") {
   const data = portfolioDocumentSchema.parse(document), input = portfolioPreviewSchema.parse(command);
   const validation = cache?.validation ?? validatePortfolioPolicy(data, assumptions);
@@ -216,11 +228,18 @@ export function previewPortfolio(document: PortfolioDocument, assumptions: Assum
   if (glide && !input.retirementMonth) return { ...context, status: "INCOMPLETE", issues: [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }], scenarios: [] };
   // v1: indexed period targets. v2: whole-year glide position; a change of
   // position forces a rebalance exactly like a v1 period boundary.
+  // glideTargets is pure in (template, years, assetCodes); a projection reads ~12 months per year.
+  const glideByYears = new Map<number, ReturnType<typeof glideTargets>>();
+  const glideAt = (years: number) => {
+    let targets = glideByYears.get(years);
+    if (!targets) glideByYears.set(years, targets = glideTargets(glide!, years, assetCodes));
+    return targets;
+  };
   const baseTargetAt = (i: number, month: string) => {
     if (glide) {
       const years = glideYears(glide, month, input.retirementMonth!);
       const previous = i === 0 ? null : glideYears(glide, addMonths(month, -1), input.retirementMonth!);
-      return { targets: glideTargets(glide, years, assetCodes), boundary: previous !== years };
+      return { targets: glideAt(years), boundary: previous !== years };
     }
     const period = (template as Extract<typeof template, { schedule: unknown }>).schedule.find(p => p.fromIndex <= i + 1 && p.toIndex >= i + 1)!;
     return { targets: new Map(assetCodes.map(code => [code, new D(period.allocations.find(a => a.assetClass === code)?.weightPercent ?? "0").div(100)])),

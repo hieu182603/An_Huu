@@ -41,22 +41,31 @@ s.Candidate = obj({ status: en("READY"), ...simulation, id: str, changePoints: s
 const extended={pAll:{type:"number",nullable:true},allGoalsStatus:str,allGoalsIssue:nullable};
 Object.assign(s.Candidate.properties,extended,{
  selection:{anyOf:[obj({templateId:str,customAllocation:s.RiskInput.properties.trialAllocation},["templateId"]),{type:"object",nullable:true,enum:[null]}]},
- loss:{$ref:"./retirement.openapi.yaml#/LossConstraint"}
+ loss:{$ref:"./retirement.openapi.yaml#/LossConstraint"},
+ withinLossLimit:boolean, applicable:boolean, applyIssues:arr(str)
 });
+// Loss-limit feasibility: what the customer would have to accept (algorithm §10.4). Informational only.
+s.LossFeasibility = { ...obj({ minimumLossAmount: str, allowedLossAmount: str, requiredToleranceAmountVnd: str, requiredTolerancePercentOfGrowth: str }), nullable: true };
+const referenceKind = { type: "string", nullable: true, enum: ["QUALIFIED", "BEST_WITHIN_LOSS_LIMIT", "LOSS_REDUCED_WITHIN_LIMIT", "LEAST_LOSS_OVER_LIMIT", "TEMPLATE_UNSIMULATED", null] };
+// Selection without published market data: loss checks and the pinned deterministic path only, never a probability.
+s.PinnedCandidate = obj({ id: str, changePoints: str, targets: arr(arr(ref("Allocation"))), loss: { $ref: "./retirement.openapi.yaml#/LossConstraint" },
+  withinLossLimit: boolean, essentialLossToday: str, funded: boolean, fundedTerminalBalance: str });
+s.DeterministicSelection = obj({ basis: en("PINNED_DETERMINISTIC_ASSUMPTIONS"), referenceId: nullable, referenceKind, candidates: arr(ref("PinnedCandidate")),
+  rejected: arr(obj({ id: str, issues: arr(str) })), lossFeasibility: ref("LossFeasibility"), applicable: { type: "boolean", enum: [false] }, applyIssues: arr(str), limitations: arr(str) });
 const scenarioParameters = Object.values(s.RiskPolicy.properties.stresses.properties);
 s.Scenario = obj({ kind: str, status: en("READY", "REVIEW_REQUIRED", "NOT_APPLICABLE"), issues: arr(str), parameters: { anyOf: scenarioParameters },
   result: ref("PathResult"), assumptions: arr(str) }, ["kind", "status"]);
 s.Longevity = obj({ kind: en("LONGEVITY"), status: en("READY", "REVIEW_REQUIRED"), results: arr(obj({ extraYears: integer, status: en("READY", "REVIEW_REQUIRED"),
   issues: arr(str), endMonth: str, result: ref("PathResult") }, ["extraYears", "status"])) });
 s.RiskResult = obj({ status: en("READY", "DATA_REQUIRED", "REVIEW_REQUIRED", "INSUFFICIENT", "LIMIT_EXCEEDED"), issues: arr(str), limits: ref("Limits"),
-  marketVersionId: uuid, marketVersion: integer, marketHash: str, inputHash: str, profileHash: str, policyVersionId: uuid, policyVersion: integer, policyHash: str,
+  marketVersionId: { ...uuid, nullable: true }, marketVersion: { ...integer, nullable: true }, marketHash: nullable, inputHash: str, profileHash: str, policyVersionId: uuid, policyVersion: integer, policyHash: str,
   assumptionVersionId: uuid, assumptionVersion: integer, assumptionHash: str, informationalOnly: boolean, persisted: boolean,
   ...simulation, basis: str, sources: { type: "array", items: { $ref: "./assumptions.openapi.yaml#/Source" } }, scenarios: arr(ref("Scenario")), longevity: ref("Longevity"), limitations: arr(str),
   optimization: obj({ status: str, method: str, issues: arr(str), feasible: boolean }, ["status"]),
   selectedId: nullable, threshold: str, candidates: arr(ref("Candidate")), rejected: arr(obj({ id: str, issues: arr(str) })),
   adjustmentOptions: { anyOf: [{ $ref: "./retirement.openapi.yaml#/AdjustmentOptions" }, obj({ status: en("REVIEW_REQUIRED"), issues: arr(str) })] }, adjustmentKinds: arr(str), rule: str,
 }, ["status"]);
-Object.assign(s.RiskResult.properties,extended,{referenceId:nullable,allThreshold:nullable});
+Object.assign(s.RiskResult.properties,extended,{referenceId:nullable,referenceKind,lossFeasibility:ref("LossFeasibility"),deterministic:ref("DeterministicSelection"),allThreshold:nullable});
 s.RiskResult.description = "pEssential is the fraction of COMPLETE paths funding every essential expense, not terminal solvency. CVaR = min eta [eta + mean((loss-eta)+)/(1-alpha)], loss is the sum of essential deficits at opening-month CPI prices. Wilson confidence=95% measures Monte Carlo sampling error only. Bands are funded balances in today's VND, rounded to millions; display probabilities to whole percentage points. Candidate comparison uses raw values, common seed, probability threshold then minimum CVaR then minimum equity shift. No Sharpe criterion. Missing data => DATA_REQUIRED; missing approved parameters/classification => REVIEW_REQUIRED; timeout/operation caps => LIMIT_EXCEEDED without partial statistics. Deterministic scenarios have individual statuses; longevity is the eighth kind. No writes or trades.";
 s.RebalanceResult = obj({ status: en("REVIEW_REQUIRED", "WITHIN_BAND", "PROPOSED"), issues: arr(str), policyVersionId: uuid, policyHash: str, month: str, persisted: boolean, informationalOnly: boolean,
   oldWeights: arr(ref("Allocation")), targetWeights: arr(ref("Allocation")), newWeights: arr(ref("Allocation")), reason: str, bandPoints: str, costPercent: str, cost: str, netValue: str,
