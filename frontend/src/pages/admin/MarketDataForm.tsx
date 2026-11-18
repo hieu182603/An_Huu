@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { MarketDocument } from "../../services/planningAnalysis";
 import { Button } from "../../components/ui";
 import { decimalToPercent, percentToDecimal } from "../../utils/percentDecimal";
+import MarketDailyImport from "./MarketDailyImport";
 
 // Manual-entry form for the market data document. It edits the same JSON the
 // page saves, so admins can switch between the form and raw JSON at any time.
@@ -130,6 +131,8 @@ export default function MarketDataForm({ doc, onChange, disabled }: { doc: Doc; 
     <datalist id="market-asset-codes">{COMMON_ASSETS.map(([c, l]) => <option key={c} value={c}>{l}</option>)}</datalist>
     <Button variant="secondary" size="small" onClick={() => update(d => { const code = `ASSET_${d.assets.length + 1}`; d.assets.push({ assetClass: code, sourceId: d.sources[0]?.id ?? "", totalReturnEvidence: "", fees: { treatment: "NET", evidence: "" }, taxTreatment: "" }); d.rows.forEach(r => { r.returns[code] = ""; }); })}>Thêm nhóm tài sản</Button>
     <label className="market-form__inline">Nguồn của CPI<select value={doc.cpiSourceId} onChange={e => update(d => { d.cpiSourceId = e.target.value; })}>{doc.sources.map(s => <option key={s.id} value={s.id}>{s.id}</option>)}</select></label>
+
+    <MarketDailyImport doc={doc} disabled={disabled} onApply={onChange} />
 
     <h3>Số liệu theo tháng</h3>
     <p className="market-form__hint">Nhập theo <strong>%</strong> tổng lợi nhuận trong tháng (ví dụ 1.25 = 1,25%; −3 = −3%). CPI là thay đổi so với tháng trước. Để trống tháng chưa có số liệu — máy chủ sẽ từ chối, không tự điền 0. Đã điền {filled}/{total} ô.</p>

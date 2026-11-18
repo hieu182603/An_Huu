@@ -74,6 +74,9 @@ export function createErrorHandler(recordSystemLog?: SystemSettingsService["reco
      } catch { /* Logging must not replace the original HTTP error. */ }
     }
   }
+  // Retryable 503s (preview pool busy, restarting or draining for a deploy) tell the client when to retry.
+  const retryAfter = (result as AppError & { retryAfterSeconds?: unknown }).retryAfterSeconds;
+  if (result.status === 503 && typeof retryAfter === "number" && retryAfter > 0) res.set("Retry-After", String(Math.ceil(retryAfter)));
   res.status(result.status).json({
     error: { code: result.code, message: result.message, ...(result.fieldErrors ? { fieldErrors: result.fieldErrors } : {}) },
     requestId: res.locals.requestId,

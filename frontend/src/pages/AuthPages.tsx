@@ -702,7 +702,7 @@ export function RegisterPage() {
     const errors: Partial<Record<Field, string>> = {};
     if (!cleanName) errors.name = "Vui lòng nhập họ tên.";
     if (!cleanEmail) errors.email = "Vui lòng nhập email.";
-    if (!validPassword(cleanPassword)) errors.password = "Mật khẩu cần ít nhất 12 ký tự và tối đa 72 byte UTF-8.";
+    if (!validPassword(cleanPassword)) errors.password = "Mật khẩu cần ít nhất 8 ký tự và tối đa 72 byte UTF-8.";
     if (cleanPhone && !/^(?:0|\+84)[35789]\d{8}$/.test(cleanPhone)) errors.phone = "Vui lòng nhập số điện thoại di động Việt Nam hợp lệ.";
     if (!agree) errors.agree = "Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.";
     setFieldErrors(errors);
@@ -732,7 +732,7 @@ export function RegisterPage() {
   };
 
   const passwordBytes = new TextEncoder().encode(password).length;
-  const passwordHint = !password ? "" : passwordBytes > 72 ? "Vượt giới hạn 72 byte" : password.length < 12 ? "Cần ít nhất 12 ký tự" : "Đủ độ dài cho phép";
+  const passwordHint = !password ? "" : passwordBytes > 72 ? "Vượt giới hạn 72 byte" : password.length < 8 ? "Cần ít nhất 8 ký tự" : "Đủ độ dài cho phép";
 
   return (
     <div className="auth-page auth-register-page">
@@ -839,7 +839,7 @@ export function RegisterPage() {
                     id="register-password"
                     type={showPassword ? "text" : "password"}
                     className="auth-input has-eye"
-                    placeholder="Tạo mật khẩu an toàn (tối thiểu 12 ký tự)"
+                    placeholder="Tạo mật khẩu an toàn (tối thiểu 8 ký tự)"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); clearFieldError("password"); }}
                     disabled={loading}
@@ -1156,7 +1156,7 @@ export function ResetPage() {
       return;
     }
     if (!validPassword(newPassword)) {
-      const msg = "Mật khẩu mới cần ít nhất 12 ký tự và tối đa 72 byte UTF-8.";
+      const msg = "Mật khẩu mới cần ít nhất 8 ký tự và tối đa 72 byte UTF-8.";
       setError(msg);
       notify.warning("Mật khẩu quá ngắn", msg);
       return;
@@ -1215,7 +1215,7 @@ export function ResetPage() {
                 )}
 
                 <label className="form-field" htmlFor="reset-new-password">
-                  <span className="field-label">Mật khẩu mới (tối thiểu 12 ký tự)</span>
+                  <span className="field-label">Mật khẩu mới (tối thiểu 8 ký tự)</span>
                   <span className="input-wrap">
                     <input
                       id="reset-new-password"

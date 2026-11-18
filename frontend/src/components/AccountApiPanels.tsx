@@ -261,7 +261,7 @@ export function AccountSecurityPanel() {
       return setError(language === "en" ? "Please enter your current password." : "Vui lòng nhập mật khẩu hiện tại.");
     }
     if (!validPassword(password)) {
-      return setError(language === "en" ? "New password requires at least 12 characters and max 72 bytes." : "Mật khẩu mới cần ít nhất 12 ký tự và tối đa 72 byte UTF-8.");
+      return setError(language === "en" ? "New password requires at least 8 characters and max 72 bytes." : "Mật khẩu mới cần ít nhất 8 ký tự và tối đa 72 byte UTF-8.");
     }
     if (password !== confirmPassword) {
       return setError(language === "en" ? "Password confirmation does not match." : "Mật khẩu xác nhận không khớp.");
@@ -287,8 +287,8 @@ export function AccountSecurityPanel() {
           <h2>{language === "en" ? "Change Password" : "Đổi mật khẩu"}</h2>
           <p>
             {language === "en"
-              ? "New password requires at least 12 characters. After changing password, all other active sessions will be logged out."
-              : "Mật khẩu mới cần tối thiểu 12 ký tự. Sau khi đổi mật khẩu thành công, các phiên đăng nhập khác sẽ được đăng xuất."}
+              ? "New password requires at least 8 characters. After changing password, all other active sessions will be logged out."
+              : "Mật khẩu mới cần tối thiểu 8 ký tự. Sau khi đổi mật khẩu thành công, các phiên đăng nhập khác sẽ được đăng xuất."}
           </p>
         </div>
       </header>
@@ -313,7 +313,7 @@ export function AccountSecurityPanel() {
           <div className="security-fields-grid">
             <Input
               label={language === "en" ? "New Password" : "Mật khẩu mới"}
-              helper={language === "en" ? "Minimum 12 characters" : "Tối thiểu 12 ký tự"}
+              helper={language === "en" ? "Minimum 8 characters" : "Tối thiểu 8 ký tự"}
               type="password"
               placeholder={language === "en" ? "Enter new password" : "Nhập mật khẩu mới"}
               value={password}

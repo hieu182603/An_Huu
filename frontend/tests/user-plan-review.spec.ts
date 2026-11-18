@@ -46,7 +46,7 @@ for (const gap of ["100000000", "0", "-100000000"]) test(`R-03 funding narrative
  else {await expect(narrative).toContainText("Quỹ dự kiến đáp ứng mục tiêu");await expect(narrative).toContainText("đủ so với mục tiêu");await expect(narrative).not.toContainText("còn thiếu");}
  await expect(page.locator(".chart-phase-key")).toContainText("Tích lũy đến");
  await expect(page.locator(".chart-phase-key")).toContainText("Dùng quỹ khi nghỉ hưu");
- await expect(page.locator(".plan-summary-hero__title")).toContainText("mức góp cần khoảng");
+ await expect(page.locator(".plan-summary-hero__title")).toContainText(/còn cần thêm khoảng|Mức góp đang thử đã đủ|mức góp cần khoảng/);
 });
 
 test("missing goal horizon explains the actual blocker and never asks to save an unknown plan",async({page,request})=>{

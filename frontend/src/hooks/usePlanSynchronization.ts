@@ -29,11 +29,13 @@ export function usePlanSynchronization(userId: string | undefined, version: Plan
   useEffect(() => {
     if (!userId || !changed || blocked || sourceError || !input) return;
     let active = true;
+    const controller = new AbortController();
     const scope = `${userId}|${version?.id}`;
-    const delay = synced.current === scope ? 350 : 0;
+    // ~400 ms absorbs typing/slider bursts; the server computes previews one at a time.
+    const delay = synced.current === scope ? 400 : 0;
     const timer = window.setTimeout(() => {
       synced.current = scope;
-      previewMonthlyRetirement(JSON.parse(inputJson)).then(data => {
+      previewMonthlyRetirement(JSON.parse(inputJson), controller.signal).then(data => {
         if (active) setResult({ key, data, error: null });
       }).catch(error => {
         if (active) {
@@ -50,7 +52,8 @@ export function usePlanSynchronization(userId: string | undefined, version: Plan
         }
       });
     }, delay);
-    return () => { active = false; window.clearTimeout(timer); };
+    // Abort the superseded request so stale previews stop queueing on the server.
+    return () => { active = false; window.clearTimeout(timer); controller.abort(); };
   }, [key, inputJson, changed, blocked, sourceError, userId]); // eslint-disable-line react-hooks/exhaustive-deps -- version id is part of key
   const current = result?.key === key ? result : null;
   const stableInput = useMemo(() => input, [inputJson]); // eslint-disable-line react-hooks/exhaustive-deps

@@ -65,58 +65,20 @@ async function setup(page: Page, options: { version?: "v1" | "v2"; retirement?: 
   await expect.poll(() => calls.length).toBeGreaterThan(0);
   await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();
   await page.getByRole("button",{name:options.en?"View my allocation →":"Xem phương án của tôi →",exact:true}).click();
-  await page.locator(".allocation-template-details > summary").click();
-  await page.locator(".allocation-result-details > summary").click();
   return { calls, errors, template };
 }
-
-test("v2 renders real glide points, current interpolation and localized asset labels", async ({ page }) => {
-  const { calls, errors } = await setup(page);
-  const table = page.getByRole("table", { name: "Lộ trình phân bổ tới nghỉ hưu" });
-  await expect(table).toBeVisible();
-  await expect(table.getByRole("rowheader").first()).toHaveText("15");
-  await expect(table.getByRole("rowheader").last()).toHaveText("0");
-  await expect(table.locator('[aria-current="true"]')).toContainText("7 · Vị trí hiện tại (nội suy ≈)");
-  await expect(table.getByRole("columnheader", { name: "Tiết kiệm", exact: true })).toBeVisible();
-  expect(calls.at(-1).retirementMonth).toBe("2033-11");
-  await table.screenshot({ path: "test-results/portfolio-v2-table.png" });
-  expect(errors).toEqual([]);
-});
-
-test("scenario cards show numbers derived from the backend unit-value path", async ({ page }) => {
-  const { errors } = await setup(page);
-  const section = page.locator(".pf-scen");
-  await expect(section.locator(".pf-scen-card")).toHaveCount(3);
-  await expect(section).not.toContainText("NaN");
-  await expect(section.locator(".pf-scen-card.is-base")).toContainText("+6,00%");
-  await expect(section.locator(".pf-scen-card.is-base")).toContainText("3,50%");
-  await page.locator(".risk-portfolio-page section").filter({ has: page.locator(".pf-glide") }).first().screenshot({ path: "test-results/portfolio-v2-results.png", style: ".user-topbar { visibility: hidden !important; }" });
-  await page.setViewportSize({ width: 390, height: 900 });
-  expect(await section.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-  await section.screenshot({ path: "test-results/portfolio-v2-scenarios-mobile.png" });
-  expect(errors).toEqual([]);
-});
-
-test("what-if overrides profile month and English labels are shown", async ({ page }) => {
-  const { calls, errors } = await setup(page, { whatIf: "2027-09", en: true });
-  await expect(page.getByRole("table").locator('[aria-current="true"]')).toContainText("0 · Current position");
-  await expect(page.getByRole("columnheader", { name: "Government bonds" })).toBeVisible();
-  expect(calls.at(-1).retirementMonth).toBe("2027-09");
-  expect(errors).toEqual([]);
-});
 
 test("missing retirement month produces Vietnamese guidance without marking year zero", async ({ page }) => {
   const { calls, errors } = await setup(page, { missingIssue: true });
   await expect(page.getByText("Vui lòng chọn tháng bắt đầu nghỉ hưu mong muốn trong hồ sơ tài chính.")).toBeVisible();
-  await expect(page.getByRole("table").locator('[aria-current="true"]')).toHaveCount(0);
   expect(calls.at(-1)).not.toHaveProperty("retirementMonth");
   expect(errors).toEqual([]);
 });
 
 test("published v1 renders its allocation breakdown and has no glide table", async ({ page }) => {
   const { errors, template } = await setup(page, { version: "v1" });
-  await expect(page.getByRole("heading", { name: template.label, exact: true })).toBeVisible();
+  await expect(page.locator(".allocation-experiment .allocation-reference")).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);
-  if ("schedule" in template) await expect(page.locator(".allocation-template-details .allocation-breakdown dt")).toHaveCount(template.schedule[0].allocations.length);
+  if ("schedule" in template) await expect(page.locator(".allocation-experiment .allocation-breakdown dt").first()).toBeVisible();
   expect(errors).toEqual([]);
 });

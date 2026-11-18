@@ -35,12 +35,16 @@ export default function DebtAnalysisPage() {
   useEffect(() => {
     if (!user?.id || !v2 || !hasProfile || loading || loadError) return;
     let active = true;
-    authenticatedRequest<DebtReport>("/me/financial-profile/debts", undefined, "GET", undefined, { skipCache: true })
+    // Reuse the prefetched/cached report; only an explicit retry must reach the server.
+    authenticatedRequest<DebtReport>("/me/financial-profile/debts", undefined, "GET", undefined, { skipCache: attempt > 0 })
       .then(report => { if (active) setState(report.profileRevision === profileRevision ? { key, report } : { key, error: t("Hồ sơ đã thay đổi. Tải lại để xem đúng phiên bản.", "Profile changed. Reload to view the current revision.") }); })
       .catch(error => { if (active) setState({ key, error: error instanceof Error ? error.message : t("Chưa tải được khoản nợ.", "Could not load debts.") }); });
     return () => { active = false; };
   }, [key, user?.id, Boolean(v2), hasProfile, loading, loadError, profileRevision]);
-  const current = state?.key === key ? state : null, report = !loading && !loadError && hasProfile ? current?.report : undefined;
+  const current = state?.key === key ? state : null;
+  // While a new revision loads, keep showing the last report instead of blanking the numbers.
+  const refreshing = !current && !loading && !loadError;
+  const report = !loadError && hasProfile ? current?.report ?? (refreshing || loading ? state?.report : undefined) : undefined;
   const debts = v2?.debts.status === "KNOWN" ? v2.debts.entries : [], totals = report?.totals;
   const activeSchedule = report?.loans.find(item => item.id === schedule), scheduleLoan = debts.find(item => item.id === schedule);
   const busy = confirmBusy || saveStatus === "saving";
@@ -79,7 +83,7 @@ export default function DebtAnalysisPage() {
     {!loading && !loadError && !hasProfile && <section className="cashflow-card"><p>{t("Hoàn thiện hồ sơ để quản lý khoản nợ.", "Complete your profile to manage debts.")}</p><Link to="/user/profile">{t("Về hồ sơ tài chính", "Open financial profile")}</Link></section>}
     {hasProfile && !v2 && !loading && !loadError && <section className="cashflow-card"><p>{t("Chuyển hồ sơ sang cách kê khai chi tiết để quản lý khoản nợ.", "Upgrade to a detailed profile to manage debts.")}</p><button className="overview-button primary" disabled={busy} onClick={() => void upgradeToV2()}>{t("Chuyển hồ sơ", "Upgrade profile")}</button>{saveError && <p role="alert">{saveError}</p>}</section>}
     {v2 && <>
-      {!current && !loading && !loadError && <p role="status">{t("Đang tính khoản nợ…", "Calculating debts…")}</p>}
+      {refreshing && !state?.report && <div className="skeleton-card" role="status" aria-busy="true" aria-label={t("Đang tải khoản nợ", "Loading debts")}><span className="skeleton skeleton-medium" /><span className="skeleton skeleton-full" /><span className="skeleton skeleton-small" /></div>}
       {current?.error && <div className="cashflow-error" role="alert"><p>{current.error}</p><button className="overview-button secondary" onClick={() => { setAttempt(value => value + 1); void reloadProfile(); }}>{t("Thử lại", "Retry")}</button></div>}
       {debts.length === 0 ? <section className="cashflow-card debt-ledger debt-empty-summary" aria-labelledby="debt-ledger-title"><span className="debt-loan-icon" aria-hidden="true"><Icon name="wallet" /></span><div>
         <h2 id="debt-ledger-title">{v2.debts.status === "UNKNOWN" ? t("Chưa xác nhận khoản nợ", "Debts not confirmed") : t("Không ghi nhận khoản nợ", "No debts recorded")}</h2>

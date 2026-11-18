@@ -92,6 +92,7 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   const [draftSelection, setDraftSelection] = useState<Partial<RetirementPreviewInput> | null>(null);
   const draftRef = useRef<Partial<RetirementPreviewInput> | null>(null);
   const previewSeq = useRef(0);
+  const previewAbort = useRef<AbortController | null>(null);
   const draftKey = (id: string) => `anhuu:plan-draft:${id}`;
   const lastPlanKey = (id: string) => `anhuu:last-plan:${id}`;
   const invalidateManualPreview = () => {
@@ -277,12 +278,16 @@ export function RetirementPlanProvider({ children }: { children: ReactNode }) {
   const runPreview = async (input: RetirementPreviewInput): Promise<RetirementPreviewResult | null> => {
     const targetUserId = user?.id;
     const currentSeq = ++previewSeq.current;
+    // A newer preview supersedes this one; abort it so it stops occupying the server queue.
+    previewAbort.current?.abort();
+    const controller = new AbortController();
+    previewAbort.current = controller;
     setPreviewStatus("loading");
     setPreviewError(null);
     setLastPreviewInput(input);
 
     try {
-      const res = await previewMonthlyRetirement(input);
+      const res = await previewMonthlyRetirement(input, controller.signal);
       if (currentSeq !== previewSeq.current || activeUserIdRef.current !== targetUserId) return null;
 
       setPreviewData(res);

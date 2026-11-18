@@ -251,8 +251,8 @@ test('bundled fixed labels work repeatedly without AI even if the glossary is un
   await expect(page.getByRole('dialog')).toContainText('Lựa chọn tiền góp được đưa vào quỹ ở đầu hay cuối tháng');
   await page.evaluate(() => window.scrollBy(0, 80));
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Chọn ngôn ngữ' }).click();
-  await page.getByRole('menuitemradio', { name: 'English' }).click();
+  await page.getByRole('button', { name: 'Chuyển sang English' }).click();
+ 
   await selectText(page, 'Contribution timing');
   await expect(page.getByRole('dialog')).toContainText('Whether contributions enter the fund at the start or end of a month');
   expect(aiCalls).toBe(0);

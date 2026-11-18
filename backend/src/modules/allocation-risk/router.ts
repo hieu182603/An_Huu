@@ -7,6 +7,7 @@ import type { AuthenticatedRequest } from "../../middlewares/authMiddleware";
 import { assumptionsListSchema, publishAssumptionsSchema } from "../assumptions/schema";
 import { marketDocumentSchema, writeMarketSchema, approveMarketSchema } from "./market-schema";
 import { MarketDataService } from "./market-service";
+import { convertDailyMarketData, dailyConvertSchema } from "./market-daily";
 import { AllocationRiskService } from "./service";
 import { riskRequestSchema } from "./schema";
 import { rebalanceInputSchema } from "./rebalance";
@@ -15,6 +16,8 @@ export function marketDataRouter(service: MarketDataService) {
   const router = Router(), id = (v: unknown) => z.string().uuid().parse(v);
   router.get("/", validate(assumptionsListSchema, "query"), asyncHandler(async (req, res) => sendData(res, await service.list(assumptionsListSchema.parse(req.query)))));
   router.post("/", validate(marketDocumentSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.create(req.user!.userId, req.body), 201)));
+  // Pure conversion of daily prices to monthly rows for preview; writes nothing.
+  router.post("/convert-daily", validate(dailyConvertSchema), asyncHandler(async (req, res) => sendData(res, convertDailyMarketData(req.body))));
   router.get("/:id", asyncHandler(async (req, res) => sendData(res, await service.get(id(req.params.id)))));
   router.patch("/:id", validate(writeMarketSchema), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.patch(req.user!.userId, id(req.params.id), req.body))));
   router.post("/:id/validate", validate(z.object({}).strict()), asyncHandler(async (req, res) => sendData(res, await service.validate(id(req.params.id)))));

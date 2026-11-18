@@ -16,7 +16,7 @@ test("register and verify call the API once with the correct email and phone", a
   await page.locator("#register-email").fill("minhan@anhuu.test");
   await page.locator("#register-phone").fill("0912 345 678");
   await page.locator("#register-password").fill("  password-with-spaces-123  ");
-  await page.getByLabel(/Tôi đồng ý/).check();
+  await page.getByLabel(/Đồng ý điều khoản/).check();
   await page.getByRole("button", { name: "Tạo tài khoản", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByTestId("otp-email")).toHaveText("minhan@anhuu.test");
@@ -92,7 +92,7 @@ test("OTP dialog explains code lifetime and counts down the resend request coold
   await page.locator("#register-name").fill("Trần Quốc Bảo");
   await page.locator("#register-email").fill("otp@example.test");
   await page.locator("#register-password").fill("mat-khau-an-toan-2026");
-  await page.getByLabel(/Tôi đồng ý/).check();
+  await page.getByLabel(/Đồng ý điều khoản/).check();
   await page.getByRole("button", { name: "Tạo tài khoản", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Mã có hiệu lực 3 phút từ lúc phát hành.")).toBeVisible();

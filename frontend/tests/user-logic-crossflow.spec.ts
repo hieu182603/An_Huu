@@ -55,6 +55,7 @@ test("allocation shows zero spending from the initial survey when no goal or pla
   await page.getByRole("link", { name: "Phân bổ tài sản", exact: true }).click();
   await page.locator(".allocation-steps button").nth(1).click();
   await expect(page.locator(".allocation-protection").first()).toContainText("0 ₫ / tháng");
+  await page.locator(".allocation-steps button").nth(2).click();await page.getByText("Giả định đang dùng", { exact: true }).click();
   await expect(page.locator(".allocation-survey-status").first()).toContainText("Đang sử dụng kết quả khảo sát rủi ro ban đầu.");
   expect(s.errors).toEqual([]);
 });
@@ -118,10 +119,9 @@ for (const en of [false, true]) test(`overview save confirmation preserves exact
   await page.reload();
   if (en) {
     // Use the public language control rather than depending on a storage key.
-    await page.getByRole("button", { name: "Chọn ngôn ngữ", exact: true }).click();
+    await page.getByRole("button", { name: "Chuyển sang English", exact: true }).click();
     await expect(page.locator("#plan-overview")).toBeVisible();
-    await expect(page.getByRole("menu", { name: "Ngôn ngữ", exact: true })).toBeVisible();
-    await page.getByRole("menuitemradio", { name: "English", exact: true }).click();
+   
   }
   await expect(page.locator("#plan-overview")).toBeVisible();
   await page.getByRole("link", { name: en ? "Overview" : "Tổng quan", exact: true }).click();

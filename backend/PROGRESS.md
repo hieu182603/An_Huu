@@ -1584,3 +1584,36 @@ Giữ nguyên thay đổi từ AI frontend và AI dữ liệu; không coi dữ l
 - Hồ sơ mới opt-in ghép chi một lần và hỗ trợ sau hưu theo CPI; source registry khớp lịch này, nợ minh họa có nguồn; protected goals không cộng lần hai. Raw survey chỉ dùng khi onboarding, không ghi đè hồ sơ chuẩn sau khi khách sửa. Sinh lại profile-v2/retirement/remaining-user/openapi.
 - Backend full npm test -- --maxWorkers=2:1244/1244 đạt,103file,exit0 (126,66s ở lượt cuối runtime); bổ sung2ca kiểm CPI/source-ledger và opt-in/protected sau fullsuite, nhóm quick-start-parity + retirement-goal-workspace:13/13 đạt. Source/test typechecks đạt. Frontend117/117unit,13/13browser đạt, production build/typecheck đạt; đã xem ảnh320/390px và Mục tiêu. Chi tiết `../docs/USER_SURVEY_DEMO_LOGIC_2026_11_14.md`, hợp đồng `docs/QUICK_START_SURVEY.md`.
 - Không migration/deploy/DB thật/provider/email; kiểm HTTP qua Express+services+memoryDb, không phải PostgreSQL/Vercel. Không sửa bộ tỷ lệ/policy trên production. Giữ thay đổi Phân bổ của phiên khác. Mốc một tháng đã lưu không bị thay ngầm: UI cảnh báo và cho tính phương án mới với mốc85tuổi. Việc tiếp theo khi phát hành: khởi động lại backend/frontend bằng source mới theo quy trình triển khai của dự án; nghiệm thu bản triển khai chưa thực hiện trong lượt này.
+
+## B3 preview pool — 17/11/2026
+- 503 PREVIEW_* trả Retry-After (PreviewRetryableError + errorHandler); close(7000) drain preview đang chạy khi SIGTERM; mặc định PREVIEW_WORKERS = max(1, min(2, vCPU-1)) → 1 worker trên B1; warm lúc khởi động giữ nguyên. Test pool+cache 12/12, typecheck src+test PASS. Chưa commit.
+
+## B1 tốc độ preview/plans — 17/11/2026 (docs/plan-toi-uu-toc-do-tai.md)
+- Đo (A1): preview kèm adjustments = 212–213 phép chiếu, 16–47 s cục bộ; 70% là tìm tháng nghỉ hưu (thường chạm RETIREMENT_SEARCH_RUNS=180 → REVIEW_REQUIRED). 1 phép chiếu 150–320 ms; previewPortfolio 45%, projectRetirement 37%, ~60% CPU là Decimal.
+- preview-pool: lần tìm (adjustments) chiếm tối đa `size` worker; preview thường được thêm 1 worker dự phòng tạo khi cần → không còn chờ lần tìm 30–90 s trên B1 (chia CPU thay vì xếp hàng). Test preview-cache/pool cập nhật kỳ vọng + làm ấm 2 worker trước khi so thứ tự.
+- portfolios/engine.ts: cache kết quả previewPortfolio theo command trong 1 lần tìm (cache.results) + ghi nhớ glideTargets theo số năm trong mỗi phép chiếu. Golden 140 trường hợp (published v2/v1 + draft v4/v3, 5 hồ sơ, hash JSON prepareRetirement+adjustmentOptions) GIỐNG HỆT trước/sau. A/B 1980/draft: 133 s → 114 s (~14%). Chủ dự án chọn giữ kết quả y hệt, không đổi thuật toán tìm.
+- plans/service.ts: nhớ version đã kiểm toàn vẹn theo (rowId, integrityHash, profileRevision, assumptionVersionId, asOfDate), LRU 500, theo quyết định chủ dự án 17/11/2026: sửa DB trực tiếp sau lần kiểm đầu chỉ phát hiện sau restart. persist() đánh dấu version vừa tạo là đã kiểm (bỏ ~90 ms hash lại). Kiểm định dạng/model/trường rẻ vẫn chạy mỗi lần. `forgetVerifiedSnapshots()` cho test/vận hành; 3 test sửa DB gọi nó, thêm test ghi rõ hành vi mới. Chưa bỏ cột result/chartSeries (để sau theo chủ dự án), chưa viết lại digest theo luồng.
+- Typecheck src+test PASS; full backend 104 file/1272 test PASS (--maxWorkers=2, 127 s); plans/read-path/explanations 35/35; pool+cache 13/13 (5 lần liên tiếp). Chưa deploy, chưa đo lại trên Azure, chưa commit.
+
+## Phân bổ: lưu mức chịu giảm theo % khi chưa có vốn dài hạn — 18/11/2026
+- `portfolios/workspace.ts saveAllocationRisk`: capital chưa READY hoặc growth null/≤0 → PERCENT được lưu {inputMode:PERCENT, reaction, percent} (không amountVnd); AMOUNT vẫn 422 GROWTH_CAPITAL_REQUIRED. loss-constraint PERCENT mode tự tính số tiền khi có vốn. Test allocation-workspace cập nhật (AMOUNT bị từ chối không ghi; PERCENT lưu, capital vẫn INCOMPLETE). Lý do: phản hồi khách, form là ngõ cụt. Chưa commit.
+
+## Admin: quy đổi giá theo ngày → dữ liệu thị trường tháng — 18/11/2026
+- Mới `allocation-risk/market-daily.ts` (`convertDailyMarketData`, hàm thuần, không DB) + route ADMIN `POST /admin/market-data/convert-daily` (đặt trước `/:id`). Vào: CSV giá/chỉ số tổng lợi nhuận theo ngày (≤ 40.000 dòng, ≤ 20 lớp), CPI tháng (`MOM_PERCENT` hoặc `INDEX`), `maxMonthEndGapDays` 0–15 (mặc định 7). Giá cuối tháng = quan sát cuối trong tháng, phải cách cuối tháng ≤ gap ngày; lợi suất = cuối tháng / cuối tháng trước − 1, Decimal, làm tròn 16 số lẻ (đúng regex `rate`). Thiếu tháng → MONTH_MISSING, quan sát cuối quá sớm → MONTH_END_MISSING, thiếu CPI → CPI_MISSING; không điền 0/nội suy; `rows` chỉ trả khi VALID và khớp `marketDocumentSchema`. Chỉ tháng cuối chưa kết thúc (và tối đa 3 tháng cuối chưa có CPI) được bỏ kèm cảnh báo. Lỗi tối đa 200 dòng.
+- OpenAPI: path mới trong `docs/openapi.yaml`, schema `MarketDailyConvert`/`MarketDailyResultEnvelope` trong `docs/allocation-risk.openapi.yaml`.
+- Test `market-daily.test.ts` 8/8 (khớp schema tài liệu, CPI chỉ số + ngày kiểu VN, thiếu tháng, thiếu cuối tháng, tháng dở dang, lỗi giá/trùng ngày/thiếu CPI, < 12 tháng, HTTP: USER 403, thân thừa 400, ADMIN 200 không gọi create, khớp OpenAPI). Cùng allocation-risk-api/portfolios/contract/explanations và các test đọc openapi: 36 file đạt. Typecheck backend sạch. Không ghi DB thật, không công bố, chưa commit.
+
+## 18/11/2026: Phân bổ luôn có danh mục tham khảo (allocation-risk selection)
+- `loss-candidates.ts`: `lossReducedCandidate`, `leastLossCandidate`, `lossFeasibility` (hàm thuần, chỉ chuyển cổ phiếu sang tiền gửi theo `lossStress` đã duyệt).
+- `service.ts`: ứng viên `LOSS_REDUCED`; tham khảo `LEAST_LOSS_OVER_LIMIT` kèm mức chịu giảm tối thiểu; `selection` không dữ liệu trả `DATA_REQUIRED` + `deterministic` (không xác suất); tách hiển thị/áp dụng (`applicable`).
+- OpenAPI sinh lại; vitest allocation 76/76.
+
+## 18/11/2026: scenarios chạy khi thiếu dữ liệu thị trường
+- `allocation-risk/service.ts`: chỉ `simulation` trả `DATA_REQUIRED` khi chưa có dữ liệu công bố; `scenarios` (giả định cố định) và `selection` chạy, `marketVersionId:null`. OpenAPI không đổi (trường thị trường đã nullable).
+- Test `allocation-risk-api.test.ts` cập nhật: scenarios với bản đã lưu và preview không còn `DATA_REQUIRED`. 8 file allocation/market/portfolio: 118/118 đạt.
+- Frontend tương ứng: FE-ALLOCATION-DEMO-PARITY-20261118 trong `docs/task-frontend.md`.
+
+## 18/11/2026: công bố dữ liệu thị trường v5 và chính sách v6 (DB thật, theo yêu cầu chủ sản phẩm)
+- Dữ liệu thị trường "Dữ liệu thị trường tháng 11" v5 `b5a2c739-bb5e-41d9-819b-5778db277ff4` (03/2020–10/2026), qua MarketDataService create/validate/approve/publish; giấy phép nguồn CHƯA XÁC MINH (ghi trong reviewNote). Chi tiết: docs/du-lieu-thi-truong-mac-dinh.md.
+- Chính sách danh mục v6 `d513f7df-643e-4eb9-a773-040ab10db290` = v4 + customization từ data/drafts/policy-params-draft.json, qua PortfoliosService (VALID trước khi ghi).
+- Đo: 1 đường mô phỏng × 612 tháng ≈ 0,2 s; selection bị giới hạn 10 s nên frontend giảm số đường (FE-ALLOCATION-PATH-BUDGET-20261118).

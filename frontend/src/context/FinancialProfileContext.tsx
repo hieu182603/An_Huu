@@ -1,6 +1,6 @@
 import { profileCompletionItems } from "../utils/profileCompletion";
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
-import { ApiError, authenticatedRequest } from "../services/api";
+import { ApiError, authenticatedRequest, invalidateApiCache } from "../services/api";
 import {
   planningConstraints,
   type PlanningConstraints,
@@ -238,10 +238,17 @@ function useProfileState() {
     setLoading(true); setLoadError(null);
     // An explicit reload after a conflict must reach the server, not the cached revision.
     const reloadOptions = { skipCache: reload > 0 };
+    // Page reports cached for an older revision must not survive an explicit reload.
+    if (reload > 0) invalidateApiCache(/^\/me\/financial-profile\//);
     Promise.all([authenticatedRequest<ProfileRecord | null>("/me/financial-profile", undefined, "GET", undefined, reloadOptions), authenticatedRequest<DraftRecord | null>("/me/onboarding-draft", undefined, "GET", undefined, reloadOptions)])
       .then(([record, draft]) => {
         if (!active) return;
         recordRef.current = record; draftRef.current = draft;
+        // Warm the per-page reports for this revision so Debts/Assets render from
+        // the API cache instead of waiting on a request chained after this one.
+        if (record && (record.schemaVersion === 2 || isProfileV2(record.data))) {
+          for (const path of ["/me/financial-profile/debts", "/me/financial-profile/assets"]) void authenticatedRequest(path).catch(() => {});
+        }
         const { profile: next, v2 } = record ? loadedProfile(base, record) : { profile: base, v2: null };
         setProfile(next);
         setV2Profile(v2);

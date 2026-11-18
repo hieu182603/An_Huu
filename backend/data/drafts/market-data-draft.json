@@ -1,0 +1,911 @@
+{
+  "schemaVersion": 1,
+  "title": "Dữ liệu thị trường tháng 11",
+  "reason": "Bộ mặc định dựng từ số liệu công khai tới 10/2026 để trang Phân bổ chạy được mô phỏng. Admin rà soát, sửa số liệu và xác minh giấy phép trước khi duyệt. Số liệu gốc và cách tính: backend/data/drafts/market-data-inputs.json, docs/du-lieu-thi-truong-mac-dinh.md.",
+  "effectiveFrom": "2026-11-18",
+  "currency": "VND",
+  "unit": "DECIMAL_MONTHLY_TOTAL_RETURN",
+  "priceBasis": "NOMINAL",
+  "cpiMeasure": "MONTH_ON_MONTH_CHANGE",
+  "period": {
+    "from": "2020-03",
+    "to": "2026-10"
+  },
+  "sources": [
+    {
+      "id": "VCB_DEPOSIT_12M",
+      "title": "Lãi suất tiết kiệm 12 tháng tại quầy, khách cá nhân, Vietcombank (tổng hợp từ báo chí: vietnambiz, cafef, vietstock, vnexpress, dnse)",
+      "url": "https://www.vietcombank.com.vn/vi-VN/KHCN/Cong-cu-Tien-ich/KHCN---Lai-suat",
+      "retrievedOn": "2026-11-18",
+      "license": "CHƯA XÁC MINH. Admin phải kiểm tra điều khoản sử dụng, hoặc có văn bản cho phép, trước khi duyệt và công bố.",
+      "usage": "SIMULATION_AND_DERIVED_OUTPUTS_PERMITTED",
+      "evidence": "Các mốc thay đổi và nguồn từng mốc: cashRateAnchors trong market-data-inputs.json."
+    },
+    {
+      "id": "HNX_GOV_BOND_10Y",
+      "title": "Lãi suất trúng thầu TPCP kỳ hạn 10 năm tại HNX (tổng hợp từ VBMA, HNX, VnEconomy, báo Đấu thầu, ACBS)",
+      "url": "https://hnx.vn",
+      "retrievedOn": "2026-11-18",
+      "license": "CHƯA XÁC MINH. Admin phải kiểm tra điều khoản sử dụng, hoặc có văn bản cho phép, trước khi duyệt và công bố.",
+      "usage": "SIMULATION_AND_DERIVED_OUTPUTS_PERMITTED",
+      "evidence": "Các mốc lợi suất cuối tháng: govBondYieldAnchors trong market-data-inputs.json."
+    },
+    {
+      "id": "YAHOO_VNINDEX",
+      "title": "VN-Index, điểm đóng cửa phiên cuối tháng (Yahoo Finance, mã 0P0000HY8X.VN)",
+      "url": "https://finance.yahoo.com/quote/0P0000HY8X.VN/history/",
+      "retrievedOn": "2026-11-18",
+      "license": "CHƯA XÁC MINH. Admin phải kiểm tra điều khoản sử dụng, hoặc có văn bản cho phép, trước khi duyệt và công bố. Dữ liệu gốc thuộc HOSE.",
+      "usage": "SIMULATION_AND_DERIVED_OUTPUTS_PERMITTED",
+      "evidence": "Đã đối chiếu: 1.266,78 cuối 12/2024 và 1.639,65 cuối 10/2025 khớp báo chí. Hai tháng sửa tay ghi ở vnIndexClose._overrides."
+    },
+    {
+      "id": "GIAVANGHN_SJC",
+      "title": "Giá vàng miếng SJC, giá đóng cửa theo tháng (giavanghn.com, lịch sử giá vàng 2020–2026)",
+      "url": "https://giavanghn.com/lich-su-gia-vang/gia-vang-2026",
+      "retrievedOn": "2026-11-18",
+      "license": "CHƯA XÁC MINH. Admin phải kiểm tra điều khoản sử dụng, hoặc có văn bản cho phép, trước khi duyệt và công bố. Trang tổng hợp từ SJC, DOJI, PNJ, BTMC.",
+      "usage": "SIMULATION_AND_DERIVED_OUTPUTS_PERMITTED",
+      "evidence": "Cột Đóng cửa (triệu đồng/lượng). Trang không ghi rõ giá mua vào hay bán ra; tài liệu thuật toán yêu cầu giá mua vào của SJC."
+    },
+    {
+      "id": "IMF_NSO_CPI",
+      "title": "CPI Việt Nam theo tháng: IMF CPI dataset (VNM, chỉ số chung, tới 09/2026) và Cục Thống kê (tháng 10/2026: +0,20%)",
+      "url": "https://data.imf.org",
+      "retrievedOn": "2026-11-18",
+      "license": "CHƯA XÁC MINH. Admin phải kiểm tra điều khoản sử dụng, hoặc có văn bản cho phép, trước khi duyệt và công bố. IMF cho phép dùng kèm ghi nguồn; dùng thương mại phải xin phép copyright@imf.org.",
+      "usage": "SIMULATION_AND_DERIVED_OUTPUTS_PERMITTED",
+      "evidence": "cpi = chỉ số tháng t / chỉ số tháng t-1 - 1; tháng 10/2026 = 0,0020 theo thông cáo ngày 03/11/2026."
+    }
+  ],
+  "assets": [
+    {
+      "assetClass": "CASH",
+      "sourceId": "VCB_DEPOSIT_12M",
+      "totalReturnEvidence": "Lãi tháng = lãi suất 12 tháng niêm yết đầu tháng / 12 (lãi đơn, chưa tái tục). Một số tháng 2022–2023 chưa xác minh ngày đổi lãi suất (xem market-data-inputs.json).",
+      "fees": {
+        "treatment": "NET",
+        "evidence": "Tiền gửi không có phí quản lý."
+      },
+      "taxTreatment": "Lãi tiền gửi tại tổ chức tín dụng được miễn thuế TNCN; pháp chế cần xác nhận văn bản còn hiệu lực."
+    },
+    {
+      "assetClass": "GOV_BOND",
+      "sourceId": "HNX_GOV_BOND_10Y",
+      "totalReturnEvidence": "Gần đúng: lợi suất tháng t = lãi suất trúng thầu 10 năm cuối tháng t-1 / 12 (giữ tới đáo hạn, hưởng lãi). Chưa tính lãi/lỗ giá khi lợi suất đổi, nên biến động thấp hơn thực tế. Nên thay bằng chỉ số tổng lợi suất TPCP có giấy phép.",
+      "fees": {
+        "treatment": "NET",
+        "evidence": "Giả định nắm giữ trực tiếp, không có phí quỹ."
+      },
+      "taxTreatment": "Thuế với lãi TPCP của cá nhân chưa được xác nhận; đang coi là không thuế."
+    },
+    {
+      "assetClass": "EQUITY",
+      "sourceId": "YAHOO_VNINDEX",
+      "totalReturnEvidence": "r = VN-Index cuối tháng t / cuối tháng t-1 - 1. Đây là chỉ số GIÁ, chưa gồm cổ tức (thấp hơn tổng lợi suất khoảng tỷ suất cổ tức, ước 1–2%/năm). Nên thay bằng chỉ số tổng lợi suất khi có hợp đồng dữ liệu.",
+      "fees": {
+        "treatment": "NET",
+        "evidence": "Không trừ phí quỹ vì chuỗi đã thiếu phần cổ tức; hai sai lệch ngược chiều nhau. Admin có thể đổi sang GROSS với monthlyDrag theo TER."
+      },
+      "taxTreatment": "Thuế 0,1% trên giá trị bán và 5% cổ tức tiền mặt chưa được trừ."
+    },
+    {
+      "assetClass": "GOLD",
+      "sourceId": "GIAVANGHN_SJC",
+      "totalReturnEvidence": "r = giá SJC đóng cửa cuối tháng t / cuối tháng t-1 - 1 (triệu đồng/lượng).",
+      "fees": {
+        "treatment": "NET",
+        "evidence": "Không có phí định kỳ; chênh mua/bán xử lý ở kịch bản GOLD (spreadPoints)."
+      },
+      "taxTreatment": "Không có thuế định kỳ."
+    }
+  ],
+  "cpiSourceId": "IMF_NSO_CPI",
+  "quality": {
+    "missingValues": "REJECT",
+    "imputation": "NONE",
+    "reviewNote": "Không điền 0 và không nội suy lợi suất. Lãi tiền gửi và lợi suất TPCP giữ mức niêm yết gần nhất tới lần thay đổi kế tiếp; các khoảng chưa xác minh ghi trong market-data-inputs.json (_unverified). VN-Index là chỉ số giá. Kỳ 80 tháng gồm đợt giảm 2022 và đợt vàng tăng mạnh 2024–2026, nên kết quả mô phỏng nghiêng theo giai đoạn này."
+  },
+  "rows": [
+    {
+      "month": "2020-03",
+      "returns": {
+        "CASH": "0.0056666667",
+        "GOV_BOND": "0.0028333333",
+        "EQUITY": "-0.2489939809",
+        "GOLD": "0.0592105263"
+      },
+      "cpi": "-0.007172"
+    },
+    {
+      "month": "2020-04",
+      "returns": {
+        "CASH": "0.0055",
+        "GOV_BOND": "0.0028333333",
+        "EQUITY": "0.1608681871",
+        "GOLD": "0.0072463768"
+      },
+      "cpi": "-0.015429"
+    },
+    {
+      "month": "2020-05",
+      "returns": {
+        "CASH": "0.0054166667",
+        "GOV_BOND": "0.0028333333",
+        "EQUITY": "0.123987466",
+        "GOLD": "0.0051387461"
+      },
+      "cpi": "-0.000302"
+    },
+    {
+      "month": "2020-06",
+      "returns": {
+        "CASH": "0.0054166667",
+        "GOV_BOND": "0.0028333333",
+        "EQUITY": "-0.0455307877",
+        "GOLD": "0.0085889571"
+      },
+      "cpi": "0.006584"
+    },
+    {
+      "month": "2020-07",
+      "returns": {
+        "CASH": "0.005",
+        "GOV_BOND": "0.0028333333",
+        "EQUITY": "-0.032383561",
+        "GOLD": "0.1739659367"
+      },
+      "cpi": "0.003993"
+    },
+    {
+      "month": "2020-08",
+      "returns": {
+        "CASH": "0.005",
+        "GOV_BOND": "0.0028333333",
+        "EQUITY": "0.1042848733",
+        "GOLD": "-0.0164075993"
+      },
+      "cpi": "0.000743"
+    },
+    {
+      "month": "2020-09",
+      "returns": {
+        "CASH": "0.005",
+        "GOV_BOND": "0.0028333333",
+        "EQUITY": "0.0267226224",
+        "GOLD": "-0.021071115"
+      },
+      "cpi": "0.001245"
+    },
+    {
+      "month": "2020-10",
+      "returns": {
+        "CASH": "0.005",
+        "GOV_BOND": "0.0028333333",
+        "EQUITY": "0.0223815468",
+        "GOLD": "0.0125560538"
+      },
+      "cpi": "0.000859"
+    },
+    {
+      "month": "2020-11",
+      "returns": {
+        "CASH": "0.0048333333",
+        "GOV_BOND": "0.0028333333",
+        "EQUITY": "0.0838600927",
+        "GOLD": "-0.0357838795"
+      },
+      "cpi": "-0.000084"
+    },
+    {
+      "month": "2020-12",
+      "returns": {
+        "CASH": "0.0048333333",
+        "GOV_BOND": "0.0028333333",
+        "EQUITY": "0.10048052",
+        "GOLD": "0.0306816094"
+      },
+      "cpi": "0.001028"
+    },
+    {
+      "month": "2021-01",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "-0.0428130124",
+        "GOLD": "0.0106951872"
+      },
+      "cpi": "0.000624"
+    },
+    {
+      "month": "2021-02",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.1058668761",
+        "GOLD": "-0.0061728395"
+      },
+      "cpi": "0.015181"
+    },
+    {
+      "month": "2021-03",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0196581855",
+        "GOLD": "-0.0301685892"
+      },
+      "cpi": "-0.002677"
+    },
+    {
+      "month": "2021-04",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0402454173",
+        "GOLD": "0.0210430009"
+      },
+      "cpi": "-0.000383"
+    },
+    {
+      "month": "2021-05",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0654112104",
+        "GOLD": "0.0241935484"
+      },
+      "cpi": "0.001584"
+    },
+    {
+      "month": "2021-06",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0667116005",
+        "GOLD": "-0.0052493438"
+      },
+      "cpi": "0.001874"
+    },
+    {
+      "month": "2021-07",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "-0.0699300699",
+        "GOLD": "0.0061565523"
+      },
+      "cpi": "0.006224"
+    },
+    {
+      "month": "2021-08",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.016350521",
+        "GOLD": "0.0034965035"
+      },
+      "cpi": "0.002479"
+    },
+    {
+      "month": "2021-09",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0079536152",
+        "GOLD": "-0.0095818815"
+      },
+      "cpi": "-0.006155"
+    },
+    {
+      "month": "2021-10",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0761590391",
+        "GOLD": "0.0281442392"
+      },
+      "cpi": "-0.002031"
+    },
+    {
+      "month": "2021-11",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0236590111",
+        "GOLD": "0.0342172797"
+      },
+      "cpi": "0.003209"
+    },
+    {
+      "month": "2021-12",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0134195503",
+        "GOLD": "0.0165425972"
+      },
+      "cpi": "-0.001816"
+    },
+    {
+      "month": "2022-01",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "-0.0158915557",
+        "GOLD": "0.018714402"
+      },
+      "cpi": "0.001916"
+    },
+    {
+      "month": "2022-02",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0106207654",
+        "GOLD": "0.054313099"
+      },
+      "cpi": "0.010024"
+    },
+    {
+      "month": "2022-03",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0013555864",
+        "GOLD": "0.0431818182"
+      },
+      "cpi": "0.007017"
+    },
+    {
+      "month": "2022-04",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "-0.0840062996",
+        "GOLD": "0.0188816267"
+      },
+      "cpi": "0.001844"
+    },
+    {
+      "month": "2022-05",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "-0.0542288557",
+        "GOLD": "-0.0135424091"
+      },
+      "cpi": "0.003779"
+    },
+    {
+      "month": "2022-06",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "-0.0735526194",
+        "GOLD": "-0.0079479769"
+      },
+      "cpi": "0.006854"
+    },
+    {
+      "month": "2022-07",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0072895792",
+        "GOLD": "-0.0269482884"
+      },
+      "cpi": "0.003953"
+    },
+    {
+      "month": "2022-08",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "0.0614922948",
+        "GOLD": "-0.002994012"
+      },
+      "cpi": "0.00005"
+    },
+    {
+      "month": "2022-09",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0019",
+        "EQUITY": "-0.1158913246",
+        "GOLD": "-0.0127627628"
+      },
+      "cpi": "0.003981"
+    },
+    {
+      "month": "2022-10",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.0025",
+        "EQUITY": "-0.0920140269",
+        "GOLD": "0.0205323194"
+      },
+      "cpi": "0.001452"
+    },
+    {
+      "month": "2022-11",
+      "returns": {
+        "CASH": "0.0061666667",
+        "GOV_BOND": "0.0033333333",
+        "EQUITY": "0.0199233418",
+        "GOLD": "0.001490313"
+      },
+      "cpi": "0.003872"
+    },
+    {
+      "month": "2022-12",
+      "returns": {
+        "CASH": "0.0061666667",
+        "GOV_BOND": "0.0033333333",
+        "EQUITY": "-0.0394212243",
+        "GOLD": "-0.0074404762"
+      },
+      "cpi": "-0.000125"
+    },
+    {
+      "month": "2023-01",
+      "returns": {
+        "CASH": "0.0061666667",
+        "GOV_BOND": "0.003875",
+        "EQUITY": "0.1033571975",
+        "GOLD": "0.0149925037"
+      },
+      "cpi": "0.005153"
+    },
+    {
+      "month": "2023-02",
+      "returns": {
+        "CASH": "0.0061666667",
+        "GOV_BOND": "0.003875",
+        "EQUITY": "-0.0778451736",
+        "GOLD": "-0.0125553914"
+      },
+      "cpi": "0.004489"
+    },
+    {
+      "month": "2023-03",
+      "returns": {
+        "CASH": "0.0061666667",
+        "GOV_BOND": "0.003875",
+        "EQUITY": "0.0389975407",
+        "GOLD": "0.0007479432"
+      },
+      "cpi": "-0.002259"
+    },
+    {
+      "month": "2023-04",
+      "returns": {
+        "CASH": "0.006",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "-0.0145776976",
+        "GOLD": "0.0029895366"
+      },
+      "cpi": "-0.003425"
+    },
+    {
+      "month": "2023-05",
+      "returns": {
+        "CASH": "0.006",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "0.024830334",
+        "GOLD": "0.0007451565"
+      },
+      "cpi": "0.000075"
+    },
+    {
+      "month": "2023-06",
+      "returns": {
+        "CASH": "0.006",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "0.0418631472",
+        "GOLD": "-0.0022338049"
+      },
+      "cpi": "0.002674"
+    },
+    {
+      "month": "2023-07",
+      "returns": {
+        "CASH": "0.006",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "0.0916995483",
+        "GOLD": "0.0029850746"
+      },
+      "cpi": "0.004548"
+    },
+    {
+      "month": "2023-08",
+      "returns": {
+        "CASH": "0.006",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "0.0009403876",
+        "GOLD": "0.0141369048"
+      },
+      "cpi": "0.008811"
+    },
+    {
+      "month": "2023-09",
+      "returns": {
+        "CASH": "0.0045833333",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "-0.0571055104",
+        "GOLD": "0.01027146"
+      },
+      "cpi": "0.010799"
+    },
+    {
+      "month": "2023-10",
+      "returns": {
+        "CASH": "0.0044166667",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "-0.109136594",
+        "GOLD": "0.0261437908"
+      },
+      "cpi": "0.000822"
+    },
+    {
+      "month": "2023-11",
+      "returns": {
+        "CASH": "0.00425",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "0.0641321157",
+        "GOLD": "0.0431705591"
+      },
+      "cpi": "0.002485"
+    },
+    {
+      "month": "2023-12",
+      "returns": {
+        "CASH": "0.004",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "0.0327200607",
+        "GOLD": "0.0312075984"
+      },
+      "cpi": "0.001158"
+    },
+    {
+      "month": "2024-01",
+      "returns": {
+        "CASH": "0.004",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "0.0304266636",
+        "GOLD": "0.0184210526"
+      },
+      "cpi": "0.0031140097"
+    },
+    {
+      "month": "2024-02",
+      "returns": {
+        "CASH": "0.0039166667",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "0.0759419742",
+        "GOLD": "0.0258397933"
+      },
+      "cpi": "0.010373"
+    },
+    {
+      "month": "2024-03",
+      "returns": {
+        "CASH": "0.0039166667",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "0.0250333272",
+        "GOLD": "0.0201511335"
+      },
+      "cpi": "-0.002326"
+    },
+    {
+      "month": "2024-04",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "-0.0580722535",
+        "GOLD": "0.0444444444"
+      },
+      "cpi": "0.000731"
+    },
+    {
+      "month": "2024-05",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "0.0431576162",
+        "GOLD": "0.0496453901"
+      },
+      "cpi": "0.000469"
+    },
+    {
+      "month": "2024-06",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "-0.0129981295",
+        "GOLD": "-0.1331081081"
+      },
+      "cpi": "0.001653"
+    },
+    {
+      "month": "2024-07",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "0.00497061",
+        "GOLD": "0.026240582"
+      },
+      "cpi": "0.004753"
+    },
+    {
+      "month": "2024-08",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "0.025856765",
+        "GOLD": "0.0253164557"
+      },
+      "cpi": "-0.000007"
+    },
+    {
+      "month": "2024-09",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "0.0031701029",
+        "GOLD": "0.0308641975"
+      },
+      "cpi": "0.00285"
+    },
+    {
+      "month": "2024-10",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "-0.0182151342",
+        "GOLD": "0.0778443114"
+      },
+      "cpi": "0.003332"
+    },
+    {
+      "month": "2024-11",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "-0.011135012",
+        "GOLD": "-0.0466666667"
+      },
+      "cpi": "0.001275"
+    },
+    {
+      "month": "2024-12",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0018333333",
+        "EQUITY": "0.0130998081",
+        "GOLD": "-0.0151515152"
+      },
+      "cpi": "0.002869"
+    },
+    {
+      "month": "2025-01",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0023083333",
+        "EQUITY": "-0.0013656673",
+        "GOLD": "0.050887574"
+      },
+      "cpi": "0.009812"
+    },
+    {
+      "month": "2025-02",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0023083333",
+        "EQUITY": "0.0318643532",
+        "GOLD": "0.0236486486"
+      },
+      "cpi": "0.003388"
+    },
+    {
+      "month": "2025-03",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0023083333",
+        "EQUITY": "0.0011491083",
+        "GOLD": "0.1078107811"
+      },
+      "cpi": "-0.0002256524"
+    },
+    {
+      "month": "2025-04",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0023083333",
+        "EQUITY": "-0.0616439404",
+        "GOLD": "0.1996027805"
+      },
+      "cpi": "0.0006741952"
+    },
+    {
+      "month": "2025-05",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0023083333",
+        "EQUITY": "0.0866835195",
+        "GOLD": "-0.0149006623"
+      },
+      "cpi": "0.0016001347"
+    },
+    {
+      "month": "2025-06",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0023083333",
+        "EQUITY": "0.0326204412",
+        "GOLD": "0.0042016807"
+      },
+      "cpi": "0.0047927352"
+    },
+    {
+      "month": "2025-07",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0023083333",
+        "EQUITY": "0.0918921276",
+        "GOLD": "0.0142259414"
+      },
+      "cpi": "0.0010878661"
+    },
+    {
+      "month": "2025-08",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0023083333",
+        "EQUITY": "0.1195924181",
+        "GOLD": "0.0775577558"
+      },
+      "cpi": "0.0005015464"
+    },
+    {
+      "month": "2025-09",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "-0.0121922947",
+        "GOLD": "0.0375191424"
+      },
+      "cpi": "0.0042610076"
+    },
+    {
+      "month": "2025-10",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.002875",
+        "EQUITY": "-0.0132695432",
+        "GOLD": "0.0819188192"
+      },
+      "cpi": "0.0019966722"
+    },
+    {
+      "month": "2025-11",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0031666667",
+        "EQUITY": "0.0313115604",
+        "GOLD": "0.0566166439"
+      },
+      "cpi": "0.0045"
+    },
+    {
+      "month": "2025-12",
+      "returns": {
+        "CASH": "0.0038333333",
+        "GOV_BOND": "0.0032166667",
+        "EQUITY": "0.0552930532",
+        "GOLD": "-0.0045190445"
+      },
+      "cpi": "0.0019215988"
+    },
+    {
+      "month": "2026-01",
+      "returns": {
+        "CASH": "0.0043333333",
+        "GOV_BOND": "0.0033333333",
+        "EQUITY": "0.0249651161",
+        "GOLD": "0.1964980545"
+      },
+      "cpi": "0.0004794783"
+    },
+    {
+      "month": "2026-02",
+      "returns": {
+        "CASH": "0.0043333333",
+        "GOV_BOND": "0.0033666667",
+        "EQUITY": "0.028042033",
+        "GOLD": "-0.0027100271"
+      },
+      "cpi": "0.0114061152"
+    },
+    {
+      "month": "2026-03",
+      "returns": {
+        "CASH": "0.0043333333",
+        "GOV_BOND": "0.0033666667",
+        "EQUITY": "-0.1094701462",
+        "GOLD": "-0.0684782609"
+      },
+      "cpi": "0.0124147081"
+    },
+    {
+      "month": "2026-04",
+      "returns": {
+        "CASH": "0.0049166667",
+        "GOV_BOND": "0.003425",
+        "EQUITY": "0.1072625098",
+        "GOLD": "-0.0315052509"
+      },
+      "cpi": "0.0084245998"
+    },
+    {
+      "month": "2026-05",
+      "returns": {
+        "CASH": "0.0049166667",
+        "GOV_BOND": "0.0034666667",
+        "EQUITY": "0.0050644518",
+        "GOLD": "-0.0421686747"
+      },
+      "cpi": "0.0028775643"
+    },
+    {
+      "month": "2026-06",
+      "returns": {
+        "CASH": "0.0049166667",
+        "GOV_BOND": "0.0035416667",
+        "EQUITY": "-0.0018674637",
+        "GOLD": "-0.0691823899"
+      },
+      "cpi": "-0.0037948908"
+    },
+    {
+      "month": "2026-07",
+      "returns": {
+        "CASH": "0.0049166667",
+        "GOV_BOND": "0.0035416667",
+        "EQUITY": "-0.0667899635",
+        "GOLD": "-0.0371621622"
+      },
+      "cpi": "-0.0012078417"
+    },
+    {
+      "month": "2026-08",
+      "returns": {
+        "CASH": "0.0049166667",
+        "GOV_BOND": "0.0036333333",
+        "EQUITY": "0.0555024254",
+        "GOLD": "0.0435087719"
+      },
+      "cpi": "0.0045581395"
+    },
+    {
+      "month": "2026-09",
+      "returns": {
+        "CASH": "0.0049166667",
+        "GOV_BOND": "0.003675",
+        "EQUITY": "-0.0346593018",
+        "GOLD": "-0.0517821116"
+      },
+      "cpi": "0.0062042782"
+    },
+    {
+      "month": "2026-10",
+      "returns": {
+        "CASH": "0.0049166667",
+        "GOV_BOND": "0.0036916667",
+        "EQUITY": "-0.0152661397",
+        "GOLD": "0.0028368794"
+      },
+      "cpi": "0.002"
+    }
+  ]
+}

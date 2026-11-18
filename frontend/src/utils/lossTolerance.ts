@@ -6,7 +6,8 @@ const fraction = (value: string) => {
 /** Revalue the derived input against today's long-term capital. Never infer a new answer. */
 export function resolveLossTolerance(growth: string | null, amount: string | null, percent: string | null, mode?: "PERCENT" | "AMOUNT") {
   const inputMode = mode ?? (percent !== null && (amount === null || growth === null || Number(amount) >= Number(growth) * Number(percent) / 100) ? "PERCENT" : "AMOUNT");
-  if (growth === null || Number(growth) <= 0) return { amount: null, percent: null, inputMode };
+  // Without long-term capital only a saved percent is meaningful; keep it visible (an amount cannot be derived).
+  if (growth === null || Number(growth) <= 0) return { amount: null, percent: inputMode === "PERCENT" ? percent : null, inputMode };
   const g = fraction(growth);
   if (inputMode === "PERCENT") {
     if (percent === null) return { amount: null, percent, inputMode };

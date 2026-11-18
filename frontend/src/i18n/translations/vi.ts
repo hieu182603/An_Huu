@@ -149,7 +149,7 @@ export const vi = {
   "dashboard.cashflow.debt": "Nghĩa vụ nợ hàng tháng",
   "dashboard.cashflow.debt_sub": "Gốc & lãi định kỳ",
   "dashboard.cashflow.surplus": "Tiền còn lại mỗi tháng",
-  "dashboard.cashflow.surplus_sub": "+ Thặng dư ròng mỗi tháng",
+  "dashboard.cashflow.surplus_sub": "+ Tiền dư mỗi tháng sau khi trừ chi tiêu",
   "dashboard.cashflow.deficit_sub": "- Thâm hụt ròng mỗi tháng",
 
   // Dashboard - Wealth & Net Worth Bento

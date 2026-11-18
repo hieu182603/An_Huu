@@ -11,6 +11,7 @@ import { AssumptionsService } from "../modules/assumptions/service";
 import { PortfoliosService, publishedPolicies } from "../modules/portfolios/service";
 import { plansFixture } from "./plans-fixtures";
 import { config } from "./helpers";
+import { forgetVerifiedSnapshots } from "../modules/plans/service";
 
 beforeEach(() => { vi.spyOn(console, "info").mockImplementation(() => {}); vi.spyOn(console, "error").mockImplementation(() => {}); });
 const signed = (userId: string, secret = config.JWT_SECRET) => jwt.sign({ userId, email: "rate@example.test", role: "USER" }, secret,
@@ -113,6 +114,7 @@ describe("read-only plan and preview paths", () => {
       references: detail.preview.references, summary: detail.preview.calculation!.summary, birthMonth: detail.birthMonth }]);
     // Tampering is still caught where the full snapshot is actually used.
     f.rows("planVersion")[0].inputSnapshot.capture.revision = 99;
+    forgetVerifiedSnapshots();
     expect((await f.plans.versions(f.owner, planId, { page: 1, limit: 50 })).items).toHaveLength(1);
     for (const read of [() => f.plans.version(f.owner, planId, versionId), () => f.plans.version(f.owner, planId, versionId, true),
       () => f.plans.exportCsv(f.owner, planId, versionId), () => f.plans.get(f.owner, planId)])

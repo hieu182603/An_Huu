@@ -225,6 +225,7 @@ function GoalForm({ data }: { data: ProfileV2 }) {
       <li className="goal-timeline-phase-track" aria-hidden="true">
         <div className="phase-bar-segment phase-accum">
           <span className="phase-bar-label">
+            <span className="phase-dot" />
             <strong>{t("Giai đoạn tích lũy", "Accumulation Phase")}</strong>
             {accumYears ? ` · ${accumYears} ${t("năm", "years")}` : ""}
           </span>
@@ -232,6 +233,7 @@ function GoalForm({ data }: { data: ProfileV2 }) {
         </div>
         <div className="phase-bar-segment phase-spend">
           <span className="phase-bar-label">
+            <span className="phase-dot spend" />
             <strong>{t("Giai đoạn an hưởng", "Retirement Phase")}</strong>
             {spendYears ? ` · ${spendYears} ${t("năm", "years")}` : ""}
           </span>
@@ -242,7 +244,9 @@ function GoalForm({ data }: { data: ProfileV2 }) {
         <div className="goal-nodes-grid">
           {/* Node 1 */}
           <div className="goal-node-col node-start">
-            <span className="node-caption">{t("BẮT ĐẦU TÍNH", "VALUATION")}</span>
+            <div className="node-caption-row">
+              <span className="node-caption">{t("BẮT ĐẦU TÍNH", "VALUATION")}</span>
+            </div>
             <div className="node-date-wrap">
               <strong className="node-date">{data.valuationDate.slice(0, 7) ? formatMonthVN(data.valuationDate.slice(0, 7)) : ""}</strong>
               {startAge !== null && <span className="node-age-badge">{startAge} {t("tuổi", "years old")}</span>}
@@ -271,9 +275,11 @@ function GoalForm({ data }: { data: ProfileV2 }) {
 
           {/* Node 3 */}
           <div className="goal-node-col node-end">
-            <span className="node-caption">
-              <Explain term="projectionEnd">{t("CHUẨN BỊ ĐẾN", "PREPARE THROUGH")}</Explain>
-            </span>
+            <div className="node-caption-row">
+              <span className="node-caption">
+                <Explain term="projectionEnd">{t("CHUẨN BỊ ĐẾN", "PREPARE THROUGH")}</Explain>
+              </span>
+            </div>
             <div className="node-date-wrap">
               <strong className="node-date">{prepareMonth ? formatMonthVN(prepareMonth) : t("Chưa xác định", "Undetermined")}</strong>
               {endAge !== null && <span className="node-age-badge">{endAge} {t("tuổi", "years old")}</span>}

@@ -29,7 +29,7 @@ export default function FinancialAssetsPage() {
   useEffect(() => {
     if (!user?.id || !v2 || loading || loadError || !hasProfile) return;
     let active = true;
-    authenticatedRequest<AssetReport>("/me/financial-profile/assets", undefined, "GET", undefined, { skipCache: true })
+    authenticatedRequest<AssetReport>("/me/financial-profile/assets", undefined, "GET", undefined, { skipCache: attempt > 0 })
       .then(report => { if (active) setState({ key, report: report.profileRevision === profileRevision ? report : null, error: report.profileRevision === profileRevision ? null : t("Hồ sơ đã đổi. Tải lại để xem cùng phiên bản.", "Your profile changed. Reload to view the same revision.") }); })
       .catch(error => { if (active) setState({ key, report: null, error: error instanceof Error ? error.message : t("Chưa tải được phân bổ tài sản.", "Could not load the asset breakdown.") }); });
     return () => { active = false; };

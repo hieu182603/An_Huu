@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "status": "DRAFT_NOT_PUBLISHED",
+    "preparedOn": "2026-11-18",
+    "purpose": "Tham số mô hình đề xuất cho chính sách danh mục schema v2 (bổ sung/điều chỉnh so với backend/seed-data/allocation-2026-10/draft-policy-v4.json). Không phải lời khuyên đầu tư cá nhân. Chưa ghi DB, chưa công bố.",
+    "assetClasses": ["CASH", "GOV_BOND", "EQUITY", "GOLD"],
+    "basis": "Mọi con số tỷ trọng chỉ lấy từ bảng danh mục nền và mục 9.1 của tài liệu thuật toán khách hàng (sites/an-huu-trai-nghiem/thuat-toan-phan-bo-tai-san.md); phần An Hưu tự chọn được ghi CHỜ DUYỆT trong evidence.",
+    "explanation": "docs/du-lieu-thi-truong-va-ty-trong-mau.md",
+    "ruleMapping": {
+      "TPL_CAUTIOUS_GLIDE": ["BAND_CONSERVATIVE", "BAND_MODERATE_CONSERVATIVE"],
+      "TPL_BASE_GLIDE": ["BAND_BALANCED"],
+      "TPL_GROWTH_GLIDE": ["BAND_GROWTH", "BAND_AGGRESSIVE_GROWTH"]
+    }
+  },
+  "templates": [
+    {
+      "id": "TPL_CAUTIOUS_GLIDE",
+      "label": "Thận trọng: lùi một bậc thời hạn so với danh mục nền",
+      "rebalance": { "everyMonths": 12, "timing": "START_OF_MONTH", "turnoverCostPercent": "0.2", "costConvention": "HALF_L1_TURNOVER_TIMES_COST", "evidence": "Giữ nguyên v4: tái cân bằng hằng năm, chi phí luân chuyển 0,2% (CHỜ DUYỆT)." },
+      "glidePath": { "anchor": "RETIREMENT_MONTH", "interpolation": "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR", "afterAnchor": "HOLD_ZERO_YEAR_POINT",
+        "points": [
+          { "yearsToAnchor": 15, "allocations": [{ "assetClass": "CASH", "weightPercent": "15" }, { "assetClass": "GOV_BOND", "weightPercent": "30" }, { "assetClass": "EQUITY", "weightPercent": "45" }, { "assetClass": "GOLD", "weightPercent": "10" }] },
+          { "yearsToAnchor": 10, "allocations": [{ "assetClass": "CASH", "weightPercent": "25" }, { "assetClass": "GOV_BOND", "weightPercent": "40" }, { "assetClass": "EQUITY", "weightPercent": "25" }, { "assetClass": "GOLD", "weightPercent": "10" }] },
+          { "yearsToAnchor": 0, "allocations": [{ "assetClass": "CASH", "weightPercent": "25" }, { "assetClass": "GOV_BOND", "weightPercent": "40" }, { "assetClass": "EQUITY", "weightPercent": "25" }, { "assetClass": "GOLD", "weightPercent": "10" }] }
+        ] }
+    },
+    {
+      "id": "TPL_BASE_GLIDE",
+      "label": "Cân bằng: đúng bảng danh mục nền của tài liệu",
+      "rebalance": { "everyMonths": 12, "timing": "START_OF_MONTH", "turnoverCostPercent": "0.2", "costConvention": "HALF_L1_TURNOVER_TIMES_COST", "evidence": "Giữ nguyên v4: tái cân bằng hằng năm, chi phí luân chuyển 0,2% (CHỜ DUYỆT)." },
+      "glidePath": { "anchor": "RETIREMENT_MONTH", "interpolation": "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR", "afterAnchor": "HOLD_ZERO_YEAR_POINT",
+        "points": [
+          { "yearsToAnchor": 15, "allocations": [{ "assetClass": "CASH", "weightPercent": "10" }, { "assetClass": "GOV_BOND", "weightPercent": "20" }, { "assetClass": "EQUITY", "weightPercent": "60" }, { "assetClass": "GOLD", "weightPercent": "10" }] },
+          { "yearsToAnchor": 10, "allocations": [{ "assetClass": "CASH", "weightPercent": "15" }, { "assetClass": "GOV_BOND", "weightPercent": "30" }, { "assetClass": "EQUITY", "weightPercent": "45" }, { "assetClass": "GOLD", "weightPercent": "10" }] },
+          { "yearsToAnchor": 5, "allocations": [{ "assetClass": "CASH", "weightPercent": "15" }, { "assetClass": "GOV_BOND", "weightPercent": "30" }, { "assetClass": "EQUITY", "weightPercent": "45" }, { "assetClass": "GOLD", "weightPercent": "10" }] },
+          { "yearsToAnchor": 3, "allocations": [{ "assetClass": "CASH", "weightPercent": "25" }, { "assetClass": "GOV_BOND", "weightPercent": "40" }, { "assetClass": "EQUITY", "weightPercent": "25" }, { "assetClass": "GOLD", "weightPercent": "10" }] },
+          { "yearsToAnchor": 0, "allocations": [{ "assetClass": "CASH", "weightPercent": "25" }, { "assetClass": "GOV_BOND", "weightPercent": "40" }, { "assetClass": "EQUITY", "weightPercent": "25" }, { "assetClass": "GOLD", "weightPercent": "10" }] }
+        ] }
+    },
+    {
+      "id": "TPL_GROWTH_GLIDE",
+      "label": "Tăng trưởng: tiến một bậc thời hạn so với danh mục nền, trần cổ phiếu 60%",
+      "rebalance": { "everyMonths": 12, "timing": "START_OF_MONTH", "turnoverCostPercent": "0.2", "costConvention": "HALF_L1_TURNOVER_TIMES_COST", "evidence": "Cùng quy ước tái cân bằng với v4 (CHỜ DUYỆT)." },
+      "glidePath": { "anchor": "RETIREMENT_MONTH", "interpolation": "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR", "afterAnchor": "HOLD_ZERO_YEAR_POINT",
+        "points": [
+          { "yearsToAnchor": 10, "allocations": [{ "assetClass": "CASH", "weightPercent": "10" }, { "assetClass": "GOV_BOND", "weightPercent": "20" }, { "assetClass": "EQUITY", "weightPercent": "60" }, { "assetClass": "GOLD", "weightPercent": "10" }] },
+          { "yearsToAnchor": 3, "allocations": [{ "assetClass": "CASH", "weightPercent": "15" }, { "assetClass": "GOV_BOND", "weightPercent": "30" }, { "assetClass": "EQUITY", "weightPercent": "45" }, { "assetClass": "GOLD", "weightPercent": "10" }] },
+          { "yearsToAnchor": 0, "allocations": [{ "assetClass": "CASH", "weightPercent": "25" }, { "assetClass": "GOV_BOND", "weightPercent": "40" }, { "assetClass": "EQUITY", "weightPercent": "25" }, { "assetClass": "GOLD", "weightPercent": "10" }] }
+        ] }
+    }
+  ],
+  "lossStress": {
+    "evidence": "Tài liệu thuật toán khách hàng, ví dụ 2 tỷ (mục 10): tiền gửi 0%, TPCP -5%, cổ phiếu -35%, vàng -10%. Giữ nguyên v4. Mức -35% là cận nhẹ của khoảng 35–50% ở mục 9.1; mức -50% chạy trong allocationRisk.stresses.EQUITY_CRASH. CHỜ DUYỆT.",
+    "equityAssetClass": "EQUITY",
+    "depositAssetClass": "CASH",
+    "shocks": [
+      { "assetClass": "CASH", "percent": "0" },
+      { "assetClass": "GOV_BOND", "percent": "-5" },
+      { "assetClass": "EQUITY", "percent": "-35" },
+      { "assetClass": "GOLD", "percent": "-10" }
+    ]
+  },
+  "allocationRisk": {
+    "evidence": "CHỜ DUYỆT. Tài liệu khách: bootstrap khối 12–36 tháng (chọn 12), CVaR 95%, ngưỡng đủ chi thiết yếu 90–95% (chọn 90%), dải tái cân bằng 5 điểm %. Bước dịch cổ phiếu 10 điểm giữ theo v4; ứng viên LOSS_REDUCED vẫn tính mức giảm chính xác nên bước thô không chặn kết quả. allGoalsThreshold 80% là lựa chọn An Hưu, chỉ để hiển thị. Không dùng chuỗi thị trường giả lập.",
+    "blockMonths": 12,
+    "cvarAlpha": "0.95",
+    "essentialThreshold": "0.90",
+    "allGoalsThreshold": "0.80",
+    "equityShiftPoints": "10",
+    "rebalanceBandPoints": "5",
+    "stresses": {
+      "HIGH_INFLATION": { "offsetMonths": 0, "durationMonths": 60, "annualDeltaPoints": "3" },
+      "EQUITY_CRASH": { "offsetMonths": 0, "assetClass": "EQUITY", "shockPercent": "-35", "severeShockPercent": "-50" },
+      "RATE_RISE": { "offsetMonths": 0, "assetClass": "GOV_BOND", "durationYears": "5", "yieldRisePoints": "2" },
+      "GOLD": { "offsetMonths": 0, "assetClass": "GOLD", "shockPercent": "-20", "spreadPoints": "5" },
+      "PROPERTY_ILLIQUIDITY": { "offsetMonths": 0, "durationMonths": 24, "delayMonths": 24, "haircutPercent": "30" },
+      "INCOME_LOSS": { "offsetMonths": -24, "durationMonths": 12, "lostPercent": "50" },
+      "LONGEVITY": { "extraYears": [5, 10] }
+    }
+  },
+  "customization": {
+    "evidence": "CHỜ DUYỆT. Giới hạn bao trọn mọi điểm của ba lộ trình mẫu, có biên: cổ phiếu tối đa 60% (mức cao nhất của tài liệu); vàng 0–15% (10% của tài liệu + 5 điểm, giới hạn tập trung vào tài sản không sinh lãi); tiền gửi tối thiểu 5% để giữ thanh khoản; TPCP 0–60%.",
+    "path": "FOLLOW_TEMPLATE_SHIFTS",
+    "capitalBasis": "PROTECTED_CAPITAL_V1",
+    "bounds": [
+      { "assetClass": "CASH", "minPercent": "5", "maxPercent": "70" },
+      { "assetClass": "GOV_BOND", "minPercent": "0", "maxPercent": "60" },
+      { "assetClass": "EQUITY", "minPercent": "0", "maxPercent": "60" },
+      { "assetClass": "GOLD", "minPercent": "0", "maxPercent": "15" }
+    ]
+  }
+}

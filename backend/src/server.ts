@@ -27,7 +27,8 @@ async function start() {
     deadline.unref();
     try {
       await new Promise<void>(resolve => io.close(() => resolve()));
-      await services.previewPool?.close();
+      // Let running previews finish (bounded, inside the 10 s exit deadline); new ones get 503 + Retry-After.
+      await services.previewPool?.close(7000);
       await prisma.$disconnect();
       clearTimeout(deadline);
       process.exit(0);

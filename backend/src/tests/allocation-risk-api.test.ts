@@ -27,7 +27,7 @@ async function publishMarket(service: MarketDataService, data = marketFixture())
   await service.approve("admin", d.id, { expectedRevision: 1, reviewNote: "Fixture approval", confirm: true });
   return service.publish("admin", d.id, { expectedRevision: 2, confirm: true });
 }
-async function setupRisk(initial = "0", zeroLossTolerance = false, simulationPaths?: number) {
+async function setupRisk(initial = "0", zeroLossTolerance = false, simulationPaths?: number, publishData = true) {
   const f = memoryDb(), assumptions = new AssumptionsService(f.db), portfolios = new PortfoliosService(f.db);
   const a = portfolioAssumptionsFixture();
   a.assetClasses.push({ code: "CASH", label: "Fixture deposit", horizons: [{ id: "ALL", minMonths: 1, maxMonths: 1200 }] });
@@ -55,7 +55,7 @@ async function setupRisk(initial = "0", zeroLossTolerance = false, simulationPat
   await profiles.complete("test-user", { expectedDraftRevision: 1, expectedProfileRevision: 0 }, randomUUID());
   const data = marketFixture(); data.assets = data.assets.slice(0, 2).map((a, i) => ({ ...a, assetClass: i ? "STOCK" : "BOND" }));
   data.rows.forEach(r => { r.returns = { BOND: initial, STOCK: "0" }; r.cpi = "0"; });
-  const market = new MarketDataService(f.db); await publishMarket(market, data);
+  const market = new MarketDataService(f.db); if (publishData) await publishMarket(market, data);
   const risk = new AllocationRiskService(f.db), preview = retirementCommand(pv.id);
   return { ...f, risk, preview, market, profiles, policyId: pv.id };
 }
@@ -110,7 +110,9 @@ describe("P2 user read-only integration", () => {
     expect(evaluate).not.toHaveBeenCalled();
     evaluate.mockRestore();
     const command = { plan: { kind: "SAVED_VERSION" as const, planId: saved.planId, versionId: saved.saved.id }, paths: 10 };
-    expect(await risk.run(f.owner, command, "scenarios")).toMatchObject({ status: "DATA_REQUIRED" });
+    // Scenarios use pinned deterministic assumptions, so they run without published market data.
+    const scenarios = await risk.run(f.owner, command, "scenarios");
+    expect(scenarios).not.toMatchObject({ status: "DATA_REQUIRED" }); expect(scenarios).toMatchObject({ marketVersionId: null });
     await expect(risk.run("another-user", command, "simulation")).rejects.toMatchObject({ status: 404 });
     expect(JSON.stringify([f.rows("planVersion"), f.rows("retirementPlan"), f.rows("auditLog")])).toBe(before);
   });
@@ -145,6 +147,19 @@ describe("P2 user read-only integration", () => {
     expect(r).toMatchObject({ status: "READY", selectedId: "BASE", rejected: expect.arrayContaining([
       { id: "HIGHER_EQUITY", issues: ["LOSS_CONSTRAINT_EXCEEDED"] }, { id: "LOWER_EQUITY", issues: ["INVALID_WEIGHTS"] },
     ]) });
+  });
+  it("without published market data, selection still returns a loss-checked reference on the pinned path and never a probability", async () => {
+    const f = await setupRisk("0", false, undefined, false);
+    const r = await f.risk.run("test-user", { plan: { kind: "PREVIEW", preview: { ...f.preview, monthlyExpenseToday: "0" } }, paths: 10, detail: "ALLOCATION_V2" }, "selection");
+    expect(r).toMatchObject({ status: "DATA_REQUIRED", issues: ["PUBLISHED_MONTHLY_TOTAL_RETURN_DATA_REQUIRED"], marketVersionId: null,
+      deterministic: { basis: "PINNED_DETERMINISTIC_ASSUMPTIONS", referenceId: "BASE", referenceKind: "TEMPLATE_UNSIMULATED", applicable: false,
+        limitations: ["NO_PROBABILITY_WITHOUT_PUBLISHED_MARKET_DATA"] } });
+    const det = (r as unknown as { deterministic: { candidates: Array<Record<string, unknown>> } }).deterministic;
+    expect(det.candidates.length).toBeGreaterThan(0);
+    for (const c of det.candidates) { expect(c).not.toHaveProperty("pEssential"); expect(c).not.toHaveProperty("cvarEssentialShortfallToday"); expect(c.withinLossLimit).toBe(true); }
+    // Simulation keeps requiring published data; scenarios run on deterministic assumptions.
+    expect(await f.risk.run("test-user", { plan: { kind: "PREVIEW", preview: f.preview }, paths: 10 }, "scenarios")).toMatchObject({ status: "READY", basis: "PINNED_DETERMINISTIC_ASSUMPTIONS", marketVersionId: null });
+    expect(await f.risk.run("test-user", { plan: { kind: "PREVIEW", preview: f.preview }, paths: 10 }, "simulation")).toMatchObject({ status: "DATA_REQUIRED" });
   });
   it("uses pinned v4 source cashflows and preserves both v3 and v4 replay", async () => {
     const f = await setupRisk(), retirement = new RetirementService(f.db), plans = new PlansService(f.db);

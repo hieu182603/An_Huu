@@ -289,6 +289,8 @@ img { max-width: 100%; }
 
 @media (max-width: 480px) {
   .user-topbar-actions > .tooltip-wrap:has(button[aria-label*="Hỗ trợ"]),
+  .user-topbar-actions > .tooltip-wrap:has(.topbar-support-btn),
+  .user-topbar-actions > .topbar-support-btn,
   .user-topbar-actions > button[aria-label*="Hỗ trợ"],
   .user-topbar-actions > button:has(.icon-life-buoy) { display: none; }
   .user-topbar { padding-inline: 8px; gap: 4px; }

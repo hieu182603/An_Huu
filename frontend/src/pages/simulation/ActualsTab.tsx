@@ -2016,7 +2016,7 @@ export default function ActualsTab({ onBusyChange, futureMode=false }: { onBusyC
                 {formatVND(Number(localReconcile.confirmedContribution))}
               </strong>
               <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)" }}>
-                {language === "en" ? "Capped by household surplus" : "Tích lũy được đảm bảo bởi thặng dư"}
+                {language === "en" ? "Capped by household surplus" : "Tích lũy được đảm bảo bởi tiền dư hàng tháng"}
               </p>
             </Card>
 
@@ -2028,7 +2028,7 @@ export default function ActualsTab({ onBusyChange, futureMode=false }: { onBusyC
                 {formatVND(Number(localReconcile.uninvestedSurplus))}
               </strong>
               <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)" }}>
-                {language === "en" ? "Surplus outside retirement fund" : "Thặng dư khả dụng chưa tích lũy"}
+                {language === "en" ? "Surplus outside retirement fund" : "Tiền dư hàng tháng chưa đưa vào tích lũy"}
               </p>
             </Card>
 
@@ -2040,7 +2040,7 @@ export default function ActualsTab({ onBusyChange, futureMode=false }: { onBusyC
                 {formatVND(Number(localReconcile.budgetShortfall))}
               </strong>
               <p style={{ margin: "4px 0 0", fontSize: "11px", color: "var(--color-text-muted)" }}>
-                {language === "en" ? "Contribution exceeding available surplus" : "Góp vượt thặng dư (cần tài trợ ngoài)"}
+                {language === "en" ? "Contribution exceeding available surplus" : "Góp vượt tiền dư hàng tháng (cần nguồn khác)"}
               </p>
             </Card>
 

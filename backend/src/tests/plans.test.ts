@@ -7,7 +7,7 @@ import { AssumptionsService } from "../modules/assumptions/service";
 import { PortfoliosService } from "../modules/portfolios/service";
 import { ProfileService } from "../modules/profiles/service";
 import { RetirementService } from "../modules/retirement/service";
-import { PlansService } from "../modules/plans/service";
+import { PlansService, forgetVerifiedSnapshots } from "../modules/plans/service";
 import { AuthService } from "../modules/auth/service";
 import { createEventHandler } from "../jobs/handlers";
 import { FinancialService } from "../modules/financial/service";
@@ -121,8 +121,19 @@ describe("T07 immutable plan versions", () => {
     const reorder = (v: any): any => Array.isArray(v) ? v.map(reorder) : v && typeof v === "object"
       ? Object.fromEntries(Object.keys(v).reverse().map(k => [k, reorder(v[k])])) : v;
     row.inputSnapshot = reorder(row.inputSnapshot); row.result = reorder(row.result);
+    forgetVerifiedSnapshots(); // a restart: the stored row is hashed again
     expect((await f.plans.version(f.owner, saved.planId, saved.saved.id)).snapshotHash).toBe(saved.saved.snapshotHash);
     row.result.summary.terminalBalance = "999";
+    forgetVerifiedSnapshots();
+    await expect(f.plans.version(f.owner, saved.planId, saved.saved.id)).rejects.toMatchObject({ code: "SNAPSHOT_INTEGRITY_FAILED" });
+  });
+  it("verifies a version once per process; a later direct DB edit is caught after a restart", async () => {
+    const f = await fixture(), saved = await f.create(), row = f.rows("planVersion")[0];
+    await f.plans.version(f.owner, saved.planId, saved.saved.id);
+    row.result.summary.terminalBalance = "999";
+    // Owner decision 17/11/2026: immutable versions are not re-hashed on every read.
+    await expect(f.plans.version(f.owner, saved.planId, saved.saved.id)).resolves.toMatchObject({ id: saved.saved.id });
+    forgetVerifiedSnapshots();
     await expect(f.plans.version(f.owner, saved.planId, saved.saved.id)).rejects.toMatchObject({ code: "SNAPSHOT_INTEGRITY_FAILED" });
   });
   it("legacy workers only flag updates, deduplicate retry and respect a changed current version", async () => {

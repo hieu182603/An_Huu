@@ -513,6 +513,12 @@ RiskInput:
                   type: string
                   minLength: 1
                   maxLength: 100
+                planningReaction:
+                  type: string
+                  enum:
+                    - SELL
+                    - HOLD
+                    - BUY_MORE
                 customAllocation:
                   anyOf:
                     - type: object
@@ -868,6 +874,10 @@ RiskPolicy:
       type: string
       minLength: 3
       maxLength: 2000
+    simulationPaths:
+      type: integer
+      minimum: 1
+      maximum: 500
     blockMonths:
       type: integer
       minimum: 12
@@ -974,7 +984,7 @@ RiskPolicy:
       type: object
       additionalProperties: false
       properties:
-        HIGH_INFLATION: &a9
+        HIGH_INFLATION: &a10
           type: object
           additionalProperties: false
           properties:
@@ -994,7 +1004,7 @@ RiskPolicy:
             - offsetMonths
             - durationMonths
             - annualDeltaPoints
-        EQUITY_CRASH: &a10
+        EQUITY_CRASH: &a11
           type: object
           additionalProperties: false
           properties:
@@ -1017,7 +1027,7 @@ RiskPolicy:
             - offsetMonths
             - assetClass
             - shockPercent
-        RATE_RISE: &a11
+        RATE_RISE: &a12
           type: object
           additionalProperties: false
           properties:
@@ -1041,7 +1051,7 @@ RiskPolicy:
             - assetClass
             - durationYears
             - yieldRisePoints
-        CREDIT: &a12
+        CREDIT: &a13
           type: object
           additionalProperties: false
           properties:
@@ -1065,7 +1075,7 @@ RiskPolicy:
             - assetClass
             - defaultPercent
             - recoveryPercent
-        GOLD: &a13
+        GOLD: &a14
           type: object
           additionalProperties: false
           properties:
@@ -1089,7 +1099,7 @@ RiskPolicy:
             - assetClass
             - shockPercent
             - spreadPoints
-        PROPERTY_ILLIQUIDITY: &a14
+        PROPERTY_ILLIQUIDITY: &a15
           type: object
           additionalProperties: false
           properties:
@@ -1114,7 +1124,7 @@ RiskPolicy:
             - durationMonths
             - delayMonths
             - haircutPercent
-        INCOME_LOSS: &a15
+        INCOME_LOSS: &a16
           type: object
           additionalProperties: false
           properties:
@@ -1134,7 +1144,7 @@ RiskPolicy:
             - offsetMonths
             - durationMonths
             - lostPercent
-        LONGEVITY: &a16
+        LONGEVITY: &a17
           type: object
           additionalProperties: false
           properties:
@@ -1342,7 +1352,7 @@ PathResult:
   additionalProperties: false
   properties:
     essentialLossToday: *a2
-    funded: &a17
+    funded: &a9
       type: boolean
     balances:
       type: array
@@ -1465,6 +1475,11 @@ Candidate:
             - null
     loss:
       $ref: ./retirement.openapi.yaml#/LossConstraint
+    withinLossLimit: *a9
+    applicable: *a9
+    applyIssues:
+      type: array
+      items: *a2
   required:
     - status
     - modelCode
@@ -1481,6 +1496,105 @@ Candidate:
     - id
     - changePoints
     - targets
+LossFeasibility:
+  type: object
+  additionalProperties: false
+  properties:
+    minimumLossAmount: *a2
+    allowedLossAmount: *a2
+    requiredToleranceAmountVnd: *a2
+    requiredTolerancePercentOfGrowth: *a2
+  required:
+    - minimumLossAmount
+    - allowedLossAmount
+    - requiredToleranceAmountVnd
+    - requiredTolerancePercentOfGrowth
+  nullable: true
+PinnedCandidate:
+  type: object
+  additionalProperties: false
+  properties:
+    id: *a2
+    changePoints: *a2
+    targets:
+      type: array
+      items:
+        type: array
+        items:
+          $ref: "#/Allocation"
+    loss:
+      $ref: ./retirement.openapi.yaml#/LossConstraint
+    withinLossLimit: *a9
+    essentialLossToday: *a2
+    funded: *a9
+    fundedTerminalBalance: *a2
+  required:
+    - id
+    - changePoints
+    - targets
+    - loss
+    - withinLossLimit
+    - essentialLossToday
+    - funded
+    - fundedTerminalBalance
+DeterministicSelection:
+  type: object
+  additionalProperties: false
+  properties:
+    basis:
+      type: string
+      enum:
+        - PINNED_DETERMINISTIC_ASSUMPTIONS
+    referenceId: *a7
+    referenceKind: &a24
+      type: string
+      nullable: true
+      enum:
+        - QUALIFIED
+        - BEST_WITHIN_LOSS_LIMIT
+        - LOSS_REDUCED_WITHIN_LIMIT
+        - LEAST_LOSS_OVER_LIMIT
+        - TEMPLATE_UNSIMULATED
+        - null
+    candidates:
+      type: array
+      items:
+        $ref: "#/PinnedCandidate"
+    rejected:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id: *a2
+          issues:
+            type: array
+            items: *a2
+        required:
+          - id
+          - issues
+    lossFeasibility:
+      $ref: "#/LossFeasibility"
+    applicable:
+      type: boolean
+      enum:
+        - false
+    applyIssues:
+      type: array
+      items: *a2
+    limitations:
+      type: array
+      items: *a2
+  required:
+    - basis
+    - referenceId
+    - referenceKind
+    - candidates
+    - rejected
+    - lossFeasibility
+    - applicable
+    - applyIssues
+    - limitations
 Scenario:
   type: object
   additionalProperties: false
@@ -1497,7 +1611,6 @@ Scenario:
       items: *a2
     parameters:
       anyOf:
-        - *a9
         - *a10
         - *a11
         - *a12
@@ -1505,6 +1618,7 @@ Scenario:
         - *a14
         - *a15
         - *a16
+        - *a17
     result:
       $ref: "#/PathResult"
     assumptions:
@@ -1568,9 +1682,14 @@ RiskResult:
       items: *a2
     limits:
       $ref: "#/Limits"
-    marketVersionId: *a3
-    marketVersion: *a1
-    marketHash: *a2
+    marketVersionId:
+      type: string
+      format: uuid
+      nullable: true
+    marketVersion:
+      type: integer
+      nullable: true
+    marketHash: *a7
     inputHash: *a2
     profileHash: *a2
     policyVersionId: *a3
@@ -1579,8 +1698,8 @@ RiskResult:
     assumptionVersionId: *a3
     assumptionVersion: *a1
     assumptionHash: *a2
-    informationalOnly: *a17
-    persisted: *a17
+    informationalOnly: *a9
+    persisted: *a9
     modelCode: *a18
     seed: *a1
     paths: *a1
@@ -1615,7 +1734,7 @@ RiskResult:
         issues:
           type: array
           items: *a2
-        feasible: *a17
+        feasible: *a9
       required:
         - status
     selectedId: *a7
@@ -1661,6 +1780,11 @@ RiskResult:
     allGoalsStatus: *a2
     allGoalsIssue: *a7
     referenceId: *a7
+    referenceKind: *a24
+    lossFeasibility:
+      $ref: "#/LossFeasibility"
+    deterministic:
+      $ref: "#/DeterministicSelection"
     allThreshold: *a7
   required:
     - status
@@ -1692,8 +1816,8 @@ RebalanceResult:
     policyVersionId: *a3
     policyHash: *a2
     month: *a2
-    persisted: *a17
-    informationalOnly: *a17
+    persisted: *a9
+    informationalOnly: *a9
     oldWeights:
       type: array
       items:
@@ -1826,3 +1950,111 @@ RebalanceResultEnvelope:
   required:
     - data
     - meta
+MarketDailyConvert:
+  type: object
+  additionalProperties: false
+  description: Admin-entered daily price or total-return index levels (CSV, header
+    "date,ASSET_A,ASSET_B", dates YYYY-MM-DD or DD/MM/YYYY, dot decimals, empty
+    cell = no observation) plus monthly CPI. Nothing is stored.
+  properties:
+    pricesCsv:
+      type: string
+      minLength: 1
+      maxLength: 1500000
+    cpi:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum: [MOM_PERCENT, INDEX]
+        csv:
+          type: string
+          minLength: 1
+          maxLength: 200000
+      required: [kind, csv]
+    maxMonthEndGapDays:
+      type: integer
+      minimum: 0
+      maximum: 15
+      default: 7
+  required: [pricesCsv, cpi]
+MarketDailyIssue:
+  type: object
+  additionalProperties: false
+  properties:
+    code: { type: string }
+    message: { type: string }
+    line: { type: integer }
+    assetClass: { type: string }
+    month: { type: string }
+  required: [code, message]
+MarketDailyResultEnvelope:
+  type: object
+  additionalProperties: false
+  description: Monthly total return = month-end(m) / month-end(m-1) - 1, where
+    month-end is the last observation within maxMonthEndGapDays of the calendar
+    month end. Missing months are issues, never 0 or interpolation. `rows` is only
+    filled when status is VALID and equals MarketDocument.rows. A trailing
+    unfinished month, or up to 3 trailing months without published CPI, are left
+    out with warnings.
+  properties:
+    data:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [VALID, INVALID]
+        assets:
+          type: array
+          items: { type: string }
+        observationCount: { type: integer }
+        period:
+          type: object
+          nullable: true
+          additionalProperties: false
+          properties:
+            from: { type: string }
+            to: { type: string }
+          required: [from, to]
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              month: { type: string }
+              returns:
+                type: object
+                additionalProperties: { type: string }
+              cpi: { type: string }
+            required: [month, returns, cpi]
+        preview:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              month: { type: string }
+              returns:
+                type: object
+                additionalProperties: { type: string, nullable: true }
+              cpi: { type: string, nullable: true }
+              monthEndDates:
+                type: object
+                additionalProperties: { type: string, nullable: true }
+            required: [month, returns, cpi, monthEndDates]
+        issues:
+          type: array
+          items: { $ref: "#/MarketDailyIssue" }
+        warnings:
+          type: array
+          items: { $ref: "#/MarketDailyIssue" }
+      required: [status, assets, observationCount, period, rows, preview, issues, warnings]
+    meta:
+      type: object
+      properties:
+        requestId: { type: string }
+      required: [requestId]
+  required: [data, meta]

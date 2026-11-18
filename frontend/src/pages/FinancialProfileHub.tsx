@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { Decimal } from "../utils/decimal";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { useI18n } from "../i18n";
 import ProfileMoneyMetrics from "../components/ProfileMoneyMetrics";
@@ -41,7 +42,7 @@ export default function FinancialProfileHub() {
       note: `${periodLabel} · ${t("Sau sinh hoạt và trả nợ, trước tiền giữ lại và góp nghỉ hưu.", "After living expenses and debt payments, before reserves and retirement contributions.")}`,
       action: t("Xem & cập nhật thu chi", "Review income & expenses"), to: "/user/profile?section=cashflow" },
     { key: "assets", title: t("Tài sản & dự phòng", "Assets & reserves"), status: status(!v2 || declared(v2.assets), values.retirementAssets !== null && values.reserve !== null),
-      rows: [[t("Dành cho hưu trí:", "For retirement:"), money(values.retirementAssets)], [t("Quỹ dự phòng:", "Emergency reserve:"), money(values.reserve)]],
+      rows: [[t("Quỹ dành cho hưu trí (đã bao gồm quỹ dự phòng):", "Retirement fund (including emergency reserve):"), money(values.retirementAssets !== null && values.reserve !== null ? new Decimal(values.retirementAssets).plus(values.reserve).toString() : null)], [t("· Dành cho hưu trí:", "· For retirement:"), money(values.retirementAssets)], [t("· Quỹ dự phòng:", "· Emergency reserve:"), money(values.reserve)]],
       note: t("Tách riêng tiền hưu trí khỏi nhà ở, tiền kinh doanh và dự phòng khẩn cấp.", "Separate retirement money from housing, business funds and emergency reserves."), action: t("Xem & phân loại tài sản", "Review & classify assets"), to: "/user/profile?section=assets" },
     { key: "debts", title: t("Khoản nợ & trả nợ", "Debts & repayments"), status: status(!v2 || declared(v2.debts), values.debtBalance !== null && values.debtPayment !== null),
       rows: [[t("Tổng dư nợ:", "Outstanding debt:"), money(values.debtBalance)], [month ? t(`Trả nợ tháng ${monthText}:`, `Payments for ${monthText}:`) : t("Trả nợ trong tháng:", "Monthly payments:"), money(values.debtPayment)]],

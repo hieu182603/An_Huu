@@ -19,3 +19,13 @@
 .market-form__table input { width: 96px; min-height: 32px; padding: 4px 8px; border-radius: 8px; text-align: right; font-variant-numeric: tabular-nums; }
 .market-form__table input.is-empty { border-style: dashed; background: #fffaf0; }
 @media (max-width: 640px) { .market-form__grid .is-wide { grid-column: auto; } }
+.market-daily { display: grid; gap: 10px; padding: 14px; border: 1px solid #D0E4FE; border-radius: 12px; background: #F9FBFF; }
+.market-daily__inputs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 0; padding: 0; border: 0; }
+.market-daily__inputs .is-wide { grid-column: 1 / -1; }
+.market-daily__inputs textarea { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.market-daily__result { display: grid; gap: 8px; }
+.market-daily__issues { max-height: 240px; overflow: auto; padding: 10px 14px; border: 1px solid #F5C2C2; border-radius: 10px; background: #FFF6F6; color: #7A1717; font-size: 13px; }
+.market-daily__issues ul, .market-daily__warnings { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+.market-daily__warnings { color: #7A4B00; }
+.market-form__table td.is-missing { background: #FDECEC; color: #9B1C1C; font-weight: 600; }
+.market-form__table td { font-variant-numeric: tabular-nums; }

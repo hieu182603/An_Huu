@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import { useI18n } from "../i18n";
 import type { AllocationWorkspaceResult } from "../services/allocationWorkspace";
 import type { PortfolioPolicyDetail, PortfolioTemplate, TemplateAllocation } from "../services/portfolios";
-import { Decimal } from "../utils/decimal";
 import { financeMoney } from "../utils/financeHubSummary";
 import { portfolioAssetLabel, portfolioGlideWeights, portfolioGlideYears } from "../utils/portfolioGlidePath";
 import { translateIssueCode } from "../services/retirement";
@@ -14,24 +13,20 @@ import { Icon } from "./ui";
 import { Explain } from "./explanations/ExplainMode";
 import "./allocation-results.css";
 import AllocationExperiment, {AllocationCandidates, allocationColor as color, allocationPurpose, type AllocationChoice, type AllocationEvaluationState} from "./AllocationExperiment";
-import AllocationPackages from "./AllocationPackages";
 import type { RiskResult } from "../services/planningAnalysis";
 import type { WorkspaceInput } from "../services/allocationWorkspace";
 import type { RetirementPreviewInput } from "../services/retirement";
 
 
 /** A display of published policy results. Never manufactures optimizer scores or market probabilities. */
-export default function AllocationResults({ data, policy, retirementMonth, complete, usable, loading, select, onApply, onRebalance, explain,planInput,workspaceInput,onChoose,publishedOpen,onPublishedToggle }: {
+export default function AllocationResults({ data, policy, retirementMonth, complete, usable, loading, explain,planInput,workspaceInput,onChoose }: {
   data: AllocationWorkspaceResult; policy: PortfolioPolicyDetail; retirementMonth?: string;
-  complete: boolean; usable: boolean; loading: boolean; select: (id: string) => void;
-  onApply: () => void; onRebalance: () => void;
+  complete: boolean; usable: boolean; loading: boolean;
   explain: (kind: "capital" | "reserve" | "goals", label: string) => ReactNode;
   planInput:RetirementPreviewInput|null;workspaceInput:WorkspaceInput;onChoose:(selection:AllocationChoice)=>void;
-  publishedOpen:boolean;onPublishedToggle:(open:boolean)=>void;
 }) {
   const en = useI18n().language === "en", language = en ? "en" : "vi";
   const t = (vi: string, english: string) => en ? english : vi;
-  const [packages, setPackages] = useState(false);
   const [referenceState,setReferenceState]=useState<{source:AllocationWorkspaceResult;value:AllocationWorkspaceResult;result:RiskResult|null;state:AllocationEvaluationState}>({source:data,value:data,result:null,state:{busy:false,error:""}});
   const onReferenceChange=useCallback((value:AllocationWorkspaceResult,result:RiskResult|null,state:AllocationEvaluationState)=>setReferenceState({source:data,value,result,state}),[data]);
   const whyReference=referenceState.source===data?referenceState.value:data, tested=referenceState.source===data?referenceState.result:null;
@@ -42,16 +37,11 @@ export default function AllocationResults({ data, policy, retirementMonth, compl
     : !planInput || !workspaceInput.templateId ? t("Bổ sung thông tin để tính phương án", "Complete inputs to calculate your allocation")
     : tested ? t("Chưa đủ dữ liệu để đề xuất phương án", "More data is needed to recommend an allocation")
     : t("Đang tìm phương án phù hợp với bạn", "Finding an allocation for you");
-  const [alternativesOpen, setAlternativesOpen] = useState(() => !window.matchMedia("(max-width: 800px)").matches);
   const c = data.capital, p = data.portfolio, assessment = p?.assessment;
   const template = policy.data.templates.find(row => row.id === assessment?.selectedTemplateId);
   const label = (code: string) => portfolioAssetLabel(code, language, data.assetLabels);
   const money = (value: string | null | undefined) => financeMoney(value ?? null, en);
   const num = (value: number, digits = 2) => new Intl.NumberFormat(en ? "en-US" : "vi-VN", { maximumFractionDigits: digits }).format(value);
-  const base = p?.status === "READY" ? p.scenarios.find(row => row.kind === "BASE") : undefined;
-  const ending = Number(base?.endingUnitValue);
-  const annual = base?.rows.length && ending > 0 && Number.isFinite(ending) ? (Math.pow(ending, 12 / base.rows.length) - 1) * 100 : null;
-  const years = retirementMonth ? Math.max(0, Math.floor(((Number(retirementMonth.slice(0, 4)) - Number(data.valuationDate.slice(0, 4))) * 12 + Number(retirementMonth.slice(5, 7)) - Number(data.valuationDate.slice(5, 7))) / 12)) : null;
   const weightsFor = (item: PortfolioTemplate): TemplateAllocation[] => {
     if ("glidePath" in item) {
       const years = portfolioGlideYears(item.glidePath.points, data.valuationDate.slice(0, 7), retirementMonth);
@@ -60,28 +50,29 @@ export default function AllocationResults({ data, policy, retirementMonth, compl
     return item.schedule.find(period => period.fromIndex <= 0 && period.toIndex >= 0)?.allocations ?? [];
   };
   const purpose = (code: string) => allocationPurpose(code, en);
-  const allocationRows = data.allocations.filter(row => new Decimal(row.weightPercent).gt(0));
-  const ring = (small = false) => {
-    let offset = 0;
-    return <svg className={`allocation-result-ring${small ? " is-small" : ""}`} viewBox="0 0 200 200" role="img" aria-label={t("Tỷ trọng phân bổ theo kết quả", "Portfolio weights from results")}>
-      <circle cx="100" cy="100" r="78" fill="none" stroke="#e9eff5" strokeWidth="20" />
-      {allocationRows.map((row, i) => { const start = offset; offset += Number(row.weightPercent); return <circle key={row.assetClass} cx="100" cy="100" r="78" fill="none" stroke={color(row.assetClass, data.allocations.indexOf(row))} strokeWidth="20" pathLength="100" strokeDasharray={`${row.weightPercent} ${100 - Number(row.weightPercent)}`} strokeDashoffset={-start} transform="rotate(-90 100 100)" />; })}
-      <text className="allocation-ring-total" x="100" y="99" textAnchor="middle">100%</text><text className="allocation-ring-label" x="100" y="122" textAnchor="middle">{t("Vốn dài hạn", "Long-term capital")}</text>
-    </svg>;
-  };
   const issueText = (code: string) => code === "RETIREMENT_MONTH_REQUIRED" ? translateIssueCode(code, language)
     : code === "ANSWER_REQUIRED" ? t("Cần kiểm tra kết quả khảo sát rủi ro đã lưu.", "Review the saved risk survey results.")
     : code === "PORTFOLIO_CHOICE_REQUIRED" ? t("Có nhiều phương án phù hợp. Hãy chọn một phương án để xem tỷ trọng.", "Several portfolios match. Choose one to see its weights.")
     : code === "TEMPLATE_NOT_ELIGIBLE" ? t("Phương án này chưa phù hợp với câu trả lời và thời gian đã chọn.", "This portfolio does not match your answers and horizon.")
     : t("Cần rà soát thông tin đã khai hoặc chính sách danh mục trước khi tính.", "Review declared information or the portfolio policy before calculating.");
+  const testedKind = tested?.referenceKind ?? tested?.deterministic?.referenceKind ?? null;
+  const reducedPick = testedKind !== "LOSS_REDUCED_WITHIN_LIMIT" ? null
+    : (tested?.candidates?.find(row => row.id === tested.referenceId) ?? tested?.deterministic?.candidates.find(row => row.id === tested.deterministic?.referenceId)) ?? null;
+  const reducedLoss = (reducedPick as { loss?: { lossAmount: string | null } } | null)?.loss?.lossAmount ?? null;
   const criteria = [
-    { known: whyReference.loss.status === "WITHIN_LIMIT", title: whyReference.loss.status === "WITHIN_LIMIT" ? t("Không vượt giới hạn chịu lỗ", "Within your loss limit") : t("Cần rà soát giới hạn chịu lỗ", "Review the loss limit"), detail: `${whyReference.loss.message} ${t("Mức giảm trong tình huống đã duyệt", "Loss in the approved stress")}: ${money(whyReference.loss.lossAmount)}. ${t("Giới hạn đã khai", "Declared limit")}: ${money(whyReference.loss.allowedLossAmount)}.` },
+    reducedPick ? { known: true, title: t("Đã giảm rủi ro cho vừa giới hạn chịu lỗ", "Risk reduced to fit your loss limit"),
+      detail: `${t("Danh mục mẫu giảm", "The template loses")} ${money(whyReference.loss.lossAmount)} ${t("khi thị trường sốc, vượt giới hạn", "in the approved stress, above your limit of")} ${money(whyReference.loss.allowedLossAmount)}. ${t(`Đã chuyển ${num(Number(reducedPick.changePoints))} điểm % cổ phiếu sang tiền gửi`, `${num(Number(reducedPick.changePoints))} points of equity were moved to deposits`)}${reducedLoss ? `; ${t("mức giảm còn", "the loss is now")} ${money(reducedLoss)}` : ""}.` }
+    : { known: whyReference.loss.status === "WITHIN_LIMIT", title: whyReference.loss.status === "WITHIN_LIMIT" ? t("Không vượt giới hạn chịu lỗ", "Within your loss limit") : t("Cần rà soát giới hạn chịu lỗ", "Review the loss limit"), detail: `${whyReference.loss.message} ${t("Mức giảm trong tình huống đã duyệt", "Loss in the approved stress")}: ${money(whyReference.loss.lossAmount)}. ${t("Giới hạn đã khai", "Declared limit")}: ${money(whyReference.loss.allowedLossAmount)}.` },
     { known: c.status === "READY", title: c.status === "READY" ? t("Giữ riêng khoản cần dùng trước", "Protect near-term needs first") : t("Cần xác nhận khoản giữ riêng", "Confirm protected capital"), detail: `${t("Dự phòng", "Emergency reserve")}: ${money(c.requiredEmergencyReserve)}. ${t("Mục tiêu gần hạn", "Near-term goals")}: ${money(c.nearTermGoalsPresentValue)}. ${t("Chỉ phần vốn còn lại được phân bổ dài hạn.", "Only the remainder is allocated for the long term.")}` },
     { known: whyPortfolio?.status === "READY" && complete, title: whyPortfolio?.status === "READY" && complete ? t("Phù hợp hồ sơ và thời gian đã chọn", "Matches your profile and horizon") : t("Cần chọn phương án phù hợp hồ sơ", "Choose an eligible allocation"), detail: whyAssessment?.checks?.filter(check => check.templateId === whyAssessment.selectedTemplateId && check.matched).map(check => check.explanation).filter(Boolean).join(" ") || t("Đối chiếu câu trả lời đã lưu, thời gian cần thanh khoản và chính sách đã công bố. Chưa có kết luận về khả năng đủ tiền của toàn bộ kế hoạch.", "Checks saved answers, liquidity needs and the published policy. This does not establish that the whole plan is fully funded.") },
   ];
 
   // Once the simulation has run, explain the pick the way the demo does: loss limit, then essential-spending threshold, then smallest shortfall.
   const picked = tested?.candidates?.find(row => row.id === tested.referenceId);
+  const overLimitResult = (tested?.referenceKind ?? tested?.deterministic?.referenceKind) === "LEAST_LOSS_OVER_LIMIT";
+  // Applying needs admin-published market data (customer decision); unknown until the selection run returns.
+  const marketMissing = tested?.status === "DATA_REQUIRED";
+  const unsimulated = !overLimitResult && tested?.status === "DATA_REQUIRED" && !!tested.deterministic?.referenceId;
   const share = (value: number | null | undefined) => value == null ? t("chưa xác định", "unavailable") : `${num(value * 100, 1)}%`;
   const qualified = picked?.pEssential != null && !!tested?.threshold && picked.pEssential >= Number(tested.threshold);
   const testedCount = (tested?.candidates?.filter(row => row.id !== "CUSTOM").length ?? 0) + (tested?.rejected?.filter(row => row.id !== "CUSTOM").length ?? 0);
@@ -106,33 +97,12 @@ export default function AllocationResults({ data, policy, retirementMonth, compl
       <div className="allocation-capital-total"><dt><span aria-hidden="true">03</span><Explain term="growthCapital">{c.growthCapital?.startsWith("-") ? t("Còn thiếu để giữ đủ vốn", "Protected capital shortfall") : t("Vốn dài hạn để phân bổ", "Long-term allocation capital")}</Explain></dt><dd>{money(c.growthCapital)}</dd><small>{c.status === "READY" ? t("Đây là 100% trong biểu đồ bên dưới", "This is the 100% shown in the chart below") : t("Cần xác nhận đủ vốn trước khi áp dụng", "Confirm available capital before applying")}</small></div>
     </dl>
     {(data.issues.length > 0 || c.issues?.length > 0) && <div className="allocation-review" role="status"><h2>{t("Cần bổ sung trước khi phân bổ", "Complete these details before allocation")}</h2><p>{t("Rà soát tài sản, chi thiết yếu, độ ổn định thu nhập, mục tiêu và thời gian tính.", "Review assets, essential spending, income stability, goals and projection dates.")}</p><Link to="/user/profile">{t("Mở Tài chính", "Open Finances")}</Link></div>}
-    <header className="allocation-results-heading"><div><h2>{picked ? (qualified ? t("Phương án đề xuất cho hồ sơ của bạn", "The recommended allocation for your profile") : t("Chưa có phương án đạt ngưỡng", "No allocation meets the threshold yet")) : resultTitle}</h2><p>{picked ? (qualified ? t("Hệ thống thử nhiều cách chia tiền trên cùng các kịch bản thị trường, rồi chọn cách tốt nhất mà không vượt giới hạn chịu lỗ bạn đã khai. Đây là phép thử trên dữ liệu lịch sử, không phải lời khuyên đầu tư.", "Several splits are tested on the same market scenarios and the best one within your declared loss limit is picked. This is a test on historical data, not investment advice.") : t("Không cách chia nào đủ chi thiết yếu ở mức yêu cầu với số vốn và mức góp hiện tại. Danh mục bên dưới chỉ để tham khảo. Đây là phép thử trên dữ liệu lịch sử, không phải lời khuyên đầu tư.", "No split covers essential spending at the required level with current capital and contributions. The allocation below is for reference only. This is a test on historical data, not investment advice.")) : t("Đối chiếu phần vốn dài hạn với hồ sơ và giới hạn chịu lỗ đã khai. Xem lại kết quả trước khi đưa vào bản nháp kế hoạch.", "Compare long-term capital against your profile and declared loss limit. Review the result before using it in a plan draft.")}</p></div><span className="allocation-source-badge">{t("Chính sách đã công bố", "Published policy")}</span></header>
+    <header className="allocation-results-heading"><div><h2>{overLimitResult ? t("Chưa có phương án trong giới hạn chịu lỗ", "No allocation fits your loss limit yet")
+      : unsimulated ? (reducedPick ? t("Danh mục đã giảm rủi ro, chưa mô phỏng", "Risk-reduced allocation, not yet simulated") : t("Phương án theo chính sách, chưa mô phỏng", "Policy allocation, not yet simulated")) : picked ? (qualified ? t("Phương án đề xuất cho hồ sơ của bạn", "The recommended allocation for your profile") : t("Chưa có phương án đạt ngưỡng", "No allocation meets the threshold yet")) : resultTitle}</h2><p>{overLimitResult ? t("Kể cả danh mục ít rủi ro nhất mà chính sách cho phép vẫn giảm nhiều hơn mức bạn đã khai. Danh mục bên dưới chỉ để tham khảo; hãy xem mức chịu giảm tối thiểu cần chấp nhận.", "Even the lowest-risk allocation the policy allows loses more than your declared limit. The allocation below is for reference only; see the minimum loss you would need to accept.")
+      : unsimulated ? reducedPick ? t("Danh mục mẫu vượt giới hạn chịu lỗ nên đã giảm cổ phiếu cho vừa giới hạn. Chưa có bộ dữ liệu thị trường đã công bố nên chưa tính xác suất; chỉ áp dụng được khi có dữ liệu thị trường.", "The template exceeded your loss limit, so equity was reduced to fit. No published market data yet, so no probabilities; it can be applied once market data is published.") : t("Chưa có bộ dữ liệu thị trường đã công bố nên chưa tính xác suất. Tỷ trọng bên dưới theo chính sách và đã kiểm tra với giới hạn chịu lỗ của bạn; chỉ áp dụng được khi có dữ liệu thị trường.", "No published market data yet, so no probabilities. The weights below follow the policy and were checked against your loss limit; they can be applied once market data is published.")
+      : picked ? (qualified ? t("Hệ thống thử nhiều cách chia tiền trên cùng các kịch bản thị trường, rồi chọn cách tốt nhất mà không vượt giới hạn chịu lỗ bạn đã khai. Đây là phép thử trên dữ liệu lịch sử, không phải lời khuyên đầu tư.", "Several splits are tested on the same market scenarios and the best one within your declared loss limit is picked. This is a test on historical data, not investment advice.") : t("Không cách chia nào đủ chi thiết yếu ở mức yêu cầu với số vốn và mức góp hiện tại. Danh mục bên dưới chỉ để tham khảo. Đây là phép thử trên dữ liệu lịch sử, không phải lời khuyên đầu tư.", "No split covers essential spending at the required level with current capital and contributions. The allocation below is for reference only. This is a test on historical data, not investment advice.")) : t("Đối chiếu phần vốn dài hạn với hồ sơ và giới hạn chịu lỗ đã khai. Xem lại kết quả trước khi đưa vào bản nháp kế hoạch.", "Compare long-term capital against your profile and declared loss limit. Review the result before using it in a plan draft.")}</p></div><span className={`allocation-source-badge${marketMissing ? " is-missing" : ""}`}>{marketMissing ? t("Chưa có dữ liệu thị trường", "No market data yet") : tested?.marketVersion ? t(`Dữ liệu thị trường đã công bố · v${tested.marketVersion}`, `Published market data · v${tested.marketVersion}`) : t("Chính sách đã công bố", "Published policy")}</span></header>
+    {p?.issues?.length ? <ul className="allocation-result-issues" role="status">{p.issues.map((issue, i) => <li key={i}>{issueText(issue.code)}</li>)}</ul> : null}
     <AllocationExperiment data={data} input={workspaceInput} plan={planInput} onChoose={onChoose} onReferenceChange={onReferenceChange} thresholds={{essential:policy.data.allocationRisk?.essentialThreshold,all:policy.data.allocationRisk?.allGoalsThreshold}} why={why}/>
-    <details className="allocation-template-details" open={publishedOpen} onToggle={event=>onPublishedToggle(event.currentTarget.open)}><summary>{t("Danh mục hiện tại và các phương án đã công bố", "Current and published allocations")}</summary><section className="allocation-lab-real" aria-label={t("Danh mục và các phương án", "Portfolio and alternatives")}>
-      <article className="allocation-reference">
-        <header className="allocation-result-card-heading"><span className="allocation-result-icon" aria-hidden="true"><Icon name="shield" /></span><div><span className={`allocation-loss-badge${usable ? " is-valid" : ""}`}>{usable ? t("Trong giới hạn chịu lỗ", "Within loss limit") : t("Cần rà soát", "Review needed")}</span><h2>{template?.label ?? t("Phương án phân bổ cho bạn", "Your allocation")}</h2></div></header>
-        <div className="allocation-reference-rate"><strong>{annual === null || !Number.isFinite(annual) ? t("Chưa xác định", "Undetermined") : num(annual)}{annual !== null && Number.isFinite(annual) && <small>%/{t("năm", "yr")}</small>}</strong><span>{t("Sinh lời quy đổi của kịch bản cơ sở", "Annual equivalent return of the base scenario")}<br />{t("Theo lịch tỷ trọng và chi phí trong kết quả; không cam kết", "Includes the modeled allocation path and costs; not guaranteed")}</span></div>
-        {p?.issues?.length ? <ul className="allocation-result-issues">{p.issues.map((issue, i) => <li key={i}>{issueText(issue.code)}</li>)}</ul> : null}
-        {!!data.allocations.length && <div className="allocation-breakdown">{ring()}<dl>{data.allocations.map((row, i) => <div key={row.assetClass}><dt><i style={{ background: color(row.assetClass, i) }} /><span>{label(row.assetClass)}<small>{purpose(row.assetClass)}</small></span></dt><dd><strong>{num(Number(row.weightPercent))}%</strong><span>{money(row.amountVnd)}</span></dd></div>)}</dl></div>}
-        <div className={`allocation-result-callout${usable ? " is-valid" : ""}`}><Icon name={usable ? "check" : "info"} /><p>{data.loss.message || t("Chưa đủ kết quả để xác nhận giới hạn chịu lỗ.", "More data is needed to verify the loss limit.")}</p><a href="#allocation-result-why">{t("Xem vì sao ↓", "See why ↓")}</a></div>
-        <dl className="allocation-loss-comparison"><div><dt>{t("Giảm khi thị trường sốc", "Loss under approved stress")}</dt><dd>{money(data.loss.lossAmount)}</dd></div><div><dt>{t("Giới hạn chịu lỗ đã khai", "Declared loss limit")}</dt><dd>{money(data.loss.allowedLossAmount)}</dd></div></dl>
-        <p className="allocation-result-footnote">{t("Đây là kiểm tra mức giảm theo tình huống, chưa phải xác suất đủ chi thiết yếu hoặc đủ mọi mục tiêu.", "This stress check is not a probability of covering essential spending or every goal.")}</p>
-        <div className="allocation-reference-actions"><button className="overview-button primary" disabled={!usable || loading} onClick={onApply}>{t("Áp dụng vào bản xem trước", "Use in plan preview")} <span aria-hidden="true">→</span></button><button className="overview-button secondary" onClick={() => setPackages(true)}>{t("Gợi ý gói đầu tư phù hợp", "Explore suitable investment products")}</button></div>
-      </article>
-      <details className="allocation-alternatives" open={alternativesOpen} onToggle={event => setAlternativesOpen(event.currentTarget.open)}>
-        <summary><span className="allocation-result-icon" aria-hidden="true"><Icon name="chart" /></span><span><strong>{t("Thử phương án phân bổ khác", "Try another allocation")}</strong><small>{t("Chọn cách chia đã công bố để đối chiếu với hồ sơ của bạn.", "Choose a published allocation to compare against your profile.")}</small></span><span className="allocation-result-toggle" aria-hidden="true">+</span></summary>
-        <div className="allocation-alternatives-body"><div className="allocation-custom-top"><span>{t("Tổng tỷ trọng", "Total weight")} <strong>{data.allocations.length ? "100%" : "—"}</strong></span><button type="button" className="remaining-text" onClick={() => select("")}>{t("Đặt lại theo câu trả lời", "Reset to answers")}</button></div>
-          {!!data.allocations.length && ring(true)}
-          <div className="allocation-template-options">{policy.data.templates.map(item => <button type="button" key={item.id} className="allocation-template-choice" aria-pressed={item.id === template?.id} disabled={!assessment?.eligibleTemplateIds.includes(item.id) || loading} onClick={() => select(item.id)}>{item.label}{item.id === template?.id && <Icon name="check" />}</button>)}</div>
-          <div className="allocation-weight-preview">{data.allocations.map((row, i) => <div key={row.assetClass} className="allocation-weight-row" style={{ "--allocation-asset": color(row.assetClass, i) } as CSSProperties}><div><strong><i />{label(row.assetClass)}</strong><span>{num(Number(row.weightPercent))}%</span></div><div className="allocation-weight-track" role="img" aria-label={`${label(row.assetClass)}: ${num(Number(row.weightPercent))}%`}><span style={{ width: `${row.weightPercent}%` }} /></div><footer><span>{purpose(row.assetClass)}</span><strong>{money(row.amountVnd)}</strong></footer></div>)}</div>
-          <p className="allocation-result-footnote">{t("Tỷ trọng đi theo từng phương án đã công bố. Khi đổi phương án, hệ thống tính lại mức giảm và số tiền; kế hoạch chính chưa thay đổi.", "Weights follow each published allocation. Switching recalculates its loss and amounts without changing your main plan.")}</p>
-          <div className="allocation-result-callout"><Icon name="info" /><p>{assessment?.eligibleTemplateIds.length === 1 ? t("Hiện có một phương án phù hợp với câu trả lời và thời gian đã chọn.", "One allocation currently matches your answers and horizon.") : t("Chỉ các phương án phù hợp với hồ sơ hiện tại mới có thể chọn.", "Only allocations matching your current profile can be selected.")}</p></div>
-          <button type="button" className="overview-button secondary" disabled={!template || p?.status !== "READY"} onClick={onRebalance}>{t("Đề xuất tái cân bằng", "Rebalance proposal")}</button>
-        </div>
-      </details>
-    </section></details>
     <footer className="allocation-result-next"><div><strong>{t("Đã chọn được phương án?", "Ready to review your plan?")}</strong><p>{t("Mở Kế hoạch để xem mức cần góp, lưu và xác nhận khi sẵn sàng.", "Open your plan to review contributions, save and confirm when ready.")}</p></div><Link className="overview-button secondary" to="/user/plan">{t("Xem kế hoạch nghỉ hưu →", "View retirement plan →")}</Link></footer>
-    <details className="allocation-result-details"><summary>{t("Lộ trình và các kịch bản đã công bố", "Published allocation path and scenarios")}</summary><div><section className="allocation-life"><h2><Explain term="glidePath">{t("Lộ trình đến nghỉ hưu", "Path to retirement")}</Explain></h2><p>{years === null ? t("Chưa xác nhận tháng nghỉ hưu.", "Retirement month not confirmed.") : t(`Còn ${years} năm tròn đến tháng nghỉ hưu đã chọn.`, `${years} whole years to your retirement month.`)}</p>{template && ("glidePath" in template ? <PortfolioGlidePath points={template.glidePath.points} month={data.valuationDate.slice(0, 7)} retirementMonth={retirementMonth} language={language} assetLabels={data.assetLabels} /> : <p>{t("Phương án dùng lịch phân bổ theo các tháng đã công bố.", "This portfolio follows its published monthly allocation schedule.")}</p>)}</section>{p?.scenarios.length ? <PortfolioScenarios scenarios={p.scenarios} language={language} /> : null}</div></details>
-    <AllocationPackages input={packages ? workspaceInput : null} onClose={() => setPackages(false)} labels={data.assetLabels} />
   </section>;
 }

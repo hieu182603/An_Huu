@@ -71,7 +71,7 @@ test("registration OTP dialog has a name, traps focus and closes with Escape", a
   await page.locator("#register-name").fill("Nguyễn Minh Anh");
   await page.locator("#register-email").fill("audit@example.test");
   await page.locator("#register-password").fill("valid-password-123");
-  await page.getByLabel(/Tôi đồng ý/).check();
+  await page.getByLabel(/Đồng ý điều khoản/).check();
   const trigger = page.getByRole("button", { name: "Tạo tài khoản", exact: true });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Xác minh email" });

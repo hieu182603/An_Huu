@@ -92,6 +92,20 @@
 .allocation-template-details,.allocation-probability-details{border:1px solid var(--ar-line);border-radius:14px;padding:18px;margin-top:24px}
 .allocation-template-details>summary,.allocation-probability-details>summary{cursor:pointer;font-weight:650;font-size:14px}
 .allocation-template-details>.allocation-lab-real{margin-top:18px}
+/* Template switcher disclosure: summary row with current template and chevron. */
+.allocation-template-details{padding:0;overflow:hidden;background:#fff}
+.allocation-template-details>summary{display:flex;align-items:center;gap:14px;padding:16px 18px;list-style:none;font-weight:400}
+.allocation-template-details>summary::-webkit-details-marker{display:none}
+.allocation-template-details>summary:hover{background:#f8fbfe}
+.allocation-template-details>summary:focus-visible{outline:3px solid #8db4ed;outline-offset:-3px}
+.allocation-template-summary{display:grid;gap:3px;flex:1;min-width:0}
+.allocation-template-summary strong{font-size:15px;font-weight:700;color:#132e4c}
+.allocation-template-summary small{font-size:13px;line-height:1.5;color:#536b85}
+.allocation-template-current{flex:none;max-width:40%;padding:5px 10px;border-radius:999px;background:#eef4fb;color:#245dab;font-size:12px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.allocation-template-chevron{flex:none;color:#536b85;transition:transform .25s cubic-bezier(.22,1,.36,1)}
+.allocation-template-details[open] .allocation-template-chevron{transform:rotate(180deg)}
+.allocation-results .allocation-template-body{display:grid;gap:18px;margin:0;padding:18px;border-top:1px solid #dce6f0}
+@media(max-width:560px){.allocation-template-current{display:none}}
 .allocation-experiment button:focus-visible,.allocation-experiment input:focus-visible,.allocation-experiment summary:focus-visible{outline:3px solid #8db4ed;outline-offset:3px}
 
 /* Loss limit inputs in step 2 of the wizard. */
@@ -112,17 +126,6 @@
 .allocation-loss-choices .overview-button{min-height:40px;padding:6px 14px;font-size:13px}
 
 /* Two investment packages side by side. */
-.allocation-package-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px 0}
-.allocation-package-grid>article{min-width:0;padding:18px;border:1px solid #dbe4ef;border-top:4px solid #245dab;border-radius:14px;background:#f8fafd}
-.allocation-package-grid>article+article{border-top-color:#1f7a63}
-.allocation-package-grid article>span{font-size:11px;font-weight:600;color:#536982}
-.allocation-package-grid h3{margin:4px 0 2px;font-size:18px}
-.allocation-package-grid article>p{margin:0;font-size:13px;color:#536982}
-.allocation-package-grid .remaining-text{display:block;margin-top:12px}
-.allocation-package-table td>span,.allocation-package-table th>span{display:block;margin-top:3px;font-size:12px;line-height:1.5;color:#536982}
-.allocation-package-table td>span.is-metric{color:#1f4f7a;font-weight:600}
-.allocation-package-table td.is-empty{color:#7a8a9a;font-style:italic}
-.allocation-package-table .remaining-text{display:inline-block;margin-top:6px}
 
 @media(max-width:700px){
   .allocation-why-table{min-width:0}
@@ -137,7 +140,7 @@
   .allocation-result-why>.allocation-comparison-scroll{overflow:visible;border:0}
 }
 @media(max-width:600px){
-  .allocation-package-grid,.allocation-loss-fields{grid-template-columns:1fr}
+  .allocation-loss-fields{grid-template-columns:1fr}
   .allocation-success-grid{padding:14px}
   .allocation-tested{padding:16px}
   .allocation-percent-input input{font-size:16px}
@@ -153,4 +156,53 @@
 .allocation-wizard-body .allocation-goal label{margin:14px 0 0}
 .allocation-goals>p{font-size:13px;line-height:1.8;color:#536b85}
 
-.allocation-personal-inputs{display:grid;gap:12px;margin:14px 0}.allocation-personal-inputs p{font-size:12px;line-height:1.65;color:#536779}.allocation-personal-inputs .overview-button{justify-self:start}.allocation-package-save-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
+.allocation-personal-inputs{display:grid;gap:12px;margin:14px 0}.allocation-personal-inputs p{font-size:12px;line-height:1.65;color:#536779}.allocation-personal-inputs .overview-button{justify-self:start}
+/* Loss-limit states (algorithm §10.4): over-limit reference is clearly marked, never "recommended". */
+.allocation-loss-badge.is-over{background:#fff1e8;color:#9a3412;border-color:#fed7aa}
+.allocation-result-callout.is-over{background:#fff7ed;border-color:#fed7aa;color:#7c2d12;flex-wrap:wrap}
+.allocation-result-callout.is-over p{flex:1 1 260px}
+
+/* Package dialog (redesign 18/11/2026): allocation strip, two package cards with fee headline + save, table, footer. */
+.allocation-products-dialog .allocation-package-lead{margin:0 0 18px;max-width:68ch;font-size:14px;line-height:1.7;color:#536982}
+.allocation-package-mix{display:grid;gap:10px;margin:0 0 20px}
+.allocation-package-mix-bar{display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden;background:#eef4fb}
+.allocation-package-mix-bar>span{min-width:3px}
+.allocation-package-mix ul{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0;padding:0;list-style:none;font-size:13px;color:#536982}
+.allocation-package-mix li{display:flex;align-items:center;gap:7px}
+.allocation-package-mix li i{width:9px;height:9px;border-radius:3px}
+.allocation-package-mix li b{color:#132e4c;font-weight:650;font-variant-numeric:tabular-nums}
+.allocation-package-same{display:flex;gap:8px;align-items:flex-start;margin:0 0 16px;padding:10px 12px;border-radius:10px;background:#f4f8fd;font-size:13px;line-height:1.6;color:#36506d}
+.allocation-package-same .icon{flex:none;margin-top:3px;color:#245dab}
+.allocation-package-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0 0 22px}
+.allocation-package-card{--pkg:#245dab;--pkg-soft:#eaf1fb;display:flex;flex-direction:column;gap:16px;min-width:0;padding:20px;border:1px solid #dbe4ef;border-radius:16px;background:#fff;box-shadow:0 1px 2px rgba(19,46,76,.04),0 8px 24px rgba(19,46,76,.05)}
+.allocation-package-card.is-b{--pkg:#1f7a63;--pkg-soft:#e6f4ef}
+.allocation-package-card header{display:grid;gap:4px}
+.allocation-package-tag{justify-self:start;padding:3px 9px;border-radius:999px;background:var(--pkg-soft);color:var(--pkg);font-size:12px;font-weight:700}
+.allocation-package-card h3{margin:6px 0 0;font-size:19px;line-height:1.3;font-weight:700;color:#132e4c}
+.allocation-package-card header p{margin:0;font-size:13px;line-height:1.55;color:#536982}
+.allocation-package-fee{display:grid;gap:2px;padding:14px 0;border-block:1px solid #e6edf5}
+.allocation-package-fee strong{font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-.01em;color:var(--pkg);font-variant-numeric:tabular-nums}
+.allocation-package-fee span{font-size:12px;color:#536982}
+.allocation-products-dialog .allocation-package-card dl{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0}
+.allocation-products-dialog .allocation-package-card dl>div{display:grid;gap:2px;padding:0;border:0;font-size:12px;line-height:1.5}
+.allocation-package-card dt{color:#536982}
+.allocation-products-dialog .allocation-package-card dd{font-size:16px;font-weight:700;color:#132e4c}
+.allocation-package-cover{height:6px;margin-top:-6px;border-radius:3px;background:#e6edf5;overflow:hidden}
+.allocation-package-cover>span{display:block;height:100%;border-radius:3px;background:var(--pkg)}
+.allocation-package-card .overview-button{margin-top:auto;width:100%}
+.allocation-products-dialog .allocation-comparison-scroll{margin:0 0 18px;border-radius:12px}
+.allocation-package-table thead th{font-size:12px;font-weight:650}
+.allocation-package-table tbody th{width:28%;font-size:14px;font-weight:650;color:#132e4c;background:#fbfcfe}
+.allocation-package-table td>strong{display:block;font-size:14px;line-height:1.45;color:#132e4c}
+.allocation-package-table td>span,.allocation-package-table th>span{display:block;margin-top:2px;font-size:12px;line-height:1.5;color:#536982}
+.allocation-package-facts{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;list-style:none}
+.allocation-package-facts li{padding:3px 8px;border-radius:6px;background:#f2f6fb;font-size:12px;line-height:1.5;color:#536982;white-space:nowrap}
+.allocation-package-facts b{font-weight:650;color:#132e4c;font-variant-numeric:tabular-nums}
+.allocation-products-dialog .allocation-package-table tbody tr+tr>*{border-top:1px solid #e6edf5}
+.allocation-package-table td.is-empty{color:#7a8a9a;font-size:13px}
+.allocation-package-table .remaining-text{display:inline-block;margin-top:8px;font-size:12px}
+.allocation-package-message{margin:0 0 14px;padding:10px 12px;border-radius:10px;background:#eef8f3;color:#1f5f49;font-size:13px}
+.allocation-package-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:16px;border-top:1px solid #e6edf5}
+.allocation-package-footer p{margin:0;max-width:62ch;font-size:12px;line-height:1.65;color:#536982}
+.allocation-package-footer .overview-button{flex:none}
+@media(max-width:640px){.allocation-package-grid{grid-template-columns:1fr}.allocation-package-footer{flex-direction:column;align-items:stretch}.allocation-products-dialog .allocation-comparison-scroll{overflow:visible;border:0}.allocation-package-table{min-width:0!important}.allocation-package-table thead{display:none}.allocation-package-table,.allocation-package-table tbody,.allocation-package-table tr,.allocation-package-table th,.allocation-package-table td{display:block;width:auto}.allocation-package-table tr{margin-bottom:12px;border:1px solid #dbe4ef;border-radius:12px;overflow:hidden}.allocation-package-table tbody th{border-top:0}.allocation-package-table td::before{content:attr(data-label);display:block;margin-bottom:4px;font-size:11px;font-weight:700;color:#536982}.allocation-products-dialog .allocation-package-table tbody th,.allocation-products-dialog .allocation-package-table tbody td{width:auto;height:auto;padding:12px 14px}.allocation-products-dialog .allocation-package-table tbody td{border-top:1px solid #e6edf5}}

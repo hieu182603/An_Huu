@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, Navigate, useLocation } from "react-router";
 import { useFinancialProfile } from "../context/FinancialProfileContext";
 import { Alert, Button, Card, Icon, Modal } from "./ui";
@@ -97,13 +97,18 @@ export default function FinancialProfileGate({
   inline?: boolean;
 }) {
   const location = useLocation();
-  const { loading, loadError, hasProfile, reloadProfile } = useFinancialProfile();
+  const { loading: profileLoading, loadError, hasProfile, reloadProfile } = useFinancialProfile();
+  // Only the first load hides the page. A reload after saving keeps the page mounted, so
+  // multi-step forms (allocation wizard) keep their step and inputs (customer feedback 18/11/2026).
+  const loadedOnce = useRef(false);
+  if (!profileLoading) loadedOnce.current = true;
+  const loading = profileLoading && !loadedOnce.current;
   const { language } = useI18n();
   const isEn = language === "en";
 
   // Pages stay hidden until the profile loads (they assume a loaded revision),
   // but their lazy chunk must download in parallel instead of afterwards.
-  useEffect(() => { if (loading) preloadRoute(location.pathname); }, [loading, location.pathname]);
+  useEffect(() => { if (profileLoading) preloadRoute(location.pathname); }, [profileLoading, location.pathname]);
 
   const [allDismissed, setAllDismissed] = useState(() => {
     return sessionStorage.getItem("anhuu_onboarding_all_dismissed") === "true";
