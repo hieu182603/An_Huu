@@ -5,9 +5,16 @@ import { Badge, BrandLogo, Button, Checkbox, GoogleIcon, Icon, Input, useNotific
 import { useAuth } from "../context/AuthContext";
 import { resumeDestination } from "../services/navigation";
 import { preloadRoute } from "../services/routePreload";
-import { ApiError, apiRequest, forgetSession, validPassword } from "../services/api";
+import { ApiError, apiRequest, authenticatedRequest, forgetSession, validPassword } from "../services/api";
 import { isGoogleAuthConfigured, triggerGoogleSignIn } from "../services/googleAuth";
 import { trackLoginEvent, trackSignUpEvent } from "../services/googleAnalytics";
+
+// A signed-in user without a financial profile starts at the survey. Deciding it before navigating avoids
+// opening the dashboard shell for a couple of seconds and only then jumping to /onboarding.
+async function profileAwareDestination(destination: string, role: "user" | "admin"): Promise<string> {
+  if (role !== "user" || !/^\/user\/(?:dashboard|goal|plan|simulation|debts|risk-portfolio)$/.test(destination.split(/[?#]/)[0])) return destination;
+  try { return (await authenticatedRequest("/me/financial-profile")) ? destination : "/onboarding"; } catch { return destination; }
+}
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) return error.message;
@@ -172,7 +179,7 @@ export function LoginPage() {
             const u = await loginWithGoogle(credential);
             trackLoginEvent("google");
             notify.success("Đăng nhập Google thành công", `Chào mừng bạn trở lại, ${u.name}!`);
-            navigate(resumeDestination(location.state?.from, u.role), { replace: true });
+            navigate(await profileAwareDestination(resumeDestination(location.state?.from, u.role), u.role), { replace: true });
           } finally { setLoading(false); }
         },
         (err) => {
@@ -210,7 +217,7 @@ export function LoginPage() {
         loggedUser.role,
         (location.state as { isNewUser?: boolean } | null)?.isNewUser ? "/onboarding" : undefined
       );
-      navigate(targetDestination, { replace: true });
+      navigate(await profileAwareDestination(targetDestination, loggedUser.role), { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
         let sentAt = verificationRequests.current.get(cleanEmail) ?? null;
@@ -675,7 +682,7 @@ export function RegisterPage() {
           if (u.isNewUser) trackSignUpEvent("google"); else trackLoginEvent("google");
           if (u.isNewUser) notify.success("Đăng ký thành công với Google", `Chào mừng bạn gia nhập An Hưu, ${u.name}!`);
           else notify.success("Đăng nhập Google thành công", `Chào mừng bạn trở lại, ${u.name}!`);
-          navigate(resumeDestination(location.state?.from, u.role, u.isNewUser ? "/onboarding" : undefined), { replace: true });
+          navigate(await profileAwareDestination(resumeDestination(location.state?.from, u.role, u.isNewUser ? "/onboarding" : undefined), u.role), { replace: true });
         },
         (err) => {
           console.error("Google Auth Error:", err);
