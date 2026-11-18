@@ -215,83 +215,70 @@ function GoalForm({ data }: { data: ProfileV2 }) {
     </form>
     <section className="remaining-card goal-other-goals"><h2>{t("Mục tiêu lớn khác", "Other major goals")}</h2>{data.goals?.status === "KNOWN" ? data.goals.entries.length ? <ul>{data.goals.entries.map(g => <li key={g.id}><strong>{g.label}</strong><span>{financeMoney(g.amountToday.status === "KNOWN" ? g.amountToday.value : null, en)} · {g.dueMonth.status === "KNOWN" ? formatMonthVN(g.dueMonth.value) : t("Chưa có kỳ hạn", "No due month")}</span></li>)}</ul> : <p>{t("Chưa có mục tiêu lớn khác (mua nhà, xe, quỹ học vấn...)", "No other goals declared.")}</p> : data.goals?.status === "NOT_APPLICABLE" ? <p>{t("Chưa có mục tiêu lớn khác (mua nhà, xe, quỹ học vấn...)", "No other goals confirmed.")}</p> : <p>{t("Mục tiêu khác chưa được xác nhận.", "Other goals have not been confirmed.")}</p>}<Link className="overview-button secondary" to="/user/profile?section=constraints">{t("Xem & chỉnh sửa mục tiêu khác →", "Review other goals →")}</Link></section>
     <ol className="remaining-card goal-sync-timeline life-timeline" aria-label={t("Lộ trình các mốc thời gian", "Planning milestones timeline")}>
-      <li className="goal-timeline-header">
+      <li className="goal-timeline-header-item">
         <h2 className="goal-timeline-title">{t("Các mốc thời gian cốt lõi", "Key planning milestones")}</h2>
         <p className="goal-timeline-desc">
           {t("Tổng quan 3 mốc định hình dòng tiền tích lũy và thời gian chuẩn bị quỹ hưu trí của bạn.", "Overview of the three key milestones shaping your accumulation cashflows and retirement fund horizon.")}
         </p>
       </li>
 
-      <li className="goal-timeline-milestones-row">
-        {/* Milestone 1: Start */}
-        <div className="goal-milestone-col milestone-start">
-          <div className="goal-milestone-track-head">
-            <span className="goal-milestone-dot" />
-            <div className="goal-milestone-connector">
-              <span className="goal-connector-line line-accum" />
-              <span className="goal-connector-pill pill-accum">
-                {accumYears ? `${accumYears} ${t("năm tích lũy", "years saving")}` : t("Giai đoạn tích lũy", "Accumulation phase")}
-              </span>
-            </div>
-          </div>
-          <div className="goal-milestone-content">
-            <span className="goal-milestone-label">{t("BẮT ĐẦU TÍNH", "VALUATION")}</span>
-            <div className="goal-milestone-date-wrap">
-              <strong className="goal-milestone-date">{data.valuationDate.slice(0, 7) ? formatMonthVN(data.valuationDate.slice(0, 7)) : ""}</strong>
-              {startAge !== null && (
-                <span className="goal-milestone-age">{startAge} {t("tuổi", "years old")}</span>
-              )}
-            </div>
-            <p className="goal-milestone-note">{t("Thời điểm định giá tài sản & bắt đầu lộ trình", "Asset valuation & plan starting point")}</p>
-          </div>
+      <li className="goal-timeline-phase-track" aria-hidden="true">
+        <div className="phase-bar-segment phase-accum">
+          <span className="phase-bar-label">
+            <strong>{t("Giai đoạn tích lũy", "Accumulation Phase")}</strong>
+            {accumYears ? ` · ${accumYears} ${t("năm", "years")}` : ""}
+          </span>
+          <span className="phase-bar-arrow">→</span>
         </div>
+        <div className="phase-bar-segment phase-spend">
+          <span className="phase-bar-label">
+            <strong>{t("Giai đoạn an hưởng", "Retirement Phase")}</strong>
+            {spendYears ? ` · ${spendYears} ${t("năm", "years")}` : ""}
+          </span>
+        </div>
+      </li>
 
-        {/* Milestone 2: Retirement Target */}
-        <div className="goal-milestone-col milestone-target is-hero">
-          <div className="goal-milestone-track-head">
-            <span className="goal-milestone-dot" />
-            <div className="goal-milestone-connector">
-              <span className="goal-connector-line line-spend" />
-              <span className="goal-connector-pill pill-spend">
-                {spendYears ? `${spendYears} ${t("năm an hưởng", "years retired")}` : t("Giai đoạn an hưởng", "Retirement phase")}
-              </span>
+      <li className="goal-timeline-nodes-item">
+        <div className="goal-nodes-grid">
+          {/* Node 1 */}
+          <div className="goal-node-col node-start">
+            <span className="node-caption">{t("BẮT ĐẦU TÍNH", "VALUATION")}</span>
+            <div className="node-date-wrap">
+              <strong className="node-date">{data.valuationDate.slice(0, 7) ? formatMonthVN(data.valuationDate.slice(0, 7)) : ""}</strong>
+              {startAge !== null && <span className="node-age-badge">{startAge} {t("tuổi", "years old")}</span>}
             </div>
+            <p className="node-note">{t("Thời điểm định giá tài sản & bắt đầu lộ trình", "Asset valuation & plan starting point")}</p>
           </div>
-          <div className="goal-milestone-content">
-            <span className="goal-milestone-label">
-              <Explain term="retirementAge">{t("NGHỈ HƯU MONG MUỐN", "DESIRED RETIREMENT")}</Explain>
-              <span className="goal-hero-badge">{t("Mục tiêu hưu trí", "Retirement Goal")}</span>
-            </span>
-            <div className="goal-milestone-date-wrap">
-              <strong className="goal-milestone-date">{form.retirement ? formatMonthVN(form.retirement) : t("Chưa xác định", "Undetermined")}</strong>
-              {targetAge !== null && (
-                <span className="goal-milestone-age is-hero">{targetAge} {t("tuổi", "years old")}</span>
-              )}
+
+          {/* Node 2 - Hero Goal */}
+          <div className="goal-node-col node-target is-hero">
+            <div className="node-caption-row">
+              <span className="node-caption">
+                <Explain term="retirementAge">{t("NGHỈ HƯU MONG MUỐN", "DESIRED RETIREMENT")}</Explain>
+              </span>
+              <span className="hero-target-pill">{t("Mục tiêu hưu trí", "Retirement Goal")}</span>
             </div>
-            <p className="goal-milestone-note">
+            <div className="node-date-wrap">
+              <strong className="node-date hero-date">{form.retirement ? formatMonthVN(form.retirement) : t("Chưa xác định", "Undetermined")}</strong>
+              {targetAge !== null && <span className="node-age-badge hero-age">{targetAge} {t("tuổi", "years old")}</span>}
+            </div>
+            <p className="node-note hero-note">
               {accumYears
                 ? t(`Sau ${accumYears} năm tích lũy · Bắt đầu chi dùng quỹ`, `After ${accumYears} years saving · Fund spending begins`)
                 : t("Bắt đầu bước vào giai đoạn an hưởng", "Retirement begins")}
             </p>
           </div>
-        </div>
 
-        {/* Milestone 3: End Horizon */}
-        <div className="goal-milestone-col milestone-end">
-          <div className="goal-milestone-track-head">
-            <span className="goal-milestone-dot" />
-          </div>
-          <div className="goal-milestone-content">
-            <span className="goal-milestone-label">
+          {/* Node 3 */}
+          <div className="goal-node-col node-end">
+            <span className="node-caption">
               <Explain term="projectionEnd">{t("CHUẨN BỊ ĐẾN", "PREPARE THROUGH")}</Explain>
             </span>
-            <div className="goal-milestone-date-wrap">
-              <strong className="goal-milestone-date">{prepareMonth ? formatMonthVN(prepareMonth) : t("Chưa xác định", "Undetermined")}</strong>
-              {endAge !== null && (
-                <span className="goal-milestone-age">{endAge} {t("tuổi", "years old")}</span>
-              )}
+            <div className="node-date-wrap">
+              <strong className="node-date">{prepareMonth ? formatMonthVN(prepareMonth) : t("Chưa xác định", "Undetermined")}</strong>
+              {endAge !== null && <span className="node-age-badge">{endAge} {t("tuổi", "years old")}</span>}
             </div>
-            <p className="goal-milestone-note">
+            <p className="node-note">
               {spendYears ? `${spendYears} ${t("năm an hưởng", "years retired")} · ` : ""}
               {t("Dự tính chi tiêu đến hết tháng", "Spending modeled through")} {formatMonthVN(form.end)}
             </p>
