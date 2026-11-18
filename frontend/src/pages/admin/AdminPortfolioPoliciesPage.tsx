@@ -10,6 +10,7 @@ import { Button, Checkbox, Input } from "../../components/ui";
 import { useI18n } from "../../i18n";
 import "../../components/retirement/planning-analysis.css";
 import "./admin-portfolio-policies.css";
+import PortfolioPolicyParamsForm, { policyFormIssues } from "./PortfolioPolicyParamsForm";
 
 // Admin editor for portfolio policies (schemaVersion 2): structured fields for the
 // allocation-risk parameters that are still CHỜ DUYỆT, plus the full JSON document.
@@ -23,6 +24,7 @@ const RISK_FIELDS: FieldDef[] = [
   { key: "simulationPaths", label: "Số kịch bản thị trường (1–500)", hint: "Số nguyên do admin công bố; máy chủ vẫn kiểm giới hạn xử lý.", kind: "int" },
   { key: "equityShiftPoints", label: "Bước dịch cổ phiếu (điểm %)", hint: "Ứng viên = danh mục nền và ± bước này. Để trống thì chọn phương án trả REVIEW_REQUIRED." },
   { key: "essentialThreshold", label: "Ngưỡng p thiết yếu (0–1)", hint: "Ví dụ 0.90 = 90% kịch bản đủ chi thiết yếu." },
+  { key: "allGoalsThreshold", label: "Ngưỡng p mọi mục tiêu (0–1)", hint: "Ví dụ 0.75 = 75% kịch bản đủ cả chi thiết yếu và mục tiêu khác. Để trống thì không đánh giá mục tiêu khác." },
   { key: "cvarAlpha", label: "CVaR alpha (0–1)", hint: "Ví dụ 0.95." },
   { key: "blockMonths", label: "Độ dài khối bootstrap (tháng, 12–36)", hint: "Số nguyên.", kind: "int" },
   { key: "rebalanceBandPoints", label: "Dải tái cân bằng (điểm %)", hint: "Ví dụ 5." },
@@ -94,6 +96,7 @@ export default function AdminPortfolioPoliciesPage() {
     if (set.size) r.stresses.LONGEVITY = { ...(r.stresses.LONGEVITY ?? {}), extraYears: [...set].sort((a, b) => a - b) }; else delete r.stresses.LONGEVITY;
   });
   const v2 = parsed?.schemaVersion === 2;
+  const formIssues = parsed && v2 ? policyFormIssues(parsed, t) : [];
 
   return <main className="planning-analysis admin-policy-page" data-testid="admin-portfolio-policies">
     <Link to="/admin/financial-config">{t("← Cấu hình tài chính", "← Financial configuration")}</Link>
@@ -158,6 +161,9 @@ export default function AdminPortfolioPoliciesPage() {
         {parsed.quickStartTemplates && <><div className="admin-policy-grid">{[["SELL",t("Ưu tiên giữ vốn (bán)", "Protect capital (sell)")],["HOLD",t("Giữ và chờ", "Hold")],["BUY_MORE",t("Cân nhắc góp thêm", "Consider contributing more")]].map(([reaction,label])=><label key={reaction}>{label}<select aria-label={label} value={parsed.quickStartTemplates[reaction]} onChange={event=>{const next=structuredClone(parsed);next.quickStartTemplates[reaction]=event.target.value;setJson(JSON.stringify(next,null,2));setValidation(null);setConfirm(false);}}><option value="">{t("Chọn danh mục", "Select a template")}</option>{parsed.templates.map((template:Doc)=><option key={template.id} value={template.id}>{template.label}</option>)}</select></label>)}</div><label>{t("Căn cứ lựa chọn danh mục", "Reference mapping evidence")}<textarea rows={3} value={parsed.quickStartTemplates.evidence} onChange={event=>{const next=structuredClone(parsed);next.quickStartTemplates.evidence=event.target.value;setJson(JSON.stringify(next,null,2));setValidation(null);setConfirm(false);}}/></label></>}
       </fieldset>}
 
+      {parsed && v2 && <PortfolioPolicyParamsForm doc={parsed} t={t} disabled={!edit || busy || conflict}
+        onChange={next => { setJson(JSON.stringify(next, null, 2)); setValidation(null); setConfirm(false); }} />}
+
       <details className="admin-policy-json" open={!v2}>
         <summary>{t("Toàn bộ tài liệu JSON", "Full JSON document")}</summary>
         <textarea aria-label={t("Nội dung JSON của chính sách", "Policy JSON")} value={json} readOnly={!edit || busy || conflict} spellCheck={false} onChange={e => { setJson(e.target.value); setValidation(null); setConfirm(false); }} />
@@ -165,7 +171,7 @@ export default function AdminPortfolioPoliciesPage() {
       {json && !parsed && <p role="alert">{t("JSON chưa hợp lệ. Kiểm tra dấu ngoặc và dấu phẩy; chưa có dữ liệu được gửi.", "Invalid JSON. Check brackets and commas; nothing has been sent.")}</p>}
 
       <div className="planning-actions">
-        {edit && <Button disabled={busy || conflict || !parsed || (!creating && !dirty)} onClick={() => void run(async () => {
+        {edit && <Button disabled={busy || conflict || !parsed || (!creating && !dirty) || formIssues.length > 0} onClick={() => void run(async () => {
           if (!parsed) return;
           const v = creating ? await createAdminPortfolioPolicy(parsed as PortfolioPolicyDocument) : await updateAdminPortfolioPolicy(detail!.id, detail!.revision, parsed as PortfolioPolicyDocument);
           accept(v); await refresh(); setNotice(t("Đã lưu bản nháp trên máy chủ.", "Draft saved on the server."));
