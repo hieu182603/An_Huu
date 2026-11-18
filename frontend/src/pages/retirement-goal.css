@@ -46,7 +46,7 @@
 .goal-other-goals li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #dce6f0; padding: 12px 0; }
 .goal-other-goals li span { overflow-wrap: anywhere; }
 /* ==========================================================================
-   Goal Sync Timeline - Premium Connected Roadmap
+   Goal Sync Timeline - Premium Connected Roadmap (Fine-tuned)
    ========================================================================== */
 .goal-sync-timeline {
   display: flex !important;
@@ -54,9 +54,9 @@
   background: #ffffff !important;
   border: 1px solid #dce6f0 !important;
   border-radius: 16px !important;
-  padding: 30px 32px 34px !important;
+  padding: 28px 30px 32px !important;
   margin: 24px 0 32px !important;
-  box-shadow: 0 2px 8px rgba(5, 38, 89, 0.04) !important;
+  box-shadow: 0 1px 4px rgba(5, 38, 89, 0.03) !important;
   list-style: none !important;
   gap: 0 !important;
 }
@@ -84,49 +84,47 @@
 
 /* Header */
 .goal-timeline-header-item {
-  margin-bottom: 22px !important;
+  margin-bottom: 20px !important;
 }
 .goal-timeline-title {
-  margin: 0 0 6px !important;
-  font-size: 20px !important;
+  margin: 0 0 5px !important;
+  font-size: 19px !important;
   font-weight: 700 !important;
   color: #052659 !important;
-  letter-spacing: -0.3px !important;
+  letter-spacing: -0.2px !important;
   line-height: 1.35 !important;
 }
 .goal-timeline-desc {
   margin: 0 !important;
   font-size: 13.5px !important;
   color: #536b85 !important;
-  line-height: 1.6 !important;
+  line-height: 1.5 !important;
 }
 
-/* Phase Track Bar (Accumulation vs Retirement Phase) */
+/* Phase Track Ribbon (Accumulation vs Retirement Phase) */
 .goal-timeline-phase-track {
-  display: flex !important;
-  align-items: stretch !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
   gap: 12px !important;
-  margin-bottom: 24px !important;
+  margin-bottom: 20px !important;
 }
 .phase-bar-segment {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  padding: 10px 18px !important;
-  border-radius: 10px !important;
-  min-height: 42px !important;
+  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  min-height: 38px !important;
   box-sizing: border-box !important;
 }
 .phase-accum {
-  flex: 1 1 50% !important;
   background: #f0f6ff !important;
-  border: 1px solid #cce0f7 !important;
-  color: #1e40af !important;
+  border: 1px solid #d0e4fe !important;
+  color: #1d4ed8 !important;
 }
 .phase-spend {
-  flex: 1 1 50% !important;
-  background: #f6f9fc !important;
-  border: 1px solid #dce6f0 !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
   color: #334155 !important;
 }
 .phase-bar-label {
@@ -140,11 +138,23 @@
   font-weight: 700 !important;
   color: inherit !important;
 }
+.phase-dot {
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+  background: #2563eb !important;
+  display: inline-block !important;
+  margin-right: 8px !important;
+  flex-shrink: 0 !important;
+}
+.phase-dot.spend {
+  background: #64748b !important;
+}
 .phase-bar-arrow {
   display: inline-block !important;
-  font-size: 15px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
-  color: #334daf !important;
+  color: #2563eb !important;
   margin-left: 8px !important;
 }
 
@@ -155,17 +165,19 @@
 .goal-nodes-grid {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 20px !important;
+  gap: 18px !important;
 }
 
 .goal-node-col {
   display: flex !important;
   flex-direction: column !important;
+  justify-content: flex-start !important;
   min-width: 0 !important;
-  padding: 20px !important;
+  padding: 18px 20px !important;
   border-radius: 12px !important;
-  background: #fbfdff !important;
+  background: #ffffff !important;
   border: 1px solid #e2edf7 !important;
+  box-shadow: 0 1px 3px rgba(5, 38, 89, 0.02) !important;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease !important;
 }
 .goal-node-col:hover {
@@ -176,31 +188,29 @@
 
 /* Hero Target Node */
 .goal-node-col.node-target.is-hero {
-  background: #f5f9ff !important;
-  border: 1.5px solid #334daf !important;
-  box-shadow: 0 4px 14px rgba(51, 77, 175, 0.08) !important;
+  background: linear-gradient(180deg, #f5f9ff 0%, #ffffff 100%) !important;
+  border: 1.5px solid #3b82f6 !important;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.07) !important;
 }
 
-/* Caption Row */
+/* Caption Row - Fixed height for perfect horizontal alignment across columns */
 .node-caption-row {
+  min-height: 24px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  gap: 8px !important;
+  gap: 6px !important;
   margin-bottom: 12px !important;
   flex-wrap: wrap !important;
 }
 .node-caption {
   display: inline-block !important;
-  font-size: 11.5px !important;
+  font-size: 11px !important;
   font-weight: 700 !important;
-  letter-spacing: 0.6px !important;
+  letter-spacing: 0.8px !important;
   text-transform: uppercase !important;
-  color: #5483b3 !important;
-  margin-bottom: 12px !important;
-}
-.node-caption-row .node-caption {
-  margin-bottom: 0 !important;
+  color: #64748b !important;
+  margin: 0 !important;
 }
 .node-caption button {
   font: inherit !important;
@@ -220,10 +230,11 @@
 .hero-target-pill {
   display: inline-flex !important;
   align-items: center !important;
-  padding: 2px 8px !important;
+  padding: 2px 7px !important;
   border-radius: 4px !important;
-  background: #334daf !important;
-  color: #ffffff !important;
+  background: #e0edfc !important;
+  border: 1px solid #bfdbfe !important;
+  color: #1e40af !important;
   font-size: 10.5px !important;
   font-weight: 600 !important;
   letter-spacing: 0.2px !important;
@@ -234,22 +245,23 @@
 .node-date-wrap {
   display: flex !important;
   align-items: baseline !important;
-  gap: 10px !important;
+  gap: 8px !important;
   flex-wrap: wrap !important;
-  margin-bottom: 12px !important;
+  margin-bottom: 14px !important;
 }
 .node-date {
   display: inline-block !important;
-  font-size: 26px !important;
+  font-size: 24px !important;
   font-weight: 700 !important;
   color: #052659 !important;
-  letter-spacing: -0.5px !important;
+  letter-spacing: -0.3px !important;
   line-height: 1.2 !important;
   font-variant-numeric: tabular-nums !important;
   margin: 0 !important;
 }
 .hero-date {
-  color: #334daf !important;
+  font-size: 25px !important;
+  color: #1d4ed8 !important;
   font-weight: 800 !important;
 }
 
@@ -258,8 +270,8 @@
   align-items: center !important;
   padding: 2px 8px !important;
   border-radius: 99px !important;
-  background: #edf2f8 !important;
-  color: #1e3a5f !important;
+  background: #f1f5f9 !important;
+  color: #334155 !important;
   font-size: 12px !important;
   font-weight: 600 !important;
   line-height: 1.4 !important;
@@ -270,16 +282,45 @@
   font-weight: 700 !important;
 }
 
-/* Supporting Note */
+/* Supporting Note - Anchored to bottom with subtle top separator */
 .node-note {
   margin: 0 !important;
-  font-size: 12.5px !important;
-  line-height: 1.6 !important;
+  margin-top: auto !important;
+  padding-top: 12px !important;
+  border-top: 1px solid #f1f5f9 !important;
+  font-size: 12px !important;
+  line-height: 1.55 !important;
   color: #64748b !important;
 }
 .hero-note {
-  color: #225eaa !important;
+  color: #1e40af !important;
   font-weight: 500 !important;
+}
+
+.goal-timeline-dialog .modal-body > p { color: #536b85; margin: 0 0 18px; line-height: 1.8; }
+.goal-timeline-dialog footer { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; margin-top: 24px; }
+
+@media (max-width: 820px) {
+  .goal-nodes-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 14px !important;
+  }
+  .goal-timeline-phase-track {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 650px) {
+  .goal-page-header h1 { font-size: 28px; }
+  .goal-main-form, .goal-other-goals { padding: 22px 16px; }
+  .goal-inputs-grid { grid-template-columns: minmax(0, 1fr); }
+  .goal-sync-timeline {
+    padding: 20px 16px 22px !important;
+  }
+  .node-date { font-size: 22px !important; }
+  .goal-main-form input:not([type=checkbox]), .goal-main-form select { font-size: 16px; }
+  .goal-form-footer .overview-button { flex: 1 1 auto; }
 }
 
 .goal-timeline-dialog .modal-body > p { color: #536b85; margin: 0 0 18px; line-height: 1.8; }
