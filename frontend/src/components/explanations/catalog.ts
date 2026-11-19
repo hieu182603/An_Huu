@@ -254,9 +254,9 @@ export const productExplanations: GlossaryTerm[] = [
       en: "Rising prices over time mean the same amount of money buys fewer goods and services. The plan compounds annual inflation assumptions to convert today's expenses into future retirement costs."
     },
     formula: {
-      symbolic: "Chi tiêu tương lai (FV) = Chi tiêu hôm nay (PV) × (1 + i)^n",
-      vi: "Chi tiêu hôm nay nhân với hệ số trượt giá tích lũy theo tỷ lệ lạm phát hàng năm qua số năm tích lũy.",
-      en: "Present expense multiplied by cumulative annual inflation factor over accumulation years."
+      symbolic: "Chi tiêu tương lai (FV) = Chi tiêu hôm nay (PV) × (1 + i/12)^(n × 12)",
+      vi: "Chi tiêu hôm nay nhân với hệ số trượt giá gộp theo tháng: lạm phát năm i chia 12, lũy thừa số tháng tích lũy (n năm × 12).",
+      en: "Present expense multiplied by the monthly-compounded inflation factor: annual inflation i divided by 12, raised to the number of months (n years × 12)."
     }
   },
   {
@@ -267,9 +267,9 @@ export const productExplanations: GlossaryTerm[] = [
       en: "Estimated rate of return across accumulation and drawdown horizons, based on portfolio asset allocation."
     },
     formula: {
-      symbolic: "Lợi suất danh mục = Σ (Tỷ trọng tài sản_i × Lợi suất kỳ vọng_i)",
-      vi: "Lợi suất tổng hợp bằng tổng tỷ trọng của từng lớp tài sản nhân với lợi suất kỳ vọng của tài sản đó.",
-      en: "Weighted sum of expected returns across all constituent asset classes in the portfolio."
+      symbolic: "Lợi suất danh mục = Σ (Tỷ trọng tài sản_i × Lợi suất kỳ vọng_i); lãi kép tiền gửi hàng tháng: FV = A × ((1 + r)^n − 1) / r (gửi cuối tháng), nhân thêm (1 + r) nếu gửi đầu tháng, với r = lợi suất năm / 12",
+      vi: "Lợi suất tổng hợp bằng tổng tỷ trọng của từng lớp tài sản nhân với lợi suất kỳ vọng. Khoản góp đều A mỗi tháng sinh lãi kép theo tháng: r = lợi suất năm chia 12, n = số tháng góp.",
+      en: "Weighted sum of expected returns across asset classes. A monthly deposit A compounds monthly: r = annual return / 12, n = number of months."
     }
   },
   {
@@ -293,9 +293,9 @@ export const productExplanations: GlossaryTerm[] = [
       en: "Monthly amount needed at the start of retirement to maintain equivalent living standard to today's budget, factoring in accumulated inflation."
     },
     formula: {
-      symbolic: "Chi tiêu lúc hưu (FV) = Chi tiêu hôm nay (PV) × ∏ (1 + lạm phát_t)",
-      vi: "Chi tiêu hôm nay nhân dồn với tỷ lệ lạm phát dự phóng qua từng năm tích lũy.",
-      en: "Present expense compounded by annual projected inflation over the accumulation period."
+      symbolic: "Chi tiêu lúc hưu (FV) = Chi tiêu hôm nay (PV) × ∏ (1 + lạm phát năm_t / 12) qua từng tháng tích lũy",
+      vi: "Chi tiêu hôm nay nhân dồn hệ số lạm phát từng tháng (lạm phát năm của năm đó chia 12) qua toàn bộ các tháng tích lũy.",
+      en: "Present expense compounded month by month by the year's annual inflation divided by 12 over all accumulation months."
     }
   },
   {

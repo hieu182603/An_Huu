@@ -1158,6 +1158,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                       <CurrencyInput
                         label={isEn ? "Target budget needed" : "Cần bao nhiêu tiền (theo giá hiện tại)?"}
                         value={goalAmount}
+                        max={1e13}
                         error={fieldErrors.goalAmount}
                         onChange={(val) => {
                           clearFieldError("goalAmount");
@@ -1169,6 +1170,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                         <DateInput
                           mode="month"
                           label={isEn ? "When do you need this fund?" : "Khi nào bạn cần dùng số tiền này?"}
+                          min={planningMonth}
+                          max={planEndMonth}
                           value={goalMonth}
                           error={fieldErrors.goalMonth}
                           onChange={(ym) => {
