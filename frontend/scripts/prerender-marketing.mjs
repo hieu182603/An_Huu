@@ -20,6 +20,13 @@ const preloads = assetFiles.filter(f => f.startsWith('react-vendor-') && f.endsW
 const template = `<!doctype html>
 <html lang="vi">
   <head>
+    <!-- Google tag (GTM-5C6NVG8P) - giữ đồng bộ với index.html -->
+    <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-5C6NVG8P"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#10385b" />
