@@ -179,6 +179,23 @@ describe("profile and onboarding services (offline)", () => {
 });
 
 describe("auth/profile HTTP boundary", () => {
+  it("remember me keeps the refresh cookie for days and survives rotation; without it the cookie ends with the browser session", async () => {
+    const f = await active();
+    const app = createApp({ config, services: { auth: f.auth, profiles: new ProfileService(f.db) }, databaseProbe: async () => {} });
+    const body = { ...input, fullName: undefined };
+    const kept = await request(app).post("/api/v1/auth/login").send({ ...body, remember: true });
+    expect(kept.status).toBe(200);
+    const keptCookie = kept.headers["set-cookie"][0];
+    const expires = /Expires=([^;]+)/.exec(keptCookie)?.[1];
+    expect(expires).toBeTruthy();
+    expect(new Date(expires!).getTime() - Date.now()).toBeGreaterThan(7 * 24 * 3600 * 1000);
+    const rotated = await request(app).post("/api/v1/auth/refresh").set("Cookie", keptCookie).set("Origin", config.CLIENT_URL).set("X-CSRF-Protection", "1").send({});
+    expect(rotated.status).toBe(200);
+    expect(rotated.headers["set-cookie"][0]).toContain("Expires=");
+    const session = await request(app).post("/api/v1/auth/login").send({ ...body, remember: false });
+    expect(session.headers["set-cookie"][0]).not.toContain("Expires=");
+  });
+
   it("sets a private refresh cookie, enforces CSRF, rejects role overrides and uses JWT ownership", async () => {
     const f = await active();
     const app = createApp({ config, services: { auth: f.auth, profiles: new ProfileService(f.db) }, databaseProbe: async () => {} });
