@@ -995,7 +995,7 @@ export function RegisterPage() {
             onClose={() => setActiveDocModal(null)}
           >
             <div style={{ padding: "8px 0", lineHeight: 1.7, fontSize: "14px", color: "#334155" }}>
-              <div style={{ marginBottom: "16px", padding: "12px 16px", background: "#f8fafc", borderRadius: "8px", borderLeft: "4px solid #008a75" }}>
+              <div style={{ marginBottom: "16px", padding: "12px 16px", background: "#f8fafc", borderRadius: "8px", border: "1px solid #b7ddd5" }}>
                 <strong style={{ display: "block", color: "#0f172a", marginBottom: "4px" }}>Thông báo quy chế dịch vụ</strong>
                 <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>
                   Văn bản pháp lý đầy đủ đang trong quá trình rà soát định kỳ và phê duyệt bởi Ban quản trị nền tảng An Hưu. Dưới đây là các nguyên tắc cốt lõi áp dụng cho phiên bản hiện hành:
@@ -1021,7 +1021,7 @@ export function RegisterPage() {
             onClose={() => setActiveDocModal(null)}
           >
             <div style={{ padding: "8px 0", lineHeight: 1.7, fontSize: "14px", color: "#334155" }}>
-              <div style={{ marginBottom: "16px", padding: "12px 16px", background: "#f8fafc", borderRadius: "8px", borderLeft: "4px solid #008a75" }}>
+              <div style={{ marginBottom: "16px", padding: "12px 16px", background: "#f8fafc", borderRadius: "8px", border: "1px solid #b7ddd5" }}>
                 <strong style={{ display: "block", color: "#0f172a", marginBottom: "4px" }}>Cam kết bảo mật dữ liệu</strong>
                 <p style={{ margin: 0, fontSize: "13px", color: "#64748b" }}>
                   Chính sách bảo mật toàn văn đang được chuẩn hóa theo quy định bảo vệ dữ liệu cá nhân. Các nguyên tắc xử lý dữ liệu hiện hữu gồm:

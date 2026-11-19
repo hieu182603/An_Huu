@@ -1,6 +1,6 @@
 import type { RetirementPreviewInput } from "../services/retirement";
 import type { CustomAllocation } from "../services/portfolios";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useI18n } from "../i18n";
 import { useAuth } from "../context/AuthContext";
@@ -49,6 +49,13 @@ export default function AllocationWorkspace(p:Props) {
     getAllocationConfirmation().then(row=>{if(!active)return;const ok=row.confirmed&&row.profileRevision===p.profileRevision;writeHint(ok);setResultsRequestedState(ok);}).catch(()=>{});
     return()=>{active=false;};
   },[hintKey]);
+  // Changing the horizon, answers or policy hides the prior result until it is recalculated explicitly.
+  const inputsKey=`${p.policy.id}|${p.months}|${p.endMonth}|${JSON.stringify(p.answers)}`;
+  const lastInputs=useRef(inputsKey);
+  useEffect(()=>{
+    if(lastInputs.current===inputsKey)return;
+    lastInputs.current=inputsKey;setApplied(false);setResultsRequestedState(false);writeHint(false);
+  },[inputsKey]);
   const [step,setStep]=useState(0),[modal,setModal]=useState<"capital"|"reserve"|"goals"|"growth"|null>(null);
   const r=p.data,c=r?.capital, portfolio=r?.portfolio, money=(s:string|null|undefined)=>financeMoney(s??null,en);
   const limit=resolveLossTolerance(c?.growthCapital??null,p.lossAmount,p.lossPercent,p.lossInputMode);
