@@ -6,12 +6,15 @@ import { Decimal } from "../utils/decimal";
 import { financeMoney } from "../utils/financeHubSummary";
 import ProfileFormattedInput from "./ProfileFormattedInput";
 import ResponsiveDialog from "./ResponsiveDialog";
+import { AssetFeeHint } from "./billing/FeeEstimate";
+import { projectedFeeBase } from "./billing/assetBase";
+import { toBaseAmount } from "../services/billingFormat";
 
 const known = (value: string) => ({ status: "KNOWN" as const, value });
 const shareKeys = ["ownershipShare", "retirementShare", "emergencyShare", "otherGoalsShare"] as const;
 type ShareKey = typeof shareKeys[number];
 const basis = (asset: AssetEntry) => ({ ownershipShare: asset.ownershipShare, valuedOn: asset.valuedOn, currency: asset.currency, liquidity: asset.liquidity, availableFromMonth: asset.availableFromMonth });
-export default function AssetEntryDialog({ profile, entry, onClose, onSaved }: { profile: ProfileV2; entry?: AssetEntry; onClose: () => void; onSaved: () => void }) {
+export default function AssetEntryDialog({ profile, entry, onClose, onSaved, retirement }: { profile: ProfileV2; entry?: AssetEntry; onClose: () => void; onSaved: () => void; retirement?: { total: string | null; entry: string | null } }) {
   const { updateAssets, saveError, reloadProfile } = useFinancialProfile();
   const en = useI18n().language === "en", t = (vi: string, english: string) => en ? english : vi;
   const sources = profile.assets.status === "KNOWN" ? profile.assets.entries.filter(asset => asset.value.status === "KNOWN" && new Decimal(asset.value.value).gt(0) && asset.housingPlan?.status !== "CONFIRMED") : [];
@@ -67,6 +70,7 @@ export default function AssetEntryDialog({ profile, entry, onClose, onSaved }: {
     try { if (await updateAssets(command)) { onSaved(); onClose(); } } finally { setSaving(false); }
   };
   const remainder = source?.value.status === "KNOWN" && form.value.status === "KNOWN" && /^\d+(\.\d{1,2})?$/.test(form.value.value) ? new Decimal(source.value.value).minus(form.value.value).toString() : null;
+  const feeBase = !source && retirement ? projectedFeeBase({ currentTotal: retirement.total, entryNow: entry ? retirement.entry : "0", draft: form, ownershipPercent: shares.ownershipShare.unknown ? "" : shares.ownershipShare.text, retirementPercent: shares.retirementShare.unknown ? "" : shares.retirementShare.text, currentMonth: new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).slice(0, 7) }) : null;
   return <ResponsiveDialog open title={entry ? t("Sửa tài sản", "Edit asset") : t("Thêm tài sản", "Add asset")} className="user-workspace-dialog cashflow-entry-dialog asset-entry-dialog" initialFocusSelector='input[name="asset-label"]' fallbackFocusSelector=".asset-add" onClose={() => { if (!saving) onClose(); }}>
     <form className="cashflow-form asset-form" onSubmit={submit}><fieldset disabled={saving}>
       <label>{t("Khoản này dùng để làm gì?", "What is this asset for?")}<select aria-label={t("Khoản này dùng để làm gì?", "What is this asset for?")} value={role} onChange={event => chooseRole(event.target.value)}><option value="retirementShare">{t("Dành cho nghỉ hưu", "Retirement")}</option><option value="emergencyShare">{t("Quỹ dự phòng", "Emergency reserve")}</option><option value="HOME">{t("Nhà đang ở", "Primary home")}</option><option value="otherGoalsShare">{t("Mục đích khác", "Other purposes")}</option><option value="CUSTOM">{t("Chia cho nhiều mục đích", "Split across purposes")}</option><option value="UNKNOWN">{t("Chưa phân loại", "Unclassified")}</option></select></label>
@@ -86,6 +90,7 @@ export default function AssetEntryDialog({ profile, entry, onClose, onSaved }: {
       {!split && <details><summary>{t("Giá vốn và thông tin bổ sung", "Cost basis and additional information")}</summary><label className="cashflow-checkbox"><input type="checkbox" checked={form.costBasis !== undefined} onChange={event => { if (event.target.checked) setField("costBasis", { status: "UNKNOWN" }); else setForm(current => { const { costBasis: _cost, ...rest } = current; return rest; }); }} />{t("Khai giá vốn", "Declare cost basis")}</label>{form.costBasis && <><label className="cashflow-checkbox"><input type="checkbox" checked={form.costBasis.status === "UNKNOWN"} onChange={event => setField("costBasis", event.target.checked ? { status: "UNKNOWN" } : known(""))} />{t("Chưa xác định giá vốn", "Cost basis is unknown")}</label>{form.costBasis.status === "KNOWN" && <ProfileFormattedInput format="money" label={t("Giá vốn", "Cost basis")} value={form.costBasis.value} onChange={value => setField("costBasis", known(value))} />}</>}{form.housingPlan && <p>{t("Giữ phương án nhà ở đã khai. Rà soát ảnh hưởng bán/cho thuê tại trang Kế hoạch.", "Your declared housing plan is retained. Review sale/rental effects on the Plan page.")}</p>}</details>}
       {remainder !== null && <p className="cashflow-split-preview" role="status">{t("Tổng không đổi. Tài sản gốc còn:", "Total unchanged. Original asset remaining:")} <strong>{financeMoney(remainder, en)}</strong></p>}
       {profile.assets.status === "UNKNOWN" && <label className="cashflow-checkbox"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />{t("Tôi xác nhận danh sách sau khi lưu đã kê đầy đủ tài sản.", "I confirm the saved list will include all my assets.")}</label>}
+      {retirement && <AssetFeeHint currentBaseVnd={toBaseAmount(retirement.total?.split(".")[0])} newBaseVnd={feeBase} />}
     </fieldset>{(error || attempted && saveError) && <div className="cashflow-error" role="alert"><p>{error || saveError}</p>{attempted && saveError && <button type="button" className="overview-button secondary" onClick={() => { onClose(); reloadProfile(); }}>{t("Tải lại hồ sơ", "Reload profile")}</button>}</div>}
     <footer><button type="button" className="cashflow-text-button" disabled={saving} onClick={onClose}>{t("Hủy", "Cancel")}</button><button className="overview-button primary" type="submit" disabled={saving}>{saving ? t("Đang lưu…", "Saving…") : t("Lưu thay đổi", "Save changes")}</button></footer></form>
   </ResponsiveDialog>;

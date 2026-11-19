@@ -3,10 +3,11 @@ import type { CustomAllocation } from "../services/portfolios";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useI18n } from "../i18n";
+import { useAuth } from "../context/AuthContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { Decimal } from "../utils/decimal";
 import type { PortfolioPolicyDetail } from "../services/portfolios";
-import type { AllocationWorkspaceResult } from "../services/allocationWorkspace";
+import { confirmAllocation, getAllocationConfirmation, type AllocationWorkspaceResult } from "../services/allocationWorkspace";
 import AllocationResults from "../components/AllocationResults";
 import { resolveLossTolerance } from "../utils/lossTolerance";
 import AllocationLossLimit from "../components/AllocationLossLimit";
@@ -31,9 +32,23 @@ export default function AllocationWorkspace(p:Props) {
   const navigate=useNavigate(), {updateDraft}=useRetirementPlan();
   const [applyError,setApplyError]=useState("");
   const [reservePending,setReservePending]=useState(false);
-  const [resultsRequested,setResultsRequested]=useState(false);
+  // "3 steps done" is remembered on the server until the financial profile changes (revision bump).
+  // A per-tab hint avoids flashing the wizard while the server answer loads.
+  const {user}=useAuth();
+  const hintKey=`anhuu:allocation-confirmed:${user?.id??""}:${p.profileRevision}`;
+  const readHint=()=>{try{return sessionStorage.getItem(hintKey)==="1";}catch{return false;}};
+  const writeHint=(on:boolean)=>{try{if(on)sessionStorage.setItem(hintKey,"1");else sessionStorage.removeItem(hintKey);}catch{/* storage may be unavailable */}};
+  const [resultsRequested,setResultsRequestedState]=useState(readHint);
+  const setResultsRequested=(value:boolean)=>{
+    setResultsRequestedState(value);writeHint(value);
+    if(value)void confirmAllocation(p.profileRevision).catch(()=>{/* the results still show for this visit */});
+  };
   const [applied,setApplied]=useState(false);
-  useEffect(()=>{setResultsRequested(false);setApplied(false);},[p.profileRevision,p.policy.id,p.months,p.endMonth,JSON.stringify(p.answers)]);
+  useEffect(()=>{
+    let active=true;setApplied(false);setResultsRequestedState(readHint());
+    getAllocationConfirmation().then(row=>{if(!active)return;const ok=row.confirmed&&row.profileRevision===p.profileRevision;writeHint(ok);setResultsRequestedState(ok);}).catch(()=>{});
+    return()=>{active=false;};
+  },[hintKey]);
   const [step,setStep]=useState(0),[modal,setModal]=useState<"capital"|"reserve"|"goals"|"growth"|null>(null);
   const r=p.data,c=r?.capital, portfolio=r?.portfolio, money=(s:string|null|undefined)=>financeMoney(s??null,en);
   const limit=resolveLossTolerance(c?.growthCapital??null,p.lossAmount,p.lossPercent,p.lossInputMode);

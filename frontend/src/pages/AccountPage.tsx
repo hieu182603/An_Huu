@@ -4,6 +4,7 @@ import { Button, useNotification } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n";
 import { AccountSecurityPanel } from "../components/AccountApiPanels";
+import BillingSection from "../components/billing/BillingSection";
 import { getNotificationSettings, updateNotificationSettings } from "../services/notifications";
 import "./account-settings.css";
 import "./remaining-user-sync.css";
@@ -106,6 +107,18 @@ export default function AccountPage() {
 
   const userEmail = user?.email || "—";
 
+  if (new URLSearchParams(location.search).get("tab") === "billing") {
+    return (
+      <div className="account-page-wrapper">
+        <div className="account-page-head">
+          <h1>{language === "en" ? "Service fee" : "Phí dịch vụ"}</h1>
+          <p>{language === "en" ? "Your fee status, receipts and payment." : "Trạng thái phí, kỳ phí và thanh toán của bạn."}</p>
+        </div>
+        <BillingSection />
+      </div>
+    );
+  }
+
   if (!isSettingsTab) {
     return (
       <div className="account-page-wrapper account-personal-page">
@@ -193,6 +206,7 @@ export default function AccountPage() {
             </div>
           </fieldset></form>
         </section>
+        <BillingSection />
       </div>
     );
   }

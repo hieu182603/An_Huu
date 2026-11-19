@@ -15,6 +15,8 @@ import {
 } from "../../services/portfolios";
 import { illustrativeRetirementEnd } from "../../utils/retirementHorizon";
 import { formatMonthVN } from "../../utils/date";
+import { FeeEstimateBox } from "../billing/FeeEstimate";
+import { TermsCheckbox, useOnboardingTerms } from "../billing/OnboardingTerms";
 import "./quick-onboarding.css";
 
 function reserveMonthsText(reserve: number, spending: number) {
@@ -75,6 +77,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
 
   const { onboardingDraft, saveOnboardingDraft, completeOnboarding } = useFinancialProfile();
   const { updateDraft } = useRetirementPlan();
+  const terms = useOnboardingTerms();
 
   const planningMonth = useMemo(() => {
     return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).slice(0, 7);
@@ -510,6 +513,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
     if (!policyDetail || loadingPolicy) { setValidationError(isEn ? "A published planning policy is needed to calculate." : "Chưa tải được chính sách tính kế hoạch đã công bố. Vui lòng thử lại."); return; }
     setWorking(true);
     try {
+      if (!(await terms.submit())) return;
       const finalQuickProfile = buildQuickProfile("risk");
 
       const endMonth = planEndMonth;
@@ -765,6 +769,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                   ? "Excluding primary residence and emergency fund."
                   : "Không gồm nhà đang ở và quỹ dự phòng."}
               />
+              <FeeEstimateBox baseAmountVnd={retirementSavings} />
             </div>
 
             <div className="quick-field" style={{ marginTop: "16px" }}>
@@ -1346,6 +1351,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
             </p>
           </details>
 
+          <TermsCheckbox terms={terms} disabled={working} />
+
           <div className="quick-actions form-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "28px" }}>
             <button
               type="button"
@@ -1358,7 +1365,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={working || !comfortReaction}
+              disabled={working || !comfortReaction || (terms.required && !terms.agreed)}
               onClick={handleComplete}
             >
               {working

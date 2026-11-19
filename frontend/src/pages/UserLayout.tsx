@@ -21,6 +21,7 @@ import UserProfileProgressDialog from "../components/UserProfileProgressDialog";
 import ResponsiveDialog from "../components/ResponsiveDialog";
 import { userProfileProgress } from "../utils/userProfileProgress";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
+import { BillingBanner, BillingProvider } from "../components/billing/BillingProvider";
 
 export type UserNavItem = {
   path: string;
@@ -298,7 +299,7 @@ export default function UserLayout() {
               menuItems={[
                 { label: t("topbar.profile"), icon: "users", onClick: () => openAccountModal("profile") },
                 { label: t("topbar.settings"), icon: "settings", onClick: () => openAccountModal("settings") },
-                { label: language === "en" ? "Experience feedback" : "Góp ý trải nghiệm", icon: "life-buoy", onClick: () => navigate("/user/support") },
+                { label: language === "en" ? "Payment history" : "Lịch sử thanh toán", icon: "wallet", onClick: () => navigate("/user/account?tab=billing") },
               ]}
             />
           </div>
@@ -313,6 +314,8 @@ export default function UserLayout() {
               <strong aria-current="page">{locationLabel}</strong>
             </nav>
           )}
+          <BillingProvider>
+          <BillingBanner />
           <FinancialProfileGate>
             <Suspense fallback={<AppLoader variant="inline" label={t("common.loading")} />}>
               <PageTransition key={location.pathname}>
@@ -320,6 +323,7 @@ export default function UserLayout() {
               </PageTransition>
             </Suspense>
           </FinancialProfileGate>
+          </BillingProvider>
           </ExplainModeProvider>
         </main>
       </div>

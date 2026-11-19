@@ -98,3 +98,18 @@ it("preserves zero and huge decimal capital, and rejects fake user ownership in 
  r=await allocationWorkspace(f.profiles,f.portfolios,f.assumptions,"test-user",{...f.command,expectedProfileRevision:4});expect(r.capital.growthCapital).toBe("0");
  await expect(allocationWorkspace(f.profiles,f.portfolios,f.assumptions,"test-user",{...f.command,expectedProfileRevision:4,userId:"other-user"})).rejects.toBeTruthy();
 });
+
+it("remembers the finished allocation steps until the profile changes", async () => {
+ const f = await allocationFixture();
+ vi.spyOn(f.auth,"validateSession").mockResolvedValue(f.owner);
+ const app=createApp({config,services:f.services}), auth={Authorization:"Bearer "+token()};
+ const base=await request(app).get("/api/v1/me/portfolio-policies/workspace/confirmation").set(auth);
+ expect(base.status).toBe(200);expect(base.body.data.confirmed).toBe(false);
+ const revision=base.body.data.profileRevision;
+ expect((await request(app).put("/api/v1/me/portfolio-policies/workspace/confirmation").set(auth).send({expectedRevision:revision+5})).status).toBe(409);
+ expect((await request(app).put("/api/v1/me/portfolio-policies/workspace/confirmation").set(auth).send({expectedRevision:revision})).body.data).toMatchObject({confirmed:true,profileRevision:revision});
+ expect((await request(app).get("/api/v1/me/portfolio-policies/workspace/confirmation").set(auth)).body.data.confirmed).toBe(true);
+ await f.profiles.patchProfile("test-user",revision,{schemaVersion:2,allocationCapital:{basis:"TOTAL",totalAmount:"1000000000"}});
+ const after=await request(app).get("/api/v1/me/portfolio-policies/workspace/confirmation").set(auth);
+ expect(after.body.data).toMatchObject({confirmed:false,profileRevision:revision+1});
+});

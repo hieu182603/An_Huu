@@ -11822,6 +11822,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/portfolio-policies/workspace/confirmation:
+    get:
+      operationId: getAllocationConfirmation
+      security: *a1
+      description: Whether the user finished the 3 allocation steps for the
+        current profile revision. Becomes false as soon as the profile changes.
+      responses:
+        "200":
+          description: Confirmation state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      profileRevision: {type: integer}
+                      confirmed: {type: boolean}
+    put:
+      operationId: confirmAllocation
+      security: *a1
+      description: Records that the 3 allocation steps are done for the given
+        profile revision (does not change the profile or its revision). 409
+        when expectedRevision is not the current revision.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedRevision]
+              additionalProperties: false
+              properties:
+                expectedRevision: {type: integer, minimum: 1}
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      profileRevision: {type: integer}
+                      confirmed: {type: boolean}
+        "409":
+          description: Profile changed since expectedRevision
   /api/v1/me/portfolio-policies/workspace/preview:
     post:
       operationId: previewAllocationWorkspace

@@ -19,4 +19,6 @@ export const ExplorePage = lazyRoute(() => import("./pages/ExplorePage"));
 export const KnowledgePage = lazyRoute(() => import("./pages/KnowledgePage"));
 export const AccountPage = lazyRoute(() => import("./pages/AccountPage"));
 export const SupportPage = lazyRoute(() => import("./pages/SupportPage"));
+export const BillingPayPage = lazyRoute(() => import("./pages/billing/BillingPayPage"));
+export const BillingResultPage = lazyRoute(() => import("./pages/billing/BillingResultPage"));
 export const NotificationsPage = lazyRoute(() => import("./pages/NotificationsPage"));
