@@ -1,3 +1,4 @@
+import FeePolicyContent from "../components/billing/FeePolicyContent";
 import { Link } from 'react-router';
 import MarketingLayout from '../marketing/MarketingLayout';
 
@@ -20,6 +21,7 @@ export default function PolicyPage() {
             <a href="#dieu-khoan" className="mk-chip">Điều khoản sử dụng</a>
             <a href="#gia-dinh" className="mk-chip">Cơ sở giả định</a>
             <a href="#mien-tru" className="mk-chip">Miễn trừ tư vấn</a>
+            <a href="#phi-dich-vu" className="mk-chip">Chính sách phí dịch vụ</a>
           </div>
         </div>
       </section>
@@ -82,6 +84,17 @@ export default function PolicyPage() {
             <h2>4. Miễn trừ trách nhiệm tư vấn tài chính</h2>
             <p>An Hưu là nền tảng công nghệ tài chính độc lập, không phải là công ty chứng khoán, ngân hàng hay tổ chức tư vấn đầu tư được cấp chứng chỉ hành nghề. Các báo cáo, kịch bản và con số do hệ thống tạo ra mang tính chất tham khảo khoa học.</p>
             <p>Thị trường tài chính luôn tiềm ẩn rủi ro biến động. Trước khi tiến hành các giao dịch đầu tư thực tế, mua bán tài sản lớn hoặc chuyển dịch danh mục, người dùng nên tham vấn ý kiến từ các chuyên gia tài chính hoặc luật sư có chuyên môn.</p>
+          </div>
+        </section>
+
+        {/* Section 5: Service fee policy (template pending customer review; terms version phi-dich-vu-2026-11-v1) */}
+        <section id="phi-dich-vu" className="mk-policy-section">
+          <div className="mk-policy-card">
+            <div className="mk-policy-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
+            </div>
+            <h2>5. Chính sách phí dịch vụ</h2>
+            <FeePolicyContent />
           </div>
         </section>
       </div>

@@ -14,6 +14,15 @@ export const settingsSubNavigation: NavigationItem[] = [
   { path: "/admin/settings/logs", label: "Nhật ký hệ thống", icon: "file-text" },
 ];
 
+export const billingSubNavigation: NavigationItem[] = [
+  { path: "/admin/billing", label: "Tổng quan", icon: "chart" },
+  { path: "/admin/billing/statements", label: "Kỳ phí", icon: "file-text" },
+  { path: "/admin/billing/transactions", label: "Giao dịch", icon: "wallet" },
+  { path: "/admin/billing/alerts", label: "Cảnh báo & đối soát", icon: "alert" },
+  { path: "/admin/billing/fee-schedules", label: "Biểu phí", icon: "settings" },
+  { path: "/admin/billing/overrides", label: "Điều chỉnh theo người dùng", icon: "users" },
+];
+
 export const adminNavigation: NavigationItem[] = [
   { path: "/admin/dashboard", label: "Tổng quan", icon: "grid" },
   { path: "/admin/users", label: "Người dùng", icon: "users" },
@@ -25,6 +34,7 @@ export const adminNavigation: NavigationItem[] = [
   { path: "/admin/content", label: "Quản lý nội dung", icon: "file-text" },
   { path: "/admin/ai", label: "Trợ lý AI & Tri thức", icon: "sparkles" },
   { path: "/admin/reports", label: "Báo cáo", icon: "chart" },
+  { path: "/admin/billing", label: "Thanh toán", icon: "wallet", children: billingSubNavigation },
   { path: "/admin/broadcast", label: "Gửi thông báo", icon: "megaphone" },
   { path: "/admin/operations", label: "Tình trạng hệ thống", icon: "activity" },
   {

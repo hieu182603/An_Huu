@@ -7,8 +7,9 @@ const NotificationSettings = lazy(() => import("./pages/admin/settings/Notificat
 const SystemLogs = lazy(() => import("./pages/admin/settings/SystemLogsPage"));
 const SettingsPage = lazy(() => import("./pages/admin/settings/SystemSettingsLayout"));
 const ReportsPage = lazy(() => import("./pages/admin/AdminReportsPage"));
+const AdminBillingRoutes = lazy(() => import("./pages/admin/billing/AdminBillingRoutes"));
 import AppLoader from "./components/AppLoader";
-import { AccountProviders, AccountPage, AIAssistantPage, DebtAnalysisPage, ExplorePage, FinancialProfileGate, FinancialProfilePage, KnowledgePage, NotificationsPage, OnboardingPage, RetirementGoalPage, RetirementPlanPage, RiskPortfolioPage, SimulationTrackingPage, SupportPage, UserDashboard, UserLayout } from "./userRoutes";
+import { AccountProviders, AccountPage, AIAssistantPage, BillingPayPage, BillingResultPage, DebtAnalysisPage, ExplorePage, FinancialProfileGate, FinancialProfilePage, KnowledgePage, NotificationsPage, OnboardingPage, RetirementGoalPage, RetirementPlanPage, RiskPortfolioPage, SimulationTrackingPage, SupportPage, UserDashboard, UserLayout } from "./userRoutes";
 const NotFoundView = lazy(() => import("./components/NotFoundView"));
 import { I18nProvider } from "./i18n";
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -73,7 +74,7 @@ function RouteEffects() {
     if (pathname.startsWith("/user/") || pathname.startsWith("/admin/")) return;
     const isNewPage = priorPathname.current !== pathname;
     priorPathname.current = pathname;
-    const anchor = (pathname === '/mo-phong' && ['#ke-hoach', '#kich-ban', '#phan-bo', '#co-so-tinh-toan'].includes(hash)) || (pathname === '/' && ['#gia-tri', '#quy-trinh', '#tro-ly-ai', '#kien-thuc', '#gioi-thieu'].includes(hash)) || (pathname === '/chinh-sach' && ['#bao-mat', '#dieu-khoan', '#gia-dinh', '#mien-tru'].includes(hash)) || (pathname === '/gioi-thieu' && ['#nguyen-tac'].includes(hash)) ? document.getElementById(hash.slice(1)) : null;
+    const anchor = (pathname === '/mo-phong' && ['#ke-hoach', '#kich-ban', '#phan-bo', '#co-so-tinh-toan'].includes(hash)) || (pathname === '/' && ['#gia-tri', '#quy-trinh', '#tro-ly-ai', '#kien-thuc', '#gioi-thieu'].includes(hash)) || (pathname === '/chinh-sach' && ['#bao-mat', '#dieu-khoan', '#gia-dinh', '#mien-tru', '#phi-dich-vu'].includes(hash)) || (pathname === '/gioi-thieu' && ['#nguyen-tac'].includes(hash)) ? document.getElementById(hash.slice(1)) : null;
     if (anchor) anchor.scrollIntoView({ block: 'start', behavior: 'instant' });
     else if (!pathname.startsWith('/kien-thuc') || !hash || isNewPage) window.scrollTo({ top: 0, behavior: "instant" });
     const heading = anchor?.querySelector<HTMLElement>('h2') ?? document.querySelector<HTMLElement>("h1");
@@ -127,6 +128,8 @@ export default function App() {
           <Route path="account" element={<AccountPage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="billing/pay/:statementId" element={<BillingPayPage />} />
+          <Route path="billing/result" element={<BillingResultPage />} />
           <Route path="onboarding" element={<Navigate to="/onboarding" replace />} />
         </Route>
         </Route>
@@ -148,6 +151,7 @@ export default function App() {
           <Route path="broadcast" element={<AdminBroadcastPage />} />
           <Route path="operations" element={<AdminSystemHealthPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="billing/*" element={<AdminBillingRoutes />} />
           <Route path="settings" element={<SettingsPage />}>
             <Route index element={<Navigate to="general" replace />} />
             <Route path="general" element={<GeneralSettings />} />

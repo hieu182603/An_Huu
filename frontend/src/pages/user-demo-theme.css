@@ -660,11 +660,8 @@
 
 /* User sidebar only: fit all 8 links + 3 group labels without scrolling on
  * laptop screens (~600px tall at 125% zoom). Admin sidebar is untouched. */
-.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav { gap: 0; padding: 14px 0 12px var(--space-3); }
-.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { min-height: 44px; }
-.user-dashboard-shell .user-sidebar .sidebar-group { gap: 4px; }
-.user-dashboard-shell .user-sidebar .sidebar-group + .sidebar-group { margin-top: 12px; }
-@media (max-height: 700px) {
+
+  @media (max-height: 700px) {
   .user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav { padding-block: 10px 8px; }
   .user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { min-height: 40px; }
   .user-dashboard-shell .user-sidebar .sidebar-group { gap: 2px; }
@@ -697,11 +694,7 @@
 .user-dashboard-shell { --sidebar-width: 252px; background: #F6F7F9; }
 /* Route styles load lazily; keep the two workspace surfaces on the approved base. */
 .user-dashboard-shell, .user-dashboard-shell .dashboard-workspace { background: #F6F7F9 !important; }
-.user-dashboard-shell .user-sidebar.admin-sidebar:not(.is-collapsed) .admin-nav { padding-inline: 16px; }
 .user-dashboard-shell h1 { color: #132B45; }
-.user-dashboard-shell .user-sidebar.admin-sidebar { background: #071E40; }
-.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a { color: rgb(200,215,235); font-size: 13px; }
-.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a.is-active { color: #132B45; background: #E7F0FC; border-radius: 10px; font-weight: 600; border-left: 3px solid #AACDF5; }
 @media (max-width: 767px) {
   .user-dashboard-shell .location-bar { display: none; }
   .user-dashboard-shell h1 { font-size: 25px; }
@@ -709,8 +702,6 @@
 }
 
 .user-dashboard-shell h1 { color: #132B45 !important; }
-.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a.is-active::before,
-.user-dashboard-shell .user-sidebar.admin-sidebar .admin-nav a.is-active::after { display: none; }
 .current-plan-banner { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px; margin:18px 0; border:1px solid #b8dcca; border-radius:14px; background:#edf7f3; }
 .current-plan-banner p { margin:6px 0; }
 @media(max-width:767px) {
@@ -738,3 +729,6 @@
 .chart-phase-accumulation, .chart-phase-retirement { display:flex; align-items:center; gap:8px; }
 .chart-phase-accumulation i, .chart-phase-retirement i { display:inline-block; width:12px; height:12px; border-radius:3px; background:rgba(34,94,170,.25); }
 .chart-phase-retirement i { background:rgba(125,91,166,.25); }
+
+/* Sidebar uses the admin look; the inverted-fillet active tab blends into the user workspace background. */
+.user-dashboard-shell .user-sidebar.admin-sidebar { --color-bg: #F6F7F9; }

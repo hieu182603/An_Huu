@@ -31,6 +31,7 @@ import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { NotificationDropdown } from "../../components/NotificationDropdown";
 import { authenticatedRequest } from "../../services/api";
 import { useRealtimeNotifications } from "../../services/socket";
+import { useBillingAvailability } from "../../services/adminBilling";
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
@@ -44,6 +45,9 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
   const { t } = useI18n();
   const { pathname } = useLocation();
   const [manualExpanded, setManualExpanded] = useState<Record<string, boolean>>({});
+  // BILLING_ENABLED=false answers 503 BILLING_DISABLED: hide the whole "Thanh toán" group.
+  const { availability: billing } = useBillingAvailability();
+  const navItems = billing.status === "disabled" ? adminNavigation.filter((item) => item.path !== "/admin/billing") : adminNavigation;
 
   const getNavLabel = (path: string, fallback: string) => {
     switch (path) {
@@ -59,6 +63,12 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
       case "/admin/investment-roles": return t("admin_nav.investment_roles");
       case "/admin/broadcast": return t("admin_nav.broadcast");
       case "/admin/operations": return t("admin_nav.operations");
+      case "/admin/billing": return t("admin_nav.billing");
+      case "/admin/billing/statements": return t("admin_nav.billing_statements");
+      case "/admin/billing/transactions": return t("admin_nav.billing_transactions");
+      case "/admin/billing/alerts": return t("admin_nav.billing_alerts");
+      case "/admin/billing/fee-schedules": return t("admin_nav.billing_schedules");
+      case "/admin/billing/overrides": return t("admin_nav.billing_overrides");
       case "/admin/settings": return t("admin_nav.settings");
       case "/admin/settings/general": return t("admin_nav.settings_general");
       case "/admin/settings/security": return t("admin_nav.settings_security");
@@ -71,7 +81,7 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
   return (
     <nav className="admin-nav" aria-label={t("admin_topbar.search_aria")}>
       {!collapsed && <div className="sidebar-label">{t("admin_nav.system_ops")}</div>}
-      {adminNavigation.map((item) => {
+      {navItems.map((item) => {
         const label = getNavLabel(item.path, item.label);
         const hasChildren = Boolean(item.children && item.children.length > 0);
         const isParentActive = hasChildren
@@ -129,11 +139,12 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
                   aria-label={label}
                 >
                   {item.children.map((child) => {
-                    const childLabel = getNavLabel(child.path, child.label);
+                    const childLabel = child.path === item.path ? t("admin_nav.billing_overview") : getNavLabel(child.path, child.label);
                     return (
                       <NavLink
                         key={child.path}
                         to={child.path}
+                        end={child.path === item.path}
                         className={({ isActive }) =>
                           `admin-nav-subitem ${isActive ? "is-active" : ""}`
                         }

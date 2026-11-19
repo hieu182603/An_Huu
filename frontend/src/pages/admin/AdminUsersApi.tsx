@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { faLock, faLockOpen } from "@fortawesome/free-solid-svg-icons";
 import "./admin-users.css";
@@ -17,6 +17,8 @@ import {
 import { authenticatedRequest, type ApiUser } from "../../services/api";
 import { downloadCsv } from "../../utils/downloads";
 import { useI18n } from "../../i18n";
+
+const AdminUserBillingSection = lazy(() => import("./billing/AdminUserBillingSection"));
 
 type User = ApiUser & { createdAt: string; lastActiveAt: string | null; emailVerifiedAt?: string | null };
 
@@ -576,6 +578,11 @@ function AdminUserDetail({ target, onStatusRequest }: { target: string | undefin
             </div>
           </Card>
 
+          {data.user.role !== "ADMIN" && (
+            <Suspense fallback={null}>
+              <AdminUserBillingSection userId={data.user.id} />
+            </Suspense>
+          )}
         </div>
       )}
 

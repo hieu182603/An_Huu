@@ -2,11 +2,13 @@ export class ApiError extends Error {
   status: number;
   code: string;
   fieldErrors?: Record<string, string[]>;
-  constructor(status: number, code: string, message: string, fieldErrors?: Record<string, string[]>) {
+  details?: unknown;
+  constructor(status: number, code: string, message: string, fieldErrors?: Record<string, string[]>, details?: unknown) {
     super(message);
     this.status = status;
     this.code = code;
     this.fieldErrors = fieldErrors;
+    this.details = details;
   }
 }
 const baseUrl = ((typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) || "/api/v1").replace(/\/$/, "");
@@ -61,6 +63,10 @@ export async function apiRequest<T>(path: string, body?: unknown, method = body 
   } catch { throw new ApiError(0, "NETWORK_ERROR", "Không thể kết nối máy chủ. Vui lòng thử lại."); }
   const result = await response.json().catch(() => null);
   if (!response.ok) {
+    // Service fee overdue: let the billing dialog react; the caller still gets the error.
+    if (response.status === 402 && result?.error?.code === "BILLING_OVERDUE" && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("anhuu:billing-overdue", { detail: result.error.details ?? null }));
+    }
     if (result?.error?.code === "ADVISORY_FEE_REFORECAST_REVIEW_REQUIRED") {
       throw new ApiError(response.status, result.error.code, "Kế hoạch có phí tư vấn chưa hỗ trợ tính lại từ số dư thực tế. Hãy tạo bản xem trước mới từ hồ sơ và giữ khoản phí đã chọn; không bỏ phí để vượt kiểm tra.");
     }
@@ -70,7 +76,7 @@ export async function apiRequest<T>(path: string, body?: unknown, method = body 
     const hint = invalid.length ? ` Kiểm tra: ${[...new Set(invalid)].join(", ")}.` : "";
     const planningDetails = /financial-profile|onboarding|market-data|retirement/.test(path)
       ? Object.entries(result?.error?.fieldErrors || {}).map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join("; ") : String(messages)}`).join(" · ") : "";
-    throw new ApiError(response.status, result?.error?.code || "REQUEST_FAILED", (result?.error?.message || "Yêu cầu chưa thành công. Vui lòng thử lại.") + hint + (planningDetails ? ` ${planningDetails}` : ""), result?.error?.fieldErrors);
+    throw new ApiError(response.status, result?.error?.code || "REQUEST_FAILED", (result?.error?.message || "Yêu cầu chưa thành công. Vui lòng thử lại.") + hint + (planningDetails ? ` ${planningDetails}` : ""), result?.error?.fieldErrors, result?.error?.details);
   }
   if (!result || !("data" in result)) throw new ApiError(502, "INVALID_RESPONSE", "Máy chủ trả về dữ liệu không hợp lệ.");
   return result.data as T;
@@ -118,7 +124,7 @@ export async function ensureFreshSession() {
 // [] = nothing (read-only POST), null = clear everything (unknown or global
 // writes). A trailing "$" means that exact path only, e.g. "/me$" must not
 // clear "/me/notifications".
-const READ_ONLY_POST = /\/(preview|simulate|compare|metric|pension-impact|replay)$/;
+const READ_ONLY_POST = /\/(preview|simulate|compare|metric|pension-impact|replay|estimate)$/;
 const RULES: Array<[RegExp, string[]]> = [
   [/^\/me\/saved-products(\/|$)/, ["/me/saved-products"]],
   [/^\/me\/products\/[^/]+\/consult$/, ["/me/support"]],
@@ -126,6 +132,7 @@ const RULES: Array<[RegExp, string[]]> = [
   [/^\/me\/notification-settings$/, ["/me/notification-settings"]],
   [/^\/me\/saved-articles(\/|$)/, ["/me/saved-articles", "/me/saved-content", "/content"]],
   [/^\/me\/support(\/|$)/, ["/me/support"]],
+  [/^\/me\/billing(\/|$)/, ["/me/billing"]],
   [/^\/me\/ai(\/|$)/, ["/me/ai"]],
   // Profile changes mark plans stale and change AI/plan context.
   [/^\/me\/(financial-profile|onboarding-draft|onboarding)(\/|$)/, ["/me/financial-profile", "/me/onboarding-draft", "/me/retirement", "/me/ai", "/me/pension"]],
