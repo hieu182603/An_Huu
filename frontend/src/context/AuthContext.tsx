@@ -1,4 +1,3 @@
-import { demoScenario } from "../services/billingDemo";
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { ApiError, endSession, clearAccessToken, ensureFreshSession, sessionRefreshDelay, refreshSession, startSession, type ApiUser } from "../services/api";
 
@@ -75,10 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try { localStorage.removeItem("an_huu_auth_user"); sessionStorage.removeItem("an_huu_auth_user"); } catch { /* Storage may be disabled. */ }
     const restore = () => {
       setInitializing(true); setRestoreError(null);
-      // DEV-only: ?billingDemo=… signs in a fake user so the service-fee screens can be reviewed without a backend.
-      if (import.meta.env.DEV && demoScenario()) {
-        setUser(toUser({ id: "demo-user", fullName: "Nguyễn Minh Anh", email: "demo@anhuu.vn", role: "USER" } as ApiUser)); setInitializing(false); return;
-      }
       refreshSession().then(session => { if (active) setUser(toUser(session.user)); })
         .catch(error => {
           if (!active) return;

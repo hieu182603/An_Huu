@@ -1,5 +1,4 @@
 import { ApiError, authenticatedRequest } from "./api";
-import * as demoData from "./billingDemo";
 
 // Typed client for the user side of the service fee (phí dịch vụ). Contract:
 // backend/docs/openapi.yaml (/billing/*, /me/billing/*) + billing.openapi.yaml.
@@ -61,27 +60,19 @@ export async function orNullWhenDisabled<T>(run: () => Promise<T>): Promise<T | 
   catch (error) { if (isBillingDisabled(error)) return null; throw error; }
 }
 
-// DEV-only demo mode (?billingDemo=issued|overdue|trial|paid); dead code in production builds.
-const demo = () => import.meta.env.DEV ? demoData.demoScenario() : null;
-
-export const getFeeSchedule = () => demo() ? Promise.resolve(demoData.demoFeeSchedule()) : authenticatedRequest<FeeScheduleInfo>("/billing/fee-schedule");
-export const getBillingOverview = (): Promise<BillingOverview> => { const d = demo(); return d ? Promise.resolve(demoData.demoOverview(d)) : getRealOverview(); };
-const getRealOverview = () => authenticatedRequest<BillingOverview>("/me/billing", undefined, "GET", undefined, { skipCache: true });
-export const estimateFee = (baseAmountVnd: string, signal?: AbortSignal): Promise<FeeEstimate> =>
-  demo() ? Promise.resolve(demoData.demoEstimate(baseAmountVnd)) : authenticatedRequest<FeeEstimate>("/me/billing/estimate", { baseAmountVnd }, "POST", undefined, { signal });
+export const getFeeSchedule = () => authenticatedRequest<FeeScheduleInfo>("/billing/fee-schedule");
+export const getBillingOverview = () => authenticatedRequest<BillingOverview>("/me/billing", undefined, "GET", undefined, { skipCache: true });
+export const estimateFee = (baseAmountVnd: string, signal?: AbortSignal) =>
+  authenticatedRequest<FeeEstimate>("/me/billing/estimate", { baseAmountVnd }, "POST", undefined, { signal });
 export const acceptTerms = (termsVersion: string) => authenticatedRequest<BillingAccount>("/me/billing/terms", { termsVersion }, "POST");
-export const listStatements = (page = 1, limit = 12): Promise<StatementList> => { const d = demo(); return d ? Promise.resolve(demoData.demoStatements(d, page, limit)) : realListStatements(page, limit); };
-const realListStatements = (page: number, limit: number) =>
+export const listStatements = (page = 1, limit = 12) =>
   authenticatedRequest<StatementList>(`/me/billing/statements?page=${page}&limit=${limit}`, undefined, "GET", undefined, { skipCache: true });
-export const getStatement = (id: string): Promise<StatementDetail> => { const d = demo(); return d ? Promise.resolve(demoData.demoStatementDetail(d, id)) : realGetStatement(id); };
-const realGetStatement = (id: string) =>
+export const getStatement = (id: string) =>
   authenticatedRequest<StatementDetail>(`/me/billing/statements/${encodeURIComponent(id)}`, undefined, "GET", undefined, { skipCache: true });
 /** A fresh Idempotency-Key per click: the same key would replay the first (possibly expired) response. */
-export const payStatement = (id: string): Promise<PaymentOrder> => demo() ? Promise.resolve(demoData.demoOrder(id)) : realPayStatement(id);
-const realPayStatement = (id: string) =>
+export const payStatement = (id: string) =>
   authenticatedRequest<PaymentOrder>(`/me/billing/statements/${encodeURIComponent(id)}/pay`, {}, "POST", { "Idempotency-Key": crypto.randomUUID() });
-export const getOrderStatus = (orderId: string): Promise<OrderStatusResult> => demo() ? Promise.resolve(demoData.demoOrderStatus(orderId)) : realGetOrderStatus(orderId);
-const realGetOrderStatus = (orderId: string) =>
+export const getOrderStatus = (orderId: string) =>
   authenticatedRequest<OrderStatusResult>(`/me/billing/orders/${encodeURIComponent(orderId)}`, undefined, "GET", undefined, { skipCache: true });
 export const stopBilling = (expectedRevision: number) => authenticatedRequest<BillingAccount>("/me/billing/stop", { expectedRevision }, "POST");
 export const resumeBilling = (expectedRevision: number) => authenticatedRequest<BillingAccount>("/me/billing/resume", { expectedRevision }, "POST");
