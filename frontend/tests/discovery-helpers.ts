@@ -10,11 +10,11 @@ export async function setupDiscovery(page: Page, request: APIRequestContext, pat
   const writes:Array<{path:string;method:string;body:any;status:number}>=[],errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
   if((changes as {remaining?:boolean;customAllocation?:boolean}).remaining||(changes as {customAllocation?:boolean}).customAllocation)await page.route(/\/api\/v1\/me(?:$|[/?])/,async route=>{
     const outgoing=route.request(),url=new URL(outgoing.url());const result=await route.fetch({url:discoveryApi+url.pathname+url.search,headers:{...outgoing.headers(),Authorization:`Bearer ${fixture.accessToken}`}});
-    if(outgoing.method()!=="GET")writes.push({path:url.pathname,method:outgoing.method(),body:outgoing.postDataJSON(),status:result.status()});await route.fulfill({response:result});
+    if(outgoing.method()!=="GET"&&!url.pathname.endsWith("/workspace/confirmation"))writes.push({path:url.pathname,method:outgoing.method(),body:outgoing.postDataJSON(),status:result.status()});await route.fulfill({response:result}).catch(()=>{/* page closed or request already handled while the test was ending */});
   });
   await page.route(/\/api\/v1\/(products|content|content-facets|me\/(saved-products|saved-articles|saved-content|products|product-tools|support|portfolio-policies|assumptions|financial-profile)|investments\/recommendations)([/?]|$)/,async route=>{
     const outgoing=route.request(),url=new URL(outgoing.url());const result=await route.fetch({url:discoveryApi+url.pathname+url.search,headers:{...outgoing.headers(),Authorization:`Bearer ${fixture.accessToken}`}});
-    if(outgoing.method()!=="GET")writes.push({path:url.pathname,method:outgoing.method(),body:outgoing.postDataJSON(),status:result.status()});await route.fulfill({response:result});
+    if(outgoing.method()!=="GET"&&!url.pathname.endsWith("/workspace/confirmation"))writes.push({path:url.pathname,method:outgoing.method(),body:outgoing.postDataJSON(),status:result.status()});await route.fulfill({response:result}).catch(()=>{/* page closed or request already handled while the test was ending */});
   });
   if(initialAllocationSurvey) await page.addInitScript(command=>{
     // Reload must restore the actual edited draft, not bootstrap over it again.
