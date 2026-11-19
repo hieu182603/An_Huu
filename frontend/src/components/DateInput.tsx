@@ -164,7 +164,8 @@ export function DateInput({
         }
       }
     }
-    setInvalid(true);
+    // Don't flag half-typed text ("06/2") as an error; it is checked when the full length is typed or on blur.
+    setInvalid(raw.length >= (mode === "date" ? 10 : 7));
     onChange("", "");
   };
 
@@ -284,7 +285,10 @@ export function DateInput({
           autoComplete="off"
           aria-invalid={Boolean(error) || invalid}
           onFocus={() => { focused.current = true; }}
-          onBlur={() => { focused.current = false; }}
+          onBlur={() => {
+            focused.current = false;
+            if (displayText.trim() && !value) setInvalid(true);
+          }}
           onChange={handleInputChange}
           onClick={() => !disabled && setIsOpen(true)}
         />
