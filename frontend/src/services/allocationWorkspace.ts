@@ -16,3 +16,8 @@ export type ReturnBreakdown={basis:string;rows:Array<{assetClass:string;weightPe
 export type AllocationPackageProduct={id:string;name:string;partnerId:string;partnerName:string;category:string;annualFeePercent:string;liquidityDays:number;minimumAmount:string};
 export type AllocationPackagesResult={status:string;lines:Array<{assetClass:string;weightPercent:string;amountVnd:string|null;minimumNeededVnd?:string|null;status:string;a:AllocationPackageProduct|null;b:AllocationPackageProduct|null}>;A:{ids:string[];annualFeeVnd:string;coveredPercent:string;providers:number};B:{ids:string[];annualFeeVnd:string;coveredPercent:string;providers:number};same:boolean;informationalOnly:true;persisted:false};
 export const allocationPackages=(input:WorkspaceInput,signal?:AbortSignal)=>authenticatedRequest<AllocationPackagesResult>("/me/portfolio-policies/workspace/packages",input,"POST",undefined,{signal});
+
+export type AllocationConfirmation={profileRevision:number;confirmed:boolean};
+/** Server memory of "the 3 steps are done": valid until the financial profile changes. */
+export const getAllocationConfirmation=()=>authenticatedRequest<AllocationConfirmation>("/me/portfolio-policies/workspace/confirmation",undefined,"GET",undefined,{skipCache:true});
+export const confirmAllocation=(expectedRevision:number)=>authenticatedRequest<AllocationConfirmation>("/me/portfolio-policies/workspace/confirmation",{expectedRevision},"PUT");

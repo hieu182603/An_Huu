@@ -105,6 +105,17 @@ export class ProfileService {
       return publicUser(await tx.user.findUniqueOrThrow({ where: { id: userId } }));
     });
   }
+  /** Whether the user finished the 3 allocation steps for the CURRENT profile revision. */
+  async allocationConfirmation(userId:string){
+    const row=await this.db.financialProfile.findUnique({where:{userId},select:{revision:true,allocationConfirmedRevision:true}});
+    return {profileRevision:row?.revision??0,confirmed:!!row&&row.allocationConfirmedRevision===row.revision};
+  }
+  /** Records the confirmation without touching profile revision (so it is only invalidated by a real profile change). */
+  async confirmAllocation(userId:string,expectedRevision:number){
+    const done=await this.db.financialProfile.updateMany({where:{userId,revision:expectedRevision},data:{allocationConfirmedRevision:expectedRevision}});
+    if(done.count!==1)throw conflict();
+    return {profileRevision:expectedRevision,confirmed:true};
+  }
   async saveRetirementGoal(userId:string,raw:unknown){
     const input=retirementGoalPatch.parse(raw), row=await this.getProfile(userId);
     if(!row)throw new AppError(404,"NOT_FOUND","Chưa có hồ sơ tài chính.");

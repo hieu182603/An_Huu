@@ -158,6 +158,8 @@ model FinancialProfile {
   legacyProfileData Json? @db.JsonB
   schemaVersion  Int      @default(1)
   revision       Int      @default(1)
+  // Hồ sơ revision mà khách đã hoàn tất 3 bước phân bổ; hết hiệu lực khi hồ sơ đổi (revision tăng).
+  allocationConfirmedRevision Int?
   completedAt    DateTime?
   asOfDate       DateTime @default(now())
   

@@ -123,6 +123,12 @@ export function createApiRouter(services: Services, config: AppConfig) {
       res.set("Cache-Control","no-store");
       sendData(res,await allocationWorkspace(profiles,services.portfolios!,services.assumptions!,req.user!.userId,req.body));
     }));
+    router.get("/me/portfolio-policies/workspace/confirmation", ...authenticated, requireRole("USER"), asyncHandler(async (req:AuthenticatedRequest,res) => {
+      res.set("Cache-Control","no-store"); sendData(res,await profiles.allocationConfirmation(req.user!.userId));
+    }));
+    router.put("/me/portfolio-policies/workspace/confirmation", ...authenticated, requireRole("USER"), validate(z.object({expectedRevision:z.number().int().min(1)}).strict()), asyncHandler(async (req:AuthenticatedRequest,res) => {
+      sendData(res,await profiles.confirmAllocation(req.user!.userId,req.body.expectedRevision));
+    }));
     router.patch("/me/financial-profile/loss-tolerance", ...authenticated, requireRole("USER"), validate(allocationRiskPatch), asyncHandler(async (req:AuthenticatedRequest,res) =>
       sendData(res,await saveAllocationRisk(profiles,services.portfolios!,services.assumptions!,req.user!.userId,req.body))));
   }
