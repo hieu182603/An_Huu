@@ -14,8 +14,6 @@ import { readRiskDraft } from "../services/riskDraft";
 import { policyQuestionPrompt } from "../services/policyQuestionLabels";
 import { selectionForCurrentProfile } from "../services/profilePlanSelection";
 import { financeMoney } from "../utils/financeHubSummary";
-import { Decimal } from "../utils/decimal";
-import { resolveLossTolerance } from "../utils/lossTolerance";
 import { DiscoveryError } from "../components/DiscoveryParts";
 import AllocationWorkspace from "./AllocationWorkspace";
 import "./risk-portfolio.css";
@@ -34,7 +32,7 @@ export default function RiskPortfolioPage() {
   const [policyAttempt,setPolicyAttempt]=useState(0);
   const [attempt,setAttempt]=useState(0), [answers,setAnswers]=useState<Record<string,string>>({}), [selectedTemplateId,setSelectedTemplateId]=useState(selection.templateId??"");
   const [liquidityNeedMonths,setLiquidityNeedMonths]=useState(selection.liquidityNeedMonths||6), [endMonth,setEndMonth]=useState(selection.endMonth??"");
-  const [reactionChoice,setReactionChoice]=useState<"sell"|"hold"|"buy">("hold"), [lossMode,setLossMode]=useState<"percent"|"amount"|"both">("percent"), [lossPercent,setLossPercent]=useState(""), [lossAmount,setLossAmount]=useState("");
+  const [reactionChoice,setReactionChoice]=useState<"sell"|"hold"|"buy">("hold"), [lossMode,setLossMode]=useState<"percent"|"amount"|"both">("percent"), [lossPercent,setLossPercent]=useState(""), [lossAmount,setLossAmount]=useState(""), [pendingLimit,setPendingLimit]=useState<LossLimitInput|null>(null);
   const [savingRisk,setSavingRisk]=useState(false), [riskError,setRiskError]=useState("");
   const policies=useDiscoveryQuery(`${user?.id}:${loadingPlans}:${selection.policyVersionId}:${v2Profile?.retirementSurvey?.policyVersionId}:${policyAttempt}`,async()=>{
     if(loadingPlans) return null;
@@ -79,15 +77,20 @@ export default function RiskPortfolioPage() {
   }:null;
   const growthCapital=workspace.data?.capital.growthCapital??null;
   const saveRisk=async(direct?:LossLimitInput)=>{
-    if(savingRisk||!policyDetail)return;setSavingRisk(true);setRiskError("");
-    try{await saveAllocationTolerance({expectedRevision:profileRevision,policyVersionId:policyDetail.id,reaction:direct&&v2Profile?.lossTolerance?.reaction?.status==="KNOWN"?v2Profile.lossTolerance.reaction.value:({sell:"SELL",hold:"HOLD",buy:"BUY_MORE"} as const)[reactionChoice],limit:direct??(lossMode==="both"?{kind:"BOTH",percent:lossPercent,amountVnd:lossAmount}:{kind:lossMode==="percent"?"PERCENT":"AMOUNT",value:lossMode==="percent"?lossPercent:lossAmount})});
-      reloadProfile();setAttempt(n=>n+1);setSearchParams({});notify.success(language==="en"?"Loss tolerance saved":"Đã lưu giới hạn chịu lỗ",language==="en"?"Allocation will use your updated profile.":"Phân bổ được tính lại theo hồ sơ vừa cập nhật.");
+    if(savingRisk||!policyDetail)return;
+    // The limit is entered only in step 2 of the allocation wizard; this page saves the reaction alongside it.
+    const saved=lossMode==="both"?(lossPercent&&lossAmount?{kind:"BOTH" as const,percent:lossPercent,amountVnd:lossAmount}:null):lossMode==="percent"?(lossPercent?{kind:"PERCENT" as const,value:lossPercent}:null):(lossAmount?{kind:"AMOUNT" as const,value:lossAmount}:null);
+    const limit=direct??pendingLimit??saved;
+    if(!limit){setRiskError(language==="en"?"Choose the maximum loss in step 2 of Asset allocation first.":"Hãy chọn mức giảm tối đa ở bước 2 của Phân bổ tài sản trước.");return;}
+    setSavingRisk(true);setRiskError("");
+    try{await saveAllocationTolerance({expectedRevision:profileRevision,policyVersionId:policyDetail.id,reaction:direct&&v2Profile?.lossTolerance?.reaction?.status==="KNOWN"?v2Profile.lossTolerance.reaction.value:({sell:"SELL",hold:"HOLD",buy:"BUY_MORE"} as const)[reactionChoice],limit});
+      setPendingLimit(null);reloadProfile();setAttempt(n=>n+1);setSearchParams({});notify.success(language==="en"?"Loss tolerance saved":"Đã lưu giới hạn chịu lỗ",language==="en"?"Allocation will use your updated profile.":"Phân bổ được tính lại theo hồ sơ vừa cập nhật.");
     }catch(e){setRiskError(e instanceof Error?e.message:"Chưa lưu được giới hạn.");}finally{setSavingRisk(false);}
   };
   // Step 2 of the allocation wizard edits the limit in place; the reaction answer still comes from the saved profile.
   const saveLossInPlace=(limit:LossLimitInput)=>{
     if(v2Profile?.lossTolerance?.reaction?.status!=="KNOWN"){
-      setRiskError(language==="en"?"Review and confirm your reaction to a market decline before saving the limit.":"Bạn cần xác nhận phản ứng khi thị trường giảm trước khi lưu giới hạn.");
+      setPendingLimit(limit);setRiskError(language==="en"?"Confirm your reaction to a market decline, then press Update to save the limit you chose.":"Hãy chọn phản ứng khi thị trường giảm rồi bấm Cập nhật để lưu mức giảm vừa chọn.");
       setSearchParams({section:"risk"});return;
     }
     void saveRisk(limit);
@@ -101,10 +104,6 @@ export default function RiskPortfolioPage() {
     void saveRisk();
   };
   if (isRiskSubView) {
-    const validAmount = /^(0|[1-9]\d{0,15})(\.\d{1,2})?$/.test(lossAmount);
-    const validPercent = /^(0|[1-9]\d?|100)(\.\d{1,8})?$/.test(lossPercent) && !new Decimal(lossPercent).gt("100");
-    const equivLoss = (lossMode === "amount" ? validAmount : validPercent && (lossMode !== "both" || validAmount))
-      ? resolveLossTolerance(growthCapital, validAmount ? lossAmount : null, validPercent ? lossPercent : null, lossMode === "both" ? "BOTH" : lossMode === "percent" ? "PERCENT" : "AMOUNT").amount : null;
     return (
       <div className="phase-page risk-portfolio-page content">
         <nav className="breadcrumb" aria-label="Đường dẫn trang" style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -190,59 +189,6 @@ export default function RiskPortfolioPage() {
                   </button>
                 );
               })}
-            </div>
-          </div>
-
-          <div style={{ marginBottom: "20px" }}>
-            <label style={{ display: "block", fontSize: "13.5px", fontWeight: 600, color: "#052659", marginBottom: "10px" }}>
-              {language === "en"
-                ? "If the market drops in the short term, what is the maximum drop you can accept on your long-term capital?"
-                : "Nếu thị trường giảm ngắn hạn, bạn chấp nhận giảm tối đa bao nhiêu ở phần vốn dài hạn?"}
-            </label>
-            <div className="risk-loss-grid">
-              <div>
-                <label htmlFor="risk-loss-mode" style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#052659", marginBottom: "6px" }}>
-                  {language === "en" ? "Selection mode" : "Hình thức chọn"}
-                </label>
-                <select
-                  id="risk-loss-mode"
-                  value={lossMode}
-                  onChange={e => setLossMode(e.target.value as "percent" | "amount" | "both")}
-                  style={{ width: "100%", height: "42px", padding: "0 14px", borderRadius: "10px", border: "1px solid #cddfee", fontSize: "14px", color: "#052659", background: "#fff" }}
-                >
-                  <option value="percent">{language === "en" ? "Select by percentage %" : "Chọn theo tỷ lệ %"}</option>
-                  <option value="amount">{language === "en" ? "Select by amount ₫" : "Chọn theo số tiền ₫"}</option>
-                  <option value="both">{language === "en" ? "Two independent limits" : "Hai giới hạn độc lập"}</option>
-                </select>
-                <small style={{ display: "block", fontSize: "12px", color: "#536779", marginTop: "6px" }}>
-                  {lossMode === "both" ? (language === "en" ? "The lower of your two limits applies." : "Áp dụng mức thấp hơn trong hai giới hạn.") : (language === "en" ? "Choose percentage or exact VND amount." : "Chọn tỷ lệ % hoặc số tiền cụ thể.")}
-                </small>
-              </div>
-
-              <div>
-                <label htmlFor="risk-loss-value" style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#052659", marginBottom: "6px" }}>
-                  {lossMode !== "amount"
-                    ? (language === "en" ? "Maximum acceptable loss (%)" : "Mức giảm tối đa có thể chấp nhận (%)")
-                    : (language === "en" ? "Maximum acceptable loss (VND)" : "Mức giảm tối đa có thể chấp nhận (VND)")}
-                </label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    id="risk-loss-value"
-                    type={lossMode !== "amount" ? "number" : "text"}
-                    min={0}
-                    max={lossMode !== "amount" ? 100 : undefined}
-                    aria-label={lossMode !== "amount" ? "Mức giảm tối đa có thể chấp nhận (%)" : "Mức giảm tối đa có thể chấp nhận (VND)"}
-                    value={lossMode !== "amount" ? lossPercent : lossAmount}
-                    onChange={e => lossMode !== "amount" ? setLossPercent(e.target.value) : setLossAmount(e.target.value)}
-                    style={{ width: "100%", height: "42px", padding: "0 36px 0 14px", borderRadius: "10px", border: "1px solid #cddfee", fontSize: "14px", color: "#052659" }}
-                  />
-                  <span style={{ position: "absolute", right: "12px", top: "11px", fontSize: "13px", color: "#64748b" }}>{lossMode !== "amount" ? "%" : "₫"}</span>
-                </div>
-                {lossMode === "both" && <label style={{ display: "block", marginTop: "12px" }}>{language === "en" ? "Separate amount limit (VND)" : "Giới hạn số tiền riêng (VND)"}<input type="text" inputMode="decimal" value={lossAmount} onChange={event => setLossAmount(event.target.value)} style={{ width: "100%", height: "42px", padding: "0 14px", borderRadius: "10px", border: "1px solid #cddfee" }}/></label>}
-                <small style={{ display: "block", fontSize: "12px", color: "#536779", marginTop: "6px" }}>
-                  {lossMode === "both" ? (language === "en" ? "Effective limit: " : "Giới hạn đang áp dụng: ") : (language === "en" ? "Equivalent on considered long-term capital: " : "Tương đương trên phần vốn dài hạn đang xét: ")}{financeMoney(equivLoss, language === "en")}.
-                </small>
-              </div>
             </div>
           </div>
 

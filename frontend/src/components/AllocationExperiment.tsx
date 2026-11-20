@@ -227,13 +227,14 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   const preliminary = shownPaths > 0 && (referenceResult?.preliminary ?? shownPaths < METHOD_PATHS);
   const nextMilestones = (referenceResult?.pathMilestones ?? DEFAULT_MILESTONES).filter(m => m > shownPaths && m <= METHOD_PATHS);
   const pathsControl = result?.status !== "DATA_REQUIRED" && (shownPaths > 0 || (busy && progress)) && <div className="allocation-paths">
-    {shownPaths > 0 && <p><strong>{preliminary
-      ? t(`Đang dùng ${num(shownPaths, 0)} kịch bản (ước tính sơ bộ, chuẩn của phương pháp là ≥ 1.000)`, `Using ${num(shownPaths, 0)} scenarios (preliminary estimate; the method's standard is ≥ 1,000)`)
-      : t(`Đang dùng ${num(shownPaths, 0)} kịch bản (đạt chuẩn của phương pháp)`, `Using ${num(shownPaths, 0)} scenarios (meets the method's standard)`)}</strong></p>}
+    {shownPaths > 0 && <p className="allocation-paths-head"><strong>{t(`Đang dùng ${num(shownPaths, 0)} kịch bản`, `Using ${num(shownPaths, 0)} scenarios`)}</strong>
+      <span className={preliminary ? "is-preliminary" : "is-standard"}>{preliminary ? t("Sơ bộ · chuẩn ≥ 1.000", "Preliminary · standard ≥ 1,000") : t("Đạt chuẩn", "Meets standard")}</span></p>}
     {busy && progress && <div role="status"><progress max={progress.total} value={progress.done} aria-label={t("Tiến độ chạy kịch bản", "Scenario run progress")} /><small>{t(`Đã chạy ${num(progress.done, 0)}/${num(progress.total, 0)} kịch bản`, `Ran ${num(progress.done, 0)}/${num(progress.total, 0)} scenarios`)}</small></div>}
-    {referenceCandidate?.thresholdUndecided && <p className="allocation-paths-undecided" role="status">{t(`Khoảng tin cậy còn vắt qua ngưỡng ${num(Number(threshold) * 100)}%; tăng số kịch bản để kết luận chắc hơn.`, `The confidence interval still straddles the ${num(Number(threshold) * 100)}% threshold; increase the number of scenarios for a firmer conclusion.`)}</p>}
-    {nextMilestones.length > 0 && <><div className="allocation-paths-actions">{nextMilestones.map(m => <button key={m} type="button" className="overview-button secondary" disabled={busy || !selectionPlan} onClick={() => void run("reference", m)}>{t(`Tăng lên ${num(m, 0)} kịch bản`, `Raise to ${num(m, 0)} scenarios`)}</button>)}</div>
-      <small>{t("Các kịch bản đã chạy được giữ lại, chỉ chạy phần mới.", "Scenarios already run are kept; only the new ones are computed.")}</small></>}
+    {referenceCandidate?.thresholdUndecided && <small className="allocation-paths-undecided" role="status">{t(`Khoảng tin cậy còn vắt qua ngưỡng ${num(Number(threshold) * 100)}%; tăng số kịch bản để kết luận chắc hơn.`, `The confidence interval still straddles the ${num(Number(threshold) * 100)}% threshold; increase the number of scenarios for a firmer conclusion.`)}</small>}
+    {nextMilestones.length > 0 && <div className="allocation-paths-actions" title={t("Các kịch bản đã chạy được giữ lại, chỉ chạy phần mới.", "Scenarios already run are kept; only the new ones are computed.")}>
+      <span>{t("Chạy thêm đến", "Run up to")}</span>
+      {nextMilestones.map(m => <button key={m} type="button" aria-label={t(`Tăng lên ${num(m, 0)} kịch bản`, `Raise to ${num(m, 0)} scenarios`)} disabled={busy || !selectionPlan} onClick={() => void run("reference", m)}>{num(m, 0)}</button>)}
+    </div>}
   </div>;
   const share = (v: number | null | undefined) => v == null ? t("Chưa xác định", "Unavailable") : `${num(v * 100, 1)}%`;
   const meter = (name: string, value: number | null | undefined, target: string | undefined | null, wilson?: { lower: number; upper: number } | null, paths?: number | null) => <div className="allocation-success" key={name}>

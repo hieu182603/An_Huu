@@ -1778,3 +1778,19 @@ Giữ nguyên thay đổi từ AI frontend và AI dữ liệu; không coi dữ l
 - T5: chủ sản phẩm duyệt nhóm A và B. Chính sách danh mục **v7** (id `d66917e5-4990-4ae0-8584-0bdc6dabbced`) = v6 cộng: EQUITY_CRASH `offsetsMonths` [-12,0,12,24]; GOLD `spreadPoints` [5,10]; SEQUENCE_OF_RETURNS EQUITY −20%/+25%; `allGoalsThreshold` 0,80; `occupationalRisk` (UNCERTAIN trần cổ phiếu 40%, giảm 10 điểm khi tập trung chủ lao động, `excludeEmployerSector` false); `lossReaction` SELL 0,5 / HOLD 1 / BUY_MORE 1; `spendingFloorYears` 3 cho TPL_BASE_GLIDE; khối `continuousOptimizer` (vẫn khóa bằng env). Đi qua PortfoliosService: tạo, validate VALID, approve, publish, có audit, người duyệt là tài khoản ADMIN duy nhất trên production.
 - Không lấy nguyên bản nháp: bản nháp còn template TPL_GROWTH_GLIDE (v6 đã bỏ) và khác `customization`/`lossStress`; các phần này giữ như v6. Thuế bán chứng khoán và hai tham số y tế vẫn CHỜ CHỐT, không có trong v7.
 - Log production 25 giây sau khi công bố không có lỗi. T4 (đo trên B2) chờ chủ sản phẩm đăng nhập trên trình duyệt để đo trang Phân bổ thật: script `bench-simulation.cjs` cần vitest và mã nguồn TS, không chạy được trong gói production đã bỏ dev dependencies.
+
+## 20/11/2026: T4 đo trên production B2 (tài khoản test) và sửa giới hạn chịu lỗ một nơi
+- Đo trang Phân bổ thật trên www.anhuugroup.com bằng tài khoản test riêng (email +t4 của chủ sản phẩm, hồ sơ giả: vốn 800 triệu, góp 10 triệu/tháng, nghỉ hưu 60 tuổi). B2, `SIM_WORKERS` không đặt nên 1 worker, chính sách v7. Kết quả chọn danh mục là INSUFFICIENT ở mọi mốc (chưa ứng viên nào đạt 90%).
+
+| Mốc | Thời gian chọn danh mục | Ghi chú |
+|---|---|---|
+| 20 đường (lạnh, ngay sau deploy) | 9,4 s | 1 request |
+| 20 đường (nóng) | 6,1 s | 1 request |
+| 20 → 100 | 22,6 s | 2 request, request đầu dừng ở giới hạn 10 s rồi chạy tiếp |
+| 100 → 500 | 99 s | 9 request khoảng 11 s mỗi request |
+| 500 → 1.000 | chưa đo | lượt đo bị dừng khi chuyển tab; ước tính theo nhịp trên khoảng 2 phút |
+
+- Lượt tính 4 cách điều chỉnh (`/risk/adjustments`) tự chạy sau mỗi kết quả INSUFFICIENT: 8,2 s ở 20 đường, 17,4 s ở lần lạnh, **46 s ở 100 đường** trong một request, không bị cắt ở 10 s. Trong lúc đó server trả `ACCOUNT_RUN_IN_PROGRESS` cho mọi lượt chọn mới; trang chỉ thử lại một lần sau 3 s, nên bấm "Tăng lên … kịch bản" ngay sau kết quả sẽ lỗi, và lỗi đó xóa kết quả cũ cùng các nút tăng mốc (khách phải tải lại trang). Ở 500/1.000 đường lượt điều chỉnh có thể kéo dài nhiều phút. Cần sửa: cho adjustments chạy theo mốc/tiếp nối như selection, hoặc để nút tăng mốc chờ lượt điều chỉnh xong thay vì báo lỗi.
+- Đề xuất `SIM_WORKERS`: giữ mặc định 1 trên B2 (2 lõi; 1 lõi còn lại cho request web). Chưa có số để nâng lên 2.
+- Sửa lỗi chủ sản phẩm phát hiện: bước 2 "Mức chịu giảm" chỉ điền ô khi bấm chip %, phải bấm "Lưu mức giảm" mới lưu; bấm "Tiếp tục" thì bỏ giá trị không báo, nên lượt chọn danh mục báo `LOSS_TOLERANCE_REQUIRED`. Nay tự lưu: chip lưu ngay, số gõ tay lưu khi con trỏ rời cả cụm ô nhập (chuyển giữa ô % và ô số tiền ở chế độ hai giới hạn thì chưa lưu, tránh lưu một cặp nhập dở). E2E allocation-custom 30/30, allocation-result-review 38/38. Trang "Khả năng chịu rủi ro" bỏ khối mức giảm tối đa, chỉ còn câu phản ứng khi thị trường giảm và lưu kèm giới hạn đã lưu ở bước 2 (nếu chưa có thì báo chọn ở bước 2 trước).
+- Thiết kế lại khối số kịch bản: một dòng "Đang dùng N kịch bản" kèm nhãn Sơ bộ/Đạt chuẩn, một hàng nút tròn nhỏ "Chạy thêm đến 50 · 100 · 200 · 500 · 1.000" (tên cho trình đọc màn hình vẫn là "Tăng lên N kịch bản").

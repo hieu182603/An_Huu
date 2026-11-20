@@ -521,3 +521,6 @@ Chủ sản phẩm giao trực tiếp trong chat. Chi tiết trong `backend/PROG
 - T3: migration `202611200001_rebalance_decisions` đã áp lên DB thật (mốc PITR 2026-11-20T05:31:28Z). Deploy qua hieu182603/An_Huu#31, merge `a3c1e69`, health/ready 200.
 - T5: chính sách v7 đã công bố gồm nhóm A và B trong Bảng duyệt T5. Riêng `rebalance.saleTaxPercent`/`transactionFeePercent`, `healthDeltaPoints`, `lateLifeCareMonthly` vẫn CHỜ CHỐT; template TPL_GROWTH_GLIDE không đưa vào.
 - T4: chưa đo; chờ đăng nhập để đo trang Phân bổ thật trên B2.
+
+## Kết quả T4 trên production (20/11/2026)
+Đo bằng tài khoản test trên trang Phân bổ thật: 20 đường 6,1 s (lạnh 9,4 s), lên 100 thêm 22,6 s, lên 500 thêm 99 s; 1.000 chưa đo xong. Lượt tính điều chỉnh ở 100 đường mất 46 s và chặn việc tăng mốc. Chi tiết và đề xuất trong `backend/PROGRESS.md`.

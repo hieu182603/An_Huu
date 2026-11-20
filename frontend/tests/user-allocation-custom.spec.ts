@@ -18,12 +18,11 @@ test("independent percent and amount loss caps survive saves and the risk editor
  const fields=page.locator(".allocation-loss-fields"),percent=fields.getByLabel(/Theo phần trăm/),amount=fields.getByLabel(/Giới hạn số tiền riêng/);
  await percent.fill("20");await amount.fill("1000000");await percent.fill("15");
  await expect(amount).toHaveValue("1.000.000");
- await page.getByRole("button",{name:"Lưu mức giảm",exact:true}).click();
+ await percent.blur();
  await expect.poll(async()=>(await s.get("me/financial-profile")).data.lossTolerance).toMatchObject({inputMode:"BOTH",percent:{value:"15"},amountVnd:{value:"1000000"}});
  await expect(page.locator(".allocation-loss-saved")).toContainText("Áp dụng mức thấp hơn");
  await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();
- await expect(page.getByLabel("Hình thức chọn",{exact:true})).toHaveValue("both");
- await expect(page.getByLabel("Giới hạn số tiền riêng (VND)",{exact:true})).toHaveValue("1000000");
+ await expect(page.getByLabel("Hình thức chọn",{exact:true})).toHaveCount(0);
  await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();
  await expect.poll(async()=>(await s.get("me/financial-profile")).data.lossTolerance).toMatchObject({inputMode:"BOTH",percent:{value:"15"},amountVnd:{value:"1000000"}});
  expect(s.errors).toEqual([]);
@@ -263,9 +262,9 @@ test("a runtime limit with saved progress is continued with continuation:true an
  });
  const lab=page.locator(".allocation-experiment");
  await expect(lab.locator(".allocation-paths")).toContainText("Đã chạy 8/20 kịch bản");
- await expect(lab.locator(".allocation-paths")).toContainText("Đang dùng 20 kịch bản (ước tính sơ bộ, chuẩn của phương pháp là ≥ 1.000)");
+ await expect(lab.locator(".allocation-paths")).toContainText("Đang dùng 20 kịch bản");await expect(lab.locator(".allocation-paths")).toContainText("Sơ bộ · chuẩn ≥ 1.000");
  await expect(lab.locator(".allocation-paths").getByRole("button",{name:"Tăng lên 50 kịch bản",exact:true})).toBeEnabled();
- await expect(lab.locator(".allocation-paths")).toContainText("Các kịch bản đã chạy được giữ lại, chỉ chạy phần mới.");
+ await expect(lab.locator(".allocation-paths-actions")).toHaveAttribute("title","Các kịch bản đã chạy được giữ lại, chỉ chạy phần mới.");
  expect(bodies.length).toBe(2);expect(bodies[0].paths).toBe(20);expect(bodies[0].continuation).toBeUndefined();
  expect(bodies[1].paths).toBe(20);expect(bodies[1].continuation).toBe(true);expect(state.errors).toEqual([]);
 });
