@@ -76,20 +76,21 @@ export default function AdminBillingStatementsPage() {
 
       {notice && <div role="status"><Alert tone={notice.tone} title={notice.text} onClose={() => setNotice(null)} /></div>}
 
-      <Card className="admin-filter-card">
-        <div className="admin-user-search">
-          <SearchField label="Tìm theo email hoặc tên" hideLabel placeholder="Email hoặc họ tên người dùng…" value={searchInput} onChange={setSearchInput} />
-        </div>
-        <div className="admin-filters">
+      <Card className="admin-filter-card ab-filter-card ab-filter-statements">
+          <SearchField label="Người dùng" placeholder="Email hoặc họ tên người dùng…" value={searchInput} onChange={setSearchInput} />
           <Input label="Tháng" type="month" value={period} onChange={(value) => { setPeriod(value); setPage(1); }} helper={period ? undefined : "Mọi tháng"} />
           <Select label="Trạng thái" options={STATUS_OPTIONS} value={status} onChange={(value) => { setStatus(value); setPage(1); }} />
-          <div className="ab-switches">
-            <Switch label="Chỉ quá hạn" checked={overdueOnly} onChange={(value) => { setOverdueOnly(value); setPage(1); }} />
-            <Switch label="Có cảnh báo" checked={hasAlert} onChange={(value) => { setHasAlert(value); setPage(1); }} />
+          <div className="ab-filter-options" role="group" aria-label="Tùy chọn">
+            <span className="field-label">Tùy chọn</span>
+            <div className="ab-filter-switches">
+              <Switch label="Chỉ quá hạn" checked={overdueOnly} onChange={(value) => { setOverdueOnly(value); setPage(1); }} />
+              <Switch label="Có cảnh báo" checked={hasAlert} onChange={(value) => { setHasAlert(value); setPage(1); }} />
+            </div>
           </div>
-          {period && <Button variant="ghost" onClick={() => { setPeriod(""); setPage(1); }}>Mọi tháng</Button>}
-          {filtered && <Button variant="ghost" onClick={clearFilters}><Icon name="trash" size="small" /> Xóa bộ lọc</Button>}
-        </div>
+          <div className="ab-filter-actions">
+            {period && <Button variant="ghost" onClick={() => { setPeriod(""); setPage(1); }}>Mọi tháng</Button>}
+            {filtered && <Button variant="ghost" onClick={clearFilters}><Icon name="trash" size="small" /> Xóa bộ lọc</Button>}
+          </div>
       </Card>
 
       {error && <ErrorAlert message={error} onRetry={() => setReload((value) => value + 1)} />}
