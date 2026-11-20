@@ -55,14 +55,12 @@ export default function AdminBillingTransactionsPage() {
 
       {notice && <div role="status"><Alert tone={notice.tone} title={notice.text} onClose={() => setNotice(null)} /></div>}
 
-      <Card className="admin-filter-card">
-        <div className="admin-filters">
+      <Card className="admin-filter-card ab-filter-card ab-filter-transactions">
           <Select label="Trạng thái" options={STATUS_OPTIONS} value={status} onChange={(value) => { setStatus(value); setPage(1); }} />
           <Input label="Từ ngày" type="date" value={from} onChange={(value) => { setFrom(value); setPage(1); }} />
           <Input label="Đến ngày" type="date" value={to} onChange={(value) => { setTo(value); setPage(1); }}
             error={rangeInvalid ? "Đến ngày phải sau hoặc bằng Từ ngày" : undefined} helper="Gồm cả ngày cuối (giờ Việt Nam)" />
-          {(status || from || to) && <Button variant="ghost" onClick={() => { setStatus(""); setFrom(""); setTo(""); setPage(1); }}><Icon name="trash" size="small" /> Xóa bộ lọc</Button>}
-        </div>
+          {(status || from || to) && <div className="ab-filter-actions"><Button variant="ghost" onClick={() => { setStatus(""); setFrom(""); setTo(""); setPage(1); }}><Icon name="trash" size="small" /> Xóa bộ lọc</Button></div>}
       </Card>
 
       {!perms.canOperate && <PermissionHint need="OPERATIONS" />}

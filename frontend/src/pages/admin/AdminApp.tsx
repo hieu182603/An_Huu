@@ -42,12 +42,18 @@ function Brand({ compact = false }: { compact?: boolean }) {
 }
 
 function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { pathname } = useLocation();
   const [manualExpanded, setManualExpanded] = useState<Record<string, boolean>>({});
   // BILLING_ENABLED=false answers 503 BILLING_DISABLED: hide the whole "Thanh toán" group.
   const { availability: billing } = useBillingAvailability();
   const navItems = billing.status === "disabled" ? adminNavigation.filter((item) => item.path !== "/admin/billing") : adminNavigation;
+  const navGroups = [
+    { label: language === "en" ? "Overview & people" : "Tổng quan & con người", paths: ["/admin/dashboard", "/admin/users", "/admin/investment-roles", "/admin/support"] },
+    { label: language === "en" ? "Content & data" : "Nội dung & dữ liệu", paths: ["/admin/partners", "/admin/financial-config", "/admin/legal-rules", "/admin/content", "/admin/ai"] },
+    { label: language === "en" ? "Operations" : "Theo dõi & vận hành", paths: ["/admin/reports", "/admin/billing", "/admin/broadcast", "/admin/operations"] },
+    { label: language === "en" ? "System" : "Hệ thống", paths: ["/admin/settings"] },
+  ].map(group => ({ ...group, items: group.paths.map(path => navItems.find(item => item.path === path)).filter((item): item is (typeof navItems)[number] => !!item) }));
 
   const getNavLabel = (path: string, fallback: string) => {
     switch (path) {
@@ -80,8 +86,9 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
 
   return (
     <nav className="admin-nav" aria-label={t("admin_topbar.search_aria")}>
-      {!collapsed && <div className="sidebar-label">{t("admin_nav.system_ops")}</div>}
-      {navItems.map((item) => {
+      {navGroups.map(group => <div className="admin-nav-section" key={group.label}>
+      {!collapsed && <div className="sidebar-label">{group.label}</div>}
+      {group.items.map((item) => {
         const label = getNavLabel(item.path, item.label);
         const hasChildren = Boolean(item.children && item.children.length > 0);
         const isParentActive = hasChildren
@@ -177,6 +184,7 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
           </NavLink>
         );
       })}
+      </div>)}
     </nav>
   );
 }

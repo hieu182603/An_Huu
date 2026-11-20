@@ -37,6 +37,17 @@
 .ab-user small { overflow-wrap: anywhere; }
 .ab-switches { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; min-height: 46px; }
 .ab-switches .switch-control { gap: 10px; }
+.ab-page .ab-filter-card { display: grid; align-items: start; gap: 16px; }
+.ab-filter-card > * { min-width: 0; }
+.ab-filter-card .form-field { min-width: 0; }
+.ab-filter-card .form-field input, .ab-filter-card .form-field select, .ab-filter-card .search-field input { min-width: 0; }
+.ab-filter-statements { grid-template-columns: minmax(220px, 2fr) minmax(180px, 1.1fr) minmax(180px, 1.1fr) minmax(260px, 1.7fr) auto; }
+.ab-filter-transactions { grid-template-columns: repeat(3, minmax(180px, 1fr)) auto; }
+.ab-filter-options { display: grid; align-content: start; gap: 8px; min-width: 0; }
+.ab-filter-switches { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; min-height: 46px; }
+.ab-filter-options .switch-control { min-height: 46px; gap: 8px; white-space: nowrap; }
+.ab-filter-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 46px; margin-top: 26px; white-space: nowrap; }
+.ab-filter-actions .button { min-height: 46px; }
 .ab-pos { color: var(--color-danger); }
 .ab-neg { color: var(--color-success); }
 
@@ -100,7 +111,15 @@
 .ab-schedule-terms dd { margin: 0; font-weight: 600; }
 .ab-spinner-row { display: flex; align-items: center; gap: 10px; color: var(--color-text-muted); font-size: 13px; }
 
+@media (max-width: 1250px) {
+  .ab-filter-statements { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ab-filter-transactions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ab-filter-actions { justify-content: flex-start; margin-top: 0; }
+}
 @media (max-width: 767px) {
+  .ab-filter-statements, .ab-filter-transactions { grid-template-columns: minmax(0, 1fr); }
+  .ab-filter-options .switch-control { flex: 1 1 150px; }
+  .ab-filter-actions { flex-wrap: wrap; }
   .ab-grid-2, .ab-grid-3 { grid-template-columns: minmax(0, 1fr); }
   .ab-header-actions { width: 100%; }
   .ab-header-actions .form-field { flex: 1 1 140px; }
