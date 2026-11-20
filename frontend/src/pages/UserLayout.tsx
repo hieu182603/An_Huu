@@ -21,7 +21,8 @@ import UserProfileProgressDialog from "../components/UserProfileProgressDialog";
 import ResponsiveDialog from "../components/ResponsiveDialog";
 import { userProfileProgress } from "../utils/userProfileProgress";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
-import { BillingBanner, BillingProvider } from "../components/billing/BillingProvider";
+import { BillingBanner, BillingProvider, useBilling } from "../components/billing/BillingProvider";
+import { canPayStatement } from "../services/billingFormat";
 
 export type UserNavItem = {
   path: string;
@@ -31,7 +32,12 @@ export type UserNavItem = {
 };
 
 export default function UserLayout() {
+  return <BillingProvider><UserLayoutInner /></BillingProvider>;
+}
+
+function UserLayoutInner() {
   const { t, language } = useI18n();
+  const { overview: billing, disabled: billingDisabled } = useBilling();
   const [collapsed, setCollapsed] = useState(() => window.matchMedia("(min-width: 768px) and (max-width: 1024px)").matches);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
@@ -49,6 +55,8 @@ export default function UserLayout() {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+
+  const billingLabel = language === "en" ? "Billing" : "Thanh toán";
 
   const userNavItems: UserNavItem[] = [
     { path: "/user/dashboard", label: t("nav.dashboard"), icon: "home" },
@@ -68,14 +76,25 @@ export default function UserLayout() {
     { label: language === "en" ? "Help" : "Hỗ trợ", items: [
       ...userNavItems.filter(item => item.path === "/user/assistant"),
     ] },
+    ...(billingDisabled ? [] : [{ label: language === "en" ? "Account" : "Tài khoản", items: [
+      { path: "/user/account?tab=billing", label: billingLabel, icon: "receipt" as IconName },
+    ] }]),
   ];
   const currentNavLabel = [...userNavItems,
     { path: "/user/support", label: language === "en" ? "Support" : "Hỗ trợ", icon: "life-buoy" as IconName },
     { path: "/user/notifications", label: language === "en" ? "Notifications" : "Thông báo", icon: "bell" as IconName },
     { path: "/user/debts", label: language === "en" ? "Your finances" : "Tài chính của bạn", icon: "wallet" as IconName },
   ].find(item => location.pathname.startsWith(item.path))?.label;
+  const billingTab = location.pathname === "/user/account" && new URLSearchParams(location.search).get("tab") === "billing";
+  const billingActive = billingTab || location.pathname.startsWith("/user/billing");
+  const billingOverdue = !billingDisabled && billing?.account?.status === "OVERDUE";
+  const billingDue = !billingDisabled && canPayStatement(billing?.currentStatement);
+  const billingAlert: "overdue" | "due" | null = billingOverdue ? "overdue" : billingDue ? "due" : null;
+  const billingAlertLabel = billingAlert === "overdue"
+    ? (language === "en" ? "Billing: fee overdue" : "Thanh toán: phí đã quá hạn")
+    : billingAlert === "due" ? (language === "en" ? "Billing: fee due" : "Thanh toán: có phí cần thanh toán") : billingLabel;
   const settingsTab = location.pathname === "/user/account" && ["settings", "reports", "security"].includes(new URLSearchParams(location.search).get("tab") ?? "");
-  const profileTab = location.pathname === "/user/account" && !settingsTab;
+  const profileTab = location.pathname === "/user/account" && !settingsTab && !billingTab;
   const simulationWhatIf = location.pathname.startsWith("/user/simulation") && /[?&]tab=what-if\b/.test(location.search);
   const simulationActuals = location.pathname.startsWith("/user/simulation") && !simulationWhatIf;
   const cashflowTab = location.pathname === "/user/profile" && new URLSearchParams(location.search).get("section") === "cashflow";
@@ -95,6 +114,8 @@ export default function UserLayout() {
     ? (language === "en" ? "Assets & emergency reserve" : "Tài sản & quỹ dự phòng")
     : cashflowTab
     ? (language === "en" ? "Income & expenses" : "Thu nhập & chi tiêu")
+    : billingActive
+    ? billingLabel
     : settingsTab
     ? (language === "en" ? "Account settings" : "Cài đặt tài khoản")
     : profileTab
@@ -115,11 +136,12 @@ export default function UserLayout() {
       { path: "/user/support", label: language === "en" ? "Support" : "Hỗ trợ", icon: "life-buoy" as IconName },
       { path: "/user/notifications", label: language === "en" ? "Notifications" : "Thông báo", icon: "bell" as IconName },
       { path: "/user/account", label: language === "en" ? "Personal information" : "Thông tin cá nhân", icon: "users" as IconName },
+      ...(billingDisabled ? [] : [{ path: "/user/account?tab=billing", label: billingLabel, icon: "receipt" as IconName }]),
       { path: "/user/account?tab=settings", label: language === "en" ? "Account settings" : "Cài đặt tài khoản", icon: "settings" as IconName },
     ] },
   ];
   const isDrawerActive = (path: string) => path.startsWith("/user/account")
-    ? path.includes("?") ? settingsTab : profileTab
+    ? path.includes("tab=billing") ? billingActive : path.includes("?") ? settingsTab : profileTab
     : path.startsWith("/user/simulation") ? path.includes("?") ? simulationWhatIf : simulationActuals
     : isNavActive(path);
 
@@ -202,7 +224,7 @@ export default function UserLayout() {
             <div className="sidebar-group" key={group.label}>
               {!collapsed && <div className="sidebar-label">{group.label}</div>}
               {group.items.map((item) => {
-                const isActive = isNavActive(item.path);
+                const isActive = item.path.includes("tab=billing") ? billingActive : isNavActive(item.path);
                 return (
                   <NavLink
                     key={item.path}
@@ -215,6 +237,7 @@ export default function UserLayout() {
                   >
                     <DemoNavigationIcon name={item.icon} />
                     {!collapsed && <span>{item.label}</span>}
+                    {billingAlert && item.path.includes("tab=billing") && <i className={`billing-nav-dot is-${billingAlert}`} aria-hidden="true" />}
                   </NavLink>
                 );
               })}
@@ -286,6 +309,19 @@ export default function UserLayout() {
                 <Icon name="circle-question" />
               </button>
             </Tooltip>
+            {!billingDisabled && (
+              <Tooltip content={billingAlertLabel}>
+                <button
+                  type="button"
+                  className={`topbar-action-btn topbar-billing-btn ${billingAlert ? `has-alert is-${billingAlert}` : ""}`}
+                  onClick={() => navigate("/user/account?tab=billing")}
+                  aria-label={billingAlertLabel}
+                >
+                  <DemoNavigationIcon name={"receipt" as IconName} />
+                  {billingAlert && <i className="billing-nav-dot" aria-hidden="true" />}
+                </button>
+              </Tooltip>
+            )}
             <NotificationDropdown />
 
             <div className="topbar-divider-line" />
@@ -299,7 +335,6 @@ export default function UserLayout() {
               menuItems={[
                 { label: t("topbar.profile"), icon: "users", onClick: () => openAccountModal("profile") },
                 { label: t("topbar.settings"), icon: "settings", onClick: () => openAccountModal("settings") },
-                { label: language === "en" ? "Payment history" : "Lịch sử thanh toán", icon: "wallet", onClick: () => navigate("/user/account?tab=billing") },
               ]}
             />
           </div>
@@ -314,7 +349,6 @@ export default function UserLayout() {
               <strong aria-current="page">{locationLabel}</strong>
             </nav>
           )}
-          <BillingProvider>
           <BillingBanner />
           <FinancialProfileGate>
             <Suspense fallback={<AppLoader variant="inline" label={t("common.loading")} />}>
@@ -323,7 +357,6 @@ export default function UserLayout() {
               </PageTransition>
             </Suspense>
           </FinancialProfileGate>
-          </BillingProvider>
           </ExplainModeProvider>
         </main>
       </div>

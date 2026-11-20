@@ -515,3 +515,9 @@ Lượt trước là tiến độ đã thực hiện, không phải đợi một
 - test:logic có phụ thuộc đã tồn tại từ HEAD cũ vào5 file tham chiếu demo trong repo lồng sites/an-huu-trai-nghiem. Lượt này dùng bản sao fixture cục bộ có ghi SHA, không gọi đó là kiểm fresh-clone tự chứa. Không đưa dist/node_modules/.tmp/.env vào commit; không commit repo lồng hoặc nguồn thuật toán thuộc repo đó.
 - Giữ riêng DemoNavigationIcon.tsx,UserLayout.tsx,user-demo-theme.css và mục FE-BILLING-NAV-20261119 trong docs/task-frontend.md. Chỉ chọn9 tài liệu allocation đang bị ignore bằng đường dẫn cụ thể, không sửa rộng quy tắc ignore.
 - Lô commit nhắm origin/develop; kết quả push và SHA remote được xác minh sau khi tạo commit tài liệu này, báo trong chat. T3 triển khai thật,T4,T5/T7,T8 và tích hợp B7 vẫn theo các cổng chưa hoàn thành đã ghi.
+
+## Kết quả T3 / T5 trên production (20/11/2026)
+Chủ sản phẩm giao trực tiếp trong chat. Chi tiết trong `backend/PROGRESS.md`, mục "T3 deploy B2, migration thật và T5 công bố chính sách v7".
+- T3: migration `202611200001_rebalance_decisions` đã áp lên DB thật (mốc PITR 2026-11-20T05:31:28Z). Deploy qua hieu182603/An_Huu#31, merge `a3c1e69`, health/ready 200.
+- T5: chính sách v7 đã công bố gồm nhóm A và B trong Bảng duyệt T5. Riêng `rebalance.saleTaxPercent`/`transactionFeePercent`, `healthDeltaPoints`, `lateLifeCareMonthly` vẫn CHỜ CHỐT; template TPL_GROWTH_GLIDE không đưa vào.
+- T4: chưa đo; chờ đăng nhập để đo trang Phân bổ thật trên B2.
