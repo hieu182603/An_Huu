@@ -102,7 +102,7 @@ async function main() {
             kind: "AN_HUU_LONG_TERM",
             title: "Giả định dài hạn An Hưu 2026-2040",
             publisher: "An Hưu",
-            url: "https://an-huu.vercel.app/governance/assumptions/local-dev",
+            url: "https://www.anhuugroup.com/governance/assumptions/local-dev",
             release: "AH-LOCAL-DEV",
             publishedOn: "2026-01-01",
             retrievedOn: "2026-10-01",
@@ -115,7 +115,7 @@ async function main() {
             kind: "ASSET_RESEARCH",
             title: "Nghiên cứu lợi suất kỳ vọng các lớp tài sản Việt Nam",
             publisher: "An Hưu",
-            url: "https://an-huu.vercel.app/research/cma-local",
+            url: "https://www.anhuugroup.com/research/cma-local",
             release: "CMA-LOCAL",
             publishedOn: "2026-01-01",
             retrievedOn: "2026-10-01",
@@ -191,7 +191,7 @@ async function main() {
           assumptionVersionId: published.id,
           source: {
             title: "Khung chính sách danh mục An Hưu (Local Dev)",
-            url: "https://an-huu.vercel.app/governance/portfolio-policy/local-dev",
+            url: "https://www.anhuugroup.com/governance/portfolio-policy/local-dev",
             release: "AH-PORTFOLIO-LOCAL",
             reviewedOn: "2026-01-01"
           },

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { Button } from "../../components/ui";
 import { BillingQr } from "../../components/billing/BillingQr";
-import { useBilling } from "../../components/billing/BillingProvider";
+import { useBilling } from "../../components/billing/BillingContext";
 import { useI18n } from "../../i18n";
 import { ApiError } from "../../services/api";
 import { getOrderStatus, getStatement, payStatement, type PaymentOrder, type StatementDetail } from "../../services/billing";
@@ -24,34 +23,41 @@ export default function BillingPayPage() {
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const started = useRef(false);
+
 
   const goResult = useCallback((orderId?: string) => {
     navigate(orderId ? `/user/billing/result?orderId=${encodeURIComponent(orderId)}` : `/user/billing/result?statementId=${encodeURIComponent(statementId)}`, { replace: true });
   }, [navigate, statementId]);
 
-  // One click = one new Idempotency-Key (inside payStatement), so "Tạo mã mới" never replays an expired link.
-  const createOrder = useCallback(async () => {
-    setCreating(true); setError("");
-    try { setOrder(await payStatement(statementId)); }
-    catch (e) {
-      if (e instanceof ApiError && e.code === "STATEMENT_SETTLED") { goResult(); return; }
-      if (e instanceof ApiError && e.status === 502) setError(t("Cổng thanh toán đang bận, thử lại sau.", "The payment gateway is busy. Please try again later."));
-      else setError(e instanceof Error ? e.message : t("Chưa tạo được mã thanh toán. Vui lòng thử lại.", "Could not create the payment code. Please try again."));
-    } finally { setCreating(false); }
-  }, [statementId, goResult, en]);
-
   useEffect(() => {
     if (disabled || !statementId) return;
     let active = true;
-    getStatement(statementId).then(row => {
-      if (!active) return;
-      setStatement(row);
-      if (!canPayStatement(row)) { if (row.status === "PAID" || row.status === "WAIVED") goResult(); return; }
-      if (!started.current) { started.current = true; void createOrder(); }
-    }).catch(e => { if (active) setError(e instanceof Error ? e.message : ""); });
+    setOrder(null);
+    setStatement(null);
+    setError("");
+    setCreating(false);
+    async function load() {
+      try {
+        const row = await getStatement(statementId);
+        if (!active) return;
+        setStatement(row);
+        if (!canPayStatement(row)) {
+          if (row.status === "PAID" || row.status === "WAIVED") goResult();
+          return;
+        }
+        setCreating(true);
+        const payment = await payStatement(statementId);
+        if (active) { setNow(Date.now()); setOrder(payment); }
+      } catch (e) {
+        if (!active) return;
+        if (e instanceof ApiError && e.code === "STATEMENT_SETTLED") { goResult(); return; }
+        if (e instanceof ApiError && e.code === "PAYMENT_CODE_UNAVAILABLE") setError(t("Vui lòng liên hệ An Hưu để được hỗ trợ thanh toán kỳ phí này.", "Please contact An Huu for help paying this fee."));
+        else setError(e instanceof Error ? e.message : t("Chưa tải được thông tin thanh toán.", "Unable to load payment details."));
+      } finally { if (active) setCreating(false); }
+    }
+    void load();
     return () => { active = false; };
-  }, [statementId, disabled]);
+  }, [statementId, disabled, goResult, en]);
 
   useEffect(() => {
     if (!order) return;
@@ -84,7 +90,7 @@ export default function BillingPayPage() {
         <header className="card-header"><h2 id="billing-breakdown">{t("Diễn giải", "Breakdown")}</h2></header>
         {statement ? <dl className="billing-facts">
           <div><dt>{t("Căn cứ tính phí", "Fee base")}</dt><dd>{formatVnd(statement.baseAmountVnd)}</dd></div>
-          <div><dt>{t("Công thức", "Formula")}</dt><dd>{rate ? t(`× ${rate.replace(".", ",")}%/năm ÷ 12 = ${formatVnd(statement.rawFeeVnd)}`, `× ${rate}%/year ÷ 12 = ${formatVnd(statement.rawFeeVnd)}`) : formatVnd(statement.rawFeeVnd)}</dd></div>
+          <div><dt>{t("Công thức", "Formula")}</dt><dd>{rate ? t(`${formatVnd(statement.baseAmountVnd)} × ${rate.replace(".", ",")}%/năm ÷ 12 = ${formatVnd(statement.rawFeeVnd)}`, `${formatVnd(statement.baseAmountVnd)} × ${rate}%/year ÷ 12 = ${formatVnd(statement.rawFeeVnd)}`) : formatVnd(statement.rawFeeVnd)}</dd></div>
           <div><dt>{t("Phí của kỳ", "Fee for the period")}</dt><dd>{formatVnd(statement.amountVnd)}</dd></div>
           {statement.adjustments.map(row => <div key={row.id}><dt>{t("Điều chỉnh", "Adjustment")}</dt><dd>{formatVnd(row.amountVnd)}</dd></div>)}
           {statement.payments.length > 0 && <div><dt>{t("Đã thanh toán", "Already paid")}</dt><dd>{formatVnd(statement.payments.reduce((sum, row) => sum + row.amountVnd, 0))}</dd></div>}
@@ -92,20 +98,20 @@ export default function BillingPayPage() {
           <div><dt>{t("Hạn thanh toán", "Due date")}</dt><dd>{formatVnDate(statement.dueDate)}</dd></div>
         </dl> : !error && <p role="status">{t("Đang tải…", "Loading…")}</p>}
       </section>
-      <section className="account-card" aria-labelledby="billing-qr">
-        <header className="card-header"><h2 id="billing-qr">{t("Thanh toán an toàn qua payOS", "Secure payment with payOS")}</h2></header>
+      <section className="account-card billing-payment-panel" aria-labelledby="billing-qr">
+        <header className="card-header"><h2 id="billing-qr">{t("Thanh toán qua payOS", "Pay with payOS")}</h2></header>
         {statement && !canPayStatement(statement) && !order && <p className="billing-note" role="status">{t("Kỳ phí này hiện không còn khoản nào cần thanh toán.", "This fee period has nothing left to pay.")}</p>}
-        {creating && <p role="status">{t("Đang tạo mã thanh toán…", "Creating your payment code…")}</p>}
-        {error && <div role="alert" className="billing-error"><p>{error}</p>{statement && canPayStatement(statement) && <Button variant="secondary" onClick={() => void createOrder()}>{t("Thử lại", "Try again")}</Button>}</div>}
+        {creating && <p role="status">{t("Đang tải mã thanh toán…", "Loading your payment code…")}</p>}
+        {error && <p role="alert" className="billing-error">{error}</p>}
         {order && !creating && <>
+          <p className="billing-amount-label">{t("Số tiền thanh toán", "Payment amount")}</p>
           <p className="billing-amount">{formatVnd(order.amountVnd)}</p>
           {live ? <>
             {order.qrCode ? <BillingQr value={order.qrCode} label={t(`Mã VietQR thanh toán ${formatVnd(order.amountVnd)}`, `VietQR code to pay ${formatVnd(order.amountVnd)}`)} /> : null}
-            {order.checkoutUrl ? <a className="button button-secondary billing-checkout" href={order.checkoutUrl} target="_blank" rel="noopener noreferrer"><span>{t("Hoặc mở trang thanh toán payOS", "Or open the payOS payment page")}</span></a> : null}
             <p className="billing-note" role="timer" aria-live="off">{t(`Mã còn hiệu lực trong ${formatCountdown(remaining)}.`, `This code stays valid for ${formatCountdown(remaining)}.`)}</p>
             <p className="billing-note">{t("Mở ứng dụng ngân hàng, chọn quét mã QR và xác nhận chuyển khoản. Thanh toán xong, trang này sẽ tự cập nhật.", "Open your banking app, scan the QR code and confirm the transfer. This page updates once payment arrives.")}</p>
-          </> : <p className="billing-note" role="status">{t("Mã thanh toán đã hết hiệu lực. Bạn có thể tạo mã mới.", "This payment code has expired. You can create a new one.")}</p>}
-          <Button variant={live ? "secondary" : "primary"} loading={creating} onClick={() => void createOrder()}>{t("Tạo mã mới", "Create a new code")}</Button>
+            {order.checkoutUrl ? <a className="button button-secondary billing-checkout" href={order.checkoutUrl} target="_blank" rel="noopener noreferrer"><span>{t("Mở trang thanh toán payOS", "Open payOS checkout")}</span></a> : null}
+          </> : <p className="billing-note" role="status">{t("Mã thanh toán đã hết hiệu lực. Vui lòng liên hệ An Hưu để được hỗ trợ.", "This payment code has expired. Please contact An Huu for assistance.")}</p>}
         </>}
         <p className="billing-note"><Link to="/user/account?tab=billing">{t("Để sau, quay lại mục Phí dịch vụ", "Later, back to Service fee")}</Link></p>
       </section>

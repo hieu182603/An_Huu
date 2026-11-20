@@ -70,7 +70,7 @@ export class AiService {
   private privacyResponse(p:Parameters<typeof privacyView>[0]){return {...privacyView(p),providerConfigured:!!this.provider,
     provider:this.provider?.name??null,reconsentRequired:!!p?.processing&&p.policyVersion!==AI_POLICY_VERSION,
     processingNotice:this.provider?.name==="gemini"
-      ? "Google Gemini xử lý câu hỏi, các kết quả cần giải thích (gồm tóm tắt lọc sản phẩm theo hồ sơ: số năm đến nghỉ hưu, nhóm rủi ro, tình trạng quỹ dự phòng, cơ cấu phân bổ) và trích đoạn tài liệu đã duyệt, rồi viết câu trả lời từ các dữ liệu đó. Hệ thống không gửi toàn bộ hồ sơ hoặc thông tin liên hệ của tài khoản. Thông tin cá nhân bạn tự gõ có thể nằm trong câu hỏi được gửi đi. Việc lưu hội thoại trên An Hưu là lựa chọn riêng."
+      ? "An Hưu AI xử lý câu hỏi, các kết quả cần giải thích (gồm tóm tắt lọc sản phẩm theo hồ sơ: số năm đến nghỉ hưu, nhóm rủi ro, tình trạng quỹ dự phòng, cơ cấu phân bổ) và trích đoạn tài liệu đã duyệt, rồi viết câu trả lời từ các dữ liệu đó. Hệ thống không gửi toàn bộ hồ sơ hoặc thông tin liên hệ của tài khoản. Thông tin cá nhân bạn tự gõ có thể nằm trong câu hỏi được gửi đi. Việc lưu hội thoại trên An Hưu là lựa chọn riêng."
       : "Giải thích các kết quả đã tính trên hệ thống. Việc lưu hội thoại là lựa chọn riêng."};}
   async privacy(userId:string){return this.privacyResponse(await this.db.aiPrivacy.findUnique({where:{userId}}));}
   async setPrivacy(userId:string,command:z.infer<typeof consentSchema>){const v=consentSchema.parse(command);

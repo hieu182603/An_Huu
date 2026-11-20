@@ -51,12 +51,8 @@ export function assessLossConstraint(capital: CapitalSeparation, profile: Profil
     if (amount === null) { result.issues.push("LOSS_TOLERANCE_REQUIRED"); return result; }
     allowed = new D(amount);
     result.bindingLimit = "AMOUNT";
-  } else if (mode === "BOTH") {
+  } else if (mode === "BOTH" || (pc !== null && amount !== null)) {
     if (pc === null || amount === null) { result.issues.push("LOSS_TOLERANCE_REQUIRED"); return result; }
-    const byPercent = growth.mul(pc).div(100), byAmount = new D(amount);
-    allowed = D.min(byPercent, byAmount);
-    result.bindingLimit = byAmount.lte(byPercent) ? "AMOUNT" : "PERCENT";
-  } else if (pc !== null && amount !== null) {
     const byPercent = growth.mul(pc).div(100), byAmount = new D(amount);
     allowed = D.min(byPercent, byAmount);
     result.bindingLimit = byAmount.lte(byPercent) ? "AMOUNT" : "PERCENT";

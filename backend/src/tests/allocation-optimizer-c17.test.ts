@@ -82,7 +82,7 @@ describe("B5-5 (C17) continuous optimizer with draft policy & B5-2 locked holdin
     const { f, preview, draft, marketDoc } = await setupC17();
     const cmd = { plan: { kind: "PREVIEW", preview }, paths: 20, detail: "ALLOCATION_V2" } as never;
 
-    const strictSvc = new AllocationRiskService(f.db, { continuous: true, fallback: false });
+    const strictSvc = new AllocationRiskService(f.db, { continuous: true, fallback: false }, { maxRuntimeMs: 30_000 });
     const strictRes: any = await strictSvc.run("test-user", cmd, "selection");
     expect(strictRes.status).toBe("READY");
     expect(strictRes.optimization.feasible).toBe(true);
@@ -103,7 +103,7 @@ describe("B5-5 (C17) continuous optimizer with draft policy & B5-2 locked holdin
     }
 
     // With fallback=true, CONTINUOUS is simulated alongside the approved grid candidates.
-    const gridPlusOptSvc = new AllocationRiskService(f.db, { continuous: true, fallback: true });
+    const gridPlusOptSvc = new AllocationRiskService(f.db, { continuous: true, fallback: true }, { maxRuntimeMs: 30_000 });
     const withGrid: any = await gridPlusOptSvc.run("test-user", cmd, "selection");
     expect(withGrid.status).toBe("READY");
     const idsWithOpt = withGrid.candidates.map((c: any) => c.id);
@@ -112,7 +112,7 @@ describe("B5-5 (C17) continuous optimizer with draft policy & B5-2 locked holdin
     expect(idsWithOpt).toContain("LOWER_EQUITY");
 
     // Disabled (production default) keeps approved finite grid only and no notes.
-    const disabledSvc = new AllocationRiskService(f.db, { continuous: false, fallback: false });
+    const disabledSvc = new AllocationRiskService(f.db, { continuous: false, fallback: false }, { maxRuntimeMs: 30_000 });
     const disabledRes: any = await disabledSvc.run("test-user", cmd, "selection");
     expect(disabledRes.optimization).toEqual({ status: "DISABLED", method: "APPROVED_FINITE_CANDIDATES" });
     expect(disabledRes.candidates.map((c: any) => c.id)).not.toContain("CONTINUOUS");
@@ -144,10 +144,10 @@ describe("B5-5 (C17) continuous optimizer with draft policy & B5-2 locked holdin
     };
 
     const cmd = { plan: { kind: "PREVIEW", preview }, paths: 20, detail: "ALLOCATION_V2" } as never;
-    const gridRes: any = await new AllocationRiskService(f.db).run("test-user", cmd, "selection");
+    const gridRes: any = await new AllocationRiskService(f.db, undefined, { maxRuntimeMs: 30_000 }).run("test-user", cmd, "selection");
     expect(gridRes.notes).toEqual(["LOCKED_HOLDINGS_EXCLUDED"]);
 
-    const optRes: any = await new AllocationRiskService(f.db, { continuous: true, fallback: false }).run("test-user", cmd, "selection");
+    const optRes: any = await new AllocationRiskService(f.db, { continuous: true, fallback: false }, { maxRuntimeMs: 30_000 }).run("test-user", cmd, "selection");
     expect(optRes.optimization.feasible).toBe(true);
     expect(optRes.notes).toBeUndefined();
     const cont = optRes.candidates.find((c: any) => c.id === "CONTINUOUS");

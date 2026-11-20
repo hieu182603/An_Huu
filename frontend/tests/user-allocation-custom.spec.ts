@@ -269,10 +269,15 @@ test("a runtime limit with saved progress is continued with continuation:true an
  expect(bodies[1].paths).toBe(20);expect(bodies[1].continuation).toBe(true);expect(state.errors).toEqual([]);
 });
 test("raising the scenarios to the next milestone re-runs the selection with that paths value",async({page,request})=>{
- const {state,bodies}=await openWithSelection(page,request,async(body,_i,real)=>withPaths((await real()).data,body.paths));
+ const {state,bodies}=await openWithSelection(page,request,async(body,_i,real)=>{if(body.paths===50)await new Promise(r=>setTimeout(r,800));return withPaths((await real()).data,body.paths);});
  const lab=page.locator(".allocation-experiment"),box=lab.locator(".allocation-paths");
  await expect(box).toContainText("Đang dùng 20 kịch bản");
  await box.getByRole("button",{name:"Tăng lên 50 kịch bản",exact:true}).click();
+ const dialog=page.getByRole("dialog",{name:"Đang chạy thêm kịch bản"});
+ await expect(dialog).toBeVisible();await expect(dialog).toContainText("50 kịch bản");
+ await expect(dialog.getByRole("progressbar",{name:"Tiến độ mô phỏng"})).toBeVisible();
+ await expect(box).toContainText("Đang dùng 20 kịch bản");
+ await expect(dialog).toBeHidden();
  await expect(box).toContainText("Đang dùng 50 kịch bản");await expect(box.getByRole("button",{name:"Tăng lên 50 kịch bản"})).toHaveCount(0);
  expect(bodies.at(-1)?.paths).toBe(50);expect(bodies.at(-1)?.continuation).toBeUndefined();expect(bodies[0].paths).toBe(20);expect(state.errors).toEqual([]);
 });
@@ -286,10 +291,10 @@ for(const rejected of [false,true])test(`customer essential threshold ${rejected
  await route.fulfill({json:{data:{...result,threshold:body.essentialThreshold??"0.9",...(body.essentialThreshold?{explanation:[]}:{}),...(body.trialAllocation?{candidates:[...candidates,{...candidates[0],id:"CUSTOM",thresholdUndecided:true}]}:{})}}});});
  await page.reload();await page.locator(".allocation-steps button").nth(1).click();await page.locator(".allocation-steps button").nth(2).click();await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();
  const lab=page.locator(".allocation-experiment"),select=lab.getByLabel("Ngưỡng đủ chi thiết yếu",{exact:true});
- await expect(select).toBeEnabled();await expect(select).toHaveValue("0.9000");await expect(select.locator("option")).toHaveText(["80%","85%","90%","95%"]);await expect(lab.locator(".allocation-threshold-used")).toHaveText("Đang dùng ngưỡng 90%");
+ await expect(select).toBeEnabled();await expect(select).toHaveValue("0.9000");await expect(select.locator("option")).toHaveText(["80%","85%","90%","95%"]);
  const before=await lab.locator(".allocation-reference").innerText();await select.selectOption("0.9500");await expect.poll(()=>chosen?.essentialThreshold).toBe("0.9500");
- if(rejected){await expect(lab.getByRole("alert")).toContainText("ngoài khoảng được duyệt");await expect(select).toHaveValue("0.9000");await expect(lab.locator(".allocation-threshold-used")).toHaveText("Đang dùng ngưỡng 90%");await expect.poll(()=>lab.locator(".allocation-reference").innerText()).toBe(before);}
- else{await expect(lab.locator(".allocation-threshold-used")).toHaveText("Đang dùng ngưỡng 95%");await expect(select).toHaveValue("0.9500");await lab.getByRole("button",{name:"Kiểm tra phương án tự chọn",exact:true}).click();await expect(lab.locator(".allocation-tested")).toContainText("Khoảng tin cậy còn vắt qua ngưỡng 95%");await expect(lab.locator(".allocation-tested")).not.toContainText("ngưỡng 90%");for(const width of [1440,375]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ if(rejected){await expect(lab.getByRole("alert")).toContainText("ngoài khoảng được duyệt");await expect(select).toHaveValue("0.9000");await expect.poll(()=>lab.locator(".allocation-reference").innerText()).toBe(before);}
+ else{await expect(select).toHaveValue("0.9500");await lab.getByRole("button",{name:"Kiểm tra phương án tự chọn",exact:true}).click();await expect(lab.locator(".allocation-tested")).toContainText("Khoảng tin cậy còn vắt qua ngưỡng 95%");await expect(lab.locator(".allocation-tested")).not.toContainText("ngưỡng 90%");for(const width of [1440,375]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  if(width===375)expect(await lab.locator(".allocation-why-table").evaluate(table=>{const issues:string[]=[],container=table.parentElement!.getBoundingClientRect();for(const [index,row] of Array.from(table.querySelectorAll("tbody tr")).entries()){const bounds=row.getBoundingClientRect(),mix=row.querySelector("th small"),first=row.querySelector("td");if(bounds.left<container.left-1||bounds.right>container.right+1)issues.push(`card ${index} exceeds comparison`);if(mix&&first&&mix.getBoundingClientRect().bottom>first.getBoundingClientRect().top+1)issues.push(`card ${index} allocation overlaps first metric`);for(const cell of Array.from(row.children)){const rect=cell.getBoundingClientRect();if(rect.left<bounds.left-1||rect.right>bounds.right+1)issues.push(`card ${index} cell exceeds bounds`);for(const node of Array.from(cell.childNodes))if(node.nodeType===Node.TEXT_NODE&&node.textContent?.trim()){const range=document.createRange();range.selectNodeContents(node);const text=range.getBoundingClientRect();if(text.left<bounds.left-1||text.right>bounds.right+1)issues.push(`card ${index} value exceeds bounds`);}}}return issues;})).toEqual([]);
  await lab.screenshot({path:info.outputPath(`threshold-${width}.png`)});}}
  expect(state.errors).toEqual([]);
@@ -376,4 +381,65 @@ for(const floorEnabled of [false,true])test(`rebalance ${floorEnabled?"retains s
  if(floorEnabled){expect(bodies[0]).toMatchObject({planId:state.planId,planVersionId:state.versionId,record:false,compareProbabilities:false});await expect(panel).toContainText("Cần rà soát dữ liệu hoặc cấu hình trước khi kết luận");await expect(panel.getByRole("heading",{name:"Tỷ trọng mục tiêu",exact:true})).toHaveCount(0);}
  else{expect(bodies[0]).not.toHaveProperty("planId");expect(bodies[0]).not.toHaveProperty("planVersionId");await expect(panel).toContainText("Đề xuất, chưa giao dịch, chưa lưu nhật ký.");const record=panel.getByRole("checkbox",{name:"Lưu đề xuất vào lịch sử quyết định",exact:true}),compare=panel.getByRole("checkbox",{name:"So sánh xác suất trước và sau (20 kịch bản sơ bộ)",exact:true});for(const mode of ["record","compare"]){await record.setChecked(mode==="record");await compare.setChecked(mode==="compare");await confirm.check();await panel.getByRole("button",{name:"Xem đề xuất tái cân bằng",exact:true}).click();await expect.poll(()=>bodies.length).toBe(mode==="record"?2:3);expect(bodies.at(-1)).toMatchObject({templateId:"CAUTIOUS",planId:state.planId,planVersionId:state.versionId,record:mode==="record",compareProbabilities:mode==="compare"});await expect(panel).toContainText("Đề xuất, chưa giao dịch, chưa lưu nhật ký.");}}
  expect(state.errors).toEqual([]);
+});
+
+
+test("E2: failing to bump milestones preserves old results and milestone buttons", async ({ page, request }) => {
+  const state = await setup(page, request);
+  const lab = page.locator(".allocation-experiment");
+  await expect(lab.locator(".allocation-paths")).toContainText("Đang dùng 20 kịch bản");
+  await expect(lab.locator(".allocation-paths-actions button")).toHaveCount(5);
+
+  const requests: Record<string, unknown>[] = [];
+  await page.route("**/api/v1/me/retirement/risk/selection", route => {
+    requests.push(route.request().postDataJSON());
+    if (requests.length > 2) return route.fallback();
+    return route.fulfill({ json: { data: { status: "LIMIT_EXCEEDED", issues: ["CONCURRENT_RUN_LIMIT", "ACCOUNT_RUN_IN_PROGRESS"] } } });
+  });
+
+  // Click bump to 100
+  await lab.getByRole("button", { name: "Tăng lên 100 kịch bản", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Đang chạy thêm kịch bản" });
+  await expect(dialog).toBeVisible();
+
+  // Old result (20 kịch bản) and milestone buttons remain visible, with error banner
+  await expect(lab.locator(".allocation-paths")).toContainText("Đang dùng 20 kịch bản");
+  await expect(lab.locator(".allocation-paths-actions button")).toHaveCount(5);
+  await expect(page.locator(".allocation-evaluation-notice.is-error")).toContainText("Hệ thống đang xử lý nhiều lượt mô phỏng cùng lúc");
+  await expect(dialog).toBeHidden();
+  await lab.getByRole("button", { name: "Thử tính lại", exact: true }).click();
+  await expect(lab.locator(".allocation-paths")).toContainText("Đang dùng 100 kịch bản");
+  expect(requests).toHaveLength(3);
+  expect(requests[0].paths).toBe(100);
+  expect(requests[0]).not.toHaveProperty("trialAllocation");
+  expect(requests[2]).toEqual(requests[0]);
+  expect(state.errors).toEqual([]);
+});
+
+test("E3: liquidity need unknown receives specific guidance with link to constraints", async ({ page, request }) => {
+  const state = await setupDiscovery(page, request, "/user/risk-portfolio", { customAllocation: true }, true);
+  await page.route("**/api/v1/me/retirement/risk/selection", route => {
+    return route.fulfill({
+      json: {
+        data: {
+          status: "REVIEW_REQUIRED",
+          issues: ["LIQUIDITY_REQUIREMENTS_INCOMPLETE", "LIQUIDITY_NEED_UNKNOWN"],
+          candidates: [],
+          rejected: [],
+        },
+      },
+    });
+  });
+
+  await page.locator(".allocation-steps button").nth(1).click();
+  await page.locator(".allocation-steps button").nth(2).click();
+  await page.getByRole("button", { name: "Xem phương án của tôi →", exact: true }).click();
+
+  const notice = page.locator(".allocation-evaluation-notice").filter({ hasText: "Cần khai nhu cầu tiền trong 1, 3 hoặc 5 năm tới" });
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText("Bạn đang để nhu cầu tiền trong 1, 3 hoặc 5 năm tới là 'Chưa biết'");
+  const link = notice.getByRole("link", { name: "Khai nhu cầu tiền →", exact: true });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute("href", "/user/profile?section=constraints");
+  expect(state.errors).toEqual([]);
 });

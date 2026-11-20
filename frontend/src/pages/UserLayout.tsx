@@ -21,7 +21,8 @@ import UserProfileProgressDialog from "../components/UserProfileProgressDialog";
 import ResponsiveDialog from "../components/ResponsiveDialog";
 import { userProfileProgress } from "../utils/userProfileProgress";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
-import { BillingBanner, BillingProvider, useBilling } from "../components/billing/BillingProvider";
+import { BillingBanner, BillingProvider } from "../components/billing/BillingProvider";
+import { useBilling } from "../components/billing/BillingContext";
 import { canPayStatement } from "../services/billingFormat";
 
 export type UserNavItem = {
