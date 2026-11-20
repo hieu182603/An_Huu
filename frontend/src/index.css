@@ -2621,6 +2621,12 @@ table { width: 100%; border-collapse: collapse; } th { height: 44px; padding: 0 
   gap: 6px;
   padding: var(--space-5) 0 var(--space-4) var(--space-3);
 }
+.admin-sidebar > .admin-nav { min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.24) transparent; }
+.admin-nav-section { display: grid; gap: 6px; min-width: 0; }
+.admin-nav-section + .admin-nav-section { margin-top: 16px; }
+.admin-nav-section > .sidebar-label { padding: 0 var(--space-4); color: rgba(255,255,255,.58); font-size: 10px; font-weight: 700; letter-spacing: .12em; line-height: 1.5; text-transform: uppercase; }
+.admin-sidebar.is-collapsed .admin-nav-section + .admin-nav-section { margin-top: 12px; }
+.drawer .admin-nav-section > .sidebar-label { display: block; color: var(--color-text-muted); }
 
 .admin-nav a {
   position: relative;
