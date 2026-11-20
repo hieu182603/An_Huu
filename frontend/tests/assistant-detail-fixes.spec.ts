@@ -55,7 +55,7 @@ async function setupAssistant(page: Page, options: { noPlan?: boolean; draftPlan
           policyVersion: '2026-04-01',
           acceptedPolicyVersion: '2026-04-01',
           revision: 1,
-          processingNotice: 'Dữ liệu được gửi tới Google Gemini qua dịch vụ Google bên ngoài hệ thống.',
+          processingNotice: 'Dữ liệu được gửi tới An Hưu AI qua dịch vụ bảo mật bên ngoài hệ thống.',
           providerConfigured: !options.noProvider,
           reconsentRequired: options.reconsent ?? false,
         },
@@ -250,7 +250,7 @@ for (const options of [{processing:false},{reconsent:true}]) {
     let sent=0;page.on('request',r=>{if(r.url().endsWith('/ai/explain'))sent++;});
     await setupAssistant(page,options);
     await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.getByRole('dialog')).toContainText('Google Gemini qua dịch vụ Google bên ngoài hệ thống');
+    await expect(page.getByRole('dialog')).toContainText('An Hưu AI qua dịch vụ bảo mật bên ngoài hệ thống');
     // Only a changed policy (not a first-time choice) says the processing content changed.
     const changed = page.getByRole('dialog').getByText('Nội dung xử lý của trợ lý đã thay đổi');
     if (options.reconsent) await expect(changed).toBeVisible(); else await expect(changed).toHaveCount(0);
@@ -447,8 +447,9 @@ test('assistant redesign exposes only supported actions and keeps privacy access
   await expect(page.getByText('Nghỉ hưu sớm hơn 2 năm cần thêm vốn gì?',{exact:true})).toHaveCount(0);
   await expect(page.locator('.codex-side-rail,.typing-pulse-dots,.codex-status-pill')).toHaveCount(0);
   await page.getByRole('button',{name:'Lịch sử chat',exact:true}).click();await page.getByRole('button',{name:/Quyền riêng tư & lịch sử/}).click();
-  await expect(page.getByRole('dialog')).toContainText('Google Gemini');
-  await expect(page.getByRole('button',{name:'Đồng ý, không lưu lịch sử',exact:true})).toBeVisible();
+  await expect(page.getByRole('dialog')).toContainText('An Hưu AI');
+  await expect(page.getByRole('button',{name:'Đồng ý & Lưu lịch sử (30 ngày)',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Từ chối xử lý',exact:true})).toBeVisible();
 });
 
 test('assistant answer is not duplicated as fact cards or a reference panel', async ({page})=>{
@@ -512,7 +513,7 @@ test('mobile conversation navigation opens history and privacy, and closes with 
   await expect(page.getByRole('button',{name:'Lịch sử chat',exact:true})).toBeFocused();
   await page.getByRole('button',{name:'Lịch sử chat',exact:true}).click();
   await page.getByRole('button',{name:'Quyền riêng tư & lịch sử',exact:true}).click();
-  await expect(page.getByRole('dialog')).toContainText('Google Gemini');
+  await expect(page.getByRole('dialog')).toContainText('An Hưu AI');
   await page.getByRole('dialog').locator('.dialog-close').click();
   await page.screenshot({path:'../artifacts/ai-completion/chat-toolbar-mobile.png'});
 });

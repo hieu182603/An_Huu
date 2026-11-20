@@ -621,16 +621,69 @@ export default function AIAssistantPage() {
       </div>
       <ResponsiveDialog open={consentModalOpen} onClose={() => { if (!updatingConsent) setConsentModalOpen(false); }} title={isEn ? "Privacy & conversation history" : "Quyền riêng tư & lịch sử"}>
         <div className="ai-chat-privacy">
-          {policyChanged && <p className="ai-chat-privacy-warning" role="note">{isEn ? "What the assistant processes has changed since you last agreed. Please read the notice below and choose again. Your saved conversations stay viewable meanwhile." : "Nội dung xử lý của trợ lý đã thay đổi so với lần bạn đồng ý trước. Hãy đọc thông báo dưới đây và chọn lại. Trong lúc đó bạn vẫn xem được các hội thoại đã lưu."}</p>}
-          <p>{processingNotice || (isEn ? "Questions, plan summary figures and approved excerpts may be sent to Google Gemini to prepare an explanation." : "Câu hỏi, số liệu tóm tắt kế hoạch và trích đoạn tài liệu đã duyệt có thể được gửi tới Google Gemini để hỗ trợ giải thích.")}</p>
-          <p>{isEn ? "Do not include passwords, identity numbers or sensitive personal details in a question." : "Không nhập mật khẩu, số giấy tờ hoặc thông tin cá nhân nhạy cảm vào câu hỏi."}</p>
-          <h3>{isEn ? "Choose how to keep your conversations" : "Bạn muốn lưu hội thoại như thế nào?"}</h3>
-          <p>{isEn ? "Saved conversations can be reviewed for 30 days from creation. You can delete them at any time." : "Hội thoại được lưu có thể xem lại trong 30 ngày kể từ lúc tạo. Bạn có thể xóa bất cứ lúc nào."}</p>
-          {privacy?.saveHistory && <p className="ai-chat-privacy-warning" role="note">{isEn ? "Choosing no history or declining will delete all saved conversations on An Huu." : "Chọn không lưu hoặc từ chối sẽ xóa toàn bộ hội thoại đã lưu trên An Hưu."}</p>}
+          {policyChanged && (
+            <div className="ai-chat-privacy-warning" role="note">
+              <Icon name="alert" size="small" />
+              <div>
+                <strong>{isEn ? "Notice: " : "Lưu ý: "}</strong>
+                <span>{isEn ? "What the assistant processes has changed since you last agreed. Please read the notice below and choose again. Your saved conversations stay viewable meanwhile." : "Nội dung xử lý của trợ lý đã thay đổi so với lần bạn đồng ý trước. Hãy đọc thông báo dưới đây và chọn lại. Trong lúc đó bạn vẫn xem được các hội thoại đã lưu."}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="ai-privacy-section">
+            <div className="ai-privacy-section-head">
+              <div className="ai-privacy-icon-pill">
+                <Icon name="shield" size="small" />
+              </div>
+              <div>
+                <h4>{isEn ? "How An Huu AI processes your data" : "Cách An Hưu AI xử lý dữ liệu"}</h4>
+                <p className="ai-privacy-section-sub">{isEn ? "Only essential plan summaries and approved excerpts are used" : "Chỉ sử dụng số liệu tóm tắt cần thiết và tài liệu đã duyệt"}</p>
+              </div>
+            </div>
+            <div className="ai-privacy-notice-box">
+              <p>{(processingNotice || (isEn ? "Questions, plan summary figures and approved excerpts are processed by An Huu AI to prepare an explanation." : "Câu hỏi, số liệu tóm tắt kế hoạch và trích đoạn tài liệu đã duyệt được xử lý bởi An Hưu AI để hỗ trợ giải thích.")).replace(/Google Gemini/gi, "An Hưu AI")}</p>
+            </div>
+          </div>
+
+          <div className="ai-privacy-security-callout" role="alert">
+            <Icon name="info" size="small" />
+            <div>
+              <strong>{isEn ? "Security Reminder: " : "Lưu ý an toàn: "}</strong>
+              <span>{isEn ? "Do not include passwords, identity numbers or sensitive personal details in a question." : "Không nhập mật khẩu, số giấy tờ hoặc thông tin cá nhân nhạy cảm vào câu hỏi."}</span>
+            </div>
+          </div>
+
+          <div className="ai-privacy-retention-block">
+            <div className="ai-privacy-section-head">
+              <div className="ai-privacy-icon-pill">
+                <Icon name="message" size="small" />
+              </div>
+              <div>
+                <h4>{isEn ? "Choose how to keep your conversations" : "Bạn muốn lưu hội thoại như thế nào?"}</h4>
+                <p className="ai-privacy-section-sub">{isEn ? "Saved conversations can be reviewed for 30 days from creation. You can delete them at any time." : "Hội thoại được lưu có thể xem lại trong 30 ngày kể từ lúc tạo. Bạn có thể xóa bất cứ lúc nào."}</p>
+              </div>
+            </div>
+
+            {privacy?.saveHistory && (
+              <div className="ai-chat-privacy-warning" role="note">
+                <Icon name="alert" size="small" />
+                <span>{isEn ? "Declining processing will delete all saved conversations on An Huu." : "Từ chối xử lý sẽ xóa toàn bộ hội thoại đã lưu trên An Hưu."}</span>
+              </div>
+            )}
+          </div>
+
           <div className="ai-chat-privacy-choices">
-            <Button disabled={updatingConsent || !privacy} onClick={() => handleConsent(true, true)}>{isEn ? "Allow & save history (30 days)" : "Đồng ý & Lưu lịch sử (30 ngày)"}</Button>
-            <Button variant="secondary" disabled={updatingConsent || !privacy} onClick={() => handleConsent(true, false)}>{isEn ? "Allow without saving history" : "Đồng ý, không lưu lịch sử"}</Button>
-            <Button variant="ghost" disabled={updatingConsent || !privacy} onClick={() => handleConsent(false, false)}>{isEn ? "Decline processing" : "Từ chối xử lý"}</Button>
+            <Button variant="secondary" className="ai-privacy-btn-secondary" disabled={updatingConsent || !privacy} onClick={() => handleConsent(false, false)}>
+              {isEn ? "Decline processing" : "Từ chối xử lý"}
+            </Button>
+            <Button className="ai-privacy-btn-primary" disabled={updatingConsent || !privacy} onClick={() => handleConsent(true, true)}>
+              <Icon name="check" size="small" />
+              <span>{isEn ? "Allow & save history (30 days)" : "Đồng ý & Lưu lịch sử (30 ngày)"}</span>
+            </Button>
+            <Button variant="ghost" className="ai-privacy-btn-no-history" disabled={updatingConsent || !privacy} onClick={() => handleConsent(true, false)}>
+              {isEn ? "Allow without saving history" : "Đồng ý, không lưu lịch sử"}
+            </Button>
           </div>
         </div>
       </ResponsiveDialog>

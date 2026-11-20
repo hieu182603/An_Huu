@@ -50,7 +50,7 @@ it("wires Gemini into the application services and retains fallback without leak
   try {
     const ai=createServices(f.db,config).ai;
     expect(await ai.privacy("u")).toMatchObject({providerConfigured:true,provider:"gemini",reconsentRequired:false});
-    expect((await ai.privacy("u")).processingNotice).toContain("Google Gemini");
+    expect((await ai.privacy("u")).processingNotice).toContain("An Hưu AI");
     expect((await ai.privacy("u")).processingNotice).toContain("Thông tin cá nhân bạn tự gõ");
     await ai.setPrivacy("u",{expectedRevision:0,policyVersion:AI_POLICY_VERSION,processing:true,saveHistory:false});
     const response=await ai.explain("u",{question:"Explain"},randomUUID()) as {status:string;provider:string};

@@ -109,12 +109,133 @@
 .ai-chat-loading { width: 16px; height: 16px; border: 2px solid var(--color-accent-soft); border-top-color: var(--color-secondary-500); border-radius: 50%; animation: ai-chat-spin 1s linear infinite; }
 @keyframes ai-chat-spin { to { transform: rotate(360deg); } }
 .ai-chat-notice { font-size: 15px; }
-.ai-chat-privacy { display: grid; gap: 16px; font-size: 16px; line-height: 1.7; }
-.ai-chat-privacy p, .ai-chat-privacy h3 { margin: 0; }
-.ai-chat-privacy h3 { font-size: 18px; }
-.ai-chat-privacy-warning { padding: 12px 16px; background: var(--color-warning-soft); border: 1px solid rgba(179, 104, 0, 0.22); border-radius: 10px; color: #7a4800; }
-.ai-chat-privacy-choices { display: grid; gap: 10px; }
-.ai-chat-privacy-choices .button { min-height: 48px; font-size: 15px; white-space: normal; }
+.ai-chat-privacy { display: flex; flex-direction: column; gap: 16px; font-size: 14px; line-height: 1.6; color: #1e293b; }
+.ai-chat-privacy p, .ai-chat-privacy h3, .ai-chat-privacy h4 { margin: 0; }
+.ai-chat-privacy h3 { font-size: 18px; font-weight: 700; color: #052659; }
+.ai-chat-privacy h4 { font-size: 14.5px; font-weight: 700; color: #052659; }
+
+.ai-privacy-section, .ai-privacy-retention-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.ai-privacy-section-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ai-privacy-icon-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #e0f2fe;
+  color: #0284c7;
+  flex-shrink: 0;
+}
+.ai-privacy-retention-block .ai-privacy-icon-pill {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+.ai-privacy-section-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.ai-privacy-notice-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.ai-privacy-security-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  color: #92400e;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.ai-privacy-security-callout svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #d97706;
+}
+
+.ai-chat-privacy-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  color: #9a3412;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.ai-chat-privacy-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #ea580c;
+}
+
+.ai-chat-privacy-choices {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 12px;
+  align-items: stretch;
+  margin-top: 10px;
+}
+.ai-chat-privacy-choices .button {
+  min-height: 44px;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: normal;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  text-align: center;
+  line-height: 1.35;
+}
+.ai-privacy-btn-no-history { grid-column: 1 / -1; }
+.ai-privacy-btn-primary {
+  background: #245dab !important;
+  color: #ffffff !important;
+  border: 1px solid #245dab !important;
+}
+.ai-privacy-btn-primary:hover:not(:disabled) {
+  background: #1d4b8f !important;
+  border-color: #1d4b8f !important;
+}
+.ai-privacy-btn-secondary {
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+  background: #ffffff !important;
+}
+.ai-privacy-btn-secondary:hover:not(:disabled) {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
 .ai-simulation-form { display: grid; gap: 12px; font-size: 15px; line-height: 1.6; }
 .ai-simulation-form label { font-weight: 600; }
 .ai-simulation-form input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-white); color: var(--color-text); font-size: 16px; }
