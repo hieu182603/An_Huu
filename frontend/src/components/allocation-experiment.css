@@ -1,5 +1,10 @@
 /* Recommended card + adjust-the-weights card, laid out like the demo's allocation lab. */
 .allocation-experiment{margin:24px 0}
+.allocation-progress-dialog{width:min(100%,520px)}
+.allocation-progress-dialog .modal-body{display:grid;gap:14px;padding:24px}
+.allocation-progress-dialog .modal-body p{margin:0;color:#314c69;line-height:1.65}
+.allocation-progress-dialog .modal-body progress{width:100%;height:10px;accent-color:#245dab}
+.allocation-progress-dialog .modal-body small{color:#60758d}
 .allocation-evaluation-notice{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:18px 20px;margin-bottom:24px;border:1px solid #dce6f0;border-radius:14px;background:#eef4fb;color:#142e49}
 .allocation-evaluation-notice>div{flex:1;min-width:0}
 .allocation-evaluation-notice strong{font-size:14px;line-height:1.7}
@@ -74,8 +79,9 @@
 .allocation-why-table{min-width:720px}
 .allocation-why-table thead th{text-align:right;font-weight:600}
 .allocation-why-table thead th:first-child{text-align:left}
+.allocation-why-table thead th:last-child{text-align:left;min-width:220px}
 .allocation-why-table td{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-.allocation-why-table td:last-child{text-align:left;white-space:normal;min-width:180px;max-width:280px;color:var(--ar-muted)}
+.allocation-why-table td:last-child{text-align:left;white-space:normal;min-width:220px;max-width:280px;color:var(--ar-muted)}
 .allocation-why-table tr.is-current th,.allocation-why-table tr.is-current td{font-weight:600;color:#12355c}
 .allocation-why-name{display:block;font-size:14px;margin-bottom:6px}
 .allocation-why-bar{display:flex;width:180px;max-width:100%;height:8px;border-radius:6px;overflow:hidden;background:#e9eef5}
@@ -174,6 +180,10 @@
 .allocation-package-same{display:flex;gap:8px;align-items:flex-start;margin:0 0 16px;padding:10px 12px;border-radius:10px;background:#f4f8fd;font-size:13px;line-height:1.6;color:#36506d}
 .allocation-package-same .icon{flex:none;margin-top:3px;color:#245dab}
 .allocation-package-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0 0 22px}
+.user-workspace-dialog.allocation-packages-dialog{width:min(1180px,calc(100vw - 48px))}
+.allocation-packages-dialog .allocation-package-grid{gap:20px}
+.allocation-packages-dialog .allocation-package-lead{max-width:90ch}
+.allocation-packages-dialog .allocation-package-table{min-width:760px;font-size:13px}
 .allocation-package-card{--pkg:#245dab;--pkg-soft:#eaf1fb;display:flex;flex-direction:column;gap:16px;min-width:0;padding:20px;border:1px solid #dbe4ef;border-radius:16px;background:#fff;box-shadow:0 1px 2px rgba(19,46,76,.04),0 8px 24px rgba(19,46,76,.05)}
 .allocation-package-card.is-b{--pkg:#1f7a63;--pkg-soft:#e6f4ef}
 .allocation-package-card header{display:grid;gap:4px}
@@ -192,6 +202,9 @@
 .allocation-package-card .overview-button{margin-top:auto;width:100%}
 .allocation-products-dialog .allocation-comparison-scroll{margin:0 0 18px;border-radius:12px}
 .allocation-package-table thead th{font-size:12px;font-weight:650}
+.allocation-packages-dialog .allocation-package-table th+th,.allocation-packages-dialog .allocation-package-table td+td,.allocation-packages-dialog .allocation-package-table th+td{border-left:1px solid #e6edf5}
+.allocation-packages-dialog .allocation-package-table tbody tr>*{border-top:1px solid #e6edf5}
+@media(max-width:640px){.allocation-packages-dialog .allocation-package-table th+th,.allocation-packages-dialog .allocation-package-table td+td,.allocation-packages-dialog .allocation-package-table th+td{border-left:0}}
 .allocation-package-table tbody th{width:28%;font-size:14px;font-weight:650;color:#132e4c;background:#fbfcfe}
 .allocation-package-table td>strong{display:block;font-size:14px;line-height:1.45;color:#132e4c}
 .allocation-package-table td>span,.allocation-package-table th>span{display:block;margin-top:2px;font-size:12px;line-height:1.5;color:#536982}

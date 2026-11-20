@@ -12,6 +12,7 @@ import { AssumptionsService } from "../modules/assumptions/service";
 import { PortfoliosService, publishedPolicies } from "../modules/portfolios/service";
 import { MarketDataService } from "../modules/allocation-risk/market-service";
 import { AllocationRiskService } from "../modules/allocation-risk/service";
+import { clearSimulationCache } from "../modules/allocation-risk/simulation-cache";
 import { allocationWorkspace } from "../modules/portfolios/workspace";
 
 const root = join(__dirname, "..", "..");
@@ -140,8 +141,12 @@ export async function runCase(c: Case, pathsOverride?: number) {
   if (res.status === "INSUFFICIENT" && picked && !process.env.AUDIT_SKIP_ADJUSTMENTS) {
     const chosen = picked.selection ?? { templateId };
     const t1 = performance.now();
-    const adj: any = await service.run("test-user", { plan: { kind: "PREVIEW", preview: { ...preview, templateId: chosen.templateId,
+    let adj: any = await service.run("test-user", { plan: { kind: "PREVIEW", preview: { ...preview, templateId: chosen.templateId,
       ...(chosen.customAllocation ? { customAllocation: chosen.customAllocation } : {}) } }, paths, detail: "ALLOCATION_V2" } as never, "adjustments");
+    while (adj.status === "LIMIT_EXCEEDED" && adj.issues?.includes("RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED")) {
+      adj = await service.run("test-user", { plan: { kind: "PREVIEW", preview: { ...preview, templateId: chosen.templateId,
+        ...(chosen.customAllocation ? { customAllocation: chosen.customAllocation } : {}) } }, paths, detail: "ALLOCATION_V2", continuation: true } as never, "adjustments");
+    }
     rec.adjustments = { status: adj.status, issues: adj.issues, ms: Math.round(performance.now() - t1), baseline: adj.baselinePEssential, evaluations: adj.evaluations,
       optional: adj.optionalSpending && { status: adj.optionalSpending.status, cut: adj.optionalSpending.cutPercent, issues: adj.optionalSpending.issues },
       contribution: adj.contribution && { status: adj.contribution.status, required: adj.contribution.requiredMonthlyContribution, extra: adj.contribution.additionalMonthlyContribution, p: adj.contribution.pEssential, issues: adj.contribution.issues },
@@ -284,6 +289,26 @@ describe("P0 regression (fast, production documents)", () => {
     const second: any = await service.run("test-user", cmd, "scenarios");
     expect(second).toEqual({ status: "LIMIT_EXCEEDED", issues: ["CONCURRENT_RUN_LIMIT", "ACCOUNT_RUN_IN_PROGRESS"] });
     expect(["READY", "INSUFFICIENT"]).toContain(((await first) as any).status);
+    expect(AllocationRiskService.activeRunCount()).toBe(0);
+  }, 120_000);
+  it("selection supersedes active adjustments for the same account, but adjustments does not supersede selection", async () => {
+    const { service, cmd } = await overlapping();
+    // 1. adjustments active, selection comes in -> adjustments cancelled, selection runs
+    const adj = service.run("test-user", cmd, "adjustments");
+    await pause(20);
+    const sel: any = await service.run("test-user", cmd, "selection");
+    const adjDone: any = await adj;
+    expect(adjDone).toMatchObject({ status: "LIMIT_EXCEEDED", issues: ["SIMULATION_ABORTED"] });
+    expect(["READY", "INSUFFICIENT"]).toContain(sel.status);
+    expect(AllocationRiskService.activeRunCount()).toBe(0);
+
+    // 2. selection active, adjustments comes in -> adjustments refused
+    clearSimulationCache();
+    const firstSel = service.run("test-user", cmd, "selection");
+    await pause(20);
+    const refusedAdj: any = await service.run("test-user", cmd, "adjustments");
+    expect(refusedAdj).toEqual({ status: "LIMIT_EXCEEDED", issues: ["CONCURRENT_RUN_LIMIT", "ACCOUNT_RUN_IN_PROGRESS"] });
+    expect(["READY", "INSUFFICIENT"]).toContain(((await firstSel) as any).status);
     expect(AllocationRiskService.activeRunCount()).toBe(0);
   }, 120_000);
   it("an aborted request stops the run and releases the slot", async () => {

@@ -71,22 +71,27 @@ describe("C16 (B1-2): deferring a FLEXIBLE deferrable 300M 3-year goal rescues a
       allocationFunding: "PROTECTED_CAPITAL_V1",
     };
 
-    const service = new AllocationRiskService(f.db);
-    const sel: any = await service.run("test-user", { plan: { kind: "PREVIEW", preview }, paths: 20, detail: "ALLOCATION_V2" } as never, "selection");
+    const service = new AllocationRiskService(f.db, undefined, { maxRuntimeMs: 30_000 });
+    async function finish(mode: "selection" | "adjustments", planPreview: typeof preview) {
+      const command = { plan: { kind: "PREVIEW", preview: planPreview }, paths: 20, detail: "ALLOCATION_V2" };
+      let result = await service.run("test-user", command as never, mode);
+      for (let retry = 0; retry < 10 && result.status === "LIMIT_EXCEEDED" && result.issues?.includes("RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED"); retry++) {
+        result = await service.run("test-user", { ...command, continuation: true } as never, mode);
+      }
+      return result;
+    }
+    const sel: any = await finish("selection", preview);
     expect(sel.status).toBe("INSUFFICIENT");
     const picked = (sel.candidates ?? []).find((x: any) => x.id === sel.referenceId);
     expect(picked).toBeTruthy();
 
     const chosen = picked.selection ?? { templateId };
-    const adj: any = await service.run("test-user", {
-      plan: { kind: "PREVIEW", preview: { ...preview, templateId: chosen.templateId, ...(chosen.customAllocation ? { customAllocation: chosen.customAllocation } : {}) } },
-      paths: 20, detail: "ALLOCATION_V2",
-    } as never, "adjustments");
+    const adj: any = await finish("adjustments", { ...preview, ...chosen });
     expect(adj.status).toBe("READY");
     expect(adj.deferFlexibleGoals.status).toBe("FOUND");
     expect(adj.deferFlexibleGoals.deferMonths).toBeGreaterThanOrEqual(24);
     expect(adj.deferFlexibleGoals.deferMonths).toBeLessThanOrEqual(60);
     expect(adj.deferFlexibleGoals.pEssential).toBeGreaterThanOrEqual(0.9);
     expect(adj.deferFlexibleGoals.deferredGoalIds).toEqual(["g-flex"]);
-  }, 60_000);
+  }, 120_000);
 });

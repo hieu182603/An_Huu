@@ -1,14 +1,41 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useDiscoveryQuery } from "../hooks/useDiscoveryQuery";
 import { useI18n } from "../i18n";
 import { analyzeRisk, type ScenarioResult } from "../services/planningAnalysis";
 import type { RetirementPreviewInput } from "../services/retirement";
 import { financeMoney } from "../utils/financeHubSummary";
+import { ApiError } from "../services/api";
+import "./allocation-scenario-status.css";
 import ResponsiveDialog from "./ResponsiveDialog";
 
 export default function AllocationScenarios({ plan, onClose }: { plan: RetirementPreviewInput | null; onClose: () => void }) {
   const en = useI18n().language === "en", t = (vi: string, english: string) => en ? english : vi;
-  const query = useDiscoveryQuery(JSON.stringify(plan), signal => plan ? analyzeRisk("scenarios", { kind: "PREVIEW", preview: plan }, 1, undefined, signal, undefined, "ALLOCATION_V2") : Promise.resolve(null));
+  const [attempt, setAttempt] = useState(0);
+  const query = useDiscoveryQuery(JSON.stringify([plan, attempt]), async signal => {
+    if (!plan) return null;
+    try {
+      return await analyzeRisk("scenarios", { kind: "PREVIEW", preview: plan }, 1, undefined, signal, undefined, "ALLOCATION_V2");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 429) {
+        return { status: "COOLDOWN" as const, retryAt: Date.now() + (error.retryAfterSeconds ?? 0) * 1000 };
+      }
+      throw error;
+    }
+  });
+  const cooldown = query.data && "retryAt" in query.data ? query.data : null;
+  const result = query.data && !("retryAt" in query.data) ? query.data : null;
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!cooldown) return;
+    const tick = () => setNow(Date.now());
+    tick();
+    const timer = window.setInterval(() => {
+      tick();
+      if (Date.now() >= cooldown.retryAt) window.clearInterval(timer);
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [cooldown]);
+  const seconds = cooldown ? Math.max(0, Math.ceil((cooldown.retryAt - Math.max(now, Date.now())) / 1000)) : 0;
   const names: Record<string, string> = { HIGH_INFLATION: t("Lạm phát cao", "High inflation"), INCOME_LOSS: t("Mất thu nhập", "Income loss"), PROPERTY_ILLIQUIDITY: t("Bất động sản chậm thanh khoản", "Delayed property liquidity"), EQUITY_CRASH: t("Cổ phiếu giảm sâu", "Equity crash"), RATE_RISE: t("Lãi suất tăng", "Rising interest rates"), CREDIT: t("Rủi ro tín dụng", "Credit event"), GOLD: t("Giá vàng giảm", "Gold decline"), SEQUENCE_OF_RETURNS: t("Rủi ro thứ tự lợi suất", "Sequence of returns"), LONGEVITY: t("Sống lâu hơn", "Longer life") };
   const formatMonth = (m: string | null | undefined) => m ? `${m.slice(5, 7)}/${m.slice(0, 4)}` : "—";
   const formatOffset = (n: number) => n === 0 ? t("Tại mốc nghỉ hưu", "At retirement") : n < 0 ? t(`${Math.abs(n)} tháng trước nghỉ hưu`, `${Math.abs(n)} months before retirement`) : t(`${n} tháng sau nghỉ hưu`, `${n} months after retirement`);
@@ -25,21 +52,29 @@ export default function AllocationScenarios({ plan, onClose }: { plan: Retiremen
   const verdict = (row: Pick<ScenarioResult, "status" | "result" | "issues">) => row.status === "NOT_APPLICABLE" ? t("Không áp dụng", "Not applicable")
     : row.status !== "READY" ? row.issues?.includes("SCENARIO_OUTSIDE_PLAN_HORIZON") ? t("Ngoài thời gian của kế hoạch", "Outside this plan's horizon") : t("Chưa có đủ tham số được duyệt", "Approved parameters required")
       : !row.result ? t("Chưa xác định", "Unavailable") : row.result.funded ? t("Đủ thiết yếu", "Essentials funded") : t("Có thiếu hụt", "Shortfall");
-  const allRows: ScenarioResult[] = [...(query.data?.scenarios ?? []), ...(query.data?.longevity?.results ?? []).map(row => ({ ...row, kind: "LONGEVITY" }))];
+  const allRows: ScenarioResult[] = [...(result?.scenarios ?? []), ...(result?.longevity?.results ?? []).map(row => ({ ...row, kind: "LONGEVITY" }))];
   // A scenario without approved policy parameters is not something the customer can act on: list it once below the table
   // instead of a row that always reads "parameters required".
   const awaitingParameters = (row: ScenarioResult) => row.status === "REVIEW_REQUIRED" && !!row.issues?.includes("APPROVED_SCENARIO_PARAMETERS_REQUIRED");
   const rows = allRows.filter(row => !awaitingParameters(row));
   const pendingNames = [...new Set(allRows.filter(awaitingParameters).map(row => names[row.kind ?? ""] ?? t("Tình huống", "Scenario")))];
-  return <ResponsiveDialog open={!!plan} onClose={onClose} title={t("Kiểm tra phương án trước biến cố", "Allocation stress scenarios")} className="user-workspace-dialog allocation-products-dialog">
+  return <ResponsiveDialog open={!!plan} onClose={onClose} title={t("Kiểm tra phương án trước biến cố", "Allocation stress scenarios")} className="user-workspace-dialog allocation-products-dialog allocation-scenarios-dialog">
     <p>{t("Dùng đúng tỷ trọng và dòng tiền của phương án đang xem. Mỗi tình huống có điều kiện riêng, không phải xác suất.", "Uses the displayed allocation and cash flows. Each scenario has its own parameters; these are not probabilities.")}</p>
-    {query.loading && plan ? <p role="status">{t("Đang kiểm tra…", "Calculating…")}</p> : query.error ? <p role="alert">{query.error}</p> : query.data?.status === "LIMIT_EXCEEDED" ? <p role="alert">{t("Hệ thống đang bận với lượt mô phỏng khác. Hãy đóng hộp này và thử lại sau ít giây.", "The system is busy with another simulation. Close this dialog and retry in a few seconds.")}</p> : query.data?.status !== "READY" ? <p role="status">{t("Chưa đủ dòng tiền hoặc chính sách để thử tình huống.", "Cash flows or policy settings are incomplete for stress testing.")}</p> : rows.length === 0 ? null : <div className="allocation-comparison-scroll"><table className="allocation-scenarios"><thead><tr><th scope="col">{t("Tình huống", "Scenario")}</th><th scope="col">{t("Kết quả", "Result")}</th><th scope="col">{t("Tháng thiếu đầu tiên", "First shortfall")}</th><th scope="col">{t("Khoản thiếu thiết yếu (sức mua hôm nay)", "Essential shortfall (today's purchasing power)")}</th></tr></thead><tbody>
+    {query.loading && plan ? <div className="scenario-activity" role="status">
+      <span className="scenario-bars" aria-hidden="true"><i/><i/><i/><i/><i/></span>
+      <strong>{t("Đang tính dòng tiền theo từng tình huống…", "Calculating cash flows for each scenario…")}</strong>
+    </div> : cooldown ? <div className="scenario-activity">
+      <div role="status"><strong>{t("Đã đạt giới hạn lượt mô phỏng", "Simulation limit reached")}</strong></div>
+      <button type="button" className="scenario-retry" disabled={seconds > 0} onClick={() => setAttempt(value => value + 1)}>
+        {seconds ? t(`Thử lại sau ${seconds} giây`, `Retry in ${seconds}s`) : t("Thử lại", "Retry")}
+      </button>
+    </div> : query.error ? <p role="alert">{query.error}</p> : result?.status === "LIMIT_EXCEEDED" ? <p role="alert">{t("Hệ thống đang bận với lượt mô phỏng khác. Hãy đóng hộp này và thử lại sau ít giây.", "The system is busy with another simulation. Close this dialog and retry in a few seconds.")}</p> : result?.status !== "READY" ? <p role="status">{t("Chưa đủ dòng tiền hoặc chính sách để thử tình huống.", "Cash flows or policy settings are incomplete for stress testing.")}</p> : rows.length === 0 ? null : <div className="allocation-comparison-scroll"><table className="allocation-scenarios"><thead><tr><th scope="col">{t("Tình huống", "Scenario")}</th><th scope="col">{t("Kết quả", "Result")}</th><th scope="col">{t("Tháng thiếu đầu tiên", "First shortfall")}</th><th scope="col">{t("Khoản thiếu thiết yếu (sức mua hôm nay)", "Essential shortfall (today's purchasing power)")}</th></tr></thead><tbody>
       {rows.map((row, i) => <Fragment key={`${row.kind}:${i}`}>
         <tr><th scope="row">{rowLabel(row)}</th><td>{verdict(row)}{row.offsets?.length ? <small>{t("Kết quả xấu nhất trong các thời điểm được thử", "Worst result across the tested timings")}</small> : null}</td><td>{formatMonth(row.firstShortfallMonth ?? row.result?.firstShortfallMonth)}</td><td>{financeMoney(row.result?.essentialLossToday ?? null, en)}</td></tr>
         {!!row.offsets?.length && <tr><td colSpan={4}><details><summary>{t(`Xem ${row.offsets.length} thời điểm sốc`, `View ${row.offsets.length} shock timings`)}</summary><table><thead><tr><th scope="col">{t("Thời điểm", "Timing")}</th><th scope="col">{t("Kết quả", "Result")}</th><th scope="col">{t("Tháng thiếu đầu tiên", "First shortfall")}</th><th scope="col">{t("Thiếu thiết yếu hôm nay", "Essential shortfall today")}</th></tr></thead><tbody>{row.offsets.map(offset => <tr key={offset.offsetMonths}><th scope="row">{formatOffset(offset.offsetMonths)}</th><td>{verdict(offset)}</td><td>{formatMonth(offset.firstShortfallMonth ?? offset.result?.firstShortfallMonth)}</td><td>{financeMoney(offset.result?.essentialLossToday ?? null, en)}</td></tr>)}</tbody></table></details></td></tr>}
         {row.kind === "SEQUENCE_OF_RETURNS" && row.status === "READY" && row.result?.lossFirstTerminalBalance !== undefined && <tr><td colSpan={4}><dl className="allocation-sequence-balances"><div><dt>{t("Lỗ trước, lãi sau: số dư cuối kỳ", "Loss first, gains later: ending balance")}</dt><dd>{financeMoney(row.result.lossFirstTerminalBalance, en)}</dd></div><div><dt>{t("Lãi trước, lỗ sau: số dư cuối kỳ", "Gains first, loss later: ending balance")}</dt><dd>{financeMoney(row.result.gainFirstTerminalBalance ?? null, en)}</dd></div><div><dt>{t("Chênh lệch số dư cuối kỳ", "Difference in ending balances")}</dt><dd>{financeMoney(row.result.balanceDifference ?? null, en)}</dd></div></dl><p>{t("Hai thứ tự dùng cùng tập lợi suất; thời điểm lỗ khác nhau làm số tiền còn lại khác nhau khi có rút chi tiêu.", "Both orders use the same set of returns; the timing of losses changes the amount left when spending is withdrawn.")}</p></td></tr>}
       </Fragment>)}
     </tbody></table></div>}
-    {query.data?.status === "READY" && pendingNames.length > 0 && <p className="allocation-result-footnote" data-testid="scenarios-awaiting-parameters">{t(`Chưa chạy vì chưa có tham số được duyệt: ${pendingNames.join(", ")}.`, `Not run until approved parameters exist: ${pendingNames.join(", ")}.`)}</p>}
+    {result?.status === "READY" && pendingNames.length > 0 && <p className="allocation-result-footnote" data-testid="scenarios-awaiting-parameters">{t(`Chưa chạy vì chưa có tham số được duyệt: ${pendingNames.join(", ")}.`, `Not run until approved parameters exist: ${pendingNames.join(", ")}.`)}</p>}
   </ResponsiveDialog>;
 }

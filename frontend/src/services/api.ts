@@ -3,6 +3,7 @@ export class ApiError extends Error {
   code: string;
   fieldErrors?: Record<string, string[]>;
   details?: unknown;
+  retryAfterSeconds?: number;
   constructor(status: number, code: string, message: string, fieldErrors?: Record<string, string[]>, details?: unknown) {
     super(message);
     this.status = status;
@@ -76,7 +77,10 @@ export async function apiRequest<T>(path: string, body?: unknown, method = body 
     const hint = invalid.length ? ` Kiểm tra: ${[...new Set(invalid)].join(", ")}.` : "";
     const planningDetails = /financial-profile|onboarding|market-data|retirement/.test(path)
       ? Object.entries(result?.error?.fieldErrors || {}).map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join("; ") : String(messages)}`).join(" · ") : "";
-    throw new ApiError(response.status, result?.error?.code || "REQUEST_FAILED", (result?.error?.message || "Yêu cầu chưa thành công. Vui lòng thử lại.") + hint + (planningDetails ? ` ${planningDetails}` : ""), result?.error?.fieldErrors, result?.error?.details);
+    const error = new ApiError(response.status, result?.error?.code || "REQUEST_FAILED", (result?.error?.message || "Yêu cầu chưa thành công. Vui lòng thử lại.") + hint + (planningDetails ? ` ${planningDetails}` : ""), result?.error?.fieldErrors, result?.error?.details);
+    const retryAfter = response.headers.get("Retry-After");
+    if (retryAfter && /^\d+$/.test(retryAfter)) error.retryAfterSeconds = Number(retryAfter);
+    throw error;
   }
   if (!result || !("data" in result)) throw new ApiError(502, "INVALID_RESPONSE", "Máy chủ trả về dữ liệu không hợp lệ.");
   return result.data as T;

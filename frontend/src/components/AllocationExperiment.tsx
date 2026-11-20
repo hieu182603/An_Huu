@@ -126,6 +126,7 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   const [stressPlan, setStressPlan] = useState<RetirementPreviewInput | null>(null);
   // Paths asked of the server. 20 first (fast, preliminary); the customer raises it step by step to the 1,000 the method requires.
   const [paths, setPaths] = useState(FIRST_PATHS), [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [runningMilestone, setRunningMilestone] = useState<number | null>(null);
   const [customOpen, setCustomOpen] = useState(() => !window.matchMedia("(max-width: 800px)").matches || !!plan?.customAllocation);
   const controller = useRef<AbortController | null>(null), sequence = useRef(0), autoRan = useRef("");
   const fingerprint = JSON.stringify({ input, plan, data: data.allocations, customization: policy });
@@ -133,7 +134,7 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   useEffect(() => onReferenceChange(reference, referenceResult, { busy, error }), [reference, referenceResult, busy, error, onReferenceChange]);
   // An aborted auto-run (StrictMode remount, fast navigation) must be allowed to run again, or the page stays on "Finding…".
   useEffect(() => () => { sequence.current++; controller.current?.abort(); autoRan.current = ""; }, [fingerprint]);
-  useEffect(() => { setResult(null); setReferenceResult(null); setChosenThreshold(undefined); setTrial(null); setTrialError(""); setReference(data); setBusy(false); setError(""); setProgress(null); setPaths(FIRST_PATHS); setWeights(initialWeights()); }, [fingerprint]);
+  useEffect(() => { setResult(null); setReferenceResult(null); setChosenThreshold(undefined); setTrial(null); setTrialError(""); setReference(data); setBusy(false); setError(""); setProgress(null); setRunningMilestone(null); setPaths(FIRST_PATHS); setWeights(initialWeights()); }, [fingerprint]);
   const custom: CustomAllocation = { model: "custom-glide-v1", weights };
   // Live check while dragging: the server answers with the loss stress, amounts and return for these exact weights.
   useEffect(() => {
@@ -159,10 +160,13 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   const qualified = meets(referenceCandidate, threshold), tested = (referenceResult?.candidates ?? []).filter(c => c.id !== "CUSTOM").length + (referenceResult?.rejected ?? []).filter(r => r.id !== "CUSTOM").length;
   const eligible = (r: AllocationWorkspaceResult) => r.portfolio?.status === "READY" && r.loss.status === "WITHIN_LIMIT" && r.capital.status === "READY";
   const selectionPlan = plan && input.templateId ? { ...plan, templateId: input.templateId, customAllocation: undefined } : null;
+  const lastRun = useRef<[kind: "reference" | "custom", pathsOverride?: number, thresholdOverride?: string]>(["reference"]);
   const run = async (kind: "reference" | "custom" = "custom", pathsOverride?: number, thresholdOverride?: string) => {
     if (!selectionPlan || busy) return;
+    lastRun.current = [kind, pathsOverride, thresholdOverride];
     controller.current?.abort(); const abort = new AbortController(); controller.current = abort;
-    const ticket = ++sequence.current; setBusy(true); setError(""); if (thresholdOverride === undefined) setResult(null); setProgress(null);
+    const ticket = ++sequence.current; setBusy(true); setError(""); if (thresholdOverride === undefined && !pathsOverride) setResult(null); setProgress(null); setRunningMilestone(pathsOverride ?? null);
+    const startedAt = Date.now();
     const wanted = pathsOverride ?? paths; if (pathsOverride) setPaths(pathsOverride);
     try {
       const nextTrial = kind === "custom" && policy ? await previewAllocation({ ...input, customAllocation: custom }, abort.signal) : null;
@@ -196,6 +200,12 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
       if (response.status === "LIMIT_EXCEEDED" && response.issues?.includes("RUNTIME_LIMIT_NO_PARTIAL_ESTIMATE")) {
         const fewer = Math.max(2, Math.floor(wanted / 2)); setPaths(fewer); response = await send(fewer);
       }
+      if (pathsOverride && (!response.candidates?.length || response.status === "LIMIT_EXCEEDED")) {
+        setError(response.issues?.includes("CONCURRENT_RUN_LIMIT") || response.issues?.includes("ACCOUNT_RUN_IN_PROGRESS")
+          ? t("Hệ thống đang xử lý nhiều lượt mô phỏng cùng lúc. Vui lòng thử lại sau giây lát.", "The system is processing concurrent simulations. Please retry in a moment.")
+          : t("Không thể tăng số kịch bản lúc này. Vui lòng thử lại.", "Could not increase scenarios now. Please retry."));
+        return;
+      }
       const picked = response.candidates?.find(c => c.id === response.referenceId);
       const sameReference = picked?.selection?.templateId === data.portfolio?.assessment.selectedTemplateId && JSON.stringify(picked?.selection?.customAllocation ?? null) === JSON.stringify(data.customAllocation ?? null);
       const nextReference = picked?.selection && !sameReference ? await previewAllocation({ ...input, ...picked.selection }, abort.signal) : data;
@@ -210,10 +220,14 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
         : code === "NETWORK_ERROR" ? t("Máy chủ chưa phản hồi kịp hoặc mất kết nối. Đây là lỗi kỹ thuật, không phải kết luận về kế hoạch của bạn; hãy thử tính lại.", "The server did not answer in time or the connection dropped. This is a technical error, not a verdict on your plan; please retry.")
         : e instanceof Error ? e.message : t("Chưa tính được kết quả.", "Could not calculate the result."));
     }
-    finally { if (ticket === sequence.current) { setBusy(false); setProgress(null); } }
+    finally {
+      // Keep a fast response visible long enough for the customer to see that a new run happened.
+      if (pathsOverride && !abort.signal.aborted) await new Promise(resolve => setTimeout(resolve, Math.max(0, 600 - (Date.now() - startedAt))));
+      if (ticket === sequence.current) { setBusy(false); setProgress(null); setRunningMilestone(null); }
+    }
   };
   useEffect(() => { if (selectionPlan && autoRan.current !== fingerprint && weightsKey === JSON.stringify(initialWeights())) { autoRan.current = fingerprint; void run("reference"); } }, [fingerprint, weightsKey]);
-  const invalidate = () => { sequence.current++; controller.current?.abort(); setBusy(false); setProgress(null); setResult(null); setTrial(null); setTrialError(""); setTrialAttempt(n => n + 1); setError(""); };
+  const invalidate = () => { sequence.current++; controller.current?.abort(); setBusy(false); setProgress(null); setRunningMilestone(null); setResult(null); setTrial(null); setTrialError(""); setTrialAttempt(n => n + 1); setError(""); };
   const change = (code: string, value: string) => { if (!policy) return; invalidate(); setWeights(prev => adjustAllocation(prev, policy, code, value)); };
   const reset = () => { if (!policy) return; invalidate(); setWeights(initialAllocationWeights(reference.allocations, policy)); };
   const choose = (candidate: Candidate | undefined, workspace: AllocationWorkspaceResult) => {
@@ -289,7 +303,9 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   const isProtectedShortfall = result?.issues?.includes("PROTECTED_CAPITAL_EXCEEDS_ASSETS");
   const isGoalsRequired = result?.issues?.includes("GOALS_REQUIRED");
   const isLossLimitRequired = !isGoalsRequired && !!result?.issues?.some(code => code === "LOSS_TOLERANCE_REQUIRED");
-  const isProfileReview = !isGoalsRequired && !isLossLimitRequired && result?.status === "REVIEW_REQUIRED"
+  const isLiquidityUnknown = !isGoalsRequired && !isLossLimitRequired && result?.status === "REVIEW_REQUIRED"
+    && !!result?.issues?.some(code => code === "LIQUIDITY_NEED_UNKNOWN" || code === "LIQUIDITY_REQUIREMENTS_INCOMPLETE");
+  const isProfileReview = !isGoalsRequired && !isLossLimitRequired && !isLiquidityUnknown && result?.status === "REVIEW_REQUIRED"
     && !!result.issues?.some(code => ["UNKNOWN_VALUE", "CAPITAL_SEPARATION_REQUIRED"].includes(code) || code.startsWith("GOAL_") || code.startsWith("DEPOSIT_"));
   const statusText = dataMissing ? "" : result?.status === "DATA_REQUIRED"
     ? t("Chưa có bộ dữ liệu thị trường tháng đã công bố để mô phỏng. Các xác suất được để chưa xác định.", "Published monthly market data is required. Probabilities remain unavailable.")
@@ -297,7 +313,7 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
       ? (result.issues?.includes("CONCURRENT_RUN_LIMIT")
         ? t("Hệ thống đang xử lý nhiều lượt mô phỏng cùng lúc. Vui lòng thử lại sau giây lát.", "The system is processing concurrent simulations. Please retry in a moment.")
         : t("Phép thử vượt giới hạn xử lý. Chưa có ước lượng hoàn chỉnh; hãy thử lại sau.", "The run exceeded processing limits. No complete estimate is available; retry later."))
-      : (isProtectedShortfall || isGoalsRequired || isLossLimitRequired || isProfileReview)
+      : (isProtectedShortfall || isGoalsRequired || isLossLimitRequired || isProfileReview || isLiquidityUnknown)
         ? ""
         : result && !result.candidates?.length && result.status === "REVIEW_REQUIRED"
           ? t("Cần hoàn thiện dòng tiền và chính sách mô phỏng trước khi đánh giá khả năng đủ tiền.", "Complete cash flows and simulation policy before estimating funding success.")
@@ -305,10 +321,15 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   const customPasses = meets(customCandidate, threshold) && (!allThreshold || (customCandidate?.pAll ?? 0) >= Number(allThreshold));
 
   return <section className="allocation-experiment" aria-label={t("Thử và đối chiếu phân bổ", "Test and compare allocations")}>
+    <ResponsiveDialog open={runningMilestone !== null && busy} title={t("Đang chạy thêm kịch bản", "Running more scenarios")} onClose={() => setRunningMilestone(null)} className="user-workspace-dialog allocation-progress-dialog">
+      <p>{t(`Đang kiểm tra phương án với tối đa ${num(runningMilestone ?? 0, 0)} kịch bản. Kết quả cũ vẫn được giữ cho đến khi lượt chạy hoàn tất.`, `Testing the allocation with up to ${num(runningMilestone ?? 0, 0)} scenarios. The previous result remains available until this run finishes.`)}</p>
+      <progress max={progress?.total} value={progress?.done} aria-label={t("Tiến độ mô phỏng", "Simulation progress")} />
+      <p role="status">{progress ? t(`Đã xử lý ${num(progress.done, 0)}/${num(progress.total, 0)} lượt mô phỏng qua các phương án.`, `Processed ${num(progress.done, 0)}/${num(progress.total, 0)} simulation runs across allocations.`) : t("Máy chủ đang tính toán. Tiến độ sẽ cập nhật khi có kết quả từng phần.", "The server is calculating. Progress will update when partial results arrive.")}</p>
+      <small>{t("Bạn có thể đóng cửa sổ này; phép tính vẫn tiếp tục.", "You can close this window; the calculation will continue.")}</small>
+    </ResponsiveDialog>
     {range&&<Select label={t("Ngưỡng đủ chi thiết yếu", "Essential-spending threshold")} options={thresholdOptions} disabled={busy||!selectionPlan} value={threshold?Number(threshold).toFixed(4):""} onChange={value=>void run("reference",undefined,value)}/>}
-    {referenceResult?.threshold && <p className="allocation-threshold-used">{t(`Đang dùng ngưỡng ${num(Number(referenceResult.threshold) * 100)}%`, `Using a ${num(Number(referenceResult.threshold) * 100)}% threshold`)}</p>}
     {busy && <div className="allocation-evaluation-notice" role="status"><progress aria-label={t("Đang kiểm tra các phương án", "Testing allocations")} /><div><strong>{t("Đang kiểm tra các phương án…", "Testing allocations…")}</strong><p>{t("Đối chiếu vốn, giới hạn chịu lỗ và các kịch bản thị trường.", "Comparing capital, loss limits and market scenarios.")}</p></div></div>}
-    {error && <div className="allocation-evaluation-notice is-error" role="alert"><div><strong>{t("Chưa tính được phương án", "Could not calculate the allocation")}</strong><p>{error}</p></div><button type="button" className="overview-button secondary" disabled={busy || !selectionPlan} onClick={() => void run()}>{t("Thử tính lại", "Retry calculation")}</button></div>}
+    {error && <div className="allocation-evaluation-notice is-error" role="alert"><div><strong>{t("Chưa tính được phương án", "Could not calculate the allocation")}</strong><p>{error}</p></div><button type="button" className="overview-button secondary" disabled={busy || !selectionPlan} onClick={() => void run(...lastRun.current)}>{t("Thử tính lại", "Retry calculation")}</button></div>}
     {!selectionPlan && <div className="allocation-evaluation-notice" role="status"><div><strong>{t("Cần bổ sung thông tin kế hoạch", "Complete your plan inputs")}</strong><p>{t("Xác nhận chi tiêu và thời gian nghỉ hưu để tính phương án theo dòng tiền của bạn.", "Confirm retirement spending and dates to calculate an allocation using your cash flows.")}</p></div><Link className="overview-button secondary" to="/user/plan?tab=adjust">{t("Bổ sung thông tin", "Complete inputs")}</Link></div>}
     {isProtectedShortfall && (
       <div className="allocation-evaluation-notice is-error" role="status">
@@ -355,6 +376,15 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
           <p>{t("Một số giá trị tài sản hoặc mục tiêu chưa rõ nên chưa tách được phần vốn giữ riêng. Hãy bổ sung rồi tính lại.", "Some asset or goal values are unknown, so protected capital cannot be separated yet. Complete them and recalculate.")}</p>
         </div>
         <Link className="overview-button secondary" to="/user/profile?section=assets">{t("Mở hồ sơ tài chính →", "Open financial profile →")}</Link>
+      </div>
+    )}
+    {isLiquidityUnknown && (
+      <div className="allocation-evaluation-notice" role="status">
+        <div>
+          <strong>{t("Cần khai nhu cầu tiền trong 1, 3 hoặc 5 năm tới", "Near-term cash needs required")}</strong>
+          <p>{t("Bạn đang để nhu cầu tiền trong 1, 3 hoặc 5 năm tới là 'Chưa biết'. Hãy khai số tiền (có thể là 0) để tính khả năng đủ tiền.", "Your cash needs for the next 1, 3 or 5 years are set to 'Unknown'. Please declare an amount (which can be 0) to evaluate funding feasibility.")}</p>
+        </div>
+        <Link className="overview-button secondary" to="/user/profile?section=constraints">{t("Khai nhu cầu tiền →", "Declare cash needs →")}</Link>
       </div>
     )}
     {statusText && <div className="allocation-evaluation-notice" role="status"><p>{statusText}</p></div>}

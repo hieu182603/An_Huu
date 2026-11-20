@@ -136,7 +136,7 @@ function deterministicMarket(preview: PlanPreview): PathMarket[] {
       ]:[])) }));
 }
 export class AllocationRiskService {
-  constructor(private db: PrismaClient, private optimizer = { continuous: false, fallback: false }) {}
+  constructor(private db: PrismaClient, private optimizer = { continuous: false, fallback: false }, private options?: { maxRuntimeMs?: number }) {}
   private async load(userId: string, command: RiskRequest) {
     const input = riskRequestSchema.parse(command);
     const retirement = new RetirementService(this.db);
@@ -154,7 +154,8 @@ export class AllocationRiskService {
     // A different kind (e.g. a stress test during selection) is refused instead of cancelling.
     const existing = activeRuns.get(userId);
     if (existing) {
-      if (existing.mode !== mode) return busy("ACCOUNT_RUN_IN_PROGRESS");
+      const canSupersede = existing.mode === mode || (existing.mode === "adjustments" && mode === "selection");
+      if (!canSupersede) return busy("ACCOUNT_RUN_IN_PROGRESS");
       existing.controller.abort();
       await Promise.race([existing.done, new Promise(resolve => setTimeout(resolve, SUPERSEDE_WAIT_MS).unref?.())]);
       if (activeRuns.has(userId)) return busy("ACCOUNT_RUN_IN_PROGRESS");
@@ -179,6 +180,7 @@ export class AllocationRiskService {
   /** Test/operations helper: number of runs still executing (including cancelled ones not yet stopped). */
   static activeRunCount() { return running.size; }
   private async execute(userId: string, command: RiskRequest, mode: RunMode, signal?: AbortSignal) {
+    const adjustmentStart = mode === "adjustments" ? performance.now() : undefined;
     const loaded = await this.load(userId, command), { input, capture } = loaded;
     const dataset = await new MarketDataService(this.db).published(input.marketVersionId);
     const dataRequired = { status: "DATA_REQUIRED" as const, issues: ["PUBLISHED_MONTHLY_TOTAL_RETURN_DATA_REQUIRED"] };
@@ -238,13 +240,17 @@ export class AllocationRiskService {
       ];
       return { ...reference, ...review(...realIssues) };
     }
-    const deadline = performance.now() + LIMITS.maxRuntimeMs;
+    const deadline = (adjustmentStart ?? performance.now()) + (this.options?.maxRuntimeMs ?? LIMITS.maxRuntimeMs);
     if (mode === "adjustments") {
       if (!policy?.essentialThreshold || !policy.blockMonths || !policy.cvarAlpha) return { ...reference, ...review("APPROVED_STEP_THRESHOLD_AND_LOSS_STRESS_REQUIRED") };
       if (capital.status === "READY" && capital.growthCapital !== null && new D(capital.growthCapital).lt(0))
         return { ...reference, ...review("PROTECTED_CAPITAL_EXCEEDS_ASSETS") };
-      const threshold = essentialThreshold!, budget = performance.now() + ADJUSTMENT_LIMIT_MS;
+      const threshold = essentialThreshold!, budget = deadline;
       const retirement = new RetirementService(this.db);
+      let completedProbes = 0, hitLimit = false;
+      let partialPaths = 0;
+      // Include the baseline in the same cumulative count as every adjustment probe.
+      const progress = (pathsCompleted: number) => ({ pathsCompleted, pathsRequested: Math.max(20 * paths, pathsCompleted + paths) });
       // Same allocation, seed and number of paths as the selection; only the behavioural input changes.
       const evaluate = async (variant: { selection: typeof loaded.selection; profile?: typeof capture.profile }) => {
         if (signal?.aborted) return { limit: true as const };
@@ -253,9 +259,17 @@ export class AllocationRiskService {
         const variantContext = evaluated.status === "READY" ? contextOf(variantCapture, evaluated) : null;
         if (!variantContext) return { review: "ADJUSTED_PLAN_REVIEW_REQUIRED" };
         const result = await simulate(variantContext, dataset!.data, policy, paths, budget, input.detail, signal);
-        return result.status === "READY" ? { pEssential: result.pEssential } : result.status === "LIMIT_EXCEEDED" ? { limit: true as const } : { review: result.issues[0] ?? "SIMULATION_REVIEW_REQUIRED" };
+        if (result.status === "READY") { completedProbes++; return { pEssential: result.pEssential }; }
+        if (result.status === "LIMIT_EXCEEDED") {
+          hitLimit = true;
+          partialPaths = result.progress?.pathsCompleted ?? 0;
+          return { limit: true as const };
+        }
+        return { review: result.issues[0] ?? "SIMULATION_REVIEW_REQUIRED" };
       };
       const baseline = await simulate(context, dataset!.data, policy, paths, budget, input.detail, signal);
+      if (baseline.status === "LIMIT_EXCEEDED" && baseline.progress)
+        return { ...reference, ...baseline, progress: progress(baseline.progress.pathsCompleted) };
       if (baseline.status !== "READY") return { ...reference, ...baseline };
       const common = { threshold, paths, basis: "SIMULATED_P_ESSENTIAL_SAME_SEED_AND_ALLOCATION" as const, baselinePEssential: baseline.pEssential };
       if (new D(baseline.pEssential).gte(threshold)) return { ...reference, ...common, status: "NOT_NEEDED" as const };
@@ -263,6 +277,11 @@ export class AllocationRiskService {
       const found = await searchAdjustments({ selection: loaded.selection, profile: capture.profile, threshold,
         retirementMonth: context.projection.retirementMonth, accumulationCapacity, evaluate, outOfTime: () => performance.now() >= budget || !!signal?.aborted });
       if (signal?.aborted) return abortedResult;
+      if (hitLimit || performance.now() >= budget) {
+        const pathsCompleted = (1 + completedProbes) * paths + partialPaths;
+        return { ...reference, status: "LIMIT_EXCEEDED" as const, issues: ["RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED"], limits: LIMITS,
+          progress: progress(pathsCompleted) };
+      }
       return { ...reference, ...common, ...found };
     }
     if (mode === "simulation") return { ...reference, ...await simulate(context, dataset!.data, policy, paths, deadline, input.detail, signal) };
