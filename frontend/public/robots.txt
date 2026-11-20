@@ -1,4 +1,4 @@
-# Robots.txt for An Hưu (https://an-huu.vercel.app)
+# Robots.txt for An Hưu (https://www.anhuugroup.com/)
 # Standard Search Engine Crawlers
 User-agent: *
 Allow: /

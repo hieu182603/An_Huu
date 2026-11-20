@@ -209,7 +209,7 @@ function setupMainRoutes(page) {
       assumptionVersionId: 'asm-1',
       source: {
         title: 'Hội đồng đầu tư An Hưu',
-        url: 'https://an-huu.vercel.app',
+        url: 'https://www.anhuugroup.com/',
         release: '2026.1',
         reviewedOn: '2026-01-01'
       },
