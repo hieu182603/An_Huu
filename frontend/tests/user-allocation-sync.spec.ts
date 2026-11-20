@@ -159,12 +159,17 @@ test("failed workspace hides prior capital/results and retry uses the server",as
  await page.getByRole("button",{name:"Sửa thông tin phân bổ"}).click();await page.getByText("Giả định đang dùng",{exact:true}).click();await page.getByLabel("Tháng kết thúc kế hoạch",{exact:true}).fill("11/2027");await expect(page.getByRole("alert")).toContainText("Chưa tính được phân bổ");await expect(page.locator(".allocation-result-summary")).toHaveCount(0);await expect(page.locator(".allocation-breakdown")).toHaveCount(0);
  fail=false;await page.getByRole("button",{name:"Thử lại",exact:true}).click();await expect(page.locator(".allocation-capital-total")).toContainText("904.000.000");await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await openPublished(page);await expect(panel(page).locator(".allocation-experiment")).toBeVisible();
 });
-test("risk form keeps its UI, saves zero to backend and survives reload",async({page,request})=>{
- const s=await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();await page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true}).fill("0");await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page).not.toHaveURL(/section=risk/);
- expect((await s.get("me/financial-profile")).data.lossTolerance.amountVnd.value).toBe("0");await page.reload();await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();await expect(page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true})).toHaveValue("0");
+test("risk page keeps only the reaction and saves it with the limit from step 2",async({page,request})=>{
+ const s=await setup(page,request);const before=(await s.get("me/financial-profile")).data.lossTolerance;await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();await expect(page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true})).toHaveCount(0);await page.getByRole("button",{name:/Bán bớt để giữ phần còn lại/}).click();await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page).not.toHaveURL(/section=risk/);
+ const after=(await s.get("me/financial-profile")).data.lossTolerance;expect(after.reaction.value).toBe("SELL");expect(after.percent).toEqual(before.percent);
 });
-test("failed risk save keeps inputs and stays in the form",async({page,request})=>{
- await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();await page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true}).fill("7");await page.route("**/api/v1/me/financial-profile/loss-tolerance",r=>r.fulfill({status:409,json:{error:{message:"Hồ sơ đã thay đổi"}}}));await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page.getByRole("alert")).toContainText("Hồ sơ đã thay đổi");await expect(page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true})).toHaveValue("7");await expect(page).toHaveURL(/section=risk/);
+test("failed risk save keeps the choice and stays in the form",async({page,request})=>{
+ await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();await page.getByRole("button",{name:/Bán bớt để giữ phần còn lại/}).click();await page.route("**/api/v1/me/financial-profile/loss-tolerance",r=>r.fulfill({status:409,json:{error:{message:"Hồ sơ đã thay đổi"}}}));await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page.getByRole("alert")).toContainText("Hồ sơ đã thay đổi");await expect(page).toHaveURL(/section=risk/);
+});
+test("step 2 saves a quick choice at once and a typed value on leaving the field",async({page,request})=>{
+ const s=await setup(page,request,{},true,false);await page.locator(".allocation-steps button").nth(1).click();const limit=page.locator(".allocation-loss-limit");
+ await limit.getByRole("button",{name:"20%",exact:true}).click();await expect.poll(async()=>(await s.get("me/financial-profile")).data.lossTolerance.percent.value).toBe("20");
+ await limit.locator("input[inputmode=decimal]").fill("12");await page.getByRole("button",{name:"Tiếp tục →",exact:true}).click();await expect.poll(async()=>(await s.get("me/financial-profile")).data.lossTolerance.percent.value).toBe("12");
 });
 
 for(const[name,width,height]of[["desktop",1440,1000],["tablet",768,1024],["mobile",390,844],["small-mobile",320,740],["landscape",844,390]]as const)test(`allocation and popups fit ${name}`,async({page,request},info)=>{
@@ -182,8 +187,8 @@ test("English allocation labels and unconfigured guidance remain translated",asy
  await page.addInitScript(()=>localStorage.setItem("anhuu_language","en"));await setupDiscovery(page,request,"/user/risk-portfolio",{allocation:true,emptyPolicy:true});await expect(page.getByRole("heading",{name:"Asset allocation",exact:true})).toBeVisible();await expect(page.getByText("No published portfolio policy is available.",{exact:false})).toBeVisible();
 });
 
-test("amount-mode risk tolerance displays and saves the entered amount without using the old percent",async({page,request})=>{
- const s=await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();await page.locator("select:not([data-policy-question])").selectOption("amount");await page.getByLabel("Mức giảm tối đa có thể chấp nhận (VND)",{exact:true}).fill("90400000");await expect(page.getByText("Tương đương trên phần vốn dài hạn đang xét:",{exact:false})).toContainText("90.400.000");await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page).not.toHaveURL(/section=risk/);expect((await s.get("me/financial-profile")).data.lossTolerance.percent.value).toBe("10");
+test("step 2 amount entry saves the amount and its percent of long-term capital",async({page,request})=>{
+ const s=await setup(page,request,{},true,false);await page.locator(".allocation-steps button").nth(1).click();const limit=page.locator(".allocation-loss-limit");await limit.locator("input[inputmode=numeric]").fill("90400000");await limit.locator("input[inputmode=numeric]").blur();await expect.poll(async()=>(await s.get("me/financial-profile")).data.lossTolerance.percent.value).toBe("10");
 });
 
 
@@ -257,7 +262,6 @@ test("customer 18/11/2026: unanswered large expenses never dead-end the loss lim
  // Step 2: a percent is always selectable and savable.
  await page.locator(".allocation-steps button").nth(1).click();
  await page.getByRole("button",{name:"10%",exact:true}).click();
- await page.getByRole("button",{name:"Lưu mức giảm",exact:true}).click();
  await expect.poll(async()=>(await s.get("me/financial-profile")).data.lossTolerance?.percent?.value).toBe("10");
  expect((await s.get("me/financial-profile")).data.lossTolerance.amountVnd).toBeUndefined();
  await expect(page.locator(".allocation-loss-saved")).toContainText("10%");

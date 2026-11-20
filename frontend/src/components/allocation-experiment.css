@@ -216,8 +216,15 @@
 .allocation-adjustment-list li p{margin:0;line-height:1.6}
 .allocation-adjustment-list li small{display:block;margin-top:4px;color:#536b85}
 @media(max-width:650px){.allocation-adjustments{padding:18px 16px}}
-.allocation-paths{display:grid;gap:8px;margin-top:16px;padding:14px 16px;border:1px solid #dce6f0;border-radius:12px;background:#f7fafd;color:#142e49}
+.allocation-paths{display:grid;gap:8px;margin-top:12px;padding:10px 14px;border:1px solid #dce6f0;border-radius:12px;background:#f7fafd;color:#142e49}
 .allocation-paths p{margin:0}.allocation-paths small{color:#536b85}
 .allocation-paths progress{width:100%;height:8px;accent-color:#245dab}
-.allocation-paths-actions{display:flex;flex-wrap:wrap;gap:8px}.allocation-paths-actions .overview-button{min-height:44px}
+.allocation-paths-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px;font-size:14px}
+.allocation-paths-head span{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.allocation-paths-head .is-preliminary{background:#fff4dc;color:#7a5200}.allocation-paths-head .is-standard{background:#e3f4ea;color:#1d6b3f}
+.allocation-paths-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:#536b85}
+.allocation-paths-actions button{min-width:52px;min-height:36px;padding:0 12px;border:1px solid #c9d7e6;border-radius:999px;background:#fff;color:#1d4f8f;font:inherit;font-weight:600;cursor:pointer}
+.allocation-paths-actions button:hover:not(:disabled){border-color:#245dab;background:#eef4fb}
+.allocation-paths-actions button:focus-visible{outline:2px solid #245dab;outline-offset:2px}
+.allocation-paths-actions button:disabled{opacity:.5;cursor:default}
 .allocation-paths-undecided{color:#8a5a00}
