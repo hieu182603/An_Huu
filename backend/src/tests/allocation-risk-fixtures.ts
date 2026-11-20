@@ -10,7 +10,8 @@ export function marketFixture() {
     sources: [{ id: "FIXTURE", title: "Synthetic fixture ONLY", url: "https://example.test/fixture", retrievedOn: "2020-01-01",
       license: "Test fixture, no market data rights asserted", usage: "SIMULATION_AND_DERIVED_OUTPUTS_PERMITTED", evidence: "Test-only data" }],
     assets: ["CASH", "EQUITY", "GOV_BOND", "GOLD"].map(assetClass => ({ assetClass, sourceId: "FIXTURE", totalReturnEvidence: "Synthetic fixture total returns",
-      fees: { treatment: "NET", evidence: "Fixture net" }, taxTreatment: "Fixture taxes included" })), cpiSourceId: "FIXTURE",
+      returnBasis: "TOTAL_RETURN" as const, licenseStatus: "VERIFIED" as const, ...(assetClass === "GOLD" ? { priceSide: "BUY" as const } : {}),
+      fees: { treatment: "NET" as const, evidence: "Fixture net" }, taxTreatment: "Fixture taxes included" })), cpiSourceId: "FIXTURE",
     quality: { missingValues: "REJECT", imputation: "NONE", reviewNote: "Synthetic test fixture" },
     rows: Array.from({ length: 48 }, (_, i) => ({ month: addMonths("2010-01", i), returns: { CASH: "0", EQUITY: i % 2 ? "0.05" : "-0.04", GOV_BOND: "0.01", GOLD: "0.02" }, cpi: i % 2 ? "0.01" : "0.002" })) });
 }

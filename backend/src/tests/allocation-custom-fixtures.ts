@@ -4,8 +4,8 @@ import { marketFixture } from "./allocation-risk-fixtures";
 import { RetirementService } from "../modules/retirement/service";
 import { PlansService } from "../modules/plans/service";
 import { digest } from "../common/digest";
-export async function customFixture(options:{ui?:boolean;noMarket?:boolean}={}) {
-  const f=await allocationFixture();
+export async function customFixture(options:{ui?:boolean;noMarket?:boolean;withCash?:boolean}={}) {
+  const f=await allocationFixture({withCash:options.withCash});
   if(f.policy.data.schemaVersion!==2)throw new Error("Custom fixture requires glide policy");
   const policy=await f.portfolios.create("test-admin",{...f.policy.data,schemaVersion:2,
     customization:{evidence:"Synthetic test-only custom policy",path:"FOLLOW_TEMPLATE_SHIFTS",capitalBasis:"PROTECTED_CAPITAL_V1",
@@ -14,8 +14,8 @@ export async function customFixture(options:{ui?:boolean;noMarket?:boolean}={}) 
   await f.portfolios.approve("test-admin",policy.id,{expectedRevision:1,confirm:true,reviewNote:"Synthetic custom allocation review"});
   await f.portfolios.publish("test-admin",policy.id,{expectedRevision:2,confirm:true});
   const data=marketFixture();
-  data.assets=data.assets.filter(a=>["EQUITY","GOV_BOND"].includes(a.assetClass)).map(a=>({...a,assetClass:a.assetClass==="EQUITY"?"STOCK":"BOND"}));
-  data.rows=data.rows.map(r=>({...r,returns:{STOCK:r.returns.EQUITY,BOND:r.returns.GOV_BOND}}));
+  data.assets=data.assets.filter(a=>["EQUITY","GOV_BOND",...(options.withCash?["CASH"]:[])].includes(a.assetClass)).map(a=>({...a,assetClass:a.assetClass==="EQUITY"?"STOCK":a.assetClass==="GOV_BOND"?"BOND":a.assetClass}));
+  data.rows=data.rows.map(r=>({...r,returns:{STOCK:r.returns.EQUITY,BOND:r.returns.GOV_BOND,...(options.withCash?{CASH:r.returns.CASH}:{})}}));
   const markets=new MarketDataService(f.db),market=await markets.create("test-admin",data);
   await markets.approve("test-admin",market.id,{expectedRevision:1,confirm:true,reviewNote:"Synthetic market review"});
   if(!options.noMarket)await markets.publish("test-admin",market.id,{expectedRevision:2,confirm:true});

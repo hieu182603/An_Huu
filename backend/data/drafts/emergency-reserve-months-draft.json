@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "status": "DRAFT_NOT_PUBLISHED",
+    "preparedOn": "2026-11-19",
+    "purpose": "Khối emergencyReserveMonths (tùy chọn) của bộ giả định assumption-series-v2: số tháng chi tiêu thiết yếu cần giữ làm quỹ dự phòng theo độ ổn định thu nhập. Chưa ghi DB, chưa công bố. Khối này KHÔNG được thêm vào seed-data/allocation-2026-10/draft-assumptions-v3.json vì tệp đó bị ghim byte (đã công bố).",
+    "basis": "sites/an-huu-trai-nghiem/thuat-toan-phan-bo-tai-san.md mục 3.2 chỉ quy định 6–12 tháng theo mức biến động thu nhập; 9 tháng cho thu nhập biến động và 6 tháng khi chưa rõ là lựa chọn của An Hưu, CHỜ DUYỆT.",
+    "howToApply": "Quản trị viên tạo phiên bản giả định mới (POST /api/v1/admin/assumptions hoặc PATCH bản nháp) bằng bộ đã công bố cộng khối bên dưới, sửa số liệu nếu nghiệp vụ đổi, rồi validate, impact, approve, publish. Khi chưa có khối được duyệt, hệ thống dùng 6/9/12 trong mã và báo reserveMonthsSource = CODE_DEFAULT_PENDING_CONFIRMATION."
+  },
+  "emergencyReserveMonths": {
+    "evidence": "CHỜ DUYỆT: tài liệu thuật toán phân bổ tài sản (mục 3.2) chỉ quy định quỹ dự phòng 6–12 tháng chi tiêu thiết yếu theo mức biến động thu nhập. 6 tháng (thu nhập ổn định) và 12 tháng (không chắc chắn) là hai đầu của khoảng; 9 tháng cho thu nhập biến động và 6 tháng khi chưa rõ độ ổn định là lựa chọn của An Hưu, chờ nghiệp vụ xác nhận trước khi công bố. Khách hàng tự nhập số tháng thì luôn dùng số khách nhập.",
+    "byIncomeStability": { "STABLE": 6, "VARIABLE": 9, "UNCERTAIN": 12 },
+    "default": 6
+  }
+}

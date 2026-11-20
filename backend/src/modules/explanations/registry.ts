@@ -1,12 +1,13 @@
 import type { CapitalSeparation } from "../capital/separation";
 import type { LossConstraint } from "../capital/loss-constraint";
 import { RetirementDecimal as D } from "../retirement/engine";
-import type { FeeRow } from "../retirement/advisory-fee";
+import { daysInMonth, type FeeRow } from "../retirement/advisory-fee";
 import type { essentialCoverage } from "../retirement/preview-insights";
 import type { PlanPreview } from "../retirement/upgrade";
 import type { RetirementService } from "../retirement/service";
 import { normalizedAnnualReturn } from "../assumptions/series";
 import { addMonths } from "../../common/calendar";
+import { RETIREMENT_MODEL_V5 } from "../retirement/schema";
 import type { ExplanationDetail } from "./schema";
 
 export const METRIC_KEYS = [
@@ -45,6 +46,9 @@ export function explainMetric(metricKey: string, preview: ExplanationPreview, ca
       limitations: [...(preview.calculation?.limitations ?? []), "EXPLANATION_USES_PINNED_SERVER_VALUES", "DISPLAY_ROUNDING_ONLY"] };
   const calculation = preview.calculation, replay = preview.replayInput, capital = preview.capitalSeparation;
   const summary = calculation?.summary;
+  // The explained calculation's own model decides the formulas: v5 (withdrawal at the start of the month, before that
+  // month's return; zero floor) or the frozen v3/v2 end-of-month convention. Source (v4) plans carry their kernel.
+  const v5 = (replay?.modelVersion as string | undefined) === RETIREMENT_MODEL_V5 || (replay as { kernelModel?: string } | undefined)?.kernelModel === RETIREMENT_MODEL_V5;
   const money = (vi: string, en: string, value: string, source: string) => add(vi, en, value, "VND", source);
   const summaryNote = "Bản tóm tắt cộng gộp các tháng để dễ đọc. Giá trị được tính lần lượt từng tháng; xem chi tiết từng tháng để tái tạo chính xác.";
   const period = (vi: string, en: string, first: string, last: string, months: number, source: string) => {
@@ -129,7 +133,20 @@ export function explainMetric(metricKey: string, preview: ExplanationPreview, ca
         if (row.essentialExpense === null || row.essentialShortfall === null) return null;
         const calculated = calculation.rows[index];
         money(`${row.month}: chi thiết yếu`, `${row.month}: essential spending`, row.essentialExpense, `essentialCoverage.rows[${index}].essentialExpense`);
-        for (const [key, vi, en] of [
+        if (v5) {
+          if (!replay || !summary) return null;
+          const n = summary.accumulationMonths;
+          // v5: funds usable for the month's essentials = opening funded balance + any start-of-month deposit.
+          const rowInput = replay.rows[index], begin = index < n && rowInput.month >= (replay.contributionStartMonth ?? replay.valuationDate.slice(0, 7)) && replay.contributionTiming === "START_OF_MONTH";
+          const opening = index === 0 ? replay.initialCapital : calculation.rows[index - 1].fundedClosingBalance;
+          if (!new D(opening).plus(begin ? rowInput.contribution : 0).eq((calculated as { fundedAvailableAtStart?: string }).fundedAvailableAtStart ?? "NaN")) return null;
+          money(`${row.month}: thu nhập`, `${row.month}: income`, calculated.income, `calculation.rows[${index}].income`);
+          money(`${row.month}: lương hưu`, `${row.month}: pension`, calculated.pension, `calculation.rows[${index}].pension`);
+          money(`${row.month}: quỹ thực có đầu kỳ`, `${row.month}: opening funded balance`, opening, index === 0 ? "replayInput.initialCapital" : `calculation.rows[${index - 1}].fundedClosingBalance`);
+          money(`${row.month}: khoản góp đầu tháng dùng được ngay`, `${row.month}: start-of-month deposit usable immediately`, begin ? rowInput.contribution : "0", `replayInput.rows[${index}].contribution`);
+          money(`${row.month}: khoản rút đầu tháng`, `${row.month}: start-of-month withdrawal`, calculated.withdrawal, `calculation.rows[${index}].withdrawal`);
+          money(`${row.month}: khoản rút thiếu nguồn`, `${row.month}: unfunded withdrawal`, calculated.unfundedWithdrawal, `calculation.rows[${index}].unfundedWithdrawal`);
+        } else for (const [key, vi, en] of [
           ["income", "thu nhập", "income"], ["pension", "lương hưu", "pension"], ["fundedClosingBalance", "quỹ thực có cuối kỳ", "funded closing balance"],
           ["withdrawal", "khoản rút cần có", "required withdrawal"], ["unfundedWithdrawal", "khoản rút thiếu nguồn", "unfunded withdrawal"],
         ] as const) money(`${row.month}: ${vi}`, `${row.month}: ${en}`, calculated[key], `calculation.rows[${index}].${key}`);
@@ -137,19 +154,25 @@ export function explainMetric(metricKey: string, preview: ExplanationPreview, ca
     }
     notes.push("Phân loại thiếu hụt ưu tiên chi thiết yếu. Khoản chi sinh hoạt hưu trí được tính là thiết yếu; không phải tỷ lệ xác suất đủ tiền.");
     return result("Tổng thiếu hụt chi thiết yếu", "Total essential spending shortfall", essential.essentialShortfall, "VND",
-      "Mỗi tháng lấy phần chi thiết yếu còn thiếu sau thu nhập, lương hưu và quỹ có thể dùng, giới hạn bởi tổng khoản rút thiếu nguồn; cộng tất cả các tháng.",
-      "Add monthly essential spending deficits after income, pension and available funded capital, capped by each month's unfunded withdrawal.",
-      "F_t = fundedClosing_t + W_t − U_t; S = Σt min(U_t, max(0, E_t − I_t − P_t − F_t))");
+      v5 ? "Mỗi tháng lấy phần chi thiết yếu còn thiếu sau thu nhập, lương hưu và quỹ có thể dùng ở đầu tháng (khoản rút được trừ đầu tháng, trước lãi), giới hạn bởi tổng khoản rút thiếu nguồn; cộng tất cả các tháng."
+        : "Mỗi tháng lấy phần chi thiết yếu còn thiếu sau thu nhập, lương hưu và quỹ có thể dùng, giới hạn bởi tổng khoản rút thiếu nguồn; cộng tất cả các tháng.",
+      v5 ? "Add monthly essential spending deficits after income, pension and the funded capital available at the start of the month (withdrawals leave at the start of the month, before the month's return), capped by each month's unfunded withdrawal."
+        : "Add monthly essential spending deficits after income, pension and available funded capital, capped by each month's unfunded withdrawal.",
+      v5 ? "F_t = fundedClosing_(t−1) + C_start,t; S = Σt min(U_t, max(0, E_t − I_t − P_t − F_t))" : "F_t = fundedClosing_t + W_t − U_t; S = Σt min(U_t, max(0, E_t − I_t − P_t − F_t))");
   }
   if (!summary || !calculation || !replay) return null;
   const n = summary.accumulationMonths;
-  const rowSteps = (from: number, through: number, fields: Array<["growthFactor" | "contribution" | "capitalInjection" | "withdrawal", string, string]>) => {
+  const costOf = (row: (typeof replay.rows)[number]) => (row as { tradingCostRate?: string }).tradingCostRate ?? "0";
+  const rowSteps = (from: number, through: number, fields: Array<["growthFactor" | "contribution" | "capitalInjection" | "withdrawal" | "tradingCostRate", string, string]>) => {
     if (detail === "SUMMARY") {
       if (through <= from) return;
       const range = `replayInput.rows[${from}..${through - 1}]`, rows = replay.rows.slice(from, through);
       period("Giai đoạn", "Period", rows[0].month, rows.at(-1)!.month, rows.length, range);
       for (const [key, vi, en] of fields) {
-        if (key === "growthFactor") add("Hệ số tăng trưởng lũy kế", "Cumulative growth factor",
+        if (key === "tradingCostRate") {
+          if (rows.some(row => new D(costOf(row)).gt(0))) add("Hệ số giữ lại sau chi phí giao dịch lũy kế", "Cumulative retention factor after trading cost",
+            rows.reduce((product, row) => product.mul(new D(1).minus(costOf(row))), new D(1)).toSignificantDigits(15).toFixed(), "FACTOR", `Π ${range}.(1 − tradingCostRate)`);
+        } else if (key === "growthFactor") add("Hệ số tăng trưởng lũy kế", "Cumulative growth factor",
           rows.reduce((product, row) => product.mul(row.growthFactor), new D(1)).toSignificantDigits(15).toFixed(), "FACTOR", `Π ${range}.growthFactor`);
         else money(`Tổng ${vi}`, `Total ${en}`, rows.reduce((sum, row) => sum.plus(row[key]), new D(0)).toFixed(), `Σ ${range}.${key}`);
       }
@@ -157,10 +180,14 @@ export function explainMetric(metricKey: string, preview: ExplanationPreview, ca
       return;
     }
     for (let i = from; i < through; i++) for (const [key, vi, en] of fields)
-      add(`${replay.rows[i].month}: ${vi}`, `${replay.rows[i].month}: ${en}`, replay.rows[i][key], key === "growthFactor" ? "FACTOR" : "VND", `replayInput.rows[${i}].${key}`);
+      add(`${replay.rows[i].month}: ${vi}`, `${replay.rows[i].month}: ${en}`, key === "tradingCostRate" ? costOf(replay.rows[i]) : replay.rows[i][key], key === "growthFactor" || key === "tradingCostRate" ? "FACTOR" : "VND", `replayInput.rows[${i}].${key}`);
   };
   const allFlows: Parameters<typeof rowSteps>[2] = [["growthFactor", "hệ số tăng trưởng", "growth factor"], ["contribution", "góp thực tế trong mô hình", "modeled funded contribution"],
     ["capitalInjection", "vốn được giải phóng cuối tháng", "capital released at month end"], ["withdrawal", "khoản rút cuối tháng", "month-end withdrawal"]];
+  const allFlowsV5: Parameters<typeof rowSteps>[2] = [["growthFactor", "hệ số tăng trưởng", "growth factor"], ["tradingCostRate", "tỷ lệ chi phí giao dịch", "trading cost rate"],
+    ["contribution", "góp thực tế trong mô hình", "modeled funded contribution"], ["capitalInjection", "vốn được giải phóng cuối tháng", "capital released at month end"],
+    ["withdrawal", "khoản rút đầu tháng, trước lãi của tháng", "start-of-month withdrawal, before the month's return"]];
+  const flows = v5 ? allFlowsV5 : allFlows;
   const timingSteps = () => {
     add("Thời điểm góp", "Contribution timing", replay.contributionTiming, "TIMING", "replayInput.contributionTiming");
     add("Tháng bắt đầu được góp", "First eligible contribution month", replay.contributionStartMonth ?? replay.valuationDate.slice(0, 7), "MONTH", "replayInput.contributionStartMonth ?? replayInput.valuationDate[0:7]");
@@ -169,20 +196,27 @@ export function explainMetric(metricKey: string, preview: ExplanationPreview, ca
 
   if (metricKey === "summary.atRetirement.requiredFund") {
     money("Số dư mong muốn cuối kế hoạch", "Target end-of-plan balance", replay.terminalBalance, "replayInput.terminalBalance");
-    rowSteps(n, replay.rows.length, allFlows);
+    rowSteps(n, replay.rows.length, flows);
     notes.push("Tính ngược từng tháng hưu trí, không vay trước một khoản thu trong tương lai. Vì vậy đây có thể lớn hơn PV đại số chỉ xét cuối kỳ.");
+    if (v5) notes.push("Mô hình v5: khoản rút được trừ ở đầu tháng, trước lãi của tháng đó; số dư âm không sinh lãi và không được bù bởi thu nhập tương lai.");
     return result("Quỹ cần khi nghỉ hưu", "Required fund at retirement", summary.atRetirement.requiredFund, "VND",
-      "Từ số dư mục tiêu cuối kỳ, cộng khoản rút, trừ khoản góp và vốn giải phóng, chia hệ số tăng trưởng; chặn dưới bằng 0 rồi lùi từng tháng tới tháng nghỉ hưu.",
-      "Work backward from the terminal target: add withdrawals, subtract contributions and released capital, divide by growth, and floor at zero every retirement month.",
-      "K_T = terminal; K_(t−1) = max(0, (K_t + W_t − C_t − J_t) / G_t), t = T…h");
+      v5 ? "Từ số dư mục tiêu cuối kỳ, trừ khoản góp cuối tháng và vốn giải phóng, chia hệ số tăng trưởng sau chi phí giao dịch (số này không âm vì số dư âm không sinh lãi), rồi cộng khoản rút đầu tháng; lùi từng tháng tới tháng nghỉ hưu."
+        : "Từ số dư mục tiêu cuối kỳ, cộng khoản rút, trừ khoản góp và vốn giải phóng, chia hệ số tăng trưởng; chặn dưới bằng 0 rồi lùi từng tháng tới tháng nghỉ hưu.",
+      v5 ? "Work backward from the terminal target: subtract the month-end deposit and released capital, divide by growth net of trading cost (floored at zero because negative balances earn no return), then add the start-of-month withdrawal, for every retirement month."
+        : "Work backward from the terminal target: add withdrawals, subtract contributions and released capital, divide by growth, and floor at zero every retirement month.",
+      v5 ? "K_T = terminal; x_t = max(0, (K_t − C_t − J_t) / ((1 − τ_t) × G_t)); K_(t−1) = W_t + x_t, t = T…h"
+        : "K_T = terminal; K_(t−1) = max(0, (K_t + W_t − C_t − J_t) / G_t), t = T…h");
   }
   if (metricKey === "summary.atRetirement.projectedFund") {
     money("Vốn đầu kỳ của dự báo", "Opening projection capital", replay.initialCapital, "replayInput.initialCapital");
-    timingSteps(); rowSteps(0, n, allFlows);
+    timingSteps(); rowSteps(0, n, flows);
     return result("Quỹ dự kiến khi nghỉ hưu", "Projected fund at retirement", summary.atRetirement.projectedFund, "VND",
-      "Bắt đầu từ vốn đầu kỳ, lần lượt cộng góp theo đúng thời điểm, nhân tăng trưởng, cộng vốn giải phóng và trừ khoản rút trong từng tháng tích lũy.",
-      "Roll opening capital through accumulation, applying contribution timing, growth, released capital and withdrawals in order.",
-      "B_0 = initial; B_t = (B_(t−1) + C_start,t) × G_t + C_end,t + J_t − W_t; projected = B_h");
+      v5 ? "Bắt đầu từ vốn đầu kỳ; mỗi tháng tích lũy cộng khoản góp đầu tháng (nếu có), trừ khoản rút đầu tháng (phần thiếu không được tính lãi, số dư không âm), trừ chi phí giao dịch trên số dư còn lại, nhân tăng trưởng của tháng rồi cộng khoản góp cuối tháng và vốn giải phóng."
+        : "Bắt đầu từ vốn đầu kỳ, lần lượt cộng góp theo đúng thời điểm, nhân tăng trưởng, cộng vốn giải phóng và trừ khoản rút trong từng tháng tích lũy.",
+      v5 ? "Roll opening capital through accumulation: add any start-of-month deposit, subtract the start-of-month withdrawal (a shortfall earns nothing; balance floors at zero), deduct trading cost on the remainder, apply the month's growth, then add the month-end deposit and released capital."
+        : "Roll opening capital through accumulation, applying contribution timing, growth, released capital and withdrawals in order.",
+      v5 ? "B_0 = initial; x_t = max(0, B_(t−1) + C_start,t − W_t); B_t = x_t × (1 − τ_t) × G_t + C_end,t + J_t; projected = B_h"
+        : "B_0 = initial; B_t = (B_(t−1) + C_start,t) × G_t + C_end,t + J_t − W_t; projected = B_h");
   }
   if (metricKey === "summary.atRetirement.fundingGap" || metricKey === "summary.atRetirement.coveragePercent") {
     money("Quỹ cần khi nghỉ hưu", "Required fund at retirement", summary.atRetirement.requiredFund, "calculation.summary.atRetirement.requiredFund");
@@ -198,14 +232,20 @@ export function explainMetric(metricKey: string, preview: ExplanationPreview, ca
     if (value === null) return null;
     money("Vốn đầu kỳ", "Opening capital", replay.initialCapital, "replayInput.initialCapital");
     money("Quỹ cần khi nghỉ hưu", "Required fund at retirement", summary.atRetirement.requiredFund, "calculation.summary.atRetirement.requiredFund");
-    timingSteps(); rowSteps(0, n, allFlows);
+    timingSteps(); rowSteps(0, n, flows);
+    if (v5) notes.push("Mô hình v5: mức góp là nghiệm đại số chính xác của phép đệ quy có dấu (không dùng dò nghiệm); mỗi tháng tích lũy, số dư sau khi trừ khoản rút đầu tháng phải không âm vì số dư âm không sinh lãi.");
     notes.push("Mức góp hằng tháng là nghiệm lý thuyết theo các dòng tiền đã ghim; cần xem riêng khả năng góp thực tế. Phí đang có được giữ theo lịch đã tính, cần chạy lại preview nếu đổi mức góp.");
     return result(additional ? "Mức góp thêm mỗi tháng" : "Mức góp đều cần mỗi tháng", additional ? "Additional monthly contribution" : "Required constant monthly contribution", value, "VND",
-      additional ? "Tính hệ số tích lũy của một đồng góp mỗi tháng. Lấy mức góp thêm lớn nhất để không thiếu vốn ở mỗi tháng tích lũy và đạt quỹ cần khi nghỉ hưu, so với lịch góp đang có."
+      v5 ? (additional ? "Theo dõi số dư có dấu sau khi trừ khoản rút đầu tháng và hệ số tích lũy của một đồng góp mỗi tháng. Lấy mức góp thêm lớn nhất để số dư sau rút không âm ở mỗi tháng tích lũy và đạt quỹ cần khi nghỉ hưu, so với lịch góp đang có."
+        : "Theo dõi số dư có dấu (không góp) sau khi trừ khoản rút đầu tháng và hệ số tích lũy của một đồng góp mỗi tháng. Lấy mức góp lớn nhất để số dư sau rút không âm ở mỗi tháng tích lũy và đạt quỹ cần khi nghỉ hưu.")
+      : additional ? "Tính hệ số tích lũy của một đồng góp mỗi tháng. Lấy mức góp thêm lớn nhất để không thiếu vốn ở mỗi tháng tích lũy và đạt quỹ cần khi nghỉ hưu, so với lịch góp đang có."
         : "Tính quỹ nếu không góp và hệ số tích lũy của một đồng góp mỗi tháng. Lấy mức góp lớn nhất để không thiếu vốn mỗi tháng tích lũy và đạt quỹ cần khi nghỉ hưu.",
-      additional ? "Use the accumulated value of one unit contributed monthly; take the largest extra contribution needed for every accumulation month and the retirement target, on top of existing deposits."
+      v5 ? (additional ? "Track the signed balance after the start-of-month withdrawal and the accumulated value of one unit contributed monthly; take the largest extra contribution that keeps the post-withdrawal balance non-negative every accumulation month and reaches the retirement target, on top of existing deposits."
+        : "Track the signed no-contribution balance after the start-of-month withdrawal and the accumulated value of one unit contributed monthly; take the largest contribution that keeps the post-withdrawal balance non-negative every accumulation month and reaches the retirement target.")
+      : additional ? "Use the accumulated value of one unit contributed monthly; take the largest extra contribution needed for every accumulation month and the retirement target, on top of existing deposits."
         : "Compute capital without contributions and the accumulated value of one unit contributed monthly; take the largest contribution needed for each accumulation month and the retirement target.",
-      `A_0 = initial; A_t = A_(t−1)G_t + J_t − W_t; k_0 = 0; k_t = k_(t−1)G_t + w_t; w_t = 0 before eligibility, G_t at START, 1 at END; ${additional ? "B_t = (B_(t−1) + C_start,t)G_t + C_end,t + J_t − W_t; extra = max(0, max_t(−B_t/k_t), (required − B_h)/k_h)" : "requiredMonthly = max(0, max_t(−A_t/k_t), (required − A_h)/k_h)"} (k_t > 0)`);
+      v5 ? `a_0 = initial; x_t = a_(t−1) + c_start,t − W_t; a_t = x_t × (1 − τ_t) × G_t + c_end,t + J_t; k_0 = 0; u_t = k_(t−1) + [START]; k_t = u_t × (1 − τ_t) × G_t + [END]; (a, k are the signed balance and its slope in the monthly deposit; START/END = 1 only when eligible at that timing); ${additional ? "declared deposits included; extra = max(0, max_t(−x_t/u_t), (required − a_h)/k_h)" : "no deposits; requiredMonthly = max(0, max_t(−x_t/u_t), (required − a_h)/k_h)"} (u_t > 0, k_h > 0)`
+      : `A_0 = initial; A_t = A_(t−1)G_t + J_t − W_t; k_0 = 0; k_t = k_(t−1)G_t + w_t; w_t = 0 before eligibility, G_t at START, 1 at END; ${additional ? "B_t = (B_(t−1) + C_start,t)G_t + C_end,t + J_t − W_t; extra = max(0, max_t(−B_t/k_t), (required − B_h)/k_h)" : "requiredMonthly = max(0, max_t(−A_t/k_t), (required − A_h)/k_h)"} (k_t > 0)`);
   }
   if (metricKey === "summary.futureMonthlyExpense") {
     if (preview.modelVersion === "retirement-monthly-v4") {
@@ -263,6 +303,13 @@ export function explainMetric(metricKey: string, preview: ExplanationPreview, ca
   money("Quy mô quỹ bình quân làm căn cứ tính phí", "Average fund used for the fee", row.advisoryFeeAverageFund, `replayInput.rows[${index}].advisoryFeeAverageFund`);
   add("Tỷ lệ phí tư vấn mỗi năm", "Annual advisory fee rate", fee.annualPercent, "PERCENT", "selection.advisoryFee.annualPercent");
   notes.push(`Phí tháng ${feeMonth}; nguồn trả ${row.advisoryFeePaidFrom ?? fee.paidFrom}. Quy mô bình quân là trung bình quỹ thực có đầu kỳ và cuối kỳ trước phí, chặn quỹ cuối kỳ dưới bằng 0; đây là dịch vụ tư vấn bổ sung.`);
+  if (v5) {
+    add("Số ngày trong tháng", "Calendar days in month", daysInMonth(feeMonth), "DAYS", `replayInput.rows[${index}].month`);
+    return result(`Phí tư vấn tháng ${feeMonth}`, `Advisory fee for ${feeMonth}`, row.advisoryFeeAmount, "VND",
+      "Quy mô quỹ bình quân trước phí nhân tỷ lệ phí năm, chia 100, nhân số ngày thực tế của tháng và chia 365.",
+      "Average funded capital before the fee multiplied by the annual percentage rate divided by 100, times actual calendar days in the month divided by 365.",
+      "fee_t = averageFund_t × (annualPercent / 100) × (daysInMonth_t / 365)");
+  }
   return result(`Phí tư vấn tháng ${feeMonth}`, `Advisory fee for ${feeMonth}`, row.advisoryFeeAmount, "VND",
     "Quy mô quỹ bình quân trước phí nhân tỷ lệ phí năm, chia 100 và chia 12 tháng.", "Average funded capital before the fee multiplied by the annual percentage rate, divided by 100 and 12 months.", "fee_t = averageFund_t × (annualPercent / 100 / 12)");
 }

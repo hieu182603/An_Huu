@@ -11,7 +11,19 @@ export function allocationCandidates(base: Allocation[][], equity: string, cash:
       changePoints: shift.abs().toFixed(), valid: targets.every(t => validWeights(t) && t.some(a => a.assetClass === equity) && t.some(a => a.assetClass === cash)) };
   });
 }
-export function selectCandidate<T extends { id: string; pEssential: number; cvarEssentialShortfallToday: string; changePoints: string }>(candidates: T[], threshold: string) {
-  return candidates.filter(c => new D(c.pEssential).gte(threshold)).sort((a, b) =>
-    new D(a.cvarEssentialShortfallToday).cmp(b.cvarEssentialShortfallToday) || new D(a.changePoints).cmp(b.changePoints) || a.id.localeCompare(b.id))[0] ?? null;
+type Changing = { id: string; changePoints: string; turnoverFromCurrentPoints?: string | null };
+/**
+ * Spec 7.4 step 3 / 6.3: among candidates reaching p_essential, lowest CVaR95, then lowest turnover.
+ * Turnover is measured against the customer's current holdings when both candidates carry it
+ * (turnoverFromCurrentPoints); otherwise against the published template (changePoints).
+ */
+export function compareChange(a: Changing, b: Changing) {
+  const bothCurrent = a.turnoverFromCurrentPoints != null && b.turnoverFromCurrentPoints != null;
+  return new D(bothCurrent ? a.turnoverFromCurrentPoints! : a.changePoints).cmp(bothCurrent ? b.turnoverFromCurrentPoints! : b.changePoints) || a.id.localeCompare(b.id);
+}
+export function compareCvarThenChange(a: Changing & { cvarEssentialShortfallToday: string }, b: Changing & { cvarEssentialShortfallToday: string }) {
+  return new D(a.cvarEssentialShortfallToday).cmp(b.cvarEssentialShortfallToday) || compareChange(a, b);
+}
+export function selectCandidate<T extends { id: string; pEssential: number; cvarEssentialShortfallToday: string; changePoints: string; turnoverFromCurrentPoints?: string | null }>(candidates: T[], threshold: string) {
+  return candidates.filter(c => new D(c.pEssential).gte(threshold)).sort(compareCvarThenChange)[0] ?? null;
 }

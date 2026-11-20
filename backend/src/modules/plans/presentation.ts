@@ -6,6 +6,9 @@ type Preview = PlanPreview;
 export const hasFutureAssumptions = (p: Preview) => !!p.selection.whatIf || !!p.futureChanges?.length ||
   !!p.sourceChanges?.some(c => c.kind === "PENSION_REPLACE" || c.kind === "FLOW_REPLACE") ||
   (p.modelVersion === "retirement-monthly-v4" && p.calculation.attribution.some(r => r.confirmation === "HYPOTHETICAL"));
+/** Withdrawal timing a saved preview was computed with. Anything without the marker is an old end-of-month plan. */
+export const withdrawalTimingOf = (p: Preview): string => (p.calculation as { conventions?: { withdrawalTiming?: string } } | undefined)?.conventions?.withdrawalTiming ?? "END_OF_MONTH";
+export const CONVENTIONS_DIFFER_NOTE = "Hai phiên bản dùng quy ước tính khác nhau (rút đầu tháng / cuối tháng). Chênh lệch có thể đến từ quy ước, không chỉ từ dữ liệu.";
 export function comparePreviews(baseline: Preview, candidate: Preview) {
   const reasons: string[] = [];
   if (!baseline.calculation || !candidate.calculation) reasons.push("INCOMPLETE_CALCULATION");
@@ -13,6 +16,7 @@ export function comparePreviews(baseline: Preview, candidate: Preview) {
   if (baseline.currency !== candidate.currency) reasons.push("CURRENCY_DIFFERS");
   if (baseline.selection.endMonth !== candidate.selection.endMonth) reasons.push("END_MONTH_DIFFERS");
   const a = baseline.calculation?.summary, b = candidate.calculation?.summary;
+  const conventionsDiffer = withdrawalTimingOf(baseline) !== withdrawalTimingOf(candidate);
   const subtract = (x: string | null, y: string | null) => x === null || y === null ? null : new D(y).minus(x).toFixed();
   const delta = !reasons.length && a && b ? {
     projectedFundAtValuation: subtract(a.atValuation.projectedFund, b.atValuation.projectedFund),
@@ -49,13 +53,18 @@ export function comparePreviews(baseline: Preview, candidate: Preview) {
         .concat(isDeepStrictEqual(baseline.modelVersion === "retirement-monthly-v4" ? baseline.replayInput.sourceRegistry.registryHash : null,
           candidate.modelVersion === "retirement-monthly-v4" ? candidate.replayInput.sourceRegistry.registryHash : null) ? [] : ["sourceRegistry"])
         .concat(isDeepStrictEqual(baseline.reforecast?.actualRevisions, candidate.reforecast?.actualRevisions) ? [] : ["actualRevisions"]) },
-    limitations: ["DETERMINISTIC_NOT_SUCCESS_PROBABILITY", "DIFFERENT_INPUTS_MAY_CHANGE_MULTIPLE_FACTORS", "CHECK_FIRST_SHORTFALL_SEPARATELY"] };
+    // Additive and only when it matters, so comparisons on one convention keep their exact response shape.
+    ...(conventionsDiffer ? { conventionsDiffer: true, conventions: { baseline: withdrawalTimingOf(baseline), candidate: withdrawalTimingOf(candidate) },
+      conventionNote: CONVENTIONS_DIFFER_NOTE } : {}),
+    limitations: ["DETERMINISTIC_NOT_SUCCESS_PROBABILITY", "DIFFERENT_INPUTS_MAY_CHANGE_MULTIPLE_FACTORS", "CHECK_FIRST_SHORTFALL_SEPARATELY",
+      ...(conventionsDiffer ? ["CALCULATION_CONVENTIONS_DIFFER"] : [])] };
 }
 
 export const monthlyCsvFields = ["month", "phase", "growthFactor", "inflationFactor", "income", "pension", "livingExpense", "additionalExpense",
   "debtPayment", "plannedContribution", "contribution", "contributionCapacity", "withdrawal", "uninvestedSurplus", "capitalInjection",
   "openingBalance", "investmentChange", "closingBalance", "fundedClosingBalance", "unfundedWithdrawal", "budgetShortfall",
   "requiredOpeningBalance", "requiredClosingBalance", "netWithdrawal"] as const;
+export const v5CsvFields = ["fundedAvailableAtStart", "tradingCost", "cumulativeUnfunded"] as const;
 // Headers/text are server-controlled IDs/enums, not user labels. Keep legitimate
 // signed decimal values numeric; untrusted textual cells are formula-neutralized.
 export function csvCell(value: string) {
@@ -77,9 +86,12 @@ export function versionCsv(version: { id: string; planId: string; version: numbe
     sourceChangeIds: (p.sourceChanges ?? []).map(c => c.id).join("|"),
     valueKind: p.reforecast ? "REFORECAST" : "FORECAST", hypothetical: hasFutureAssumptions(p) ? "true" : "false" };
   const sourceFields = p.modelVersion === "retirement-monthly-v4" ? ["sourceRegistryHash", "sourceAttributionJson"] : [];
-  const headers = [...Object.keys(metadata), ...monthlyCsvFields, ...sourceFields];
+  // Columns that exist only in start-of-month (v5) rows go last so older readers keep their column positions.
+  const startOfMonth = withdrawalTimingOf(p) === "START_OF_MONTH";
+  const headers = [...Object.keys(metadata), ...monthlyCsvFields, ...sourceFields, ...(startOfMonth ? v5CsvFields : [])];
   return "\uFEFF" + [headers, ...calculation.rows.map(row => [...Object.values(metadata), ...monthlyCsvFields.map(key => row[key]),
-    ...(p.modelVersion === "retirement-monthly-v4" ? [p.calculation.sourceRegistryHash, JSON.stringify(p.calculation.attribution.filter(c => c.month === row.month))] : [])])]
+    ...(p.modelVersion === "retirement-monthly-v4" ? [p.calculation.sourceRegistryHash, JSON.stringify(p.calculation.attribution.filter(c => c.month === row.month))] : []),
+    ...(startOfMonth ? v5CsvFields.map(key => (row as unknown as Record<string, string>)[key] ?? "") : [])])]
     .map(row => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
 

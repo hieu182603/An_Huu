@@ -22,9 +22,10 @@ s.Issue = obj({ path: str, code: str });
 const row = { month: str };
 for (const name of ["growthFactor", "inflationFactor", "income", "pension", "livingExpense", "additionalExpense", "debtPayment", "plannedContribution", "contribution", "contributionCapacity", "withdrawal", "uninvestedSurplus", "capitalInjection"]) row[name] = decimal;
 s.MonthlyInput = obj(row);
+s.MonthlyInput.properties.tradingCostRate = decimal; // v5 only, optional (absent in v3/v4 rows)
 s.ReplayInput = obj({ valuationDate: str, retirementMonth: str, initialCapital: decimal, terminalBalance: decimal,
   monthlyContribution: decimal, contributionTiming: en("END_OF_MONTH", "START_OF_MONTH_RESEARCH", "START_OF_MONTH"), rows: arr(ref("MonthlyInput")) });
-s.ReplayInput.properties.modelVersion = en("retirement-monthly-v3");
+s.ReplayInput.properties.modelVersion = en("retirement-monthly-v3", "retirement-monthly-v5");
 s.ReplayInput.properties.contributionStartMonth = str;
 s.Protection=obj({model:en("protected-capital-v1"),emergencyReserve:decimal,
  goals:arr(obj({id:str,month:str,amount:decimal,openingReserve:decimal,essential:bool})),depositFactors:arr(decimal),depositAssetClass:str,rawRows:arr(ref("MonthlyInput"))});
@@ -33,6 +34,7 @@ s.ReplayInput.properties.protection=ref("Protection");
 s.Row = obj({ ...row, phase: en("ACCUMULATION", "RETIREMENT"), ...Object.fromEntries([
   "openingBalance", "investmentChange", "closingBalance", "fundedClosingBalance", "unfundedWithdrawal", "budgetShortfall", "requiredOpeningBalance", "requiredClosingBalance", "netWithdrawal",
 ].map(k => [k, decimal])) });
+for (const k of ["fundedAvailableAtStart", "tradingCost", "cumulativeUnfunded"]) s.Row.properties[k] = decimal; // v5 only, optional
 for(const name of ["MonthlyInput","Row"])for(const key of ["protectedHouseholdPaid","goalExpense","protectedGoalPaid","essentialGoalExpense","protectedEssentialGoalPaid","protectedClosingBalance"])
  s[name].properties[key]=decimal;
 s.Comparison = obj({ projectedFund: decimal, requiredFund: decimal, fundingGap: decimal, coveragePercent: nullableDecimal });
@@ -48,9 +50,11 @@ for (const name of ["MonthlyInput", "Row"]) Object.assign(s[name].properties, {
   advisoryFeeAmount: decimal, advisoryFeeAverageFund: decimal, advisoryFeePaidFrom: en("FUND", "EXTERNAL") });
 Object.assign(s.Row.properties, { essentialShortfall: nullableDecimal, otherShortfall: nullableDecimal });
 Object.assign(s.Summary.properties, { essentialShortfall: nullableDecimal, firstEssentialShortfallMonth: nullableStr });
-s.Conventions = obj({ contributionTiming: en("END_OF_MONTH", "START_OF_MONTH_RESEARCH", "START_OF_MONTH"), withdrawalTiming: en("END_OF_MONTH"),
+s.Conventions = obj({ contributionTiming: en("END_OF_MONTH", "START_OF_MONTH_RESEARCH", "START_OF_MONTH"), withdrawalTiming: en("END_OF_MONTH", "START_OF_MONTH"),
   capitalReleaseTiming: en("END_OF_MONTH"), surplusPolicy: str, allocationCashflows: str, arithmeticPrecision: num,
   firstPeriod: str, rounding: str, negativeBalance: str, terminalBalanceBasis: str });
+s.Conventions.properties.tradingCostBasis = en("POST_WITHDRAWAL_BALANCE"); // v5 only, optional
+s.Conventions.properties.advisoryFeeBasis = en("FULL_MONTH_NO_DAILY_PRORATION", "ACTUAL_DAYS_365"); // optional
 s.Calculation = obj({ modelVersion: str, conventions: ref("Conventions"), summary: ref("Summary"), rows: arr(ref("Row")), netWorth: nullableDecimal,
   assessment: { $ref: "./portfolios.openapi.yaml#/Assessment" }, marketRows: arr({ $ref: "./portfolios.openapi.yaml#/Row" }),
   scenario: obj({ kind: en("BASE", "ADVERSE", "FAVORABLE"), label: str, evidence: str, changes: { $ref: "./portfolios.openapi.yaml#/Scenario/properties/changes" } }),
@@ -68,6 +72,14 @@ s.Preview.properties.futureChanges = arr(schema(require('../src/modules/actuals/
 s.Preview.properties.surveyGoalCashflows = arr(obj({ id: str, month: str, amount: decimal }));
 s.Preview.properties.sourceChanges = arr(schema(require('../src/modules/actuals/schema').sourceChangeSchema));
 s.Preview.properties.capitalSeparation = ref("CapitalSeparation");
+s.Obligation = { ...obj({ kind: en("ESSENTIAL_EXPENSE", "RETIREMENT_LIVING", "CONTRACT_DEBT", "ESSENTIAL_GOAL", "MANDATORY_EXPENSE", "FLEXIBLE_GOAL", "OPTIONAL_EXPENSE", "LEGACY_GOAL"),
+  id: str, label: str, priorityRank: { type: "integer", minimum: 1, maximum: 7 }, firstMonth: nullableStr, lastMonth: nullableStr,
+  totalNominal: nullableDecimal, deferrable: bool }) };
+s.Obligation.properties.presentValue = nullableDecimal;
+s.LiquidityRequirement = obj({ horizons: arr(obj({ months: { type: "integer", enum: [12, 36, 60] }, amount: decimal, coveredByReserved: decimal, uncovered: decimal })), issues: arr(ref("Issue")) });
+s.Preview.properties.obligations = arr(ref("Obligation"));
+s.Preview.properties.liquidityRequirement = ref("LiquidityRequirement");
+
 Object.assign(s.Preview.properties, { lossConstraint: ref("LossConstraint"), essentialCoverage: ref("EssentialCoverage"),
   adjustmentOptions: ref("AdjustmentOptions"), decisionExplanations: arr(ref("DecisionExplanation")) });
 s.Preview.properties.capitalSeparation.description = "Informational only, returned by POST /me/retirement/preview. Pinned base assumptions, independent of scenario. Not saved in plan snapshots or used by the retirement engine. Missing on saved/replayed plans.";

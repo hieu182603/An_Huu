@@ -30,6 +30,7 @@ s.Assessment = obj({ status: en("INCOMPLETE", "MATCHED"), issues: arr(ref("Issue
 s.Row = obj({ month: str(), rebalanced: boolean, turnoverFraction: decimal, rebalanceCostFraction: decimal, returnMonthlyFactor: decimal,
   inflationMonthlyFactor: decimal, inflationAnnualPercent: decimal, inflationDeltaPoints: decimal, unitValue: decimal,
   holdings: arr(obj({ assetClass: str(), startWeightPercent: decimal, annualNetNominalReturnPercent: decimal, returnDeltaPoints: decimal })) });
+s.Row.properties.grossReturnMonthlyFactor = decimal; // only when requested by the retirement v5 kernel; optional
 s.Scenario = obj({ kind: en("BASE", "ADVERSE", "FAVORABLE"), label: str(), evidence: str(), changes: s.Document.oneOf[0].properties.scenarios.items.properties.years,
   rows: arr(ref("Row")), endingUnitValue: decimal });
 s.Preview = obj({ policyVersionId: uuid, policyVersion: integer, policyHash: str(), assumptionVersionId: uuid, assumptionHash: str(),

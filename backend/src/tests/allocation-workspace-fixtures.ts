@@ -5,7 +5,7 @@ import { AssumptionsService } from "../modules/assumptions/service";
 import { PortfoliosService } from "../modules/portfolios/service";
 import { AllocationRiskService } from "../modules/allocation-risk/service";
 import { publishedPolicies } from "../modules/portfolios/service";
-export async function allocationFixture(options:{multiple?:boolean;emptyPolicy?:boolean;unknownCapital?:boolean;zero?:boolean;negative?:boolean;endYear?:number;withoutQuickStart?:boolean}={}) {
+export async function allocationFixture(options:{multiple?:boolean;emptyPolicy?:boolean;unknownCapital?:boolean;zero?:boolean;negative?:boolean;endYear?:number;withoutQuickStart?:boolean;withCash?:boolean}={}) {
   const f=await discoveryFixture({products:3,articles:2}), assumptions=new AssumptionsService(f.db), portfolios=new PortfoliosService(f.db);
   const profile=fixtureProfile({incomeStability:known("STABLE"),goals:empty(),debts:empty(),
     assets:options.unknownCapital?{status:"UNKNOWN"}: {status:"KNOWN",entries:[fixtureAsset({value:known(options.zero?"0":options.negative?"100":"1000000000")})]},
@@ -13,6 +13,10 @@ export async function allocationFixture(options:{multiple?:boolean;emptyPolicy?:
   profile.personal.desiredRetirementMonth=known("2027-01");
   await f.profiles.patchProfile("test-user",1,{...profile});
   const assumptionData=portfolioAssumptionsFixture();
+  if(options.withCash){
+    assumptionData.assetClasses.push({code:"CASH",label:"Synthetic protected deposit",horizons:[{id:"ALL",minMonths:1,maxMonths:1200}]});
+    assumptionData.returns.push(...assumptionData.returns.filter(r=>r.assetClass==="BOND").map(r=>({...r,assetClass:"CASH"})));
+  }
   if(options.endYear){
     const last=assumptionData.projectionEndYear;
     assumptionData.projectionEndYear=options.endYear;
@@ -29,6 +33,7 @@ export async function allocationFixture(options:{multiple?:boolean;emptyPolicy?:
   await assumptions.approve("test-admin",a.id,{expectedRevision:1,impactToken:impact.impactToken,reviewNote:"Synthetic allocation review"});
   await assumptions.publish("test-admin",a.id,{expectedRevision:2,confirm:true});
   const policyData=glidePortfolioFixture(a.id);
+  if(options.withCash) for(const scenario of policyData.scenarios) for(const year of scenario.years) year.returns.push({assetClass:"CASH",deltaPoints:"0"});
   if(options.endYear)for(const scenario of policyData.scenarios){
     const last=scenario.years[scenario.years.length-1];
     for(let year=last.year+1;year<=options.endYear;year++)scenario.years.push({...last,year});

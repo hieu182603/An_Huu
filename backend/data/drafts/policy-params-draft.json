@@ -4,7 +4,8 @@
     "preparedOn": "2026-11-18",
     "purpose": "Tham số mô hình đề xuất cho chính sách danh mục schema v2 (bổ sung/điều chỉnh so với backend/seed-data/allocation-2026-10/draft-policy-v4.json). Không phải lời khuyên đầu tư cá nhân. Chưa ghi DB, chưa công bố.",
     "assetClasses": ["CASH", "GOV_BOND", "EQUITY", "GOLD"],
-    "basis": "Mọi con số tỷ trọng chỉ lấy từ bảng danh mục nền và mục 9.1 của tài liệu thuật toán khách hàng (sites/an-huu-trai-nghiem/thuat-toan-phan-bo-tai-san.md); phần An Hưu tự chọn được ghi CHỜ DUYỆT trong evidence.",
+    "basis": "Tỷ trọng danh mục nền lấy từ tài liệu thuật toán khách hàng (sites/an-huu-trai-nghiem/thuat-toan-phan-bo-tai-san.md); các tham số An Hưu tự chọn và đề xuất AI đều ghi CHỜ DUYỆT trong evidence, không phải giá trị đã được phê duyệt.",
+    "evidence": "CHỜ DUYỆT (bổ sung 20/11/2026): templates[TPL_BASE_GLIDE].glidePath.spendingFloorYears = 3, đề xuất AI chọn cận dưới khoảng 3–5 năm tại §8.3 để chủ sản phẩm đánh giá vốn bảo vệ; chỉ thử trên template nền, chưa mở cho hai template khác. CHỜ CHỐT healthDeltaPoints và lateLifeCareMonthly: §9.1 yêu cầu sốc y tế nhưng chưa có chuỗi thống kê chính thức và chi phí chăm sóc theo đối tượng/kỳ giá đủ để hiệu chỉnh hai tham số; không coi CPI chung hay mức trợ cấp là chi phí chăm sóc cá nhân.",
     "explanation": "docs/du-lieu-thi-truong-va-ty-trong-mau.md",
     "ruleMapping": {
       "TPL_CAUTIOUS_GLIDE": ["BAND_CONSERVATIVE", "BAND_MODERATE_CONSERVATIVE"],
@@ -28,7 +29,7 @@
       "id": "TPL_BASE_GLIDE",
       "label": "Cân bằng: đúng bảng danh mục nền của tài liệu",
       "rebalance": { "everyMonths": 12, "timing": "START_OF_MONTH", "turnoverCostPercent": "0.2", "costConvention": "HALF_L1_TURNOVER_TIMES_COST", "evidence": "Giữ nguyên v4: tái cân bằng hằng năm, chi phí luân chuyển 0,2% (CHỜ DUYỆT)." },
-      "glidePath": { "anchor": "RETIREMENT_MONTH", "interpolation": "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR", "afterAnchor": "HOLD_ZERO_YEAR_POINT",
+      "glidePath": { "anchor": "RETIREMENT_MONTH", "interpolation": "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR", "afterAnchor": "HOLD_ZERO_YEAR_POINT", "spendingFloorYears": 3,
         "points": [
           { "yearsToAnchor": 15, "allocations": [{ "assetClass": "CASH", "weightPercent": "10" }, { "assetClass": "GOV_BOND", "weightPercent": "20" }, { "assetClass": "EQUITY", "weightPercent": "60" }, { "assetClass": "GOLD", "weightPercent": "10" }] },
           { "yearsToAnchor": 10, "allocations": [{ "assetClass": "CASH", "weightPercent": "15" }, { "assetClass": "GOV_BOND", "weightPercent": "30" }, { "assetClass": "EQUITY", "weightPercent": "45" }, { "assetClass": "GOLD", "weightPercent": "10" }] },
@@ -61,21 +62,46 @@
     ]
   },
   "allocationRisk": {
-    "evidence": "CHỜ DUYỆT. Tài liệu khách: bootstrap khối 12–36 tháng (chọn 12), CVaR 95%, ngưỡng đủ chi thiết yếu 90–95% (chọn 90%), dải tái cân bằng 5 điểm %. Bước dịch cổ phiếu 10 điểm giữ theo v4; ứng viên LOSS_REDUCED vẫn tính mức giảm chính xác nên bước thô không chặn kết quả. allGoalsThreshold 80% là lựa chọn An Hưu, chỉ để hiển thị. Không dùng chuỗi thị trường giả lập.",
+    "evidence": "CHỜ DUYỆT. Tài liệu khách: bootstrap khối 12–36 tháng (chọn 12), CVaR 95%, ngưỡng đủ chi thiết yếu 90–95% (chọn 90%), dải tái cân bằng 5 điểm %. Bước dịch cổ phiếu 10 điểm giữ theo v4; ứng viên LOSS_REDUCED vẫn tính mức giảm chính xác nên bước thô không chặn kết quả. allGoalsThreshold 80% là lựa chọn An Hưu, chỉ để hiển thị. Không dùng chuỗi thị trường giả lập. Kịch bản sốc (CHỜ DUYỆT, bổ sung 20/11/2026): sốc cổ phiếu chạy ở các mốc -12/0/+12/+24 tháng quanh tháng nghỉ hưu (mục 9.1: trước hoặc trong 2 năm đầu nghỉ hưu); chênh giá mua-bán vàng 5 và 10 điểm (mục 9.1: 5–10%); thứ tự lợi suất cổ phiếu -20% rồi +25% theo ví dụ mục 9.2. Chưa có tham số được duyệt cho: thuế/phí khi bán (cần văn bản pháp luật đã ban hành), trần theo tương quan nghề nghiệp, số năm chi tiêu được bảo vệ trong lộ trình (mục 8.3 chỉ nêu khoảng 3–5 năm).",
     "blockMonths": 12,
     "cvarAlpha": "0.95",
     "essentialThreshold": "0.90",
     "allGoalsThreshold": "0.80",
     "equityShiftPoints": "10",
     "rebalanceBandPoints": "5",
+    "rebalance": {
+      "evidence": "CHỜ DUYỆT (bổ sung 20/11/2026): CHỜ CHỐT saleTaxPercent và transactionFeePercent. Tham chiếu thuế: Luật 109/2025/QH15, Điều 13 khoản 2 (được hợp nhất tại 112/VBHN-VPQH ngày 20/05/2026): 0,1% giá chuyển nhượng chứng khoán từng lần; Điều 5 khoản 4 có miễn thuế cho chứng chỉ quỹ mở nắm giữ từ 2 năm. https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/5/112-vbhn-vpqh.pdf . Đây không phải thuế suất chung cho CASH, GOV_BOND, EQUITY và GOLD: rebalance.ts hiện áp một tỷ lệ lên tổng bán mọi lớp tài sản, không phân loại công cụ/thời gian nắm giữ, nên chưa điền 0,1% vào trường toàn cục. Phí giao dịch là giả định theo công ty/sản phẩm, cần chủ sản phẩm chọn biểu phí và phạm vi trước khi điền. Không có giá trị nào ở khối này được công bố."
+    },
+    "continuousOptimizer": {
+      "riskAversionGamma": 2.5,
+      "uncertaintyKappa": 0.5,
+      "turnoverPenaltyEta": 0.002,
+      "estimation": {
+        "evidence": "CHỜ DUYỆT. Tham số nháp bộ tối ưu liên tục (γ=2.5, κ=0.5, η=0.002, historicalWeight=0.5); monthlyBaselines lấy từ lợi suất ròng dài hạn năm của bộ giả định v3 chia 12 (CASH 4.5%/12, GOV_BOND 4.43%/12, EQUITY 7.2516%/12, GOLD 5.0%/12). Chưa bật trên production.",
+        "historicalWeight": 0.5,
+        "monthlyBaselines": [
+          { "assetClass": "CASH", "returnRate": 0.00375 },
+          { "assetClass": "GOV_BOND", "returnRate": 0.003692 },
+          { "assetClass": "EQUITY", "returnRate": 0.006043 },
+          { "assetClass": "GOLD", "returnRate": 0.004167 }
+        ]
+      },
+      "bounds": [
+        { "assetClass": "CASH", "min": 0.05, "max": 0.7 },
+        { "assetClass": "GOV_BOND", "min": 0, "max": 0.6 },
+        { "assetClass": "EQUITY", "min": 0, "max": 0.6 },
+        { "assetClass": "GOLD", "min": 0, "max": 0.15 }
+      ]
+    },
     "stresses": {
       "HIGH_INFLATION": { "offsetMonths": 0, "durationMonths": 60, "annualDeltaPoints": "3" },
-      "EQUITY_CRASH": { "offsetMonths": 0, "assetClass": "EQUITY", "shockPercent": "-35", "severeShockPercent": "-50" },
+      "EQUITY_CRASH": { "offsetMonths": 0, "offsetsMonths": [-12, 0, 12, 24], "assetClass": "EQUITY", "shockPercent": "-35", "severeShockPercent": "-50" },
       "RATE_RISE": { "offsetMonths": 0, "assetClass": "GOV_BOND", "durationYears": "5", "yieldRisePoints": "2" },
-      "GOLD": { "offsetMonths": 0, "assetClass": "GOLD", "shockPercent": "-20", "spreadPoints": "5" },
+      "GOLD": { "offsetMonths": 0, "assetClass": "GOLD", "shockPercent": "-20", "spreadPoints": ["5", "10"] },
       "PROPERTY_ILLIQUIDITY": { "offsetMonths": 0, "durationMonths": 24, "delayMonths": 24, "haircutPercent": "30" },
       "INCOME_LOSS": { "offsetMonths": -24, "durationMonths": 12, "lostPercent": "50" },
-      "LONGEVITY": { "extraYears": [5, 10] }
+      "LONGEVITY": { "extraYears": [5, 10] },
+      "SEQUENCE_OF_RETURNS": { "assetClass": "EQUITY", "annualLossPercent": "-20", "annualGainPercent": "25" }
     }
   },
   "customization": {
@@ -88,5 +114,16 @@
       { "assetClass": "EQUITY", "minPercent": "0", "maxPercent": "60" },
       { "assetClass": "GOLD", "minPercent": "0", "maxPercent": "15" }
     ]
+  },
+  "occupationalRisk": {
+    "evidence": "CHỜ DUYỆT (bổ sung 20/11/2026): đề xuất AI, không có con số trong tài liệu. §3.1 và §6.3 yêu cầu xét thu nhập/rủi ro nghề nghiệp: đề xuất trần cổ phiếu 40% cho UNCERTAIN (thấp hơn trần chung 60% đúng 20 điểm), giảm trần 10 điểm khi tập trung vào người sử dụng lao động. Các mức này chỉ để chủ sản phẩm so sánh, chưa được hiệu chỉnh bằng dữ liệu thực nghiệm; không dùng như khuyến nghị cá nhân. Chưa có ánh xạ ngành nên excludeEmployerSector=false, không tự suy ra ngành hay coi rủi ro ngành đã được xử lý.",
+    "employerConcentration": { "maxEquityPercentReduction": "10", "excludeEmployerSector": false },
+    "incomeStability": { "UNCERTAIN": { "maxEquityPercent": "40" } }
+  },
+  "lossReaction": {
+    "evidence": "CHỜ DUYỆT. Hệ số điều chỉnh giới hạn lỗ cho phép theo phản ứng tâm lý khi thị trường giảm (SELL: 0.5, HOLD: 1, BUY_MORE: 1). Bản nháp chưa công bố.",
+    "SELL": { "allowedLossFactor": "0.5" },
+    "HOLD": { "allowedLossFactor": "1" },
+    "BUY_MORE": { "allowedLossFactor": "1" }
   }
 }

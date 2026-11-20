@@ -47,8 +47,41 @@ const amount = (explanation: MetricExplanation, source: string) => {
   return new D(step!.value);
 };
 const rowAmount = (explanation: MetricExplanation, i: number, field: string) => amount(explanation, `replayInput.rows[${i}].${field}`);
+// The recomposition follows the model of the calculation it explains: v5 withdraws at the START of the month,
+// before the month's return, and negative balances never earn returns; v3/v2 keep their frozen month-end formulas.
+const usesV5 = (replay: object) => (replay as { modelVersion?: string }).modelVersion === "retirement-monthly-v5" || (replay as { kernelModel?: string }).kernelModel === "retirement-monthly-v5";
+const costRate = (explanation: MetricExplanation, i: number) => amount(explanation, `replayInput.rows[${i}].tradingCostRate`);
 function recompose(explanation: MetricExplanation, preview: ExplanationPreview) {
   const metric = explanation.metricKey, replay = preview.replayInput!, n = preview.calculation!.summary.accumulationMonths;
+  if (usesV5(replay) && metric === "summary.atRetirement.requiredFund") {
+    // K_(t-1) = W_t + x_t, x_t = max(0, (K_t - C_t - J_t) / ((1 - tau_t) G_t))
+    let required = amount(explanation, "replayInput.terminalBalance");
+    for (let i = replay.rows.length - 1; i >= n; i--) {
+      const net = rowAmount(explanation, i, "growthFactor").mul(new D(1).minus(costRate(explanation, i)));
+      required = rowAmount(explanation, i, "withdrawal").plus(D.max(0, required.minus(rowAmount(explanation, i, "contribution")).minus(rowAmount(explanation, i, "capitalInjection")).div(net)));
+    }
+    return required;
+  }
+  if (usesV5(replay) && ["summary.atRetirement.projectedFund", "summary.requiredConstantMonthlyContribution", "summary.additionalMonthlyContribution"].includes(metric)) {
+    const timing = explanation.steps.find(row => row.source === "replayInput.contributionTiming")!.value;
+    const first = explanation.steps.find(row => row.unit === "MONTH")!.value;
+    const initial = amount(explanation, "replayInput.initialCapital");
+    let floored = initial, signedNone = initial, signedDeclared = initial, slope = new D(0), required = new D(0), additional = new D(0);
+    for (let i = 0; i < n; i++) {
+      const eligible = replay.rows[i].month >= first, begin = eligible && timing === "START_OF_MONTH";
+      const contribution = rowAmount(explanation, i, "contribution"), injection = rowAmount(explanation, i, "capitalInjection"), withdrawal = rowAmount(explanation, i, "withdrawal");
+      const net = rowAmount(explanation, i, "growthFactor").mul(new D(1).minus(costRate(explanation, i)));
+      const startDeposit = begin ? contribution : new D(0), endDeposit = begin ? new D(0) : contribution;
+      floored = D.max(0, floored.plus(startDeposit).minus(withdrawal)).mul(net).plus(endDeposit).plus(injection);
+      const xNone = signedNone.minus(withdrawal), xDeclared = signedDeclared.plus(startDeposit).minus(withdrawal), xSlope = slope.plus(begin ? 1 : 0);
+      if (xSlope.gt(0)) { required = D.max(required, xNone.neg().div(xSlope)); additional = D.max(additional, xDeclared.neg().div(xSlope)); }
+      signedNone = xNone.mul(net).plus(injection); signedDeclared = xDeclared.mul(net).plus(endDeposit).plus(injection);
+      slope = xSlope.mul(net).plus(eligible && !begin ? 1 : 0);
+    }
+    if (metric === "summary.atRetirement.projectedFund") return floored;
+    const target = amount(explanation, "calculation.summary.atRetirement.requiredFund");
+    return metric === "summary.requiredConstantMonthlyContribution" ? D.max(0, required, target.minus(signedNone).div(slope)) : D.max(0, additional, target.minus(signedDeclared).div(slope));
+  }
   if (metric === "summary.atRetirement.requiredFund") {
     let required = amount(explanation, "replayInput.terminalBalance");
     for (let i = replay.rows.length - 1; i >= n; i--)
@@ -113,13 +146,18 @@ function recompose(explanation: MetricExplanation, preview: ExplanationPreview) 
   }
   if (metric === "essentialCoverage.essentialShortfall") {
     let total = new D(0);
-    for (let i = 0; i < explanation.steps.length; i += 6) {
-      const [expense, income, pension, closing, withdrawal, unfunded] = explanation.steps.slice(i, i + 6).map(row => new D(row.value));
-      const available = closing.plus(withdrawal).minus(unfunded);
+    const v5 = usesV5(replay), width = v5 ? 7 : 6;
+    for (let i = 0; i < explanation.steps.length; i += width) {
+      const cells = explanation.steps.slice(i, i + width).map(row => new D(row.value));
+      const [expense, income, pension, unfunded] = [cells[0], cells[1], cells[2], cells[width - 1]];
+      // v5: usable funds at the start of the month = opening funded balance + start-of-month deposit, and unmet = max(0, W - available).
+      const available = v5 ? cells[3].plus(cells[4]) : cells[3].plus(cells[4]).minus(unfunded);
+      if (v5) expect(unfunded.toFixed()).toBe(D.max(0, cells[5].minus(available)).toFixed());
       total = total.plus(D.min(unfunded, D.max(0, expense.minus(income).minus(pension).minus(available))));
     }
     return total;
   }
+  if (usesV5(replay)) return new D(explanation.steps[0].value).mul(new D(explanation.steps[1].value).div(100)).mul(explanation.steps[2].value).div(365);
   return new D(explanation.steps[0].value).mul(new D(explanation.steps[1].value).div(100).div(12));
 }
 function originalValue(metric: string, preview: Awaited<ReturnType<typeof fixture>>["preview"]) {
@@ -161,6 +199,18 @@ describe("deterministic metric registry", () => {
     for (const key of ["summary.atRetirement.requiredFund", "summary.atRetirement.projectedFund", "summary.requiredConstantMonthlyContribution", "summary.additionalMonthlyContribution"]) {
       const explanation = explainMetric(key, preview, f.capture, "MONTHLY")!;
       expect(recompose(explanation, preview).toFixed()).toBe(explanation.value);
+    }
+  });
+
+  it("recomposes v5 with a positive trading cost and START_OF_MONTH deposits independently of the kernel", async () => {
+    const f = await fixture(false), base = f.preview.replayInput!;
+    expect(base.modelVersion).toBe("retirement-monthly-v5");
+    const replay = { ...base, contributionTiming: "START_OF_MONTH" as const, rows: base.rows.map(row => ({ ...row, tradingCostRate: "0.003" })) };
+    const preview: ExplanationPreview = { ...f.preview, replayInput: replay, calculation: { ...f.preview.calculation!, ...projectRetirement(replay) } };
+    for (const key of ["summary.atRetirement.requiredFund", "summary.atRetirement.projectedFund", "summary.requiredConstantMonthlyContribution", "summary.additionalMonthlyContribution"]) {
+      const explanation = explainMetric(key, preview, f.capture, "MONTHLY")!;
+      expect(explanation.steps.some(step => step.source.endsWith(".tradingCostRate"))).toBe(true);
+      expect(recompose(explanation, preview).toFixed(), key).toBe(explanation.value);
     }
   });
 

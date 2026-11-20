@@ -102,6 +102,7 @@ model User {
   feeStatements  FeeStatement[]
   paymentOrders  PaymentOrder[]
   payments       Payment[]
+  rebalanceDecisions RebalanceDecision[]
 
   @@map("users")
 }
@@ -1112,4 +1113,28 @@ model PaymentWebhookEvent {
 
   @@unique([orderCode, reference])
   @@map("payment_webhook_events")
+}
+
+/// Lịch sử quyết định tái cân bằng danh mục của khách hàng (B7-1, spec §8).
+model RebalanceDecision {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planVersionId     String?
+  createdAt         DateTime @default(now())
+  source            String
+  oldWeights        Json     @db.JsonB
+  targetWeights     Json     @db.JsonB
+  newWeights        Json     @db.JsonB
+  trigger           String
+  bandPoints        String
+  costEstimate      String
+  trades            Json     @db.JsonB
+  probabilityBefore Float?
+  probabilityAfter  Float?
+  decision          String   @default("PROPOSED")
+  note              String?
+
+  @@index([userId, createdAt])
+  @@map("rebalance_decisions")
 }

@@ -46,6 +46,9 @@ artifacts/
 # Reproducible backend acceptance checks (keep other local scripts ignored).
 !/backend/scripts/
 /backend/scripts/*
+!/backend/scripts/verify-rebalance-migration.cjs
+!/backend/scripts/bench-simulation.cjs
+!/backend/scripts/compare-audit-golden.cjs
 !/backend/scripts/verify-clean-upgrade.cjs
 !/backend/scripts/verify-pension-migration.cjs
 !/backend/scripts/verify-insurance-db.cjs

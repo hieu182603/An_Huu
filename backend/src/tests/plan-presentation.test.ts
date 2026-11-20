@@ -49,7 +49,7 @@ describe("T08 personal alternatives", () => {
   });
 });
 describe("T08 report, comparison, simulation and CSV", () => {
-  it("legacy capital metadata defaults to six months independently of income stability and preserves the pinned snapshot", async () => {
+  it("legacy capital metadata derives the default reserve from income stability (UNCERTAIN = 12) and preserves the pinned snapshot", async () => {
     const profile = retirementProfile();
     delete profile.reserveMonths;
     profile.incomeStability = known("UNCERTAIN");
@@ -57,8 +57,8 @@ describe("T08 report, comparison, simulation and CSV", () => {
     const f = await plansFixture(profile), saved = await f.create();
     const before = structuredClone(f.rows("planVersion"));
     const read = await f.plans.version(f.owner, saved.planId, saved.saved.id, true);
-    expect(read.preview.capitalSeparation?.reserveMonths).toBe(6);
-    expect(read.preview.capitalSeparation?.requiredEmergencyReserve).toBe("96000000");
+    expect(read.preview.capitalSeparation?.reserveMonths).toBe(12);
+    expect(read.preview.capitalSeparation?.requiredEmergencyReserve).toBe("192000000");
     expect("replay" in read && read.replay.matched).toBe(true);
     expect(f.rows("planVersion")).toEqual(before);
     expect((await f.profiles.getProfile(f.owner))!.data).not.toHaveProperty("reserveMonths");
@@ -145,7 +145,8 @@ describe("T08 report, comparison, simulation and CSV", () => {
     expect(headers).not.toContain("snapshotHash");
     expect(lines).toHaveLength(7);
     expect(lines[4][headers.indexOf("Chi sinh hoạt (đồng)")]).toBe("101");
-    expect(lines[4][headers.indexOf("Số dư dự báo, có thể âm (đồng)")]).toBe("-101");
+    // v5 funded balance is floored at zero; the shortfall is reported in unfundedWithdrawal instead of a negative balance.
+    expect(lines[4][headers.indexOf("Số dư dự báo, có thể âm (đồng)")]).toBe("0");
     expect(lines[4][headers.indexOf("Giai đoạn")]).toBe("Nghỉ hưu");
     expect(await f.plans.exportCsv(f.owner, saved.planId, saved.saved.id)).toEqual(exact);
     expect((await f.plans.version(f.owner, saved.planId, saved.saved.id, true))).toMatchObject({ replay: { matched: true } });
@@ -177,7 +178,7 @@ describe("T08 report, comparison, simulation and CSV", () => {
       expect(rows[i + 1][headers.indexOf("versionId")]).toBe(saved.saved.id);
       expect(rows[i + 1][headers.indexOf("assumptionHash")]).toBe(result.references.assumptionHash);
     });
-    expect(result.calculation!.rows.some(row => row.closingBalance.startsWith("-") && (row.closingBalance.split(".")[1]?.length ?? 0) > 2)).toBe(true);
+    expect(result.calculation!.rows.some(row => (row.unfundedWithdrawal.split(".")[1]?.length ?? 0) > 2)).toBe(true);
     expect(csvCell('=HYPERLINK("x")')).toBe('"\'=HYPERLINK(""x"")"');
     expect(csvCell("-100.12345")).toBe('"-100.12345"'); expect(csvCell("a,b\nline")).toBe('"a,b\nline"');
   });

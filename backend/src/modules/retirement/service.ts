@@ -5,11 +5,12 @@ import { profileV2Schema } from "../profiles/schema-v2";
 import { AssumptionsService } from "../assumptions/service";
 import { PortfoliosService } from "../portfolios/service";
 import { previewGuidance } from "../portfolios/guidance";
-import { retirementPreviewSchema, RETIREMENT_MODEL, type RetirementPreview } from "./schema";
+import { retirementPreviewSchema, RETIREMENT_MODEL, RETIREMENT_MODEL_V3, RETIREMENT_MODEL_V5, type RetirementPreview } from "./schema";
 import { prepareRetirement } from "./prepare";
-import { separateCapital, type CapitalSeparation } from "../capital/separation";
+import { derivedReserveMonths, separateCapital, type CapitalSeparation } from "../capital/separation";
 import { assessLossConstraint } from "../capital/loss-constraint";
 import { essentialCoverage, adjustmentOptions, decisionExplanations } from "./preview-insights";
+import { obligationSchedule } from "./obligations";
 import { logPreviewCoverage } from "../../common/logger";
 import { PreviewCache } from "./preview-cache";
 import { pensionImpact } from "../pensions/impact";
@@ -25,6 +26,14 @@ export type RetirementResult = ReturnType<RetirementService["evaluate"]> & {
 };
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+/** Hash a preview must reproduce at save time. The calculation model is part of the input only when it
+ * is not v3: v3 hashes stay byte-identical to those issued before the withdrawal-timing change, while a
+ * preview computed under v3 (end-of-month withdrawals) can never be saved as a v5 plan with the same hash. */
+export function previewInputHash(snapshot: Awaited<ReturnType<RetirementService["capture"]>>, input: RetirementPreview, model: string = RETIREMENT_MODEL) {
+  return hash({ profile: snapshot.profile, input, policyHash: snapshot.policy.documentHash, assumptionHash: snapshot.assumptions.documentHash,
+    ...((input.allocationFunding || input.customAllocation) && snapshot.profile.reserveMonths === undefined ? { capitalReserveDefaultMonths: derivedReserveMonths(snapshot.profile, snapshot.assumptions.data).months } : {}),
+    ...(model !== RETIREMENT_MODEL_V3 ? { modelVersion: model } : {}) });
+}
 export type PreviewSnapshot = Awaited<ReturnType<RetirementService["capture"]>>;
 /** The adjustment search re-runs the whole projection ~100 times (tens of seconds), so
  * callers that never show it (scenario cards, live typing) may skip it. */
@@ -58,7 +67,8 @@ export class RetirementService {
     const adjustments = options.adjustments
       ? { adjustmentOptions: adjustmentOptions(profile, input, snapshot.policy.data, snapshot.assumptions.data, result) } : {};
     return this.withSupplements(result, essential, { capitalSeparation, lossConstraint, essentialCoverage: essential, ...adjustments,
-      decisionExplanations: decisionExplanations(profile, capitalSeparation, lossConstraint, result) });
+      decisionExplanations: decisionExplanations(profile, capitalSeparation, lossConstraint, result),
+      obligations: obligationSchedule(profile, { capital: capitalSeparation, endMonth: input.endMonth, replayInput: result.replayInput, retirementAdditionalExpenseIds: input.retirementAdditionalExpenseIds }) });
   }
   /** Same authoritative values for metric explanations, without the repeated-projection
    * adjustment search (unused there) or a duplicate preview coverage log entry. */
@@ -117,7 +127,7 @@ export class RetirementService {
       { policyVersionId: input.policyVersionId, templateId: input.templateId, answers: input.answers,
         liquidityNeedMonths: input.liquidityNeedMonths, startMonth,
         horizonMonths: monthIndex(input.endMonth) - monthIndex(startMonth) + 1 }, prepared.issues) : undefined;
-    return { ...prepared, modelVersion: RETIREMENT_MODEL as typeof RETIREMENT_MODEL | "retirement-monthly-v2", profileRevision: snapshot.revision,
+    return { ...prepared, modelVersion: RETIREMENT_MODEL as typeof RETIREMENT_MODEL_V3 | typeof RETIREMENT_MODEL_V5 | "retirement-monthly-v2", profileRevision: snapshot.revision,
       ...(guidance ? { guidance } : {}),
       valuationDate: snapshot.profile.valuationDate, currency: "VND",
       references: { profileHash: hash(snapshot.profile), policyVersionId: snapshot.policy.id, policyVersion: snapshot.policy.version,
@@ -125,8 +135,7 @@ export class RetirementService {
         assumptionVersion: snapshot.assumptions.version, assumptionHash: snapshot.assumptions.documentHash },
       // Invalidate in-flight protected previews made under the former implicit
       // 9/12-month rule. Stored snapshots retain their original hashes/replay.
-      inputHash: hash({ profile: snapshot.profile, input, policyHash: snapshot.policy.documentHash, assumptionHash: snapshot.assumptions.documentHash,
-        ...((input.allocationFunding || input.customAllocation) && snapshot.profile.reserveMonths === undefined ? { capitalReserveDefaultMonths: 6 } : {}) }),
+      inputHash: previewInputHash(snapshot, input, RETIREMENT_MODEL),
       sources: snapshot.assumptions.data.sources, selection: input,
     };
   }

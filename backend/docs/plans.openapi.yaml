@@ -974,6 +974,34 @@ Version:
     birthMonth:
       type: string
       nullable: true
+    calculationNotice:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - withdrawalTiming
+        - currentWithdrawalTiming
+        - suggestedAction
+      properties:
+        code:
+          type: string
+          enum:
+            - CALCULATION_CONVENTION_UPDATED
+        message:
+          type: string
+        withdrawalTiming:
+          type: string
+          enum:
+            - END_OF_MONTH
+        currentWithdrawalTiming:
+          type: string
+          enum:
+            - START_OF_MONTH
+        suggestedAction:
+          type: string
+          enum:
+            - PREVIEW_AGAIN
 SourcePreviewInput:
   type: object
   additionalProperties: false
@@ -10946,6 +10974,34 @@ Detail:
           - endMonth
           - expectedEndMonth
           - goalRevision
+    calculationNotice:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - withdrawalTiming
+        - currentWithdrawalTiming
+        - suggestedAction
+      properties:
+        code:
+          type: string
+          enum:
+            - CALCULATION_CONVENTION_UPDATED
+        message:
+          type: string
+        withdrawalTiming:
+          type: string
+          enum:
+            - END_OF_MONTH
+        currentWithdrawalTiming:
+          type: string
+          enum:
+            - START_OF_MONTH
+        suggestedAction:
+          type: string
+          enum:
+            - PREVIEW_AGAIN
 List:
   type: object
   additionalProperties: false
@@ -11068,6 +11124,34 @@ Replay:
     birthMonth:
       type: string
       nullable: true
+    calculationNotice:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - withdrawalTiming
+        - currentWithdrawalTiming
+        - suggestedAction
+      properties:
+        code:
+          type: string
+          enum:
+            - CALCULATION_CONVENTION_UPDATED
+        message:
+          type: string
+        withdrawalTiming:
+          type: string
+          enum:
+            - END_OF_MONTH
+        currentWithdrawalTiming:
+          type: string
+          enum:
+            - START_OF_MONTH
+        suggestedAction:
+          type: string
+          enum:
+            - PREVIEW_AGAIN
 Goal:
   type: object
   additionalProperties: false
@@ -11158,6 +11242,34 @@ Report:
           - endMonth
           - expectedEndMonth
           - goalRevision
+    calculationNotice:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - withdrawalTiming
+        - currentWithdrawalTiming
+        - suggestedAction
+      properties:
+        code:
+          type: string
+          enum:
+            - CALCULATION_CONVENTION_UPDATED
+        message:
+          type: string
+        withdrawalTiming:
+          type: string
+          enum:
+            - END_OF_MONTH
+        currentWithdrawalTiming:
+          type: string
+          enum:
+            - START_OF_MONTH
+        suggestedAction:
+          type: string
+          enum:
+            - PREVIEW_AGAIN
 Delta:
   type: object
   additionalProperties: false
@@ -11281,6 +11393,29 @@ ComparisonResult:
     limitations:
       type: array
       items: *a38
+    conventionsDiffer:
+      type: boolean
+      enum:
+        - true
+    conventionNote:
+      type: string
+    conventions:
+      type: object
+      additionalProperties: false
+      required:
+        - baseline
+        - candidate
+      properties:
+        baseline:
+          type: string
+          enum:
+            - END_OF_MONTH
+            - START_OF_MONTH
+        candidate:
+          type: string
+          enum:
+            - END_OF_MONTH
+            - START_OF_MONTH
 Comparison:
   type: object
   additionalProperties: false

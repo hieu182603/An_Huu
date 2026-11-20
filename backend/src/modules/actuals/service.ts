@@ -12,7 +12,7 @@ import { reconcile } from "./reconcile";
 import { reforecastPreviewSchema } from "./schema";
 import { assertActualSource, type ReforecastLineage } from "./lineage";
 import { digest } from "../../common/digest";
-import { RETIREMENT_MODEL, retirementPreviewSchema } from "../retirement/schema";
+import { RETIREMENT_MODEL_V3, RETIREMENT_MODEL_V5, retirementPreviewSchema } from "../retirement/schema";
 import type { RetirementResult } from "../retirement/service";
 import { profileV2Schema } from "../profiles/schema-v2";
 import { updateSourceRows } from "./source-changes";
@@ -144,7 +144,10 @@ export class ActualsService {
       const revisedSources = updateSourceRows(remaining, sourceChanges, original.sourceChanges ?? [], capture.profile, selection,
         forecast.actuals, [...(original.futureChanges ?? []), ...input.futureChanges]);
       const rows = updateFutureRows(revisedSources, input.futureChanges, selection, forecast.originalRetirementMonth, sourceChanges.length > 0);
-      const replayInput: ProjectionInput = { ...replay, modelVersion: RETIREMENT_MODEL,
+      // A reforecast continues on the convention of the version it starts from: saved v3 plans stay v3
+      // (withdrawals at month end), v5 stays v5. Never re-price an old plan under the current model.
+      const baseModel = replay.modelVersion === RETIREMENT_MODEL_V5 ? RETIREMENT_MODEL_V5 : RETIREMENT_MODEL_V3;
+      const replayInput: ProjectionInput = { ...replay, modelVersion: baseModel,
         valuationDate: nextMonth + "-01", retirementMonth: forecast.originalRetirementMonth < nextMonth ? nextMonth : forecast.originalRetirementMonth,
         initialCapital: forecast.anchor.closingBalance, rows };
       // Historical research timing is never promoted into a production command.
@@ -155,7 +158,7 @@ export class ActualsService {
         originalRetirementMonth: forecast.originalRetirementMonth, throughMonth: input.throughMonth,
         actualRevisions: [...(original.reforecast?.actualRevisions ?? []), ...forecast.actuals.map(a => ({ period: a.period, revision: a.revision, closingBalance: a.data.closingBalance }))] };
       const inputHash = digest({ input, selection, sourceHash: version.snapshotHash, lineage, replayInput });
-      const candidate: RetirementResult = { ...original, status: "READY", issues: [], modelVersion: RETIREMENT_MODEL,
+      const candidate: RetirementResult = { ...original, status: "READY", issues: [], modelVersion: baseModel,
         valuationDate: replayInput.valuationDate, inputHash, replayInput, reforecast: lineage, selection,
         futureChanges: [...(original.futureChanges ?? []), ...input.futureChanges],
         sourceChanges: [...(original.sourceChanges ?? []), ...sourceChanges],

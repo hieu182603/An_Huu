@@ -1,5 +1,5 @@
 import { RetirementDecimal as D } from "../retirement/engine";
-import { proposeRebalance, type Allocation } from "../allocation-risk/rebalance";
+import { proposeRebalance, type Allocation, type RebalanceTaxAndFeePolicy } from "../allocation-risk/rebalance";
 import type {
   UserHoldingItem,
   HoldingValuation,
@@ -162,6 +162,8 @@ export class HoldingsMonitoringService {
     policyVersionId?: string;
     templateId?: string;
     costPercent?: string;
+    rebalancePolicy?: RebalanceTaxAndFeePolicy;
+    spendingFloor?: { safeAssets: string[]; minSafeFraction: string };
   }): DriftMonitoringResult {
     const {
       userId,
@@ -209,9 +211,9 @@ export class HoldingsMonitoringService {
       }
 
       let status: DriftItem["status"] = "IN_TOLERANCE";
-      if (diff.gt(threshold)) {
+      if (diff.gte(threshold) && (threshold.gt(0) || diff.gt(0))) {
         status = "OVERWEIGHT";
-      } else if (diff.lt(threshold.neg())) {
+      } else if (diff.lte(threshold.neg()) && (threshold.gt(0) || diff.lt(0))) {
         status = "UNDERWEIGHT";
       }
 
@@ -224,7 +226,8 @@ export class HoldingsMonitoringService {
       });
     }
 
-    const isDrifted = maxDrift.gt(threshold);
+    const isDrifted = maxDrift.gte(threshold);
+    let rebalanceRequired = isDrifted;
 
     // Chuẩn bị đầu vào tái cân bằng cash-first nếu bị lệch hoặc có dòng tiền mới
     let rebalanceRecommendation: DriftMonitoringResult["rebalanceRecommendation"] = null;
@@ -257,9 +260,12 @@ export class HoldingsMonitoringService {
           targetAllocations,
           driftThresholdPercent,
           costPercent,
+          params.rebalancePolicy,
+          params.spendingFloor,
         );
 
         if (rebalanceOutput.status === "PROPOSED") {
+          rebalanceRequired = rebalanceOutput.trigger !== "BELOW_BAND";
           rebalanceRecommendation = {
             status: "PROPOSED",
             costEstimated: rebalanceOutput.cost,
@@ -297,7 +303,7 @@ export class HoldingsMonitoringService {
       maxDriftPercent: maxDrift.toFixed(2),
       driftThresholdPercent,
       drifts,
-      rebalanceRequired: isDrifted,
+      rebalanceRequired,
       rebalanceRecommendation,
       regulatoryDisclaimer: REGULATORY_MONITORING_DISCLAIMER,
     };
@@ -312,6 +318,7 @@ export class HoldingsMonitoringService {
       assetClass: string;
       buy: string;
       sell: string;
+      cashAllocated?: string;
     }>;
     holdings: UserHoldingItem[];
     targetProducts: Array<{
@@ -337,7 +344,9 @@ export class HoldingsMonitoringService {
     }> = [];
 
     for (const trade of params.trades) {
-      const buyVnd = new D(trade.buy);
+      // Cash-funded purchases are separate from remaining trades in the class proposal.
+      // Combine principal once; proposal costs have already been applied upstream.
+      const buyVnd = new D(trade.buy).plus(trade.cashAllocated ?? "0");
       const sellVnd = new D(trade.sell);
 
       if (buyVnd.gt(0)) {
@@ -348,10 +357,8 @@ export class HoldingsMonitoringService {
         if (candidate) {
           const price = new D(candidate.currentPrice);
           if (price.gt(0)) {
-            const rawUnits = buyVnd.div(price).toNumber();
             const lot = candidate.lotSize || 1;
-            const roundUnits =
-              lot > 1 ? Math.floor(rawUnits / lot) * lot : Math.floor(rawUnits);
+            const roundUnits = buyVnd.div(price).div(lot).floor().mul(lot).toNumber();
 
             if (roundUnits > 0) {
               const amount = new D(roundUnits).mul(price).toFixed(0);

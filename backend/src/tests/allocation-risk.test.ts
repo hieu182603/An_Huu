@@ -1,3 +1,4 @@
+import { clearSimulationCache } from "../modules/allocation-risk/simulation-cache";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -31,7 +32,7 @@ describe("P2 licensed market data boundary", () => {
     const plan = { kind: "SAVED_VERSION", planId: "00000000-0000-4000-8000-000000000001", versionId: "00000000-0000-4000-8000-000000000002" };
     for (const extra of [{ returns: [] }, { cpi: [] }, { seed: 1 }, { blockMonths: 24 }, { alpha: .9 }, { policy: {} }])
       expect(riskRequestSchema.safeParse({ plan, ...extra }).success).toBe(false);
-    expect(riskRequestSchema.safeParse({ plan, paths: 501 }).success).toBe(false);
+    expect(riskRequestSchema.safeParse({ plan, paths: 1001 }).success).toBe(false);
     expect(riskRequestSchema.safeParse({ plan }).success).toBe(true);
   });
   it("keeps published policy bytes and old parsed hash; adds no absent optional fields", () => {
@@ -67,9 +68,10 @@ describe("P2-1 bootstrap, real essential losses, Wilson", () => {
     expect(await simulate(c, data, policy, 10)).toMatchObject({ status: "DATA_REQUIRED" });
   });
   it("enforces operation/deadline limits without returning a partial probability", async () => {
-    expect(await simulate(riskContext(), marketFixture(), policy, 501)).toMatchObject({ status: "LIMIT_EXCEEDED" });
-    expect(await simulate(riskContext(), marketFixture(), policy, 20, 0)).toMatchObject({ status: "LIMIT_EXCEEDED" });
-    expect(await simulate(riskContext(1200), marketFixture(), policy, 500)).toMatchObject({ status: "LIMIT_EXCEEDED" });
+    expect(await simulate(riskContext(), marketFixture(), policy, 1001)).toMatchObject({ status: "LIMIT_EXCEEDED" });
+    clearSimulationCache(); // paths cached by earlier tests would satisfy this run
+    expect(await simulate(riskContext(), marketFixture(), policy, 20, 0)).toMatchObject({ status: "LIMIT_EXCEEDED", issues: ["RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED"], progress: { pathsCompleted: 0, pathsRequested: 20 } });
+    expect(await simulate(riskContext(1400), marketFixture(), policy, 1000)).toMatchObject({ status: "LIMIT_EXCEEDED" });
   });
   it("matches empirical CVaR with ties, fractional tails, and no deficit", () => {
     expect(cvar(["0", "10", "20", "30"], "0.5")).toBe("25");
@@ -143,8 +145,10 @@ describe("P2-2 deterministic stresses", () => {
       LONGEVITY: { extraYears: [5, 10] },
     } });
     c.projection.rows[0].capitalInjection = "200";
-    for (const kind of stressKinds)
-      expect(deterministicStress(kind, c, market, configured, [{ month: "2026-01", amount: "200" }]).status).toBe("READY");
+    for (const kind of stressKinds) {
+      const expected = kind === "SEQUENCE_OF_RETURNS" ? "REVIEW_REQUIRED" : kind === "INCOME_LOSS" ? "NOT_APPLICABLE" : "READY";
+      expect(deterministicStress(kind, c, market, configured, [{ month: "2026-01", amount: "200" }]).status, kind).toBe(expected);
+    }
     expect(deterministicStress("PROPERTY_ILLIQUIDITY", c, market, configured).status).toBe("REVIEW_REQUIRED");
   });
 });
@@ -204,9 +208,13 @@ describe("P2-4 cash-first rebalance", () => {
     expect(new D(trade.cost).gt(0)).toBe(true);
     expect(new D(trade.netValue).plus(trade.cost).minus(1000).abs().lt("1e-30")).toBe(true);
   });
-  it("requires drift strictly greater than band", () => {
-    const c = input(); c.holdings[0].value = "450"; c.holdings[1].value = "550";
-    expect(proposeRebalance(c, targets, "5", "0.2").status).toBe("WITHIN_BAND");
+  it("triggers when drift is at or above band (>=, spec §8.2) and stays within band below it", () => {
+    const atBand = input(); atBand.newContribution = "0"; atBand.holdings[0].value = "450"; atBand.holdings[1].value = "550";
+    const rAt = proposeRebalance(atBand, targets, "5", "0.2");
+    expect(rAt).toMatchObject({ status: "PROPOSED", trigger: "AT_OR_ABOVE_BAND" });
+    const belowBand = input(); belowBand.newContribution = "0"; belowBand.holdings[0].value = "451"; belowBand.holdings[1].value = "549";
+    const rBelow = proposeRebalance(belowBand, targets, "5", "0.2");
+    expect(rBelow).toMatchObject({ status: "WITHIN_BAND", trigger: "BELOW_BAND" });
   });
 });
 describe("P2-5 pure estimators", () => {

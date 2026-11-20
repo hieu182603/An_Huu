@@ -151,7 +151,7 @@ export const explanationGlossary = {
     },
     {
       key: "fundedBalance", label: { vi: "Số dư quỹ được tài trợ", en: "Funded balance" },
-      definition: { vi: "Số tiền quỹ mô hình còn thực sự đáp ứng được sau dòng tiền của kỳ, có mức sàn bằng không. Phần nhu cầu rút vượt nguồn tiền được ghi riêng là thiếu hụt, không biến thành khoản vay giả định.", en: "The modeled fund amount actually available after the period's cash flows, floored at zero. Withdrawals beyond available resources are recorded as shortfalls rather than an assumed loan." },
+      definition: { vi: "Số tiền quỹ mô hình còn thực sự đáp ứng được sau dòng tiền của kỳ, có mức sàn bằng không. Từ mô hình v5, khoản rút được trừ ở đầu tháng trước lãi của tháng đó và số dư âm không sinh lãi. Phần nhu cầu rút vượt nguồn tiền được ghi riêng là thiếu hụt, không biến thành khoản vay giả định.", en: "The modeled fund amount actually available after the period's cash flows, floored at zero. Under model v5 the withdrawal leaves at the start of the month, before that month's return, and negative balances earn no return. Withdrawals beyond available resources are recorded as shortfalls rather than an assumed loan." },
     },
     {
       key: "unfundedWithdrawal", label: { vi: "Khoản rút chưa được đáp ứng", en: "Unfunded withdrawal" },

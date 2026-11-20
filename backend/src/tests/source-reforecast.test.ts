@@ -20,6 +20,7 @@ import { LegalRulesService } from "../modules/pensions/legal-service";
 import { PensionEstimateService } from "../modules/pensions/estimate-service";
 import { validatedBenefitFixture } from "./benefit-fixtures";
 import { readSourceSnapshot } from "../modules/plans/source-snapshot";
+import { RETIREMENT_MODEL } from "../modules/retirement/schema";
 beforeEach(() => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-12-05T00:00:00Z")); vi.spyOn(console,"info").mockImplementation(() => {}); vi.spyOn(console,"error").mockImplementation(() => {}); });
 afterEach(() => vi.useRealTimers());
 const flow = (overrides = {}): FlowSourceCommand => ({ operation: "CREATE", commandId: randomUUID(), sourceId: "plan:rent", expectedSourceRevision: 0,
@@ -46,7 +47,7 @@ it("creates, saves and separately applies v4 sources while preserving v3 replay/
   expect(await f.plans.saveSources(f.owner,f.saved.planId,body,key)).toEqual(saved);
   expect(f.rows("planVersion")).toHaveLength(2);
   expect((await f.plans.version(f.owner,f.saved.planId,saved.saved.id,true)).preview).toEqual(preview.candidate);
-  expect((await f.plans.version(f.owner,f.saved.planId,f.saved.saved.id,true)).preview.modelVersion).toBe("retirement-monthly-v3");
+  expect((await f.plans.version(f.owner,f.saved.planId,f.saved.saved.id,true)).preview.modelVersion).toBe(RETIREMENT_MODEL);
   const applied=await f.plans.apply(f.owner,f.saved.planId,{versionId:saved.saved.id,expectedRevision:2,expectedProfileRevision:1,confirm:true},randomUUID());
   expect(applied.currentVersionId).toBe(saved.saved.id);
   expect((await f.plans.report(f.owner,f.saved.planId,{})).hypothetical).toBe(true);

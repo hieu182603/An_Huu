@@ -65,7 +65,11 @@ describe("family declarations and expense report", () => {
     const next = { ...p, ...familyChanges(p, { ...input, dependents: known(30) }) };
     expect(next.income).toEqual(p.income); expect(next.expenses).toEqual(p.expenses); expect(next.goals).toEqual(p.goals); expect(next.assets).toEqual(p.assets);
     expect(profileV2Summary(next)).toEqual(profileV2Summary(p));
-    expect(prepareRetirement(next, retirementCommand(), policy, assumptions)).toEqual(prepareRetirement(p, retirementCommand(), policy, assumptions)); expect(p).toEqual(before);
+    const after = prepareRetirement(next, retirementCommand(), policy, assumptions), original = prepareRetirement(p, retirementCommand(), policy, assumptions);
+    expect(after.calculation).toEqual(original.calculation); expect(after.replayInput).toEqual(original.replayInput);
+    expect(after.issues).toEqual(original.issues);
+    expect(after.warnings).toContainEqual({ path: "personal.dependents", code: "DEPENDENT_EXPENSES_NOT_DECLARED" });
+    expect(after.warnings.filter(w => w.code !== "DEPENDENT_EXPENSES_NOT_DECLARED")).toEqual(original.warnings); expect(p).toEqual(before);
   });
 });
 describe("family workspace HTTP with memory database", () => {

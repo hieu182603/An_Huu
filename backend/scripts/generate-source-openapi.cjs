@@ -10,7 +10,7 @@ s.PensionSourceEvidence=schema(pensionSource.pensionSourceEvidenceSchema);
 s.PensionSourceEvidence.description='Internal server-captured evidence only. Never accepted from clients. Persist beside a source registry for replay; recheck history/rule lineage inside the T16 save transaction.';
 s.Attribution={type:'object',additionalProperties:false,required:['month','metric','amount','sourceId','sourceRevision','sourceHash','confirmation'],properties:{...schema(sources.sourceCellSchema).properties,
  sourceId:{type:'string'},sourceRevision:{type:'integer',minimum:1},sourceHash:{type:'string',pattern:'^[a-f0-9]{64}$'},confirmation:{type:'string',enum:['HYPOTHETICAL','USER_CONFIRMED','BANK_CONFIRMED']}}};
-s.ReplayInput=relocate(legacy.ReplayInput);s.ReplayInput.properties.modelVersion={type:'string',enum:['retirement-monthly-v4']};
+s.ReplayInput=relocate(legacy.ReplayInput);s.ReplayInput.properties.modelVersion={type:'string',enum:['retirement-monthly-v4']};s.ReplayInput.properties.kernelModel={type:'string',enum:['retirement-monthly-v5']};
 s.ReplayInput.properties.sourceRegistry={$ref:'#/Registry'};s.ReplayInput.properties.sourceBudget={$ref:'#/Budget'};
 s.ReplayInput.required.push('modelVersion','sourceRegistry','sourceBudget');
 s.Calculation=relocate(legacy.Calculation);s.Calculation.properties.modelVersion={type:'string',enum:['retirement-monthly-v4']};

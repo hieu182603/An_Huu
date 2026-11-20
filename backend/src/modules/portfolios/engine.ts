@@ -30,6 +30,56 @@ export function glideTargets(template: Extract<PortfolioTemplate, { glidePath: u
   return targets;
 }
 
+export type SpendingFloorInput = {
+  essentialSpendingPV: string;
+  growthCapital: string;
+  bounds?: Array<{ assetClass: string; minPercent: string; maxPercent: string }>;
+  safeAssets?: string[];
+};
+
+/** The actual-holdings minimum shares the target floor's approved bounds. */
+export function spendingFloorConstraint(targets: Map<string, InstanceType<typeof D>>, floor: SpendingFloorInput) {
+  const pv = new D(floor.essentialSpendingPV), growth = new D(floor.growthCapital);
+  if (pv.lte(0) || growth.lte(0)) return undefined;
+  const safe = new Set(floor.safeAssets ?? ["CASH", "GOV_BOND"]), codes = [...targets.keys()];
+  const safeAssets = codes.filter(c => safe.has(c)), risky = codes.filter(c => !safe.has(c));
+  if (!safeAssets.length) return undefined;
+  const maxSafe = safeAssets.reduce((s,c) => s.plus(new D(floor.bounds?.find(b=>b.assetClass===c)?.maxPercent ?? 100).div(100)),new D(0));
+  const minRisky = risky.reduce((s,c) => s.plus(new D(floor.bounds?.find(b=>b.assetClass===c)?.minPercent ?? 0).div(100)),new D(0));
+  return { safeAssets, minSafeFraction: D.min(new D(1).minus(minRisky),maxSafe,pv.div(growth)).toFixed() };
+}
+
+/** Spec §8.3 / B7-6: from retirement onward, ensure safe assets (CASH + GOV_BOND) cover at least
+ * PV(N years of essential spending) / growthCapital, clamped within customization.bounds,
+ * redistributing proportionally from remaining assets. No-op when already satisfied or inputs <= 0. */
+export function applySpendingFloorTargets(targets: Map<string, InstanceType<typeof D>>, floor: SpendingFloorInput) {
+  const pv = new D(floor.essentialSpendingPV), growth = new D(floor.growthCapital);
+  if (pv.lte(0) || growth.lte(0)) return targets;
+  const codes = [...targets.keys()];
+  const safeSet = new Set(floor.safeAssets ?? ["CASH", "GOV_BOND"]);
+  const safeCodes = codes.filter(c => safeSet.has(c)), riskyCodes = codes.filter(c => !safeSet.has(c));
+  if (!safeCodes.length || !riskyCodes.length) return targets;
+  const minW = (c: string) => { const b = floor.bounds?.find(x => x.assetClass === c); return b ? new D(b.minPercent).div(100) : new D(0); };
+  const maxW = (c: string) => { const b = floor.bounds?.find(x => x.assetClass === c); return b ? new D(b.maxPercent).div(100) : new D(1); };
+  const currentSafe = safeCodes.reduce((s, c) => s.plus(targets.get(c)!), new D(0));
+  const desiredSafe = new D(spendingFloorConstraint(targets, floor)!.minSafeFraction);
+  if (desiredSafe.lte(currentSafe)) return targets;
+  const delta = desiredSafe.minus(currentSafe);
+  const safeHeadroom = new Map(safeCodes.map(c => [c, D.max(0, maxW(c).minus(targets.get(c)!))]));
+  const totalHeadroom = [...safeHeadroom.values()].reduce((s, v) => s.plus(v), new D(0));
+  const riskySlack = new Map(riskyCodes.map(c => [c, D.max(0, targets.get(c)!.minus(minW(c)))]));
+  const totalSlack = [...riskySlack.values()].reduce((s, v) => s.plus(v), new D(0));
+  if (totalHeadroom.lte(0) || totalSlack.lte(0)) return targets;
+  const shift = D.min(delta, D.min(totalHeadroom, totalSlack));
+  const next = new Map<string, InstanceType<typeof D>>();
+  for (const c of safeCodes) next.set(c, targets.get(c)!.plus(shift.mul(safeHeadroom.get(c)!).div(totalHeadroom)));
+  for (const c of riskyCodes) next.set(c, targets.get(c)!.minus(shift.mul(riskySlack.get(c)!).div(totalSlack)));
+  const absorb = riskyCodes.find(c => riskySlack.get(c)!.gt(0)) ?? safeCodes[safeCodes.length - 1];
+  const otherSum = codes.reduce((s, c) => c === absorb ? s : s.plus(next.get(c)!), new D(0));
+  next.set(absorb, new D(1).minus(otherSum));
+  return next;
+}
+
 export function validatePortfolioPolicy(document: PortfolioDocument, assumptions: AssumptionDocument) {
   const data = portfolioDocumentSchema.parse(document), issues: ConfigurationIssue[] = [];
   const issue = (path: string, code: string) => issues.push({ path, code });
@@ -147,7 +197,9 @@ export function validatePortfolioPolicy(document: PortfolioDocument, assumptions
 }
 
 export function assessPortfolio(document: PortfolioDocument, command: PortfolioPreview) {
-  const data = portfolioDocumentSchema.parse(document), input = portfolioPreviewSchema.parse(command);
+  return assessParsedPortfolio(portfolioDocumentSchema.parse(document), portfolioPreviewSchema.parse(command));
+}
+function assessParsedPortfolio(data: PortfolioDocument, input: PortfolioPreview) {
   const issues: ConfigurationIssue[] = [];
   const scores = Object.fromEntries(dimensions.map(d => [d, 0])) as Record<typeof dimensions[number], number>;
   const explanations: Array<{ questionId: string; dimension: string; choiceId: string; label: string; score: number }> = [];
@@ -187,7 +239,7 @@ export function assessPortfolio(document: PortfolioDocument, command: PortfolioP
 /** Reuse across previews of the SAME policy and assumption objects only (one
  * adjustment search). Validation and base series never depend on the retirement
  * month, answers or scenario; the objects must not be mutated while it is alive. */
-export type PortfolioPreviewCache = { validation?: ReturnType<typeof validatePortfolioPolicy>; series: Map<string, ReturnType<typeof resolveYearSeries>>;
+export type PortfolioPreviewCache = { document?: PortfolioDocument; validation?: ReturnType<typeof validatePortfolioPolicy>; series: Map<string, ReturnType<typeof resolveYearSeries>>;
   /** Whole results by command: the spending search repeats an identical portfolio ~30 times.
    * Callers only read the returned object, so sharing it is safe. */
   results?: Map<string, ReturnType<typeof computePortfolioPreview>> };
@@ -196,19 +248,23 @@ export const portfolioPreviewCache = (): PortfolioPreviewCache => ({ series: new
 /** `only` limits the scenario paths to one kind. Scenarios are independent, so the
  * requested path is identical either way; retirement previews read just one. */
 export function previewPortfolio(document: PortfolioDocument, assumptions: AssumptionDocument, command: PortfolioPreview,
-  only?: PortfolioDocument["scenarios"][number]["kind"], cache?: PortfolioPreviewCache, planningReaction?: "SELL" | "HOLD" | "BUY_MORE"): ReturnType<typeof computePortfolioPreview> {
-  if (!cache?.results) return computePortfolioPreview(document, assumptions, command, only, cache, planningReaction);
-  const key = JSON.stringify([command, only ?? null, planningReaction ?? null]), hit = cache.results.get(key);
+  only?: PortfolioDocument["scenarios"][number]["kind"], cache?: PortfolioPreviewCache, planningReaction?: "SELL" | "HOLD" | "BUY_MORE", withGross = false,
+  spendingFloor?: SpendingFloorInput): ReturnType<typeof computePortfolioPreview> {
+  if (!cache?.results) return computePortfolioPreview(document, assumptions, command, only, cache, planningReaction, withGross, spendingFloor);
+  const key = JSON.stringify(spendingFloor ? [command, only ?? null, planningReaction ?? null, withGross, spendingFloor] : [command, only ?? null, planningReaction ?? null, withGross]);
+  const hit = cache.results.get(key);
   if (hit) return hit;
-  const result = computePortfolioPreview(document, assumptions, command, only, cache, planningReaction);
+  const result = computePortfolioPreview(document, assumptions, command, only, cache, planningReaction, withGross, spendingFloor);
   cache.results.set(key, result);
   return result;
 }
 function computePortfolioPreview(document: PortfolioDocument, assumptions: AssumptionDocument, command: PortfolioPreview,
-  only?: PortfolioDocument["scenarios"][number]["kind"], cache?: PortfolioPreviewCache, planningReaction?: "SELL" | "HOLD" | "BUY_MORE") {
-  const data = portfolioDocumentSchema.parse(document), input = portfolioPreviewSchema.parse(command);
+  only?: PortfolioDocument["scenarios"][number]["kind"], cache?: PortfolioPreviewCache, planningReaction?: "SELL" | "HOLD" | "BUY_MORE", withGross = false,
+  spendingFloor?: SpendingFloorInput) {
+  const data = cache?.document ?? portfolioDocumentSchema.parse(document), input = portfolioPreviewSchema.parse(command);
+  if (cache) cache.document = data;
   const validation = cache?.validation ?? validatePortfolioPolicy(data, assumptions);
-  let assessment = assessPortfolio(data, input);
+  let assessment = assessParsedPortfolio(data, input);
   if (planningReaction) {
     const templateId = data.schemaVersion === 2 ? data.quickStartTemplates?.[planningReaction] : undefined;
     const template = data.templates.find(row => row.id === templateId);
@@ -223,7 +279,10 @@ function computePortfolioPreview(document: PortfolioDocument, assumptions: Assum
   const context = { assessment, ...(planningReaction ? { suitability: "NOT_ASSESSED" as const, planningBasis: "PUBLISHED_REACTION_REFERENCE" as const } : {}), limitations: ["UNIT_PORTFOLIO_WITHOUT_PERSONAL_CASHFLOWS", "INITIAL_ALLOCATION_COST_NOT_MODELED", "NO_TRANSACTIONS_OR_PLAN_APPLICATION"], priceBasis: "NOMINAL", timing: "REBALANCE_START_GROWTH_END" };
   if (validation.status !== "VALID" || assessment.status !== "MATCHED") return { ...context, status: "INCOMPLETE", issues: [...validation.issues, ...assessment.issues], scenarios: [] };
   const template = data.templates.find(t => t.id === assessment.selectedTemplateId)!;
-  const assetCodes = [...new Set(allocationSets(template).flatMap(p => p.filter(a => new D(a.weightPercent).gt(0)).map(a => a.assetClass)))];
+  const floorEnabled = "glidePath" in template && template.glidePath.spendingFloorYears && spendingFloor;
+  const floorSafeAssets = new Set(spendingFloor?.safeAssets ?? ["CASH", "GOV_BOND"]);
+  const assetCodes = [...new Set(allocationSets(template).flatMap(p => p.filter(a => new D(a.weightPercent).gt(0)
+    || (floorEnabled && floorSafeAssets.has(a.assetClass))).map(a => a.assetClass)))];
   const glide = "glidePath" in template ? template : null;
   if (glide && !input.retirementMonth) return { ...context, status: "INCOMPLETE", issues: [{ path: "retirementMonth", code: "RETIREMENT_MONTH_REQUIRED" }], scenarios: [] };
   // v1: indexed period targets. v2: whole-year glide position; a change of
@@ -232,7 +291,10 @@ function computePortfolioPreview(document: PortfolioDocument, assumptions: Assum
   const glideByYears = new Map<number, ReturnType<typeof glideTargets>>();
   const glideAt = (years: number) => {
     let targets = glideByYears.get(years);
-    if (!targets) glideByYears.set(years, targets = glideTargets(glide!, years, assetCodes));
+    if (!targets) {
+      targets = glideTargets(glide!, years, assetCodes);
+      glideByYears.set(years, targets);
+    }
     return targets;
   };
   const baseTargetAt = (i: number, month: string) => {
@@ -246,18 +308,41 @@ function computePortfolioPreview(document: PortfolioDocument, assumptions: Assum
       boundary: period.fromIndex === i + 1 };
   };
   const initialTargets = baseTargetAt(0, input.startMonth).targets;
+  const customByBase = new Map<Map<string, InstanceType<typeof D>>, Map<string, InstanceType<typeof D>>>();
+  const floorByTargets = new Map<Map<string, InstanceType<typeof D>>, Map<string, InstanceType<typeof D>>>();
   const targetAt = (i: number, month: string) => {
     const base = baseTargetAt(i, month);
-    return input.customAllocation ? { ...base, targets: customTargets(input.customAllocation, initialTargets, base.targets) } : base;
+    let targets = base.targets;
+    if (input.customAllocation) {
+      let custom = customByBase.get(base.targets);
+      if (!custom) customByBase.set(base.targets, custom = customTargets(input.customAllocation, initialTargets, base.targets));
+      targets = custom;
+    }
+    // Whole-year interpolation reaches zero up to 11 months before retirement.
+    // The spending floor begins at the actual month, after the customer's shifts.
+    if (floorEnabled && month >= input.retirementMonth!) {
+      let lifted = floorByTargets.get(targets);
+      if (!lifted) floorByTargets.set(targets, lifted = applySpendingFloorTargets(targets, {
+        ...spendingFloor!, bounds: data.schemaVersion === 2 ? data.customization?.bounds : undefined,
+      }));
+      targets = lifted;
+    }
+    return { targets, boundary: base.boundary || Boolean(floorEnabled && month === input.retirementMonth) };
   };
   if (input.customAllocation) {
     if (input.customAllocation.weights.some(r=>!assetCodes.includes(r.assetClass)))
       return { ...context,status:"INCOMPLETE",issues:[{path:"customAllocation",code:"CUSTOM_ASSET_NOT_ALLOWED"}],scenarios:[] };
-    const customIssues = customWeightIssues(input.customAllocation, data.schemaVersion === 2 ? data.customization : undefined, assetCodes, targetAt(0, input.startMonth).targets);
+    const checkedTargets = new Set<Map<string, InstanceType<typeof D>>>();
+    const firstTargets = targetAt(0, input.startMonth).targets;
+    const customIssues = customWeightIssues(input.customAllocation, data.schemaVersion === 2 ? data.customization : undefined, assetCodes, firstTargets);
     if (customIssues.length) return { ...context, status: "INCOMPLETE", issues: customIssues.map(code => ({ path: "customAllocation", code })), scenarios: [] };
+    checkedTargets.add(firstTargets);
     for (let i = 1; i < input.horizonMonths; i++) {
-      const errors = customWeightIssues(input.customAllocation, data.schemaVersion === 2 ? data.customization : undefined, assetCodes, targetAt(i, addMonths(input.startMonth, i)).targets);
+      const monthTargets = targetAt(i, addMonths(input.startMonth, i)).targets;
+      if (checkedTargets.has(monthTargets)) continue;
+      const errors = customWeightIssues(input.customAllocation, data.schemaVersion === 2 ? data.customization : undefined, assetCodes, monthTargets);
       if (errors.length) return { ...context, status: "INCOMPLETE", issues: errors.map(code => ({ path: `customAllocation.${i}`, code })), scenarios: [] };
+      checkedTargets.add(monthTargets);
     }
   }
   const endMonth = addMonths(input.startMonth, input.horizonMonths - 1);
@@ -303,7 +388,8 @@ function computePortfolioPreview(document: PortfolioDocument, assumptions: Assum
       weights = new Map(assetCodes.map(code => [code, nextValues.get(code)!.div(grossFactor)]));
       rows.push({ month, rebalanced: rebalance, turnoverFraction: turnover.toFixed(), rebalanceCostFraction: feeFraction.toFixed(),
         returnMonthlyFactor: netFactor.toFixed(), inflationMonthlyFactor: inflationFactor, inflationAnnualPercent: inflationPercent,
-        inflationDeltaPoints: changes.inflationDeltaPoints, unitValue: unitValue.toFixed(), holdings });
+        inflationDeltaPoints: changes.inflationDeltaPoints, unitValue: unitValue.toFixed(), holdings,
+        ...(withGross ? { grossReturnMonthlyFactor: grossFactor.toFixed() } : {}) });
     }
     scenarios.push({ kind: scenario.kind, label: scenario.label, evidence: scenario.evidence, changes: scenario.years,
       rows, endingUnitValue: unitValue.toFixed() });

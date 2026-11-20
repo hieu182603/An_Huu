@@ -409,7 +409,7 @@ Document:
                 type: string
                 enum:
                   - DELTA_POINTS_ON_NET_NOMINAL_ANNUAL_RATES
-              years: &a8
+              years: &a9
                 type: array
                 items:
                   type: object
@@ -679,6 +679,10 @@ Document:
                         - allocations
                     minItems: 1
                     maxItems: 40
+                  spendingFloorYears:
+                    type: integer
+                    minimum: 1
+                    maximum: 10
                 required:
                   - anchor
                   - interpolation
@@ -962,7 +966,7 @@ Document:
             simulationPaths:
               type: integer
               minimum: 1
-              maximum: 500
+              maximum: 1000
             blockMonths:
               type: integer
               minimum: 12
@@ -975,6 +979,21 @@ Document:
               type: string
               maxLength: 30
               pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            essentialThresholdRange:
+              type: object
+              additionalProperties: false
+              properties:
+                min:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                max:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              required:
+                - min
+                - max
             allGoalsThreshold:
               type: string
               maxLength: 30
@@ -987,6 +1006,24 @@ Document:
               type: string
               maxLength: 30
               pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+            rebalance:
+              type: object
+              additionalProperties: false
+              properties:
+                evidence:
+                  type: string
+                  minLength: 5
+                  maxLength: 2000
+                saleTaxPercent:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                transactionFeePercent:
+                  type: string
+                  maxLength: 30
+                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+              required:
+                - evidence
             continuousOptimizer:
               type: object
               additionalProperties: false
@@ -1033,6 +1070,11 @@ Document:
                           - returnRate
                       minItems: 1
                       maxItems: 20
+                    target:
+                      type: string
+                      enum: &a3
+                        - SCALED_IDENTITY
+                        - CONSTANT_CORRELATION
                   required:
                     - evidence
                     - historicalWeight
@@ -1085,6 +1127,10 @@ Document:
                       type: string
                       maxLength: 30
                       pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    healthDeltaPoints:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
                   required:
                     - offsetMonths
                     - durationMonths
@@ -1097,6 +1143,14 @@ Document:
                       type: integer
                       minimum: -1200
                       maximum: 1200
+                    offsetsMonths:
+                      type: array
+                      items:
+                        type: integer
+                        minimum: -1200
+                        maximum: 1200
+                      minItems: 1
+                      maxItems: 20
                     assetClass:
                       type: string
                       pattern: ^[A-Z][A-Z0-9_]{0,39}$
@@ -1109,7 +1163,6 @@ Document:
                       maxLength: 30
                       pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
                   required:
-                    - offsetMonths
                     - assetClass
                     - shockPercent
                 RATE_RISE:
@@ -1176,9 +1229,25 @@ Document:
                       maxLength: 30
                       pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
                     spreadPoints:
-                      type: string
-                      maxLength: 30
-                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      anyOf:
+                        - anyOf:
+                            - type: string
+                              maxLength: 30
+                              pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                            - type: number
+                              minimum: 0
+                              maximum: 100
+                        - type: array
+                          items:
+                            anyOf:
+                              - type: string
+                                maxLength: 30
+                                pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                              - type: number
+                                minimum: 0
+                                maximum: 100
+                          minItems: 1
+                          maxItems: 10
                   required:
                     - offsetMonths
                     - assetClass
@@ -1249,8 +1318,31 @@ Document:
                       type: string
                       enum:
                         - LIVING_CPI_LIFELONG_PENSION_ONLY
+                    lateLifeCareMonthly:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
                   required:
                     - extraYears
+                SEQUENCE_OF_RETURNS:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    assetClass:
+                      type: string
+                      pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                    annualLossPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    annualGainPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - assetClass
+                    - annualLossPercent
+                    - annualGainPercent
           required:
             - evidence
         customization:
@@ -1319,6 +1411,76 @@ Document:
             - SELL
             - HOLD
             - BUY_MORE
+        lossReaction:
+          type: object
+          additionalProperties: false
+          properties:
+            evidence:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            SELL:
+              type: object
+              additionalProperties: false
+              properties:
+                allowedLossFactor:
+                  type: string
+                  pattern: ^(0|[1-9]\d*)(\.\d{1,8})?$
+              required:
+                - allowedLossFactor
+            HOLD:
+              type: object
+              additionalProperties: false
+              properties:
+                allowedLossFactor:
+                  type: string
+                  pattern: ^(0|[1-9]\d*)(\.\d{1,8})?$
+              required:
+                - allowedLossFactor
+            BUY_MORE:
+              type: object
+              additionalProperties: false
+              properties:
+                allowedLossFactor:
+                  type: string
+                  pattern: ^(0|[1-9]\d*)(\.\d{1,8})?$
+              required:
+                - allowedLossFactor
+          required:
+            - evidence
+            - SELL
+            - HOLD
+            - BUY_MORE
+        occupationalRisk:
+          type: object
+          additionalProperties: false
+          properties:
+            evidence:
+              type: string
+              minLength: 3
+              maxLength: 2000
+            employerConcentration:
+              type: object
+              additionalProperties: false
+              properties:
+                maxEquityPercentReduction:
+                  type: string
+                  pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                excludeEmployerSector:
+                  type: boolean
+            incomeStability:
+              type: object
+              additionalProperties: false
+              properties:
+                UNCERTAIN:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    maxEquityPercent:
+                      type: string
+                      pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+          required:
+            - evidence
       required:
         - schemaVersion
         - title
@@ -2018,6 +2180,10 @@ Write:
                             - allocations
                         minItems: 1
                         maxItems: 40
+                      spendingFloorYears:
+                        type: integer
+                        minimum: 1
+                        maximum: 10
                     required:
                       - anchor
                       - interpolation
@@ -2301,7 +2467,7 @@ Write:
                 simulationPaths:
                   type: integer
                   minimum: 1
-                  maximum: 500
+                  maximum: 1000
                 blockMonths:
                   type: integer
                   minimum: 12
@@ -2314,6 +2480,21 @@ Write:
                   type: string
                   maxLength: 30
                   pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                essentialThresholdRange:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    min:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    max:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - min
+                    - max
                 allGoalsThreshold:
                   type: string
                   maxLength: 30
@@ -2326,6 +2507,24 @@ Write:
                   type: string
                   maxLength: 30
                   pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                rebalance:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    evidence:
+                      type: string
+                      minLength: 5
+                      maxLength: 2000
+                    saleTaxPercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                    transactionFeePercent:
+                      type: string
+                      maxLength: 30
+                      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                  required:
+                    - evidence
                 continuousOptimizer:
                   type: object
                   additionalProperties: false
@@ -2372,6 +2571,9 @@ Write:
                               - returnRate
                           minItems: 1
                           maxItems: 20
+                        target:
+                          type: string
+                          enum: *a3
                       required:
                         - evidence
                         - historicalWeight
@@ -2424,6 +2626,10 @@ Write:
                           type: string
                           maxLength: 30
                           pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                        healthDeltaPoints:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
                       required:
                         - offsetMonths
                         - durationMonths
@@ -2436,6 +2642,14 @@ Write:
                           type: integer
                           minimum: -1200
                           maximum: 1200
+                        offsetsMonths:
+                          type: array
+                          items:
+                            type: integer
+                            minimum: -1200
+                            maximum: 1200
+                          minItems: 1
+                          maxItems: 20
                         assetClass:
                           type: string
                           pattern: ^[A-Z][A-Z0-9_]{0,39}$
@@ -2448,7 +2662,6 @@ Write:
                           maxLength: 30
                           pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
                       required:
-                        - offsetMonths
                         - assetClass
                         - shockPercent
                     RATE_RISE:
@@ -2515,9 +2728,25 @@ Write:
                           maxLength: 30
                           pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
                         spreadPoints:
-                          type: string
-                          maxLength: 30
-                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                          anyOf:
+                            - anyOf:
+                                - type: string
+                                  maxLength: 30
+                                  pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                                - type: number
+                                  minimum: 0
+                                  maximum: 100
+                            - type: array
+                              items:
+                                anyOf:
+                                  - type: string
+                                    maxLength: 30
+                                    pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 100
+                              minItems: 1
+                              maxItems: 10
                       required:
                         - offsetMonths
                         - assetClass
@@ -2588,8 +2817,31 @@ Write:
                           type: string
                           enum:
                             - LIVING_CPI_LIFELONG_PENSION_ONLY
+                        lateLifeCareMonthly:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
                       required:
                         - extraYears
+                    SEQUENCE_OF_RETURNS:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        assetClass:
+                          type: string
+                          pattern: ^[A-Z][A-Z0-9_]{0,39}$
+                        annualLossPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                        annualGainPercent:
+                          type: string
+                          maxLength: 30
+                          pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+                      required:
+                        - assetClass
+                        - annualLossPercent
+                        - annualGainPercent
               required:
                 - evidence
             customization:
@@ -2658,6 +2910,76 @@ Write:
                 - SELL
                 - HOLD
                 - BUY_MORE
+            lossReaction:
+              type: object
+              additionalProperties: false
+              properties:
+                evidence:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                SELL:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    allowedLossFactor:
+                      type: string
+                      pattern: ^(0|[1-9]\d*)(\.\d{1,8})?$
+                  required:
+                    - allowedLossFactor
+                HOLD:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    allowedLossFactor:
+                      type: string
+                      pattern: ^(0|[1-9]\d*)(\.\d{1,8})?$
+                  required:
+                    - allowedLossFactor
+                BUY_MORE:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    allowedLossFactor:
+                      type: string
+                      pattern: ^(0|[1-9]\d*)(\.\d{1,8})?$
+                  required:
+                    - allowedLossFactor
+              required:
+                - evidence
+                - SELL
+                - HOLD
+                - BUY_MORE
+            occupationalRisk:
+              type: object
+              additionalProperties: false
+              properties:
+                evidence:
+                  type: string
+                  minLength: 3
+                  maxLength: 2000
+                employerConcentration:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    maxEquityPercentReduction:
+                      type: string
+                      pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+                    excludeEmployerSector:
+                      type: boolean
+                incomeStability:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    UNCERTAIN:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        maxEquityPercent:
+                          type: string
+                          pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+              required:
+                - evidence
           required:
             - schemaVersion
             - title
@@ -2785,10 +3107,10 @@ Approval:
   type: object
   additionalProperties: false
   properties:
-    actor: &a3
+    actor: &a4
       type: string
       format: uuid
-    approvedAt: &a5
+    approvedAt: &a6
       type: string
       format: date-time
     reviewNote:
@@ -2807,10 +3129,10 @@ Version:
   type: object
   additionalProperties: false
   properties:
-    id: *a3
-    version: &a4
+    id: *a4
+    version: &a5
       type: integer
-    revision: *a4
+    revision: *a5
     status:
       type: string
       enum:
@@ -2828,12 +3150,12 @@ Version:
           nullable: true
           enum:
             - null
-    createdBy: *a3
+    createdBy: *a4
     publishedBy:
       type: string
       format: uuid
       nullable: true
-    createdAt: *a5
+    createdAt: *a6
     effectiveAt:
       type: string
       format: date-time
@@ -2859,18 +3181,18 @@ List:
       enum:
         - AVAILABLE
         - UNCONFIGURED
-    total: *a4
-    page: *a4
-    limit: *a4
+    total: *a5
+    page: *a5
+    limit: *a5
     items:
       type: array
       items:
         type: object
         additionalProperties: false
         properties:
-          id: *a3
-          version: *a4
-          revision: *a4
+          id: *a4
+          version: *a5
+          revision: *a5
           status:
             type: string
             enum:
@@ -2992,7 +3314,7 @@ Assessment:
             type: string
           label:
             type: string
-          score: *a4
+          score: *a5
         required:
           - questionId
           - dimension
@@ -3009,7 +3331,7 @@ Assessment:
             type: string
           templateId:
             type: string
-          matched: &a6
+          matched: &a7
             type: boolean
           failed:
             type: array
@@ -3039,16 +3361,16 @@ Row:
   properties:
     month:
       type: string
-    rebalanced: *a6
-    turnoverFraction: &a7
+    rebalanced: *a7
+    turnoverFraction: &a8
       type: string
       pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
-    rebalanceCostFraction: *a7
-    returnMonthlyFactor: *a7
-    inflationMonthlyFactor: *a7
-    inflationAnnualPercent: *a7
-    inflationDeltaPoints: *a7
-    unitValue: *a7
+    rebalanceCostFraction: *a8
+    returnMonthlyFactor: *a8
+    inflationMonthlyFactor: *a8
+    inflationAnnualPercent: *a8
+    inflationDeltaPoints: *a8
+    unitValue: *a8
     holdings:
       type: array
       items:
@@ -3057,14 +3379,15 @@ Row:
         properties:
           assetClass:
             type: string
-          startWeightPercent: *a7
-          annualNetNominalReturnPercent: *a7
-          returnDeltaPoints: *a7
+          startWeightPercent: *a8
+          annualNetNominalReturnPercent: *a8
+          returnDeltaPoints: *a8
         required:
           - assetClass
           - startWeightPercent
           - annualNetNominalReturnPercent
           - returnDeltaPoints
+    grossReturnMonthlyFactor: *a8
   required:
     - month
     - rebalanced
@@ -3090,12 +3413,12 @@ Scenario:
       type: string
     evidence:
       type: string
-    changes: *a8
+    changes: *a9
     rows:
       type: array
       items:
         $ref: "#/Row"
-    endingUnitValue: *a7
+    endingUnitValue: *a8
   required:
     - kind
     - label
@@ -3109,11 +3432,11 @@ Preview:
   properties:
     guidance:
       $ref: ./preview-guidance.openapi.yaml#/Guidance
-    policyVersionId: *a3
-    policyVersion: *a4
+    policyVersionId: *a4
+    policyVersion: *a5
     policyHash:
       type: string
-    assumptionVersionId: *a3
+    assumptionVersionId: *a4
     assumptionHash:
       type: string
     answerBasis:
@@ -3180,7 +3503,7 @@ VersionEnvelope:
       type: object
       additionalProperties: false
       properties:
-        requestId: *a3
+        requestId: *a4
       required:
         - requestId
   required:
@@ -3196,7 +3519,7 @@ ListEnvelope:
       type: object
       additionalProperties: false
       properties:
-        requestId: *a3
+        requestId: *a4
       required:
         - requestId
   required:
@@ -3212,7 +3535,7 @@ ValidationEnvelope:
       type: object
       additionalProperties: false
       properties:
-        requestId: *a3
+        requestId: *a4
       required:
         - requestId
   required:
@@ -3228,7 +3551,7 @@ PreviewEnvelope:
       type: object
       additionalProperties: false
       properties:
-        requestId: *a3
+        requestId: *a4
       required:
         - requestId
   required:

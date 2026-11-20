@@ -1,3 +1,4 @@
+import { clearSimulationCache } from "../modules/allocation-risk/simulation-cache";
 import { describe, expect, it } from "vitest";
 import { addMonths } from "../common/calendar";
 import { RetirementDecimal as D } from "../modules/retirement/engine";
@@ -135,12 +136,12 @@ describe("Adversarial Challenger 2 — Extended Horizon Planning (F03) & 8/8 Str
       expect(durationMs).toBeLessThan(30000);
     });
 
-    it("enforces path-month upper bound rejection on 40-year horizon (480 * 417 > 200,000)", async () => {
-      const c = riskContext(480);
+    it("enforces path and path-month upper bounds (more than 1000 paths, or paths x months > 1,300,000)", async () => {
+      const c = riskContext(1200);
       const data = marketFixture();
 
-      // 480 * 417 = 200,160 > 200,000
-      const overLimitRes = await simulate(c, data, policy, 417);
+      // Valid plans have at most 1200 months, so the 1,300,000 path-month cap is reached only through the 1000 path maximum.
+      const overLimitRes = await simulate(c, data, policy, 1001);
       expect(overLimitRes.status).toBe("LIMIT_EXCEEDED");
       if (overLimitRes.status === "LIMIT_EXCEEDED") {
         expect(overLimitRes.issues).toContain("PATH_MONTH_LIMIT");
@@ -149,7 +150,7 @@ describe("Adversarial Challenger 2 — Extended Horizon Planning (F03) & 8/8 Str
       // Negative and zero paths rejection
       expect((await simulate(c, data, policy, 0)).status).toBe("LIMIT_EXCEEDED");
       expect((await simulate(c, data, policy, -5)).status).toBe("LIMIT_EXCEEDED");
-      expect((await simulate(c, data, policy, 501)).status).toBe("LIMIT_EXCEEDED");
+      expect((await simulate(c, data, policy, 1001)).status).toBe("LIMIT_EXCEEDED");
     });
 
     it("successfully simulates 50-year FIRE case (600 months) with Monte Carlo bootstrap", async () => {
@@ -233,20 +234,21 @@ describe("Adversarial Challenger 2 — Extended Horizon Planning (F03) & 8/8 Str
         }
       }
 
-      // Boundary rejection for 50-year plan: 600 * 334 = 200,400 > 200,000
-      const overLimit50 = await simulate(fireContext, data, policy, 334);
+      // More than the maximum 1000 paths is rejected
+      const overLimit50 = await simulate(fireContext, data, policy, 1001);
       expect(overLimit50.status).toBe("LIMIT_EXCEEDED");
     });
 
-    it("rejects immediately with RUNTIME_LIMIT_NO_PARTIAL_ESTIMATE on expired deadline", async () => {
+    it("stops on an expired deadline with RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED and no estimate", async () => {
       const c = riskContext(24);
       const data = marketFixture();
+      clearSimulationCache(); // results of earlier tests must not satisfy this run
       const pastDeadline = performance.now() - 100;
 
       const res = await simulate(c, data, policy, 20, pastDeadline);
       expect(res.status).toBe("LIMIT_EXCEEDED");
       if (res.status === "LIMIT_EXCEEDED") {
-        expect(res.issues).toContain("RUNTIME_LIMIT_NO_PARTIAL_ESTIMATE");
+        expect(res.issues).toContain("RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED");
       }
     });
   });
@@ -266,7 +268,15 @@ describe("Adversarial Challenger 2 — Extended Horizon Planning (F03) & 8/8 Str
 
       for (const kind of stressKinds) {
         const stressRes = deterministicStress(kind, c, market, policy, propertyInjections);
-        expect(stressRes.status).toBe("READY");
+      if (kind === "INCOME_LOSS") {
+        expect(stressRes).toMatchObject({status:"NOT_APPLICABLE",issues:["NO_ACCUMULATION_MONTHS"]});
+        continue;
+      }
+      if (kind === "SEQUENCE_OF_RETURNS") {
+        expect(stressRes).toMatchObject({status:"REVIEW_REQUIRED",issues:["APPROVED_SCENARIO_PARAMETERS_REQUIRED"]});
+        continue;
+      }
+      expect(stressRes.status).toBe("READY");
         expect(stressRes.kind).toBe(kind);
 
         if (stressRes.status === "READY") {

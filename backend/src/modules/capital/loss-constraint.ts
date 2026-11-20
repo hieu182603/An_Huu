@@ -11,13 +11,15 @@ export const lossConstraintSchema = z.object({
   lossPercentOfGrowth: amount, lossPercentOfInvestableAssets: amount, allowedLossAmount: amount,
   exceedsTolerance: z.boolean().nullable(), maxEquityWeightPercent: amount,
   proposedLossAmount: amount, proposedAllocations: z.array(z.object({ assetClass: z.string(), weightPercent: z.string() })),
+  bindingLimit: z.enum(["AMOUNT", "PERCENT"]).nullable().optional(),
+  reactionApplied: z.boolean().optional(),
 }).strict();
 export type LossConstraint = z.infer<typeof lossConstraintSchema>;
 export function assessLossConstraint(capital: CapitalSeparation, profile: ProfileV2, policy: PortfolioDocument,
   holdings: Array<{ assetClass: string; startWeightPercent: string }> = []): LossConstraint {
   const result: LossConstraint = { informationalOnly: true, status: "REVIEW_REQUIRED", message: "Cần rà soát dữ liệu ràng buộc lỗ.", issues: [],
     growthCapital: capital.growthCapital, lossAmount: null, lossPercentOfGrowth: null, lossPercentOfInvestableAssets: null,
-    allowedLossAmount: null, exceedsTolerance: null, maxEquityWeightPercent: null, proposedLossAmount: null, proposedAllocations: [] };
+    allowedLossAmount: null, exceedsTolerance: null, maxEquityWeightPercent: null, proposedLossAmount: null, proposedAllocations: [], reactionApplied: false };
   const stress = policy.schemaVersion === 2 ? policy.lossStress : undefined;
   if (!stress) result.issues.push("APPROVED_LOSS_STRESS_REQUIRED");
   if (capital.status !== "READY") result.issues.push("CAPITAL_SEPARATION_REQUIRED");
@@ -38,12 +40,45 @@ export function assessLossConstraint(capital: CapitalSeparation, profile: Profil
   const tolerance = profile.lossTolerance;
   const pc = tolerance?.percent?.status === "KNOWN" ? tolerance.percent.value : null;
   const amount = tolerance?.amountVnd?.status === "KNOWN" ? tolerance.amountVnd.value : null;
-  if (tolerance?.inputMode === "PERCENT" ? pc === null : tolerance?.inputMode === "AMOUNT" ? amount === null : pc === null || amount === null) {
+  const mode = tolerance?.inputMode;
+  const explicitUnknown = tolerance?.percent?.status === "UNKNOWN" || tolerance?.amountVnd?.status === "UNKNOWN";
+  let allowed: InstanceType<typeof D>;
+  if (mode === "PERCENT") {
+    if (pc === null) { result.issues.push("LOSS_TOLERANCE_REQUIRED"); return result; }
+    allowed = growth.mul(pc).div(100);
+    result.bindingLimit = "PERCENT";
+  } else if (mode === "AMOUNT") {
+    if (amount === null) { result.issues.push("LOSS_TOLERANCE_REQUIRED"); return result; }
+    allowed = new D(amount);
+    result.bindingLimit = "AMOUNT";
+  } else if (mode === "BOTH") {
+    if (pc === null || amount === null) { result.issues.push("LOSS_TOLERANCE_REQUIRED"); return result; }
+    const byPercent = growth.mul(pc).div(100), byAmount = new D(amount);
+    allowed = D.min(byPercent, byAmount);
+    result.bindingLimit = byAmount.lte(byPercent) ? "AMOUNT" : "PERCENT";
+  } else if (pc !== null && amount !== null) {
+    const byPercent = growth.mul(pc).div(100), byAmount = new D(amount);
+    allowed = D.min(byPercent, byAmount);
+    result.bindingLimit = byAmount.lte(byPercent) ? "AMOUNT" : "PERCENT";
+  } else if (!explicitUnknown && pc !== null) {
+    allowed = growth.mul(pc).div(100);
+    result.bindingLimit = "PERCENT";
+  } else if (!explicitUnknown && amount !== null) {
+    allowed = new D(amount);
+    result.bindingLimit = "AMOUNT";
+  } else {
     result.issues.push("LOSS_TOLERANCE_REQUIRED"); return result;
   }
-  // Legacy snapshots retain their original conservative minimum for immutable replay.
-  const allowed = tolerance?.inputMode === "PERCENT" ? growth.mul(pc!).div(100)
-    : tolerance?.inputMode === "AMOUNT" ? new D(amount!) : D.min(growth.mul(pc!).div(100), amount!);
+  const reactionPolicy = policy.schemaVersion === 2 ? policy.lossReaction : undefined;
+  if (reactionPolicy) {
+    const reaction = tolerance?.reaction?.status === "KNOWN" ? tolerance.reaction.value : null;
+    if (reaction) {
+      allowed = allowed.mul(reactionPolicy[reaction].allowedLossFactor);
+      result.reactionApplied = true;
+    } else {
+      result.reactionApplied = false;
+    }
+  }
   result.allowedLossAmount = allowed.toFixed(); result.exceedsTolerance = loss.gt(allowed);
   const equity = new D(holdings.find(h => h.assetClass === stress.equityAssetClass)?.startWeightPercent ?? "0");
   if (!stress.shocks.some(s => s.assetClass === stress.equityAssetClass) || !stress.shocks.some(s => s.assetClass === stress.depositAssetClass)) {
