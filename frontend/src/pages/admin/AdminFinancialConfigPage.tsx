@@ -226,6 +226,7 @@ export default function AdminFinancialConfigPage() {
         inflation: detail?.data.inflation || [],
         assetClasses: detail?.data.assetClasses || [],
         returns: detail?.data.returns || [],
+        ...(detail?.data.emergencyReserveMonths ? { emergencyReserveMonths: detail.data.emergencyReserveMonths } : {}),
       };
       const created = await createAdminAssumptionDraft(doc);
       setCreateModalOpen(false);

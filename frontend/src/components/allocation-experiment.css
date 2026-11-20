@@ -128,12 +128,12 @@
 /* Two investment packages side by side. */
 
 @media(max-width:700px){
-  .allocation-why-table{min-width:0}
+  .allocation-comparison-scroll .allocation-why-table{min-width:0}
   .allocation-why-table thead{display:none}
   .allocation-why-table,.allocation-why-table tbody,.allocation-why-table tr,.allocation-why-table th,.allocation-why-table td{display:block;width:auto}
   .allocation-why-table tr{margin:0 0 10px;padding:4px 12px;border:1px solid #dbe4ef;border-radius:12px;background:#fff}
   .allocation-why-table tr.is-current{border-color:#9dbbe3;background:#eef6ff}
-  .allocation-comparison-scroll .allocation-why-table th,.allocation-comparison-scroll .allocation-why-table td{border:0;padding:8px 0;text-align:left;white-space:normal;max-width:none;min-width:0}
+  .allocation-comparison-scroll .allocation-why-table th,.allocation-comparison-scroll .allocation-why-table td{height:auto;border:0;padding:8px 0;text-align:left;white-space:normal;max-width:none;min-width:0;overflow-wrap:anywhere}
   .allocation-comparison-scroll .allocation-why-table td{display:flex;justify-content:space-between;gap:12px;border-top:1px dashed #e1e7ef}
   .allocation-why-table td::before{content:attr(data-label);color:#536982;font-weight:400}
   .allocation-why-bar{width:100%}
@@ -205,4 +205,19 @@
 .allocation-package-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:16px;border-top:1px solid #e6edf5}
 .allocation-package-footer p{margin:0;max-width:62ch;font-size:12px;line-height:1.65;color:#536982}
 .allocation-package-footer .overview-button{flex:none}
-@media(max-width:640px){.allocation-package-grid{grid-template-columns:1fr}.allocation-package-footer{flex-direction:column;align-items:stretch}.allocation-products-dialog .allocation-comparison-scroll{overflow:visible;border:0}.allocation-package-table{min-width:0!important}.allocation-package-table thead{display:none}.allocation-package-table,.allocation-package-table tbody,.allocation-package-table tr,.allocation-package-table th,.allocation-package-table td{display:block;width:auto}.allocation-package-table tr{margin-bottom:12px;border:1px solid #dbe4ef;border-radius:12px;overflow:hidden}.allocation-package-table tbody th{border-top:0}.allocation-package-table td::before{content:attr(data-label);display:block;margin-bottom:4px;font-size:11px;font-weight:700;color:#536982}.allocation-products-dialog .allocation-package-table tbody th,.allocation-products-dialog .allocation-package-table tbody td{width:auto;height:auto;padding:12px 14px}.allocation-products-dialog .allocation-package-table tbody td{border-top:1px solid #e6edf5}}
+@media(max-width:640px){.allocation-package-grid{grid-template-columns:1fr}.allocation-package-footer{flex-direction:column;align-items:stretch}.allocation-products-dialog .allocation-comparison-scroll{overflow:visible;border:0}.allocation-package-table{min-width:0!important}.allocation-package-table thead{display:none}.allocation-package-table,.allocation-package-table tbody,.allocation-package-table tr,.allocation-package-table th,.allocation-package-table td{display:block;width:auto}.allocation-package-table tr{margin-bottom:12px;border:1px solid #dbe4ef;border-radius:12px;overflow:hidden}.allocation-package-table tbody th{border-top:0}.allocation-package-table td::before{content:attr(data-label);display:block;margin-bottom:4px;font-size:11px;font-weight:700;color:#536982}.allocation-products-dialog .allocation-package-table tbody th,.allocation-products-dialog .allocation-package-table tbody td{width:auto;height:auto;padding:12px 14px}.allocation-products-dialog .allocation-package-table tbody td{border-top:1px solid #e6edf5}}/* Spec §7.4 step 4: behavioural adjustments card (contribute more / retire later / cut optional spending). */
+.allocation-adjustments{margin:24px 0;padding:24px;border:1px solid #dce6f0;border-radius:16px;background:#fff;color:#142e49}
+.allocation-adjustments h2{margin:0 0 6px;font-size:18px}
+.allocation-adjustments header p{margin:0;color:#536b85;font-size:14px;line-height:1.6}
+.allocation-adjustment-list{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:12px}
+.allocation-adjustment-list li{padding:14px 16px;border:1px solid #dce6f0;border-radius:12px;background:#f8fafd}
+.allocation-adjustment-list li.is-found{border-color:#9bd3b4;background:#f1faf5}
+.allocation-adjustment-list li>strong{display:block;margin-bottom:4px;font-size:15px}
+.allocation-adjustment-list li p{margin:0;line-height:1.6}
+.allocation-adjustment-list li small{display:block;margin-top:4px;color:#536b85}
+@media(max-width:650px){.allocation-adjustments{padding:18px 16px}}
+.allocation-paths{display:grid;gap:8px;margin-top:16px;padding:14px 16px;border:1px solid #dce6f0;border-radius:12px;background:#f7fafd;color:#142e49}
+.allocation-paths p{margin:0}.allocation-paths small{color:#536b85}
+.allocation-paths progress{width:100%;height:8px;accent-color:#245dab}
+.allocation-paths-actions{display:flex;flex-wrap:wrap;gap:8px}.allocation-paths-actions .overview-button{min-height:44px}
+.allocation-paths-undecided{color:#8a5a00}

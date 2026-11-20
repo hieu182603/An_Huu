@@ -2,15 +2,18 @@ import type { RetirementPreviewInput } from "../services/retirement";
 import type { CustomAllocation } from "../services/portfolios";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { Icon } from "../components/ui";
 import { useI18n } from "../i18n";
 import { useAuth } from "../context/AuthContext";
 import { useRetirementPlan } from "../context/RetirementPlanContext";
 import { Decimal } from "../utils/decimal";
 import type { PortfolioPolicyDetail } from "../services/portfolios";
-import { confirmAllocation, getAllocationConfirmation, type AllocationWorkspaceResult } from "../services/allocationWorkspace";
+import { confirmAllocation, getAllocationConfirmation, type AllocationWorkspaceResult, type LossLimitInput } from "../services/allocationWorkspace";
 import AllocationResults from "../components/AllocationResults";
+import { ALLOCATION_EDIT_EVENT } from "../components/AllocationExperiment";
 import { resolveLossTolerance } from "../utils/lossTolerance";
 import AllocationLossLimit from "../components/AllocationLossLimit";
+import { AllocationObligations, AllocationLiquidityReconciliation } from "../components/AllocationObligations";
 import { AllocationCapitalInput, AllocationSpendingInputs, AllocationPersonalPlan } from "../components/AllocationPersonalInputs";
 import { AllocationGoalsQuestion, AllocationReserveMonths } from "../components/AllocationProfileEdits";
 import { financeMoney } from "../utils/financeHubSummary";
@@ -26,7 +29,7 @@ import "../components/user-workspace-dialogs.css";
 import "../pages/financial-cashflow.css";
 import "./allocation-workspace.css";
 
-type Props={lossInputMode?:"PERCENT"|"AMOUNT";planInput?:RetirementPreviewInput|null;confirmLoss:()=>void;saveLoss:(kind:"PERCENT"|"AMOUNT",value:string)=>void;riskError?:string;savingRisk:boolean;profileRevision:number;retirementExpense:string|null;lossPercent:string|null;lossAmount:string|null;policy:PortfolioPolicyDetail;data:AllocationWorkspaceResult|null;loading:boolean;error?:string;retry:()=>void;selected:string;months:number;setMonths:(n:number)=>void;endMonth:string;setEndMonth:(s:string)=>void;retirementMonth?:string;answers:Record<string,string>;complete:boolean;openRisk:()=>void};
+type Props={lossInputMode?:"PERCENT"|"AMOUNT"|"BOTH";planInput?:RetirementPreviewInput|null;confirmLoss:()=>void;saveLoss:(limit:LossLimitInput)=>void;riskError?:string;savingRisk:boolean;profileRevision:number;retirementExpense:string|null;lossPercent:string|null;lossAmount:string|null;policy:PortfolioPolicyDetail;data:AllocationWorkspaceResult|null;loading:boolean;error?:string;retry:()=>void;selected:string;months:number;setMonths:(n:number)=>void;endMonth:string;setEndMonth:(s:string)=>void;retirementMonth?:string;answers:Record<string,string>;complete:boolean;openRisk:()=>void};
 export default function AllocationWorkspace(p:Props) {
   const en=useI18n().language==="en", t=(v:string,e:string)=>en?e:v;
   const navigate=useNavigate(), {updateDraft}=useRetirementPlan();
@@ -56,7 +59,20 @@ export default function AllocationWorkspace(p:Props) {
     if(lastInputs.current===inputsKey)return;
     lastInputs.current=inputsKey;setApplied(false);setResultsRequestedState(false);writeHint(false);
   },[inputsKey]);
-  const [step,setStep]=useState(0),[modal,setModal]=useState<"capital"|"reserve"|"goals"|"growth"|null>(null);
+  const [editOpen,setEditOpen]=useState(false),[step,setStep]=useState(0),[modal,setModal]=useState<"capital"|"reserve"|"goals"|"growth"|null>(null);
+  // Result notices ask to open the editor at a given step (and optionally scroll to a field).
+  useEffect(()=>{
+    const open=(event:Event)=>{
+      const detail=(event as CustomEvent<{step:number;focusId?:string}>).detail;
+      setEditOpen(true);setStep(detail?.step??0);
+      window.setTimeout(()=>{
+        const target=(detail?.focusId&&document.getElementById(detail.focusId))||document.querySelector(".allocation-editor-disclosure")||document.querySelector(".allocation-wizard");
+        target?.scrollIntoView({behavior:"smooth",block:detail?.focusId?"center":"start"});
+      },60);
+    };
+    window.addEventListener(ALLOCATION_EDIT_EVENT,open);
+    return()=>window.removeEventListener(ALLOCATION_EDIT_EVENT,open);
+  },[]);
   const r=p.data,c=r?.capital, portfolio=r?.portfolio, money=(s:string|null|undefined)=>financeMoney(s??null,en);
   const limit=resolveLossTolerance(c?.growthCapital??null,p.lossAmount,p.lossPercent,p.lossInputMode);
   const template=p.policy.data.templates.find(row=>row.id===portfolio?.assessment.selectedTemplateId);
@@ -119,7 +135,7 @@ export default function AllocationWorkspace(p:Props) {
     {to:"/user/profile?section=assets",label:reviewLabel})
   :modal==="reserve"?calcBody([
       {label:t("Chi thiết yếu mỗi tháng","Essential spending per month"),value:money(c?.essentialMonthlyExpense)},
-      {op:"×",label:t("Số tháng dự phòng","Reserve months"),hint:t("Bạn chọn từ 6 đến 12 tháng","You choose 6 to 12 months"),value:`${c?.reserveMonths??"—"} ${t("tháng","months")}`},
+      {op:"×",label:t("Số tháng dự phòng","Reserve months"),hint:c?.reserveMonthsBasis==="CUSTOMER"?t("Bạn chọn từ 6 đến 12 tháng","You choose 6 to 12 months"):t("Mặc định 6 đến 12 tháng theo độ ổn định thu nhập; bạn có thể đổi","Default 6 to 12 months by income stability; you can change it"),value:`${c?.reserveMonths??"—"} ${t("tháng","months")}`},
     ],{label:t("Dự phòng cần giữ","Required reserve"),value:money(c?.requiredEmergencyReserve)},
     t("Khi chưa chọn, hệ thống dùng 6 tháng. Khoản này được giữ riêng, không đem đầu tư.","Until chosen, 6 months is used. This amount is kept aside, not invested."),
     {to:"/user/profile?section=cashflow",label:reviewLabel})
@@ -136,7 +152,9 @@ export default function AllocationWorkspace(p:Props) {
       {step===0?<>
         <AllocationCapitalInput en={en} suggested={profileCapital}/>
         <AllocationSpendingInputs en={en} only="current" current={c?.essentialMonthlyExpense??null} retirement={p.retirementExpense} endMonth={p.endMonth} />
-        <AllocationReserveMonths months={c?.reserveMonths??null} en={en} essentialExpense={c?.essentialMonthlyExpense??null} onPendingChange={setReservePending}/>
+        <AllocationObligations rows={r?.obligations??[]} en={en}/>
+        <AllocationLiquidityReconciliation rows={r?.liquidityReconciliation??[]} en={en}/>
+        <AllocationReserveMonths months={c?.reserveMonths??null} basis={c?.reserveMonthsBasis} en={en} essentialExpense={c?.essentialMonthlyExpense??null} onPendingChange={setReservePending}/>
         {/* Asked in the initial survey; shown here only while still unanswered (older profiles). */}
         {c?.issues?.some(i=>i.code==="GOALS_REQUIRED")&&<AllocationGoalsQuestion en={en} minMonth={r?.valuationDate.slice(0,7)} id="allocation-goals-question"/>}
         <details className="allocation-disclosure"><summary>{t("Tôi có khoản để riêng ngoài quỹ nghỉ hưu","I have capital set aside outside my retirement fund")}</summary><dl className="allocation-protection"><div><dt>{t("Dự phòng đã để riêng","Separate emergency reserve")}</dt><dd>{money(c?.declaredEmergencyReserve)}</dd></div><div><dt>{t("Tiền đã dành cho mục tiêu khác","Separate goal capital")}</dt><dd>{money(c?.declaredOtherGoalsCapital)}</dd></div></dl><Link to="/user/profile?section=assets">{t("Xem và sửa khoản để riêng","Review and edit separate capital")}</Link></details>
@@ -183,7 +201,8 @@ export default function AllocationWorkspace(p:Props) {
     }catch{setApplied(false);setApplyError(t("Chưa giữ được bản nháp trên thiết bị. Hãy cho phép lưu trữ rồi thử lại.","Could not store the draft on this device. Allow browser storage and retry."));}
   };
   return <>
-    <header className="allocation-page-head"><div><span className="allocation-eyebrow">{t("KẾ HOẠCH ĐẦU TƯ CỦA BẠN","YOUR INVESTMENT PLAN")}</span><h1>{t("Phân bổ tài sản","Asset allocation")}</h1><p>{t("Biết tiền đi đâu. Hiểu vì sao lựa chọn đó phù hợp.","Know where your money goes and why the choice fits.")}</p></div><button className="overview-button secondary" onClick={p.openRisk}>{t("Khả năng chịu rủi ro →","Risk tolerance →")}</button></header>
+    <header className="allocation-page-head"><div><span className="allocation-eyebrow">{t("KẾ HOẠCH ĐẦU TƯ CỦA BẠN","YOUR INVESTMENT PLAN")}</span><h1>{t("Phân bổ tài sản","Asset allocation")}</h1><p>{t("Biết tiền đi đâu. Hiểu vì sao lựa chọn đó phù hợp.","Know where your money goes and why the choice fits.")}</p></div><div className="allocation-head-actions">{resultsRequested&&<button type="button" className="overview-button secondary" aria-expanded={editOpen} onClick={()=>setEditOpen(v=>!v)}><Icon name="edit"/> {t("Sửa thông tin phân bổ","Edit allocation inputs")}</button>}<button type="button" className="overview-button secondary" onClick={p.openRisk}><Icon name="shield"/> {t("Khả năng chịu rủi ro","Risk tolerance")}</button></div></header>
+    {resultsRequested&&editOpen&&<section className="allocation-editor-disclosure">{wizard}</section>}
     {p.error&&<DiscoveryError message={p.error} retry={p.retry}/>}
     {p.loading&&!p.data&&<div className="skeleton-card" role="status" aria-busy="true" aria-label={t("Đang tính từ hồ sơ hiện hành","Calculating from your current profile")}><span className="skeleton skeleton-medium"/><span className="skeleton skeleton-full"/><span className="skeleton skeleton-small"/></div>}{p.loading&&p.data&&<span className="sr-only" role="status">{t("Đang cập nhật số liệu…","Refreshing figures…")}</span>}
     {!resultsRequested&&<section className="allocation-workbench">
@@ -198,7 +217,6 @@ export default function AllocationWorkspace(p:Props) {
     {resultsRequested&&applied&&<p role="status" className="allocation-applied">{t("Đã dùng phương án này trong bản xem trước của kế hoạch. Mở Kế hoạch để xem mức cần góp và lưu khi sẵn sàng.","This allocation is now used in your plan preview. Open your plan to review contributions and save when ready.")} <Link to="/user/plan">{t("Xem kế hoạch nghỉ hưu →","View retirement plan →")}</Link></p>}
     {resultsRequested&&!applied&&applyError&&modal===null&&<p role="alert">{applyError}</p>}
     {resultsRequested&&r&&<AllocationResults data={r} planInput={p.planInput??null} workspaceInput={{expectedProfileRevision:r.profileRevision,policyVersionId:p.policy.id,answers:p.policy.data.questions.map(q=>({questionId:q.id,choiceId:p.answers[q.id]})),liquidityNeedMonths:p.months,endMonth:p.endMonth,retirementMonth:p.retirementMonth,...(template?{templateId:template.id}:{})}} onChoose={useInPreview} policy={p.policy} retirementMonth={p.retirementMonth} complete={p.complete} usable={Boolean(usable)} loading={p.loading} explain={explain}/>}
-    {resultsRequested&&<details className="allocation-editor-disclosure"><summary>{t("Sửa thông tin phân bổ","Edit allocation inputs")}</summary>{wizard}</details>}
     <ResponsiveDialog open={modal!==null} title={modal==="capital"?t("Tổng số tiền được tính thế nào?","How is capital considered calculated?"):modal==="reserve"?t("Dự phòng cần giữ được tính thế nào?","How is the reserve calculated?"):modal==="goals"?t("Khoản cần dùng trong 5 năm","Needed within 5 years"):t("Vốn dài hạn để đầu tư được tính thế nào?","How is long-term capital calculated?")} className="user-workspace-dialog allocation-dialog" onClose={()=>setModal(null)}>
       {explainBody}
     </ResponsiveDialog>

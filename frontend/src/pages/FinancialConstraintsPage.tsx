@@ -78,7 +78,13 @@ function PlanningForm({ profile, revision }: { profile: ProfileV2; revision: num
     setBusy(true); setAttempted(true);
     try {
       const values: PlanningValues = { careResponsibility: care ? { status: "KNOWN", value: care } : unknown,
-        liquidityNeeds: { y1: amount(needs.y1), y3: amount(needs.y3), y5: amount(needs.y5) }, goals };
+        liquidityNeeds: Object.fromEntries(horizons.map(h => {
+          const previous = profile.liquidityNeeds?.[h], id = previous?.status === "KNOWN" ? previous.matchedGoalId : undefined;
+          const originalGoal = id && profile.goals?.status === "KNOWN" ? profile.goals.entries.find(goal => goal.id === id) : undefined;
+          const currentGoal = id && goals.status === "KNOWN" ? goals.entries.find(goal => goal.id === id) : undefined;
+          // Keep explicit matches through unrelated edits, and ask again if their amount or goal changes.
+          return [h, { ...amount(needs[h]), ...(id && previous?.status === "KNOWN" && previous.value === needs[h] && originalGoal && JSON.stringify(originalGoal) === JSON.stringify(currentGoal) ? { matchedGoalId: id } : {}) }];
+        })) as PlanningValues["liquidityNeeds"], goals };
       if (await updatePlanning(values)) { notify.success(t("Đã lưu mục tiêu khác", "Other goals saved"), t("Đã cập nhật hồ sơ. Hãy xem lại bản tính trước khi áp dụng vào kế hoạch chính.", "Profile updated. Review the calculation before applying it to your main plan.")); navigate("/user/plan"); }
     } finally { setBusy(false); }
   };

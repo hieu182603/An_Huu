@@ -5,6 +5,10 @@ export type Recommendation = { id: string; revision: number; status: string; rec
 export type Holdings = { status: string; products: Array<{ id: string; name: string }>; holdings: Array<{ id: string; revision: number; productId: string; productName: string; quantity: string; costBasis: string; currentPrice: string | null; assetClass: string | null; priceAsOf: string | null; sourceKind: string | null; sourceReference: string | null; stale: boolean; lockedUntil: string | null }>;
   summary: { totalValue: string; totalCost: string; totalUnrealizedGainLoss: string; holdings: Array<{ productId: string; currentValue: string; unrealizedGainLoss: string; weightPercent: string }> } | null };
 export type Rebalance = { status: string; issues?: string[]; cost?: string; informationalOnly: boolean; trades?: Array<{ assetClass: string; buy: string; sell: string; cashAllocated: string; newValue: string }> };
+export type DriftSummary = { isDrifted: boolean; maxDriftPercent: string; driftThresholdPercent: string; rebalanceRequired: boolean; costEstimated: string; cashUsedBeforeTrades: string };
+export type HoldingsDrift = Omit<DriftSummary,"costEstimated"|"cashUsedBeforeTrades"> & { persisted: false; rebalanceRecommendation: { status: string; costEstimated: string; cashUsedBeforeTrades: string; unallocatedCash: string } | null };
+export type RebalanceOrders = { persisted: false; drift: DriftSummary & {rebalanceStatus: string | null}; orders: Array<{productId: string; productName: string; action: "BUY" | "SELL"; units: number; estimatedPrice: string; estimatedAmount: string; lotSize: number}> };
+type MonitorInput = {planId: string; versionId: string; newContribution: string; driftThresholdPercent?: string};
 export type ProductData = { id: string; name: string; revision: number; stale: boolean; data: { code: string; assetClass: string; category: string; nav: string; annualExpenseRatioPercent: string; liquidityDays: number; lotSize: number; minimumInvestmentVnd: string; riskScore: number; isDistributionPermitted: boolean; status: string; sourceKind: string; sourceReference: string; currency: string; priceAsOf: string; validUntil: string; distributionEvidence: string } };
 const read = <T>(path: string, signal?: AbortSignal) => authenticatedRequest<T>("/investments" + path, undefined, "GET", undefined, { skipCache: true, signal });
 const write = <T>(path: string, body: unknown, method = "POST") => authenticatedRequest<T>("/investments" + path, body, method);
@@ -14,6 +18,8 @@ export const investmentApi = {
   holdings: (signal?: AbortSignal) => read<Holdings>("/holdings", signal),
   saveHolding: (body: unknown) => write("/holdings", body, "PUT"),
   rebalance: (body: unknown) => write<Rebalance>("/holdings/rebalance", body),
+  drift: (input: MonitorInput) => authenticatedRequest<HoldingsDrift>("/me/investments/holdings/drift?" + new URLSearchParams(input), undefined, "GET", undefined, {skipCache: true}),
+  rebalanceOrders: (input: MonitorInput) => authenticatedRequest<RebalanceOrders>("/me/investments/holdings/rebalance-orders", input, "POST"),
   create: (body: unknown) => write<Recommendation>("/admin/recommendations", body),
   transition: (rec: Recommendation, action: string, reason: string) => write<Recommendation>(`/admin/recommendations/${rec.id}/${action}`, { expectedRevision: rec.revision, reason }),
   history: (id: string) => read<Array<{ actorId: string; decision: string; reason: string; createdAt: string; contentHash: string }>>(`/admin/recommendations/${id}/history`),

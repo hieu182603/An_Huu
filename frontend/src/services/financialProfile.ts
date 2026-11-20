@@ -114,10 +114,10 @@ export type PlanningConstraints = {
   retirementGoal?: {endMonth:string;monthlyExpenseToday:string;monthlyContribution?:string;lifestylePriority:"BALANCED"|"HEALTH"|"HOUSING"|"TRAVEL"|null};
   reserveMonths?: number;
   allocationCapital?: { basis: "PROFILE" | "TOTAL"; totalAmount?: string };
-  lossTolerance?: { inputMode?: "PERCENT" | "AMOUNT"; amountVnd?: KnownOrUnknown<string>; percent?: KnownOrUnknown<string>; reaction?: KnownOrUnknown<"SELL" | "HOLD" | "BUY_MORE"> };
+  lossTolerance?: { inputMode?: "PERCENT" | "AMOUNT" | "BOTH"; amountVnd?: KnownOrUnknown<string>; percent?: KnownOrUnknown<string>; reaction?: KnownOrUnknown<"SELL" | "HOLD" | "BUY_MORE"> };
   incomeStability?: KnownOrUnknown<"STABLE" | "VARIABLE" | "UNCERTAIN">;
   employerConcentration?: KnownOrUnknown<"LOW" | "MEDIUM" | "HIGH">;
-  liquidityNeeds?: { y1?: KnownOrUnknown<string>; y3?: KnownOrUnknown<string>; y5?: KnownOrUnknown<string> };
+  liquidityNeeds?: { y1?: KnownOrUnknown<string> & { matchedGoalId?: string }; y3?: KnownOrUnknown<string> & { matchedGoalId?: string }; y5?: KnownOrUnknown<string> & { matchedGoalId?: string } };
   goals?: ProfileCollection<GoalEntry>;
 };
 export const planningConstraints = (profile: PlanningConstraints): PlanningConstraints => Object.fromEntries(

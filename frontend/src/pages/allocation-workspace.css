@@ -829,3 +829,20 @@
 .allocation-editor-disclosure>summary{display:inline-flex;padding:8px 14px;border:1px solid #d5e0ec;border-radius:10px;background:#fff;color:#245db1;font-weight:600;cursor:pointer;list-style:none}
 .allocation-editor-disclosure>summary::-webkit-details-marker{display:none}
 .allocation-template-options{margin-top:14px}
+
+.allocation-head-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.allocation-head-actions .overview-button{display:inline-flex;align-items:center;gap:8px}.allocation-page-head+.allocation-editor-disclosure,.allocation-head-actions~.allocation-editor-disclosure{margin:-24px 0 24px}
+
+.allocation-independent-limit{display:flex;align-items:center;gap:8px;margin:12px 0;font-size:14px}
+.allocation-independent-limit input{width:18px;height:18px;accent-color:#245dab}
+.allocation-obligations table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}
+.allocation-obligations th,.allocation-obligations td{padding:9px 10px;border-bottom:1px solid #dbe5f0;vertical-align:top}
+.allocation-obligations th small{display:block;font-weight:400;color:#536b85}
+.allocation-liquidity-review{margin:18px 0;padding:16px;border:1px solid #dbe5f0;border-radius:10px;background:#f7fafe;font-size:14px;line-height:1.6}
+.allocation-liquidity-review h3{margin:0 0 6px;font-size:16px}
+.allocation-liquidity-review p{margin:6px 0}
+.allocation-liquidity-item{padding:12px 0;border-top:1px solid #dbe5f0}
+.allocation-liquidity-item ul{list-style:none;margin:8px 0;padding:0;display:grid;gap:10px}
+.allocation-liquidity-item li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.allocation-liquidity-item button{font-size:13px}
+
+.allocation-scenarios td>small{display:block;margin-top:5px;color:#536b85}.allocation-scenarios table{width:100%;border-collapse:collapse}.allocation-scenarios details{padding:8px 0}.allocation-sequence-balances{display:grid;gap:8px;margin:10px 0}.allocation-sequence-balances>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px}.allocation-sequence-balances dd{margin:0;font-weight:600}

@@ -56,6 +56,7 @@ export type PortfolioTemplate = PortfolioTemplateBase & (
       anchor: "RETIREMENT_MONTH";
       interpolation: "LINEAR_BY_WHOLE_YEARS_TO_ANCHOR";
       afterAnchor: "HOLD_ZERO_YEAR_POINT";
+      spendingFloorYears?: number;
       points: GlidePathPoint[];
     } }
 );
@@ -73,7 +74,7 @@ export interface PortfolioRule {
 export interface PortfolioPolicyDocument {
   quickStartTemplates?: { evidence: string; SELL: string; HOLD: string; BUY_MORE: string };
   customization?: CustomizationPolicy;
-  allocationRisk?: {simulationPaths?:number;essentialThreshold?:string;allGoalsThreshold?:string};
+  allocationRisk?: {simulationPaths?:number;essentialThreshold?:string;essentialThresholdRange?:{min:string;max:string};allGoalsThreshold?:string};
   schemaVersion: 1 | 2;
   title: string;
   reason: string;

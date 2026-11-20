@@ -18,3 +18,10 @@ test("legacy records preserve the smaller cap until an explicit mode is saved",(
 // Customer feedback 18/11/2026: a percent saved before long-term capital is known stays visible.
 assert.deepEqual(resolve(null, null, "15", "PERCENT"), { amount: null, percent: "15", inputMode: "PERCENT" });
 assert.deepEqual(resolve("0", "53000000", null, "AMOUNT"), { amount: null, percent: null, inputMode: "AMOUNT" });
+
+test("independent amount and percentage limits retain the smaller cap as capital changes", () => {
+ assert.deepEqual(resolve("1000000000", "50000000", "10", "BOTH"), {amount:"50000000",percent:"5",inputMode:"BOTH"});
+ assert.deepEqual(resolve("100000000", "50000000", "10", "BOTH"), {amount:"10000000",percent:"10",inputMode:"BOTH"});
+ assert.deepEqual(resolve("100000000", "0", "10", "BOTH"), {amount:"0",percent:"0",inputMode:"BOTH"});
+ assert.deepEqual(resolve(null, "50000000", "10", "BOTH"), {amount:null,percent:"10",inputMode:"BOTH"});
+});
