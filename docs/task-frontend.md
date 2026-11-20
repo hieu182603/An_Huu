@@ -1782,6 +1782,22 @@ Backend P3 xong. Nghiệp vụ: docs/KE_HOACH_TRIEN_KHAI_PHI_DICH_VU.md (mục 3
 ### FE-BILLING-P3 bổ sung 19/11/2026 — hoàn tiền theo chính sách
 - Form "Hoàn tiền" (POST /admin/billing/payments/:id/refund) thêm checkbox "Miễn luôn phần còn lại của kỳ này" → gửi waiveRemaining: true. Mặc định BẬT khi số hoàn bằng toàn bộ khoản thanh toán (hoàn theo chính sách 7 ngày), TẮT khi hoàn một phần do thu thừa. Hộp xác nhận nêu rõ: nếu không tích, kỳ phí sẽ mở lại và khách phải thanh toán lại. Kỳ đã hoàn hết hiển thị trạng thái "Được miễn" (WAIVED).
 
+---
+
+## FE-BILLING-NAV-20261119 — Đưa "Thanh toán" ra sidebar + chấm cảnh báo ở topbar người dùng — ĐÃ LÀM (Claude, chưa kiểm thử trên trình duyệt)
+
+Hiện "Lịch sử thanh toán" chỉ nằm trong menu avatar (`UserLayout.tsx`, `menuItems`), khó thấy. Không cần API mới: dùng `GET /me/billing` đã có (qua `useBilling()` trong `components/billing/BillingProvider.tsx`).
+
+**Việc cần làm (frontend/src/pages/UserLayout.tsx):**
+1. **Sidebar:** thêm nhóm "Tài khoản" (EN "Account") sau nhóm "Hỗ trợ" trong `navGroups`, có mục **Thanh toán** (EN "Billing"), icon `wallet`/`credit-card`, trỏ `/user/account?tab=billing`. Khi sidebar thu gọn vẫn hiện icon (có `title`/`aria-label`). Mục active khi `pathname === "/user/account"` và `tab=billing`, hoặc `pathname` bắt đầu bằng `/user/billing`. Lưu ý `profileTab` hiện coi mọi tab ≠ settings/reports/security là "Thông tin cá nhân": phải loại `tab=billing` khỏi `profileTab`, thêm `billingTab` và nhãn `locationLabel` "Thanh toán". Thêm cùng mục vào `drawerGroups` (nhóm "Trợ giúp & tài khoản") cho mobile, và cập nhật `isDrawerActive`.
+2. **Topbar:** thêm nút icon (`credit-card`/`receipt`, KHÔNG dùng `wallet` vì trùng "Tài chính của bạn") trong `.user-topbar-actions`, giữa nút "?" và chuông thông báo, bấm đi `/user/account?tab=billing`, có Tooltip "Thanh toán". Hiện **chấm cảnh báo** khi cần thanh toán: `overview.account?.status === "OVERDUE"` (chấm đỏ) hoặc `overview.currentStatement` còn thanh toán được (`canPayStatement`, chấm vàng/trung tính). `aria-label` đổi theo trạng thái ("Thanh toán — có khoản cần thanh toán"), không chỉ dựa vào màu.
+3. **Ẩn hết khi `disabled`** (`BILLING_ENABLED=false` → 503 `BILLING_DISABLED`): không hiện mục sidebar, nút topbar lẫn mục trong menu avatar.
+4. Giữ hoặc bỏ mục "Lịch sử thanh toán" trong menu avatar: nên bỏ vì trùng.
+
+**Lưu ý kỹ thuật:** `BillingProvider` hiện bọc trong `<main>` (dưới `UserLayout`), nên sidebar/topbar chưa đọc được `useBilling()`. Cần **chuyển `<BillingProvider>` lên bao toàn bộ `UserLayout`** (bọc `user-dashboard-shell`, tách thành component con để dùng hook). `BillingBanner` và `FinancialProfileGate` giữ nguyên vị trí trong main. Không gọi `/me/billing` lần hai.
+
+**Kiểm thử:** (a) tài khoản OVERDUE: chấm đỏ ở topbar, mục sidebar active đúng khi vào tab billing, banner vẫn hiện ở các trang khác; (b) tài khoản bình thường: không chấm; (c) `BILLING_ENABLED=false`: không có mục/nút nào; (d) sidebar thu gọn + mobile drawer; (e) vào `/user/account` (tab thông tin) không làm mục Thanh toán sáng nhầm.
+
 ### FE-ALLOCATION-ADJUSTMENTS-20261119
 - **Phần frontend đã làm xong trong phiên này (cùng nhóm A backend), AI giao diện KHÔNG làm lại.** Chỉ cần biết để không ghi đè.
 - Component `frontend/src/components/AllocationAdjustments.tsx` (gắn trong `AllocationExperiment.tsx`): hiện từng đòn bẩy riêng lẻ khi kế hoạch chưa khả thi (góp thêm, nghỉ hưu muộn hơn, giảm chi tùy chọn).

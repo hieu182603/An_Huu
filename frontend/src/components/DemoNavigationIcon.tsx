@@ -20,6 +20,7 @@ const paths: Record<string,string> = {
   "plan": "<path d=\"M6 3h12v18H6zM9 7h6M9 11h6M9 15h3\"/>",
   "chart": "<path d=\"M4 3v17h17M8 14l4-5 4 2 5-7\"/>",
   "user": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21v-3a8 8 0 0 1 16 0v3\"/>",
+  "receipt": "<path d=\"M6 3h12v18l-3-2-3 2-3-2-3 2V3Z\"/><path d=\"M9 8h6M9 12h6\"/>",
   "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9 9a3 3 0 0 1 6 0c0 2-3 2-3 5m0 3h.01\"/>",
 };
 const aliases: Record<string,string> = {"grid": "menu", "target": "target", "compass": "plan", "users": "user", "life-buoy": "help", "sparkles": "spark", "briefcase": "cart", "file-text": "book", "message": "chat"};
