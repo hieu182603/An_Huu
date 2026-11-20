@@ -12430,7 +12430,7 @@ paths:
       operationId: payFeeStatement
       security:
         - bearerAuth: []
-      description: USER. Creates or reuses a payOS link (15 min) for the remaining amount. A same-amount pending link with more than 2 min left is reused; older pending links are cancelled. Idempotency-Key replays the first response. Body must be an empty object. 409 STATEMENT_SETTLED, 502 PAYMENT_PROVIDER_ERROR/UNAVAILABLE, 503 BILLING_DISABLED while BILLING_ENABLED=false.
+      description: USER. Creates or reuses a payOS link (15 min) for the remaining amount. A pending link for the current amount is reused until expiry. An expired code can be replaced only after payOS confirms the old code is closed and unpaid; otherwise returns 409 PAYMENT_CODE_UNAVAILABLE. Idempotency-Key replays the first response. Body must be an empty object. 409 STATEMENT_SETTLED, 502 PAYMENT_PROVIDER_ERROR/UNAVAILABLE, 503 BILLING_DISABLED while BILLING_ENABLED=false.
       parameters:
         - name: id
           in: path

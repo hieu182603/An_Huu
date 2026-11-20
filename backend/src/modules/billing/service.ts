@@ -28,7 +28,6 @@ type Tx = Prisma.TransactionClient;
 type ScheduleRow = NonNullable<Awaited<ReturnType<typeof scheduleFor>>>;
 type OrderRow = Prisma.PaymentOrderGetPayload<object>;
 
-const REUSE_MARGIN_MS = 2 * 60_000;
 const revisionConflict = () => new AppError(409, "REVISION_CONFLICT", "Trạng thái dịch vụ đã thay đổi. Hãy tải lại.");
 const notFound = () => new AppError(404, "NOT_FOUND", "Không tìm thấy dữ liệu phí dịch vụ.");
 
@@ -167,21 +166,43 @@ export class BillingService {
       return previous.response;
     }
     const now = this.now(), ttl = (this.options.linkTtlMinutes ?? 15) * 60_000;
+    const oldOrders = await this.db.paymentOrder.findMany({ where: { statementId, userId }, orderBy: { createdAt: "desc" } });
+    for (const old of oldOrders) {
+      if (!old.checkoutUrl || (old.status === "PENDING" && old.expiredAt > now)) continue;
+      const outcome = await reconcileOrder(this.db, this.gateway!, old, now);
+      if (outcome === "APPLIED" || outcome === "UNDERPAID")
+        throw new AppError(409, "STATEMENT_SETTLED", "Kỳ phí vừa được thanh toán. Hãy tải lại trạng thái kỳ phí.");
+      if (outcome === "PENDING") throw new AppError(409, "PAYMENT_CODE_UNAVAILABLE", "Mã thanh toán cũ vẫn đang hoạt động.");
+      const provider = await this.gateway!.getLink(Number(old.orderCode));
+      if (provider.status === "PENDING") {
+        await this.gateway!.cancelLink(Number(old.orderCode), "Thay mã thanh toán đã hết hạn");
+        const closed = await this.gateway!.getLink(Number(old.orderCode));
+        if (closed.amountPaid > 0) {
+          await reconcileOrder(this.db, this.gateway!, old, now);
+          throw new AppError(409, "STATEMENT_SETTLED", "Kỳ phí vừa được thanh toán. Hãy tải lại trạng thái kỳ phí.");
+        }
+        if (closed.status === "PENDING")
+          throw new AppError(409, "PAYMENT_CODE_UNAVAILABLE", "Chưa xác nhận được mã thanh toán cũ đã đóng.");
+      } else if (provider.amountPaid > 0) {
+        await reconcileOrder(this.db, this.gateway!, old, now);
+        throw new AppError(409, "STATEMENT_SETTLED", "Kỳ phí vừa được thanh toán. Hãy tải lại trạng thái kỳ phí.");
+      }
+    }
     const prepared = await transaction(this.db, async tx => {
       const statement = await tx.feeStatement.findFirst({ where: { id: statementId, userId } });
       if (!statement) throw notFound();
       if (!["ISSUED", "OVERDUE"].includes(statement.status)) throw new AppError(409, "STATEMENT_SETTLED", "Kỳ phí này không còn khoản cần thanh toán.");
       const due = await statementDue(tx, statement);
       if (due <= 0) throw new AppError(409, "STATEMENT_SETTLED", "Kỳ phí này không còn khoản cần thanh toán.");
-      const pending = await tx.paymentOrder.findMany({ where: { statementId, status: "PENDING" }, orderBy: { createdAt: "desc" } });
-      const reusable = pending.find(o => o.amountVnd === due && o.checkoutUrl && o.expiredAt.getTime() > now.getTime() + REUSE_MARGIN_MS);
-      if (reusable) return { order: reusable, created: false, cancel: [] as bigint[] };
-      const stale = pending.filter(o => o.id !== reusable);
-      for (const order of stale) await tx.paymentOrder.update({ where: { id: order.id }, data: { status: "CANCELLED" } });
+      const orders = await tx.paymentOrder.findMany({ where: { statementId }, orderBy: { createdAt: "desc" } });
+      const live = orders.find(order => order.status === "PENDING" && order.checkoutUrl && order.amountVnd === due && order.expiredAt > now);
+      if (live) return { order: live, created: false };
+      if (orders.some(order => order.status === "PENDING" || order.status === "UNDERPAID")) {
+        throw new AppError(409, "PAYMENT_CODE_UNAVAILABLE", "Vui lòng liên hệ An Hưu để được hỗ trợ thanh toán kỳ phí này.");
+      }
       const order = await tx.paymentOrder.create({ data: { statementId, userId, amountVnd: due, expiredAt: new Date(now.getTime() + ttl) } });
-      return { order, created: true, cancel: stale.map(o => o.orderCode) };
+      return { order, created: true };
     });
-    for (const code of prepared.cancel) await this.cancelQuietly(code);
     let order = prepared.order;
     if (prepared.created) {
       const orderCode = Number(order.orderCode), back = (cancel: boolean) => `${this.options.returnUrl}${this.options.returnUrl.includes("?") ? "&" : "?"}orderId=${order.id}${cancel ? "&cancelled=1" : ""}`;
@@ -199,11 +220,6 @@ export class BillingService {
     try { await this.db.idempotencyRecord.create({ data: { userId, scope, key, requestHash, response } }); }
     catch (error) { if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error; }
     return response;
-  }
-
-  private async cancelQuietly(orderCode: bigint) {
-    try { await this.gateway?.cancelLink(Number(orderCode), "Đã tạo mã thanh toán mới"); }
-    catch { log("warn", "billing.link_cancel_failed", { code: "CANCEL_FAILED" }); }
   }
 
   /** Result page polling. A still-pending order is reconciled with payOS, so a lost webhook never blocks the user. */

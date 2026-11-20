@@ -1,3 +1,4 @@
+import receiptMark from "../../assets/logo-mark.webp";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Alert, Badge, Button, useNotification } from "../ui";
@@ -11,7 +12,8 @@ import {
 import {
   canPayStatement, daysUntil, formatPeriod, formatVnDate, formatVnDateTime, formatVnd, needsAssetDeclaration, nextVnPeriod,
 } from "../../services/billingFormat";
-import { TermsDialog, useBilling } from "./BillingProvider";
+import { TermsDialog } from "./BillingProvider";
+import { useBilling } from "./BillingContext";
 import "./billing.css";
 
 const PAGE_SIZE = 12;
@@ -181,10 +183,11 @@ function StatementDetailDialog({ id, onClose }: { id: string; onClose: () => voi
     return () => { active = false; };
   }, [id, attempt]);
   const rate = detail?.schedule?.annualRatePercent;
-  return <ResponsiveDialog open title={detail ? t(`Kỳ phí ${formatPeriod(detail.period)}`, `Fee period ${formatPeriod(detail.period)}`) : t("Chi tiết kỳ phí", "Fee period details")} className="user-workspace-dialog billing-dialog" onClose={onClose}>
+  return <ResponsiveDialog open title={detail ? t(`Kỳ phí ${formatPeriod(detail.period)}`, `Fee period ${formatPeriod(detail.period)}`) : t("Chi tiết kỳ phí", "Fee period details")} className="user-workspace-dialog billing-dialog billing-receipt" onClose={onClose}>
     {error && <div role="alert" className="billing-error"><p>{error}</p><Button variant="secondary" size="small" onClick={() => setAttempt(n => n + 1)}>{t("Thử lại", "Retry")}</Button></div>}
     {!detail && !error && <p role="status">{t("Đang tải…", "Loading…")}</p>}
     {detail && <>
+      <div className="billing-receipt-brand"><img src={receiptMark} alt="" /><strong>An Hưu</strong><span>{t("Phiếu phí dịch vụ", "Service fee statement")}</span></div>
       <dl className="billing-facts">
         <div><dt>{t("Căn cứ tính phí", "Fee base")}</dt><dd>{formatVnd(detail.baseAmountVnd)}</dd></div>
         <div><dt>{t("Công thức", "Formula")}</dt><dd>{rate ? t(`${formatVnd(detail.baseAmountVnd)} × ${rate.replace(".", ",")}%/năm ÷ 12 = ${formatVnd(detail.rawFeeVnd)}`, `${formatVnd(detail.baseAmountVnd)} × ${rate}%/year ÷ 12 = ${formatVnd(detail.rawFeeVnd)}`) : formatVnd(detail.rawFeeVnd)}</dd></div>
@@ -192,7 +195,7 @@ function StatementDetailDialog({ id, onClose }: { id: string; onClose: () => voi
         <div><dt>{t("Phí của kỳ", "Fee for the period")}</dt><dd>{formatVnd(detail.amountVnd)}</dd></div>
         {detail.overrideId && <div><dt>{t("Ưu đãi", "Offer")}</dt><dd>{t("Đã áp dụng giảm hoặc miễn", "Discount or waiver applied")}</dd></div>}
         {detail.adjustments.map(row => <div key={row.id}><dt>{t("Điều chỉnh", "Adjustment")}{row.reason ? ` · ${row.reason}` : ""}</dt><dd>{formatVnd(row.amountVnd)}</dd></div>)}
-        <div><dt>{t("Còn phải trả", "Still due")}</dt><dd>{formatVnd(detail.amountDueVnd)}</dd></div>
+        <div className="billing-receipt-total"><dt>{t("Còn phải trả", "Still due")}</dt><dd>{formatVnd(detail.amountDueVnd)}</dd></div>
         <div><dt>{t("Hạn thanh toán", "Due date")}</dt><dd>{formatVnDate(detail.dueDate)}</dd></div>
         {detail.paidAt && <div><dt>{t("Đã thanh toán lúc", "Paid on")}</dt><dd>{formatVnDateTime(detail.paidAt)}</dd></div>}
       </dl>

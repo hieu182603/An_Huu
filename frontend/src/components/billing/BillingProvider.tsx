@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Alert, Button } from "../ui";
 import ResponsiveDialog from "../ResponsiveDialog";
@@ -11,21 +11,8 @@ import {
 } from "../../services/billing";
 import { canPayStatement, formatPeriod, formatVnDate, formatVnd } from "../../services/billingFormat";
 import FeePolicyContent from "./FeePolicyContent";
+import { BillingContext, useBilling } from "./BillingContext";
 import "./billing.css";
-
-type BillingContextValue = {
-  /** null until loaded, or when billing is off / failed to load. */
-  overview: BillingOverview | null;
-  /** True once GET /me/billing answered 503 BILLING_DISABLED: render no billing UI. */
-  disabled: boolean;
-  loading: boolean;
-  error: string;
-  refresh: () => Promise<void>;
-  openTerms: () => void;
-};
-
-const BillingContext = createContext<BillingContextValue>({ overview: null, disabled: false, loading: false, error: "", refresh: async () => {}, openTerms: () => {} });
-export const useBilling = () => useContext(BillingContext);
 
 const termsSeenKey = (userId: string | undefined, version: string) => `anhuu:billing-terms-later:${userId ?? ""}:${version}`;
 
@@ -75,7 +62,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     setTermsOpen(true);
   }, [termsRequired, overview, user?.id]);
 
-  const value = useMemo<BillingContextValue>(() => ({ overview, disabled, loading, error, refresh, openTerms: () => setTermsOpen(true) }), [overview, disabled, loading, error, refresh]);
+  const value = useMemo(() => ({ overview, disabled, loading, error, refresh, openTerms: () => setTermsOpen(true) }), [overview, disabled, loading, error, refresh]);
   return <BillingContext.Provider value={value}>
     {children}
     {!disabled && overdue && <OverdueDialog details={overdue} onClose={() => setOverdue(null)} />}

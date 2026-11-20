@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Button } from "../../components/ui";
-import { useBilling } from "../../components/billing/BillingProvider";
+import { useBilling } from "../../components/billing/BillingContext";
 import { useI18n } from "../../i18n";
 import { getOrderStatus, getStatement, type OrderStatusResult } from "../../services/billing";
 import { formatPeriod, formatVnd, ORDER_POLL_INTERVAL_MS, ORDER_POLL_MAX_ATTEMPTS, orderView, type OrderView } from "../../services/billingFormat";
@@ -60,7 +60,6 @@ export default function BillingResultPage() {
   }, [orderId, round, disabled]);
 
   const checkAgain = useCallback(() => setRound(n => n + 1), []);
-  const statementId = result?.order.statementId ?? result?.statement?.id ?? statementParam;
   const period = result?.statement?.period ?? settledPeriod;
 
   if (disabled) return <div className="account-page-wrapper"><p>{t("Tính năng này hiện chưa được bật.", "This feature is not available right now.")}</p></div>;
@@ -75,8 +74,7 @@ export default function BillingResultPage() {
         <p>{t("Bộ phận hỗ trợ sẽ liên hệ với bạn để hoàn tất. Bạn không cần làm thêm gì lúc này.", "Our support team will contact you to finish. You do not need to do anything right now.")}</p>
         {result && <p className="billing-note">{t(`Số đã chuyển theo mã này: ${formatVnd(result.order.amountVnd)}.`, `Amount of this code: ${formatVnd(result.order.amountVnd)}.`)}</p>}</>}
       {view === "retry" && <><h2>{result?.order.status === "CANCELLED" ? t("Giao dịch đã được hủy", "The payment was cancelled") : t("Mã thanh toán đã hết hạn", "The payment code expired")}</h2>
-        <p>{t("Không có khoản nào bị trừ. Bạn có thể tạo mã mới khi sẵn sàng.", "Nothing was charged. You can create a new code when you are ready.")}</p>
-        {statementId && <Link className="button button-primary button-medium" to={`/user/billing/pay/${encodeURIComponent(statementId)}`}><span>{t("Tạo mã mới", "Create a new code")}</span></Link>}</>}
+        <p>{t("Vui lòng liên hệ An Hưu để được hỗ trợ thanh toán kỳ phí này.", "Please contact An Huu for help paying this fee.")}</p></>}
       {view === "late" && <><h2>{t("Chưa nhận được thanh toán", "We have not received the payment yet")}</h2>
         <p>{t("Chưa nhận được, bạn có thể kiểm tra lại sau. Nếu bạn đã chuyển khoản, hệ thống sẽ tự cập nhật khi ngân hàng báo về.", "Not received yet; you can check again later. If you already paid, we will update automatically once the bank confirms.")}</p>
         <Button onClick={checkAgain}>{t("Kiểm tra lại", "Check again")}</Button></>}

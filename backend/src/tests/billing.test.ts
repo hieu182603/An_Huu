@@ -150,6 +150,40 @@ describe("BillingService", () => {
     await expect(service.pay("other", s.id, randomUUID())).rejects.toMatchObject({ status: 404 });
   });
 
+  it.each(["PENDING", "EXPIRED", "CANCELLED"] as const)("reissues a closed %s code after payOS confirms cancellation", async status => {
+    const { f, gateway, service } = await setup();
+    const s = await statement(f);
+    const first = await service.pay("u1", s.id, randomUUID()) as { id: string };
+    await f.db.paymentOrder.update({ where: { id: first.id }, data: { status, expiredAt: new Date(NOW.getTime() - 1000) } });
+    gateway.getLink.mockResolvedValueOnce({ status: "PENDING", amount: 417000, amountPaid: 0, transactions: [] });
+    gateway.getLink.mockResolvedValueOnce({ status: "PENDING", amount: 417000, amountPaid: 0, transactions: [] });
+    gateway.getLink.mockResolvedValueOnce({ status: "CANCELLED", amount: 417000, amountPaid: 0, transactions: [] });
+    await expect(service.pay("u1", s.id, randomUUID())).resolves.toMatchObject({ status: "PENDING", qrCode: expect.any(String) });
+    expect(gateway.cancelLink).toHaveBeenCalledWith(100000, "Thay mã thanh toán đã hết hạn");
+    expect(gateway.createLink).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the old order when payOS has not confirmed cancellation", async () => {
+    const { f, gateway, service } = await setup();
+    const s = await statement(f);
+    const first = await service.pay("u1", s.id, randomUUID()) as { id: string };
+    await f.db.paymentOrder.update({ where: { id: first.id }, data: { expiredAt: new Date(NOW.getTime() - 1000) } });
+    await expect(service.pay("u1", s.id, randomUUID())).rejects.toMatchObject({ code: "PAYMENT_CODE_UNAVAILABLE" });
+    expect(gateway.createLink).toHaveBeenCalledTimes(1);
+  });
+
+  it("records a late payment before considering a replacement code", async () => {
+    const { f, gateway, service } = await setup();
+    const s = await statement(f);
+    const first = await service.pay("u1", s.id, randomUUID()) as { id: string };
+    await f.db.paymentOrder.update({ where: { id: first.id }, data: { expiredAt: new Date(NOW.getTime() - 1000) } });
+    gateway.getLink.mockResolvedValueOnce({ status: "PAID", amount: 417000, amountPaid: 417000,
+      transactions: [{ reference: "FT-LATE", amount: 417000, transactionDateTime: "2026-11-18 11:59:59" }] });
+    await expect(service.pay("u1", s.id, randomUUID())).rejects.toMatchObject({ code: "STATEMENT_SETTLED" });
+    expect(gateway.createLink).toHaveBeenCalledTimes(1);
+    expect(f.rows("payment")).toHaveLength(1);
+  });
+
   it("marks the order cancelled when payOS refuses the link", async () => {
     const { f, gateway, service } = await setup();
     const s = await statement(f);
