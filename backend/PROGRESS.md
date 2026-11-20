@@ -1,3 +1,29 @@
+## Khôi phục mã QR thanh toán hết hạn — 20/11/2026
+
+- BillingService.pay đối soát đơn cũ với payOS. Khi mã cũ hết hạn, dịch vụ yêu cầu hủy mã và xác nhận mã đã đóng trước khi tạo đơn mới. Nếu payOS đã nhận tiền, ghi nhận giao dịch và chuyển khách tới trạng thái kỳ phí thay vì phát mã mới. Trường hợp payOS chưa xác nhận đóng mã tiếp tục trả PAYMENT_CODE_UNAVAILABLE để tránh hai mã đang thu cùng kỳ.
+- Billing test 31/31 PASS, backend source/test typecheck PASS. Chưa kiểm trên payOS thật hoặc DB production.
+
+## Kiểm tra lại E1, E2 và E4 sau sửa — 20/11/2026
+
+- E1 tính cả kịch bản của phương án ban đầu khi báo tiến độ chuyển sang tìm điều chỉnh. Ca hồi quy kiểm mốc 19 → 21. Ở phép đo riêng 100 kịch bản, 9 request mất 8,054–10,087 giây mỗi request. Phản hồi cuối khớp toàn bộ với chạy liền sau khi xóa cache. Bộ golden chạy lại khớp cả 17 hồ sơ trước khi sửa.
+- E2 nút “Thử tính lại” gửi đúng loại danh mục, mốc và ngưỡng của lần bấm vừa lỗi. Playwright kiểm lại cả payload sau hai lần bị từ chối và giữ kết quả 20 cho đến khi nhận kết quả 100.
+- E4 test C16 tiếp nối khi API báo đã lưu tiến độ. Vitest xếp năm file có tải nặng hoặc đo thời gian vào nhóm chạy tuần tự. Bài E1 so kết quả chạy liền bằng một service riêng có đủ thời gian và vẫn kiểm giới hạn dưới 11 giây cho từng request thông thường. Ba lần chạy toàn bộ backend với cấu hình mặc định đều đạt 1.620/1.620, 148 file.
+- Frontend đã sửa lỗi kiểu trong BillingProvider. Typecheck backend, test backend, typecheck frontend và build frontend đều qua. Frontend đạt 133/133 assets (gồm 6 test thanh toán), 18/18 logic, Playwright 32/32 và 38/38 cùng 4/4 ca kiểm bổ sung. Log local nằm trong `.tmp/fix-allocation-569059ce/`, ba lượt backend cuối là `default-7.log` đến `default-9.log`. E7 chờ triển khai và đo trên Azure B2.
+
+## Khắc phục các lỗi còn lại của trang Phân bổ tài sản (E1–E6) — 20/11/2026
+
+- **Phạm vi**: Xử lý 6 mã lỗi E1–E6 theo tài liệu `docs/loi-con-lai-phan-bo-2026-11-20.md`.
+- **E1 (Backend)**: Giới hạn thời gian tính điều chỉnh theo `budget = deadline` (10s) bằng cấu hình có sẵn. Ghi nhận probes đã hoàn thành và tiến độ từng phần, trả `LIMIT_EXCEEDED` + `RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED` kèm `progress: { pathsCompleted, pathsRequested }`. Test `allocation-adjustments-continuation.test.ts` xác nhận mỗi request dừng trong ~10,3s–10,5s (< 13s) và kết quả tiếp nối trùng khớp 100% kết quả chạy liền một lần. Golden 17 ca audit `IDENTICAL`.
+- **E2 (Backend + Frontend)**: Chọn hướng (b) backend: cho phép lượt `selection` thay thế (supersede) lượt `adjustments` đang chạy của cùng tài khoản (`service.ts:155-161`); adjustments không thể thay thế selection. Frontend `AllocationExperiment.tsx:165` không gọi `setResult(null)` khi tăng mốc kịch bản (`pathsOverride`), đồng thời giữ kết quả cũ + hàng nút tăng mốc khi gặp lỗi hoặc giới hạn xử lý. E2E test Playwright và backend unit test xác nhận hành vi bảo toàn kết quả cũ.
+- **E3 (Frontend)**: Khi hồ sơ có nhu cầu tiền "Chưa biết" (`LIQUIDITY_NEED_UNKNOWN` hoặc `LIQUIDITY_REQUIREMENTS_INCOMPLETE`), hiển thị thông báo hướng dẫn cụ thể thay cho câu chung chung về dòng tiền: "Bạn đang để nhu cầu tiền trong 1, 3 hoặc 5 năm tới là 'Chưa biết'. Hãy khai số tiền (có thể là 0) để tính khả năng đủ tiền." kèm liên kết trực tiếp tới `/user/profile?section=constraints`.
+- **E4 (Backend/Test)**: Hỗ trợ tùy chọn `maxRuntimeMs` trong constructor của `AllocationRiskService`, cấu hình 30s cho hai test nặng (`allocation-deferrable-c16.test.ts`, `allocation-optimizer-c17.test.ts`), giải quyết triệt để lỗi timeout do tải máy.
+- **E5 (Frontend)**: Xác minh cơ chế polling thông báo trong `frontend/src/services/socket.ts`: chu kỳ chuẩn `NOTIFICATION_POLL_MS = 60_000` (60s), chỉ kích hoạt khi mất kết nối socket và tab đang hiển thị (`document.visibilityState === "visible"`). Không có polling tùy tiện trên `/user/risk-portfolio`.
+- **E6 (Backend)**: Tối ưu hóa đoạn tính min bị lặp trong `backend/src/modules/capital/loss-constraint.ts:51-62` bằng cách gộp nhánh `mode === "BOTH" || (pc !== null && amount !== null)`. Chụp và so sánh golden 17 ca audit xác nhận kết quả bit-for-bit `IDENTICAL`.
+- **Kiểm chuẩn**:
+  - Backend: `tsc --noEmit` PASS; `vitest run --maxWorkers=2` đạt **1616/1616 PASS (148 test files, 313s)**.
+  - Frontend: `npm run typecheck` PASS; `npm run test:assets` **133/133 PASS**; `npm run test:logic` **18/18 PASS**.
+  - E2E Playwright: `playwright.allocation-custom.config.ts` **32/32 PASS**; `playwright.allocation-result-review.config.ts` **38/38 PASS**.
+
 ## Thuật toán 7 bước — tiếp tục cache Antigravity và review cuối — 20/11/2026
 
 - Phạm vi: A1–A5, cơ chế B1–B7 theo plan 20/11; số chưa duyệt tiếp tục tắt mặc định, không đổi bản v3 đã lưu. Chi tiết từng mã, bằng chứng và giới hạn: [báo cáo hoàn thiện](../docs/bao-cao-hoan-thien-thuat-toan-7-buoc-2026-11-20.md).
