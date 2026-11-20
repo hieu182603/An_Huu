@@ -60,8 +60,13 @@ test("declared total replaces profile capital once and persists without rewritin
  await expect.poll(async()=>(await s.get("me/financial-profile")).data.allocationCapital).toEqual({basis:"TOTAL",totalAmount:"1000000000"});
  expect((await s.get("me/financial-profile")).data.assets).toEqual(assets);
  await expect(page.locator(".allocation-capital > dl > div").first()).toContainText("1.000.000.000 ₫");
+ // A late preview must not restore the saved source over the user's unsaved selection.
+ let releasePreview!:()=>void;const previewGate=new Promise<void>(resolve=>{releasePreview=resolve;});
+ await page.route("**/api/v1/me/portfolio-policies/workspace/preview",async route=>{await previewGate;await route.fallback();});
  await page.reload();await expect(page.getByLabel("Số vốn dùng để phân bổ",{exact:true})).toHaveValue("TOTAL");
  await page.getByLabel("Số vốn dùng để phân bổ",{exact:true}).selectOption("PROFILE");
+ const latePreview=page.waitForResponse(response=>response.url().endsWith("/workspace/preview"));releasePreview();await latePreview;
+ await expect(page.getByLabel("Số vốn dùng để phân bổ",{exact:true})).toHaveValue("PROFILE");
  await page.getByRole("button",{name:"Lưu vốn và tính lại",exact:true}).click();
  await expect.poll(async()=>(await s.get("me/financial-profile")).data.allocationCapital.basis).toBe("PROFILE");
 });
@@ -151,15 +156,15 @@ test("unpublished policy is unconfigured without fabricated portfolios",async({p
 test("failed workspace hides prior capital/results and retry uses the server",async({page,request})=>{
  await setup(page,request);let fail=true;await page.route("**/api/v1/me/portfolio-policies/workspace/preview",route=>fail?route.fulfill({status:503,json:{error:{message:"Chưa tính được phân bổ"}}}):route.fallback());
  // Previews are cached per input: change the horizon so the failing request really goes out.
- await page.locator(".allocation-editor-disclosure > summary").click();await page.getByText("Giả định đang dùng",{exact:true}).click();await page.getByLabel("Tháng kết thúc kế hoạch",{exact:true}).fill("11/2027");await expect(page.getByRole("alert")).toContainText("Chưa tính được phân bổ");await expect(page.locator(".allocation-result-summary")).toHaveCount(0);await expect(page.locator(".allocation-breakdown")).toHaveCount(0);
+ await page.getByRole("button",{name:"Sửa thông tin phân bổ"}).click();await page.getByText("Giả định đang dùng",{exact:true}).click();await page.getByLabel("Tháng kết thúc kế hoạch",{exact:true}).fill("11/2027");await expect(page.getByRole("alert")).toContainText("Chưa tính được phân bổ");await expect(page.locator(".allocation-result-summary")).toHaveCount(0);await expect(page.locator(".allocation-breakdown")).toHaveCount(0);
  fail=false;await page.getByRole("button",{name:"Thử lại",exact:true}).click();await expect(page.locator(".allocation-capital-total")).toContainText("904.000.000");await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await openPublished(page);await expect(panel(page).locator(".allocation-experiment")).toBeVisible();
 });
 test("risk form keeps its UI, saves zero to backend and survives reload",async({page,request})=>{
- const s=await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro →",exact:true}).click();await page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true}).fill("0");await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page).not.toHaveURL(/section=risk/);
- expect((await s.get("me/financial-profile")).data.lossTolerance.amountVnd.value).toBe("0");await page.reload();await page.getByRole("button",{name:"Khả năng chịu rủi ro →",exact:true}).click();await expect(page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true})).toHaveValue("0");
+ const s=await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();await page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true}).fill("0");await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page).not.toHaveURL(/section=risk/);
+ expect((await s.get("me/financial-profile")).data.lossTolerance.amountVnd.value).toBe("0");await page.reload();await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();await expect(page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true})).toHaveValue("0");
 });
 test("failed risk save keeps inputs and stays in the form",async({page,request})=>{
- await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro →",exact:true}).click();await page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true}).fill("7");await page.route("**/api/v1/me/financial-profile/loss-tolerance",r=>r.fulfill({status:409,json:{error:{message:"Hồ sơ đã thay đổi"}}}));await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page.getByRole("alert")).toContainText("Hồ sơ đã thay đổi");await expect(page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true})).toHaveValue("7");await expect(page).toHaveURL(/section=risk/);
+ await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();await page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true}).fill("7");await page.route("**/api/v1/me/financial-profile/loss-tolerance",r=>r.fulfill({status:409,json:{error:{message:"Hồ sơ đã thay đổi"}}}));await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page.getByRole("alert")).toContainText("Hồ sơ đã thay đổi");await expect(page.getByLabel("Mức giảm tối đa có thể chấp nhận (%)",{exact:true})).toHaveValue("7");await expect(page).toHaveURL(/section=risk/);
 });
 
 for(const[name,width,height]of[["desktop",1440,1000],["tablet",768,1024],["mobile",390,844],["small-mobile",320,740],["landscape",844,390]]as const)test(`allocation and popups fit ${name}`,async({page,request},info)=>{
@@ -178,7 +183,7 @@ test("English allocation labels and unconfigured guidance remain translated",asy
 });
 
 test("amount-mode risk tolerance displays and saves the entered amount without using the old percent",async({page,request})=>{
- const s=await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro →",exact:true}).click();await page.locator("select:not([data-policy-question])").selectOption("amount");await page.getByLabel("Mức giảm tối đa có thể chấp nhận (VND)",{exact:true}).fill("90400000");await expect(page.getByText("Tương đương trên phần vốn dài hạn đang xét:",{exact:false})).toContainText("90.400.000");await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page).not.toHaveURL(/section=risk/);expect((await s.get("me/financial-profile")).data.lossTolerance.percent.value).toBe("10");
+ const s=await setup(page,request);await page.getByRole("button",{name:"Khả năng chịu rủi ro",exact:true}).click();await page.locator("select:not([data-policy-question])").selectOption("amount");await page.getByLabel("Mức giảm tối đa có thể chấp nhận (VND)",{exact:true}).fill("90400000");await expect(page.getByText("Tương đương trên phần vốn dài hạn đang xét:",{exact:false})).toContainText("90.400.000");await page.getByRole("button",{name:"Cập nhật và tính lại",exact:true}).click();await expect(page).not.toHaveURL(/section=risk/);expect((await s.get("me/financial-profile")).data.lossTolerance.percent.value).toBe("10");
 });
 
 
@@ -200,7 +205,7 @@ test("converting a limit never declares an unknown reaction as HOLD",async({page
 });
 
 test("editing the projection horizon hides the prior result until explicitly recalculated",async({page,request})=>{
- const state=await setup(page,request);await page.locator(".allocation-editor-disclosure > summary").click();await page.getByText("Giả định đang dùng",{exact:true}).click();
+ const state=await setup(page,request);await page.getByRole("button",{name:"Sửa thông tin phân bổ"}).click();await page.getByText("Giả định đang dùng",{exact:true}).click();
  await page.getByLabel("Tháng kết thúc kế hoạch",{exact:true}).fill("11/2027");await expect(panel(page)).toHaveCount(0);
  await page.getByRole("button",{name:"Xem phương án của tôi →",exact:true}).click();await openPublished(page);await expect(panel(page).locator(".allocation-experiment")).toBeVisible();
  expect(state.writes.filter(w=>w.path.endsWith("workspace/preview")).at(-1)?.body.endMonth).toBe("2027-11");expect(state.writes.some(w=>w.path.endsWith("/apply"))).toBe(false);
@@ -225,8 +230,8 @@ test("finishing the survey preserves declared risk and uses a planning reaction 
  expect(state.getProfile().data.quickStartSurvey).toMatchObject({reaction:"SELL",stability:"VARIABLE",lossStatus:"percent",lossPercent:"0"});
  const draft=await page.evaluate(()=>JSON.parse(sessionStorage.getItem("anhuu:plan-draft:USR-001")??"null"));expect(draft.policyVersionId).toBe(fixture.fixture.policyId);expect(draft.answers).toEqual([]);expect(draft.planningReaction).toBe("SELL");
 });
-// Requests still in flight when a test ends are otherwise reported against it.
-test.afterEach(async({page})=>{await page.goto("about:blank");await page.unrouteAll({behavior:"wait"});});
+// Cancelled navigation can finish a route after the test; do not wait on those handlers.
+test.afterEach(async({page})=>{await page.goto("about:blank");await page.unrouteAll({behavior:"ignoreErrors"});});
 test("reserve months and goals are edited in place and saved to the profile",async({page,request})=>{
  const s=await setup(page,request,{},true,false);
  await page.locator(".allocation-steps button").nth(0).click();

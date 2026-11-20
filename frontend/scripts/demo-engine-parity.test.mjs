@@ -22,7 +22,7 @@ await esbuild.build({
   outfile: output, bundle: true, format: "cjs", platform: "node",
   plugins: [{ name: "numeric-model-only", setup(build) {
     build.onResolve({ filter: /^@prisma\/client$/ }, () => ({ path: path.join(root, "backend/node_modules/@prisma/client/index.js"), external: true }));
-    build.onLoad({ filter: /retirement[\\/]schema\.ts$/ }, () => ({ contents: schema.match(/export const RETIREMENT_MODEL = [^;]+;/)[0], loader: "ts" }));
+    build.onLoad({ filter: /retirement[\\/]schema\.ts$/ }, () => ({ contents: schema.match(/export const RETIREMENT_MODEL(_V\d+)? = [^;]+;/g).join("\n"), loader: "ts" }));
   } }],
 });
 const current = require(output);

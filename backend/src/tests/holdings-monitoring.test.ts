@@ -92,8 +92,10 @@ describe("HoldingsMonitoringService", () => {
     expect(result.isDrifted).toBe(false);
     expect(result.rebalanceRequired).toBe(false);
     expect(Number(result.maxDriftPercent)).toBeLessThanOrEqual(5.0);
-    expect(result.rebalanceRecommendation?.status).toBe("NO_ACTION");
-    expect(result.rebalanceRecommendation?.unallocatedCash).toBe("20000000");
+    expect(result.rebalanceRecommendation?.status).toBe("PROPOSED");
+    expect(result.rebalanceRecommendation?.unallocatedCash).toBe("0");
+    expect(result.rebalanceRecommendation?.cashUsedBeforeTrades).toBe("70000000");
+    expect(result.rebalanceRecommendation?.trades.every(t=>t.buy === "0" && t.sell === "0")).toBe(true);
     expect(result.regulatoryDisclaimer).toContain("Điều 72, 73 Luật Chứng khoán");
   });
 
@@ -210,5 +212,27 @@ describe("HoldingsMonitoringService", () => {
     }
 
     expect(ordersResult.regulatoryDisclaimer).toContain("Điều 72, 73 Luật Chứng khoán");
+  });
+
+  it("triggers drift alert and rebalance when drift equals exact threshold (>= 5%, spec §8.2)", () => {
+    // Current weights: Equity 52%, Bond 38%, Cash 10%
+    // Target weights: Equity 47%, Bond 43%, Cash 10% -> exact +5.00% Equity, -5.00% Bond.
+    const result = service.monitorPortfolioDrift({
+      userId: testUserId,
+      holdings: sampleHoldings,
+      targets: [
+        { assetClass: "EQUITY", weightPercent: "47" },
+        { assetClass: "BOND", weightPercent: "43" },
+        { assetClass: "CASH", weightPercent: "10" },
+      ],
+      driftThresholdPercent: "5.0",
+      newContribution: "0",
+    });
+    expect(result.isDrifted).toBe(true);
+    expect(result.rebalanceRequired).toBe(true);
+    expect(result.maxDriftPercent).toBe("5.00");
+    expect(result.drifts.find(d => d.assetClass === "EQUITY")?.status).toBe("OVERWEIGHT");
+    expect(result.drifts.find(d => d.assetClass === "BOND")?.status).toBe("UNDERWEIGHT");
+    expect(result.rebalanceRecommendation?.status).toBe("PROPOSED");
   });
 });

@@ -32,6 +32,7 @@ import { PensionEstimateService } from "./pensions/estimate-service";
 import { SystemSettingsService } from "./settings/service";
 import { MarketDataService } from "./allocation-risk/market-service";
 import { AllocationRiskService } from "./allocation-risk/service";
+import { RebalanceDecisionService } from "./allocation-risk/rebalance-decisions";
 import { ExplanationsService } from "./explanations/service";
 import { BillingService } from "./billing/service";
 import { BillingAdminService } from "./billing/admin-service";
@@ -55,6 +56,7 @@ export function createServices(db: PrismaClient, config: AppConfig) {
     explanations: new ExplanationsService(db),
     marketData: new MarketDataService(db),
     allocationRisk: new AllocationRiskService(db, { continuous: config.ENABLE_CONTINUOUS_OPTIMIZER === "true", fallback: config.ENABLE_OPTIMIZER_FALLBACK === "true" }),
+    rebalanceDecisions: new RebalanceDecisionService(db),
     catalog: new CatalogService(db),
     settings,
     auth: new AuthService(db, config, id => {

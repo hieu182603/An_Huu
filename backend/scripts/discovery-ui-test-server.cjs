@@ -1,5 +1,9 @@
 // Synthetic loopback-only harness. No database, email, external provider or legal publication.
 require('ts-node/register');
+// Functional UI suites share one synthetic account across many runs; the production per-account limits
+// (3 risk runs, 20 previews per minute) are covered by backend tests. Override explicitly to test them here.
+process.env.RISK_RUNS_PER_MINUTE ??= '1000';
+process.env.PREVIEW_REQUESTS_PER_MINUTE ??= '1000';
 const express = require('express');
 const apiPort = Number(process.env.USER_UI_API_PORT ?? 55442);
 if (!Number.isInteger(apiPort) || apiPort < 1024 || apiPort > 65535) throw new Error('Invalid UI fixture port');

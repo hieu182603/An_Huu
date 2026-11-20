@@ -238,6 +238,23 @@ RiskPatch:
           required:
             - kind
             - value
+        - type: object
+          additionalProperties: false
+          properties:
+            kind:
+              type: string
+              enum:
+                - BOTH
+            percent:
+              type: string
+              pattern: ^(0|[1-9]\d?|100)(\.\d{1,8})?$
+            amountVnd:
+              type: string
+              pattern: ^(0|[1-9]\d{0,15})(\.\d{1,2})?$
+          required:
+            - kind
+            - percent
+            - amountVnd
   required:
     - expectedRevision
     - policyVersionId
@@ -415,6 +432,10 @@ Result:
           type: string
           enum:
             - PINNED_BASE
+        discountBasis:
+          type: string
+          enum:
+            - PINNED_DEPOSIT_RATE_BY_HORIZON
         essentialMonthlyExpense:
           anyOf:
             - type: string
@@ -430,6 +451,17 @@ Result:
               nullable: true
               enum:
                 - null
+        reserveMonthsBasis:
+          type: string
+          enum:
+            - CUSTOMER
+            - INCOME_STABILITY
+            - DEFAULT
+        reserveMonthsSource:
+          type: string
+          enum:
+            - APPROVED_DOCUMENT
+            - CODE_DEFAULT_PENDING_CONFIRMATION
         requiredEmergencyReserve:
           anyOf:
             - type: string
@@ -688,6 +720,18 @@ Result:
             required:
               - assetClass
               - weightPercent
+        bindingLimit:
+          anyOf:
+            - type: string
+              enum:
+                - AMOUNT
+                - PERCENT
+            - type: object
+              nullable: true
+              enum:
+                - null
+        reactionApplied:
+          type: boolean
       required:
         - informationalOnly
         - status
@@ -742,6 +786,73 @@ Result:
       type: boolean
       enum:
         - true
+    obligations:
+      type: array
+      items:
+        $ref: ./retirement.openapi.yaml#/Obligation
+    liquidityRequirement:
+      $ref: ./retirement.openapi.yaml#/LiquidityRequirement
+    liquidityReconciliation:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - horizonKey
+          - horizonMonths
+          - amount
+          - matchedGoalId
+          - suggestions
+        properties:
+          horizonKey:
+            type: string
+            enum:
+              - y1
+              - y3
+              - y5
+          horizonMonths:
+            type: integer
+            enum:
+              - 12
+              - 36
+              - 60
+          amount: *a1
+          matchedGoalId:
+            anyOf:
+              - *a1
+              - type: object
+                nullable: true
+                enum:
+                  - null
+          suggestions:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              required:
+                - goalId
+                - label
+                - dueMonth
+                - monthsUntilDue
+                - amountToday
+              properties:
+                goalId: *a1
+                label: *a1
+                dueMonth: *a1
+                monthsUntilDue:
+                  type: integer
+                amountToday: *a1
+    warnings:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - path
+          - code
+        properties:
+          path: *a1
+          code: *a1
 Envelope:
   type: object
   additionalProperties: false

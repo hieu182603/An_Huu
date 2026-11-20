@@ -11,7 +11,8 @@ import { financeMoney } from "../utils/financeHubSummary";
 import ResponsiveDialog from "./ResponsiveDialog";
 import AllocationPackages from "./AllocationPackages";
 import AllocationScenarios from "./AllocationScenarios";
-import { Icon } from "./ui";
+import AllocationAdjustments from "./AllocationAdjustments";
+import { Icon, Select } from "./ui";
 import "./allocation-experiment.css";
 
 export type AllocationChoice = { templateId: string; customAllocation?: CustomAllocation; allocationFunding?: "PROTECTED_CAPITAL_V1" };
@@ -22,7 +23,7 @@ type Props = {
   data: AllocationWorkspaceResult; input: WorkspaceInput; plan: RetirementPreviewInput | null;
   onChoose: (value: AllocationChoice) => void;
   onReferenceChange: (value: AllocationWorkspaceResult, result: RiskResult | null, state: AllocationEvaluationState) => void;
-  thresholds?: { essential?: string; all?: string };
+  thresholds?: { essential?: string; all?: string; range?: {min:string;max:string} };
   /** Rendered between the two cards and the custom comparison, where the demo explains the pick. */
   why?: ReactNode;
 };
@@ -48,6 +49,7 @@ const candidateName = (id: string, referenceId: string | null | undefined, quali
   return ({ CUSTOM: t("Tự chọn", "Custom"), BASE: t("Theo hồ sơ", "Profile allocation"), LOWER_EQUITY: t("Giảm cổ phiếu", "Lower equity"),
     HIGHER_EQUITY: t("Tăng cổ phiếu", "Higher equity"), CONTINUOUS: t("Phân bổ tối ưu", "Optimized allocation") } as Record<string, string>)[id] ?? t("Cách chia khác", "Alternative");
 };
+const FIRST_PATHS = 20, METHOD_PATHS = 1000, DEFAULT_MILESTONES = [20, 50, 100, 200, 500, 1000];
 const meets = (candidate: SimulationResult | undefined, threshold: string | undefined | null) =>
   candidate?.pEssential != null && !!threshold && candidate.pEssential >= Number(threshold);
 
@@ -95,11 +97,17 @@ export function AllocationCandidates({ result, labels, en, rates }: { result: Ri
         </tr>)}
         {(result.rejected ?? []).filter(r => r.id !== "CUSTOM").map(r => <tr key={r.id}><th scope="row"><span className="allocation-why-name">{candidateName(r.id, null, false, en)}</span></th>
           <td data-label={t("Lợi suất giả định", "Assumed return")}>—</td><td data-label={headers[1]}>—</td><td data-label={headers[2]}>—</td><td data-label={headers[3]}>—</td><td data-label={headers[4]}>—</td>
-          <td data-label={headers[5]}>{r.issues.includes("LOSS_CONSTRAINT_EXCEEDED") ? t("Vượt giới hạn chịu lỗ", "Exceeds your loss limit") : t("Không đáp ứng ràng buộc của chính sách", "Fails the policy constraints")}</td></tr>)}
+          <td data-label={headers[5]}>{r.issues.includes("LOSS_CONSTRAINT_EXCEEDED") ? t("Vượt giới hạn chịu lỗ", "Exceeds your loss limit") : r.issues.includes("WEIGHT_BOUND_EXCEEDED") ? t("Vượt giới hạn tỷ trọng của chính sách (ví dụ cổ phiếu tối đa 60%)", "Outside the policy weight bounds (e.g. equity at most 60%)") : t("Không đáp ứng ràng buộc của chính sách", "Fails the policy constraints")}</td></tr>)}
       </tbody></table>
     </div>
     <p className="allocation-result-footnote">{t("Lợi suất trước phí theo đầu vào đã công bố, quy đổi lãi kép; là giả định dùng cho phép tính.", "Returns are before fees on published inputs, compounded; they are calculation assumptions.")} {t(`Tỷ lệ đủ chi là tần suất trên ${ref.paths ?? "—"} kịch bản mô phỏng, không phải bảo đảm. Thiếu hụt khi thị trường xấu là mức thiếu chi thiết yếu trung bình ở nhóm kịch bản xấu nhất, quy về giá hôm nay.`, `Coverage is a frequency across ${ref.paths ?? "—"} simulated scenarios, not a guarantee. Shortfall in bad markets is the average essential shortfall in the worst scenarios, in today's money.`)}</p>
   </>;
+}
+
+/** Asks the allocation page to open its input editor at a step (0 capital, 1 loss limit, 2 review). */
+export const ALLOCATION_EDIT_EVENT = "anhuu:allocation-edit";
+export function requestAllocationEdit(step: number, focusId?: string) {
+  window.dispatchEvent(new CustomEvent(ALLOCATION_EDIT_EVENT, { detail: { step, focusId } }));
 }
 
 export default function AllocationExperiment({ data, input, plan, onChoose, onReferenceChange, thresholds, why }: Props) {
@@ -112,9 +120,12 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   const [weights, setWeights] = useState(initialWeights);
   const [result, setResult] = useState<RiskResult | null>(null), [trial, setTrial] = useState<AllocationWorkspaceResult | null>(null), [reference, setReference] = useState(data);
   const [referenceResult, setReferenceResult] = useState<RiskResult | null>(null);
+  const [chosenThreshold, setChosenThreshold] = useState<string>();
   const [trialError, setTrialError] = useState(""), [trialAttempt, setTrialAttempt] = useState(0);
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [rate, setRate] = useState<AllocationWorkspaceResult | null>(null), [packages, setPackages] = useState<WorkspaceInput | null>(null);
   const [stressPlan, setStressPlan] = useState<RetirementPreviewInput | null>(null);
+  // Paths asked of the server. 20 first (fast, preliminary); the customer raises it step by step to the 1,000 the method requires.
+  const [paths, setPaths] = useState(FIRST_PATHS), [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [customOpen, setCustomOpen] = useState(() => !window.matchMedia("(max-width: 800px)").matches || !!plan?.customAllocation);
   const controller = useRef<AbortController | null>(null), sequence = useRef(0), autoRan = useRef("");
   const fingerprint = JSON.stringify({ input, plan, data: data.allocations, customization: policy });
@@ -122,7 +133,7 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   useEffect(() => onReferenceChange(reference, referenceResult, { busy, error }), [reference, referenceResult, busy, error, onReferenceChange]);
   // An aborted auto-run (StrictMode remount, fast navigation) must be allowed to run again, or the page stays on "Finding…".
   useEffect(() => () => { sequence.current++; controller.current?.abort(); autoRan.current = ""; }, [fingerprint]);
-  useEffect(() => { setResult(null); setReferenceResult(null); setTrial(null); setTrialError(""); setReference(data); setBusy(false); setError(""); setWeights(initialWeights()); }, [fingerprint]);
+  useEffect(() => { setResult(null); setReferenceResult(null); setChosenThreshold(undefined); setTrial(null); setTrialError(""); setReference(data); setBusy(false); setError(""); setProgress(null); setPaths(FIRST_PATHS); setWeights(initialWeights()); }, [fingerprint]);
   const custom: CustomAllocation = { model: "custom-glide-v1", weights };
   // Live check while dragging: the server answers with the loss stress, amounts and return for these exact weights.
   useEffect(() => {
@@ -139,39 +150,70 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   }, [weightsKey, fingerprint, trialAttempt]);
 
   const threshold = referenceResult?.threshold ?? thresholds?.essential, allThreshold = referenceResult?.allThreshold ?? thresholds?.all;
+  const range=thresholds?.range, thresholdChoices:number[]=[];
+  if(range){const min=Number(range.min),max=Number(range.max);thresholdChoices.push(min);for(let value=min+0.05;value<max-1e-9;value+=0.05)thresholdChoices.push(value);if(max>min)thresholdChoices.push(max);}
+  const thresholdOptions=thresholdChoices.map(value=>({value:value.toFixed(4),label:`${num(value*100)}%`}));
+  if(threshold&&!thresholdChoices.some(value=>Math.abs(value-Number(threshold))<1e-9))thresholdOptions.unshift({value:Number(threshold).toFixed(4),label:`${num(Number(threshold)*100)}%`});
+  if(!threshold)thresholdOptions.unshift({value:"",label:t("Theo chính sách", "Policy threshold")});
   const referenceCandidate = referenceResult?.candidates?.find(c => c.id === referenceResult.referenceId), customCandidate = result?.candidates?.find(c => c.id === "CUSTOM");
   const qualified = meets(referenceCandidate, threshold), tested = (referenceResult?.candidates ?? []).filter(c => c.id !== "CUSTOM").length + (referenceResult?.rejected ?? []).filter(r => r.id !== "CUSTOM").length;
   const eligible = (r: AllocationWorkspaceResult) => r.portfolio?.status === "READY" && r.loss.status === "WITHIN_LIMIT" && r.capital.status === "READY";
   const selectionPlan = plan && input.templateId ? { ...plan, templateId: input.templateId, customAllocation: undefined } : null;
-  const run = async (kind: "reference" | "custom" = "custom") => {
+  const run = async (kind: "reference" | "custom" = "custom", pathsOverride?: number, thresholdOverride?: string) => {
     if (!selectionPlan || busy) return;
     controller.current?.abort(); const abort = new AbortController(); controller.current = abort;
-    const ticket = ++sequence.current; setBusy(true); setError(""); setResult(null);
+    const ticket = ++sequence.current; setBusy(true); setError(""); if (thresholdOverride === undefined) setResult(null); setProgress(null);
+    const wanted = pathsOverride ?? paths; if (pathsOverride) setPaths(pathsOverride);
     try {
       const nextTrial = kind === "custom" && policy ? await previewAllocation({ ...input, customAllocation: custom }, abort.signal) : null;
       if (ticket !== sequence.current) return;
       if (nextTrial && !eligible(nextTrial)) { setTrial(nextTrial); setError(t("Tỷ trọng này chưa đáp ứng chính sách hoặc giới hạn chịu lỗ. Hãy điều chỉnh trước khi mô phỏng.", "These weights do not satisfy the policy or loss limit. Adjust them before simulation.")); return; }
-      const from = data.valuationDate.slice(0, 7), to = selectionPlan.endMonth;
-      const months = Math.max(1, (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + Number(to.slice(5, 7)) - Number(from.slice(5, 7)) + 1);
-      // The server stops a run after 10 s for all candidates together; one path-month costs about 0.33 ms
-      // (measured 18/11/2026: 612 months x 20 paths x 2 candidates = 8.3 s). Budget ~30k path-months over ~3
-      // simulated candidates, then halve once if the server still reports the runtime limit.
-      const request = (paths: number) => analyzeRisk("selection", { kind: "PREVIEW", preview: selectionPlan }, paths, undefined, abort.signal, kind === "custom" && policy ? custom : undefined, "ALLOCATION_V2");
-      const firstPaths = Math.max(4, Math.min(200, Math.floor(30000 / (months * 3))));
-      let response = await request(firstPaths);
+      // The server stops a run after 10 s and keeps the paths already computed; sending the same request with
+      // continuation:true resumes from them until READY/INSUFFICIENT (results equal a one-shot run).
+      const request = (n: number, continuation = false) => analyzeRisk("selection", { kind: "PREVIEW", preview: selectionPlan }, n, undefined, abort.signal, kind === "custom" && policy ? custom : undefined, "ALLOCATION_V2", undefined, continuation, thresholdOverride ?? chosenThreshold);
+      const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+      // Heavy runs are limited per minute per account: retry once, after a pause, only when the server reports it
+      // is busy with other runs. A 429 is shown as is (retrying would only spend the quota).
+      const send = async (n: number, continuation = false) => {
+        const res = await request(n, continuation);
+        if (res.status !== "LIMIT_EXCEEDED" || !res.issues?.includes("CONCURRENT_RUN_LIMIT")) return res;
+        await sleep(3000);
+        if (abort.signal.aborted) return res;
+        return request(n, continuation);
+      };
+      let response = await send(wanted);
+      let best = -1, stalled = 0;
+      while (response.status === "LIMIT_EXCEEDED" && response.issues?.includes("RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED")) {
+        if (ticket !== sequence.current || abort.signal.aborted) return;
+        const done = response.progress?.pathsCompleted ?? 0;
+        setProgress({ done, total: response.progress?.pathsRequested ?? wanted });
+        stalled = done > best ? 0 : stalled + 1; best = Math.max(best, done);
+        if (stalled >= 5) break;
+        response = await send(wanted, true);
+      }
       if (ticket !== sequence.current) return;
-      if (response.status === "LIMIT_EXCEEDED" && response.issues?.includes("RUNTIME_LIMIT_NO_PARTIAL_ESTIMATE")) response = await request(Math.max(2, Math.floor(firstPaths / 2)));
+      // Older servers drop the partial work: fall back once to fewer paths.
+      if (response.status === "LIMIT_EXCEEDED" && response.issues?.includes("RUNTIME_LIMIT_NO_PARTIAL_ESTIMATE")) {
+        const fewer = Math.max(2, Math.floor(wanted / 2)); setPaths(fewer); response = await send(fewer);
+      }
       const picked = response.candidates?.find(c => c.id === response.referenceId);
       const sameReference = picked?.selection?.templateId === data.portfolio?.assessment.selectedTemplateId && JSON.stringify(picked?.selection?.customAllocation ?? null) === JSON.stringify(data.customAllocation ?? null);
       const nextReference = picked?.selection && !sameReference ? await previewAllocation({ ...input, ...picked.selection }, abort.signal) : data;
       if (ticket !== sequence.current) return;
       if (nextTrial) setTrial(nextTrial);
+      if (thresholdOverride !== undefined) setChosenThreshold(thresholdOverride);
       setResult(response); setReferenceResult(response); setReference(nextReference);
-    } catch (e) { if (ticket === sequence.current && !abort.signal.aborted) setError(e instanceof Error ? e.message : t("Chưa tính được kết quả.", "Could not calculate the result.")); }
-    finally { if (ticket === sequence.current) setBusy(false); }
+    } catch (e) {
+      if (ticket !== sequence.current || abort.signal.aborted) return;
+      const status = (e as { status?: number })?.status, code = (e as { code?: string })?.code;
+      setError(status === 429 ? t("Bạn đã chạy mô phỏng 3 lần trong một phút. Vui lòng đợi khoảng một phút rồi bấm Thử tính lại.", "You ran 3 simulations within a minute. Wait about a minute, then retry.")
+        : code === "NETWORK_ERROR" ? t("Máy chủ chưa phản hồi kịp hoặc mất kết nối. Đây là lỗi kỹ thuật, không phải kết luận về kế hoạch của bạn; hãy thử tính lại.", "The server did not answer in time or the connection dropped. This is a technical error, not a verdict on your plan; please retry.")
+        : e instanceof Error ? e.message : t("Chưa tính được kết quả.", "Could not calculate the result."));
+    }
+    finally { if (ticket === sequence.current) { setBusy(false); setProgress(null); } }
   };
   useEffect(() => { if (selectionPlan && autoRan.current !== fingerprint && weightsKey === JSON.stringify(initialWeights())) { autoRan.current = fingerprint; void run("reference"); } }, [fingerprint, weightsKey]);
-  const invalidate = () => { sequence.current++; controller.current?.abort(); setBusy(false); setResult(null); setTrial(null); setTrialError(""); setTrialAttempt(n => n + 1); setError(""); };
+  const invalidate = () => { sequence.current++; controller.current?.abort(); setBusy(false); setProgress(null); setResult(null); setTrial(null); setTrialError(""); setTrialAttempt(n => n + 1); setError(""); };
   const change = (code: string, value: string) => { if (!policy) return; invalidate(); setWeights(prev => adjustAllocation(prev, policy, code, value)); };
   const reset = () => { if (!policy) return; invalidate(); setWeights(initialAllocationWeights(reference.allocations, policy)); };
   const choose = (candidate: Candidate | undefined, workspace: AllocationWorkspaceResult) => {
@@ -181,14 +223,30 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   const sameSelection = (a: Candidate["selection"], b: RetirementPreviewInput | null) => !!a && !!b && a.templateId === b.templateId && JSON.stringify(a.customAllocation?.weights ?? null) === JSON.stringify(b.customAllocation?.weights ?? null);
   const usingReference = sameSelection(referenceCandidate?.selection, plan);
 
+  const shownPaths = referenceCandidate?.paths ?? 0;
+  const preliminary = shownPaths > 0 && (referenceResult?.preliminary ?? shownPaths < METHOD_PATHS);
+  const nextMilestones = (referenceResult?.pathMilestones ?? DEFAULT_MILESTONES).filter(m => m > shownPaths && m <= METHOD_PATHS);
+  const pathsControl = result?.status !== "DATA_REQUIRED" && (shownPaths > 0 || (busy && progress)) && <div className="allocation-paths">
+    {shownPaths > 0 && <p><strong>{preliminary
+      ? t(`Đang dùng ${num(shownPaths, 0)} kịch bản (ước tính sơ bộ, chuẩn của phương pháp là ≥ 1.000)`, `Using ${num(shownPaths, 0)} scenarios (preliminary estimate; the method's standard is ≥ 1,000)`)
+      : t(`Đang dùng ${num(shownPaths, 0)} kịch bản (đạt chuẩn của phương pháp)`, `Using ${num(shownPaths, 0)} scenarios (meets the method's standard)`)}</strong></p>}
+    {busy && progress && <div role="status"><progress max={progress.total} value={progress.done} aria-label={t("Tiến độ chạy kịch bản", "Scenario run progress")} /><small>{t(`Đã chạy ${num(progress.done, 0)}/${num(progress.total, 0)} kịch bản`, `Ran ${num(progress.done, 0)}/${num(progress.total, 0)} scenarios`)}</small></div>}
+    {referenceCandidate?.thresholdUndecided && <p className="allocation-paths-undecided" role="status">{t(`Khoảng tin cậy còn vắt qua ngưỡng ${num(Number(threshold) * 100)}%; tăng số kịch bản để kết luận chắc hơn.`, `The confidence interval still straddles the ${num(Number(threshold) * 100)}% threshold; increase the number of scenarios for a firmer conclusion.`)}</p>}
+    {nextMilestones.length > 0 && <><div className="allocation-paths-actions">{nextMilestones.map(m => <button key={m} type="button" className="overview-button secondary" disabled={busy || !selectionPlan} onClick={() => void run("reference", m)}>{t(`Tăng lên ${num(m, 0)} kịch bản`, `Raise to ${num(m, 0)} scenarios`)}</button>)}</div>
+      <small>{t("Các kịch bản đã chạy được giữ lại, chỉ chạy phần mới.", "Scenarios already run are kept; only the new ones are computed.")}</small></>}
+  </div>;
   const share = (v: number | null | undefined) => v == null ? t("Chưa xác định", "Unavailable") : `${num(v * 100, 1)}%`;
-  const meter = (name: string, value: number | null | undefined, target: string | undefined | null) => <div className="allocation-success" key={name}>
+  const meter = (name: string, value: number | null | undefined, target: string | undefined | null, wilson?: { lower: number; upper: number } | null, paths?: number | null) => <div className="allocation-success" key={name}>
     <div><span>{name}</span><strong className={value == null ? "is-unknown" : undefined}>{share(value)}</strong></div>
     {value != null && <div className="allocation-success-track" role="img" aria-label={`${name}: ${share(value)}${target ? `; ${t("ngưỡng", "threshold")} ${num(Number(target) * 100)}%` : ""}`}><span style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />{target && <i style={{ left: `${Number(target) * 100}%` }} />}</div>}
-    <small>{target ? t(`Ngưỡng mục tiêu ${num(Number(target) * 100)}%`, `Target threshold ${num(Number(target) * 100)}%`) : t("Chưa công bố ngưỡng đánh giá", "No published threshold")}</small>
+    <small>
+      {target ? t(`Ngưỡng mục tiêu ${num(Number(target) * 100)}%`, `Target threshold ${num(Number(target) * 100)}%`) : t("Chưa công bố ngưỡng đánh giá", "No published threshold")}
+      {wilson ? ` · CI 95%: ${wilson.lower}–${wilson.upper}% (${paths ?? "—"} ${t("kịch bản", "scenarios")})` : paths ? ` · ${paths} ${t("kịch bản", "scenarios")}` : ""}
+    </small>
   </div>;
   const metrics = (candidate: SimulationResult | undefined) => <div className="allocation-success-grid">
-    {meter(t("Đủ chi thiết yếu", "Essential spending covered"), candidate?.pEssential, threshold)}{meter(t("Đủ mọi mục tiêu", "All goals covered"), candidate?.pAll, allThreshold)}
+    {meter(t("Đủ chi thiết yếu", "Essential spending covered"), candidate?.pEssential, threshold, candidate?.display ? { lower: candidate.display.wilsonLowerPercent, upper: candidate.display.wilsonUpperPercent } : null, candidate?.paths)}
+    {meter(t("Đủ mọi mục tiêu", "All goals covered"), candidate?.pAll, allThreshold, null, candidate?.paths)}
   </div>;
   const ring = (rows: Row[], small = false) => { let offset = 0; return <svg className={`allocation-result-ring${small ? " is-small" : ""}`} viewBox="0 0 200 200" role="img" aria-label={t("Cơ cấu phần vốn dài hạn, tổng 100 phần trăm", "Long-term capital allocation, 100 percent in total")}>
     <circle cx="100" cy="100" r="78" fill="none" stroke="#e9eff5" strokeWidth="20" />
@@ -217,7 +275,8 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
   // Stress scenarios use pinned assumptions, so the unmodified template can be tested before market data is published.
   const stressSelection = referenceCandidate?.selection ?? (dataMissing && pinnedPick?.id === "BASE" ? {} : null);
   const withinLimit = overLimit ? false : displayCandidate ? true : eligible(reference);
-  const openLossEditor = () => { const d = document.querySelector<HTMLDetailsElement>(".allocation-editor-disclosure"); if (d) { d.open = true; d.querySelectorAll<HTMLButtonElement>(".allocation-steps button")[1]?.click(); d.scrollIntoView({ behavior: "smooth", block: "start" }); } };
+  const openLossEditor = () => requestAllocationEdit(1);
+  const openGoalsEditor = () => requestAllocationEdit(0, "allocation-goals-question");
   const kindNote = overLimit && feasibility ? <div className="allocation-result-callout is-over" role="status"><Icon name="info" /><p>{t(
       `Kể cả khi chuyển hết cổ phiếu sang tiền gửi, mức giảm khi thị trường sốc vẫn khoảng ${money(feasibility.minimumLossAmount)}, vượt giới hạn ${money(feasibility.allowedLossAmount)} bạn đã khai. Danh mục này chỉ để tham khảo. Để có phương án trong giới hạn, cần chấp nhận giảm tối thiểu ${feasibility.requiredTolerancePercentOfGrowth.replace(".", ",")}% vốn dài hạn (≈ ${money(feasibility.requiredToleranceAmountVnd)}).`,
       `Even with all equity moved to deposits, the stress loss is about ${money(feasibility.minimumLossAmount)}, above your ${money(feasibility.allowedLossAmount)} limit. This allocation is for reference only. To get an allocation within the limit, accept at least ${feasibility.requiredTolerancePercentOfGrowth}% of long-term capital (≈ ${money(feasibility.requiredToleranceAmountVnd)}).`)}</p>
@@ -226,13 +285,77 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
       `Danh mục mẫu vượt giới hạn chịu lỗ của bạn, nên đã chuyển ${num(Number(displayCandidate.changePoints))} điểm % cổ phiếu sang tiền gửi để mức giảm khi sốc nằm trong giới hạn.`,
       `The template exceeded your loss limit, so ${num(Number(displayCandidate.changePoints))} points of equity were moved to deposits to keep the stress loss within it.`)}</p></div>
     : null;
-  const statusText = dataMissing ? "" : result?.status === "DATA_REQUIRED" ? t("Chưa có bộ dữ liệu thị trường tháng đã công bố để mô phỏng. Các xác suất được để chưa xác định.", "Published monthly market data is required. Probabilities remain unavailable.") : result?.status === "LIMIT_EXCEEDED" ? t("Phép thử vượt giới hạn xử lý. Chưa có ước lượng hoàn chỉnh; hãy thử lại sau.", "The run exceeded processing limits. No complete estimate is available; retry later.") : result && !result.candidates?.length ? t("Cần hoàn thiện dòng tiền và chính sách mô phỏng trước khi đánh giá khả năng đủ tiền.", "Complete cash flows and simulation policy before estimating funding success.") : "";
+  const isProtectedShortfall = result?.issues?.includes("PROTECTED_CAPITAL_EXCEEDS_ASSETS");
+  const isGoalsRequired = result?.issues?.includes("GOALS_REQUIRED");
+  const isLossLimitRequired = !isGoalsRequired && !!result?.issues?.some(code => code === "LOSS_TOLERANCE_REQUIRED");
+  const isProfileReview = !isGoalsRequired && !isLossLimitRequired && result?.status === "REVIEW_REQUIRED"
+    && !!result.issues?.some(code => ["UNKNOWN_VALUE", "CAPITAL_SEPARATION_REQUIRED"].includes(code) || code.startsWith("GOAL_") || code.startsWith("DEPOSIT_"));
+  const statusText = dataMissing ? "" : result?.status === "DATA_REQUIRED"
+    ? t("Chưa có bộ dữ liệu thị trường tháng đã công bố để mô phỏng. Các xác suất được để chưa xác định.", "Published monthly market data is required. Probabilities remain unavailable.")
+    : result?.status === "LIMIT_EXCEEDED"
+      ? (result.issues?.includes("CONCURRENT_RUN_LIMIT")
+        ? t("Hệ thống đang xử lý nhiều lượt mô phỏng cùng lúc. Vui lòng thử lại sau giây lát.", "The system is processing concurrent simulations. Please retry in a moment.")
+        : t("Phép thử vượt giới hạn xử lý. Chưa có ước lượng hoàn chỉnh; hãy thử lại sau.", "The run exceeded processing limits. No complete estimate is available; retry later."))
+      : (isProtectedShortfall || isGoalsRequired || isLossLimitRequired || isProfileReview)
+        ? ""
+        : result && !result.candidates?.length && result.status === "REVIEW_REQUIRED"
+          ? t("Cần hoàn thiện dòng tiền và chính sách mô phỏng trước khi đánh giá khả năng đủ tiền.", "Complete cash flows and simulation policy before estimating funding success.")
+          : "";
   const customPasses = meets(customCandidate, threshold) && (!allThreshold || (customCandidate?.pAll ?? 0) >= Number(allThreshold));
 
   return <section className="allocation-experiment" aria-label={t("Thử và đối chiếu phân bổ", "Test and compare allocations")}>
+    {range&&<Select label={t("Ngưỡng đủ chi thiết yếu", "Essential-spending threshold")} options={thresholdOptions} disabled={busy||!selectionPlan} value={threshold?Number(threshold).toFixed(4):""} onChange={value=>void run("reference",undefined,value)}/>}
+    {referenceResult?.threshold && <p className="allocation-threshold-used">{t(`Đang dùng ngưỡng ${num(Number(referenceResult.threshold) * 100)}%`, `Using a ${num(Number(referenceResult.threshold) * 100)}% threshold`)}</p>}
     {busy && <div className="allocation-evaluation-notice" role="status"><progress aria-label={t("Đang kiểm tra các phương án", "Testing allocations")} /><div><strong>{t("Đang kiểm tra các phương án…", "Testing allocations…")}</strong><p>{t("Đối chiếu vốn, giới hạn chịu lỗ và các kịch bản thị trường.", "Comparing capital, loss limits and market scenarios.")}</p></div></div>}
     {error && <div className="allocation-evaluation-notice is-error" role="alert"><div><strong>{t("Chưa tính được phương án", "Could not calculate the allocation")}</strong><p>{error}</p></div><button type="button" className="overview-button secondary" disabled={busy || !selectionPlan} onClick={() => void run()}>{t("Thử tính lại", "Retry calculation")}</button></div>}
     {!selectionPlan && <div className="allocation-evaluation-notice" role="status"><div><strong>{t("Cần bổ sung thông tin kế hoạch", "Complete your plan inputs")}</strong><p>{t("Xác nhận chi tiêu và thời gian nghỉ hưu để tính phương án theo dòng tiền của bạn.", "Confirm retirement spending and dates to calculate an allocation using your cash flows.")}</p></div><Link className="overview-button secondary" to="/user/plan?tab=adjust">{t("Bổ sung thông tin", "Complete inputs")}</Link></div>}
+    {isProtectedShortfall && (
+      <div className="allocation-evaluation-notice is-error" role="status">
+        <div>
+          <strong>{t("Chưa đủ tiền giữ quỹ dự phòng và khoản cần dùng sớm", "Insufficient capital for emergency reserve and near-term goals")}</strong>
+          <p>{t(
+            `Bạn còn thiếu ${money(result?.shortfallAmount || (data.capital.growthCapital ? data.capital.growthCapital.replace("-", "") : "0"))} để đủ quỹ dự phòng và khoản cần dùng sớm. An Hưu chưa đề xuất phân bổ vốn dài hạn; hãy ưu tiên hoàn thiện quỹ dự phòng.`,
+            `You need ${money(result?.shortfallAmount || (data.capital.growthCapital ? data.capital.growthCapital.replace("-", "") : "0"))} more to cover your emergency reserve and near-term goals. Long-term allocation is deferred; prioritize funding your reserve.`
+          )}</p>
+          <div className="allocation-shortfall-guidance" style={{ marginTop: "0.5rem", fontSize: "0.9rem" }}>
+            <p><strong>{t("Các hướng điều chỉnh có thể thử:", "Possible adjustments to try:")}</strong></p>
+            <ul style={{ margin: "0.25rem 0 0 1.25rem", padding: 0 }}>
+              <li>{t("Giảm số tháng dự phòng cần giữ (nếu công việc ổn định)", "Reduce reserve months (if income is stable)")}</li>
+              <li>{t("Bổ sung thêm tài sản thanh khoản khả dụng", "Add more available liquid assets")}</li>
+              <li>{t("Xem lại hoặc dời lịch các mục tiêu chi tiêu gần hạn", "Review or reschedule near-term spending goals")}</li>
+            </ul>
+          </div>
+        </div>
+        <button type="button" className="overview-button secondary" onClick={openGoalsEditor}>{t("Điều chỉnh dự phòng & mục tiêu →", "Adjust reserve & goals →")}</button>
+      </div>
+    )}
+    {isGoalsRequired && (
+      <div className="allocation-evaluation-notice is-error" role="status">
+        <div>
+          <strong>{t("Cần trả lời câu hỏi khoản lớn sắp tới", "Near-term goals question required")}</strong>
+          <p>{t("Hệ thống cần biết bạn có dự định chi khoản lớn nào trong 5 năm tới hay không để tính phần tiền giữ riêng trước khi phân bổ.", "We need to know if you plan any major expenses in the next 5 years to separate protected funds before allocating.")}</p>
+        </div>
+        <button type="button" className="overview-button primary" onClick={openGoalsEditor}>{t("Trả lời câu hỏi mục tiêu →", "Answer goals question →")}</button>
+      </div>
+    )}
+    {isLossLimitRequired && (
+      <div className="allocation-evaluation-notice" role="status">
+        <div>
+          <strong>{t("Cần khai mức chịu giảm", "Loss limit required")}</strong>
+          <p>{t("Hệ thống cần biết bạn chấp nhận giảm tối đa bao nhiêu để loại các cách chia vượt giới hạn trước khi mô phỏng.", "We need your maximum acceptable loss to exclude allocations above it before simulating.")}</p>
+        </div>
+        <button type="button" className="overview-button primary" onClick={openLossEditor}>{t("Khai mức chịu giảm →", "Set loss limit →")}</button>
+      </div>
+    )}
+    {isProfileReview && (
+      <div className="allocation-evaluation-notice" role="status">
+        <div>
+          <strong>{t("Cần bổ sung thông tin hồ sơ", "Profile details required")}</strong>
+          <p>{t("Một số giá trị tài sản hoặc mục tiêu chưa rõ nên chưa tách được phần vốn giữ riêng. Hãy bổ sung rồi tính lại.", "Some asset or goal values are unknown, so protected capital cannot be separated yet. Complete them and recalculate.")}</p>
+        </div>
+        <Link className="overview-button secondary" to="/user/profile?section=assets">{t("Mở hồ sơ tài chính →", "Open financial profile →")}</Link>
+      </div>
+    )}
     {statusText && <div className="allocation-evaluation-notice" role="status"><p>{statusText}</p></div>}
     <div className="allocation-lab-real">
       <article className="allocation-reference">
@@ -246,6 +369,7 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
         {dataMissing ? <div className="allocation-data-missing" role="status"><strong>{t("Chưa thể mô phỏng", "Simulation unavailable")}</strong><p>{t("Hệ thống chưa có bộ dữ liệu thị trường tháng đã công bố, nên chưa tính được tỷ lệ đủ chi thiết yếu và đủ mọi mục tiêu. Tỷ trọng ở trên là phương án theo chính sách, chưa được kiểm tra bằng mô phỏng.", "No published monthly market dataset is available, so the share of scenarios covering essentials and goals cannot be calculated. The weights above follow the published policy and have not been simulated.")}</p></div> : metrics(referenceCandidate)}
         {!dataMissing && <p className="allocation-result-footnote">{referenceCandidate?.paths ? t(`Tần suất trên ${referenceCandidate.paths} đường mô phỏng lịch sử; không phải bảo đảm kết quả.`, `Frequency across ${referenceCandidate.paths} historical simulation paths; not a guarantee.`) : busy ? t("Đang kiểm tra các phương án…", "Testing allocations…") : t("Chưa có kết quả mô phỏng cho phương án này.", "No simulation result for this allocation yet.")}
           {referenceCandidate?.display && <> {t("Khoảng tin cậy 95% của tỷ lệ đủ chi thiết yếu:", "95% interval for essential coverage:")} {referenceCandidate.display.wilsonLowerPercent}–{referenceCandidate.display.wilsonUpperPercent}%.</>}</p>}
+        {pathsControl}
         <div className="allocation-reference-actions">
           <button className="overview-button primary" disabled={busy || !referenceCandidate?.selection || !eligible(reference)} onClick={() => choose(referenceCandidate, reference)}>{usingReference ? (qualified ? t("Đang dùng phương án này trong bản xem trước", "Currently used in the plan preview") : t("Đang xem thử với danh mục tham khảo", "Currently previewing the reference allocation")) : qualified || !referenceCandidate ? t("Dùng phương án này để xem trước", "Use this allocation in the preview") : t("Xem thử kế hoạch với danh mục này", "Preview the plan with this allocation")} <span aria-hidden="true">→</span></button>
           <button className="overview-button secondary" onClick={() => setPackages({ ...input, ...(referenceCandidate?.selection ?? {}) })} disabled={!eligible(reference) || overLimit}>{t("Gợi ý gói đầu tư phù hợp", "Explore investment packages")}</button>
@@ -280,6 +404,9 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
       </details>
     </div>
 
+    {/* Spec §7.4 step 4: an infeasible plan gets behavioural adjustments, searched in a separate run on the reference allocation. */}
+    {selectionPlan && referenceResult?.status === "INSUFFICIENT" && referenceCandidate?.selection && referenceCandidate.paths &&
+      <AllocationAdjustments plan={{ ...selectionPlan, ...referenceCandidate.selection }} paths={referenceCandidate.paths} essentialThreshold={chosenThreshold} />}
     {why}
     {customCandidate && referenceCandidate && <section className="allocation-tested">
       <h2>{t("Kết quả kiểm tra cùng điều kiện", "Results under the same conditions")}</h2>
@@ -289,7 +416,7 @@ export default function AllocationExperiment({ data, input, plan, onChoose, onRe
         <tr><th>{t("CVaR thiếu chi thiết yếu", "Essential shortfall CVaR")}</th><td>{money(referenceCandidate.display?.cvarVnd)}</td><td>{money(customCandidate.display?.cvarVnd)}</td></tr>
         <tr><th>{t("Giảm khi thị trường sốc", "Stress loss")}</th><td>{money(referenceCandidate.loss?.lossAmount)}</td><td>{money(customCandidate.loss?.lossAmount)}</td></tr>
       </tbody></table></div>
-      <p>{customCandidate.paths} {t("đường mô phỏng · cùng lịch thu chi, phí và dữ liệu thị trường.", "simulation paths · same cash flows, fees and market data.")} {customPasses ? t("Phương án tự chọn đạt ngưỡng trong phép thử này.", "The custom allocation meets the thresholds in this test.") : t("Phương án tự chọn chưa đạt ngưỡng mục tiêu; cần xem lại mức góp, tuổi nghỉ hoặc chi tiêu.", "The custom allocation is below the target thresholds; review contributions, retirement age or spending.")}</p>
+      <p>{customCandidate.thresholdUndecided && <>{t(`Khoảng tin cậy còn vắt qua ngưỡng ${num(Number(threshold) * 100)}%; tăng số kịch bản để kết luận chắc hơn.`, `The confidence interval still straddles the ${num(Number(threshold) * 100)}% threshold; increase the number of scenarios for a firmer conclusion.`)} </>}{customCandidate.paths} {t("đường mô phỏng · cùng lịch thu chi, phí và dữ liệu thị trường.", "simulation paths · same cash flows, fees and market data.")} {customPasses ? t("Phương án tự chọn đạt ngưỡng trong phép thử này.", "The custom allocation meets the thresholds in this test.") : t("Phương án tự chọn chưa đạt ngưỡng mục tiêu; cần xem lại mức góp, tuổi nghỉ hoặc chi tiêu.", "The custom allocation is below the target thresholds; review contributions, retirement age or spending.")}</p>
       <div className="allocation-tested-actions">
         <button className="overview-button secondary" disabled={busy || !customCandidate.selection || !trial || !eligible(trial)} onClick={() => trial && choose(customCandidate, trial)}>{t("Xem kế hoạch với tỷ trọng này", "View the plan with these weights")}</button>
         {customCandidate.selection && <button className="remaining-text" disabled={busy || !selectionPlan} onClick={() => selectionPlan && customCandidate.selection && setStressPlan({ ...selectionPlan, ...customCandidate.selection })}>{t("Thử biến cố với tỷ trọng tự chọn", "Stress-test custom allocation")}</button>}

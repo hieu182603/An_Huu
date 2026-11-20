@@ -459,7 +459,7 @@ export default function RetirementPlanPage() {
       </section>}
       {!displayedPreview&&!planBusy&&!planStateError&&planTab==="result"&&<PlanEmptyResult onSetup={()=>setPlanDialog("options")}/>}
       {/* Plan Status Bar matching demo */}
-      {viewingCurrent && <CurrentPlanBanner/>}
+      {viewingCurrent && <CurrentPlanBanner onPreviewAgain={() => setPlanDialog("options")} />}
       {displayedPreview&&!viewingCurrent&&<div
         className={`plan-status plan-next${viewingCurrent?" is-current":""}`}
         style={{

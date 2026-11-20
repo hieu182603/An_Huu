@@ -14,7 +14,7 @@ export function memoryDb() {
   names.push("systemSetting", "loginLog", "systemLog", "retirementGoal");
   names.push("article", "savedArticle", "savedProduct", "supportTicket", "supportMessage");
   names.push("investmentRoleGrant");
-  names.push("investmentProductData");
+  names.push("investmentProductData", "investmentHolding", "rebalanceDecision");
   names.push("feeSchedule", "billingAccount", "userFeeOverride", "feeStatement", "statementAdjustment", "paymentOrder", "payment", "refund", "paymentWebhookEvent");
   function relation(row: Row, key: string): any {
     if (key in row) return row[key];
@@ -95,6 +95,8 @@ export function memoryDb() {
           socialInsuranceHistoryVersion: { recordedAt: now, schemaVersion: 1, parentVersionId: null, parentHash: null },
           notificationPreference: { revision: 1, emailDigest: false, goalAlerts: false, partnerUpdates: false },
           partner: { revision: 0, isVisible: false }, partnerProduct: { revision: 0, isVisible: false, annualFee: null, conditions: null, disclosure: null, description: null, imageUrl: null },
+          investmentHolding: { revision: 1, lockedUntil: null },
+          rebalanceDecision: { decision: "PROPOSED", planVersionId: null, probabilityBefore: null, probabilityAfter: null, note: null },
           article: { revision: 0, status: "DRAFT", kind: "ARTICLE", publishedAt: null, thumbnail: null, searchText: "" },
           supportTicket: { revision: 0, status: "OPEN", productId: null },
           user: { securityVersion: 0, revision: 0, status: "ACTIVE", role: "USER", phone: null, city: null, avatarUrl: null },

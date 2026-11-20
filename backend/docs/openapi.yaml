@@ -9587,10 +9587,14 @@ paths:
       summary: allocationRisk_simulation
       security:
         - bearerAuth: []
-      description: USER only. Read-only computation; no market overrides, save/apply
-        or trade execution. Up to 500 paths, 200000 candidate-path-months, 10
-        seconds; six requests/minute/IP, one run/user and two runs/process
-        concurrently.
+      description: "USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 1000 paths
+        (milestones 20/50/100/200/500/1000), at most 60000 path-months per candidate, 10 seconds per request.
+        Progressive: paths already simulated for identical inputs are reused exactly, so repeating or raising paths only
+        computes the missing ones; on the 10 second limit status is LIMIT_EXCEEDED with issue
+        RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED and progress (no partial estimate), and repeating the identical request
+        continues. Three heavy runs/minute/account (RISK_RUNS_PER_MINUTE); requests with continuation=true use a
+        separate limit of 20/minute/account (RISK_CONTINUATIONS_PER_MINUTE); one run/user and two runs/process
+        concurrently."
       requestBody:
         required: true
         content:
@@ -9658,10 +9662,14 @@ paths:
       summary: allocationRisk_scenarios
       security:
         - bearerAuth: []
-      description: USER only. Read-only computation; no market overrides, save/apply
-        or trade execution. Up to 500 paths, 200000 candidate-path-months, 10
-        seconds; six requests/minute/IP, one run/user and two runs/process
-        concurrently.
+      description: "USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 1000 paths
+        (milestones 20/50/100/200/500/1000), at most 60000 path-months per candidate, 10 seconds per request.
+        Progressive: paths already simulated for identical inputs are reused exactly, so repeating or raising paths only
+        computes the missing ones; on the 10 second limit status is LIMIT_EXCEEDED with issue
+        RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED and progress (no partial estimate), and repeating the identical request
+        continues. Three heavy runs/minute/account (RISK_RUNS_PER_MINUTE); requests with continuation=true use a
+        separate limit of 20/minute/account (RISK_CONTINUATIONS_PER_MINUTE); one run/user and two runs/process
+        concurrently."
       requestBody:
         required: true
         content:
@@ -9729,10 +9737,14 @@ paths:
       summary: allocationRisk_selection
       security:
         - bearerAuth: []
-      description: USER only. Read-only computation; no market overrides, save/apply
-        or trade execution. Up to 500 paths, 200000 candidate-path-months, 10
-        seconds; six requests/minute/IP, one run/user and two runs/process
-        concurrently.
+      description: "USER only. Read-only computation; no market overrides, save/apply or trade execution. Up to 1000 paths
+        (milestones 20/50/100/200/500/1000), at most 60000 path-months per candidate, 10 seconds per request.
+        Progressive: paths already simulated for identical inputs are reused exactly, so repeating or raising paths only
+        computes the missing ones; on the 10 second limit status is LIMIT_EXCEEDED with issue
+        RUNTIME_LIMIT_PARTIAL_PROGRESS_SAVED and progress (no partial estimate), and repeating the identical request
+        continues. Three heavy runs/minute/account (RISK_RUNS_PER_MINUTE); requests with continuation=true use a
+        separate limit of 20/minute/account (RISK_CONTINUATIONS_PER_MINUTE); one run/user and two runs/process
+        concurrently."
       requestBody:
         required: true
         content:
@@ -9800,10 +9812,10 @@ paths:
       summary: allocationRisk_rebalance
       security:
         - bearerAuth: []
-      description: USER only. Read-only computation; no market overrides, save/apply
-        or trade execution. Up to 500 paths, 200000 candidate-path-months, 10
-        seconds; six requests/minute/IP, one run/user and two runs/process
-        concurrently.
+      description: USER only. Computes an informational proposal. record=true explicitly saves an owner-scoped PROPOSED
+        decision; no orders execute and no holdings change. Optional compareProbabilities requires an owned
+        planId/planVersionId and matching saved inputs, and runs 20 common-seed paths before/after costs and free cash;
+        unavailable comparisons return an explicit review/data status.
       requestBody:
         required: true
         content:
@@ -11184,8 +11196,7 @@ paths:
     get:
       operationId: getContentFacets
       security: []
-      description: Counts of PUBLISHED ARTICLE categories only, excluding
-        draft/FAQ/glossary.
+      description: Counts of PUBLISHED ARTICLE categories only, excluding draft/FAQ/glossary.
       responses:
         "200":
           description: Successful result
@@ -11193,22 +11204,61 @@ paths:
             application/json:
               schema:
                 $ref: ./discovery.openapi.yaml#/ContentFacetsEnvelope
-        "400": *a1
-        "401": *a2
-        "403": *a3
-        "404": *a4
-        "409": *a5
-        "422": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/saved-products:
     get:
       operationId: getSavedProducts
-      security: &a9
+      security:
         - bearerAuth: []
-      description: USER-owned saved products, up to 200; current published visibility
-        and terms applied on every read. Product/parent hidden or incomplete =>
-        excluded.
+      description: USER-owned saved products, up to 200; current published visibility and terms applied on every read.
+        Product/parent hidden or incomplete => excluded.
       responses:
         "200":
           description: Successful result
@@ -11216,14 +11266,54 @@ paths:
             application/json:
               schema:
                 $ref: ./discovery.openapi.yaml#/SavedProductsEnvelope
-        "400": *a1
-        "401": *a2
-        "403": *a3
-        "404": *a4
-        "409": *a5
-        "422": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/saved-products/{id}:
     parameters:
       - name: id
@@ -11234,9 +11324,10 @@ paths:
           format: uuid
     put:
       operationId: saveProduct
-      security: *a9
-      description: USER-only idempotent save, owner row lock serializes the 200 limit.
-        Current published product required. No financial-plan mutation.
+      security:
+        - bearerAuth: []
+      description: USER-only idempotent save, owner row lock serializes the 200 limit. Current published product required. No
+        financial-plan mutation.
       responses:
         "200":
           description: Successful result
@@ -11244,19 +11335,59 @@ paths:
             application/json:
               schema:
                 $ref: ./discovery.openapi.yaml#/SavedEnvelope
-        "400": *a1
-        "401": *a2
-        "403": *a3
-        "404": *a4
-        "409": *a5
-        "422": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
     delete:
       operationId: unsaveProduct
-      security: *a9
-      description: USER-only idempotent removal, including hidden products. Owner
-        scope only.
+      security:
+        - bearerAuth: []
+      description: USER-only idempotent removal, including hidden products. Owner scope only.
       responses:
         "200":
           description: Successful result
@@ -11264,14 +11395,54 @@ paths:
             application/json:
               schema:
                 $ref: ./discovery.openapi.yaml#/SavedEnvelope
-        "400": *a1
-        "401": *a2
-        "403": *a3
-        "404": *a4
-        "409": *a5
-        "422": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/products/{id}/consult:
     parameters:
       - name: id
@@ -11282,12 +11453,11 @@ paths:
           format: uuid
     post:
       operationId: requestProductConsultation
-      security: *a9
-      description: USER. Creates a Support ticket/message and audit atomically. Owner
-        lock prevents duplicate active requests. Published terms required.
-        Optional expectedProductRevision rejects changed terms; immutable
-        product snapshot in audit/message. No provider, purchase or transfer. UI
-        explicitly collects consent/contact channel.
+      security:
+        - bearerAuth: []
+      description: USER. Creates a Support ticket/message and audit atomically. Owner lock prevents duplicate active requests.
+        Published terms required. Optional expectedProductRevision rejects changed terms; immutable product snapshot in
+        audit/message. No provider, purchase or transfer. UI explicitly collects consent/contact channel.
       requestBody:
         required: true
         content:
@@ -11301,14 +11471,54 @@ paths:
             application/json:
               schema:
                 $ref: ./discovery.openapi.yaml#/ConsultEnvelope
-        "400": *a1
-        "401": *a2
-        "403": *a3
-        "404": *a4
-        "409": *a5
-        "422": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/support/{id}/cancel:
     parameters:
       - name: id
@@ -11319,9 +11529,9 @@ paths:
           format: uuid
     post:
       operationId: withdrawSupportRequest
-      security: *a9
-      description: Close only an owned OPEN/IN_PROGRESS ticket; preserve messages,
-        reject resolved/closed/another owner.
+      security:
+        - bearerAuth: []
+      description: Close only an owned OPEN/IN_PROGRESS ticket; preserve messages, reject resolved/closed/another owner.
       responses:
         "200":
           description: Successful result
@@ -11329,28 +11539,65 @@ paths:
             application/json:
               schema:
                 $ref: ./discovery.openapi.yaml#/CancelledEnvelope
-        "400": *a1
-        "401": *a2
-        "403": *a3
-        "404": *a4
-        "409": *a5
-        "422": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/product-tools/deposit/preview:
     post:
       operationId: previewProductDeposit
-      security: *a9
-      description: "USER read-only illustration. Explicit
-        principal/rate/start/term/payout, no product-string parsing or inferred
-        terms. Simple end or monthly-paid interest vs monthly compounding.
-        Month-end clamping. Optional early rate/month before maturity:
-        previously paid interest is deducted from settlement, not paid twice.
-        Payment cents HALF_UP; compounding rounds only at final result. Excludes
-        taxes/fees and does not write financial data. effectiveAnnualRatePercent
-        is the compounded annual equivalent (nominal for non-compounding);
-        early.forgoneInterest is pro-rated held interest minus early interest,
-        floored at 0."
+      security:
+        - bearerAuth: []
+      description: "USER read-only illustration. Explicit principal/rate/start/term/payout, no product-string parsing or
+        inferred terms. Simple end or monthly-paid interest vs monthly compounding. Month-end clamping. Optional early
+        rate/month before maturity: previously paid interest is deducted from settlement, not paid twice. Payment cents
+        HALF_UP; compounding rounds only at final result. Excludes taxes/fees and does not write financial data.
+        effectiveAnnualRatePercent is the compounded annual equivalent (nominal for non-compounding);
+        early.forgoneInterest is pro-rated held interest minus early interest, floored at 0."
       requestBody:
         required: true
         content:
@@ -11364,25 +11611,63 @@ paths:
             application/json:
               schema:
                 $ref: ./discovery.openapi.yaml#/DepositEnvelope
-        "400": *a1
-        "401": *a2
-        "403": *a3
-        "404": *a4
-        "409": *a5
-        "422": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/product-tools/bond/preview:
     post:
       operationId: previewProductBond
-      security: *a9
-      description: USER read-only illustration. Coupon on face value, cost on purchase
-        price. Coupon payments rounded to cents and totals reconcile to
-        schedule. Interval divides term; max600months. Optional sale keeps only
-        coupons due by sale. Bounded periodic IRR yields nominal annual YTM or
-        null, never substituted by coupon/price. No plan writes, guarantee or
-        trade. Sale returns holding-period return on purchase cost and its
-        simple annualized equivalent.
+      security:
+        - bearerAuth: []
+      description: USER read-only illustration. Coupon on face value, cost on purchase price. Coupon payments rounded to cents
+        and totals reconcile to schedule. Interval divides term; max600months. Optional sale keeps only coupons due by
+        sale. Bounded periodic IRR yields nominal annual YTM or null, never substituted by coupon/price. No plan writes,
+        guarantee or trade. Sale returns holding-period return on purchase cost and its simple annualized equivalent.
       requestBody:
         required: true
         content:
@@ -11396,22 +11681,61 @@ paths:
             application/json:
               schema:
                 $ref: ./discovery.openapi.yaml#/BondEnvelope
-        "400": *a1
-        "401": *a2
-        "403": *a3
-        "404": *a4
-        "409": *a5
-        "422": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/product-tools/protection/preview:
     post:
       operationId: previewProtectionGap
-      security: *a9
-      description: "USER read-only D.I.M.E. illustration: debt + monthly income x 12 x
-        years + education + other needs, less liquid assets, less existing
-        cover. Values never negative. Does not read or write profile, plan or
-        products."
+      security:
+        - bearerAuth: []
+      description: "USER read-only D.I.M.E. illustration: debt + monthly income x 12 x years + education + other needs, less
+        liquid assets, less existing cover. Values never negative. Does not read or write profile, plan or products."
       requestBody:
         required: true
         content:
@@ -11425,14 +11749,54 @@ paths:
             application/json:
               schema:
                 $ref: ./discovery.openapi.yaml#/ProtectionEnvelope
-        "400": *a1
-        "401": *a2
-        "403": *a3
-        "404": *a4
-        "409": *a5
-        "422": *a6
-        "429": *a7
-        "500": *a8
+        "400":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Request rejected; no partial mutation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/admin/investment-roles:
     get:
       operationId: listInvestmentRoles
@@ -11751,83 +12115,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-  /api/v1/me/portfolio-policies/workspace/packages:
-    post:
-      operationId: compareAllocationPackages
-      security: &a1
-        - bearerAuth: []
-      description: USER read-only product comparison on revision-bound allocation.
-        Reviewed current metadata, distribution/risk/liquidity/minimum/lot
-        filters. A lower fee then liquidity; B distinct alternative then
-        liquidity/fee. Missing assets remain uncovered. No orders, holdings or
-        plan writes.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./allocation-workspace.openapi.yaml#/Input
-      responses:
-        "200":
-          description: Informational comparison
-          content:
-            application/json:
-              schema:
-                $ref: ./allocation-workspace.openapi.yaml#/PackagesEnvelope
-        "400": &a2
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "401": &a3
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "403": &a4
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "404": &a5
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "409": &a6
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "422": &a7
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "429": &a8
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "500": &a9
-          description: Rejected; no partial write
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
   /api/v1/me/portfolio-policies/workspace/confirmation:
     get:
       operationId: getAllocationConfirmation
-      security: *a1
-      description: Whether the user finished the 3 allocation steps for the
-        current profile revision. Becomes false as soon as the profile changes.
+      security:
+        - bearerAuth: []
+      description: Whether the user finished the 3 allocation steps for the current profile revision. Becomes false as soon as
+        the profile changes.
       responses:
         "200":
           description: Confirmation state
@@ -11839,24 +12133,29 @@ paths:
                   data:
                     type: object
                     properties:
-                      profileRevision: {type: integer}
-                      confirmed: {type: boolean}
+                      profileRevision:
+                        type: integer
+                      confirmed:
+                        type: boolean
     put:
       operationId: confirmAllocation
-      security: *a1
-      description: Records that the 3 allocation steps are done for the given
-        profile revision (does not change the profile or its revision). 409
-        when expectedRevision is not the current revision.
+      security:
+        - bearerAuth: []
+      description: Records that the 3 allocation steps are done for the given profile revision (does not change the profile or
+        its revision). 409 when expectedRevision is not the current revision.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [expectedRevision]
+              required:
+                - expectedRevision
               additionalProperties: false
               properties:
-                expectedRevision: {type: integer, minimum: 1}
+                expectedRevision:
+                  type: integer
+                  minimum: 1
       responses:
         "200":
           description: Confirmed
@@ -11868,73 +12167,12 @@ paths:
                   data:
                     type: object
                     properties:
-                      profileRevision: {type: integer}
-                      confirmed: {type: boolean}
+                      profileRevision:
+                        type: integer
+                      confirmed:
+                        type: boolean
         "409":
           description: Profile changed since expectedRevision
-  /api/v1/me/portfolio-policies/workspace/preview:
-    post:
-      operationId: previewAllocationWorkspace
-      security: *a1
-      description: USER/v2 read-only current profile revision + published
-        hash-verified policy/dependency. Canonical capital separation, loss
-        stress and first-month actual weights/Decimal amounts. Never infer
-        missing dates, amounts, answers or financial benchmarks. Optional
-        endMonth absent returns capital and explicit PLAN_END_MONTH_REQUIRED,
-        without portfolio result. Negative capital retained. liquidityNeedMonths
-        is portfolio eligibility horizon; reserve months remain based on
-        declared income stability. No cache/profile/plan/holdings write.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./allocation-workspace.openapi.yaml#/Input
-      responses:
-        "200":
-          description: Revision-bound illustrative result
-          content:
-            application/json:
-              schema:
-                $ref: ./allocation-workspace.openapi.yaml#/Envelope
-        "400": *a2
-        "401": *a3
-        "403": *a4
-        "404": *a5
-        "409": *a6
-        "422": *a7
-        "429": *a8
-        "500": *a9
-  /api/v1/me/financial-profile/loss-tolerance:
-    patch:
-      operationId: saveAllocationLossTolerance
-      security: *a1
-      description: USER/v2 profile CAS. Explicit reaction + PERCENT/AMOUNT limit;
-        counterpart computed from current canonical positive growth capital and
-        published assumptions. Both known values replaced together, zero is
-        explicit. Transaction/audit/outbox marks plans stale; no plan-version
-        apply or trade. Stale/missing/unknown/negative growth rejected.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: ./allocation-workspace.openapi.yaml#/RiskPatch
-      responses:
-        "200":
-          description: Updated profile revision and summary
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
-        "400": *a2
-        "401": *a3
-        "403": *a4
-        "404": *a5
-        "409": *a6
-        "422": *a7
-        "429": *a8
-        "500": *a9
   /api/v1/billing/fee-schedule:
     get:
       operationId: getFeeSchedule
@@ -13663,6 +13901,592 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "503":
           description: "BILLING_DISABLED (BILLING_ENABLED=false) or payOS not configured"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/retirement/risk/adjustments:
+    post:
+      operationId: allocationRisk_adjustments
+      summary: allocationRisk_adjustments
+      security:
+        - bearerAuth: []
+      description: "USER only. Read-only computation: smallest contribution, retirement-delay, optional-spending or
+        deferrable-goal delay change that reaches the approved essential threshold for the selected allocation. Many
+        full simulations per request: server budget 60 seconds (other modes 10 seconds); same three heavy
+        runs/minute/account limit (RISK_RUNS_PER_MINUTE), one run/user and two runs/process concurrently."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/RiskInput
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/AdjustmentsResultEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/portfolio-policies/workspace/packages:
+    post:
+      operationId: compareAllocationPackages
+      security: &a1
+        - bearerAuth: []
+      description: USER read-only product comparison on revision-bound allocation.
+        Reviewed current metadata, distribution/risk/liquidity/minimum/lot
+        filters. A lower fee then liquidity; B distinct alternative then
+        liquidity/fee. Missing assets remain uncovered. No orders, holdings or
+        plan writes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-workspace.openapi.yaml#/Input
+      responses:
+        "200":
+          description: Informational comparison
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-workspace.openapi.yaml#/PackagesEnvelope
+        "400": &a2
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401": &a3
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403": &a4
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404": &a5
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409": &a6
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422": &a7
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429": &a8
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500": &a9
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/portfolio-policies/workspace/preview:
+    post:
+      operationId: previewAllocationWorkspace
+      security:
+        - bearerAuth: []
+      description: USER/v2 read-only current profile revision + published hash-verified policy/dependency. Canonical capital
+        separation, loss stress and first-month actual weights/Decimal amounts. Never infer missing dates, amounts,
+        answers or financial benchmarks. Optional endMonth absent returns capital and explicit PLAN_END_MONTH_REQUIRED,
+        without portfolio result. Negative capital retained. liquidityNeedMonths is portfolio eligibility horizon;
+        reserve months remain based on declared income stability. No cache/profile/plan/holdings write.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-workspace.openapi.yaml#/Input
+      responses:
+        "200":
+          description: Revision-bound illustrative result
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-workspace.openapi.yaml#/Envelope
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/financial-profile/loss-tolerance:
+    patch:
+      operationId: saveAllocationLossTolerance
+      security:
+        - bearerAuth: []
+      description: USER/v2 profile CAS. Explicit reaction + PERCENT/AMOUNT/BOTH limit. BOTH stores two independent limits and
+        enforces their minimum; single-mode counterpart is derived from canonical growth capital. Both known values
+        replaced together, zero is explicit. Transaction/audit/outbox marks plans stale; no plan-version apply or trade.
+        Stale/missing/unknown/negative growth rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-workspace.openapi.yaml#/RiskPatch
+      responses:
+        "200":
+          description: Updated profile revision and summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePatchResultEnvelope"
+        "400":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Rejected; no partial write
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/retirement/risk/rebalance/{id}/decision:
+    post:
+      operationId: allocationRisk_decideRebalance
+      summary: allocationRisk_decideRebalance
+      security:
+        - bearerAuth: []
+      description: USER owner only. Records ACCEPTED or DISMISSED and an optional note; this records a decision and never
+        executes trades.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/RebalanceDecisionUpdate
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/RebalanceDecisionEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/me/retirement/risk/rebalance/history:
+    get:
+      operationId: allocationRisk_rebalanceHistory
+      summary: allocationRisk_rebalanceHistory
+      security:
+        - bearerAuth: []
+      description: USER owner only. Newest-first decision history; limit defaults to 50, maximum 200.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/RebalanceHistoryEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/investments/holdings/drift:
+    get:
+      operationId: monitorHoldingsDrift
+      summary: monitorHoldingsDrift
+      security:
+        - bearerAuth: []
+      description: USER only. Reads current owned plan and holdings; allocates recorded dividends/maturities before
+        informational drift analysis. persisted=false; no trades or writes.
+      parameters:
+        - in: query
+          name: planId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: versionId
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: newContribution
+          schema:
+            type: string
+            maxLength: 30
+            pattern: ^(0|[1-9]\d{0,15})(\.\d{1,8})?$
+            default: "0"
+        - in: query
+          name: driftThresholdPercent
+          schema:
+            type: string
+            maxLength: 12
+            pattern: ^(0|[1-9]\d?)(\.\d{1,4})?$
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/HoldingsDriftResultEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /api/v1/investments/holdings/rebalance-orders:
+    post:
+      operationId: previewHoldingsRebalanceOrders
+      summary: previewHoldingsRebalanceOrders
+      security:
+        - bearerAuth: []
+      description: USER only. Owner-scoped current-plan product order preview with fresh reviewed prices, cash-first
+        allocation and configured product lots. Locked holdings require review. persisted=false; no order submission or
+        holdings change.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./allocation-risk.openapi.yaml#/HoldingsOrdersInput
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: ./allocation-risk.openapi.yaml#/HoldingsOrdersResultEnvelope
+        "400":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Validation, authorization, version or service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: Validation, authorization, version or service error
           content:
             application/json:
               schema:

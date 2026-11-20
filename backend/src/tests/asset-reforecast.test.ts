@@ -49,7 +49,7 @@ it("adds only the confirmed net-owned contribution once, preserves profile/ancho
   expect(await f.plans.saveSources(f.owner, f.saved.planId, body, key)).toEqual(saved);
   expect(saved.currentVersionId).toBeNull();
   expect((await f.plans.version(f.owner, saved.planId, saved.saved.id, true)).preview).toEqual(p.candidate);
-  expect((await f.plans.version(f.owner, saved.planId, f.saved.saved.id, true)).preview.modelVersion).toBe("retirement-monthly-v3");
+  expect((await f.plans.version(f.owner, saved.planId, f.saved.saved.id, true)).preview.modelVersion).toBe("retirement-monthly-v5"); // base created after the B1 flip; unchanged by the source save
   await f.plans.apply(f.owner, saved.planId, { versionId: saved.saved.id, expectedRevision: 2, expectedProfileRevision: 1, confirm: true }, randomUUID());
   expect((await f.plans.exportCsv(f.owner, saved.planId, saved.saved.id)).content).toContain(f.command.assetCommands![0].sourceId);
   expect(JSON.stringify([f.rows("financialProfile"), f.rows("actualMonth")])).toBe(before);

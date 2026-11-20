@@ -33,8 +33,9 @@ export type PlanPreview = RetirementResult | SourceRetirementResult;
 export function upgradeSourcePreview(capture: Awaited<ReturnType<RetirementService["capture"]>>, preview: PlanPreview,
   parentSnapshotHash: string, knownOn: string): SourceRetirementResult {
   if (preview.replayInput?.protection) throw new AppError(422,"PROTECTED_SOURCE_UPGRADE_REQUIRED","Kế hoạch có vốn giữ riêng cần luồng đối soát nguồn tương ứng trước khi lập dự báo lại.");
-  if (preview.modelVersion !== "retirement-monthly-v3" || preview.status !== "READY" || !preview.replayInput || !preview.calculation || preview.replayInput.modelVersion !== "retirement-monthly-v3")
-    throw new AppError(422, "SOURCE_UPGRADE_REQUIRES_V3", "Cần bản dự báo v3 hoàn chỉnh trước khi tạo phiên bản nguồn.");
+  const kernel = preview.modelVersion;
+  if ((kernel !== "retirement-monthly-v3" && kernel !== "retirement-monthly-v5") || preview.status !== "READY" || !preview.replayInput || !preview.calculation || preview.replayInput.modelVersion !== kernel)
+    throw new AppError(422, "SOURCE_UPGRADE_REQUIRES_V3", "Cần bản dự báo v3 hoặc v5 hoàn chỉnh trước khi tạo phiên bản nguồn.");
   if (knownOn < capture.profile.valuationDate) throw new AppError(422, "SOURCE_KNOWLEDGE_DATE_INVALID", "Ngày ghi nhận không được trước ngày định giá nguồn.");
   const original = prepareRetirement(capture.profile, preview.selection, capture.policy.data, capture.assumptions.data);
   if (!original.replayInput) throw new AppError(422, "SOURCE_BASELINE_INCOMPLETE", "Không tái lập được nguồn ban đầu.");
@@ -43,7 +44,8 @@ export function upgradeSourcePreview(capture: Awaited<ReturnType<RetirementServi
   const registry = importLegacySourceChanges(baseline, preview.replayInput.rows, originalRetirementMonth,
     preview.sourceChanges ?? [], preview.futureChanges ?? [], parentSnapshotHash, knownOn);
   const funding = preview.selection.startOfMonthFunding;
-  const replayInput: SourceProjectionInput = { ...preview.replayInput, modelVersion: SOURCE_MODEL, sourceRegistry: registry,
+  // v3 keeps no kernelModel (absent = v3 kernel); a v5 preview pins its kernel explicitly.
+  const replayInput: SourceProjectionInput = { ...preview.replayInput, modelVersion: SOURCE_MODEL, ...(kernel === "retirement-monthly-v5" ? { kernelModel: kernel } : {}), sourceRegistry: registry,
     sourceBudget: { originalRetirementMonth, startFunding: funding ? { monthlyAvailable: funding.monthlyAvailable, schedule: funding.schedule } : null } };
   const result = projectSources(replayInput);
   if (digest(result.rows) !== digest(preview.calculation.rows) || digest(result.summary) !== digest(preview.calculation.summary))

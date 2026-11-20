@@ -435,6 +435,8 @@ PensionSourceEvidence:
                         required:
                           - scale
                           - evidence
+                      includesSeniorityAllowance:
+                        type: boolean
                     required:
                       - kind
                       - totalContributionCoefficient
@@ -488,6 +490,7 @@ PensionSourceEvidence:
                   type: string
                   enum:
                     - NORMAL
+                    - LAW_ART141_9
                 benefitStart:
                   type: object
                   additionalProperties: false
@@ -497,6 +500,7 @@ PensionSourceEvidence:
                       enum:
                         - ELIGIBILITY
                         - CONTINUED_CONTRIBUTIONS
+                        - TRANSITION_2025
                     month:
                       type: string
                       pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
@@ -879,6 +883,48 @@ PensionSourceEvidence:
                 transferMonth:
                   type: string
                   pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                hazardousPeriods:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      fromMonth:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      toMonth:
+                        type: string
+                        pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
+                      evidence:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          properties:
+                            reference:
+                              type: string
+                              minLength: 1
+                              maxLength: 300
+                            contentHash:
+                              type: string
+                              pattern: ^[a-f0-9]{64}$
+                            confirmedOn:
+                              type: string
+                              pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                          required:
+                            - reference
+                            - contentHash
+                            - confirmedOn
+                        minItems: 1
+                        maxItems: 20
+                    required:
+                      - fromMonth
+                      - toMonth
+                      - evidence
+                  maxItems: 50
+                hazardousWindowFrom:
+                  type: string
+                  pattern: ^(19|20|21)\d{2}-(0[1-9]|1[0-2])$
               required:
                 - firstParticipationMonth
                 - firstParticipationEvidence
@@ -1045,6 +1091,8 @@ PensionSourceEvidence:
                             required:
                               - scale
                               - evidence
+                          includesSeniorityAllowance:
+                            type: boolean
                         required:
                           - kind
                           - totalContributionCoefficient
@@ -1439,6 +1487,12 @@ ReplayInput:
         - retirement-monthly-v4
     contributionStartMonth:
       type: string
+    protection:
+      $ref: ./retirement.openapi.yaml#/Protection
+    kernelModel:
+      type: string
+      enum:
+        - retirement-monthly-v5
     sourceRegistry:
       $ref: "#/Registry"
     sourceBudget:
@@ -1507,6 +1561,14 @@ Calculation:
       type: array
       items:
         type: string
+    suitability:
+      type: string
+      enum:
+        - NOT_ASSESSED
+    planningBasis:
+      type: string
+      enum:
+        - PUBLISHED_REACTION_REFERENCE
     sourceRegistryHash:
       type: string
       pattern: ^[a-f0-9]{64}$
@@ -1531,6 +1593,8 @@ Preview:
   type: object
   additionalProperties: false
   properties:
+    guidance:
+      $ref: ./preview-guidance.openapi.yaml#/Guidance
     status:
       type: string
       enum:
@@ -1678,6 +1742,23 @@ Preview:
           - startMonth
           - endMonth
           - reason
+    surveyGoalCashflows:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          id:
+            type: string
+          month:
+            type: string
+          amount:
+            type: string
+            pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
+        required:
+          - id
+          - month
+          - amount
     sourceChanges:
       type: array
       items:
@@ -1862,6 +1943,21 @@ Preview:
               - startMonth
               - endMonth
               - monthlyAmount
+    capitalSeparation:
+      $ref: ./retirement.openapi.yaml#/CapitalSeparation
+      description: Informational only, returned by POST /me/retirement/preview. Pinned
+        base assumptions, independent of scenario. Not saved in plan snapshots
+        or used by the retirement engine. Missing on saved/replayed plans.
+    lossConstraint:
+      $ref: ./retirement.openapi.yaml#/LossConstraint
+    essentialCoverage:
+      $ref: ./retirement.openapi.yaml#/EssentialCoverage
+    adjustmentOptions:
+      $ref: ./retirement.openapi.yaml#/AdjustmentOptions
+    decisionExplanations:
+      type: array
+      items:
+        $ref: ./retirement.openapi.yaml#/DecisionExplanation
     sourceCommands:
       type: array
       items:
@@ -2282,8 +2378,6 @@ Preview:
       type: array
       items:
         $ref: "#/PlannedPairProof"
-    capitalSeparation:
-      $ref: ./retirement.openapi.yaml#/CapitalSeparation
   required:
     - status
     - issues
@@ -3657,6 +3751,36 @@ LoanSourceEvidence:
                           required:
                             - status
                             - value
+                    illustration:
+                      type: object
+                      additionalProperties: false
+                      properties:
+                        annualRatePercent:
+                          oneOf:
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                status:
+                                  type: string
+                                  enum:
+                                    - KNOWN
+                                value:
+                                  type: string
+                                  pattern: ^(0|[1-9]\d{0,2})(\.\d{1,10})?$
+                              required:
+                                - status
+                                - value
+                            - type: object
+                              additionalProperties: false
+                              properties:
+                                status:
+                                  type: string
+                                  enum:
+                                    - UNKNOWN
+                              required:
+                                - status
+                      required:
+                        - annualRatePercent
                     responsibility:
                       oneOf:
                         - type: object

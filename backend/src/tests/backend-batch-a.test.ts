@@ -236,15 +236,17 @@ describe("P1-8 bounded adjustments on the same engine", () => {
 });
 
 describe("P1-9 optional advisory fees", () => {
-  it.each(["FUND", "EXTERNAL"] as const)("charges %s from funded average AUM, 1/12 year; affects the correct cashflow and replays exactly", paidFrom => {
+  it.each(["FUND", "EXTERNAL"] as const)("charges %s from funded average AUM (v3: 1/12 year, v5: actual days/365); affects the correct cashflow and replays exactly", paidFrom => {
     const p = retirementProfile(), c = retirementCommand();
     p.assets = { status: "KNOWN", entries: [fixtureAsset({ value: known("1200"), retirementShare: known("1"), emergencyShare: known("0"), otherGoalsShare: known("0") })] };
     c.monthlyContribution = "0";
     const old = prepared(p, c), input = { ...c, advisoryFee: { annualPercent: "12", paidFrom } }, r = prepared(p, input);
     const feeRows = applyAdvisoryFee(old.replayInput!.rows, "1200", "2027-01", input);
     expect(feeRows[0]).toMatchObject({ advisoryFeeAverageFund: "1200", advisoryFeeAmount: "12", advisoryFeePaidFrom: paidFrom });
-    expect(r.calculation!.rows[0]).toMatchObject(paidFrom === "FUND" ? { withdrawal: "12", closingBalance: "1188", additionalExpense: "0" }
-      : { withdrawal: "0", closingBalance: "1200", additionalExpense: "12", uninvestedSurplus: "88" });
+    const v5Fee = new D(1200).mul("12").div(100).mul(31).div(365); // 2026-10 has 31 days
+    expect(r.calculation!.rows[0]).toMatchObject(paidFrom === "FUND"
+      ? { withdrawal: v5Fee.toFixed(), closingBalance: new D(1200).minus(v5Fee).toFixed(), additionalExpense: "0" }
+      : { withdrawal: "0", closingBalance: "1200", additionalExpense: v5Fee.toFixed(), uninvestedSurplus: new D(100).minus(v5Fee).toFixed() });
     expect(projectRetirement(r.replayInput!).rows).toEqual(r.calculation!.rows);
     expect(projectRetirement(r.replayInput!).summary).toEqual(r.calculation!.summary);
   });
@@ -255,7 +257,8 @@ describe("P1-9 optional advisory fees", () => {
     const zero = prepared(p, { ...c, advisoryFee: { annualPercent: "0", paidFrom: "FUND" } });
     expect(zero.calculation!.summary).toEqual(old.calculation!.summary);
     const ext = prepared(p, { ...c, advisoryFee: { annualPercent: "12", paidFrom: "EXTERNAL" } });
-    expect(ext.calculation!.rows[0]).toMatchObject({ contribution: "99.5", additionalExpense: "0.5" });
+    const extFee = new D(50).mul("12").div(100).mul(31).div(365); // 2026-10 has 31 days
+    expect(ext.calculation!.rows[0]).toMatchObject({ contribution: new D(100).minus(extFee).toFixed(), additionalExpense: extFee.toFixed() });
     expect(retirementPreviewSchema.safeParse({ ...c, advisoryFee: { annualPercent: "-1", paidFrom: "FUND" } }).success).toBe(false);
     expect(retirementPreviewSchema.safeParse({ ...c, advisoryFee: { annualPercent: "1", paidFrom: "OTHER" } }).success).toBe(false);
   });

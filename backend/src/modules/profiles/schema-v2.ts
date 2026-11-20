@@ -102,6 +102,9 @@ const personalV2 = z.object({
 }).strict();
 // Percent points (20 means 20%), unlike the existing asset shares in [0, 1].
 const lossPercent = ratePercentSchema.refine(v => decimal(v)?.gte(0) ?? false, "Tỷ lệ phải từ 0 đến 100%.");
+const liquidityNeedEntrySchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("KNOWN"), value: moneySchema, matchedGoalId: id.optional() }).strict(), unknown,
+]);
 export const goalEntrySchema = z.object({
   id, label: z.string().trim().min(1).max(120), amountToday: amountSchema,
   dueMonth: knownOrUnknown(monthSchema), inflation: knownOrUnknown(ratePercentSchema).optional(),
@@ -121,7 +124,7 @@ export const profileV2Object = z.object({
     answers: z.array(z.object({ questionId: z.string().min(1).max(191), choiceId: z.string().min(1).max(191) }).strict()).min(1).max(100)
       .refine(items => new Set(items.map(item => item.questionId)).size === items.length, "Mỗi câu hỏi chỉ có một câu trả lời."),
   }).strict().optional(),
-  lossTolerance: z.object({ inputMode: z.enum(["PERCENT", "AMOUNT"]).optional(), amountVnd: amountSchema.optional(), percent: knownOrUnknown(lossPercent).optional(),
+  lossTolerance: z.object({ inputMode: z.enum(["PERCENT", "AMOUNT", "BOTH"]).optional(), amountVnd: amountSchema.optional(), percent: knownOrUnknown(lossPercent).optional(),
     reaction: knownOrUnknown(z.enum(["SELL", "HOLD", "BUY_MORE"])).optional() }).strict().optional(),
   reserveMonths: z.number().int().min(6).max(12).optional(),
   allocationCapital: z.object({ basis: z.enum(["PROFILE", "TOTAL"]), totalAmount: moneySchema.optional() }).strict().superRefine((value, ctx) => {
@@ -129,7 +132,7 @@ export const profileV2Object = z.object({
   }).optional(),
   incomeStability: knownOrUnknown(z.enum(["STABLE", "VARIABLE", "UNCERTAIN"])).optional(),
   employerConcentration: knownOrUnknown(z.enum(["LOW", "MEDIUM", "HIGH"])).optional(),
-  liquidityNeeds: z.object({ y1: amountSchema.optional(), y3: amountSchema.optional(), y5: amountSchema.optional() }).strict().optional(),
+  liquidityNeeds: z.object({ y1: liquidityNeedEntrySchema.optional(), y3: liquidityNeedEntrySchema.optional(), y5: liquidityNeedEntrySchema.optional() }).strict().optional(),
   goals: collectionSchema(goalEntrySchema).optional(),
 }).strict();
 function referencesCheck(data: z.infer<typeof profileV2Object> | z.infer<typeof partialProfileV2Object>, ctx: z.RefinementCtx) {
@@ -181,6 +184,14 @@ function referencesCheck(data: z.infer<typeof profileV2Object> | z.infer<typeof 
     const first = a?.status === "KNOWN" ? decimal(a.value) : null, second = b?.status === "KNOWN" ? decimal(b.value) : null;
     if (first && second && first.gt(second))
       issue(["liquidityNeeds", later], "Nhu cầu tiền lũy kế không được giảm theo thời hạn.");
+  }
+  if (needs && data.goals && data.goals.status !== "UNKNOWN") {
+    const goalIds = new Set(data.goals.status === "KNOWN" ? data.goals.entries.map(g => g.id) : []);
+    for (const key of ["y1", "y3", "y5"] as const) {
+      const entry = needs[key];
+      if (entry?.status === "KNOWN" && entry.matchedGoalId && !goalIds.has(entry.matchedGoalId))
+        issue(["liquidityNeeds", key, "matchedGoalId"], "Mục tiêu đối soát phải tồn tại trong danh sách mục tiêu.");
+    }
   }
   if (data.debts?.status === "KNOWN") {
     const ids = new Set<string>();

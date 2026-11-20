@@ -11,7 +11,7 @@ import { legalRetirementAge } from "../pensions/legal-age-v1";
 import { previewPortfolio, type PortfolioPreviewCache } from "../portfolios/engine";
 import type { PortfolioDocument } from "../portfolios/schema";
 import type { AssumptionDocument } from "../assumptions/schema";
-import { retirementPreviewSchema, RETIREMENT_MODEL, type RetirementPreview } from "./schema";
+import { retirementPreviewSchema, RETIREMENT_MODEL, RETIREMENT_MODEL_V5, type RetirementPreview } from "./schema";
 import { RetirementDecimal as D, projectRetirement, type MonthlyInput, type ProjectionInput } from "./engine";
 import { applyAdvisoryFee } from "./advisory-fee";
 import { separateCapital } from "../capital/separation";
@@ -20,14 +20,18 @@ import { protectCashflows, type Protection } from "./protected-capital";
 import { resolveYearSeries } from "../assumptions/series";
 import {protectedGoals} from "./protected-goals";
 import { surveyGoalExpenses } from "./survey-goals";
+import { dependentWarnings } from "./obligations";
+import { buildSpendingFloor } from "./spending-floor";
 
 type Issue = { path: string; code: string };
 const monthIndex = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1;
 const unique = (issues: Issue[]) => issues.filter((v, i) => issues.findIndex(o => o.path === v.path && o.code === v.code) === i);
 
-export function prepareRetirement(profile: ProfileV2, command: RetirementPreview, policy: PortfolioDocument, assumptions: AssumptionDocument, cache?: PortfolioPreviewCache) {
+export function prepareRetirement(profile: ProfileV2, command: RetirementPreview, policy: PortfolioDocument, assumptions: AssumptionDocument, cache?: PortfolioPreviewCache,
+  modelVersion: NonNullable<ProjectionInput["modelVersion"]> = RETIREMENT_MODEL) {
+  const v5 = modelVersion === RETIREMENT_MODEL_V5;
   const data = profileV2Schema.parse(profile), input = retirementPreviewSchema.parse(command);
-  const issues: Issue[] = [], warnings: Issue[] = [];
+  const issues: Issue[] = [], warnings: Issue[] = [...dependentWarnings(data)];
   const issue = (path: string, code: string) => issues.push({ path, code });
   const fail = () => ({ status: "INCOMPLETE" as const, issues: unique(issues), warnings: unique(warnings), calculation: null, replayInput: null });
   if (input.planningReaction) {
@@ -69,13 +73,14 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     issue("contributionSchedule", "CONTRIBUTION_OUTSIDE_ACCUMULATION");
   for (const row of input.retirementContributionSchedule) if (row.month < retirementMonth || row.month > input.endMonth)
     issue("retirementContributionSchedule", "CONTRIBUTION_OUTSIDE_RETIREMENT");
-  const portfolio = previewPortfolio(policy, assumptions, { policyVersionId: input.policyVersionId, startMonth: firstMonth, horizonMonths: length,
+  const portfolioInput = { policyVersionId: input.policyVersionId, startMonth: firstMonth, horizonMonths: length,
     answers: input.answers, liquidityNeedMonths: input.liquidityNeedMonths, ...(input.templateId ? { templateId: input.templateId } : {}),
     ...(input.customAllocation ? { customAllocation: input.customAllocation } : {}),
     // Glide-path (schema v2) policies de-risk toward this month; v1 policies ignore it.
-    retirementMonth }, input.scenario, cache, input.planningReaction);
+    retirementMonth };
+  let portfolio = previewPortfolio(policy, assumptions, portfolioInput, input.scenario, cache, input.planningReaction, v5);
   if (portfolio.status !== "READY") { issues.push(...portfolio.issues); return fail(); }
-  const scenario = portfolio.scenarios.find(s => s.kind === input.scenario)!;
+  let scenario = portfolio.scenarios.find(s => s.kind === input.scenario)!;
   if (input.customAllocation) {
     const capital = separateCapital(data, assumptions);
     if (capital.status !== "READY" || capital.growthCapital === null || new D(capital.growthCapital).lte(0)) issue("customAllocation", "GROWTH_CAPITAL_REQUIRED");
@@ -99,7 +104,7 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     const goals = data.goals;
     if (!goals || goals.status === "UNKNOWN" || (goals.status==="KNOWN"&&goals.entries.some(g=>g.priority.status!=="KNOWN" || g.dueMonth.status!=="KNOWN" || g.amountToday.status!=="KNOWN")))
       issue("allocationFunding", "CLASSIFIED_GOAL_CASHFLOWS_REQUIRED");
-    if (capital.warnings.some(w=>w.code==="LIQUIDITY_NEEDS_REQUIRE_GOAL_RECONCILIATION")) issue("allocationFunding", "GOAL_RECONCILIATION_REQUIRED");
+    if (!v5 && capital.warnings.some(w=>w.code==="LIQUIDITY_NEEDS_REQUIRE_GOAL_RECONCILIATION")) issue("allocationFunding", "GOAL_RECONCILIATION_REQUIRED");
     const preparedGoals=protectedGoals(data,capital,assumptions,input.endMonth);issues.push(...preparedGoals.issues);
     if (!issues.length && policy.schemaVersion===2 && policy.lossStress) {
       const deposit=resolveYearSeries(assumptions,{versionId:policy.assumptionVersionId,startMonth:firstMonth,endMonth:input.endMonth,horizonMonths:length,assetClass:policy.lossStress.depositAssetClass});
@@ -253,25 +258,47 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
     const capacity = !retired && input.contributionTiming === "START_OF_MONTH"
       ? month < contributionStartMonth ? new D(0) : D.min(householdCapacity, startAvailable) : householdCapacity;
     const contribution = D.min(planned, capacity);
-    rows.push({ month, growthFactor: scenario.rows[i].returnMonthlyFactor, inflationFactor: scenario.rows[i].inflationMonthlyFactor,
+    rows.push({ month, growthFactor: v5 ? scenario.rows[i].grossReturnMonthlyFactor! : scenario.rows[i].returnMonthlyFactor,
+      ...(v5 ? { tradingCostRate: scenario.rows[i].rebalanceCostFraction } : {}), inflationFactor: scenario.rows[i].inflationMonthlyFactor,
       income: income.toFixed(), pension: pension.toFixed(), livingExpense: living.toFixed(), additionalExpense: extraExpense.toFixed(), debtPayment: debt.toFixed(),
       plannedContribution: planned.toFixed(), contribution: contribution.toFixed(), contributionCapacity: capacity.toFixed(),
       withdrawal: D.max(0, remaining.neg()).toFixed(), uninvestedSurplus: householdCapacity.minus(contribution).toFixed(), capitalInjection: (injections.get(month) ?? new D(0)).toFixed() });
     inflationIndex = inflationIndex.mul(scenario.rows[i].inflationMonthlyFactor);
   }
   if (issues.length) return fail();
+  const spendingFloor = buildSpendingFloor(data, input, policy, assumptions,
+    { modelVersion, valuationDate: data.valuationDate, retirementMonth, rows, initialCapital }, portfolio.assessment.selectedTemplateId);
+  if (spendingFloor.status === "INCOMPLETE") { issues.push(...spendingFloor.issues); return fail(); }
+  if (spendingFloor.status === "READY") {
+    portfolio = previewPortfolio(policy, assumptions, portfolioInput, input.scenario, cache, input.planningReaction, v5, spendingFloor.input);
+    if (portfolio.status !== "READY") { issues.push(...portfolio.issues); return fail(); }
+    scenario = portfolio.scenarios.find(s => s.kind === input.scenario)!;
+    rows.forEach((row, i) => {
+      row.growthFactor = scenario.rows[i].grossReturnMonthlyFactor!;
+      row.tradingCostRate = scenario.rows[i].rebalanceCostFraction;
+    });
+    if (input.customAllocation) {
+      const capital = separateCapital(data, assumptions);
+      if (scenario.rows.some(row => assessLossConstraint(capital, data, policy, row.holdings).status !== "WITHIN_LIMIT")) {
+        issue("customAllocation", "LOSS_CONSTRAINT_EXCEEDED"); return fail();
+      }
+    }
+  }
   if (protection) protection.rawRows=rows;
   const fundedRows=protection?protectCashflows(rows,protection):rows;
   const replayInput: ProjectionInput = { valuationDate: data.valuationDate, retirementMonth, initialCapital,
-    modelVersion: RETIREMENT_MODEL, contributionStartMonth,
+    modelVersion, contributionStartMonth,
     terminalBalance: input.terminalBalance, monthlyContribution: input.monthlyContribution, contributionTiming: input.contributionTiming,
-    rows: applyAdvisoryFee(fundedRows, initialCapital, retirementMonth, input),...(protection?{protection}:{}) };
+    rows: applyAdvisoryFee(fundedRows, initialCapital, retirementMonth, input, v5),...(protection?{protection}:{}) };
+  const projected = projectRetirement(replayInput);
+  const conventions: typeof projected.conventions & { advisoryFeeBasis?: "ACTUAL_DAYS_365" | "FULL_MONTH_NO_DAILY_PRORATION" } =
+    { ...projected.conventions, advisoryFeeBasis: v5 ? "ACTUAL_DAYS_365" : "FULL_MONTH_NO_DAILY_PRORATION" };
   return { status: "READY" as const, issues: [], warnings: unique(warnings), replayInput,
     ...(data.quickStartSurvey ? { surveyGoalCashflows: surveyGoals.entries } : {}),
-    calculation: { ...projectRetirement(replayInput), ...(input.planningReaction ? {suitability:"NOT_ASSESSED" as const,planningBasis:"PUBLISHED_REACTION_REFERENCE" as const}:{}), netWorth: summary.values.netWorth,
+    calculation: { ...projected, conventions, ...(input.planningReaction ? {suitability:"NOT_ASSESSED" as const,planningBasis:"PUBLISHED_REACTION_REFERENCE" as const}:{}), netWorth: summary.values.netWorth,
       assessment: portfolio.assessment, marketRows: scenario.rows, scenario: { kind: scenario.kind, label: scenario.label, evidence: scenario.evidence, changes: scenario.changes },
       legalRetirementAge: legalRetirementAge(data.personal, data.valuationDate),
       limitations: ["DETERMINISTIC_NOT_SUCCESS_PROBABILITY", "INITIAL_ALLOCATION_COST_NOT_MODELED",
         "DECLARED_FLOWS_FIXED_NOMINAL_EXCEPT_RETIREMENT_LIVING_EXPENSE", "START_FUNDING_IS_CONFIRMED_MONTHLY_ASSUMPTION_NOT_DAILY_LIQUIDITY", "EXPLICIT_DEPOSITS_ONLY",
-        "PREVIEW_NOT_SAVED_OR_APPLIED", "WITHDRAWALS_AND_CAPITAL_RELEASES_AT_MONTH_END"] } };
+        "PREVIEW_NOT_SAVED_OR_APPLIED", v5 ? "WITHDRAWALS_AT_MONTH_START_CAPITAL_RELEASES_AT_MONTH_END" : "WITHDRAWALS_AND_CAPITAL_RELEASES_AT_MONTH_END"] } };
 }

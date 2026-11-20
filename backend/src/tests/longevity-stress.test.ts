@@ -166,6 +166,14 @@ describe("Feature F09 — 8/8 Deterministic Stress Shocks Suite Validation", () 
 
     for (const kind of stressKinds) {
       const stressRes = deterministicStress(kind, c, market, configuredPolicy, propertyInjections);
+      if (kind === "INCOME_LOSS") {
+        expect(stressRes).toMatchObject({status:"NOT_APPLICABLE",issues:["NO_ACCUMULATION_MONTHS"]});
+        continue;
+      }
+      if (kind === "SEQUENCE_OF_RETURNS") {
+        expect(stressRes).toMatchObject({status:"REVIEW_REQUIRED",issues:["APPROVED_SCENARIO_PARAMETERS_REQUIRED"]});
+        continue;
+      }
       expect(stressRes.status).toBe("READY");
       expect(stressRes.kind).toBe(kind);
       expect(stressRes).toHaveProperty("parameters");

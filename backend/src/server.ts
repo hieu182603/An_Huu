@@ -80,7 +80,7 @@ async function start() {
   try {
     // Connect and load the preview workers before accepting traffic, so the first
     // users after a deploy or restart do not wait for either.
-    await Promise.all([prisma.$connect(), services.previewPool?.warm()]);
+    await Promise.all([prisma.$connect(), services.previewPool?.warm(), import("./modules/allocation-risk/simulation-pool").then(pool => pool.warmSimulationPool())]);
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
       server.listen(config.PORT, "0.0.0.0", resolve);

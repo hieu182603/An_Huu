@@ -145,7 +145,7 @@ describe("P1 pure capital separation", () => {
       expect(result.warnings.some(i => i.code === "OTHER_GOALS_CAPITAL_SHORTFALL")).toBe(false);
     }
   });
-  it.each([["STABLE", 6], ["VARIABLE", 6], ["UNCERTAIN", 6]] as const)("keeps the default reserve independent of %s stability and uses only active essential expenses", (stability, months) => {
+  it.each([["STABLE", 6], ["VARIABLE", 9], ["UNCERTAIN", 12]] as const)("derives the default reserve from %s stability (spec 3.2) and uses only active essential expenses", (stability, months) => {
     const p = profile(); delete p.reserveMonths; p.incomeStability = known(stability); p.goals = empty();
     if (p.expenses.status !== "KNOWN") throw new Error("fixture");
     const e = p.expenses.entries[0];

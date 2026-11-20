@@ -9,6 +9,8 @@ import type { PortfoliosService } from "./service";
 import type { AssumptionsService } from "../assumptions/service";
 import { separateCapital } from "../capital/separation";
 import { assessLossConstraint } from "../capital/loss-constraint";
+import { reconcileLiquidityNeeds } from "../capital/liquidity";
+import { dependentWarnings, obligationSchedule } from "../retirement/obligations";
 import { customAllocationSchema } from "./custom";
 import { portfolioReturnBreakdown } from "./returns";
 const D = Prisma.Decimal.clone({ precision:48 });
@@ -23,6 +25,7 @@ const percent = z.string().regex(/^(0|[1-9]\d?|100)(\.\d{1,8})?$/).refine(v=>{tr
 export const allocationRiskPatch = z.object({expectedRevision:z.number().int().min(1),policyVersionId:z.string().uuid(),
   reaction:z.enum(["SELL","HOLD","BUY_MORE"]),limit:z.discriminatedUnion("kind",[
     z.object({kind:z.literal("PERCENT"),value:percent}).strict(),z.object({kind:z.literal("AMOUNT"),value:moneySchema}).strict(),
+    z.object({kind:z.literal("BOTH"),percent,amountVnd:moneySchema}).strict(),
   ]),
 }).strict();
 async function basis(profiles:ProfileService, portfolios:PortfoliosService, assumptions:AssumptionsService, userId:string, revision:number, policyId:string) {
@@ -56,6 +59,9 @@ export async function allocationWorkspace(profiles:ProfileService, portfolios:Po
     capital:b.capital,portfolio,loss,allocations,assetLabels:Object.fromEntries(b.dependency.data.assetClasses.map(a=>[a.code,a.label])),
     customAllocation:input.customAllocation??null, customization:b.policy.data.schemaVersion===2?b.policy.data.customization??null:null,
     returnBreakdown:portfolioReturnBreakdown(portfolio?.scenarios.find(s=>s.kind==="BASE")),
+    obligations:obligationSchedule(b.profile,{capital:b.capital,endMonth:input.endMonth,retirementMonth}),
+    liquidityReconciliation:reconcileLiquidityNeeds(b.profile),
+    warnings:dependentWarnings(b.profile),
     issues:months?[]:[{path:"endMonth",code:"PLAN_END_MONTH_REQUIRED"}],informationalOnly:true as const};
 }
 export async function saveAllocationRisk(profiles:ProfileService,portfolios:PortfoliosService,assumptions:AssumptionsService,userId:string,raw:unknown) {
@@ -68,6 +74,12 @@ export async function saveAllocationRisk(profiles:ProfileService,portfolios:Port
     if(input.limit.kind!=="PERCENT") throw new AppError(422,"GROWTH_CAPITAL_REQUIRED","Cần xác định phần vốn dài hạn lớn hơn 0 trước khi nhập giới hạn theo số tiền. Bạn vẫn có thể nhập theo phần trăm.");
     return profiles.patchProfile(userId,input.expectedRevision,{schemaVersion:2,lossTolerance:{inputMode:"PERCENT",reaction:{status:"KNOWN",value:input.reaction},
       percent:{status:"KNOWN",value:input.limit.value}}});
+  }
+  if(input.limit.kind==="BOTH") {
+    const amount=new D(input.limit.amountVnd);
+    if(amount.gt(growth)) throw new AppError(422,"LOSS_EXCEEDS_GROWTH","Mức chịu lỗ không được vượt phần vốn dài hạn.");
+    return profiles.patchProfile(userId,input.expectedRevision,{schemaVersion:2,lossTolerance:{inputMode:"BOTH",reaction:{status:"KNOWN",value:input.reaction},
+      percent:{status:"KNOWN",value:input.limit.percent},amountVnd:{status:"KNOWN",value:amount.toFixed()}}});
   }
   const amount=input.limit.kind==="PERCENT"?new D(growth).mul(input.limit.value).div(100).toDecimalPlaces(2,Prisma.Decimal.ROUND_DOWN):new D(input.limit.value);
   if(amount.gt(growth)) throw new AppError(422,"LOSS_EXCEEDS_GROWTH","Mức chịu lỗ không được vượt phần vốn dài hạn.");

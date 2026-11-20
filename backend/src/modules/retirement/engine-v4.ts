@@ -16,6 +16,8 @@ export const sourceBudgetSchema = z.object({
 });
 export type SourceProjectionInput = Omit<ProjectionInput, "modelVersion"> & {
   modelVersion: typeof SOURCE_MODEL; sourceRegistry: SourceRegistry; sourceBudget: z.infer<typeof sourceBudgetSchema>;
+  /** Optional numerical kernel. Absent = frozen v3 kernel (hash/output unchanged); "retirement-monthly-v5" = start-of-month withdrawal kernel. */
+  kernelModel?: "retirement-monthly-v5";
 };
 
 /** V4 owns source resolution and household budget derivation. The verified v3
@@ -32,8 +34,8 @@ export function projectSources(input: SourceProjectionInput) {
   const rows = rebuildSourceBudget(input, composed.rows);
   for (let i = 0; i < rows.length; i++) for (const key of ["contribution", "contributionCapacity", "withdrawal", "uninvestedSurplus"] as const)
     if (!new D(rows[i][key]).eq(input.rows[i][key])) throw new AppError(422, "SOURCE_BUDGET_MISMATCH", "Ngân sách không khớp lịch nguồn.");
-  const { sourceRegistry: _, sourceBudget: __, ...kernel } = input;
-  const result = projectFrozen({ ...kernel, modelVersion: "retirement-monthly-v3", rows });
+  const { sourceRegistry: _, sourceBudget: __, kernelModel, ...kernel } = input;
+  const result = projectFrozen({ ...kernel, modelVersion: kernelModel ?? "retirement-monthly-v3", rows });
   return { ...result, modelVersion: SOURCE_MODEL, sourceRegistryHash: input.sourceRegistry.registryHash, attribution: composed.attribution };
 }
 

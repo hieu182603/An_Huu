@@ -38,6 +38,7 @@ function fixture(start = false) {
   expect(prepared.status).toBe("READY");
   const registry = profileSourceRegistry(profile, selection, prepared.replayInput!.rows, digest(profile));
   const replay: SourceProjectionInput = { ...prepared.replayInput!, modelVersion: "retirement-monthly-v4", sourceRegistry: registry,
+    ...(prepared.replayInput!.modelVersion === "retirement-monthly-v5" ? { kernelModel: "retirement-monthly-v5" as const } : {}),
     sourceBudget: { originalRetirementMonth: prepared.replayInput!.retirementMonth, startFunding: selection.startOfMonthFunding ? {
       monthlyAvailable: selection.startOfMonthFunding.monthlyAvailable, schedule: selection.startOfMonthFunding.schedule } : null } };
   return { profile, selection, prepared, registry, replay };
@@ -71,12 +72,12 @@ describe("source registry and format/model replay", () => {
     expect(f.registry.revisions.map(r => r.sourceId)).not.toContain("profile:asset:initial");
     expect(output.attribution.filter(a => a.metric === "capitalInjection")).toEqual([expect.objectContaining({ sourceId: "profile:asset:future", month: "2026-12", amount: "120" })]);
     expect(replayProjection("retirement-plan-snapshot-v2", "retirement-monthly-v4", f.replay)).toEqual(output);
-    expect(replayProjection("retirement-plan-snapshot-v1", "retirement-monthly-v3", f.prepared.replayInput!)).toMatchObject({ rows: output.rows, summary: output.summary });
+    expect(replayProjection("retirement-plan-snapshot-v1", f.prepared.replayInput!.modelVersion!, f.prepared.replayInput!)).toMatchObject({ rows: output.rows, summary: output.summary });
   });
   it("rejects cross-format fallback and independent tampering of money/budget/hash", () => {
     const f = fixture();
     expect(() => replayProjection("retirement-plan-snapshot-v1", "retirement-monthly-v4", f.replay)).toThrow();
-    expect(() => replayProjection("retirement-plan-snapshot-v2", "retirement-monthly-v3", f.prepared.replayInput!)).toThrow();
+    expect(() => replayProjection("retirement-plan-snapshot-v2", f.prepared.replayInput!.modelVersion!, f.prepared.replayInput!)).toThrow();
     const money = structuredClone(f.replay); money.rows[0].income = "1";
     expect(() => projectSources(money)).toThrowError(expect.objectContaining({ code: "SOURCE_TOTALS_MISMATCH" }));
     const budget = structuredClone(f.replay); budget.rows[0].contribution = "1";

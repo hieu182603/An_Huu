@@ -1,4 +1,6 @@
 import { describe,it,expect,vi } from "vitest";
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import request from "supertest";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import Ajv from "ajv";
@@ -51,13 +53,13 @@ describe("custom allocation contracts and persistence",()=>{
   expect("replay" in read&&read.replay.matched).toBe(true);
   expect(f.rows("planVersion")).toEqual(before);
  });
- it.each(["VARIABLE","UNCERTAIN","UNKNOWN"] as const)("keeps the six-month reserve identical in metadata and protected projections for %s income",async stability=>{
+ it.each([["VARIABLE",9],["UNCERTAIN",12],["UNKNOWN",6]] as const)("derives the default reserve identically in metadata and protected projections for %s income",async(stability,months)=>{
   const f=await customFixture();
   await f.profiles.patchProfile("test-user",f.command.expectedProfileRevision,{schemaVersion:2,incomeStability:stability==="UNKNOWN"?{status:"UNKNOWN"}:known(stability)});
   const input={...retirementCommand(f.policy.id),...f.command,expectedProfileRevision:f.command.expectedProfileRevision+1,allocationFunding:"PROTECTED_CAPITAL_V1" as const};
   const preview=await f.services.retirement.preview("test-user",input,{adjustments:false});
   expect(preview.status,JSON.stringify(preview.issues)).toBe("READY");
-  expect(preview.capitalSeparation?.reserveMonths).toBe(6);
+  expect(preview.capitalSeparation?.reserveMonths).toBe(months);
   expect(preview.replayInput?.initialCapital).toBe(preview.capitalSeparation?.growthCapital);
   expect(preview.replayInput?.protection?.emergencyReserve).toBe(preview.capitalSeparation?.requiredEmergencyReserve);
   const snapshot=await f.services.retirement.capture(f.db,"test-user",preview.selection);
@@ -140,6 +142,44 @@ describe("custom allocation contracts and persistence",()=>{
   expect(result.status).toBe("AVAILABLE");expect(result.lines[0].a?.name).toBe("Sản phẩm kiểm thử 01");
   expect(JSON.stringify(result)).not.toContain("private@example.test");
  });
+ it("stops the simulation and frees the slot when the browser disconnects",async()=>{
+  const f=await customFixture({ui:true});vi.spyOn(f.auth,"validateSession").mockResolvedValue(f.owner);
+  const service=new AllocationRiskService(f.db),original=service.run.bind(service);let result:Promise<unknown>|undefined;
+  vi.spyOn(service,"run").mockImplementation((...args:Parameters<AllocationRiskService["run"]>)=>(result=original(...args)) as ReturnType<AllocationRiskService["run"]>);
+  const server=createApp({config,services:{...f.services,allocationRisk:service}}).listen(0);
+  try{
+   const preview={...retirementCommand(f.policy.id),...f.command,allocationFunding:"PROTECTED_CAPITAL_V1"};
+   const body=JSON.stringify({plan:{kind:"PREVIEW",preview},paths:500,detail:"ALLOCATION_V2"});
+   await new Promise<void>(resolve=>{
+    const req=http.request({port:(server.address() as AddressInfo).port,method:"POST",path:"/api/v1/me/retirement/risk/selection",
+     headers:{"content-type":"application/json","content-length":Buffer.byteLength(body),authorization:"Bearer "+token()}});
+    req.on("error",()=>resolve());req.end(body);
+    const wait=()=>result?setTimeout(()=>{req.destroy();resolve();},150):setTimeout(wait,20);wait();
+   });
+   expect(await result).toMatchObject({status:"LIMIT_EXCEEDED",issues:["SIMULATION_ABORTED"]});
+   expect(AllocationRiskService.activeRunCount()).toBe(0);
+  }finally{server.close();}
+ });
+ it("applies the decided per-account limits: 3 heavy risk runs and 20 workspace previews per minute",async()=>{
+  const saved={risk:process.env.RISK_RUNS_PER_MINUTE,preview:process.env.PREVIEW_REQUESTS_PER_MINUTE};
+  delete process.env.RISK_RUNS_PER_MINUTE;delete process.env.PREVIEW_REQUESTS_PER_MINUTE;
+  try{
+   const f=await customFixture();vi.spyOn(f.auth,"validateSession").mockResolvedValue(f.owner);
+   const app=createApp({config,services:{...f.services,allocationRisk:new AllocationRiskService(f.db)}});
+   // Empty bodies are rejected by validation (400) after the limiter has counted them.
+   const risk=[];for(let i=0;i<4;i++)risk.push((await request(app).post("/api/v1/me/retirement/risk/selection").set("Authorization","Bearer "+token()).send({})).status);
+   expect(risk).toEqual([400,400,400,429]);
+   const blocked=await request(app).post("/api/v1/me/retirement/risk/scenarios").set("Authorization","Bearer "+token()).send({});
+   expect(blocked.status).toBe(429);expect(blocked.body.error.code).toBe("RATE_LIMITED");
+   const preview=[];for(let i=0;i<21;i++)preview.push((await request(app).post("/api/v1/me/portfolio-policies/workspace/preview").set("Authorization","Bearer "+token()).send({})).status);
+   expect(preview.slice(0,20).every(s=>s===400)).toBe(true);expect(preview[20]).toBe(429);
+   // Unauthenticated requests are refused before they can spend an account's quota.
+   expect((await request(app).post("/api/v1/me/portfolio-policies/workspace/preview").send({})).status).toBe(401);
+  }finally{
+   if(saved.risk!==undefined)process.env.RISK_RUNS_PER_MINUTE=saved.risk;
+   if(saved.preview!==undefined)process.env.PREVIEW_REQUESTS_PER_MINUTE=saved.preview;
+  }
+ });
  it("validates protected preview, detailed selection and packages against HTTP OpenAPI contracts",async()=>{
   const f=await customFixture({ui:true});vi.spyOn(f.auth,"validateSession").mockResolvedValue(f.owner);
   const app=createApp({config,services:{...f.services,allocationRisk:new AllocationRiskService(f.db)}});
@@ -151,6 +191,8 @@ describe("custom allocation contracts and persistence",()=>{
    expect(response.status,JSON.stringify(response.body)).toBe(200);
    const validate=ajv.compile(api.paths[path.split("?")[0]].post.responses["200"].content["application/json"].schema);
    expect(validate(response.body),JSON.stringify(validate.errors)).toBe(true);
+   // Regression: the HTTP layer must not cancel a run whose client is still waiting (Node emits req "close" once the body is read).
+   if(path.includes('/risk/'))expect(['READY','INSUFFICIENT'],JSON.stringify(response.body.data.issues)).toContain(response.body.data.status);
   }
   const packages="/api/v1/me/portfolio-policies/workspace/packages";
   expect((await request(app).post(packages).send(f.command)).status).toBe(401);

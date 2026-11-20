@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { asyncHandler, sendData, validate } from "../../common/http";
-import type { AuthenticatedRequest } from "../../middlewares/authMiddleware";
+import { requireRole, type AuthenticatedRequest } from "../../middlewares/authMiddleware";
 import { RecommendationService } from "./service";
-import { HoldingsRepository, holdingsRebalanceInput } from "../holdings/repository";
+import { HoldingsRepository, holdingsDriftQuery, holdingsRebalanceInput, holdingsRebalanceOrdersInput } from "../holdings/repository";
 import { createRecommendation, transitionRecommendation, writeProductData, writeHolding } from "./schema";
 export function investmentRouter(service: RecommendationService, holdings: HoldingsRepository) {
   const router = Router(), id = (v: unknown) => z.string().uuid().parse(v);
@@ -15,6 +15,8 @@ export function investmentRouter(service: RecommendationService, holdings: Holdi
   router.get("/holdings", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await holdings.read(req.user!.userId))));
   router.put("/holdings", validate(writeHolding), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await holdings.write(req.user!.userId, req.body))));
   router.post("/holdings/rebalance", validate(holdingsRebalanceInput), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await holdings.rebalance(req.user!.userId, req.body))));
+  router.get("/holdings/drift", requireRole("USER"), validate(holdingsDriftQuery, "query"), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await holdings.drift(req.user!.userId, req.query as z.input<typeof holdingsDriftQuery>))));
+  router.post("/holdings/rebalance-orders", requireRole("USER"), validate(holdingsRebalanceOrdersInput), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await holdings.rebalanceOrders(req.user!.userId, req.body))));
   router.get("/admin/products", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.productList(req.user!.userId))));
   router.put("/admin/products/:id", validate(writeProductData), asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.writeProduct(req.user!.userId, id(req.params.id), req.body))));
   router.get("/admin/recommendations", asyncHandler(async (req: AuthenticatedRequest, res) => sendData(res, await service.list(req.user!.userId, true))));

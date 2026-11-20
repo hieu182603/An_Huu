@@ -100,7 +100,7 @@ describe("P13/P15 production conventions", () => {
     expect(preview.inputHash).not.toBe(f.command.expectedInputHash);
     const saved = await f.plans.createVersion(f.owner, old.planId, { preview: selection, expectedInputHash: preview.inputHash, expectedRevision: 2 }, randomUUID());
     expect((await f.plans.get(f.owner, old.planId)).currentVersionId).toBe(old.saved.id);
-    expect((await f.plans.version(f.owner, old.planId, saved.saved.id, true)).preview.modelVersion).toBe("retirement-monthly-v3");
+    expect((await f.plans.version(f.owner, old.planId, saved.saved.id, true)).preview.modelVersion).toBe("retirement-monthly-v5");
     expect((await f.plans.exportCsv(f.owner, old.planId, saved.saved.id)).content).toContain("START_OF_MONTH");
   });
   it("dispatches historical unmarked inputs to the unchanged v2 engine", () => {

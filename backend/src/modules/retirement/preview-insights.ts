@@ -38,7 +38,8 @@ export function essentialCoverage(profile: ProfileV2, input: RetirementPreview, 
     const protectedRow=row as typeof row & Partial<ReturnType<typeof protectCashflows>[number]>;
     const essentialGoals = goals.filter(goal => { const priority = priorities.get(goal.id); return priority?.status === "KNOWN" && priority.value === "ESSENTIAL"; }).reduce((sum, goal) => sum.plus(goal.amount), new D(0));
     const expense = essential.plus(retired ? row.livingExpense : 0).plus(protectedRow.essentialGoalExpense??0).plus(essentialGoals);
-    const availableFund = new D(row.fundedClosingBalance).plus(row.withdrawal).minus(row.unfundedWithdrawal)
+    const startFund = (row as { fundedAvailableAtStart?: string }).fundedAvailableAtStart;
+    const availableFund = (startFund !== undefined ? new D(startFund) : new D(row.fundedClosingBalance).plus(row.withdrawal).minus(row.unfundedWithdrawal))
       .plus(protectedRow.protectedHouseholdPaid??0).plus(protectedRow.protectedEssentialGoalPaid??0);
     const deficit = D.min(row.unfundedWithdrawal, D.max(0, expense.minus(row.income).minus(row.pension).minus(availableFund)));
     total = total.plus(deficit);
@@ -73,7 +74,7 @@ export const isFunded = (p: Prepared) => p.calculation !== null &&
  * young users' plans always exceeded. */
 export const RETIREMENT_SEARCH_RUNS = 180;
 export function adjustmentOptions(profile: ProfileV2, input: RetirementPreview, policy: PortfolioDocument,
-  assumptions: AssumptionDocument, original: Prepared): z.infer<typeof adjustmentOptionsSchema> {
+  assumptions: AssumptionDocument, original: Prepared, deadline?: number): z.infer<typeof adjustmentOptionsSchema> {
   const summary = original.calculation?.summary;
   const result: z.infer<typeof adjustmentOptionsSchema> = { status: "REVIEW_REQUIRED",
     requiredMonthlyContribution: summary?.requiredConstantMonthlyContribution ?? null,
@@ -82,6 +83,7 @@ export function adjustmentOptions(profile: ProfileV2, input: RetirementPreview, 
     maximumFeasibleMonthlyExpenseToday: null, expenseSearchStatus: "REVIEW_REQUIRED", endMonth: input.endMonth, evaluations: 0, issues: [] };
   if (!summary) { result.issues.push("PROJECTION_REQUIRED"); return result; }
   if (isFunded(original)) { result.status = "NOT_NEEDED"; result.retirementSearchStatus = result.expenseSearchStatus = "NOT_NEEDED"; return result; }
+  if (deadline && performance.now() >= deadline) { result.issues.push("ADJUSTMENT_RUNTIME_LIMIT"); return result; }
   // Every run shares the pinned documents, so validation and base series are reused.
   const portfolioCache = portfolioPreviewCache();
   const run = (command: RetirementPreview) => {
@@ -96,6 +98,7 @@ export function adjustmentOptions(profile: ProfileV2, input: RetirementPreview, 
   else if (!isFunded(zero)) result.expenseSearchStatus = "NOT_FEASIBLE";
   else {
     for (let i = 0; i < 64 && high.minus(low).gt("0.01"); i++) {
+      if (deadline && performance.now() >= deadline) { result.issues.push("ADJUSTMENT_RUNTIME_LIMIT"); break; }
       const mid = low.plus(high).div(2).toDecimalPlaces(2, D.ROUND_DOWN);
       if (mid.eq(low)) break;
       const p = run({ ...input, monthlyExpenseToday: mid.toFixed() });
@@ -111,6 +114,7 @@ export function adjustmentOptions(profile: ProfileV2, input: RetirementPreview, 
   let retirementRuns = 0, incomplete = false;
   const evaluateMonth = (index: number): boolean | null => {
     if (cache.has(index)) return cache.get(index)!;
+    if (deadline && performance.now() >= deadline) { result.issues.push("ADJUSTMENT_RUNTIME_LIMIT"); return null; }
     if (retirementRuns >= RETIREMENT_SEARCH_RUNS) return null;
     retirementRuns++;
     const p = run({ ...input, whatIf: { ...input.whatIf, retirementMonth: addMonths(start, index) } });
@@ -171,5 +175,118 @@ export function decisionExplanations(profile: ProfileV2, capital: CapitalSeparat
   if (profile.employerConcentration || capital.warnings.some(w => w.code === "LIQUIDITY_NEEDS_REQUIRE_GOAL_RECONCILIATION"))
     rows.push({ code: "REVIEW_REQUIRED", parameters: { employerConcentration: !!profile.employerConcentration, liquidityNeeds: !!profile.liquidityNeeds },
       text: "Cần rà soát mức tập trung nơi làm việc và đối chiếu nhu cầu thanh khoản với mục tiêu; chưa có quy tắc được duyệt để tự điều chỉnh." });
+  return rows;
+}
+
+export type SelectionExplanationInput = {
+  profile: ProfileV2;
+  capital: CapitalSeparation;
+  status: "READY" | "INSUFFICIENT";
+  threshold: string | null;
+  horizonMonths?: number | null;
+  retirementMonth?: string | null;
+  shortfallAmount?: string | null;
+  turnoverBasis?: string | null;
+  rejected: Array<{ id: string; issues: string[] }>;
+  selected?: {
+    id: string;
+    pEssential?: number;
+    cvarEssentialShortfallToday?: string;
+    changePoints: string;
+    turnoverFromCurrentPoints?: string | null;
+  } | null;
+  referenceChoice?: {
+    id: string;
+    pEssential?: number;
+    cvarEssentialShortfallToday?: string;
+    changePoints: string;
+    turnoverFromCurrentPoints?: string | null;
+  } | null;
+  referenceKind?: string | null;
+  hasLossReduced?: boolean;
+};
+
+/** Spec §2 / B6-7: personalized natural-language explanations built strictly from computed response numbers. */
+export function selectionExplanations(input: SelectionExplanationInput): Array<z.infer<typeof decisionExplanationSchema>> {
+  const rows: Array<z.infer<typeof decisionExplanationSchema>> = [];
+  const vnd = (value: string | null | undefined) => value == null ? "chưa xác định" : new Intl.NumberFormat("vi-VN").format(BigInt(new D(value).toFixed(0)));
+  const pct = (ratio: number | string | null | undefined) => ratio == null ? "chưa xác định" : `${new D(ratio).mul(100).toDecimalPlaces(1).toFixed()}%`;
+
+  for (const goal of input.capital.goals.filter(g => g.treatment === "RESERVED")) {
+    const label = input.profile.goals?.status === "KNOWN" ? input.profile.goals.entries.find(g => g.id === goal.id)?.label ?? "mục tiêu" : "mục tiêu";
+    rows.push({
+      code: "GOAL_CAPITAL_RESERVED",
+      parameters: { goalId: goal.id, dueMonth: goal.dueMonth, presentValue: goal.presentValue, futureAmount: goal.futureAmount },
+      text: goal.presentValue === null
+        ? `Chưa đủ dữ liệu để giữ riêng vốn cho ${label} tháng ${goal.dueMonth}.`
+        : `Bạn cần ${vnd(goal.futureAmount)} VND cho ${label} tháng ${goal.dueMonth}, nên ${vnd(goal.presentValue)} VND hôm nay được giữ riêng trong tiền gửi.`,
+    });
+  }
+
+  rows.push({
+    code: "LONG_TERM_CAPITAL_HORIZON",
+    parameters: {
+      growthCapital: input.capital.growthCapital,
+      reserve: input.capital.requiredEmergencyReserve,
+      nearTermGoals: input.capital.nearTermGoalsPresentValue,
+      horizonMonths: input.horizonMonths ?? null,
+      retirementMonth: input.retirementMonth ?? null,
+    },
+    text: input.capital.growthCapital === null
+      ? "Chưa đủ dữ liệu để xác định phần vốn dài hạn."
+      : `Vốn dài hạn là ${vnd(input.capital.growthCapital)} VND (sau quỹ dự phòng ${vnd(input.capital.requiredEmergencyReserve)} VND và mục tiêu gần hạn ${vnd(input.capital.nearTermGoalsPresentValue)} VND)${input.retirementMonth ? `, hướng tới tháng nghỉ hưu ${input.retirementMonth} (${input.horizonMonths ?? 0} tháng)` : ""}.`,
+  });
+
+  const constraintCodes = new Set<string>();
+  for (const item of input.rejected) {
+    for (const code of item.issues) {
+      if (["LOSS_CONSTRAINT_EXCEEDED", "WEIGHT_BOUND_EXCEEDED", "LIQUIDITY_CONSTRAINT", "OCCUPATIONAL_RISK_LIMIT", "SPENDING_FLOOR_CONSTRAINT"].includes(code)) constraintCodes.add(code);
+    }
+  }
+  if (input.hasLossReduced) constraintCodes.add("LOSS_CONSTRAINT_EXCEEDED");
+  if (constraintCodes.size > 0) {
+    const labels: Record<string, string> = {
+      LOSS_CONSTRAINT_EXCEEDED: "giới hạn lỗ",
+      WEIGHT_BOUND_EXCEEDED: "trần tỷ trọng chính sách",
+      LIQUIDITY_CONSTRAINT: "ràng buộc thanh khoản",
+      OCCUPATIONAL_RISK_LIMIT: "giới hạn rủi ro nghề nghiệp",
+      SPENDING_FLOOR_CONSTRAINT: "sàn tài sản an toàn bảo vệ chi tiêu thiết yếu",
+    };
+    const list = [...constraintCodes].map(c => labels[c] ?? c).join(", ");
+    rows.push({
+      code: "BINDING_CONSTRAINT",
+      parameters: { codes: [...constraintCodes].join(","), rejectedCount: input.rejected.length, lossReducedApplied: Boolean(input.hasLossReduced) },
+      text: `Các ràng buộc đang tác động tới tập phương án: ${list}.`,
+    });
+  }
+
+  const pick = input.selected ?? input.referenceChoice;
+  if (pick) {
+    const change = input.turnoverBasis === "CURRENT_HOLDINGS" && pick.turnoverFromCurrentPoints != null ? pick.turnoverFromCurrentPoints : pick.changePoints;
+    rows.push({
+      code: input.selected ? "SELECTED_CANDIDATE" : "REFERENCE_CANDIDATE",
+      parameters: {
+        id: pick.id,
+        referenceKind: input.referenceKind ?? null,
+        pEssential: pick.pEssential ?? null,
+        threshold: input.threshold,
+        cvarEssentialShortfallToday: pick.cvarEssentialShortfallToday ?? null,
+        changePoints: change,
+        turnoverBasis: input.turnoverBasis ?? null,
+      },
+      text: input.selected
+        ? `Chọn phương án ${pick.id} vì đạt ngưỡng xác suất chi thiết yếu (${pct(pick.pEssential)} >= ${pct(input.threshold)}), có CVaR thiếu hụt thiết yếu nhỏ nhất (${vnd(pick.cvarEssentialShortfallToday)} VND) và mức thay đổi danh mục thấp nhất (${change} điểm %).`
+        : `Phương án tham chiếu ${pick.id} đạt xác suất chi thiết yếu ${pct(pick.pEssential)} (thấp hơn ngưỡng ${pct(input.threshold)}), với CVaR thiếu hụt thiết yếu ${vnd(pick.cvarEssentialShortfallToday)} VND.`,
+    });
+  }
+
+  if (input.status === "INSUFFICIENT") {
+    rows.push({
+      code: "INFEASIBLE_PLAN_INVARIANT",
+      parameters: { status: "INSUFFICIENT", threshold: input.threshold, shortfallAmount: input.shortfallAmount ?? null },
+      text: "Kế hoạch chưa khả thi với phân bổ hiện tại; đề xuất điều chỉnh mức góp, lùi tuổi nghỉ hưu hoặc giảm chi tiêu tùy chọn; không tăng lãi suất kỳ vọng.",
+    });
+  }
+
   return rows;
 }

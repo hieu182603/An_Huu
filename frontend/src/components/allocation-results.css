@@ -214,3 +214,5 @@
 .allocation-custom[open]>summary{border-bottom-color:#cfdceb}
 .allocation-results .allocation-result-why{border:1.5px solid #b9cde2}
 .allocation-result-why .allocation-comparison-scroll,.allocation-result-why .allocation-why-table{border-color:#cfdceb}
+
+.allocation-why-info{margin-left:8px;width:20px;height:20px;border:1px solid #88a5c4;background:transparent;color:inherit;border-radius:50%;font-size:12px;line-height:1;cursor:pointer;vertical-align:middle}.allocation-why-info:hover{background:#e8f0f9}.allocation-why-dialog h4{margin:16px 0 6px;font-size:14px}.allocation-why-dialog p{margin:0;font-size:14px;line-height:1.8;color:#2f4a66}

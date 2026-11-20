@@ -14,7 +14,11 @@ export function AllocationCapitalInput({ en, suggested }: { en: boolean; suggest
   const { v2Profile, updateProfileV2, saveStatus, saveError } = useFinancialProfile();
   const saved = v2Profile?.allocationCapital;
   const [basis, setBasis] = useState(saved?.basis ?? "PROFILE"), [amount, setAmount] = useState(saved?.totalAmount ?? suggested?.total ?? "");
-  useEffect(() => { setBasis(saved?.basis ?? "PROFILE"); setAmount(saved?.totalAmount ?? suggested?.total ?? ""); }, [JSON.stringify(saved), suggested?.total]);
+  useEffect(() => setBasis(saved?.basis ?? "PROFILE"), [saved?.basis]);
+  useEffect(() => setAmount(saved?.totalAmount ?? ""), [saved?.totalAmount]);
+  useEffect(() => {
+    if (!saved?.totalAmount && suggested?.total) setAmount(current => current || suggested.total);
+  }, [saved?.totalAmount, suggested?.total]);
   const changed = basis !== (saved?.basis ?? "PROFILE") || basis === "TOTAL" && amount !== saved?.totalAmount;
   return <div className="allocation-personal-inputs"><label>{en ? "Allocation capital" : "Số vốn dùng để phân bổ"}<select aria-label={en ? "Allocation capital" : "Số vốn dùng để phân bổ"} value={basis} onChange={e => setBasis(e.target.value as typeof basis)} disabled={saveStatus === "saving"}>
     <option value="PROFILE">{en ? "Capital declared in your profile" : "Tiền nghỉ hưu đã khai trong hồ sơ"}</option><option value="TOTAL">{en ? "Total investable capital (including reserve)" : "Tổng vốn đầu tư (gồm cả dự phòng)"}</option>

@@ -63,6 +63,8 @@
       "assetClass": "CASH",
       "sourceId": "VCB_DEPOSIT_12M",
       "totalReturnEvidence": "Lãi tháng = lãi suất 12 tháng niêm yết đầu tháng / 12 (lãi đơn, chưa tái tục). Một số tháng 2022–2023 chưa xác minh ngày đổi lãi suất (xem market-data-inputs.json).",
+      "returnBasis": "INCOME_ONLY",
+      "licenseStatus": "UNVERIFIED",
       "fees": {
         "treatment": "NET",
         "evidence": "Tiền gửi không có phí quản lý."
@@ -73,6 +75,8 @@
       "assetClass": "GOV_BOND",
       "sourceId": "HNX_GOV_BOND_10Y",
       "totalReturnEvidence": "Gần đúng: lợi suất tháng t = lãi suất trúng thầu 10 năm cuối tháng t-1 / 12 (giữ tới đáo hạn, hưởng lãi). Chưa tính lãi/lỗ giá khi lợi suất đổi, nên biến động thấp hơn thực tế. Nên thay bằng chỉ số tổng lợi suất TPCP có giấy phép.",
+      "returnBasis": "INCOME_ONLY",
+      "licenseStatus": "UNVERIFIED",
       "fees": {
         "treatment": "NET",
         "evidence": "Giả định nắm giữ trực tiếp, không có phí quỹ."
@@ -83,6 +87,8 @@
       "assetClass": "EQUITY",
       "sourceId": "YAHOO_VNINDEX",
       "totalReturnEvidence": "r = VN-Index cuối tháng t / cuối tháng t-1 - 1. Đây là chỉ số GIÁ, chưa gồm cổ tức (thấp hơn tổng lợi suất khoảng tỷ suất cổ tức, ước 1–2%/năm). Nên thay bằng chỉ số tổng lợi suất khi có hợp đồng dữ liệu.",
+      "returnBasis": "PRICE_ONLY",
+      "licenseStatus": "UNVERIFIED",
       "fees": {
         "treatment": "NET",
         "evidence": "Không trừ phí quỹ vì chuỗi đã thiếu phần cổ tức; hai sai lệch ngược chiều nhau. Admin có thể đổi sang GROSS với monthlyDrag theo TER."
@@ -93,6 +99,8 @@
       "assetClass": "GOLD",
       "sourceId": "GIAVANGHN_SJC",
       "totalReturnEvidence": "r = giá SJC đóng cửa cuối tháng t / cuối tháng t-1 - 1 (triệu đồng/lượng).",
+      "returnBasis": "PRICE_ONLY",
+      "licenseStatus": "UNVERIFIED",
       "fees": {
         "treatment": "NET",
         "evidence": "Không có phí định kỳ; chênh mua/bán xử lý ở kịch bản GOLD (spreadPoints)."

@@ -18,4 +18,17 @@ describe("Runtime optimizer input and fail-closed coverage", () => {
     expect(continuousCandidate(base, marketFixture(), { ...policy, bounds: policy.bounds.slice(1) })).toEqual({ issue: "OPTIMIZER_BOUND_COVERAGE_REQUIRED" });
     expect(continuousCandidate(base, marketFixture(), { ...policy, estimation: undefined })).toEqual({ issue: "APPROVED_RETURN_ESTIMATION_REQUIRED" });
   });
+  it("wires lockedWeights into optimizer constraints and preserves the locked weight across months (B5-2)", () => {
+    const glide = [
+      [{ assetClass: "CASH", weightPercent: "60" }, { assetClass: "EQUITY", weightPercent: "40" }],
+      [{ assetClass: "CASH", weightPercent: "70" }, { assetClass: "EQUITY", weightPercent: "30" }],
+    ];
+    const result = continuousCandidate(glide, marketFixture(), policy, [{ assetClass: "CASH", weight: 0.55 }]);
+    expect(result.input?.constraints?.lockedWeights).toEqual([{ index: 0, weight: 0.55 }]);
+    expect(result.candidate?.valid).toBe(true);
+    for (const month of result.candidate!.targets) {
+      const cash = Number(month.find(a => a.assetClass === "CASH")!.weightPercent);
+      expect(cash).toBeCloseTo(55, 6);
+    }
+  });
 });

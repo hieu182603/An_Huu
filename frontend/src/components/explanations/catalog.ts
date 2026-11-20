@@ -14,6 +14,61 @@ export type GlossaryTerm = {
 // the versioned backend glossary; aliases below only map exact UI wording.
 export const productExplanations: GlossaryTerm[] = [
   {
+    key: "allocLossLimit", label: { vi: "Giới hạn chịu lỗ", en: "Loss limit" },
+    definition: {
+      vi: "So sánh mức giảm của phương án trong một tình huống thị trường sốc đã được duyệt với mức lỗ tối đa bạn đã khai. Phương án đạt khi mức giảm không vượt giới hạn.",
+      en: "Compares the allocation's drop in an approved market-stress scenario with the maximum loss you declared. It passes when the drop does not exceed the limit."
+    },
+    formula: {
+      symbolic: "Mức giảm = Vốn dài hạn đầu tư × Σ (Tỷ trọng tài sản_i × Mức sụt tài sản_i trong tình huống sốc); Giới hạn = Vốn dài hạn × % chịu lỗ đã khai (hoặc số tiền đã khai)",
+      vi: "Mức giảm được tính từ tỷ trọng từng loại tài sản nhân với mức sụt giá của loại đó trong tình huống đã duyệt, rồi nhân với vốn dài hạn. Giới hạn là % hoặc số tiền chịu lỗ bạn đã nhập.",
+      en: "The drop is each asset's weight times its approved stress decline, summed and applied to long-term capital. The limit is the percentage or amount you declared."
+    }
+  },
+  {
+    key: "allocProtected", label: { vi: "Khoản giữ riêng", en: "Protected capital" },
+    definition: {
+      vi: "Phần tiền không đem đi đầu tư dài hạn: quỹ dự phòng và các mục tiêu gần hạn. Chỉ phần vốn còn lại mới được chia theo phương án.",
+      en: "Money kept out of long-term investing: the emergency reserve and near-term goals. Only the remainder is allocated."
+    },
+    formula: {
+      symbolic: "Vốn dài hạn = Tổng vốn − Quỹ dự phòng − Giá trị hiện tại của mục tiêu gần hạn",
+      vi: "Quỹ dự phòng = số tháng chi thiết yếu bạn chọn × chi thiết yếu hàng tháng; mục tiêu gần hạn quy về giá trị hiện tại.",
+      en: "Reserve = chosen months of essential spending × monthly essentials; near-term goals are taken at present value."
+    }
+  },
+  {
+    key: "allocProfileFit", label: { vi: "Phù hợp hồ sơ và thời gian", en: "Profile and horizon fit" },
+    definition: {
+      vi: "Đối chiếu câu trả lời khảo sát đã lưu, thời gian còn lại đến lúc cần tiền và chính sách phân bổ đã công bố để xem phương án nào được phép chọn.",
+      en: "Checks saved survey answers, time until money is needed and the published allocation policy to see which allocations are eligible."
+    }
+  },
+  {
+    key: "allocEssentialThreshold", label: { vi: "Ngưỡng đủ chi thiết yếu", en: "Essential-spending threshold" },
+    definition: {
+      vi: "Hệ thống chạy phương án trên nhiều kịch bản thị trường. Phương án đạt khi tỷ lệ kịch bản đủ chi thiết yếu không thấp hơn ngưỡng yêu cầu. Tỷ lệ đủ mọi mục tiêu được hiển thị để tham khảo.",
+      en: "The allocation is run through many market scenarios. It qualifies when the share of scenarios that cover essential spending is at least the required threshold. The share covering all goals is shown for reference."
+    },
+    formula: {
+      symbolic: "Tỷ lệ đủ chi thiết yếu = Số kịch bản đủ chi thiết yếu ÷ Tổng số kịch bản",
+      vi: "Ví dụ 16 kịch bản, đủ chi thiết yếu ở cả 16 thì tỷ lệ là 100%; ngưỡng yêu cầu thường là 90%.",
+      en: "For example, with 16 scenarios all covering essentials, the share is 100%; the required threshold is typically 90%."
+    }
+  },
+  {
+    key: "allocWorstShortfall", label: { vi: "Thiếu hụt khi thị trường xấu", en: "Shortfall in bad markets" },
+    definition: {
+      vi: "Trong các phương án đã đạt ngưỡng, hệ thống ưu tiên phương án có mức tiền thiếu trung bình thấp nhất ở nhóm kịch bản xấu nhất. Nếu bằng nhau thì chọn phương án phải đổi tỷ trọng ít nhất.",
+      en: "Among qualifying allocations, the one with the lowest average shortfall in the worst scenarios is preferred; ties go to the smallest change in weights."
+    },
+    formula: {
+      symbolic: "Thiếu hụt trung bình = Trung bình (Số tiền chi còn thiếu) trên nhóm kịch bản xấu nhất",
+      vi: "Thiếu hụt bằng 0 đồng nghĩa trong các kịch bản xấu đã thử, quỹ vẫn đủ chi theo kế hoạch.",
+      en: "A shortfall of zero means the fund still covers planned spending in the worst scenarios tested."
+    }
+  },
+  {
     key: "planPreview", label: { vi: "Bản xem trước", en: "Plan preview" },
     aliases: ["Bản dự kiến", "Chưa áp dụng chính thức", "Preview"],
     definition: { vi: "Kết quả tính thử từ các lựa chọn đang nhập. Bạn có thể thay đổi để so sánh; chỉ khi lưu và chọn dùng phương án thì nó mới trở thành kế hoạch đang dùng.", en: "A calculation using your current selections. You can change them to compare outcomes; saving and applying the option makes it your current plan." },
@@ -310,9 +365,9 @@ export const productExplanations: GlossaryTerm[] = [
       en: "Total fund required at retirement age to cover all living expenses and withdrawals through the end of the plan horizon."
     },
     formula: {
-      symbolic: "Quỹ cần đạt = PV(toàn bộ chi tiêu hưu theo lạm phát và lợi suất)",
-      vi: "Giá trị quy đổi tại thời điểm nghỉ hưu của toàn bộ nhu cầu rút tiền sinh hoạt hàng tháng trong suốt giai đoạn hưởng hưu.",
-      en: "Present value at retirement date of all future retirement withdrawals discounted by portfolio return and inflation."
+      symbolic: "Tính lùi từ tháng cuối: quỹ đầu tháng t = khoản rút tháng t + max(0; (quỹ cần cuối tháng t − tiền vào cuối tháng) ÷ hệ số lợi suất tháng t)",
+      vi: "Tính lùi từng tháng từ cuối kế hoạch về tháng nghỉ hưu: khoản chi tiêu được rút đầu tháng, trước khi tính lãi của tháng đó, và quỹ không được âm ở bất kỳ tháng nào. Kế hoạch lưu theo cách tính cũ rút cuối tháng.",
+      en: "Computed backwards month by month from the plan end to retirement: spending is withdrawn at the start of each month, before that month's return, and the fund may not go negative in any month. Plans saved under the old method withdrew at month end."
     }
   },
   {

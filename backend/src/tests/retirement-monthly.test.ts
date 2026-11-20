@@ -198,15 +198,17 @@ describe("T06 profile / debt / assumptions / pension adapter", () => {
     c.answers.forEach(a => a.choiceId = "HIGH"); c.liquidityNeedMonths = 24;
     const result = run(undefined, c, cfg).calculation!;
     const stock = 1 + 0.12 / 12, stockWeight = stock ** 3 / (1 + stock ** 3);
-    const expectedFactor = (1 - (stockWeight - 0.5) * 0.01) * (0.5 + 0.5 * stock);
+    const gross = 0.5 + 0.5 * stock, cost = (stockWeight - 0.5) * 0.01;
     expect(Number(result.marketRows[3].rebalanceCostFraction)).toBeGreaterThan(0);
-    expect(Number(result.rows[3].growthFactor)).toBeCloseTo(expectedFactor, 14);
-    expect(Number(result.rows[3].closingBalance)).toBeCloseTo(Number(result.rows[3].openingBalance) * expectedFactor - 100, 10);
+    // v5: the kernel gets the gross factor and the trading cost separately; the cost is charged once, on the post-withdrawal balance.
+    expect(Number(result.rows[3].growthFactor)).toBeCloseTo(gross, 14);
+    expect(Number(result.marketRows[3].rebalanceCostFraction)).toBeCloseTo(cost, 14);
+    expect(Number(result.rows[3].closingBalance)).toBeCloseTo((Number(result.rows[3].openingBalance) - 100) * (1 - cost) * gross, 10);
   });
   it("immediate retirement has no deposit division and does not carry salary without explicit selection", () => {
     const p = retirementProfile(), c = retirementCommand(); p.personal.desiredRetirementMonth = known("2026-10"); c.endMonth = "2026-10";
     const r = run(p, c).calculation!;
-    expect(r.rows[0]).toMatchObject({ income: "0", closingBalance: "-100", unfundedWithdrawal: "100" });
+    expect(r.rows[0]).toMatchObject({ income: "0", closingBalance: "0", unfundedWithdrawal: "100" });
     expect(r.summary).toMatchObject({ accumulationMonths: 0, additionalMonthlyContribution: null, firstShortfallMonth: "2026-10" });
     expect(() => run(p, { ...c, endMonth: "2026-09" })).toThrow();
     expect(() => run(p, { ...c, endMonth: "2126-10" })).toThrow();

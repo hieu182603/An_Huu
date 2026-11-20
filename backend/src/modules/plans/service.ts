@@ -8,12 +8,12 @@ import { digest } from "../../common/digest";
 import { actualSourceChanged, assertActualSource } from "../actuals/lineage";
 import { saveReforecastSchema } from "../actuals/schema";
 import { projectRetirement } from "../retirement/engine";
-import { RETIREMENT_MODEL } from "../retirement/schema";
+import { RETIREMENT_MODEL, RETIREMENT_MODEL_V3, RETIREMENT_MODEL_V5 } from "../retirement/schema";
 import { profileV2Schema } from "../profiles/schema-v2";
 import { ASSUMPTION_SERIES_CODE } from "../assumptions/schema";
 import { PORTFOLIO_POLICY_CODE } from "../portfolios/schema";
 import { createPlanVersionSchema, applyPlanVersionSchema, planListSchema, planKeySchema, planReportQuerySchema, planCompareSchema, planSimulationSchema, SNAPSHOT_FORMAT } from "./schema";
-import { comparePreviews, versionCsv, versionReadableCsv, hasFutureAssumptions } from "./presentation";
+import { comparePreviews, versionCsv, versionReadableCsv, hasFutureAssumptions, withdrawalTimingOf } from "./presentation";
 import { SOURCE_MODEL, SOURCE_SNAPSHOT_FORMAT } from "../retirement/engine-v4";
 import { replayProjection } from "../retirement/replay";
 import type { PlanPreview } from "../retirement/upgrade";
@@ -34,10 +34,27 @@ type Preview = PlanPreview;
 type Snapshot = { format: typeof SNAPSHOT_FORMAT; capture: Capture; preview: Preview; integrityHash: string };
 type VersionSummaryRow = { id: string; version: number; createdAt: Date; profileRevision: number; snapshotHash: string; birthMonth: string | null;
   references: Preview["references"]; summary: NonNullable<Preview["calculation"]>["summary"] };
-const modelRelease = { code: RETIREMENT_MODEL, snapshotFormat: SNAPSHOT_FORMAT, arithmeticPrecision: 48,
+const modelRelease = (code: string, withdrawalTiming: string) => ({ code, snapshotFormat: SNAPSHOT_FORMAT, arithmeticPrecision: 48,
   contributionTiming: ["END_OF_MONTH", "START_OF_MONTH"], surplusPolicy: "EXPLICIT_DEPOSITS_ONLY",
-  withdrawalTiming: "END_OF_MONTH", businessParameters: "SEPARATELY_APPROVED_T03_T04" };
-const sourceModelRelease = { ...modelRelease, code: SOURCE_MODEL, snapshotFormat: SOURCE_SNAPSHOT_FORMAT, sources: "PINNED_REGISTRY_V1", numericalKernel: RETIREMENT_MODEL };
+  withdrawalTiming, businessParameters: "SEPARATELY_APPROVED_T03_T04" });
+/** Registry release describing what this preview really used (its own model and withdrawal timing),
+ * never the model that happens to be current. v3 releases are identical to the ones already registered. */
+function releaseFor(preview: Preview) {
+  const withdrawalTiming = withdrawalTimingOf(preview);
+  if (preview.modelVersion !== SOURCE_MODEL) return modelRelease(preview.modelVersion ?? RETIREMENT_MODEL_V3, withdrawalTiming);
+  const kernel = preview.replayInput.kernelModel ?? RETIREMENT_MODEL_V3;
+  // A v5-kernel source plan is a different release; the v3-kernel one keeps the code registered earlier.
+  const code = kernel === RETIREMENT_MODEL_V3 ? SOURCE_MODEL : SOURCE_MODEL + "-kernel-v5";
+  return { ...modelRelease(code, withdrawalTiming), snapshotFormat: SOURCE_SNAPSHOT_FORMAT, sources: "PINNED_REGISTRY_V1", numericalKernel: kernel };
+}
+const CONVENTION_NOTICE_MESSAGE = "Quy ước tính đã đổi: tiền rút nay được tính vào đầu tháng. Phiên bản này vẫn dùng quy ước cũ (rút cuối tháng); bạn nên xem trước lại để có số theo quy ước mới.";
+/** Additive read hint. Present only for a saved plan whose convention is older than the one new previews use. */
+function conventionNotice(preview: Preview) {
+  const current: string = RETIREMENT_MODEL, used = withdrawalTimingOf(preview);
+  return current === RETIREMENT_MODEL_V5 && used === "END_OF_MONTH"
+    ? { calculationNotice: { code: "CALCULATION_CONVENTION_UPDATED", message: CONVENTION_NOTICE_MESSAGE, withdrawalTiming: used,
+      currentWithdrawalTiming: "START_OF_MONTH", suggestedAction: "PREVIEW_AGAIN" } } : {};
+}
 
 const verifiedSnapshots = new Set<string>(), VERIFIED_LIMIT = 500;
 const verifiedKey = (row: PlanVersion, integrityHash: string) =>
@@ -56,7 +73,7 @@ export class PlansService {
   private snapshot(row: PlanVersion) {
     const stored = row.inputSnapshot as unknown as Snapshot | SourceSnapshot;
     if (stored?.format === SOURCE_SNAPSHOT_FORMAT) readSourceSnapshot(stored);
-    else if (stored?.format !== SNAPSHOT_FORMAT || ![RETIREMENT_MODEL, "retirement-monthly-v2"].includes(stored.preview?.modelVersion))
+    else if (stored?.format !== SNAPSHOT_FORMAT || ![RETIREMENT_MODEL_V3, RETIREMENT_MODEL_V5, "retirement-monthly-v2"].includes(stored.preview?.modelVersion))
       throw new AppError(409, "SNAPSHOT_MODEL_UNSUPPORTED", "Phiên bản dùng mô hình chưa được bộ đọc này hỗ trợ.");
     if ((stored.preview.replayInput?.modelVersion ?? "retirement-monthly-v2") !== stored.preview.modelVersion)
       throw new AppError(409, "SNAPSHOT_INTEGRITY_FAILED", "Mô hình tính lại không khớp phiên bản.");
@@ -105,7 +122,7 @@ export class PlansService {
     const snapshot = this.snapshot(row);
     const goal = await this.db.retirementGoal.findUnique({ where: { userId }, select: { lifeExpectancy: true, revision: true } });
     const readWarnings = planHorizonWarnings(snapshot.capture.profile, snapshot.preview.selection.endMonth, goal);
-    return readWarnings.length ? { readWarnings } : {};
+    return { ...(readWarnings.length ? { readWarnings } : {}), ...conventionNotice(snapshot.preview) };
   }
   // Both commands persist the response in the same transaction as their writes.
   // Unique-key races retry so an identical concurrent request receives the first
@@ -144,7 +161,7 @@ export class PlansService {
     });
   }
   private async persist(tx: Prisma.TransactionClient, userId: string, previous: RetirementPlan | null, capture: Capture, preview: Preview, expectedRevision: number) {
-      const release = preview.modelVersion === SOURCE_MODEL ? sourceModelRelease : modelRelease;
+      const release = releaseFor(preview);
       let model = await tx.financialModelVersion.findUnique({ where: { code: release.code } });
       if (!model) model = await tx.financialModelVersion.create({ data: { code: release.code, status: "IMPLEMENTED",
         description: "Verified monthly retirement engine; business parameters require separate approval", source: json(release) } });

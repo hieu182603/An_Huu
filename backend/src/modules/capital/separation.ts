@@ -11,7 +11,10 @@ const issueSchema = z.object({ path: z.string(), code: z.string() }).strict();
 export const capitalSeparationSchema = z.object({
   status: z.enum(["READY", "INCOMPLETE"]), informationalOnly: z.literal(true),
   currency: z.literal("VND"), valuationMonth: z.string(), assumptionBasis: z.literal("PINNED_BASE"),
+  discountBasis: z.literal("PINNED_DEPOSIT_RATE_BY_HORIZON").optional(),
   essentialMonthlyExpense: decimal.nullable(), reserveMonths: z.number().int().nullable(),
+  reserveMonthsBasis: z.enum(["CUSTOMER", "INCOME_STABILITY", "DEFAULT"]).optional(),
+  reserveMonthsSource: z.enum(["APPROVED_DOCUMENT", "CODE_DEFAULT_PENDING_CONFIRMATION"]).optional(),
   requiredEmergencyReserve: decimal.nullable(), declaredEmergencyReserve: decimal.nullable(), emergencyShortfall: decimal.nullable(),
   retirementLiquidAssets: decimal.nullable(), nearTermGoalsPresentValue: decimal.nullable(), growthCapital: decimal.nullable(),
   investableLiquidAssets: decimal.nullable(), declaredOtherGoalsCapital: decimal.nullable(),
@@ -22,6 +25,21 @@ export const capitalSeparationSchema = z.object({
   }).strict()), issues: z.array(issueSchema), warnings: z.array(issueSchema),
 }).strict();
 export type CapitalSeparation = z.infer<typeof capitalSeparationSchema>;
+/** Spec thuat-toan-phan-bo-tai-san.md 3.2: emergency reserve K in [6, 12] months by income volatility.
+ * STABLE=6 and UNCERTAIN=12 are the range ends; 9 for VARIABLE is An Huu's middle choice pending
+ * business confirmation. An explicit customer reserveMonths always wins; unknown stability => 6. */
+export const RESERVE_MONTHS_BY_INCOME_STABILITY = { STABLE: 6, VARIABLE: 9, UNCERTAIN: 12 } as const;
+export const DEFAULT_RESERVE_MONTHS = 6;
+export type ReserveMonthsSource = "APPROVED_DOCUMENT" | "CODE_DEFAULT_PENDING_CONFIRMATION";
+/** The pinned, admin-approved assumptions block (emergencyReserveMonths) wins when present; otherwise the code
+ * constants above apply and the result says they still await business confirmation. */
+export function derivedReserveMonths(profile: Pick<ProfileV2, "incomeStability">, assumptions?: Pick<AssumptionDocument, "emergencyReserveMonths">):
+  { months: number; basis: "INCOME_STABILITY" | "DEFAULT"; source: ReserveMonthsSource } {
+  const s = profile.incomeStability, approved = assumptions?.emergencyReserveMonths;
+  const basis = s?.status === "KNOWN" ? "INCOME_STABILITY" as const : "DEFAULT" as const;
+  if (approved) return { months: s?.status === "KNOWN" ? approved.byIncomeStability[s.value] : approved.default, basis, source: "APPROVED_DOCUMENT" };
+  return { months: s?.status === "KNOWN" ? RESERVE_MONTHS_BY_INCOME_STABILITY[s.value] : DEFAULT_RESERVE_MONTHS, basis, source: "CODE_DEFAULT_PENDING_CONFIRMATION" };
+}
 const monthIndex = (m: string) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7));
 
 /** Pure separation shared by presentation and protected-fund projections.
@@ -52,15 +70,20 @@ export function separateCapital(profile: ProfileV2, assumptions: AssumptionDocum
     ? { ...data.expenses, entries: data.expenses.entries.filter(e => e.category === "ESSENTIAL") } : data.expenses }, month);
   cash.issues.forEach(i => issue(i.path.replace(/^expenses\.entries\.(\d+)/, (_, index) => `expenses.entries.${essentialIndexes[Number(index)]}`), i.code));
   const essentialMonthlyExpense = cash.expenses?.toFixed() ?? null;
-  // One rule for allocation, protected projections and presentation. Income
-  // stability is a separate fact and must not choose the reserve for the user.
-  const reserveMonths = data.reserveMonths ?? 6;
+  // One rule for allocation, protected projections and presentation (spec 3.2):
+  // customer value wins, else derived from declared income stability, else 6.
+  const derived = derivedReserveMonths(data, assumptions);
+  const reserveMonths: number | null = data.reserveMonths ?? derived.months;
+  const reserveMonthsBasis = data.reserveMonths !== undefined ? "CUSTOMER" as const : derived.basis;
+  const reserveMonthsSource = data.reserveMonths !== undefined ? undefined : derived.source;
+  if (reserveMonths !== null && (reserveMonths < 6 || reserveMonths > 12))
+    warnings.push({ path: "reserveMonths", code: "RESERVE_MONTHS_OUTSIDE_METHOD_RANGE" });
   const requiredEmergencyReserve = reserveMonths !== null && essentialMonthlyExpense !== null ? new D(essentialMonthlyExpense).mul(reserveMonths).toFixed() : null;
   const emergencyShortfall = requiredEmergencyReserve !== null && declaredEmergencyReserve !== null
     ? D.max(0, new D(requiredEmergencyReserve).minus(declaredEmergencyReserve)).toFixed() : null;
   if (emergencyShortfall !== null && new D(emergencyShortfall).gt(0)) warnings.push({ path: "assets.emergencyShare", code: "EMERGENCY_RESERVE_SHORTFALL" });
   // These cumulative declarations may refer to the same goals. Never add twice.
-  if (Object.values(data.liquidityNeeds ?? {}).some(v => v.status === "KNOWN" && new D(v.value).gt(0)))
+  if (Object.values(data.liquidityNeeds ?? {}).some(v => v.status === "KNOWN" && new D(v.value).gt(0) && !v.matchedGoalId))
     warnings.push({ path: "liquidityNeeds", code: "LIQUIDITY_NEEDS_REQUIRE_GOAL_RECONCILIATION" });
 
   const goals: CapitalSeparation["goals"] = [];
@@ -119,7 +142,7 @@ export function separateCapital(profile: ProfileV2, assumptions: AssumptionDocum
     ? new D(investableLiquidAssets).minus(requiredEmergencyReserve).minus(nearTermGoalsPresentValue).toFixed() : null;
   if (growthCapital !== null && new D(growthCapital).lt(0)) warnings.push({ path: "growthCapital", code: "PROTECTED_CAPITAL_EXCEEDS_RETIREMENT_ASSETS" });
   return { status: issues.length ? "INCOMPLETE" : "READY", informationalOnly: true, currency: "VND", valuationMonth: month,
-    assumptionBasis: "PINNED_BASE", essentialMonthlyExpense, reserveMonths, requiredEmergencyReserve, declaredEmergencyReserve,
+    assumptionBasis: "PINNED_BASE", discountBasis: "PINNED_DEPOSIT_RATE_BY_HORIZON", essentialMonthlyExpense, reserveMonths, reserveMonthsBasis, ...(reserveMonthsSource ? { reserveMonthsSource } : {}), requiredEmergencyReserve, declaredEmergencyReserve,
     emergencyShortfall, retirementLiquidAssets, investableLiquidAssets, declaredOtherGoalsCapital,
     nearTermGoalsPresentValue, growthCapital, goals, issues, warnings };
 }

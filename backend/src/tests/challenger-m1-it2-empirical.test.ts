@@ -241,7 +241,7 @@ describe("Empirical Challenger M1-IT2: Deep Adversarial Verification", () => {
 
       const data = marketFixture();
 
-      // 1. Within limit: 600 months * 20 paths = 12,000 <= 200,000
+      // 1. Within limit: 600 months * 20 paths = 12,000 <= 1,300,000
       const resReady = await simulate(context600, data, policy, 20, performance.now() + 60000);
       expect(resReady.status).toBe("READY");
       if (resReady.status === "READY") {
@@ -250,10 +250,10 @@ describe("Empirical Challenger M1-IT2: Deep Adversarial Verification", () => {
       }
 
       // 2. Exact limit boundary: 600 * 333 = 199,800 <= 200,000
-      expect(333 * 600).toBeLessThanOrEqual(LIMITS.maxPathMonths);
+      expect(1000 * 600).toBeLessThanOrEqual(LIMITS.maxPathMonths);
 
-      // 3. Exceeded limit boundary: 600 * 334 = 200,400 > 200,000
-      const resExceeded = await simulate(context600, data, policy, 334);
+      // 3. Above the 1000 path maximum
+      const resExceeded = await simulate(context600, data, policy, 1001);
       expect(resExceeded.status).toBe("LIMIT_EXCEEDED");
       if (resExceeded.status === "LIMIT_EXCEEDED") {
         expect(resExceeded.issues).toContain("PATH_MONTH_LIMIT");

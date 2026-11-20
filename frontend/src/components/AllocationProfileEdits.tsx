@@ -8,8 +8,14 @@ import { financeMoney } from "../utils/financeHubSummary";
 // These two editors change the saved profile itself (the same fields the Finances pages edit),
 // so the allocation is always recalculated from one source of truth.
 
-/** Reserve choice is independent of the user's declared income stability. */
-export function AllocationReserveMonths({ months, en, essentialExpense, onPendingChange }: { months: number | null; en: boolean; essentialExpense?: string | null; onPendingChange?: (pending:boolean)=>void }) {
+/** The customer's own value always wins; otherwise the backend derives 6/9/12 months from declared income stability (method 3.2). */
+function reserveDefaultNote(months: number | null, basis: string | undefined, en: boolean) {
+  if (months === null || (basis !== "INCOME_STABILITY" && basis !== "DEFAULT")) return "";
+  if (basis === "DEFAULT") return en ? `Default ${months} months (your income stability is not declared yet; the method uses 6 to 12 months depending on it). You can change it.` : `Mặc định ${months} tháng (bạn chưa khai độ ổn định thu nhập; phương pháp dùng 6–12 tháng tùy độ ổn định này). Bạn có thể đổi.`;
+  const why = months >= 12 ? ["your income is uncertain", "thu nhập của bạn chưa chắc chắn"] : months >= 9 ? ["your income varies", "thu nhập của bạn biến động"] : ["your income is stable", "thu nhập của bạn ổn định"];
+  return en ? `Default ${months} months because ${why[0]} (method: 6 to 12 months depending on income stability). You can change it.` : `Mặc định ${months} tháng vì ${why[1]} (theo phương pháp: 6–12 tháng tùy độ ổn định thu nhập). Bạn có thể đổi.`;
+}
+export function AllocationReserveMonths({ months, basis, en, essentialExpense, onPendingChange }: { months: number | null; basis?: "CUSTOMER" | "INCOME_STABILITY" | "DEFAULT"; en: boolean; essentialExpense?: string | null; onPendingChange?: (pending:boolean)=>void }) {
   const { updateProfileV2, saveStatus, saveError } = useFinancialProfile();
   const [value,setValue] = useState(months === null ? "" : String(months));
   const [error,setError] = useState("");
@@ -67,6 +73,7 @@ export function AllocationReserveMonths({ months, en, essentialExpense, onPendin
         <span className="allocation-reserve-unit">{en ? "months" : "tháng"}</span>
       </div>
     </div>
+    {reserveDefaultNote(months, basis, en) && <small className="allocation-reserve-default-note" role="note">{reserveDefaultNote(months, basis, en)}</small>}
     {valid && essentialExpense && Number(essentialExpense) > 0 && (
       <div className="allocation-reserve-preview">
         <span className="allocation-reserve-preview-badge">🛡️ {en ? "Calculated reserve" : "Quỹ dự phòng tương ứng"}</span>

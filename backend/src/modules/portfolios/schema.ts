@@ -29,6 +29,7 @@ const glideTemplateSchema = z.object({ id: code, label: note, rebalance: rebalan
   glidePath: z.object({ anchor: z.literal("RETIREMENT_MONTH"), interpolation: z.literal("LINEAR_BY_WHOLE_YEARS_TO_ANCHOR"),
     afterAnchor: z.literal("HOLD_ZERO_YEAR_POINT"),
     points: z.array(z.object({ yearsToAnchor: z.number().int().min(0).max(100), allocations: allocationsSchema }).strict()).min(1).max(40),
+    spendingFloorYears: z.number().int().min(1).max(10).optional(),
   }).strict(),
 }).strict();
 // Key order is part of the approval hash (JSON of the parsed document), so both
@@ -58,6 +59,9 @@ const tailFields = {
 };
 export const portfolioDocumentV1Schema = z.object({ schemaVersion: z.literal(1), ...headerFields,
   templates: z.array(scheduleTemplateSchema).max(30), ...tailFields }).strict();
+const lossReactionFactor = z.string().regex(/^(0|[1-9]\d*)(\.\d{1,8})?$/)
+  .refine(v => { try { const d = new Prisma.Decimal(v); return d.gt(0) && d.lte(2); } catch { return false; } }, "Hệ số phản ứng lỗ phải lớn hơn 0 và không quá 2.");
+const lossReactionEntry = z.object({ allowedLossFactor: lossReactionFactor }).strict();
 export const portfolioDocumentV2Schema = z.object({ schemaVersion: z.literal(2), ...headerFields,
   templates: z.array(glideTemplateSchema).max(30), ...tailFields,
   lossStress: z.object({
@@ -71,6 +75,17 @@ export const portfolioDocumentV2Schema = z.object({ schemaVersion: z.literal(2),
   customization: customizationPolicySchema.optional(),
   // Explicit, approved planning references; never questionnaire answers or a suitability result.
   quickStartTemplates: z.object({ evidence: note, SELL: code, HOLD: code, BUY_MORE: code }).strict().optional(),
+  lossReaction: z.object({ evidence: note, SELL: lossReactionEntry, HOLD: lossReactionEntry, BUY_MORE: lossReactionEntry }).strict().optional(),
+  occupationalRisk: z.object({
+    evidence: note,
+    employerConcentration: z.object({
+      maxEquityPercentReduction: percent.optional(),
+      excludeEmployerSector: z.boolean().optional(),
+    }).strict().optional(),
+    incomeStability: z.object({
+      UNCERTAIN: z.object({ maxEquityPercent: percent.optional() }).strict().optional(),
+    }).strict().optional(),
+  }).strict().optional(),
 }).strict();
 export const portfolioDocumentSchema = z.discriminatedUnion("schemaVersion", [portfolioDocumentV1Schema, portfolioDocumentV2Schema]);
 export const writePortfolioSchema = revisionSchema.extend({ data: portfolioDocumentSchema }).strict();

@@ -54,7 +54,8 @@ import type { SystemSettingsService } from "./settings/service";
 import { settingsRouter } from "./settings/router";
 import type { MarketDataService } from "./allocation-risk/market-service";
 import type { AllocationRiskService } from "./allocation-risk/service";
-import { marketDataRouter, allocationRiskRouter } from "./allocation-risk/router";
+import type { RebalanceDecisionService } from "./allocation-risk/rebalance-decisions";
+import { marketDataRouter, allocationRiskRouter, perMinute } from "./allocation-risk/router";
 import { patchAccountSchema, patchProfileSchema, draftSchema, completeSchema } from "./profiles/schema";
 import { cashflowPatchSchema } from "./profiles/cashflow-commands";
 import { assetPatchSchema } from "./profiles/asset-commands";
@@ -71,7 +72,7 @@ import type { BillingAdminService } from "./billing/admin-service";
 import { billingAdminRouter } from "./billing/admin-router";
 import { billingGate } from "./billing/entitlement";
 
-export type Services = { recommendations?: RecommendationService; holdings?: HoldingsRepository; explanations?: ExplanationsService; marketData?: MarketDataService; allocationRisk?: AllocationRiskService; auth: AuthService; profiles: ProfileService; pensionEstimates?: PensionEstimateService; insuranceHistory?: InsuranceHistoryService; legalRules?: LegalRulesService; catalog?: CatalogService; ai?: AiService; knowledge?: KnowledgeService; actuals?: ActualsService; plans?: PlansService; debts?: DebtService; pensions?: PensionsService; retirement?: RetirementService; assumptions?: AssumptionsService; portfolios?: PortfoliosService; users?: UsersService; investmentRoles?: InvestmentRolesService; broadcasts?: NotificationBroadcastService; content?: ContentService; community?: CommunityService; operations?: OperationsService; settings?: SystemSettingsService; billing?: BillingService; billingAdmin?: BillingAdminService };
+export type Services = { recommendations?: RecommendationService; holdings?: HoldingsRepository; explanations?: ExplanationsService; marketData?: MarketDataService; allocationRisk?: AllocationRiskService; rebalanceDecisions?: RebalanceDecisionService; auth: AuthService; profiles: ProfileService; pensionEstimates?: PensionEstimateService; insuranceHistory?: InsuranceHistoryService; legalRules?: LegalRulesService; catalog?: CatalogService; ai?: AiService; knowledge?: KnowledgeService; actuals?: ActualsService; plans?: PlansService; debts?: DebtService; pensions?: PensionsService; retirement?: RetirementService; assumptions?: AssumptionsService; portfolios?: PortfoliosService; users?: UsersService; investmentRoles?: InvestmentRolesService; broadcasts?: NotificationBroadcastService; content?: ContentService; community?: CommunityService; operations?: OperationsService; settings?: SystemSettingsService; billing?: BillingService; billingAdmin?: BillingAdminService };
 export function sessionGuard(auth: AuthService): RequestHandler {
   return asyncHandler(async (req: AuthenticatedRequest, res, next) => {
     if (!req.user) throw new AppError(401, "UNAUTHENTICATED", "Yêu cầu đăng nhập.");
@@ -90,7 +91,7 @@ export function createApiRouter(services: Services, config: AppConfig) {
   if (services.recommendations && services.holdings) router.use("/investments", ...authenticated, investmentRouter(services.recommendations, services.holdings));
   if (services.explanations) router.use("/me/explanations", ...authenticated, requireRole("USER"), explanationsRouter(services.explanations));
   if (services.marketData) router.use("/admin/market-data", ...authenticated, requireRole("ADMIN"), marketDataRouter(services.marketData));
-  if (services.allocationRisk) router.use("/me/retirement/risk", ...authenticated, requireRole("USER"), allocationRiskRouter(services.allocationRisk));
+  if (services.allocationRisk) router.use("/me/retirement/risk", ...authenticated, requireRole("USER"), allocationRiskRouter(services.allocationRisk, services.rebalanceDecisions));
   if (services.insuranceHistory) router.use("/me/pension/history", ...authenticated, requireRole("USER"), insuranceHistoryRouter(services.insuranceHistory));
   if (services.pensionEstimates) router.use("/me/pension", ...authenticated, requireRole("USER"), pensionEstimatesRouter(services.pensionEstimates));
   if (services.legalRules) router.use("/admin/legal-rules", ...authenticated, requireRole("ADMIN"), legalRulesRouter(services.legalRules));
@@ -116,12 +117,21 @@ export function createApiRouter(services: Services, config: AppConfig) {
     });
   }
   if (services.portfolios && services.assumptions) {
-      if(services.recommendations)router.post("/me/portfolio-policies/workspace/packages",...authenticated,requireRole("USER"),validate(allocationWorkspaceInput),asyncHandler(async(req:AuthenticatedRequest,res)=>{
-        res.set("Cache-Control","no-store");sendData(res,await services.recommendations!.allocationPackages(req.user!.userId,req.body));
-      }));
-    router.post("/me/portfolio-policies/workspace/preview", ...authenticated, requireRole("USER"), validate(allocationWorkspaceInput), asyncHandler(async (req:AuthenticatedRequest,res) => {
-      res.set("Cache-Control","no-store");
-      sendData(res,await allocationWorkspace(profiles,services.portfolios!,services.assumptions!,req.user!.userId,req.body));
+    const previewLimiter = rateLimit({
+      windowMs: 60000,
+      // Initial setting decided 19/11/2026 (20 light previews/min/account); PREVIEW_REQUESTS_PER_MINUTE tunes it.
+      limit: perMinute("PREVIEW_REQUESTS_PER_MINUTE", 20),
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => (req as AuthenticatedRequest).user?.userId || req.ip || "anonymous",
+      handler: (_req, _res, next) => next(new AppError(429, "RATE_LIMITED", "Vui lòng chờ một chút trước khi làm mới bản xem trước.")),
+    });
+    if (services.recommendations) router.post("/me/portfolio-policies/workspace/packages", ...authenticated, requireRole("USER"), previewLimiter, validate(allocationWorkspaceInput), asyncHandler(async (req: AuthenticatedRequest, res) => {
+      res.set("Cache-Control", "no-store"); sendData(res, await services.recommendations!.allocationPackages(req.user!.userId, req.body));
+    }));
+    router.post("/me/portfolio-policies/workspace/preview", ...authenticated, requireRole("USER"), previewLimiter, validate(allocationWorkspaceInput), asyncHandler(async (req: AuthenticatedRequest, res) => {
+      res.set("Cache-Control", "no-store");
+      sendData(res, await allocationWorkspace(profiles, services.portfolios!, services.assumptions!, req.user!.userId, req.body));
     }));
     router.get("/me/portfolio-policies/workspace/confirmation", ...authenticated, requireRole("USER"), asyncHandler(async (req:AuthenticatedRequest,res) => {
       res.set("Cache-Control","no-store"); sendData(res,await profiles.allocationConfirmation(req.user!.userId));

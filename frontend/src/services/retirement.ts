@@ -93,6 +93,10 @@ export interface RetirementRow {
   closingBalance: string;
   fundedClosingBalance: string;
   unfundedWithdrawal: string;
+  /** retirement-monthly-v5 only. */
+  fundedAvailableAtStart?: string;
+  tradingCost?: string;
+  cumulativeUnfunded?: string;
   budgetShortfall: string;
   requiredOpeningBalance: string;
   requiredClosingBalance: string;
@@ -144,7 +148,7 @@ export interface RetirementSummary {
 
 export interface RetirementConventions {
   contributionTiming: "END_OF_MONTH" | "START_OF_MONTH" | "START_OF_MONTH_RESEARCH" | string;
-  withdrawalTiming: "END_OF_MONTH";
+  withdrawalTiming: "END_OF_MONTH" | "START_OF_MONTH";
   capitalReleaseTiming: "END_OF_MONTH";
   surplusPolicy: string;
   allocationCashflows: string;

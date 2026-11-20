@@ -179,7 +179,7 @@ describe("P2 user read-only integration", () => {
       const result = await f.risk.run("test-user", { plan: { kind: "SAVED_VERSION", planId: base.planId, versionId: saved.saved.id }, paths: 10 }, "simulation");
       expect(result.status).toBe("READY");
       expect((await plans.version("test-user", base.planId, saved.saved.id, true)).preview.modelVersion).toBe("retirement-monthly-v4");
-      expect((await plans.version("test-user", base.planId, base.saved.id, true)).preview.modelVersion).toBe("retirement-monthly-v3");
+      expect((await plans.version("test-user", base.planId, base.saved.id, true)).preview.modelVersion).toBe("retirement-monthly-v5"); // base saved after the B1 flip; unchanged by the v4 save
       expect(JSON.stringify(f.rows("planVersion"))).toBe(before);
     } finally { vi.useRealTimers(); }
   });
@@ -187,7 +187,7 @@ describe("P2 user read-only integration", () => {
     const api = await SwaggerParser.validate("docs/openapi.yaml") as unknown as { paths: Record<string, Record<string, { requestBody?: { content: Record<string, { schema: object }> }; responses: Record<string, { content: Record<string, { schema: object }> }> }>> };
     const ajv = new Ajv({ strict: false, validateFormats: false });
     const f = await setupRisk();
-    for (const mode of ["simulation", "selection", "scenarios"] as const) {
+    for (const mode of ["simulation", "selection", "scenarios", "adjustments"] as const) {
       const result = await f.risk.run("test-user", { plan: { kind: "PREVIEW", preview: f.preview }, paths: 10 }, mode);
       const contract = api.paths["/api/v1/me/retirement/risk/" + mode].post.responses["200"].content["application/json"].schema;
       const validate = ajv.compile(contract);

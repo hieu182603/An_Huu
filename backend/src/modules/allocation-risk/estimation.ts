@@ -31,17 +31,50 @@ export const realReturn = (nominal: string, inflation: string) => factor(nominal
  * foreign currency appreciation. Both series must use the same period. */
 export const domesticReturn = (foreign: string, fx: string) => factor(foreign).mul(factor(fx)).minus(1).toFixed();
 
-/** Ledoit-Wolf (2004), centered ML covariance (divisor n), target mu*I.
- * beta = sum_ij Var_n(x_i*x_j)/n; delta = ||S-mu I||_F².
- * Same estimator as sklearn.covariance.ledoit_wolf(assume_centered=False).
+export type ShrinkageTarget = "SCALED_IDENTITY" | "CONSTANT_CORRELATION";
+
+/** Ledoit-Wolf (2004), centered ML covariance (divisor n).
+ * - "SCALED_IDENTITY" (default): target mu*I; beta = sum_ij Var_n(x_i*x_j)/n; delta = ||S-mu I||_F^2.
+ *   Same estimator as sklearn.covariance.ledoit_wolf(assume_centered=False).
+ * - "CONSTANT_CORRELATION": Ledoit-Wolf (2004, JPM Appendix B), target F_ii = S_ii, F_ij = r_bar * sqrt(S_ii * S_jj).
  * Decimal arithmetic retains the existing financial precision convention. */
-export function ledoitWolf(observations: string[][]) {
+export function ledoitWolf(observations: string[][], target: ShrinkageTarget = "SCALED_IDENTITY") {
   const n = observations.length, p = observations[0]?.length ?? 0;
   if (n < 2 || n > 2400 || p < 1 || p > 20 || observations.some(r => r.length !== p)) throw new RangeError("Rectangular observations required");
   const x = observations.map(r => r.map(value));
   const means = Array.from({ length: p }, (_, j) => x.reduce((s, r) => s.plus(r[j]), new D(0)).div(n));
   const centered = x.map(r => r.map((v, j) => v.minus(means[j])));
   const covariance = means.map((_, j) => means.map((__, k) => centered.reduce((s, r) => s.plus(r[j].mul(r[k])), new D(0)).div(n)));
+  if (target === "CONSTANT_CORRELATION") {
+    const std = covariance.map((r, j) => r[j].sqrt());
+    let corrSum = new D(0);
+    for (let j = 0; j < p; j++) for (let k = j + 1; k < p; k++) {
+      const denom = std[j].mul(std[k]);
+      if (denom.gt(0)) corrSum = corrSum.plus(covariance[j][k].div(denom));
+    }
+    const rBar = p > 1 ? corrSum.mul(2).div(p * (p - 1)) : new D(0);
+    const prior = covariance.map((r, j) => r.map((v, k) => j === k ? v : rBar.mul(std[j]).mul(std[k])));
+    let pi = new D(0), rho = new D(0), gamma = new D(0);
+    for (let j = 0; j < p; j++) for (let k = 0; k < p; k++) {
+      const piJk = centered.reduce((s, r) => s.plus(r[j].mul(r[k]).minus(covariance[j][k]).pow(2)), new D(0)).div(n);
+      pi = pi.plus(piJk);
+      gamma = gamma.plus(prior[j][k].minus(covariance[j][k]).pow(2));
+      if (j === k) {
+        rho = rho.plus(piJk);
+      } else if (std[j].gt(0) && std[k].gt(0)) {
+        const thetaJJ = centered.reduce((s, r) => s.plus(r[j].pow(2).minus(covariance[j][j]).mul(r[j].mul(r[k]).minus(covariance[j][k]))), new D(0)).div(n);
+        const thetaKK = centered.reduce((s, r) => s.plus(r[k].pow(2).minus(covariance[k][k]).mul(r[j].mul(r[k]).minus(covariance[j][k]))), new D(0)).div(n);
+        rho = rho.plus(rBar.div(2).mul(std[k].div(std[j]).mul(thetaJJ).plus(std[j].div(std[k]).mul(thetaKK))));
+      }
+    }
+    const shrinkage = gamma.isZero() ? new D(0) : D.min(1, D.max(0, pi.minus(rho).div(gamma.mul(n))));
+    const oneMinus = new D(1).minus(shrinkage);
+    return {
+      shrinkage: shrinkage.toFixed(),
+      mean: means.map(v => v.toFixed()),
+      covariance: covariance.map((r, j) => r.map((v, k) => v.mul(oneMinus).plus(prior[j][k].mul(shrinkage)).toFixed())),
+    };
+  }
   const mu = covariance.reduce((s, r, j) => s.plus(r[j]), new D(0)).div(p);
   let beta = new D(0), delta = new D(0);
   for (let j = 0; j < p; j++) for (let k = 0; k < p; k++) {

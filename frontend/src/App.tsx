@@ -25,6 +25,7 @@ const LoginPage = lazy(() => import("./pages/AuthPages").then(module => ({ defau
 const RegisterPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.RegisterPage })));
 const ResetPage = lazy(() => import("./pages/AuthPages").then(module => ({ default: module.ResetPage })));
 const AdminInvestmentsPage = lazy(() => import("./pages/admin/AdminInvestmentsPage"));
+const InvestmentsPage = lazy(() => import("./pages/InvestmentsPage"));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersApi").then(module => ({ default: module.AdminUsersPage })));
 const AdminUserDetailPage = lazy(() => import("./pages/admin/AdminUsersApi").then(module => ({ default: module.AdminUserDetailPage })));
@@ -119,7 +120,7 @@ export default function App() {
           <Route path="plan" element={<RetirementPlanPage />} />
           <Route path="simulation" element={<SimulationTrackingPage defaultTab="actuals" />} />
           <Route path="debts" element={<DebtAnalysisPage />} />
-          <Route path="investments" element={<Navigate to="/user/risk-portfolio" replace />} />
+          <Route path="investments" element={<InvestmentsPage />} />
           <Route path="risk-portfolio" element={<RiskPortfolioPage />} />
           <Route path="assistant" element={<AIAssistantPage />} />
           <Route path="explore" element={<ExplorePage />} />

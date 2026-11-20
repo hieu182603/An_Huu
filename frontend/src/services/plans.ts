@@ -1,6 +1,14 @@
 import { authenticatedRequest, authenticatedBlobRequest } from "./api.ts";
 import type { RetirementPreviewInput, RetirementPreviewResult, RetirementSummary, RetirementRow } from "./retirement.ts";
 
+export interface CalculationNotice {
+  code: "CALCULATION_CONVENTION_UPDATED" | string;
+  message: string;
+  withdrawalTiming: "END_OF_MONTH" | "START_OF_MONTH";
+  currentWithdrawalTiming: "END_OF_MONTH" | "START_OF_MONTH";
+  suggestedAction: "PREVIEW_AGAIN" | string;
+}
+
 export interface PlanHistoryItem {
   birthMonth?: string | null;
   id: string;
@@ -23,6 +31,7 @@ export interface PlanHistoryItem {
 export interface PlanVersion {
   birthMonth?: string | null;
   readWarnings?: import("./planningAnalysis").ReadWarning[];
+  calculationNotice?: CalculationNotice;
   id: string;
   planId: string;
   version: number;
@@ -49,6 +58,7 @@ export interface PlanUpdateInfo {
 
 export interface PlanDetail {
   readWarnings?: import("./planningAnalysis").ReadWarning[];
+  calculationNotice?: CalculationNotice;
   id: string;
   userId: string;
   currentVersionId: string | null;
@@ -81,6 +91,7 @@ export interface ApplyPlanInput {
 
 export interface ReplayResult {
   readWarnings?: import("./planningAnalysis").ReadWarning[];
+  calculationNotice?: CalculationNotice;
   id: string;
   planId: string;
   version: number;
@@ -107,6 +118,7 @@ export interface PlanGoal {
 
 export interface PlanReport {
   readWarnings?: import("./planningAnalysis").ReadWarning[];
+  calculationNotice?: CalculationNotice;
   planId: string;
   planRevision: number;
   currentVersionId: string | null;
@@ -145,6 +157,9 @@ export interface PlanComparisonResult {
     selectionFields: string[];
   };
   limitations: string[];
+  conventionsDiffer?: boolean;
+  conventions?: { baseline: string; candidate: string };
+  conventionNote?: string;
 }
 
 export interface ComparePlansResponse {

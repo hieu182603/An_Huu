@@ -34,6 +34,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
   const tableId = useId();
 
   const safeRows = rows || [];
+  const startWithdrawal = (previewData?.calculation?.conventions?.withdrawalTiming ?? (safeRows.some(r => r.fundedAvailableAtStart !== undefined) ? "START_OF_MONTH" : "END_OF_MONTH")) === "START_OF_MONTH";
 
   const availableYears = useMemo(() => {
     const years = new Set<string>();
@@ -247,7 +248,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
       {period === "year" ? <AnnualCashflowTable rows={filteredRows} en={isEn}/> : <>
       <div className="cashflow-ledger-guide" id={`${tableId}-guide`}>
         <p>{isEn ? "Unit: VND · All amounts are forecasts." : "Đơn vị: đồng (VND) · Tất cả số tiền là dự tính."}</p>
-        <p>{isEn ? "A negative ending balance shows a projected shortfall, not an actual debt balance. Open a month's details to see income, expenses and debt payments." : "Số dư âm là phần tiền dự tính còn thiếu, không phải số nợ thực tế. Bấm “Chi tiết” để xem thu nhập, chi tiêu và trả nợ của tháng đó."}</p>
+        <p>{startWithdrawal ? (isEn ? "Spending is withdrawn at the start of each month, before that month's return. The fund never goes negative; any shortfall is shown as withdrawals not funded. Open a month's details to see income, expenses and debt payments." : "Tiền chi tiêu được rút đầu tháng, trước khi tính lãi tháng đó; quỹ không âm, phần thiếu ghi ở dòng “Tiền cần rút nhưng quỹ không đủ”. Bấm “Chi tiết” để xem thu nhập, chi tiêu và trả nợ của tháng đó.") : (isEn ? "A negative ending balance shows a projected shortfall, not an actual debt balance. Open a month's details to see income, expenses and debt payments." : "Số dư âm là phần tiền dự tính còn thiếu, không phải số nợ thực tế. Bấm “Chi tiết” để xem thu nhập, chi tiêu và trả nợ của tháng đó.")}</p>
       </div>
       <div className="cashflow-ledger-scroll" tabIndex={0} role="region" aria-label={isEn ? "Monthly retirement fund table" : "Bảng quỹ hưu trí từng tháng"}>
         <table className="cashflow-ledger" aria-describedby={`${tableId}-guide`}>
@@ -292,7 +293,7 @@ export function MonthlyCashflowTable({ rows = [], summary, previewData, isApplie
                       [isEn ? "Withdrawals less contributions" : "Tiền rút trừ tiền góp", row.netWithdrawal],
                     ])}
                     {detailGroup(isEn ? "Fund balance" : "Số dư & mức quỹ cần có", [
-                      [isEn ? "At start of month" : "Quỹ đầu tháng", row.openingBalance], [isEn ? "Investment gain / loss" : "Lãi / lỗ dự tính", row.investmentChange],
+                      [isEn ? "At start of month" : "Quỹ đầu tháng", row.openingBalance], ...(startWithdrawal && row.fundedAvailableAtStart !== undefined ? [[isEn ? "Available at start of month" : "Tiền có sẵn đầu tháng", row.fundedAvailableAtStart] as [string, string | undefined]] : []), [isEn ? "Investment gain / loss" : "Lãi / lỗ dự tính", row.investmentChange], ...(startWithdrawal && row.tradingCost !== undefined ? [[isEn ? "Trading cost" : "Chi phí giao dịch", row.tradingCost] as [string, string | undefined]] : []),
                       [isEn ? "At end of month" : "Quỹ cuối tháng", row.closingBalance], [isEn ? "Available at month end" : "Tiền có thể dùng cuối tháng", row.fundedClosingBalance],
                       [isEn ? "Withdrawals not funded" : "Tiền cần rút nhưng quỹ không đủ", row.unfundedWithdrawal],
                       [isEn ? "Required fund at month end" : "Quỹ cần có cuối tháng", row.requiredClosingBalance],

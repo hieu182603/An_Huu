@@ -70,4 +70,7 @@ export const retirementPreviewSchema = z.object({
   });
 });
 export type RetirementPreview = z.infer<typeof retirementPreviewSchema>;
-export const RETIREMENT_MODEL = "retirement-monthly-v3";
+export const RETIREMENT_MODEL_V3 = "retirement-monthly-v3";
+export const RETIREMENT_MODEL_V5 = "retirement-monthly-v5";
+// New previews use v5 (withdrawals at the start of the month, spec 7.2). Saved v3 plans keep replaying on v3.
+export const RETIREMENT_MODEL = RETIREMENT_MODEL_V5;

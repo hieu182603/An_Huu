@@ -326,6 +326,10 @@ CapitalSeparation:
       type: string
       enum:
         - PINNED_BASE
+    discountBasis:
+      type: string
+      enum:
+        - PINNED_DEPOSIT_RATE_BY_HORIZON
     essentialMonthlyExpense:
       anyOf:
         - type: string
@@ -341,6 +345,17 @@ CapitalSeparation:
           nullable: true
           enum:
             - null
+    reserveMonthsBasis:
+      type: string
+      enum:
+        - CUSTOMER
+        - INCOME_STABILITY
+        - DEFAULT
+    reserveMonthsSource:
+      type: string
+      enum:
+        - APPROVED_DOCUMENT
+        - CODE_DEFAULT_PENDING_CONFIRMATION
     requiredEmergencyReserve:
       anyOf:
         - type: string
@@ -599,6 +614,18 @@ LossConstraint:
         required:
           - assetClass
           - weightPercent
+    bindingLimit:
+      anyOf:
+        - type: string
+          enum:
+            - AMOUNT
+            - PERCENT
+        - type: object
+          nullable: true
+          enum:
+            - null
+    reactionApplied:
+      type: boolean
   required:
     - informationalOnly
     - status
@@ -807,6 +834,7 @@ MonthlyInput:
     withdrawal: *a2
     uninvestedSurplus: *a2
     capitalInjection: *a2
+    tradingCostRate: *a2
     protectedHouseholdPaid: *a2
     goalExpense: *a2
     protectedGoalPaid: *a2
@@ -858,6 +886,7 @@ ReplayInput:
       type: string
       enum:
         - retirement-monthly-v3
+        - retirement-monthly-v5
     contributionStartMonth: *a1
     protection:
       $ref: "#/Protection"
@@ -888,7 +917,7 @@ Protection:
           month: *a1
           amount: *a2
           openingReserve: *a2
-          essential:
+          essential: &a6
             type: boolean
           depositAssetClass: *a1
           depositFactors:
@@ -933,6 +962,7 @@ Row:
     withdrawal: *a2
     uninvestedSurplus: *a2
     capitalInjection: *a2
+    tradingCostRate: *a2
     phase:
       type: string
       enum:
@@ -947,6 +977,9 @@ Row:
     requiredOpeningBalance: *a2
     requiredClosingBalance: *a2
     netWithdrawal: *a2
+    fundedAvailableAtStart: *a2
+    tradingCost: *a2
+    cumulativeUnfunded: *a2
     protectedHouseholdPaid: *a2
     goalExpense: *a2
     protectedGoalPaid: *a2
@@ -980,6 +1013,7 @@ Row:
     - withdrawal
     - uninvestedSurplus
     - capitalInjection
+    - tradingCostRate
     - phase
     - openingBalance
     - investmentChange
@@ -1088,6 +1122,7 @@ Conventions:
       type: string
       enum:
         - END_OF_MONTH
+        - START_OF_MONTH
     capitalReleaseTiming:
       type: string
       enum:
@@ -1099,6 +1134,15 @@ Conventions:
     rounding: *a1
     negativeBalance: *a1
     terminalBalanceBasis: *a1
+    tradingCostBasis:
+      type: string
+      enum:
+        - POST_WITHDRAWAL_BALANCE
+    advisoryFeeBasis:
+      type: string
+      enum:
+        - FULL_MONTH_NO_DAILY_PRORATION
+        - ACTUAL_DAYS_365
   required:
     - contributionTiming
     - withdrawalTiming
@@ -1518,6 +1562,12 @@ Preview:
       description: Informational only, returned by POST /me/retirement/preview. Pinned
         base assumptions, independent of scenario. Not saved in plan snapshots
         or used by the retirement engine. Missing on saved/replayed plans.
+    obligations:
+      type: array
+      items:
+        $ref: "#/Obligation"
+    liquidityRequirement:
+      $ref: "#/LiquidityRequirement"
     lossConstraint:
       $ref: "#/LossConstraint"
     essentialCoverage:
@@ -1542,6 +1592,72 @@ Preview:
     - inputHash
     - sources
     - selection
+Obligation:
+  type: object
+  additionalProperties: false
+  properties:
+    kind:
+      type: string
+      enum:
+        - ESSENTIAL_EXPENSE
+        - RETIREMENT_LIVING
+        - CONTRACT_DEBT
+        - ESSENTIAL_GOAL
+        - MANDATORY_EXPENSE
+        - FLEXIBLE_GOAL
+        - OPTIONAL_EXPENSE
+        - LEGACY_GOAL
+    id: *a1
+    label: *a1
+    priorityRank:
+      type: integer
+      minimum: 1
+      maximum: 7
+    firstMonth: *a5
+    lastMonth: *a5
+    totalNominal: *a3
+    deferrable: *a6
+    presentValue: *a3
+  required:
+    - kind
+    - id
+    - label
+    - priorityRank
+    - firstMonth
+    - lastMonth
+    - totalNominal
+    - deferrable
+LiquidityRequirement:
+  type: object
+  additionalProperties: false
+  properties:
+    horizons:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        properties:
+          months:
+            type: integer
+            enum:
+              - 12
+              - 36
+              - 60
+          amount: *a2
+          coveredByReserved: *a2
+          uncovered: *a2
+        required:
+          - months
+          - amount
+          - coveredByReserved
+          - uncovered
+    issues:
+      type: array
+      items:
+        $ref: "#/Issue"
+  required:
+    - horizons
+    - issues
 Envelope:
   type: object
   additionalProperties: false

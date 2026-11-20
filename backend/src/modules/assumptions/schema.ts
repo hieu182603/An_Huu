@@ -31,6 +31,18 @@ export const annualRateSchema = z.discriminatedUnion("type", [
 export const returnYearSchema = z.object({ year, assetClass: code, horizonId: code, sourceId: code,
   rate: annualRateSchema, priceBasis: z.enum(["NOMINAL", "REAL"]), fees: costSchema, taxes: costSchema,
 }).strict();
+const reserveMonthsValue = z.number().int().min(6).max(12);
+/** Optional admin-approved emergency-reserve policy (spec thuat-toan-phan-bo-tai-san.md 3.2: 6-12 months by income
+ * volatility). Absent => capital separation falls back to its code constants and reports them as pending confirmation. */
+export const emergencyReserveMonthsSchema = z.object({
+  evidence: note,
+  byIncomeStability: z.object({ STABLE: reserveMonthsValue, VARIABLE: reserveMonthsValue, UNCERTAIN: reserveMonthsValue }).strict(),
+  default: reserveMonthsValue,
+}).strict()
+  .refine(v => v.byIncomeStability.STABLE <= v.byIncomeStability.VARIABLE && v.byIncomeStability.VARIABLE <= v.byIncomeStability.UNCERTAIN,
+    "Số tháng dự phòng phải tăng dần theo mức biến động: ổn định ≤ biến động ≤ không chắc chắn.")
+  .refine(v => v.default >= v.byIncomeStability.STABLE && v.default <= v.byIncomeStability.UNCERTAIN,
+    "Số tháng mặc định (chưa biết độ ổn định) phải nằm giữa mức ổn định và mức không chắc chắn.");
 export const assumptionDocumentSchema = z.object({
   schemaVersion: z.literal(2), title: z.string().trim().min(3).max(200), currency: z.literal("VND"),
   effectiveFrom: dateSchema, projectionStartYear: year, projectionEndYear: year,
@@ -43,7 +55,7 @@ export const assumptionDocumentSchema = z.object({
     horizons: z.array(z.object({ id: code, minMonths: z.number().int().min(1).max(1200), maxMonths: z.number().int().min(1).max(1200) }).strict()
       .refine(v => v.minMonths <= v.maxMonths, "Thời hạn không hợp lệ.")).min(1).max(10),
   }).strict()).max(20),
-  returns: z.array(returnYearSchema).max(12000), reason: note,
+  returns: z.array(returnYearSchema).max(12000), emergencyReserveMonths: emergencyReserveMonthsSchema.optional(), reason: note,
 }).strict().refine(v => v.projectionStartYear <= v.projectionEndYear, "Năm kết thúc phải từ năm bắt đầu.");
 export const revisionSchema = z.object({ expectedRevision: z.number().int().min(1) }).strict();
 export const writeAssumptionsSchema = revisionSchema.extend({ data: assumptionDocumentSchema }).strict();

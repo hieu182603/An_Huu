@@ -49,11 +49,16 @@ s.RetirementComparison = obj({ status: { type: "string", enum: ["COMPARABLE", "N
   basis: { type: "string", enum: ["SAME_RETIREMENT_MONTH_NOMINAL"] }, baselineMonth: { ...str, nullable: true }, candidateMonth: { ...str, nullable: true },
   delta: { anyOf: [obj(Object.fromEntries(["projectedFund", "requiredFund", "fundingGap", "coveragePercentagePoints"].map(k => [k, { ...str, nullable: true }]))), { type: "object", nullable: true, enum: [null] }] } });
 s.ComparisonResult.properties.atRetirement = ref("RetirementComparison");
+// Present only when the two versions use different withdrawal timing conventions.
+Object.assign(s.ComparisonResult.properties, { conventionsDiffer: { type: "boolean", enum: [true] }, conventionNote: str,
+  conventions: obj({ baseline: { type: "string", enum: ["END_OF_MONTH", "START_OF_MONTH"] }, candidate: { type: "string", enum: ["END_OF_MONTH", "START_OF_MONTH"] } }) });
 s.Comparison = obj({ baseline: ref("Version"), candidate: ref("Version"), comparison: ref("ComparisonResult") });
 s.Simulation = obj({ baseline: ref("Version"), candidate: retirement("Preview"), comparison: ref("ComparisonResult"), saved: { type: "boolean", enum: [false] }, applied: { type: "boolean", enum: [false] } });
 const responsesToExpose = ["Created", "Applied", "Detail", "List", "History", "Version", "Replay", "Report", "Comparison", "Simulation", "SourcePreview"];
 const readWarnings = arr(schema(require("../src/modules/plans/read-warnings").planReadWarningSchema));
-for (const name of ["Version", "Replay", "Detail", "Report"]) s[name].properties.readWarnings = readWarnings;
+const calculationNotice = obj({ code: { type: "string", enum: ["CALCULATION_CONVENTION_UPDATED"] }, message: str, withdrawalTiming: { type: "string", enum: ["END_OF_MONTH"] },
+  currentWithdrawalTiming: { type: "string", enum: ["START_OF_MONTH"] }, suggestedAction: { type: "string", enum: ["PREVIEW_AGAIN"] } });
+for (const name of ["Version", "Replay", "Detail", "Report"]) { s[name].properties.readWarnings = readWarnings; s[name].properties.calculationNotice = calculationNotice; } // both optional (not in required)
 for (const name of responsesToExpose) s[name + "Envelope"] = obj({ data: ref(name), meta: obj({ requestId: uuid }) });
 // Preserve anchors/formatting for unchanged contracts, including manually
 // documented fields now represented in this generator.
