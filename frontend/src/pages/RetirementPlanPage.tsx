@@ -8,6 +8,7 @@ import PlanSavedViews from "./PlanSavedViews";
 import PlanMoneyExplanation, { type PlanMoneyMetric } from "../components/retirement/PlanMoneyExplanation";
 import ProfileFormattedInput from "../components/ProfileFormattedInput";
 import { Decimal } from "../utils/decimal";
+import { retirementCapitalGap } from "../utils/retirementCapitalGap";
 import {formatMoneyDecimal as financeMoney} from "../utils/moneyDisplay";
 import ResponsiveDialog from "../components/ResponsiveDialog";
 import "../components/user-workspace-dialogs.css";
@@ -332,6 +333,7 @@ export default function RetirementPlanPage() {
   }, [displayedPreview, currentVersion?.id]);
   const calculation = displayedPreview?.calculation;
   const summary = calculation?.summary;
+  const { remaining: remainingCapitalGap } = retirementCapitalGap(displayedPreview);
   // Demo parity: the first survey ends with "Phương án 1" already being the main plan, so the
   // first ready preview after onboarding is saved and applied once without the confirm dialog.
   // A failure leaves the manual "Lưu làm kế hoạch chính" path in place.
@@ -386,7 +388,7 @@ export default function RetirementPlanPage() {
   const extraMonthly=requiredMonthly!=null&&summary?.plannedMonthlyContribution!=null
     ?new Decimal(requiredMonthly).minus(summary.plannedMonthlyContribution):null;
   const contributionEnough=extraMonthly!=null&&!extraMonthly.gt(0);
-  const heroAmount=hasAccumulation?(extraMonthly&&!contributionEnough?extraMonthly.toFixed():requiredMonthly):summary?.atRetirement.fundingGap?.startsWith("-")?"0":summary?.atRetirement.fundingGap;
+  const heroAmount=hasAccumulation?(extraMonthly&&!contributionEnough?extraMonthly.toFixed():requiredMonthly):remainingCapitalGap;
   const isAppliedPlan = viewingCurrent;
 
   const requiredContributionText = summary?.requiredConstantMonthlyContribution != null
@@ -643,8 +645,8 @@ export default function RetirementPlanPage() {
                 {
                   key: "gap" as const,
                   label: language === "en" ? "Remaining gap" : "Phần còn thiếu",
-                  val: summary?formatCompactVND(summary.atRetirement.fundingGap?.startsWith("-")?"0":summary.atRetirement.fundingGap):unknown,
-                  sub: `≈ ${summary?formatVNDCurrency(summary.atRetirement.fundingGap?.startsWith("-")?"0":summary.atRetirement.fundingGap):unknown} · Chênh lệch tại mốc nghỉ hưu`,
+                  val: remainingCapitalGap === null ? unknown : formatCompactVND(remainingCapitalGap),
+                  sub: remainingCapitalGap === null ? unknown : `≈ ${formatVNDCurrency(remainingCapitalGap)} · ${language === "en" ? "Compared with initially declared capital" : "So với vốn hưu trí đã khai ban đầu"}`,
                   top: "#d97706",
                   bg: "#fffaf0",
                 },
@@ -708,7 +710,7 @@ export default function RetirementPlanPage() {
                     {summary?.requiredContributionWithinCapacity===false?(language==="en"?"The target contribution exceeds capacity in some months":"Mức cần góp đang vượt khả năng ở một số tháng"):(language === "en" ? "Reconcile goal with monthly capacity" : "Đối chiếu mục tiêu với khả năng góp")}
                   </strong>
                   <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#536779" }}>
-                    {language === "en" ? `First-month contribution: ${formatCompactVND(calculation?.rows[0]?.contribution ?? null)}` : `Thực góp tháng đầu: ${formatCompactVND(calculation?.rows[0]?.contribution ?? null)}`}{summary?.firstShortfallMonth && <>{language === "en" ? ` · After the fund runs out, unfunded spending through plan end totals ${formatCompactVND(summary.unfundedWithdrawals)} (at future prices). The main gap to cover remains the funding gap at retirement.` : ` · Sau khi quỹ cạn, các khoản chi chưa có nguồn cộng dồn đến cuối kế hoạch là ${formatCompactVND(summary.unfundedWithdrawals)} (theo giá tương lai). Con số chính cần bù vẫn là Phần còn thiếu tại mốc nghỉ hưu.`}</>}
+                    {language === "en" ? `First-month contribution: ${formatCompactVND(calculation?.rows[0]?.contribution ?? null)}` : `Thực góp tháng đầu: ${formatCompactVND(calculation?.rows[0]?.contribution ?? null)}`}{summary?.firstShortfallMonth && <>{language === "en" ? ` · After the fund runs out, unfunded spending through plan end totals ${formatCompactVND(summary.unfundedWithdrawals)} (at future prices).` : ` · Sau khi quỹ cạn, các khoản chi chưa có nguồn cộng dồn đến cuối kế hoạch là ${formatCompactVND(summary.unfundedWithdrawals)} (theo giá tương lai).`}</>}
                   </p>
                 </div>
                 <span className="badge" style={{ background: "#E8F2FE", color: "#334DAF", padding: "4px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 600 }}>
@@ -1290,7 +1292,7 @@ export default function RetirementPlanPage() {
       </>
       )}
 
-      {metricInfo && displayedPreview && <PlanMoneyExplanation metric={metricInfo} preview={displayedPreview} onClose={()=>setMetricInfo(null)} onAdjust={()=>setPlanDialog(metricInfo==="required"||metricInfo==="expense"?"options":"contribution")} onHistory={()=>setPlanSubView("history")} />}
+      {metricInfo && displayedPreview && <PlanMoneyExplanation metric={metricInfo} preview={displayedPreview} onClose={()=>setMetricInfo(null)} onAdjust={()=>setPlanDialog(metricInfo==="required"||metricInfo==="expense"?"options":"contribution")} />}
       {planDialog==="options"&&<PlanOptionsDialog isCurrent={viewingCurrent} onClose={()=>setPlanDialog(null)} onContribution={()=>setPlanDialog("contribution")} onAdvanced={()=>setPlanTab("adjust")} onHistory={()=>setPlanSubView("history")} />}
       {planDialog==="contribution"&&<PlanContributionDialog preview={displayedPreview??null} initial={draftSelection?.monthlyContribution??displayedPreview?.selection.monthlyContribution??""} readonly={usesActualBalance} onClose={()=>setPlanDialog(null)} onSave={value=>{updateDraft({monthlyContribution:value});setPlanTab("result");}} />}
 
