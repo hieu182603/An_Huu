@@ -26,7 +26,6 @@ export function planMoneyExplanation(metric: PlanMoneyMetric, preview: Retiremen
   const missing = gap === null ? null : Decimal.max(0, gap).toString();
   const isShort = gap !== null && new Decimal(gap).gt(0);
   const timing = calc.conventions?.contributionTiming;
-  const startW = calc.conventions?.withdrawalTiming === "START_OF_MONTH";
   const date = formatMonthVN(s.retirementMonth);
   const titles: Record<PlanMoneyMetric, string> = { required: t("Quỹ cần khi nghỉ hưu", "Fund needed at retirement"), projected: t("Quỹ dự kiến có", "Projected fund"), gap: t("Phần còn thiếu", "Remaining gap"), expense: t("Chi tiêu lúc nghỉ hưu", "Spending in retirement"), capacity: t("Khả năng ngân sách", "Contribution capacity") };
   const values = { required: s.atRetirement.requiredFund, projected: s.atRetirement.projectedFund, gap: missing, expense: s.futureMonthlyExpense, capacity: first?.contributionCapacity };
@@ -37,6 +36,8 @@ export function planMoneyExplanation(metric: PlanMoneyMetric, preview: Retiremen
   };
   const step = (label: string, value: string, description?: string) => data.steps.push({ label, value, description });
   if (metric === "required") {
+    const planningPercent = preview.replayInput?.retirementPlanningAnnualPercent;
+    if (planningPercent != null) data.parameters!.push(t(`Chiết khấu theo lạm phát đã chốt: ${Number(planningPercent).toLocaleString("vi-VN")}%/năm.`, `Discounted at the pinned inflation rate: ${planningPercent}% per year.`));
     data.label = t("Mục tiêu quỹ hưu trí của bạn", "Your retirement fund target");
     data.description = t("Số vốn cần có tại tháng nghỉ hưu để trang trải các khoản rút trong suốt kế hoạch, sau nguồn thu và lương hưu được tính. Mô hình giữ cả số dư cuối kỳ bạn đã chọn.", "Capital needed at retirement to cover withdrawals throughout the plan, after included income and pension, while preserving your selected terminal balance.");
     step(t("Chi tiêu sinh hoạt tháng đầu nghỉ hưu", "First retirement month's living expenses"), monthly(s.futureMonthlyExpense));
@@ -44,23 +45,70 @@ export function planMoneyExplanation(metric: PlanMoneyMetric, preview: Retiremen
     step(t("Trả nợ và khoản chi khác tháng đầu", "First retirement month's debt and other expenses"), monthly(retired ? add(retired.debtPayment, retired.additionalExpense) : null));
     step(t("Khoản cần rút từ quỹ tháng đầu", "First retirement month's required withdrawal"), monthly(retired?.withdrawal), t("Bao gồm phí trả từ quỹ nếu đã chọn; không trừ phí lần nữa.", "Includes fund-paid fees where selected; fees are not deducted again."));
     step(t("Số dư mong muốn cuối kế hoạch", "Desired end-of-plan balance"), money(s.terminalTarget));
-    data.result = `${t("Tính ngược", "Work backward over")} ${s.retirementMonths} ${t("tháng", "months")} → ${money(s.atRetirement.requiredFund)}`;
-    if (startW) data.note = t("Từng tháng, lấy số dư cần ở cuối tháng trừ tiền góp cuối tháng và vốn giải phóng, chia hệ số tăng trưởng, rồi cộng khoản rút đầu tháng và trừ tiền góp đầu tháng (nếu có); tối thiểu bằng 0. Khoản rút lấy ở đầu tháng, trước khi tính lãi tháng đó. Lùi từ cuối kế hoạch tới tháng nghỉ hưu. Các hệ số theo dự phóng đang xem, không dùng một lãi suất cố định thay thế.", "For each month, take the required closing balance, subtract end-of-month contributions and released capital, divide by growth, then add the start-of-month withdrawal and subtract any start-of-month contribution, floored at zero. Withdrawals are taken at the start of the month, before that month's return. Work back to retirement using the displayed projection's monthly factors.");
-    else data.note = t("Từng tháng, cộng khoản rút vào số dư cần ở cuối tháng, trừ tiền góp và vốn giải phóng rồi chia hệ số tăng trưởng; tối thiểu bằng 0. Lùi từ cuối kế hoạch tới tháng nghỉ hưu. Các hệ số theo dự phóng đang xem, không dùng một lãi suất cố định thay thế.", "For each month, add withdrawals to the required closing balance, subtract contributions and released capital, then divide by growth and floor at zero. Work back to retirement using the displayed projection's monthly factors.");
-    data.formula = startW ? { expression: "Kₜ₋₁ = max(0; Wₜ + max(0; (Kₜ − Cₜ − Jₜ) ÷ Gₜ) − Sₜ)", description: t("K: vốn cần có; W: khoản rút đầu tháng; S: tiền góp đầu tháng (nếu có); C: tiền góp cuối tháng; J: vốn giải phóng cuối tháng; G: hệ số tăng trưởng của tháng. Khoản rút lấy ở đầu tháng, trước lãi. Khởi đầu từ số dư mong muốn cuối kế hoạch.", "K: required capital; W: start-of-month withdrawal; S: start-of-month contribution (if any); C: end-of-month contribution; J: end-of-month capital release; G: monthly growth factor. Withdrawals are taken at the start of the month, before the return. Start from the desired terminal balance.") } : { expression: "Kₜ₋₁ = max(0; (Kₜ + Wₜ − Cₜ − Jₜ) ÷ Gₜ)", description: t("K: vốn cần có; W: khoản rút; C: tiền góp; J: vốn giải phóng; G: hệ số tăng trưởng của tháng. Khởi đầu từ số dư mong muốn cuối kế hoạch.", "K: required capital; W: withdrawals; C: contributions; J: capital releases; G: monthly growth factor. Start from the desired terminal balance.") };
+    const pv = financeAmount(s.algebraicRequiredFund);
+    const reserve = financeAmount(s.liquidityReserveAboveAlgebraicPV);
+    if (pv !== null && reserve !== null) {
+      const base = new Decimal(pv).lt(0) ? `max(0, ${money(pv)})` : money(pv);
+      step(t("Giá trị hiện tại của dòng tiền khi nghỉ hưu", "Present value of retirement cash flows"), money(pv));
+      if (new Decimal(reserve).gt(0)) {
+        step(t("Vốn bổ sung để chi trả đúng tháng", "Additional capital to fund withdrawals on time"), money(reserve));
+        data.result = `${base} + ${money(reserve)} ≈ ${money(s.atRetirement.requiredFund)}`;
+      }
+    }
+    const withdrawal = financeAmount(retired?.withdrawal);
+    const substituted = withdrawal === null ? "" : ` ${t("Nếu giữ nguyên khoản rút tháng đầu, phép tính tham chiếu cuối tháng là", "Holding the first withdrawal constant, the month-end reference calculation is")} ${money(withdrawal)} × [1 − (1 + r)^(${-s.retirementMonths})] ÷ r.`;
+    data.referenceFormula = {
+      title: t("Công thức PV khi rút đều", "PV formula for fixed withdrawals"),
+      expression: "PV = W × [1 − (1 + r)⁻ⁿ] ÷ r",
+      description: t("Áp dụng khi rút cùng số tiền W vào cuối mỗi tháng với lãi suất cố định r, số dư cuối kỳ bằng 0 và không có tiền góp hay vốn bổ sung. n là số tháng chi tiêu khi nghỉ hưu. r là lãi suất chiết khấu tháng (lãi suất danh nghĩa năm chia 12). Rút đầu tháng thì nhân thêm (1 + r). Khi r = 0, PV = W × n.", "Use for equal month-end withdrawals W, a constant rate r, a zero terminal balance and no additional deposits. n is the number of retirement months. r is the monthly discount rate (nominal annual rate divided by 12). For beginning-of-month withdrawals, multiply by (1 + r). At r = 0, PV = W × n.") + substituted,
+    };
   } else if (metric === "projected") {
     data.label = t("Quỹ tích lũy dự kiến của bạn", "Your projected accumulated fund");
-    data.description = t("Số dư dự kiến ở đầu tháng nghỉ hưu, hình thành từ vốn đầu kỳ, các khoản góp thực sự trong mô hình, tăng trưởng, vốn được giải phóng và khoản rút trước nghỉ hưu.", "Projected balance at the start of retirement, from opening capital, modeled contributions, growth, capital releases and pre-retirement withdrawals.");
+    data.description = t("Số dư dự kiến ở đầu tháng nghỉ hưu, sau khi tính tiền góp, tăng trưởng, vốn giải phóng, các khoản rút và chi phí giao dịch trước nghỉ hưu.", "Projected balance at the start of retirement after contributions, growth, capital releases, withdrawals and trading costs before retirement.");
     data.parameters!.push(timing === "START_OF_MONTH" ? t("Góp vào đầu tháng theo nguồn tiền đã xác nhận.", "Contributions at the start of each month using confirmed available funds.") : timing === "END_OF_MONTH" ? t("Góp vào cuối tháng.", "Contributions at the end of each month.") : t("Thời điểm góp theo phiên bản đang xem.", "Contribution timing follows the displayed version."));
-    const contributions = sum(accumulation, "contribution"), growth = sum(accumulation, "investmentChange"), injections = sum(accumulation, "capitalInjection"), withdrawals = sum(accumulation, "withdrawal");
+    const hasTradingCosts = calc.modelVersion === "retirement-monthly-v5" || rows.some(row => row.tradingCost !== undefined);
+    const contributions = sum(accumulation, "contribution");
+    const growth = sum(accumulation, "investmentChange");
+    const injections = sum(accumulation, "capitalInjection");
+    const withdrawals = sum(accumulation, "withdrawal");
+    const unfunded = hasTradingCosts ? sum(accumulation, "unfundedWithdrawal") : "0";
+    const paid = withdrawals === null || unfunded === null ? null : new Decimal(withdrawals).minus(unfunded).toString();
+    const tradingCosts = hasTradingCosts ? sum(accumulation, "tradingCost") : "0";
     step(t("Vốn dành cho hưu trí đầu kỳ", "Opening retirement capital"), money(s.initialRetirementCapital));
     step(t("Tổng tiền góp trong giai đoạn tích lũy", "Total modeled accumulation contributions"), money(contributions), t("Cộng tiền góp của từng tháng, đã xét ngân sách; không lấy mức chọn nhân số tháng.", "Sum each month's modeled deposit after budget limits, rather than multiplying the selected deposit by the number of months."));
     step(t("Tăng trưởng của vốn và tiền góp", "Growth of capital and contributions"), money(growth), t("Có thể âm theo kịch bản đang xem.", "Can be negative under the selected scenario."));
     if (injections !== "0") step(t("Vốn được giải phóng trước nghỉ hưu", "Capital released before retirement"), money(injections));
-    if (withdrawals !== "0") step(t("Khoản rút trước nghỉ hưu", "Withdrawals before retirement"), money(withdrawals), t("Gồm phí trả từ quỹ nếu có.", "Includes fees paid from the fund, if any."));
-    data.result = `${money(s.initialRetirementCapital)} + ${money(contributions)} + (${money(growth)}) + ${money(injections)} − ${money(withdrawals)} ≈ ${money(s.atRetirement.projectedFund)}`;
+    if (paid !== "0") step(t("Khoản rút trước nghỉ hưu", "Withdrawals before retirement"), money(paid),
+      hasTradingCosts ? t("Phần quỹ chi trả được, gồm phí trả từ quỹ nếu có.", "Amount covered by the fund, including fund-paid fees if applicable.") : t("Gồm phí trả từ quỹ nếu có.", "Includes fees paid from the fund, if any."));
+    if (tradingCosts !== "0") step(t("Chi phí giao dịch và tái cân bằng", "Trading and rebalancing costs"), money(tradingCosts),
+      t("Trừ khỏi số dư sau khoản rút và trước khi tính tăng trưởng tháng.", "Deducted after withdrawals and before applying monthly growth."));
+    if ([contributions, growth, injections, paid, tradingCosts].every(value => value !== null)) {
+      const parts = [money(s.initialRetirementCapital), `+ ${money(contributions)}`, `+ (${money(growth)})`];
+      if (injections !== "0") parts.push(`+ ${money(injections)}`);
+      if (paid !== "0") parts.push(`− ${money(paid)}`);
+      if (tradingCosts !== "0") parts.push(`− ${money(tradingCosts)}`);
+      data.result = `${parts.join(" ")} ≈ ${money(s.atRetirement.projectedFund)}`;
+    }
     data.note = t("Số tổng cộng từ các dòng tiền trong cùng dự phóng. Làm tròn chỉ khi hiển thị nên cộng các số đã làm tròn có thể lệch nhỏ. Kế hoạch có lịch góp hoặc lợi suất thay đổi được tính lần lượt từng tháng.", "Totals use cashflows from this projection. Display rounding can cause small differences when adding formatted amounts. Variable contributions and returns are applied month by month.");
-    data.formula = { expression: startW ? (timing?.startsWith("START") ? "Bₜ = max(0; Bₜ₋₁ + Sₜ − Wₜ) × Gₜ + Cₜ + Jₜ" : "Bₜ = max(0; Bₜ₋₁ − Wₜ) × Gₜ + Cₜ + Jₜ") : timing?.startsWith("START") ? "Bₜ = (Bₜ₋₁ + Cₜ) × Gₜ + Jₜ − Wₜ" : "Bₜ = Bₜ₋₁ × Gₜ + Cₜ + Jₜ − Wₜ", description: t("B: số dư quỹ; C: tiền góp thực tế trong mô hình; G: hệ số tăng trưởng tháng; J: vốn giải phóng; W: khoản rút. Tính lần lượt từng tháng theo thời điểm góp. Hệ số và mức góp có thể thay đổi, nên không áp công thức góp cố định cho mọi phương án.", "B: fund balance; C: modeled contributions; G: monthly growth factor; J: capital releases; W: withdrawals. Apply month by month using contribution timing. Returns and contributions can vary, so a constant-annuity formula does not apply to every option.") };
+    const depositsAtStart = timing?.startsWith("START");
+    data.referenceFormula = {
+      title: depositsAtStart
+        ? t("Công thức khi góp đều đầu tháng", "Formula for fixed start-of-month deposits")
+        : t("Công thức khi góp đều cuối tháng", "Formula for fixed end-of-month deposits"),
+      expression: <span className="money-explanation-equation" role="img"
+        aria-label={`FV = P × (1 + r)ⁿ + A × [(1 + r)ⁿ − 1] ÷ r${depositsAtStart ? " × (1 + r)" : ""}`}>
+        <span aria-hidden="true">FV = P × (1 + r)<sup>n</sup></span>
+        <span className="money-explanation-equation-term" aria-hidden="true">
+          <span>+ A ×</span>
+          <span className="money-explanation-fraction">
+            <span>(1 + r)<sup>n</sup> − 1</span>
+            <span>r</span>
+          </span>
+          {depositsAtStart && <span>× (1 + r)</span>}
+        </span>
+      </span>,
+      description: t("P là vốn đầu kỳ, A là tiền góp mỗi tháng, n là số tháng tích lũy và r là lãi suất danh nghĩa năm chia 12. Công thức áp dụng khi tiền góp và lợi suất cố định, không có phí, khoản rút hoặc vốn bổ sung. Nếu lãi suất bằng 0, quỹ bằng tổng vốn và tiền góp.", "P is opening capital, A the monthly deposit, n the number of accumulation months, and r the nominal annual rate divided by 12. This formula assumes fixed deposits and returns, with no fees, withdrawals or capital releases. At zero interest, the fund is opening capital plus all deposits."),
+    };
   } else if (metric === "gap") {
     data.label = t("Chênh lệch tài chính tại mốc nghỉ hưu", "Funding gap at retirement");
     data.warning = isShort;
@@ -74,16 +122,39 @@ export function planMoneyExplanation(metric: PlanMoneyMetric, preview: Retiremen
     data.label = t("Chi tiêu tháng đầu tiên khi nghỉ hưu", "First retirement month's living expenses");
     data.value = monthly(s.futureMonthlyExpense);
     const usesPinnedSources = Boolean(preview.reforecast || preview.modelVersion === "retirement-monthly-v4");
+    data.referenceFormula = {
+      title: t("Công thức trượt giá", "Inflation formula"),
+      expression: <span className="money-explanation-power" role="img" aria-label={t(
+        `Một cộng lạm phát năm chia 12, tất cả lũy thừa ${s.accumulationMonths}`,
+        `One plus annual inflation divided by 12, all raised to ${s.accumulationMonths}`,
+      )}>
+        <span className="money-explanation-power-base" aria-hidden="true">
+          <span>(</span><span>1 +</span>
+          <span className="money-explanation-fraction">
+            <span>{t("Lạm phát năm", "Annual inflation")}</span><span>12</span>
+          </span>
+          <span>)</span>
+        </span>
+        <sup aria-hidden="true">{s.accumulationMonths}</sup>
+      </span>,
+      description: t("Nhân chi tiêu hôm nay với hệ số trên để ra chi tiêu lúc nghỉ hưu khi lạm phát cố định. Số mũ là số tháng còn lại đến lúc nghỉ hưu. Khi tỷ lệ thay đổi, nhân lần lượt hệ số trượt giá của từng tháng.", "Multiply today's spending by this factor to get retirement spending when inflation is constant. The exponent is the number of months until retirement. If the rate varies, multiply the individual monthly inflation factors."),
+    };
     data.description = usesPinnedSources ? t("Chi sinh hoạt danh nghĩa của các nguồn có hiệu lực trong tháng nghỉ hưu ở dự phóng đang xem. Không lấy hồ sơ mới để thay số liệu của phiên bản đã lưu.", "Nominal living expenses from sources effective in the displayed retirement month. Current profile edits do not replace saved-version values.") : t("Số tiền cần để duy trì mức chi sinh hoạt đã chọn sau trượt giá đến tháng đầu nghỉ hưu. Trả nợ và các khoản chi khác có lịch riêng.", "The amount needed to maintain your selected living expenses after inflation through the first retirement month. Debt and other expenses have separate schedules.");
     if (!usesPinnedSources) {
       step(t("Chi tiêu mong muốn theo giá hôm nay", "Selected spending at today's prices"), monthly(preview.selection.monthlyExpenseToday));
       // This factor is display-only; the result always comes from the server.
       const factor = accumulation.length === s.accumulationMonths ? accumulation.reduce((v, row) => v * Number(row.inflationFactor), 1) : NaN;
-      step(t("Hệ số trượt giá đến tháng nghỉ hưu", "Inflation factor through retirement"), Number.isFinite(factor) ? `× ${new Intl.NumberFormat(en ? "en-US" : "vi-VN", { maximumFractionDigits: 6 }).format(factor)}` : t("Xem từng tháng", "See monthly factors"), t("Nhân lần lượt các hệ số lạm phát theo tháng; hệ số hiển thị được làm tròn.", "Multiply the monthly inflation factors in sequence; the displayed factor is rounded."));
+      const factors = accumulation.map(row => Number(row.inflationFactor));
+      const constantRate = factors.length > 0 && factors.every(value => Math.abs(value - factors[0]) < 1e-12);
+      const percent = constantRate ? new Intl.NumberFormat(en ? "en-US" : "vi-VN", { maximumFractionDigits: 6 }).format((factors[0] - 1) * 1200) : null;
+      const rate = percent === null ? "" : t(`Lạm phát cố định ${percent}%/năm. `, `Fixed inflation of ${percent}% per year. `);
+      step(t("Hệ số trượt giá đến tháng nghỉ hưu", "Inflation factor through retirement"), Number.isFinite(factor) ? `× ${new Intl.NumberFormat(en ? "en-US" : "vi-VN", { maximumFractionDigits: 6 }).format(factor)}` : t("Xem từng tháng", "See monthly factors"), rate + t("Ghép lãi từng tháng. Hệ số hiển thị được làm tròn.", "Compounded monthly. The displayed factor is rounded."));
     }
     step(t("Chi sinh hoạt tháng nghỉ hưu trong dự phóng", "Projected retirement-month living expenses"), monthly(retired?.livingExpense));
     data.result = monthly(s.futureMonthlyExpense);
-    data.note = t("Số tiền lấy từ tháng nghỉ hưu trong cùng kết quả tính. Lạm phát theo bộ giả định hệ thống; không mặc định 3,5% cho mọi kế hoạch.", "The amount comes from the retirement month in this calculation. Inflation follows system assumptions, not a fixed 3.5% for every plan.");
+    data.note = preview.replayInput?.retirementPlanningAnnualPercent != null
+      ? t("Lạm phát được chốt cho toàn bộ lần tính theo bộ giả định của phương án.", "This projection uses the same pinned planning inflation rate throughout.")
+      : t("Số tiền và lạm phát lấy từ phiên bản dự phóng đang xem.", "The amount and inflation come from the displayed projection.");
   } else {
     data.label = t("Ngân sách có thể trích góp tháng đầu", "First month's contribution budget");
     data.value = monthly(first?.contributionCapacity);
