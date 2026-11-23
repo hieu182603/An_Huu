@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { setupRemaining } from "./remaining-helpers";
 import { discoveryApi } from "./discovery-helpers";
-import { formatMoneyDecimal } from "../src/utils/moneyDisplay";
+import { formatCompactMoneyDecimal, formatMoneyDecimal } from "../src/utils/moneyDisplay";
 import { financeMoney } from "../src/utils/financeHubSummary";
 
 const financeNames = ["Giải thích Thu nhập + lương hưu", "Giải thích Chi tiêu sinh hoạt", "Giải thích Trả nợ trong tháng", "Giải thích Phần dư thu chi"];
@@ -134,21 +134,39 @@ test("profile explanations use profile totals rather than a plan's selected rese
   expect(s.writes.filter(w => !w.path.endsWith("/preview"))).toEqual([]);
 });
 
-test("a surplus clamps only the displayed missing amount; no invalid subtraction is claimed", async ({ page, request }) => {
+for (const [declared, remaining] of [
+  ["42000000", "58000000"],
+  ["150000000", "0"],
+  [null, null],
+] as const) test(`the remaining gap uses declared capital of ${declared ?? "unknown"} even when the projection has a surplus`, async ({ page, request }) => {
   const s = await setupRemaining(page, request, "/user/plan", { savedPlan: false });
   const res = await request.post(`${discoveryApi}/api/v1/me/retirement/preview`, { headers: { Authorization: `Bearer ${s.fixture.accessToken}` }, data: s.fixture.planInput });
   const { data } = await res.json();
-  const summary = { ...data.calculation.summary, atRetirement: { ...data.calculation.summary.atRetirement, requiredFund: "100000000", projectedFund: "300000000", fundingGap: "-200000000" } };
-  await page.route("**/api/v1/me/retirement/preview**", route => route.fulfill({ json: { data: { ...data, calculation: { ...data.calculation, summary } } } }));
+  const summary = { ...data.calculation.summary, initialRetirementCapital: "20000000", atRetirement: { ...data.calculation.summary.atRetirement, requiredFund: "100000000", projectedFund: "300000000", fundingGap: "-200000000" } };
+  const capitalSeparation = { ...data.capitalSeparation, retirementLiquidAssets: declared };
+  await page.route("**/api/v1/me/retirement/preview**", route => route.fulfill({ json: { data: { ...data, capitalSeparation, calculation: { ...data.calculation, summary } } } }));
   await page.evaluate(input => sessionStorage.setItem("anhuu:plan-draft:USR-001", JSON.stringify(input)), s.fixture.planInput); await page.reload();
+  const gapTile = page.locator(".metric-tile").filter({ has: page.getByRole("button", { name: "Giải thích: Phần còn thiếu" }) });
+  await expect(gapTile).toContainText(remaining === null ? "Chưa xác định" : formatMoneyDecimal(remaining));
   const { dialog } = await open(page, "Giải thích: Phần còn thiếu");
-  await expect(dialog.locator(".money-explanation-kpi > strong")).toHaveText("0 ₫");
-  await expect(dialog.locator(".money-explanation-result")).toContainText("max(0;");
-  await expect(dialog).toContainText("Vượt quỹ cần: 200.000.000 ₫");
-  await dialog.getByRole("button", { name: "Xem các phương án", exact: true }).click(); await expect(page).toHaveURL(/view=history/);
+  await expect(dialog.locator(".money-explanation-kpi > strong")).toHaveText(formatCompactMoneyDecimal(remaining));
+  await expect(dialog).toContainText("Trừ vốn dành cho hưu trí đã khai ban đầu");
+  const tryContribution = dialog.getByRole("button", { name: "Thử mức góp hằng tháng" });
+  if (remaining === null) {
+    await expect(tryContribution).toHaveCount(0);
+    await expect(dialog.getByRole("link", { name: "Khai vốn hưu trí" })).toHaveAttribute("href", "/user/profile?section=assets");
+  } else {
+    await expect(dialog.locator(".money-explanation-result")).toContainText(`max(0; ${formatMoneyDecimal("100000000")} − ${formatMoneyDecimal(declared)}) ≈ ${formatMoneyDecimal(remaining)}`);
+    if (remaining === "0") {
+      await expect(tryContribution).toHaveCount(0);
+    } else {
+      await expect(dialog).toContainText("hãy thử một khoản góp hằng tháng phù hợp với ngân sách");
+      await tryContribution.click();
+      await expect(page.getByRole("dialog", { name: "Chọn mức góp vừa với bạn" })).toBeVisible();
+    }
+  }
   expect(s.writes.filter(w => !w.path.endsWith("/preview"))).toEqual([]);
 });
-
 for (const [name, income, expense, surplus] of [
   ["known negative", "9007199254740993.01", "9007199259740993.01", "-5000000"],
   ["unknown", null, "0", null],

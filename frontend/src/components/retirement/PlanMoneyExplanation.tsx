@@ -5,6 +5,7 @@ import { Decimal } from "../../utils/decimal";
 import { financeAmount } from "../../utils/financeHubSummary";
 import { formatMoneyDecimal, formatCompactMoneyDecimal } from "../../utils/moneyDisplay";
 import { formatMonthVN } from "../../utils/date";
+import { retirementCapitalGap } from "../../utils/retirementCapitalGap";
 import MoneyExplanationDialog, { type MoneyExplanation } from "../MoneyExplanationDialog";
 
 export type PlanMoneyMetric = "required" | "projected" | "gap" | "expense" | "capacity";
@@ -22,13 +23,11 @@ export function planMoneyExplanation(metric: PlanMoneyMetric, preview: Retiremen
   const accumulation = rows.filter(row => row.month < s.retirementMonth);
   const retired = rows.find(row => row.month === s.retirementMonth);
   const first = rows[0];
-  const gap = financeAmount(s.atRetirement.fundingGap);
-  const missing = gap === null ? null : Decimal.max(0, gap).toString();
-  const isShort = gap !== null && new Decimal(gap).gt(0);
+  const { declared, remaining } = retirementCapitalGap(preview);
   const timing = calc.conventions?.contributionTiming;
   const date = formatMonthVN(s.retirementMonth);
   const titles: Record<PlanMoneyMetric, string> = { required: t("Quỹ cần khi nghỉ hưu", "Fund needed at retirement"), projected: t("Quỹ dự kiến có", "Projected fund"), gap: t("Phần còn thiếu", "Remaining gap"), expense: t("Chi tiêu lúc nghỉ hưu", "Spending in retirement"), capacity: t("Khả năng ngân sách", "Contribution capacity") };
-  const values = { required: s.atRetirement.requiredFund, projected: s.atRetirement.projectedFund, gap: missing, expense: s.futureMonthlyExpense, capacity: first?.contributionCapacity };
+  const values = { required: s.atRetirement.requiredFund, projected: s.atRetirement.projectedFund, gap: remaining, expense: s.futureMonthlyExpense, capacity: first?.contributionCapacity };
   const data: MoneyExplanation = {
     title: `${t("Giải thích", "Explanation")}: ${titles[metric]}`, label: titles[metric], value: money(values[metric]),
     subtitle: `${t("Tại tháng nghỉ hưu", "At retirement in")} ${date}`, description: "", steps: [], result: money(values[metric]),
@@ -110,14 +109,23 @@ export function planMoneyExplanation(metric: PlanMoneyMetric, preview: Retiremen
       description: t("P là vốn đầu kỳ, A là tiền góp mỗi tháng, n là số tháng tích lũy và r là lãi suất danh nghĩa năm chia 12. Công thức áp dụng khi tiền góp và lợi suất cố định, không có phí, khoản rút hoặc vốn bổ sung. Nếu lãi suất bằng 0, quỹ bằng tổng vốn và tiền góp.", "P is opening capital, A the monthly deposit, n the number of accumulation months, and r the nominal annual rate divided by 12. This formula assumes fixed deposits and returns, with no fees, withdrawals or capital releases. At zero interest, the fund is opening capital plus all deposits."),
     };
   } else if (metric === "gap") {
-    data.label = t("Chênh lệch tài chính tại mốc nghỉ hưu", "Funding gap at retirement");
-    data.warning = isShort;
-    data.description = gap === null ? t("Chưa đủ số liệu để xác định chênh lệch tại tháng nghỉ hưu.", "Insufficient data to determine the retirement funding gap.") : isShort ? t("Phần vốn còn thiếu so với quỹ cần tại tháng nghỉ hưu. Đây là chênh lệch tại một mốc, khác với tổng khoản chi thiếu nguồn trong suốt kế hoạch.", "Capital still needed at retirement. This gap at a single date differs from cumulative unfunded withdrawals across the plan.") : t("Quỹ dự kiến đã đạt hoặc vượt quỹ cần tại tháng nghỉ hưu, nên phần còn thiếu hiển thị bằng 0. Vẫn cần kiểm tra ngân sách và thiếu hụt ở các tháng khác.", "The projected fund meets or exceeds the fund needed at retirement, so the remaining gap is zero. Budget and other monthly shortfalls still need review.");
+    data.subtitle = t("So với vốn hưu trí đã khai ban đầu", "Compared with initially declared retirement capital");
+    data.warning = remaining !== null && remaining !== "0";
+    data.parameters = undefined;
+    data.description = remaining === null
+      ? t("Chưa đủ số liệu để tính phần còn thiếu.", "There is not enough information to calculate the remaining gap.")
+      : t("Lấy quỹ cần khi nghỉ hưu trừ vốn hưu trí bạn đã khai ban đầu. Nếu vốn đã khai bằng hoặc lớn hơn quỹ cần, phần còn thiếu là 0.", "Subtract your initially declared retirement capital from the fund needed at retirement. If the declared capital meets or exceeds the target, the remaining gap is zero.");
     step(t("Quỹ cần khi nghỉ hưu", "Fund needed at retirement"), money(s.atRetirement.requiredFund));
-    step(t("Trừ quỹ dự kiến có", "Subtract the projected fund"), money(s.atRetirement.projectedFund));
-    data.result = `max(0; ${money(s.atRetirement.requiredFund)} − ${money(s.atRetirement.projectedFund)}) ≈ ${money(missing)}`;
-    if (gap !== null && new Decimal(gap).lt(0)) data.parameters!.push(`${t("Vượt quỹ cần", "Above required fund")}: ${money(new Decimal(0).minus(gap).toString())}`);
-    data.note = isShort ? s.requiredConstantMonthlyContribution == null ? t("Chưa có mức góp đều phù hợp cho các kỳ góp hiện tại. Rà soát vốn đầu kỳ, thời điểm và chi tiêu trước khi lưu.", "No constant contribution solution is available for the current periods. Review opening capital, timing and spending before saving.") : `${t("Mức góp đều tham chiếu", "Reference constant contribution")}: ${monthly(s.requiredConstantMonthlyContribution)}. ${t("Đối chiếu ngân sách trước khi chọn.", "Check your budget before choosing it.")}` : t("Đáp ứng tại mốc nghỉ hưu không phải cam kết kết quả hay xác suất thành công.", "Meeting the target at retirement is not a guarantee or a success probability.");
+    step(t("Trừ vốn dành cho hưu trí đã khai ban đầu", "Subtract initially declared retirement capital"), money(declared),
+      t("Số vốn trong hồ sơ, chưa tính các khoản góp và tăng trưởng trong tương lai.", "The amount in your profile before future contributions and growth."));
+    if (remaining !== null) data.result = `max(0; ${money(s.atRetirement.requiredFund)} − ${money(declared)}) ≈ ${money(remaining)}`;
+    if (declared === null) {
+      data.note = t("Vào mục Tài sản để khai số vốn hiện có dành cho hưu trí, rồi quay lại xem kết quả.", "Enter your existing retirement capital under Assets, then return to see the result.");
+    } else if (data.warning && s.accumulationMonths > 0 && !preview.reforecast) {
+      data.note = t("Để chuẩn bị thêm, hãy thử một khoản góp hằng tháng phù hợp với ngân sách. Xem quỹ dự kiến có khi nghỉ hưu để biết mức góp đó đưa bạn đến gần mục tiêu bao nhiêu.", "To build your fund, try a monthly contribution that fits your budget. Check the projected fund at retirement to see how close that contribution gets you to your goal.");
+    } else if (data.warning) {
+      data.note = t("Nếu bạn có thêm vốn thực tế đã dành riêng cho hưu trí, hãy cập nhật số tiền đó trong mục Tài sản.", "If you have set aside additional capital for retirement, update that amount under Assets.");
+    }
   } else if (metric === "expense") {
     data.label = t("Chi tiêu tháng đầu tiên khi nghỉ hưu", "First retirement month's living expenses");
     data.value = monthly(s.futureMonthlyExpense);
@@ -177,14 +185,27 @@ export function planMoneyExplanation(metric: PlanMoneyMetric, preview: Retiremen
   return data;
 }
 
-export default function PlanMoneyExplanation({ metric, preview, onClose, onAdjust, onHistory }: {
-  metric: PlanMoneyMetric; preview: RetirementPreviewResult; onClose: () => void; onAdjust?: () => void; onHistory?: () => void;
+export default function PlanMoneyExplanation({ metric, preview, onClose, onAdjust }: {
+  metric: PlanMoneyMetric; preview: RetirementPreviewResult; onClose: () => void; onAdjust?: () => void;
 }) {
   const en = useI18n().language === "en";
   const data = planMoneyExplanation(metric, preview, en);
   if (!data) return null;
-  const funded = metric === "gap" && !data.warning;
-  const label = funded ? (en ? "View saved options" : "Xem các phương án") : metric === "required" || metric === "expense" ? (en ? "Edit plan options" : "Chỉnh sửa phương án") : (en ? "Choose contribution" : "Chọn mức góp");
-  const act = funded ? onHistory : onAdjust;
-  return <MoneyExplanationDialog data={data} onClose={onClose} action={act ? <button type="button" className="overview-button primary" onClick={() => { onClose(); act(); }}>{label}</button> : <Link className="overview-button primary" to={funded ? "/user/plan?view=history" : metric==="required"||metric==="expense"?"/user/plan?dialog=options":"/user/plan?dialog=contribution"} onClick={onClose}>{label}</Link>} />;
+  if (metric === "gap") {
+    const { declared } = retirementCapitalGap(preview);
+    const canTryContribution = data.warning && !preview.reforecast && (preview.calculation?.summary.accumulationMonths ?? 0) > 0;
+    const tryLabel = en ? "Try a monthly contribution" : "Thử mức góp hằng tháng";
+    const assetsLabel = declared === null
+      ? (en ? "Enter retirement capital" : "Khai vốn hưu trí")
+      : (en ? "Update retirement capital" : "Cập nhật vốn hưu trí");
+    const action = canTryContribution
+      ? onAdjust
+        ? <button type="button" className="overview-button primary" onClick={() => { onClose(); onAdjust(); }}>{tryLabel}</button>
+        : <Link className="overview-button primary" to="/user/plan?dialog=contribution" onClick={onClose}>{tryLabel}</Link>
+      : (declared === null || data.warning) && <Link className="overview-button primary" to="/user/profile?section=assets" onClick={onClose}>{assetsLabel}</Link>;
+    return <MoneyExplanationDialog data={data} onClose={onClose} action={action} />;
+  }
+  const editOptions = metric === "required" || metric === "expense";
+  const label = editOptions ? (en ? "Edit plan options" : "Chỉnh sửa phương án") : (en ? "Choose contribution" : "Chọn mức góp");
+  return <MoneyExplanationDialog data={data} onClose={onClose} action={onAdjust ? <button type="button" className="overview-button primary" onClick={() => { onClose(); onAdjust(); }}>{label}</button> : <Link className="overview-button primary" to={editOptions ? "/user/plan?dialog=options" : "/user/plan?dialog=contribution"} onClick={onClose}>{label}</Link>} />;
 }
