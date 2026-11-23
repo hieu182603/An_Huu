@@ -1,3 +1,11 @@
+## Sửa CI #110 và đồng bộ chấm thanh toán — 23/11/2026
+
+- Đọc log GitHub Actions run 45122543346: 5 test lỗi trong 4 file. Các sửa fixture đã có trong workspace được giữ nguyên và kiểm lại: khai rõ retirementPlanningAnnualPercent cho parity phí v5, quick-start inflation và CSV số lẻ; plansFixture nhận configuration tùy chọn. Không đổi công thức production.
+- Sửa test preview-cache: giữ/release các lệnh Worker.postMessage để kiểm trực tiếp plain preview được phân công worker riêng và search thứ hai chờ search đầu. Không dựa vào thứ tự hoàn thành do tốc độ CPU/worker.
+- Frontend: billing-nav-dot dùng chung màu đỏ #dc2626 ở navbar và header, bỏ hai override màu trùng.
+- Kiểm local: 36/36 test trong 4 file từng lỗi PASS; npm --prefix backend run verify PASS (source/test typecheck, 1622/1622 test trong 148 file, build, production startup guard không kết nối DB); frontend typecheck PASS; git diff --check PASS. Log: .tmp-ci-verify.log tại root.
+- Chưa commit/push, chưa chạy lại GitHub CI, không migration/DB production/deploy. Tiếp theo: chạy lại workflow trên commit chứa bản sửa để xác nhận CI và các job integration/deploy phía sau.
+
 ## Khôi phục mã QR thanh toán hết hạn — 20/11/2026
 
 - BillingService.pay đối soát đơn cũ với payOS. Khi mã cũ hết hạn, dịch vụ yêu cầu hủy mã và xác nhận mã đã đóng trước khi tạo đơn mới. Nếu payOS đã nhận tiền, ghi nhận giao dịch và chuyển khách tới trạng thái kỳ phí thay vì phát mã mới. Trường hợp payOS chưa xác nhận đóng mã tiếp tục trả PAYMENT_CODE_UNAVAILABLE để tránh hai mã đang thu cùng kỳ.
@@ -1820,3 +1828,6 @@ Giữ nguyên thay đổi từ AI frontend và AI dữ liệu; không coi dữ l
 - Đề xuất `SIM_WORKERS`: giữ mặc định 1 trên B2 (2 lõi; 1 lõi còn lại cho request web). Chưa có số để nâng lên 2.
 - Sửa lỗi chủ sản phẩm phát hiện: bước 2 "Mức chịu giảm" chỉ điền ô khi bấm chip %, phải bấm "Lưu mức giảm" mới lưu; bấm "Tiếp tục" thì bỏ giá trị không báo, nên lượt chọn danh mục báo `LOSS_TOLERANCE_REQUIRED`. Nay tự lưu: chip lưu ngay, số gõ tay lưu khi con trỏ rời cả cụm ô nhập (chuyển giữa ô % và ô số tiền ở chế độ hai giới hạn thì chưa lưu, tránh lưu một cặp nhập dở). E2E allocation-custom 30/30, allocation-result-review 38/38. Trang "Khả năng chịu rủi ro" bỏ khối mức giảm tối đa, chỉ còn câu phản ứng khi thị trường giảm và lưu kèm giới hạn đã lưu ở bước 2 (nếu chưa có thì báo chọn ở bước 2 trước).
 - Thiết kế lại khối số kịch bản: một dòng "Đang dùng N kịch bản" kèm nhãn Sơ bộ/Đạt chuẩn, một hàng nút tròn nhỏ "Chạy thêm đến 50 · 100 · 200 · 500 · 1.000" (tên cho trình đọc màn hình vẫn là "Tăng lên N kịch bản").
+## 23/11/2026 — Lạm phát và chiết khấu kế hoạch nghỉ hưu
+
+Dự phóng mới chốt tỷ lệ của bộ giả định (mặc định 3,5%/năm), ghép theo tháng cho chi sinh hoạt và chiết khấu dòng rút ròng sau lương hưu. Quỹ đầu tư tiếp tục sinh lời theo phương án. Replay cũ đọc theo quy ước đã lưu. Đã đối chiếu bằng dữ liệu snapshot chỉ đọc, chạy 98 kiểm thử backend và 4 kiểm thử giao diện. Chưa triển khai production.

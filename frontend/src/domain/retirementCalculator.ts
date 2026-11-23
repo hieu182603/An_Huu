@@ -61,7 +61,7 @@ function futureValue(principal: number, monthlyContribution: number, annualRate:
 
 function requiredFundAtRetirement(monthlyExpense: number, monthlyPension: number, annualReturn: number, annualInflation: number, months: number) {
   const monthlyReturn = Math.pow(1 + annualReturn / 100, 1 / 12) - 1;
-  const monthlyInflation = Math.pow(1 + annualInflation / 100, 1 / 12) - 1;
+  const monthlyInflation = annualInflation / 100 / 12;
   let required = 0;
   for (let month = months - 1; month >= 0; month--) {
     const withdrawal = Math.max(0, monthlyExpense * Math.pow(1 + monthlyInflation, month) - monthlyPension * Math.pow(1 + monthlyInflation, month));
@@ -87,7 +87,7 @@ export function calculateRetirement(input: RetirementCalculationInput): Retireme
     finite(input.cashSavings) + finite(input.liquidAssets) + finite(input.stockFundValue),
   );
   const projectedFund = futureValue(investableAssetsToday, Math.max(0, finite(input.monthlyContribution)), annualReturn, monthsToRetirement);
-  const inflationFactor = Math.pow(1 + annualInflation / 100, yearsToRetirement);
+  const inflationFactor = Math.pow(1 + annualInflation / 100 / 12, monthsToRetirement);
   const futureMonthlyExpense = Math.max(0, finite(input.monthlyExpenseToday)) * inflationFactor;
 
   // Loại bỏ hoàn toàn công thức demo 20 năm/45% (FE-T05-04).
@@ -132,7 +132,7 @@ export function projectBalanceAtAge(input: RetirementCalculationInput, age: numb
 
   const postMonths = Math.round((boundedAge - input.retirementAge) * 12);
   const monthlyReturn = Math.pow(1 + clamp(input.annualReturnRate, 0, 30) / 100, 1 / 12) - 1;
-  const monthlyInflation = Math.pow(1 + clamp(input.annualInflationRate, 0, 20) / 100, 1 / 12) - 1;
+  const monthlyInflation = clamp(input.annualInflationRate, 0, 20) / 100 / 12;
   let balance = targetTrack ? result.targetFund : result.projectedFund;
   for (let month = 0; month < postMonths; month++) {
     const withdrawal = Math.max(0,

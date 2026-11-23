@@ -167,7 +167,9 @@ describe("T08 report, comparison, simulation and CSV", () => {
     expect(comparison.comparison.delta).toMatchObject({ projectedFundAtValuation: "-150", fundingGapAtValuation: "150" });
   });
   it("CSV uses exact signed monthly values and source IDs with safe textual cells", async () => {
-    const f = await plansFixture(), preview = { ...f.command.preview, scenario: "ADVERSE" as const, monthlyContribution: "0", monthlyExpenseToday: "100.12" };
+    const cfg = retirementConfiguration();
+    cfg.assumptions.retirementPlanningAnnualPercent = "3.5";
+    const f = await plansFixture(undefined, cfg), preview = { ...f.command.preview, scenario: "ADVERSE" as const, monthlyContribution: "0", monthlyExpenseToday: "100.12" };
     const result = await f.retirement.preview(f.owner, preview);
     const saved = await f.plans.createVersion(f.owner, null, { expectedRevision: 0, expectedInputHash: result.inputHash, preview }, randomUUID());
     const csv = await f.plans.exportCsv(f.owner, saved.planId, saved.saved.id);

@@ -1489,6 +1489,9 @@ ReplayInput:
       type: string
     protection:
       $ref: ./retirement.openapi.yaml#/Protection
+    retirementPlanningAnnualPercent:
+      type: string
+      pattern: ^-?(0|[1-9]\d*)(\.\d+)?$
     kernelModel:
       type: string
       enum:

@@ -27,6 +27,7 @@ s.ReplayInput = obj({ valuationDate: str, retirementMonth: str, initialCapital: 
   monthlyContribution: decimal, contributionTiming: en("END_OF_MONTH", "START_OF_MONTH_RESEARCH", "START_OF_MONTH"), rows: arr(ref("MonthlyInput")) });
 s.ReplayInput.properties.modelVersion = en("retirement-monthly-v3", "retirement-monthly-v5");
 s.ReplayInput.properties.contributionStartMonth = str;
+s.ReplayInput.properties.retirementPlanningAnnualPercent = decimal;
 s.Protection=obj({model:en("protected-capital-v1"),emergencyReserve:decimal,
  goals:arr(obj({id:str,month:str,amount:decimal,openingReserve:decimal,essential:bool})),depositFactors:arr(decimal),depositAssetClass:str,rawRows:arr(ref("MonthlyInput"))});
 Object.assign(s.Protection.properties.goals.items.properties,{depositAssetClass:str,depositFactors:arr(decimal)});

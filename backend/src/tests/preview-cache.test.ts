@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
+import { Worker } from "node:worker_threads";
 import { PreviewCache } from "../modules/retirement/preview-cache";
 import { createPreviewPool, type PreviewPool } from "../modules/retirement/preview-pool";
 import { RetirementService, type PreviewResult } from "../modules/retirement/service";
@@ -67,16 +68,26 @@ describe("preview pool warm-up", () => {
   it("lets a plain preview overtake queued adjustment searches", async () => {
     const pool = createPreviewPool({ size: 1, timeoutMs: 60_000 }); pools.push(pool);
     const f = await plansFixture(), capture = await f.retirement.capture(f.db, f.owner, f.command.preview), input = f.command.preview;
-    // Start the regular and the plain-only worker first, so cold start-up does not decide the order.
-    await Promise.all([pool.run(capture, input, { adjustments: false }), pool.run(capture, input, { adjustments: false })]);
-    const order: string[] = [];
-    const track = (name: string, p: Promise<unknown>) => p.then(() => { order.push(name); });
-    const running = track("search-1", pool.run(capture, input, { adjustments: true }));
-    const queuedSearch = track("search-2", pool.run(capture, input, { adjustments: true }));
-    const plain = track("plain", pool.run(capture, input, { adjustments: false }));
-    await Promise.all([running, queuedSearch, plain]);
-    // The plain preview runs on the plain-only worker instead of waiting for search-1.
-    expect(order.indexOf("plain")).toBeLessThan(order.indexOf("search-2"));
-    expect(order.indexOf("search-1")).toBeLessThan(order.indexOf("search-2"));
+    // Hold dispatches until released: worker completion speed must not decide priority.
+    const sent: { worker: Worker; message: any }[] = [];
+    const postMessage = Worker.prototype.postMessage;
+    const spy = vi.spyOn(Worker.prototype, "postMessage").mockImplementation(function (this: Worker, message: any) {
+      sent.push({ worker: this, message });
+    });
+    try {
+      const running = pool.run(capture, input, { adjustments: true });
+      const queuedSearch = pool.run(capture, input, { adjustments: true });
+      const plain = pool.run(capture, input, { adjustments: false });
+      expect(sent.map(s => s.message.job.options.adjustments)).toEqual([true, false]);
+      expect(sent[0].worker).not.toBe(sent[1].worker);
+      postMessage.call(sent[0].worker, sent[0].message);
+      await running;
+      // The second search starts only after the first frees its search slot.
+      expect(sent.map(s => s.message.job.options.adjustments)).toEqual([true, false, true]);
+      for (const task of sent.slice(1)) postMessage.call(task.worker, task.message);
+      await Promise.all([queuedSearch, plain]);
+    } finally {
+      spy.mockRestore();
+    }
   }, 120_000);
 });

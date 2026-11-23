@@ -31,6 +31,7 @@ const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(valu
  * preview computed under v3 (end-of-month withdrawals) can never be saved as a v5 plan with the same hash. */
 export function previewInputHash(snapshot: Awaited<ReturnType<RetirementService["capture"]>>, input: RetirementPreview, model: string = RETIREMENT_MODEL) {
   return hash({ profile: snapshot.profile, input, policyHash: snapshot.policy.documentHash, assumptionHash: snapshot.assumptions.documentHash,
+    ...(model === RETIREMENT_MODEL_V5 ? { retirementPlanningAnnualPercent: snapshot.assumptions.data.retirementPlanningAnnualPercent ?? "3.5" } : {}),
     ...((input.allocationFunding || input.customAllocation) && snapshot.profile.reserveMonths === undefined ? { capitalReserveDefaultMonths: derivedReserveMonths(snapshot.profile, snapshot.assumptions.data).months } : {}),
     ...(model !== RETIREMENT_MODEL_V3 ? { modelVersion: model } : {}) });
 }

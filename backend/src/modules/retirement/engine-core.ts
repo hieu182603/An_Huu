@@ -18,6 +18,8 @@ export type ProjectionInput = {
   monthlyContribution: string; contributionTiming: "END_OF_MONTH" | "START_OF_MONTH_RESEARCH" | "START_OF_MONTH"; rows: MonthlyInput[];
   modelVersion?: "retirement-monthly-v3" | "retirement-monthly-v5";
   contributionStartMonth?: string;
+  /** Pinned nominal annual planning rate. Older snapshots use portfolio growth for discounting. */
+  retirementPlanningAnnualPercent?: string;
   protection?: Protection;
 };
 export const decimal = (value: string) => {

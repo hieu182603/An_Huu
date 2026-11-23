@@ -142,6 +142,9 @@ export function projectRetirementV5(input: ProjectionInput, hook?: V5MonthHook) 
   const endDepositAt = rows.map((r, i) => beginAt[i] ? new D(0) : r.contribution);
   // keep (1 - t) * g, the effective growth on the post-withdrawal balance
   const netGrowth = rows.map(r => r.growthFactor.mul(new D(1).minus(r.tradingCostRate)));
+  const retirementDiscount = input.retirementPlanningAnnualPercent === undefined ? undefined
+    : decimal(input.retirementPlanningAnnualPercent).div(1200).plus(1);
+  if (retirementDiscount?.lte(0)) throw new AppError(422, "INVALID_PROJECTION_INPUT", "Hệ số chiết khấu phải dương.");
 
   // Backward pass: required funded balance before each month's withdrawal. x >= 0 is needed before growth,
   // so the month's required "x" is max(0, (closing - endDeposit - injection) / ((1-t) g)).
@@ -149,9 +152,10 @@ export function projectRetirementV5(input: ProjectionInput, hook?: V5MonthHook) 
   let required = terminal, algebraic = terminal, target = new D(0), algebraicTarget = new D(0);
   for (let i = rows.length - 1; i >= 0; i--) {
     const r = rows[i]; requiredClosing[i] = required;
-    const need = required.minus(endDepositAt[i]).minus(r.capitalInjection).div(netGrowth[i]);
+    const discount = i >= n && retirementDiscount ? retirementDiscount : netGrowth[i];
+    const need = required.minus(endDepositAt[i]).minus(r.capitalInjection).div(discount);
     required = positivePart(r.withdrawal.plus(positivePart(need)).minus(startDepositAt[i]));
-    algebraic = r.withdrawal.plus(algebraic.minus(endDepositAt[i]).minus(r.capitalInjection).div(netGrowth[i])).minus(startDepositAt[i]);
+    algebraic = r.withdrawal.plus(algebraic.minus(endDepositAt[i]).minus(r.capitalInjection).div(discount)).minus(startDepositAt[i]);
     requiredOpening[i] = required;
     if (i === n) { target = required; algebraicTarget = algebraic; }
   }

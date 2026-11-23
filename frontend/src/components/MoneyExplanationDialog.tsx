@@ -16,6 +16,7 @@ export type MoneyExplanation = {
   result: string;
   note?: string;
   formula?: { expression: string; description: string };
+  referenceFormula?: { title?: string; expression: ReactNode; description: string };
   warning?: boolean;
 };
 
@@ -43,6 +44,7 @@ export default function MoneyExplanationDialog({ data, onClose, action }: {
         </li>)}</ol>
         <div className="money-explanation-result"><span>{en ? "Displayed result:" : "Kết quả hiển thị:"}</span><strong>{data.result}</strong></div>
         {data.formula && <section className="money-explanation-formula"><h3>{en ? "Calculation method" : "Cách tính"}</h3><strong>{data.formula.expression}</strong><p>{data.formula.description}</p></section>}
+        {data.referenceFormula && <section className="money-explanation-formula"><h3>{data.referenceFormula.title ?? (en ? "Formula for fixed monthly deposits" : "Công thức khi góp đều với lãi suất cố định")}</h3><strong>{data.referenceFormula.expression}</strong><p>{data.referenceFormula.description}</p></section>}
         {data.note && <p className="money-explanation-note">{data.note}</p>}
       </section>
     </div>

@@ -25,6 +25,18 @@
 .money-explanation-dialog .money-explanation-note { margin: 14px 0 0; padding: 10px; background: #f8fafc; border-radius: 8px; font-size: 12px; color: #475569; }
 .money-explanation-formula { margin-top: 14px; padding: 12px; border: 1px solid #d8e2ee; border-radius: 8px; background: #f8fafc; overflow-wrap: anywhere; }
 .money-explanation-formula > strong { display: block; font-size: 13px; line-height: 1.7; }
+.money-explanation-power { display: inline-flex; align-items: flex-start; font-size: 16px; line-height: 1.25; }
+.money-explanation-power-base { display: inline-flex; align-items: center; gap: .3em; }
+.money-explanation-power-base > span:first-child,
+.money-explanation-power-base > span:last-child { font-size: 2.1em; font-weight: 400; line-height: 1; }
+.money-explanation-fraction { display: inline-grid; text-align: center; }
+.money-explanation-fraction > span:first-child { padding: 0 .2em .15em; border-bottom: 1px solid currentColor; }
+.money-explanation-fraction > span:last-child { padding-top: .15em; }
+.money-explanation-power sup { font-size: .7em; }
+.money-explanation-equation,
+.money-explanation-equation-term { display: inline-flex; align-items: center; flex-wrap: wrap; gap: .35em; }
+.money-explanation-equation { font-family: "Cambria Math", Georgia, serif; font-size: 18px; line-height: 1.3; }
+.money-explanation-equation sup { font-size: .7em; }
 .money-explanation-formula > p { margin: 10px 0 0; font-size: 12px; }
 .money-explanation-calculation .money-explanation-formula > h3 { margin-bottom: 8px; color: #1e4e8c; }
 .money-explanation-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 24px; }

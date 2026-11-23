@@ -81,6 +81,7 @@ export default function AdminFinancialConfigPage() {
   const [createStartYear, setCreateStartYear] = useState(new Date().getFullYear());
   const [createEndYear, setCreateEndYear] = useState(new Date().getFullYear() + 25);
   const [createReason, setCreateReason] = useState("");
+  const [planningRate, setPlanningRate] = useState("3.5");
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState("");
 
@@ -190,6 +191,7 @@ export default function AdminFinancialConfigPage() {
     const endYear = detail?.data.projectionEndYear || (startYear + 25);
     setCreateTitle(detail ? `${detail.data.title} (Draft v${(versions?.total || 1) + 1})` : `Bộ giả định tài chính ${startYear}–${endYear}`);
     setCreateStartYear(startYear);
+    setPlanningRate(detail?.data.retirementPlanningAnnualPercent ?? "3.5");
     setCreateEndYear(endYear);
     setCreateReason(isEn ? "Periodic macroeconomic review and return update." : "Cập nhật định kỳ tham số kinh tế vĩ mô và lợi suất thị trường.");
     setCreateError("");
@@ -224,6 +226,7 @@ export default function AdminFinancialConfigPage() {
         sources: detail?.data.sources || [],
         historicalCpi: detail?.data.historicalCpi || [],
         inflation: detail?.data.inflation || [],
+        retirementPlanningAnnualPercent: planningRate.trim().replace(",", "."),
         assetClasses: detail?.data.assetClasses || [],
         returns: detail?.data.returns || [],
         ...(detail?.data.emergencyReserveMonths ? { emergencyReserveMonths: detail.data.emergencyReserveMonths } : {}),
@@ -661,6 +664,8 @@ export default function AdminFinancialConfigPage() {
           </p>
 
           {createError && <Alert tone="danger" title={createError} />}
+          <Input label={isEn ? "Retirement planning inflation (% per year)" : "Lạm phát dùng cho kế hoạch nghỉ hưu (%/năm)"}
+            value={planningRate} onChange={setPlanningRate} />
 
           <Input
             label={isEn ? "Version Title" : "Tiêu đề phiên bản"}

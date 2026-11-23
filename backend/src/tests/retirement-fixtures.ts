@@ -15,6 +15,7 @@ export function retirementCommand(policyVersionId = "00000000-0000-4000-8000-000
 }
 export function retirementConfiguration() {
   const assumptions = portfolioAssumptionsFixture(), policy = portfolioFixture();
+  assumptions.retirementPlanningAnnualPercent = "0";
   assumptions.inflation = assumptions.inflation.map(r => ({ ...r, percent: "0" }));
   assumptions.returns = assumptions.returns.map(r => ({ ...r, rate: { type: "EFFECTIVE_ANNUAL", percent: "0" } }));
   return { assumptions, policy };

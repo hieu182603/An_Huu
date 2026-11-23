@@ -28,8 +28,11 @@ const monthIndex = (month: string) => Number(month.slice(0, 4)) * 12 + Number(mo
 const unique = (issues: Issue[]) => issues.filter((v, i) => issues.findIndex(o => o.path === v.path && o.code === v.code) === i);
 
 export function prepareRetirement(profile: ProfileV2, command: RetirementPreview, policy: PortfolioDocument, assumptions: AssumptionDocument, cache?: PortfolioPreviewCache,
-  modelVersion: NonNullable<ProjectionInput["modelVersion"]> = RETIREMENT_MODEL) {
+  modelVersion: NonNullable<ProjectionInput["modelVersion"]> = RETIREMENT_MODEL,
+  usePinnedPlanningRate = true) {
   const v5 = modelVersion === RETIREMENT_MODEL_V5;
+  const planningPercent = v5 && usePinnedPlanningRate ? assumptions.retirementPlanningAnnualPercent ?? "3.5" : undefined;
+  const planningFactor = planningPercent === undefined ? undefined : new D(planningPercent).div(1200).plus(1).toFixed();
   const data = profileV2Schema.parse(profile), input = retirementPreviewSchema.parse(command);
   const issues: Issue[] = [], warnings: Issue[] = [...dependentWarnings(data)];
   const issue = (path: string, code: string) => issues.push({ path, code });
@@ -259,11 +262,11 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
       ? month < contributionStartMonth ? new D(0) : D.min(householdCapacity, startAvailable) : householdCapacity;
     const contribution = D.min(planned, capacity);
     rows.push({ month, growthFactor: v5 ? scenario.rows[i].grossReturnMonthlyFactor! : scenario.rows[i].returnMonthlyFactor,
-      ...(v5 ? { tradingCostRate: scenario.rows[i].rebalanceCostFraction } : {}), inflationFactor: scenario.rows[i].inflationMonthlyFactor,
+      ...(v5 ? { tradingCostRate: scenario.rows[i].rebalanceCostFraction } : {}), inflationFactor: planningFactor ?? scenario.rows[i].inflationMonthlyFactor,
       income: income.toFixed(), pension: pension.toFixed(), livingExpense: living.toFixed(), additionalExpense: extraExpense.toFixed(), debtPayment: debt.toFixed(),
       plannedContribution: planned.toFixed(), contribution: contribution.toFixed(), contributionCapacity: capacity.toFixed(),
       withdrawal: D.max(0, remaining.neg()).toFixed(), uninvestedSurplus: householdCapacity.minus(contribution).toFixed(), capitalInjection: (injections.get(month) ?? new D(0)).toFixed() });
-    inflationIndex = inflationIndex.mul(scenario.rows[i].inflationMonthlyFactor);
+    inflationIndex = inflationIndex.mul(planningFactor ?? scenario.rows[i].inflationMonthlyFactor);
   }
   if (issues.length) return fail();
   const spendingFloor = buildSpendingFloor(data, input, policy, assumptions,
@@ -288,6 +291,7 @@ export function prepareRetirement(profile: ProfileV2, command: RetirementPreview
   const fundedRows=protection?protectCashflows(rows,protection):rows;
   const replayInput: ProjectionInput = { valuationDate: data.valuationDate, retirementMonth, initialCapital,
     modelVersion, contributionStartMonth,
+    ...(planningPercent === undefined ? {} : {retirementPlanningAnnualPercent: planningPercent}),
     terminalBalance: input.terminalBalance, monthlyContribution: input.monthlyContribution, contributionTiming: input.contributionTiming,
     rows: applyAdvisoryFee(fundedRows, initialCapital, retirementMonth, input, v5),...(protection?{protection}:{}) };
   const projected = projectRetirement(replayInput);

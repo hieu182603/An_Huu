@@ -57,7 +57,8 @@ describe("emergency reserve months follow declared income stability (spec 3.2)",
       const base = { profile: snapshot.profile, input: preview.selection, policyHash: snapshot.policy.documentHash, assumptionHash: snapshot.assumptions.documentHash };
       // B1: v5 previews also hash their model version; v3 hashes keep the exact legacy object.
       const model = preview.modelVersion === "retirement-monthly-v3" ? {} : { modelVersion: preview.modelVersion };
-      expect(preview.inputHash).toBe(hashOf({ ...base, capitalReserveDefaultMonths: marker, ...model }));
+      const rate = preview.modelVersion === "retirement-monthly-v5" ? {retirementPlanningAnnualPercent: snapshot.assumptions.data.retirementPlanningAnnualPercent ?? "3.5"} : {};
+      expect(preview.inputHash).toBe(hashOf({ ...base, ...rate, capitalReserveDefaultMonths: marker, ...model }));
       results[name] = { inputHash: preview.inputHash, months: preview.capitalSeparation?.reserveMonths, expectedMarker: marker };
       expect(preview.capitalSeparation?.reserveMonths).toBe(marker);
       if (marker === 6) expect(previewInputHash(snapshot, preview.selection, "retirement-monthly-v3")).toBe(hashOf({ ...base, capitalReserveDefaultMonths: 6 })); // exact legacy v3 object shape

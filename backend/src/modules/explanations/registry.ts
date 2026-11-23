@@ -196,6 +196,15 @@ export function explainMetric(metricKey: string, preview: ExplanationPreview, ca
 
   if (metricKey === "summary.atRetirement.requiredFund") {
     money("Số dư mong muốn cuối kế hoạch", "Target end-of-plan balance", replay.terminalBalance, "replayInput.terminalBalance");
+    const planningRate = (replay as {retirementPlanningAnnualPercent?: string}).retirementPlanningAnnualPercent;
+    if (v5 && planningRate !== undefined) {
+      add("Lãi suất chiết khấu năm", "Annual discount rate", planningRate, "PERCENT", "replayInput.retirementPlanningAnnualPercent");
+      rowSteps(n, replay.rows.length, flows.filter(([key]) => key !== "growthFactor" && key !== "tradingCostRate"));
+      return result("Quỹ cần khi nghỉ hưu", "Required fund at retirement", summary.atRetirement.requiredFund, "VND",
+        "Chiết khấu dòng rút sau thu nhập và lương hưu theo mức lạm phát đã chốt. Rút đầu tháng, góp và giải phóng vốn cuối tháng.",
+        "Discount withdrawals net of income and pension at the pinned planning rate. Withdrawals occur at the start and deposits and capital releases at the end of the month.",
+        "K_(t−1) = W_t + max(0, (K_t − C_t − J_t) / (1 + annualPercent / 1200))");
+    }
     rowSteps(n, replay.rows.length, flows);
     notes.push("Tính ngược từng tháng hưu trí, không vay trước một khoản thu trong tương lai. Vì vậy đây có thể lớn hơn PV đại số chỉ xét cuối kỳ.");
     if (v5) notes.push("Mô hình v5: khoản rút được trừ ở đầu tháng, trước lãi của tháng đó; số dư âm không sinh lãi và không được bù bởi thu nhập tương lai.");

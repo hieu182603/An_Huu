@@ -61,7 +61,64 @@ test("overview and plan explain the same pinned projection; actions navigate wit
   await expect(page.getByRole("dialog",{name:"Chọn mức góp vừa với bạn",exact:true})).toBeVisible(); await page.keyboard.press("Escape");
   await page.goto("/user/plan"); const { dialog } = await open(page, "Giải thích: Quỹ cần khi nghỉ hưu");
   await expect(dialog.locator(".money-explanation-kpi")).toContainText(formatMoneyDecimal(summary.atRetirement.requiredFund));
+  await expect(dialog.getByText("Giá trị hiện tại của dòng tiền khi nghỉ hưu")).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Công thức PV khi rút đều" })).toBeVisible();
+  await expect(dialog.locator(".money-explanation-formula")).toHaveCount(1);
+  await expect(dialog).toContainText("PV = W × [1 − (1 + r)⁻ⁿ] ÷ r");
+  await expect(dialog).toContainText(`(1 + r)^(${-summary.retirementMonths})`);
   await dialog.getByRole("button", { name: "Chỉnh sửa phương án", exact: true }).click(); await expect(page.getByRole("dialog",{name:"Chỉnh sửa phương án",exact:true})).toBeVisible();
+  expect(s.writes.filter(w => !w.path.endsWith("/preview"))).toEqual([]);
+});
+
+test("projected fund reconciles trading costs and funded withdrawals", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const s = await setupRemaining(page, request, "/user/plan", { savedPlan: false });
+  const res = await request.post(`${discoveryApi}/api/v1/me/retirement/preview`, { headers: { Authorization: `Bearer ${s.fixture.accessToken}` }, data: s.fixture.planInput });
+  expect(res.ok()).toBe(true);
+  const { data } = await res.json();
+  const { calculation } = data;
+  const summary = { ...calculation.summary, accumulationMonths: 2, initialRetirementCapital: "8000000",
+    retirementMonth: calculation.rows[2].month, atRetirement: { ...calculation.summary.atRetirement, projectedFund: "9400000" } };
+  const rows = [
+    { ...calculation.rows[0], contribution: "0", investmentChange: "0", capitalInjection: "0",
+      withdrawal: "0", unfundedWithdrawal: "0", tradingCost: "600000", closingBalance: "7400000", fundedClosingBalance: "7400000" },
+    { ...calculation.rows[1], contribution: "0", investmentChange: "0", capitalInjection: "9400000",
+      withdrawal: "10000000", unfundedWithdrawal: "2600000", tradingCost: "0", closingBalance: "9400000", fundedClosingBalance: "9400000" },
+    ...calculation.rows.slice(2),
+  ];
+  await page.route("**/api/v1/me/retirement/preview**", route => route.fulfill({ json: { data: {
+    ...data, calculation: { ...calculation, summary, rows, modelVersion: "retirement-monthly-v5" },
+  } } }));
+  await page.evaluate(input => sessionStorage.setItem("anhuu:plan-draft:USR-001", JSON.stringify(input)), s.fixture.planInput);
+  await page.reload();
+  const { dialog } = await open(page, "Giải thích: Quỹ dự kiến có");
+  await expect(dialog.locator(".money-explanation-result")).toContainText("− 7.400.000 ₫ − 600.000 ₫ ≈ 9.400.000 ₫");
+  const formula = dialog.locator(".money-explanation-formula");
+  await expect(formula).toHaveCount(1);
+  await expect(formula.getByRole("img")).toHaveAccessibleName("FV = P × (1 + r)ⁿ + A × [(1 + r)ⁿ − 1] ÷ r");
+  await expect(formula.locator("sup")).toHaveText(["n", "n"]);
+  const fraction = formula.locator(".money-explanation-fraction");
+  await expect(fraction.locator(":scope > span")).toHaveText(["(1 + r)n − 1", "r"]);
+  expect(await fraction.evaluate(el => el.children[0].getBoundingClientRect().bottom <= el.children[1].getBoundingClientRect().top)).toBe(true);
+  expect(await formula.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+});
+
+test("retirement spending explains monthly compounding from the pinned projection", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const s = await setupRemaining(page, request, "/user/plan");
+  const plan = await s.get(`me/retirement/plans/${s.fixture.planId}`);
+  const preview = plan.current.preview;
+  const { dialog } = await open(page, "Giải thích: Chi tiêu lúc nghỉ hưu");
+  await expect(dialog.locator(".money-explanation-kpi")).toContainText(formatMoneyDecimal(preview.calculation.summary.futureMonthlyExpense));
+  const formula = dialog.locator(".money-explanation-formula");
+  await expect(formula).toHaveCount(1);
+  await expect(formula.locator("sup")).toHaveText(String(preview.calculation.summary.accumulationMonths));
+  const fraction = formula.locator(".money-explanation-fraction");
+  await expect(fraction.locator(":scope > span")).toHaveText(["Lạm phát năm", "12"]);
+  expect(await fraction.evaluate(el => el.children[0].getBoundingClientRect().bottom <= el.children[1].getBoundingClientRect().top)).toBe(true);
+  expect(await formula.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await expect(dialog).toContainText(`Tích lũy: ${preview.calculation.summary.accumulationMonths} tháng`);
+  await expect(dialog).toContainText("Ghép lãi từng tháng");
   expect(s.writes.filter(w => !w.path.endsWith("/preview"))).toEqual([]);
 });
 
@@ -121,7 +178,9 @@ test("constrained start contributions and external fees use the actual monthly e
   await expect(dialog).toContainText("Tháng bắt đầu được góp: 11/2026");
   await expect(dialog).toContainText("không trừ lại"); await page.keyboard.press("Escape");
   await open(page, "Giải thích: Quỹ dự kiến có");
-  await expect(page.getByRole("dialog").locator(".money-explanation-formula")).toContainText("(Bₜ₋₁ + Cₜ) × Gₜ");
+  const formula = page.getByRole("dialog").locator(".money-explanation-formula");
+  await expect(formula.getByRole("img")).toHaveAccessibleName("FV = P × (1 + r)ⁿ + A × [(1 + r)ⁿ − 1] ÷ r × (1 + r)");
+  await expect(formula.locator(".money-explanation-equation-term > span").last()).toHaveText("× (1 + r)");
   await expect(page.getByRole("dialog").locator(".money-explanation-kpi")).toContainText(formatMoneyDecimal(data.calculation.summary.atRetirement.projectedFund));
   expect(s.writes.filter(w => !w.path.endsWith("/preview"))).toEqual([]);
 });
