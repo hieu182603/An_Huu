@@ -20,7 +20,8 @@ export function usePlanSynchronization(userId: string | undefined, version: Plan
   const [result, setResult] = useState<{ key: string; data: RetirementPreviewResult | null; error: string | null } | null>(null);
   const anchored = Boolean(version?.preview.reforecast);
   const input = version && profile && !anchored ? selectionForCurrentProfile(version.preview.selection, draft, profile, revision) : null;
-  const changed = Boolean(input && version && profile && (version.preview.profileRevision !== revision || JSON.stringify(input) !== JSON.stringify(withoutProfileRetirementMonth(version.preview.selection, profile))));
+  const needsRateRefresh = version?.preview.modelVersion === "retirement-monthly-v5" && version.preview.replayInput?.retirementPlanningAnnualPercent == null;
+  const changed = Boolean(input && version && profile && (needsRateRefresh || version.preview.profileRevision !== revision || JSON.stringify(input) !== JSON.stringify(withoutProfileRetirementMonth(version.preview.selection, profile))));
   const key = JSON.stringify([userId, version?.id, revision, input, attempt]);
   const inputJson = JSON.stringify(input);
   // The debounce only exists to absorb rapid edits. The first synchronisation

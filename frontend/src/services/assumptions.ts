@@ -73,6 +73,7 @@ export interface AssumptionDocument {
   assetClasses: AssetClassItem[];
   returns: ReturnYear[];
   /** Optional admin-approved emergency reserve months by income stability (integers 1..24, STABLE <= VARIABLE <= UNCERTAIN). */
+  retirementPlanningAnnualPercent?: string;
   emergencyReserveMonths?: {
     evidence: string;
     byIncomeStability: { STABLE: number; VARIABLE: number; UNCERTAIN: number };

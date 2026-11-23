@@ -51,6 +51,7 @@ export const assumptionDocumentSchema = z.object({
     measure: z.enum(["ANNUAL_AVERAGE_CHANGE", "END_YEAR_CHANGE"]),
   }).strict()).max(300),
   inflation: z.array(inflationYearSchema).max(300),
+  retirementPlanningAnnualPercent: ratePercentSchema.optional(),
   assetClasses: z.array(z.object({ code, label: z.string().trim().min(1).max(120),
     horizons: z.array(z.object({ id: code, minMonths: z.number().int().min(1).max(1200), maxMonths: z.number().int().min(1).max(1200) }).strict()
       .refine(v => v.minMonths <= v.maxMonths, "Thời hạn không hợp lệ.")).min(1).max(10),

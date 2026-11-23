@@ -37,7 +37,8 @@ export function upgradeSourcePreview(capture: Awaited<ReturnType<RetirementServi
   if ((kernel !== "retirement-monthly-v3" && kernel !== "retirement-monthly-v5") || preview.status !== "READY" || !preview.replayInput || !preview.calculation || preview.replayInput.modelVersion !== kernel)
     throw new AppError(422, "SOURCE_UPGRADE_REQUIRES_V3", "Cần bản dự báo v3 hoặc v5 hoàn chỉnh trước khi tạo phiên bản nguồn.");
   if (knownOn < capture.profile.valuationDate) throw new AppError(422, "SOURCE_KNOWLEDGE_DATE_INVALID", "Ngày ghi nhận không được trước ngày định giá nguồn.");
-  const original = prepareRetirement(capture.profile, preview.selection, capture.policy.data, capture.assumptions.data);
+  const original = prepareRetirement(capture.profile, preview.selection, capture.policy.data, capture.assumptions.data,
+    undefined, kernel, preview.replayInput.retirementPlanningAnnualPercent !== undefined);
   if (!original.replayInput) throw new AppError(422, "SOURCE_BASELINE_INCOMPLETE", "Không tái lập được nguồn ban đầu.");
   const baseline = profileSourceRegistry(capture.profile, preview.selection, original.replayInput.rows, parentSnapshotHash, original.status === "READY" ? original.surveyGoalCashflows : undefined);
   const originalRetirementMonth = preview.reforecast?.originalRetirementMonth ?? preview.replayInput.retirementMonth;

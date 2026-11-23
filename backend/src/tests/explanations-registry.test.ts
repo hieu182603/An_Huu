@@ -57,7 +57,8 @@ function recompose(explanation: MetricExplanation, preview: ExplanationPreview) 
     // K_(t-1) = W_t + x_t, x_t = max(0, (K_t - C_t - J_t) / ((1 - tau_t) G_t))
     let required = amount(explanation, "replayInput.terminalBalance");
     for (let i = replay.rows.length - 1; i >= n; i--) {
-      const net = rowAmount(explanation, i, "growthFactor").mul(new D(1).minus(costRate(explanation, i)));
+      const pinned = explanation.steps.find(step => step.source === "replayInput.retirementPlanningAnnualPercent");
+      const net = pinned ? new D(pinned.value).div(1200).plus(1) : rowAmount(explanation, i, "growthFactor").mul(new D(1).minus(costRate(explanation, i)));
       required = rowAmount(explanation, i, "withdrawal").plus(D.max(0, required.minus(rowAmount(explanation, i, "contribution")).minus(rowAmount(explanation, i, "capitalInjection")).div(net)));
     }
     return required;
@@ -209,7 +210,7 @@ describe("deterministic metric registry", () => {
     const preview: ExplanationPreview = { ...f.preview, replayInput: replay, calculation: { ...f.preview.calculation!, ...projectRetirement(replay) } };
     for (const key of ["summary.atRetirement.requiredFund", "summary.atRetirement.projectedFund", "summary.requiredConstantMonthlyContribution", "summary.additionalMonthlyContribution"]) {
       const explanation = explainMetric(key, preview, f.capture, "MONTHLY")!;
-      expect(explanation.steps.some(step => step.source.endsWith(".tradingCostRate"))).toBe(true);
+      expect(explanation.steps.some(step => step.source.endsWith(".tradingCostRate"))).toBe(key !== "summary.atRetirement.requiredFund");
       expect(recompose(explanation, preview).toFixed(), key).toBe(explanation.value);
     }
   });

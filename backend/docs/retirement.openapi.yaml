@@ -888,6 +888,7 @@ ReplayInput:
         - retirement-monthly-v3
         - retirement-monthly-v5
     contributionStartMonth: *a1
+    retirementPlanningAnnualPercent: *a2
     protection:
       $ref: "#/Protection"
   required:

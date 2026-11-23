@@ -157,6 +157,9 @@ Document:
           - priceBasis
           - conversionNote
       maxItems: 300
+    retirementPlanningAnnualPercent:
+      type: string
+      pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
     assetClasses:
       type: array
       items:
@@ -582,6 +585,9 @@ Write:
               - priceBasis
               - conversionNote
           maxItems: 300
+        retirementPlanningAnnualPercent:
+          type: string
+          pattern: ^-?(0|[1-9]\d{0,2})(\.\d{1,10})?$
         assetClasses:
           type: array
           items:

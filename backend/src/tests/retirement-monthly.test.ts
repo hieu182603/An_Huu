@@ -133,12 +133,20 @@ describe("T06 profile / debt / assumptions / pension adapter", () => {
     const stock = (i: number) => r.calculation!.marketRows[i].holdings.find(h => h.assetClass === "STOCK")?.startWeightPercent;
     expect([stock(0), stock(1)]).toEqual(["10", "0"]);
   });
-  it("uses annual inflation across January, independently of investment returns", () => {
+  it("pins planning inflation and retirement discount across January independently of portfolio returns", () => {
     const cfg = retirementConfiguration(); cfg.assumptions.inflation.find(r => r.year === 2027)!.percent = "12";
+    delete cfg.assumptions.retirementPlanningAnnualPercent;
     const r = run(undefined, undefined, cfg).calculation!;
-    expect(r.rows[3].livingExpense).toBe("100");
-    expect(Number(r.rows[4].livingExpense)).toBeCloseTo(100 * (1 + 0.12 / 12), 10);
+    const g = 1 + .035 / 12;
+    expect(Number(r.rows[3].livingExpense)).toBeCloseTo(100 * g ** 3, 10);
+    expect(Number(r.rows[4].livingExpense)).toBeCloseTo(100 * g ** 4, 10);
+    expect(Number(r.summary.atRetirement.requiredFund)).toBeCloseTo(3 * 100 * g ** 3, 9);
     expect(r.rows[4].growthFactor).toBe("1");
+    cfg.assumptions.retirementPlanningAnnualPercent = "4.2";
+    const updated = run(undefined, undefined, cfg);
+    expect(updated.replayInput?.retirementPlanningAnnualPercent).toBe("4.2");
+    expect(Number(updated.calculation!.summary.futureMonthlyExpense)).toBeCloseTo(100 * (1 + .042 / 12) ** 3, 10);
+    expect(updated.calculation!.summary.atRetirement.projectedFund).toBe(r.summary.atRetirement.projectedFund);
   });
   it("does not deduct debt principal from initial capital; debt caps affordable deposits", () => {
     const p = retirementProfile(); p.assets = { status: "KNOWN", entries: [fixtureAsset({ value: known("1000"), retirementShare: known("1"), emergencyShare: known("0"), otherGoalsShare: known("0") })] };
@@ -189,7 +197,8 @@ describe("T06 profile / debt / assumptions / pension adapter", () => {
     const r = run(undefined, c, cfg).calculation!;
     expect(r.marketRows[0].returnMonthlyFactor).toBe(r.rows[0].growthFactor);
     expect(Number(r.rows[0].growthFactor)).toBeCloseTo(1 - 0.02 / 12, 14);
-    expect(Number(r.rows[0].inflationFactor)).toBeCloseTo(1 + 0.01 / 12, 14);
+    expect(Number(r.marketRows[0].inflationMonthlyFactor)).toBeCloseTo(1 + 0.01 / 12, 14);
+    expect(r.rows[0].inflationFactor).toBe("1");
   });
   it("charges actual turnover cost once when a drifting allocation is rebalanced", () => {
     const cfg = retirementConfiguration(), c = retirementCommand();
