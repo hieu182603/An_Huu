@@ -492,7 +492,7 @@ export function SimulationPage() {
       };
     }
     const monthlyReturn = Math.pow(1 + Math.max(0, input.annualReturnRate) / 100, 1 / 12) - 1;
-    const monthlyInflation = Math.pow(1 + Math.max(0, input.annualInflationRate) / 100, 1 / 12) - 1;
+    const monthlyInflation = Math.max(0, input.annualInflationRate) / 100 / 12;
     let balance = result.projectedFund;
     const postMonths = (input.lifeExpectancy - input.retirementAge) * 12;
     for (let m = 0; m < postMonths; m++) {
@@ -567,7 +567,7 @@ export function SimulationPage() {
         <div><span>Mức sống theo giá hôm nay</span><strong>{compactMoney(input.monthlyExpenseToday)}<small> / tháng</small></strong></div>
         <Icon name="arrow-right" />
         <div><span>Cùng mức sống ở tuổi {input.retirementAge}</span><strong>{compactMoney(result.futureMonthlyExpense)}<small> / tháng</small></strong></div>
-        <p>Với lạm phát {input.annualInflationRate.toLocaleString('vi-VN')}%/năm, sau {result.yearsToRetirement} năm cần số tiền gấp <b>{Math.pow(1 + input.annualInflationRate / 100, result.yearsToRetirement).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} lần</b> để giữ sức mua.</p>
+        <p>Với lạm phát {input.annualInflationRate.toLocaleString('vi-VN')}%/năm, sau {result.yearsToRetirement} năm cần số tiền gấp <b>{Math.pow(1 + input.annualInflationRate / 100 / 12, result.yearsToRetirement * 12).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} lần</b> để giữ sức mua.</p>
       </section>
       <section className="mk-container mk-sim-metrics" aria-label="Tổng quan kế hoạch" aria-live="polite" aria-atomic="true">
         <article className="mk-metric-primary"><span>Quỹ cần khi nghỉ hưu<Icon name="target" /></span><strong aria-label={currency(result.targetFund)}>{compactMoney(result.targetFund)}</strong><small>Dự trù chi tiêu đến tuổi {input.lifeExpectancy}</small></article>

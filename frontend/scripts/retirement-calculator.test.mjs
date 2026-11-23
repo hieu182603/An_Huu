@@ -14,6 +14,15 @@ const base = {
 test('same input always produces the same result', () => assert.deepEqual(calculateRetirement(base), calculateRetirement(base)));
 test('higher return increases projected fund', () => assert.ok(calculateRetirement({ ...base, annualReturnRate: 8 }).projectedFund > calculateRetirement({ ...base, annualReturnRate: 0 }).projectedFund));
 test('higher inflation increases required fund', () => assert.ok(calculateRetirement({ ...base, annualInflationRate: 6 }).targetFund > calculateRetirement({ ...base, annualInflationRate: 0 }).targetFund));
+test('retirement spending compounds annual inflation divided by 12 over every month', () => {
+  for (const years of [0, 23, 30]) {
+    const result = calculateRetirement({ ...base, currentAge: 60 - years, retirementAge: 60,
+      monthlyExpenseToday: 30_000_000, annualInflationRate: 3.5 });
+    assert.equal(result.futureMonthlyExpense, Math.round(30_000_000 * (1 + 0.035 / 12) ** (years * 12)));
+  }
+  assert.equal(calculateRetirement({ ...base, currentAge: 30, retirementAge: 60,
+    monthlyExpenseToday: 30_000_000, annualInflationRate: 3.5 }).futureMonthlyExpense, 85_598_615);
+});
 test('zero return remains finite', () => Object.values(calculateRetirement({ ...base, annualReturnRate: 0 })).forEach((value) => typeof value !== 'boolean' && assert.ok(Number.isFinite(value))));
 test('home value is deliberately absent from investable input', () => assert.equal('realEstateValue' in base, false));
 test('invalid ages, rates and money are rejected', () => {
