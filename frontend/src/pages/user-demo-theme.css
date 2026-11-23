@@ -738,6 +738,6 @@
 .user-dashboard-shell .billing-nav-dot.is-overdue { background: #dc2626; }
 .user-dashboard-shell .topbar-billing-btn { position: relative; }
 .user-dashboard-shell .topbar-billing-btn .billing-nav-dot { position: absolute; top: 8px; right: 8px; margin: 0; box-shadow: 0 0 0 2px var(--surface, #fff); }
-.user-dashboard-shell .topbar-billing-btn.is-overdue .billing-nav-dot { background: #dc2626; }
+.user-dashboard-shell .topbar-billing-btn .billing-nav-dot { background: #dc2626; }
 .user-dashboard-shell .user-sidebar.is-collapsed .admin-nav a { position: relative; }
 .user-dashboard-shell .user-sidebar.is-collapsed .billing-nav-dot { position: absolute; top: 8px; right: 8px; margin: 0; }
