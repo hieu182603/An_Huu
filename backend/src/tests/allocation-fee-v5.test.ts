@@ -19,6 +19,7 @@ function v5PlanWithFee(paidFrom: "FUND" | "EXTERNAL") {
   };
   const { policy, assumptions } = retirementConfiguration();
   assumptions.inflation = assumptions.inflation.map(r => ({ ...r, percent: "3" }));
+  assumptions.retirementPlanningAnnualPercent = "3";
   assumptions.returns = assumptions.returns.map(r => ({
     ...r,
     rate: { type: "EFFECTIVE_ANNUAL" as const, percent: r.assetClass === "STOCK" ? "18" : "6" },

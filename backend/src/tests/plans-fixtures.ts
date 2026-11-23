@@ -6,10 +6,10 @@ import { PortfoliosService } from "../modules/portfolios/service";
 import { ProfileService } from "../modules/profiles/service";
 import { RetirementService } from "../modules/retirement/service";
 import { PlansService } from "../modules/plans/service";
-export async function plansFixture(profile = retirementProfile()) {
+export async function plansFixture(profile = retirementProfile(), cfg = retirementConfiguration()) {
   const f = memoryDb(), owner = "test-user", admin = "admin";
   const assumptions = new AssumptionsService(f.db), policies = new PortfoliosService(f.db), profiles = new ProfileService(f.db);
-  const retirement = new RetirementService(f.db), plans = new PlansService(f.db), cfg = retirementConfiguration();
+  const retirement = new RetirementService(f.db), plans = new PlansService(f.db);
   async function publish() {
     const a = await assumptions.create(admin, cfg.assumptions);
     const review = await assumptions.previewImpact(admin, a.id, { expectedRevision: 1 });

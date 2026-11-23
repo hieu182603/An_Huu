@@ -1,3 +1,11 @@
+## Sửa CI #110 và đồng bộ chấm thanh toán — 23/11/2026
+
+- Đọc log GitHub Actions run 45122543346: 5 test lỗi trong 4 file. Các sửa fixture đã có trong workspace được giữ nguyên và kiểm lại: khai rõ retirementPlanningAnnualPercent cho parity phí v5, quick-start inflation và CSV số lẻ; plansFixture nhận configuration tùy chọn. Không đổi công thức production.
+- Sửa test preview-cache: giữ/release các lệnh Worker.postMessage để kiểm trực tiếp plain preview được phân công worker riêng và search thứ hai chờ search đầu. Không dựa vào thứ tự hoàn thành do tốc độ CPU/worker.
+- Frontend: billing-nav-dot dùng chung màu đỏ #dc2626 ở navbar và header, bỏ hai override màu trùng.
+- Kiểm local: 36/36 test trong 4 file từng lỗi PASS; npm --prefix backend run verify PASS (source/test typecheck, 1622/1622 test trong 148 file, build, production startup guard không kết nối DB); frontend typecheck PASS; git diff --check PASS. Log: .tmp-ci-verify.log tại root.
+- Chưa commit/push, chưa chạy lại GitHub CI, không migration/DB production/deploy. Tiếp theo: chạy lại workflow trên commit chứa bản sửa để xác nhận CI và các job integration/deploy phía sau.
+
 ## Khôi phục mã QR thanh toán hết hạn — 20/11/2026
 
 - BillingService.pay đối soát đơn cũ với payOS. Khi mã cũ hết hạn, dịch vụ yêu cầu hủy mã và xác nhận mã đã đóng trước khi tạo đơn mới. Nếu payOS đã nhận tiền, ghi nhận giao dịch và chuyển khách tới trạng thái kỳ phí thay vì phát mã mới. Trường hợp payOS chưa xác nhận đóng mã tiếp tục trả PAYMENT_CODE_UNAVAILABLE để tránh hai mã đang thu cùng kỳ.

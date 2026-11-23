@@ -83,6 +83,7 @@ describe("quick survey: demo data semantics on the server", () => {
     c.monthlyExpenseToday = "200"; c.retirementAdditionalExpenseIds = ["exp_quick_child", "exp_quick_parent"];
     const cfg = retirementConfiguration();
     cfg.assumptions.inflation.forEach(row => { row.percent = "12"; });
+    cfg.assumptions.retirementPlanningAnnualPercent = "12";
     const result = prepareRetirement(p, c, cfg.policy, cfg.assumptions);
     expect(result.status).toBe("READY"); if (result.status !== "READY") return;
     const january = result.replayInput.rows.find(row => row.month === "2027-01")!;

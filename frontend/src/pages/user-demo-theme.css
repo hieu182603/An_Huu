@@ -734,10 +734,8 @@
 .user-dashboard-shell .user-sidebar.admin-sidebar { --color-bg: #F6F7F9; }
 
 /* Billing entry points: sidebar item and topbar button share one alert dot. */
-.user-dashboard-shell .billing-nav-dot { width: 8px; height: 8px; border-radius: 50%; background: #d97706; flex: none; margin-left: auto; }
-.user-dashboard-shell .billing-nav-dot.is-overdue { background: #dc2626; }
+.user-dashboard-shell .billing-nav-dot { width: 8px; height: 8px; border-radius: 50%; background: #dc2626; flex: none; margin-left: auto; }
 .user-dashboard-shell .topbar-billing-btn { position: relative; }
 .user-dashboard-shell .topbar-billing-btn .billing-nav-dot { position: absolute; top: 8px; right: 8px; margin: 0; box-shadow: 0 0 0 2px var(--surface, #fff); }
-.user-dashboard-shell .topbar-billing-btn .billing-nav-dot { background: #dc2626; }
 .user-dashboard-shell .user-sidebar.is-collapsed .admin-nav a { position: relative; }
 .user-dashboard-shell .user-sidebar.is-collapsed .billing-nav-dot { position: absolute; top: 8px; right: 8px; margin: 0; }
