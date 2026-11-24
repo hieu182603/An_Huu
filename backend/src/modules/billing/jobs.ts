@@ -10,12 +10,6 @@ import { reconcileOrder, statementDue } from "./ledger";
 import type { PaymentGateway } from "./payos";
 import { feeBase, overrideFor, overrideTerms, scheduleFor } from "./terms";
 
-/**
- * Scheduled billing work (docs/KE_HOACH_TRIEN_KHAI_PHI_DICH_VU.md §5). Every job is idempotent and
- * safe with several workers: statements rely on @@unique([userId, period]) (a P2002 is a skip),
- * state changes are conditional updateMany calls, and notification ids are stable hashes so a
- * rerun can never notify twice. Logs carry counts and codes only — never user data or amounts.
- */
 type Tx = Prisma.TransactionClient;
 const BATCH = 500;
 const DAY_MS = 86_400_000;
@@ -24,7 +18,6 @@ const monthLabel = (period: string) => `${period.slice(5)}/${period.slice(0, 4)}
 const dayLabel = (date: Date) => date.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 const isUniqueViolation = (error: unknown) => error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 
-/** Deterministic UUID (v5-shaped) for a notification key, so reruns and concurrent workers collide on the primary key. */
 export function stableId(key: string) {
   const h = createHash("sha256").update(key).digest("hex");
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${((parseInt(h[16], 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
@@ -33,18 +26,15 @@ export function stableId(key: string) {
 type Account = Prisma.BillingAccountGetPayload<object>;
 export type IssueResult = "ISSUED" | "WAIVED" | "EXISTS" | "STACKED" | "NOT_ELIGIBLE" | "NO_SCHEDULE";
 
-/** Whether the account may be billed for `period` right now (before looking at statements). */
 export function billableForPeriod(account: Pick<Account, "status" | "trialEndsAt" | "stoppedFromPeriod">, period: string, now: Date) {
   if (account.status === "TRIAL") return account.trialEndsAt !== null && account.trialEndsAt.getTime() <= now.getTime();
-  if (account.status === "STOPPED") return !account.stoppedFromPeriod || account.stoppedFromPeriod > period;
+  if (account.status === "STOPPED") {
+    if (account.trialEndsAt && account.trialEndsAt.getTime() > now.getTime()) return false; // stopped during the free trial: nothing to bill yet
+    return !account.stoppedFromPeriod || account.stoppedFromPeriod > period;
+  }
   return account.status === "ACTIVE" || account.status === "OVERDUE";
 }
 
-/**
- * Issues the statement for `period` inside the caller's transaction. Shared by the monthly job and
- * by "resume". A trial that has ended becomes ACTIVE in the same transaction. Statements are never
- * stacked: an unpaid statement from an earlier period blocks a new one.
- */
 export async function issueStatementIn(tx: Tx, account: Account, period: string, now: Date): Promise<IssueResult> {
   if (!billableForPeriod(account, period, now)) return "NOT_ELIGIBLE";
   if (await tx.feeStatement.findFirst({ where: { userId: account.userId, period }, select: { id: true } })) return "EXISTS";
@@ -70,12 +60,6 @@ export async function issueStatementIn(tx: Tx, account: Account, period: string,
   return waived ? "WAIVED" : "ISSUED";
 }
 
-/**
- * Bills every eligible account once for the current period. Runs every day (catch-up): an account
- * only becomes eligible when its trial ends (the 1st of a month, or the launch date), so in steady
- * state this issues on day 1; a missed run or the launch date is caught up later in the month.
- * Nothing is issued before `launchAt` (BILLING_LAUNCH_AT).
- */
 export async function issueStatements(db: PrismaClient, now: Date, launchAt: Date | null = null) {
   const result = { due: false, issued: 0, waived: 0, skipped: 0, failed: 0 };
   if (launchAt && now.getTime() < launchAt.getTime()) return result;
@@ -93,7 +77,7 @@ export async function issueStatements(db: PrismaClient, now: Date, launchAt: Dat
         const outcome = await transaction(db, tx => issueStatementIn(tx, account, period, now));
         if (outcome === "ISSUED") result.issued++; else if (outcome === "WAIVED") result.waived++; else result.skipped++;
       } catch (error) {
-        if (isUniqueViolation(error)) result.skipped++; // another worker issued it first
+        if (isUniqueViolation(error)) result.skipped++;
         else { result.failed++; log("error", "billing.job_failed", { code: "ISSUE_STATEMENT" }); }
       }
     }
@@ -113,7 +97,6 @@ async function pagesOfStatements(db: PrismaClient, where: Prisma.FeeStatementWhe
   }
 }
 
-/** On the reminder days pinned by the statement's own schedule, remind users whose statement is still open. */
 export async function remindStatements(db: PrismaClient, now: Date) {
   const day = vnDayOfMonth(now), period = periodOf(now), result = { reminded: 0, skipped: 0, failed: 0 };
   await pagesOfStatements(db, { period, status: "ISSUED" }, async rows => {
@@ -142,7 +125,6 @@ export async function remindStatements(db: PrismaClient, now: Date) {
   return result;
 }
 
-/** Statements past their due date with money still owed become OVERDUE; the account follows (feature gating). */
 export async function markOverdue(db: PrismaClient, now: Date) {
   const result = { overdue: 0, skipped: 0, failed: 0 };
   await pagesOfStatements(db, { status: "ISSUED", dueDate: { lt: now } }, async rows => {
@@ -152,7 +134,6 @@ export async function markOverdue(db: PrismaClient, now: Date) {
           if ((await statementDue(tx, statement)) <= 0) return false;
           const moved = await tx.feeStatement.updateMany({ where: { id: statement.id, status: "ISSUED" }, data: { status: "OVERDUE" } });
           if (moved.count === 0) return false;
-          // A stopped account keeps its STOPPED state; only accounts that are being billed are gated.
           await tx.billingAccount.updateMany({ where: { userId: statement.userId, status: { in: ["ACTIVE", "TRIAL"] } }, data: { status: "OVERDUE", revision: { increment: 1 } } });
           await audit(tx, statement.userId, "BILLING_STATEMENT_OVERDUE", "FEE_STATEMENT", statement.id, { period: statement.period }, { performerName: "system" });
           await tx.notification.create({ data: { id: stableId(`billing-overdue:${statement.id}`), userId: statement.userId, path: "/user/account",
@@ -181,10 +162,6 @@ async function pagesOfOrders(db: PrismaClient, where: Prisma.PaymentOrderWhereIn
   }
 }
 
-/**
- * Orders past their link expiry. payOS is asked first so a payment that arrived late (lost webhook) is still
- * applied; only then is the order closed as EXPIRED and the link cancelled (best effort).
- */
 export async function expireOrders(db: PrismaClient, gateway: PaymentGateway | null, now: Date) {
   const result = { expired: 0, paid: 0, failed: 0 };
   if (!gateway) return result;
@@ -201,7 +178,6 @@ export async function expireOrders(db: PrismaClient, gateway: PaymentGateway | n
   return result;
 }
 
-/** Compares recent PENDING orders (last 48 hours) with payOS. One failing order never stops the batch. */
 export async function reconcilePending(db: PrismaClient, gateway: PaymentGateway | null, now: Date) {
   const result = { checked: 0, paid: 0, failed: 0 };
   if (!gateway) return result;
@@ -215,7 +191,6 @@ export async function reconcilePending(db: PrismaClient, gateway: PaymentGateway
   return result;
 }
 
-/** Retires published schedules once a newer one is in force, and announces an upcoming one 7 days ahead. */
 export async function rolloverSchedules(db: PrismaClient, now: Date) {
   const period = periodOf(now), result = { superseded: 0, notified: 0 };
   const inForce = await db.feeSchedule.findMany({ where: { status: "PUBLISHED", effectiveFromPeriod: { lte: period } }, orderBy: [{ effectiveFromPeriod: "desc" }, { version: "desc" }] });
@@ -244,7 +219,6 @@ export async function rolloverSchedules(db: PrismaClient, now: Date) {
 }
 
 type Counts = Record<string, number | boolean>;
-/** Job table for the worker: `frequent` every 5 minutes, `hourly` every hour. */
 export function createBillingJobs(db: PrismaClient, gateway: PaymentGateway | null, launchAt: Date | null = null) {
   const job = (code: string, run: (now: Date) => Promise<Counts>) => ({ code, run });
   return {

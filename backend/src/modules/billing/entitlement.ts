@@ -3,11 +3,6 @@ import { AppError } from "../../common/errors";
 import type { AuthenticatedRequest } from "../../middlewares/authMiddleware";
 import type { BillingService } from "./service";
 
-/**
- * Feature gating for overdue accounts (plan §6). Only creating/computing is blocked, never reading:
- * every GET, CSV export, financial-profile edit, account, support, notification and billing route stays open.
- * Paths are relative to `/me/`.
- */
 const GATED: Array<[method: string, path: RegExp]> = [
   ["POST", /^retirement\/plans$/],
   ["POST", /^retirement\/plans\/[^/]+\/(?:versions|apply|compare|reforecasts|source-reforecasts|source-reforecasts\/preview)$/],
@@ -23,16 +18,12 @@ const GATED: Array<[method: string, path: RegExp]> = [
   ["POST", /^debts\/preview$/],
 ];
 export function isBillingGated(method: string, urlPath: string) {
-  const rest = /\/me\/(.+?)\/?$/.exec(urlPath)?.[1];
+  // Express matches routes case-insensitively, so the gate must too.
+  const rest = /\/me\/(.+?)\/?$/i.exec(urlPath)?.[1]?.toLowerCase();
   return !!rest && GATED.some(([m, pattern]) => m === method && pattern.test(rest));
 }
 
 type Options = { passTtlMs?: number; blockedTtlMs?: number; now?: () => number };
-/**
- * `402 BILLING_OVERDUE` while the user's billing account is OVERDUE. No account, TRIAL, ACTIVE and
- * STOPPED pass, and billing disabled is a no-op. The verdict is cached per user: 30 s when open, only 5 s
- * when blocked so a user who has just paid is not kept waiting.
- */
 export function requireBillingActive(service: BillingService, options: Options = {}): RequestHandler {
   const passTtl = options.passTtlMs ?? 30_000, blockedTtl = options.blockedTtlMs ?? 5_000, clock = options.now ?? Date.now;
   const cache = new Map<string, { until: number; notice: Awaited<ReturnType<BillingService["overdueNotice"]>> }>();
@@ -54,7 +45,6 @@ export function requireBillingActive(service: BillingService, options: Options =
   };
 }
 
-/** `requireBillingActive` limited to the write/compute routes above; mounted once next to authentication. */
 export function billingGate(service: BillingService, options: Options = {}): RequestHandler {
   const check = requireBillingActive(service, options);
   return (req, res, next) => isBillingGated(req.method, req.originalUrl.split("?")[0]) ? check(req, res, next) : next();
