@@ -132,10 +132,13 @@ test("switching accounts and logout synchronize between tabs", async ({ context,
   };
   await signIn(page, "first@example.test");
   const second = await context.newPage();
+  const deferProfile = second.getByRole("dialog").filter({ hasText: "Khởi tạo hồ sơ tài chính" }).getByRole("button", { name: "Để sau" });
+  await second.addLocatorHandler(deferProfile, () => deferProfile.click());
   await signIn(second, "second@example.test");
   await expect(page.getByRole("button", { name: /Tài khoản: Tài khoản Hai/ })).toBeVisible();
   await second.getByRole("button", { name: /Tài khoản: Tài khoản Hai/ }).click();
   await second.getByRole("menuitem", { name: /Đăng xuất/ }).click();
+  await second.getByRole("dialog", { name: "Đăng xuất khỏi An Hưu?" }).getByRole("button", { name: "Đăng xuất", exact: true }).click();
   await expect(second).toHaveURL(/\/login$/);
   await expect(page).toHaveURL(/\/login$/);
 });

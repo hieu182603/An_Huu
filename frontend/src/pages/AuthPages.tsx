@@ -156,6 +156,13 @@ export function LoginPage() {
   const submitRef = useRef<HTMLButtonElement>(null);
   const verificationRequests = useRef(new Map<string, number>());
   const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string; remember: boolean; sentAt: number | null; error?: string } | null>(null);
+  const focusPasswordAfterVerification = useRef(false);
+  useEffect(() => {
+    if (!pendingVerification && focusPasswordAfterVerification.current) {
+      focusPasswordAfterVerification.current = false;
+      document.getElementById("login-password")?.focus();
+    }
+  }, [pendingVerification]);
   const closeVerification = () => {
     setPendingVerification(null);
     requestAnimationFrame(() => submitRef.current?.focus());
@@ -244,9 +251,9 @@ export function LoginPage() {
       navigate(resumeDestination(location.state?.from, loggedUser.role, "/onboarding"), { replace: true });
     } catch (loginError) {
       // Verification consumed the code; retry credentials, not the same OTP.
+      focusPasswordAfterVerification.current = true;
       setPendingVerification(null);
       setError(`Email đã xác minh. ${getErrorMessage(loginError)} Bạn có thể đăng nhập lại.`);
-      requestAnimationFrame(() => document.getElementById("login-password")?.focus());
     }
   };
 
@@ -642,8 +649,21 @@ export function RegisterPage() {
   const fieldError = (field: Field) => fieldErrors[field]
     ? <p className="auth-field-error" id={`register-${field}-error`}>{fieldErrors[field]}</p>
     : null;
-  // Only request times live here, never credentials in browser storage.
-  const verificationRequests = useRef(new Map<string, number>());
+  const busy = loading || googleLoading || initializing;
+  type Submitted = { name: string; phone: string; password: string; sentAt: number };
+  const verificationRequests = useRef(new Map<string, Submitted>());
+  const submitted = verificationRequests.current.get(email.trim().toLowerCase());
+  const changeEmail = (value: string) => {
+    setEmail(value);
+    clearFieldError("email");
+    const previous = verificationRequests.current.get(value.trim().toLowerCase());
+    if (previous) {
+      setFullName(previous.name);
+      setPhone(previous.phone);
+      setPassword(previous.password);
+      setFieldErrors({});
+    }
+  };
 
   const registerSubmitRef = useRef<HTMLButtonElement>(null);
   const [pendingVerification, setPendingVerification] = useState<{ email: string; password: string; sentAt: number } | null>(null);
@@ -666,6 +686,7 @@ export function RegisterPage() {
   };
 
   const handleGoogleAuth = async () => {
+    if (busy) return;
     setError("");
     if (!isGoogleAuthConfigured()) {
       const msg = "Đăng nhập Google chưa sẵn sàng. Bạn có thể tiếp tục bằng email và mật khẩu.";
@@ -701,7 +722,7 @@ export function RegisterPage() {
     if (e && typeof e.preventDefault === "function") {
       e.preventDefault();
     }
-    if (loading || initializing) return;
+    if (busy) return;
     const cleanName = fullName.trim();
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password;
@@ -721,7 +742,7 @@ export function RegisterPage() {
     }
     const previousRequest = verificationRequests.current.get(cleanEmail);
     if (previousRequest !== undefined) {
-      setPendingVerification({ email: cleanEmail, password: cleanPassword, sentAt: previousRequest });
+      setPendingVerification({ email: cleanEmail, password: previousRequest.password, sentAt: previousRequest.sentAt });
       return;
     }
     setLoading(true);
@@ -729,7 +750,9 @@ export function RegisterPage() {
       await apiRequest("/auth/register", { fullName: cleanName, email: cleanEmail, password: cleanPassword, ...(cleanPhone ? { phone: cleanPhone } : {}) });
       trackSignUpEvent("email");
       const requestedAt = Date.now();
-      verificationRequests.current.set(cleanEmail, requestedAt);
+      verificationRequests.current.set(cleanEmail, { name: cleanName, phone: cleanPhone, password: cleanPassword, sentAt: requestedAt });
+      setFullName(cleanName);
+      setPhone(cleanPhone);
       setPendingVerification({ email: cleanEmail, password: cleanPassword, sentAt: requestedAt });
     } catch (err) {
       setError(getErrorMessage(err));
@@ -760,6 +783,7 @@ export function RegisterPage() {
             <p>Khởi đầu kế hoạch tài chính độc lập, vững chắc cho tuổi hưu an nhàn.</p>
           </div>
 
+          {submitted && <p role="status">Thông tin đăng ký đã được gửi. Bạn có thể tiếp tục xác minh hoặc sửa địa chỉ email.</p>}
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="auth-input-group">
               <div className="auth-field-item">
@@ -774,7 +798,8 @@ export function RegisterPage() {
                     placeholder="Ví dụ: Nguyễn Minh An"
                     value={fullName}
                     onChange={(e) => { setFullName(e.target.value); clearFieldError("name"); }}
-                    disabled={loading}
+                    disabled={busy}
+                    readOnly={!!submitted}
                     aria-invalid={Boolean(fieldErrors.name) || undefined}
                     aria-describedby={fieldErrors.name ? "register-name-error" : undefined}
                     autoComplete="name"
@@ -796,8 +821,8 @@ export function RegisterPage() {
                       className="auth-input"
                       placeholder="yourname@email.com"
                       value={email}
-                      onChange={(e) => { setEmail(e.target.value); clearFieldError("email"); }}
-                      disabled={loading}
+                      onChange={(e) => { changeEmail(e.target.value); }}
+                      disabled={busy}
                       aria-invalid={Boolean(fieldErrors.email) || undefined}
                       aria-describedby={fieldErrors.email ? "register-email-error" : undefined}
                       autoComplete="email"
@@ -819,7 +844,8 @@ export function RegisterPage() {
                       placeholder="0912 345 678"
                       value={phone}
                       onChange={(e) => { setPhone(e.target.value); clearFieldError("phone"); }}
-                      disabled={loading}
+                      disabled={busy}
+                      readOnly={!!submitted}
                       aria-invalid={Boolean(fieldErrors.phone) || undefined}
                       aria-describedby={fieldErrors.phone ? "register-phone-error" : undefined}
                       autoComplete="tel"
@@ -849,7 +875,8 @@ export function RegisterPage() {
                     placeholder="Tạo mật khẩu an toàn (tối thiểu 8 ký tự)"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); clearFieldError("password"); }}
-                    disabled={loading}
+                    disabled={busy}
+                    readOnly={!!submitted}
                     aria-invalid={Boolean(fieldErrors.password) || (Boolean(password) && !validPassword(password)) || undefined}
                     aria-describedby={`register-password-hint${fieldErrors.password ? " register-password-error" : ""}`}
                     autoComplete="new-password"
@@ -858,6 +885,7 @@ export function RegisterPage() {
                   <button
                     type="button"
                     className="auth-eye-btn"
+                    disabled={busy}
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                   >
@@ -877,7 +905,7 @@ export function RegisterPage() {
                       id="register-agree"
                       type="checkbox"
                       checked={agree}
-                      disabled={loading}
+                      disabled={busy}
                       onChange={e => { setAgree(e.target.checked); clearFieldError("agree"); }}
                       aria-invalid={Boolean(fieldErrors.agree) || undefined}
                       aria-describedby={fieldErrors.agree ? "register-agree-error" : undefined}
@@ -940,7 +968,7 @@ export function RegisterPage() {
               ref={registerSubmitRef}
               type="submit"
               className="auth-btn-primary"
-              disabled={loading || initializing}
+              disabled={busy}
             >
               {loading ? (
                 <>
@@ -949,7 +977,7 @@ export function RegisterPage() {
                 </>
               ) : (
                 <>
-                  <span>Tạo tài khoản</span>
+                  <span>{submitted ? "Tiếp tục xác minh email" : "Tạo tài khoản"}</span>
                   <Icon name="arrow-right" size="small" />
                 </>
               )}
@@ -962,7 +990,7 @@ export function RegisterPage() {
             <button
               type="button"
               className="auth-btn-google"
-              disabled={loading || googleLoading || initializing}
+              disabled={busy}
               onClick={handleGoogleAuth}
             >
               <GoogleIcon />
@@ -984,7 +1012,10 @@ export function RegisterPage() {
             sentAt={pendingVerification.sentAt}
             onClose={closeOtpModal}
             onVerified={handleVerified}
-            onRequested={requestedAt => verificationRequests.current.set(pendingVerification.email, requestedAt)}
+            onRequested={requestedAt => {
+              const request = verificationRequests.current.get(pendingVerification.email);
+              if (request) request.sentAt = requestedAt;
+            }}
           />
         )}
 

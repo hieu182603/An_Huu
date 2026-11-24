@@ -18,7 +18,7 @@ async function fixture(page: Page) {
     }
     return route.fulfill({ status: 202, json: { data: { status: 'ACCEPTED' } } });
   });
-  const submit = () => page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+  const submit = () => page.getByRole('button', { name: /^(Tạo tài khoản|Tiếp tục xác minh email)$/ }).click();
   const fill = async () => {
     await page.goto('/register');
     await page.locator('#register-name').fill('Nguyễn Minh An');
@@ -161,3 +161,20 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 
     await page.screenshot({ path: `../artifacts/ui-audit-2026-10-08/fixed-register-${viewport.width}x${viewport.height}.png` });
   });
 }
+test('register: returning to a pending email restores the submitted details', async ({page}) => {
+  const f = await fixture(page);
+  await f.open();
+  await page.keyboard.press('Escape');
+  const name = page.locator('#register-name'), password = page.locator('#register-password');
+  await expect(name).toHaveJSProperty('readOnly', true);
+  await expect(password).toHaveJSProperty('readOnly', true);
+  await page.locator('#register-email').fill('other@example.test');
+  await name.fill('Other');
+  await password.fill('different-123');
+  await page.locator('#register-email').fill('AUDIT@example.test');
+  await expect(name).toHaveValue('Nguyễn Minh An');
+  await expect(password).toHaveValue('valid-password-123');
+  await f.submit();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  expect(f.count('/register')).toBe(1);
+});
