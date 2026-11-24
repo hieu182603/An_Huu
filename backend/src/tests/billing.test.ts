@@ -271,3 +271,16 @@ describe("billing OpenAPI contract", () => {
     check("/api/v1/me/billing/orders/{id}", "get", await service.order("u1", order.id));
   });
 });
+
+import { isBillingGated as gatedCase } from "../modules/billing/entitlement";
+import { billableForPeriod as billableTrialStop } from "../modules/billing/jobs";
+import { it as itx, expect as expectx } from "vitest";
+itx("gate matches paths case-insensitively", () => {
+  expectx(gatedCase("POST", "/api/v1/me/Retirement/Plans")).toBe(true);
+  expectx(gatedCase("POST", "/api/v1/ME/AI/explain")).toBe(true);
+});
+itx("stopped during trial is not billable until the trial ends", () => {
+  const now = new Date("2026-12-10T00:00:00Z");
+  expectx(billableTrialStop({ status: "STOPPED", trialEndsAt: new Date("2027-03-01T00:00:00Z"), stoppedFromPeriod: "2027-01" }, "2026-12", now)).toBe(false);
+  expectx(billableTrialStop({ status: "STOPPED", trialEndsAt: new Date("2026-11-01T00:00:00Z"), stoppedFromPeriod: "2027-01" }, "2026-12", now)).toBe(true);
+});

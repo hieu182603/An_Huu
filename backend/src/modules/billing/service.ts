@@ -16,11 +16,9 @@ import { verifyDataSignature, type PaymentGateway } from "./payos";
 export type BillingOptions = {
   enabled: boolean;
   termsVersion: string;
-  /** Frontend page payOS returns to after paying or cancelling. */
   returnUrl: string;
   checksumKey?: string;
   linkTtlMinutes?: number;
-  /** BILLING_LAUNCH_AT: first moment statements may be issued. Trials accepted before it end at it. */
   launchAt?: Date | null;
   now?: () => Date;
 };
@@ -64,7 +62,6 @@ export class BillingService {
     return schedule;
   }
 
-  /** Public: schedule in force now and the next published one, if any. */
   async publicSchedule() {
     this.ensureEnabled();
     const period = periodOf(this.now()), current = await this.schedule(this.db, period);
@@ -72,7 +69,6 @@ export class BillingService {
     return { period, termsVersion: this.options.termsVersion, current: scheduleView(current), upcoming: upcoming ? scheduleView(upcoming) : null };
   }
 
-  /** Fee the user would pay from next period for a given base (onboarding / asset edit preview). */
   async estimate(userId: string, baseAmountVnd: string) {
     this.ensureEnabled();
     const period = nextPeriod(periodOf(this.now()));
@@ -80,13 +76,11 @@ export class BillingService {
     return { period, ...computeFee(baseAmountVnd, schedule, overrideTerms(override)), schedule: scheduleView(schedule) };
   }
 
-  /** Normally the 1st of the month `trialMonths` after the current one; before launch, the launch moment if earlier. */
   private trialEnd(period: string, trialMonths: number, now: Date) {
     const normal = periodStart(addMonths(period, trialMonths)), launch = this.options.launchAt;
     return launch && now.getTime() < launch.getTime() && launch.getTime() < normal.getTime() ? launch : normal;
   }
 
-  /** Records consent to the fee terms; the first acceptance opens a TRIAL account. Idempotent per version. */
   async acceptTerms(userId: string, termsVersion: string) {
     this.ensureEnabled();
     if (termsVersion !== this.options.termsVersion)
@@ -101,8 +95,6 @@ export class BillingService {
         return accountView(updated);
       }
       const schedule = await this.schedule(tx, period);
-      // Trial runs to the start of the period `trialMonths` after the current one: the first
-      // statement is issued on the 1st of that month (no pro-rata days).
       const trial = schedule.trialMonths > 0;
       const created = await tx.billingAccount.create({ data: { userId, status: trial ? "TRIAL" : "ACTIVE",
         trialEndsAt: trial ? this.trialEnd(period, schedule.trialMonths, now) : null, termsVersion, termsAcceptedAt: now } });
@@ -111,7 +103,6 @@ export class BillingService {
     });
   }
 
-  /** Account page: account state, the statement to act on, and next period's estimate from the current profile. */
   async overview(userId: string) {
     this.ensureEnabled();
     const db = this.db, period = nextPeriod(periodOf(this.now()));
@@ -152,10 +143,6 @@ export class BillingService {
       adjustments, payments, refunds, orders: orders.map(orderView) };
   }
 
-  /**
-   * Creates (or reuses) a payOS link for the statement's remaining amount. The DB transaction
-   * only reserves the order; the provider call happens outside it so no transaction waits on payOS.
-   */
   async pay(userId: string, statementId: string, key: string) {
     this.ensureEnabled(true);
     z.string().uuid().parse(key);
@@ -215,14 +202,12 @@ export class BillingService {
         throw error;
       }
     }
-    // JSON form so a replayed key returns exactly what the first call returned.
     const response = JSON.parse(JSON.stringify(orderView(order))) as Prisma.InputJsonObject;
     try { await this.db.idempotencyRecord.create({ data: { userId, scope, key, requestHash, response } }); }
     catch (error) { if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error; }
     return response;
   }
 
-  /** Result page polling. A still-pending order is reconciled with payOS, so a lost webhook never blocks the user. */
   async order(userId: string, orderId: string) {
     this.ensureEnabled();
     let order = await this.db.paymentOrder.findFirst({ where: { id: orderId, userId } });
@@ -235,12 +220,10 @@ export class BillingService {
     return { order: orderView(order), statement: statement ? { id: statement.id, period: statement.period, status: statement.status, amountDueVnd: Math.max(0, await statementDue(this.db, statement)) } : null };
   }
 
-  /** Asks payOS for the order's state and applies it (shared with the expiry and reconcile jobs). */
   reconcileOrder(order: OrderRow) {
     return reconcileOrder(this.db, this.gateway!, order, this.now());
   }
 
-  /** Account page: stop billing from the next period. The current period's statement stays payable. */
   async stop(userId: string, expectedRevision: number) {
     this.ensureEnabled();
     const next = nextPeriod(periodOf(this.now()));
@@ -254,7 +237,6 @@ export class BillingService {
     });
   }
 
-  /** Resume billing. Back to OVERDUE if an unpaid overdue statement is still open, back to TRIAL if the trial has not ended; issues this month's statement at once when none exists. */
   async resume(userId: string, expectedRevision: number) {
     this.ensureEnabled();
     const now = this.now(), period = periodOf(now);
@@ -279,11 +261,8 @@ export class BillingService {
     return account;
   }
 
-  /** What blocks the user when the account is OVERDUE (null otherwise). Used by the 402 gate. */
   async overdueNotice(userId: string) {
     if (!this.options.enabled) return null;
-    // Keyed on the unpaid OVERDUE statement, not the account status: stopping the service while
-    // overdue must not lift the gate (the debt stays until it is paid, adjusted or waived).
     const statements = await this.db.feeStatement.findMany({ where: { userId, status: "OVERDUE" }, orderBy: { period: "asc" } });
     for (const statement of statements) {
       const amountDueVnd = await statementDue(this.db, statement);
@@ -292,7 +271,6 @@ export class BillingService {
     return null;
   }
 
-  /** payOS webhook. Signature over `data` is the only authentication; amounts come from the DB order. */
   async handleWebhook(body: unknown): Promise<{ outcome: string }> {
     this.ensureEnabled(true);
     const envelope = webhookSchema.safeParse(body);
@@ -308,7 +286,7 @@ export class BillingService {
       if (await tx.paymentWebhookEvent.findFirst({ where: { orderCode, reference } })) return "DUPLICATE";
       const order = await tx.paymentOrder.findUnique({ where: { orderCode } });
       let result: string;
-      if (envelope.data.code !== "00" || !order) result = order ? "NOT_SUCCESS" : "UNKNOWN_ORDER";
+      if (envelope.data.code !== "00" || (data.data.code !== undefined && data.data.code !== "00") || !order) result = order ? "NOT_SUCCESS" : "UNKNOWN_ORDER";
       else result = await applyProviderPayment(tx, order, { amount: data.data.amount, reference, receivedAt: parseProviderTime(data.data.transactionDateTime, this.now()) });
       await tx.paymentWebhookEvent.create({ data: { orderCode, reference, signatureValid: true, outcome: result, payload } });
       return result;
@@ -324,8 +302,7 @@ export class BillingService {
 const webhookSchema = z.object({ code: z.string(), desc: z.string().optional(), success: z.boolean().optional(),
   data: z.record(z.string(), z.unknown()), signature: z.string() }).passthrough();
 const webhookDataSchema = z.object({ orderCode: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), amount: z.number().int(),
-  reference: z.string().min(1).max(200), transactionDateTime: z.string().optional() }).passthrough();
-/** Keeps the webhook for audit without storing counterparty account numbers or names. */
+  reference: z.string().min(1).max(200), transactionDateTime: z.string().optional(), code: z.string().optional() }).passthrough();
 function maskPayload(data: Record<string, unknown>): Prisma.InputJsonObject {
   const masked: Record<string, unknown> = { ...data };
   for (const key of ["accountNumber", "counterAccountNumber", "virtualAccountNumber"])
