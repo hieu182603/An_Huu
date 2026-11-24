@@ -149,27 +149,40 @@ export async function triggerGoogleSignIn(
     throw err;
   }
 
-  window.google.accounts.id.initialize({
-    client_id: clientId,
-    callback: (response: { credential: string }) => {
-      const payload = parseGoogleCredential(response.credential);
-      if (payload) {
-        Promise.resolve(onSuccess(payload, response.credential)).catch(error => onError?.(error instanceof Error ? error : new Error("GOOGLE_LOGIN_FAILED")));
-      } else {
-        onError?.(new Error("INVALID_PAYLOAD"));
+  const google = window.google.accounts.id;
+  try {
+    const credential = await new Promise<string>((resolve, reject) => {
+      const timer = window.setTimeout(() => fail(new Error("Đã hết thời gian chờ Google. Vui lòng thử lại.")), 120000);
+      function fail(error: Error) {
+        window.clearTimeout(timer);
+        reject(error);
       }
-    },
-    auto_select: false,
-    cancel_on_tap_outside: true,
-  });
+      function accept(value: string) {
+        window.clearTimeout(timer);
+        resolve(value);
+      }
+      google.initialize({
+        client_id: clientId,
+        callback: response => accept(response.credential),
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
 
-  window.google.accounts.id.prompt((notification) => {
-    if (notification.isNotDisplayed()) {
-      onError?.(new Error("Cửa sổ đăng nhập Google không mở được. Bạn có thể thử lại hoặc đăng nhập bằng email."));
-    } else if (notification.isSkippedMoment()) {
-      onError?.(new Error("Đăng nhập Google chưa hoàn tất. Bạn có thể thử lại hoặc đăng nhập bằng email."));
-    } else if (notification.isDismissedMoment() && notification.getDismissedReason() !== "credential_returned") {
-      onError?.(new Error("Cửa sổ đăng nhập Google đã đóng. Bạn có thể thử lại hoặc đăng nhập bằng email."));
-    }
-  });
+      google.prompt((notification) => {
+        if (notification.isNotDisplayed()) {
+          fail(new Error("Cửa sổ đăng nhập Google không mở được. Bạn có thể thử lại hoặc đăng nhập bằng email."));
+        } else if (notification.isSkippedMoment()) {
+          fail(new Error("Đăng nhập Google chưa hoàn tất. Bạn có thể thử lại hoặc đăng nhập bằng email."));
+        } else if (notification.isDismissedMoment() && notification.getDismissedReason() !== "credential_returned") {
+          fail(new Error("Cửa sổ đăng nhập Google đã đóng. Bạn có thể thử lại hoặc đăng nhập bằng email."));
+        }
+      });
+    });
+    const payload = parseGoogleCredential(credential);
+    if (!payload) throw new Error("Thông tin đăng nhập Google không hợp lệ.");
+    await onSuccess(payload, credential);
+  } catch (error) {
+    if (!onError) throw error;
+    onError(error instanceof Error ? error : new Error("Chưa thể đăng nhập Google."));
+  }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 // Dialogs can replace or nest each other. Restore the page only when the last
@@ -35,7 +35,7 @@ export default function ResponsiveDialog({
   const close = useRef(onClose);
   close.current = onClose;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     const previousFocus = document.activeElement as HTMLElement | null;
     // Lock the viewport, not body: body overflow creates a new scroll ancestor
