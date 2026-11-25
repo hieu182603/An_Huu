@@ -118,12 +118,11 @@
 .allocation-loss-limit{margin:28px 0}
 .allocation-loss-limit h3{font-size:17px;font-weight:650;line-height:1.5;margin:0}
 .allocation-loss-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}
-.allocation-wizard-body .allocation-loss-fields label{margin:18px 0 0}
 .allocation-loss-input{display:flex;align-items:center;margin-top:8px;border:1px solid #a7bfdc;border-radius:8px;background:#fff}
-.allocation-wizard-body .allocation-loss-input input{border:0;margin:0;background:transparent;text-align:right;font-variant-numeric:tabular-nums}
-.allocation-loss-input i{padding:0 12px 0 4px;font-style:normal;font-size:13px;color:#536b85}
+.allocation-wizard-body .allocation-loss-input input{flex:1;min-width:0;min-height:46px;border:0;margin:0;padding:10px 8px 10px 12px;background:transparent;color:inherit;font:inherit;text-align:right;font-variant-numeric:tabular-nums}
+.allocation-loss-input i{flex:none;padding:0 12px 0 4px;font-style:normal;font-size:13px;color:#536b85}
 .allocation-loss-input:focus-within{outline:2px solid #2866bd;outline-offset:2px}
-.allocation-wizard-body .allocation-loss-input input:focus-visible{outline:none}
+.allocation-wizard-body .allocation-loss-input input:focus-visible{outline:none;box-shadow:none}
 .allocation-loss-hint{margin:12px 0 0;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#f1f5f9;font-size:13px;line-height:1.6;color:#334155}
 .allocation-loss-hint[data-kind=ok]{color:#166534;background:#f0fdf4;border-color:#bbf7d0}
 .allocation-loss-hint[data-kind=warn]{color:#8a5914;background:#fffbeb;border-color:#fde68a}

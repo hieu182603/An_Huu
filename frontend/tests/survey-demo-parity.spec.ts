@@ -92,6 +92,49 @@ async function family(page: Page) {
   await next(page);
   await expect(page.locator("#step3-family-title")).toBeVisible(); await page.getByRole("radio", { name: /^Không có/ }).check();
 }
+
+for (const mobile of [false, true]) {
+  test.describe(`family month entry on ${mobile ? "mobile" : "desktop"}`, () => {
+    test.use({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, isMobile: mobile, hasTouch: mobile });
+
+    test("formats six digits and keeps the entered month across steps", async ({ page, request }) => {
+      await setup(page, request);
+      await start(page);
+      await family(page);
+      await page.getByRole("radio", { name: /^Có/ }).check();
+      await page.locator("#survey-goal-name").fill("Học phí");
+      await page.getByLabel("Cần bao nhiêu tiền (theo giá hiện tại)?", { exact: true }).fill("12000000");
+
+      const field = page.locator(".month-entry").filter({ hasText: "Khi nào bạn cần dùng số tiền này?" });
+      const due = field.getByRole("textbox", { name: "Khi nào bạn cần dùng số tiền này?" });
+      await expect(due).toHaveAttribute("placeholder", "MM/YYYY");
+      await expect(due).toHaveAttribute("inputmode", "numeric");
+      await expect(due).toHaveAccessibleDescription("Ví dụ: 06/2028");
+      await expect(field.getByRole("button")).toHaveCount(0);
+      await expect(field.getByRole("combobox")).toHaveCount(0);
+
+      if (mobile) await due.tap();
+      else await due.click();
+      await expect(due).toBeFocused();
+      await page.keyboard.type("132028");
+      await expect(due).toHaveAccessibleDescription("Nhập tháng và năm hợp lệ.");
+      await due.fill("102026");
+      await next(page);
+      await expect(due).toHaveAccessibleDescription("Chọn tháng cần tiền trong thời hạn kế hoạch.");
+
+      await due.fill("");
+      await page.keyboard.type("062028");
+      await expect(due).toHaveValue("06/2028");
+      await expect(due).toHaveAttribute("aria-invalid", "false");
+
+      await next(page);
+      await expect(page.locator("#step4-title")).toBeVisible();
+      await page.getByRole("button", { name: "← Gia đình" }).click();
+      await expect(due).toHaveValue("06/2028");
+    });
+  });
+}
+
 async function snapshot(page: Page, name: string) {
   mkdirSync(artifacts, { recursive: true });
   await expect(page.locator(".anhuu-loading")).toHaveCount(0);

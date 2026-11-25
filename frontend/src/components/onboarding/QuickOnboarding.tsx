@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button, Card, Icon, Input, useNotification } from "../ui";
 import { CurrencyInput } from "../CurrencyInput";
-import { DateInput } from "../DateInput";
+import { DateInput, MonthInput } from "../DateInput";
 import { useFinancialProfile, type OnboardingDraftData } from "../../context/FinancialProfileContext";
 import { useRetirementPlan } from "../../context/RetirementPlanContext";
 import { useI18n } from "../../i18n";
@@ -236,7 +236,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
 
   const [pensionStatus, setPensionStatus] = useState<"unknown" | "none" | "known">(restored?.pensionStatus ?? "unknown");
   const [pension, setPension] = useState(Number(restored?.pension ?? 0));
-  const [pensionStart, setPensionStart] = useState(restored?.pensionStart ?? "");
+  const [pensionStart, setPensionStart] = useState<string | null>(restored?.pensionStart || null);
+  const pensionStartMonth = pensionStart ?? desiredRetirementMonth;
 
   // Step 4: Safety & Risk survey
   const [comfortReaction, setComfortReaction] = useState<"" | "sell" | "hold" | "calm">(() => { const saved=onboardingDraft?.quickProfile?.lossTolerance?.reaction; const reaction=restored?.reaction??(saved?.status==="KNOWN"?saved.value:null); return reaction?({SELL:"sell",HOLD:"hold",BUY_MORE:"calm"} as const)[reaction]:""; });
@@ -286,7 +287,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
       parentEnabled, parentAmount: String(parentAmount), parentDuration: parentDuration as QuickStartSurvey["parentDuration"], parentEnd: parentEnd || null, parentIncluded: parentIncluded === "yes",
       debtEnabled, debtBalance: String(debtBalance), debtMonthlyPayment: String(debtMonthlyPayment), debtAnnualRatePercent: debtRate === "" ? null : String(Number(debtRate)),
       goalEnabled, goalName, goalAmount: String(goalAmount), goalMonth: goalMonth || null, goalDeferrable: goalDeferrable === "yes",
-      pensionStatus, pension: String(pension), pensionStart: pensionStart || desiredRetirementMonth || null,
+      pensionStatus, pension: String(pension), pensionStart: pensionStartMonth || null,
       reaction: comfortReaction ? ({ sell: "SELL", hold: "HOLD", calm: "BUY_MORE" } as const)[comfortReaction] : null,
       stability: stability.toUpperCase() as QuickStartSurvey["stability"], priority: priority.toUpperCase() as QuickStartSurvey["priority"],
       lossStatus: lossStatus === "known" ? "amount" : lossStatus, lossAmount: String(lossAmount), lossPercent: lossPercent === "" ? null : String(Number(lossPercent)),
@@ -466,8 +467,8 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
     }
     if (pensionStatus === "known") {
       if (pension <= 0) errors.pension = isEn ? "Enter estimated pension amount." : "Nhập mức lương hưu ước tính lớn hơn 0.";
-      if (!(pensionStart || desiredRetirementMonth)) errors.pensionStart = isEn ? "Please select the start month." : "Vui lòng chọn tháng bắt đầu nhận.";
-      else if ((pensionStart || desiredRetirementMonth) < planningMonth || (pensionStart || desiredRetirementMonth) > planEndMonth) errors.pensionStart = isEn ? "Choose a pension start within the plan horizon." : "Chọn tháng nhận lương hưu trong thời hạn kế hoạch.";
+      if (!pensionStartMonth) errors.pensionStart = isEn ? "Enter the start month and year." : "Nhập tháng và năm bắt đầu nhận.";
+      else if (pensionStartMonth < planningMonth || pensionStartMonth > planEndMonth) errors.pensionStart = isEn ? "Choose a pension start within the plan horizon." : "Chọn tháng nhận lương hưu trong thời hạn kế hoạch.";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -645,7 +646,6 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
               <div className="quick-field">
                 <DateInput
                   label={isEn ? "Date of birth" : "Ngày tháng năm sinh"}
-                  mode="date"
                   value={birthDate || (birthMonth ? `${birthMonth}-01` : "")}
                   placeholder={isEn ? "DD/MM/YYYY" : "Ngày/tháng/năm"}
                   error={fieldErrors.birthMonth}
@@ -961,8 +961,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                       </div>
                       {childDuration === "custom" && (
                         <div className="survey-branch-full">
-                          <DateInput
-                            mode="month"
+                          <MonthInput
                             label={isEn ? "End month" : "Tháng kết thúc chăm lo cho con"}
                             value={childEnd}
                             error={fieldErrors.childEnd}
@@ -1030,8 +1029,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                       </div>
                       {parentDuration === "custom" && (
                         <div className="survey-branch-full">
-                          <DateInput
-                            mode="month"
+                          <MonthInput
                             label={isEn ? "End month" : "Tháng kết thúc phụng dưỡng bố mẹ"}
                             value={parentEnd}
                             error={fieldErrors.parentEnd}
@@ -1166,20 +1164,15 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                         }}
                         placeholder="Ví dụ: 200.000.000"
                       />
-                      <div className="field">
-                        <DateInput
-                          mode="month"
-                          label={isEn ? "When do you need this fund?" : "Khi nào bạn cần dùng số tiền này?"}
-                          min={planningMonth}
-                          max={planEndMonth}
-                          value={goalMonth}
-                          error={fieldErrors.goalMonth}
-                          onChange={(ym) => {
-                            clearFieldError("goalMonth");
-                            setGoalMonth(ym);
-                          }}
-                        />
-                      </div>
+                      <MonthInput
+                        label={isEn ? "When do you need this fund?" : "Khi nào bạn cần dùng số tiền này?"}
+                        value={goalMonth}
+                        error={fieldErrors.goalMonth}
+                        onChange={(ym) => {
+                          clearFieldError("goalMonth");
+                          setGoalMonth(ym);
+                        }}
+                      />
                       <div className="field">
                         <label htmlFor="qo-goal-deferrable">{isEn ? "Can it be deferred if funds fall short?" : "Nếu chưa đủ tiền, có thể lùi lại không?"}</label>
                         <select id="qo-goal-deferrable" value={goalDeferrable} onChange={e => setGoalDeferrable(e.target.value as "no" | "yes")}>
@@ -1220,10 +1213,9 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                   }}
                   placeholder="Ví dụ: 5.000.000"
                 />
-                <DateInput
-                  mode="month"
+                <MonthInput
                   label={isEn ? "Start month to receive pension" : "Tháng bắt đầu nhận lương hưu"}
-                  value={pensionStart || desiredRetirementMonth}
+                  value={pensionStartMonth}
                   error={fieldErrors.pensionStart}
                   onChange={(ym) => {
                     clearFieldError("pensionStart");
