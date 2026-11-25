@@ -1,9 +1,29 @@
-/* Vietnamese Date & Month Picker Component - Matching Demo clarity.css */
+.month-entry .input-wrap {
+  width: min(100%, 260px);
+}
+
+.month-entry .input-wrap input {
+  min-height: 48px;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.month-entry .help {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* Calendar for date of birth */
 .month-field {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.date-control {
+  position: relative;
+  min-width: 0;
 }
 
 .month-input-wrap {
@@ -203,8 +223,7 @@
   font-weight: 700;
 }
 
-.calendar-days button[aria-pressed="true"],
-.month-grid button[aria-pressed="true"] {
+.calendar-days button[aria-pressed="true"] {
   background: #245db1;
   color: white;
   font-weight: 600;
@@ -245,23 +264,6 @@
   background: #edf3fa;
 }
 
-.month-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.month-grid button {
-  min-height: 40px;
-  border: 0;
-  border-radius: 6px;
-  background: #f6f8fb;
-  color: #355575;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
 .month-popup :is(button, select):focus-visible,
 .month-open:focus-visible,
 .date-clear:focus-visible {
@@ -270,6 +272,9 @@
 }
 
 @media (max-width: 650px) {
+  .month-entry .input-wrap {
+    width: 100%;
+  }
   .month-popup {
     padding: 10px;
     width: 290px;
@@ -287,9 +292,6 @@
   .month-open,
   .date-clear {
     height: 44px;
-  }
-  .month-grid button {
-    min-height: 44px;
   }
 }
 

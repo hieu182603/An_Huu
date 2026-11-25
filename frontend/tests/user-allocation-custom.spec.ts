@@ -11,6 +11,37 @@ async function setup(page:Page,request:APIRequestContext,noMarket=false){
  const custom=page.locator(".allocation-custom");if(await custom.getAttribute("open")===null)await custom.locator(":scope > summary").click();return state;
 }
 
+test.describe("mobile loss limit fields", () => {
+  test.use({ viewport: { width: 320, height: 700 }, isMobile: true, hasTouch: true });
+
+  test("both inputs have one border and remain aligned with their units", async ({ page, request }) => {
+    await setupDiscovery(page, request, "/user/risk-portfolio", { customAllocation: true }, true);
+    await page.locator(".allocation-steps button").nth(1).tap();
+    const fields = page.locator(".allocation-loss-fields");
+    for (const name of [/Theo phần trăm/, /Tương đương số tiền/]) {
+      const input = fields.getByRole("textbox", { name });
+      const frame = input.locator("..");
+      await input.tap();
+      await expect(input).toBeFocused();
+      await expect(frame).toHaveCSS("border-top-width", "1px");
+      await expect(frame).toHaveCSS("outline-style", "solid");
+      await expect(input).toHaveCSS("border-top-width", "0px");
+      await expect(input).toHaveCSS("box-shadow", "none");
+      await expect(input).toHaveCSS("outline-style", "none");
+      await expect(input).toHaveCSS("margin-top", "0px");
+      const inputBox = (await input.boundingBox())!;
+      const unitBox = (await frame.locator("i").boundingBox())!;
+      expect(Math.abs(inputBox.y + inputBox.height / 2 - unitBox.y - unitBox.height / 2)).toBeLessThan(1);
+      expect(unitBox.x + unitBox.width).toBeLessThanOrEqual(320);
+    }
+    const firstBox = (await fields.locator(".allocation-loss-input").first().boundingBox())!;
+    const secondLabel = (await fields.locator("label").last().boundingBox())!;
+    const labelGap = secondLabel.y - firstBox.y - firstBox.height;
+    expect(labelGap).toBeGreaterThanOrEqual(8);
+    expect(labelGap).toBeLessThanOrEqual(16);
+  });
+});
+
 test("independent percent and amount loss caps survive saves and the risk editor",async({page,request})=>{
  const s=await setupDiscovery(page,request,"/user/risk-portfolio",{customAllocation:true},true);
  await page.locator(".allocation-steps button").nth(1).click();

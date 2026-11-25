@@ -8,7 +8,9 @@ if (typeof document !== "undefined") {
   document.addEventListener("pointercancel", release, true);
 }
 export function afterPointerRelease(callback: () => void) {
-  if (!held) { callback(); return; }
+  // Touch browsers can blur during the compatibility mousedown after pointerup.
+  // Keep the layout stable until the click has been delivered in that case too.
+  if (!held) { setTimeout(callback, 0); return; }
   const done = () => {
     document.removeEventListener("pointerup", done, true);
     document.removeEventListener("pointercancel", done, true);
