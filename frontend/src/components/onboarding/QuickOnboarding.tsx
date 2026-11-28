@@ -1134,9 +1134,9 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                 {goalEnabled && (
                   <div className="survey-branch-body">
                     <div className="survey-branch-grid">
-                      <div className={`field ${fieldErrors.goalName ? "has-error" : ""}`}>
+                      <div className={`field form-field ${fieldErrors.goalName ? "has-error" : ""}`}>
                         <label htmlFor="survey-goal-name">{isEn ? "What do you want to spend on?" : "Bạn muốn dùng tiền vào việc gì?"}</label>
-                        <input
+                        <div className="input-wrap"><input
                           id="survey-goal-name"
                           type="text"
                           placeholder={isEn ? "e.g., College tuition, home renovation..." : "Ví dụ: Học phí đại học, sửa nhà..."}
@@ -1146,7 +1146,7 @@ export function QuickOnboarding({ onStepChange }: { onStepChange?: (step: 1 | 2 
                             clearFieldError("goalName");
                             setGoalName(e.target.value);
                           }}
-                        />
+                        /></div>
                         {fieldErrors.goalName && (
                           <small className="field-error-text error-text" style={{ color: "#dc2626", display: "block", marginTop: "6px", fontSize: "12px", fontWeight: 500 }}>
                             {fieldErrors.goalName}
